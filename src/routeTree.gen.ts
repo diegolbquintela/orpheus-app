@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
+import { Route as ApiDashboardDbRouteImport } from './routes/api/dashboard/db'
 import { Route as ApiDashboardStatusRouteImport } from './routes/api/dashboard/status'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const ApiDashboardSplatRoute = ApiDashboardSplatRouteImport.update({
   path: '/api/dashboard/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDashboardDbRoute = ApiDashboardDbRouteImport.update({
+  id: '/api/dashboard/db',
+  path: '/api/dashboard/db',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDashboardStatusRoute = ApiDashboardStatusRouteImport.update({
   id: '/api/dashboard/status',
   path: '/api/dashboard/status',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/api/chart': typeof ApiChartRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
+  '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/api/chart': typeof ApiChartRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
+  '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
 }
 export interface FileRoutesById {
@@ -61,6 +69,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/api/chart': typeof ApiChartRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
+  '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
 }
 export interface FileRouteTypes {
@@ -70,6 +79,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/chart'
     | '/api/dashboard/$'
+    | '/api/dashboard/db'
     | '/api/dashboard/status'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -77,6 +87,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/chart'
     | '/api/dashboard/$'
+    | '/api/dashboard/db'
     | '/api/dashboard/status'
   id:
     | '__root__'
@@ -84,6 +95,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/chart'
     | '/api/dashboard/$'
+    | '/api/dashboard/db'
     | '/api/dashboard/status'
   fileRoutesById: FileRoutesById
 }
@@ -92,6 +104,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ApiChartRoute: typeof ApiChartRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
+  ApiDashboardDbRoute: typeof ApiDashboardDbRoute
   ApiDashboardStatusRoute: typeof ApiDashboardStatusRoute
 }
 
@@ -125,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dashboard/db': {
+      id: '/api/dashboard/db'
+      path: '/api/dashboard/db'
+      fullPath: '/api/dashboard/db'
+      preLoaderRoute: typeof ApiDashboardDbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dashboard/status': {
       id: '/api/dashboard/status'
       path: '/api/dashboard/status'
@@ -140,6 +160,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ApiChartRoute: ApiChartRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
+  ApiDashboardDbRoute: ApiDashboardDbRoute,
   ApiDashboardStatusRoute: ApiDashboardStatusRoute,
 }
 export const routeTree = rootRouteImport

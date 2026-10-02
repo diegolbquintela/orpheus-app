@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ensureDashboardEnabled } from "@/lib/dashboard/gate";
+import { ensureDashboardEnabled, getDashboardDbStatusLine } from "@/lib/dashboard/gate";
 
 // Hidden route: 404 unless DASHBOARD_ENABLED is exactly "true" on the server.
 // Nothing on the calculator links here.
@@ -7,6 +7,7 @@ export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
     await ensureDashboardEnabled();
   },
+  loader: async () => ({ dbStatus: await getDashboardDbStatusLine() }),
   head: () => ({
     meta: [{ title: "Dashboard · Orpheus Wisdom" }, { name: "robots", content: "noindex, nofollow" }],
   }),
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardShell() {
+  const { dbStatus } = Route.useLoaderData();
   return (
     <div className="min-h-screen bg-paper">
       <header className="bg-ink text-card">
@@ -27,6 +29,11 @@ function DashboardShell() {
         <p className="mt-4 max-w-xl text-sm" data-testid="dashboard-placeholder">
           Preview shell. Nothing to show yet.
         </p>
+        {dbStatus ? (
+          <p className="mt-8 text-xs text-muted" data-testid="dashboard-db-status">
+            {dbStatus}
+          </p>
+        ) : null}
       </main>
     </div>
   );
