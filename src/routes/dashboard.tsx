@@ -7,9 +7,18 @@ export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
     await ensureDashboardEnabled();
   },
-  head: () => ({
-    meta: [{ title: "Dashboard · Orpheus Wisdom" }, { name: "robots", content: "noindex, nofollow" }],
-  }),
+  // Only reached when the gate passed, so loaderData doubles as "flag on".
+  loader: () => ({ enabled: true as const }),
+  // No dashboard title unless the gate passed (spec §2: no dashboard copy when off).
+  head: ({ loaderData }) =>
+    loaderData?.enabled
+      ? {
+          meta: [
+            { title: "Dashboard · Orpheus Wisdom" },
+            { name: "robots", content: "noindex, nofollow" },
+          ],
+        }
+      : {},
   component: DashboardShell,
 });
 
