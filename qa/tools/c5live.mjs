@@ -1,0 +1,16 @@
+import { chromium } from 'playwright'; import fs from 'fs';
+import { qaConfig } from "./config.mjs";
+const CFG=qaConfig(import.meta.url);
+const OUT=CFG.out;
+const b=await chromium.launch(); const page=await (await b.newContext({viewport:{width:1280,height:900}})).newPage();
+await page.goto(CFG.baseUrl,{waitUntil:'networkidle'});
+const r=page.locator('.basket-row').nth(0).locator('input'); await r.nth(0).fill('AAPL'); await r.nth(1).fill('100');
+const d=page.locator('input[type=date]'); await d.nth(0).fill('2023-01-03'); await d.nth(1).fill('2024-12-31');
+await page.locator('label:has-text("Starting capital") input').fill('50000');
+await page.locator('label:has-text("Contribution") input').fill('500');
+await page.locator('select').selectOption('monthly');
+await page.getByRole('button',{name:'Compare plans'}).click();
+await page.waitForSelector('h2:has-text("Result")',{timeout:60000}); await page.waitForTimeout(1000);
+const t=await page.evaluate(()=>[...document.querySelectorAll('table')].map(t=>[...t.querySelectorAll('tr')].map(tr=>[...tr.children].map(c=>c.innerText.trim()))));
+fs.writeFileSync(`${OUT}/c05-aapl-capital50k.json`,JSON.stringify(t,null,1)); console.log(JSON.stringify(t));
+await page.screenshot({path:`${OUT}/c05-aapl-capital50k.png`,fullPage:true}); await b.close();
