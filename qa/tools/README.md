@@ -9,7 +9,7 @@ the URL and output paths as parameters; the Grok host is no longer hard-coded.
 | Flag | Env var | Default |
 |---|---|---|
 | `--base-url <url>` | `QA_BASE_URL` | `https://orpheus-app-beta.vercel.app` (production) |
-| `--out <dir>` | `QA_OUT_DIR` | `.mjs`: `$TMPDIR/orpheus-qa/<script>-<timestamp>`; `fetch.py`: current dir |
+| `--out <dir>` | `QA_OUT_DIR` | a temp dir outside the repo: `$TMPDIR/orpheus-qa/<script>-<timestamp>` (e.g. `fetch-<timestamp>` for `fetch.py`) |
 | `--fixtures <file>` | `QA_FIXTURES` | `qa/fixtures.json` in this repo (`run.mjs`, `pr3.mjs`) |
 | `--compare-url <url>` | `QA_COMPARE_URL` | none; required by `sidebyside.mjs` |
 

@@ -5,16 +5,20 @@ Usage:
   QA_BASE_URL=https://<preview>.vercel.app python3 qa/tools/fetch.py
 
 --base-url (or QA_BASE_URL) defaults to https://orpheus-app-beta.vercel.app.
---out (or QA_OUT_DIR) defaults to the current directory. Keep raw dumps out of git.
+--out (or QA_OUT_DIR) defaults to a temp dir outside the repo, $TMPDIR/orpheus-qa/fetch-<timestamp>
+(same rule as the .mjs tools in config.mjs). Keep raw dumps out of git.
 Python 3 standard library only.
 """
-import argparse, datetime as dt, os, urllib.request
+import argparse, datetime as dt, os, tempfile, urllib.request
 
 DEFAULT_BASE_URL = "https://orpheus-app-beta.vercel.app"
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("--base-url", default=os.environ.get("QA_BASE_URL", DEFAULT_BASE_URL))
-ap.add_argument("--out", default=os.environ.get("QA_OUT_DIR", "."))
+_now = dt.datetime.now(dt.timezone.utc)
+STAMP = _now.strftime("%Y-%m-%dT%H-%M-%S-") + f"{_now.microsecond // 1000:03d}Z"  # config.mjs format
+DEFAULT_OUT = os.path.join(tempfile.gettempdir(), "orpheus-qa", f"fetch-{STAMP}")
+ap.add_argument("--out", default=os.environ.get("QA_OUT_DIR") or DEFAULT_OUT)
 ap.add_argument("--tickers", default="PLTR,TQQQ")
 ap.add_argument("--start", default="2020-10-02", help="app /api/chart start date")
 ap.add_argument("--end", default="2026-10-02", help="app /api/chart end date")
