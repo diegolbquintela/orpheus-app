@@ -37,6 +37,7 @@ Node 22 (≥ 22.12, required by `@tanstack/react-start`), npm.
 | `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when `DATABASE_URL` is unset) |
 | `npm run fixtures:build` | Rebuild `qa/fixtures.json` offline from `qa/snapshots/*.json` through the app's own `loadChart()` and `runDesk()`. Add `-- --refresh` to re-pull Yahoo (network) |
 | `npm run fixtures:hand-check` | Independent recomputation from the raw snapshots (shares no code with `src/lib/dca`); rewrites `qa/HAND-CHECK.md`, exits non-zero on mismatch |
+| `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 on `status` when on). CI runs it after Build |
 | `npm run dev` | Local dev server (Vite) on port 8080 |
 
 A new test file is only run if it is added to the `test` script in `package.json`.
@@ -64,7 +65,7 @@ A new test file is only run if it is added to the `test` script in `package.json
 - New user-facing features merge to `main` **behind a flag** and stay hidden on production until Diego
   gives a release go. Each ticket still gets its own PR, preview and QA pass.
 - Mechanism (dashboard): one **server-only** env var, `DASHBOARD_ENABLED`, set to `true` only in the Vercel
-  **Preview** environment (an owner adds it when ticket T01, #9, lands; it is not set anywhere yet). Every dashboard route, server function and API route returns 404 unless it is
+  **Preview** environment (the Engineering Lead added it for Preview on 2026-10-02 for ticket T01, #9; it is not set for Production). Every dashboard route, server function and API route returns 404 unless it is
   exactly `true` (missing = off). Never gate with a `VITE_*` variable (those are inlined into the client
   bundle at build time).
 - QA reaches the feature on the PR's Vercel preview URL (e.g. `/dashboard`); on production it must be a 404
@@ -82,9 +83,10 @@ A new test file is only run if it is added to the `test` script in `package.json
   `BETTER_AUTH_SECRET`. Never commit their values, never create a `.env` file in the repo, never paste
   values into chat, PR bodies, logs or the vault. (`.grok/app-env.json` holds only the non-secret local
   default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The approved dashboard
-  spec adds more Vercel-only variables as its tickets land (`DASHBOARD_ENABLED`, `DATABASE_URL` from the Neon integration,
-  `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC contact for the User-Agent, a sign-up email allow-list if D12 is approved); none
-  exist yet. Each is added by an owner when its ticket lands.
+  spec adds more Vercel-only variables as its tickets land: `DASHBOARD_ENABLED` (Preview only, set
+  2026-10-02), then `DATABASE_URL` from the Neon integration, `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC
+  contact for the User-Agent, and a sign-up email allow-list if D12 is approved (none of these exist yet).
+  Each is added by an owner when its ticket lands.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
   The DCA-06 check in `src/lib/dca/fixtures.test.ts` scans user-facing copy for it.
@@ -131,6 +133,34 @@ QA_BASE_URL="$PREVIEW" python3 qa/tools/fetch.py --out /tmp/orpheus-fetch   # ra
 Full list and flags: `qa/tools/README.md`. The `.mjs` tools are linted by `npm run lint` (they are not
 in `tsconfig`, so `typecheck` skips them); they are not part of `npm test` or CI because they need a
 browser and the network.
+
+### Dashboard flag locally (`DASHBOARD_ENABLED`)
+
+The dashboard is gated by the server-only `DASHBOARD_ENABLED` flag (only the exact string `true` enables;
+code in `src/lib/dashboard/flag.server.ts`). Check both states before pushing dashboard work:
+
+```bash
+DASHBOARD_ENABLED=true npm run dev               # /dashboard and /api/dashboard/status -> 200
+npm run dev                                      # flag unset -> both 404 (DASH-01, DASH-02)
+curl -sI http://localhost:8080/dashboard | head -1
+curl -s  http://localhost:8080/api/dashboard/status
+```
+
+- Flag off, the server router reads `/dashboard` and anything under it as an unmatched path
+  (`rewrite` in `src/router.tsx`, helpers in `src/lib/dashboard/paths.ts`), so the 404 is byte-for-byte
+  the app's ordinary 404: title "Orpheus Wisdom", no dashboard chunk, no dashboard copy (spec §2).
+- New dashboard pages live under `/dashboard`, call `ensureDashboardEnabled()` (`src/lib/dashboard/gate.ts`)
+  in `beforeLoad`, and gate `head()` on loader data (`loaderData?.enabled`) so a client-side 404 shows no
+  dashboard title either.
+  New `/api/dashboard/*` handlers start with `guardDashboardApi()`, which returns the 404 JSON when off,
+  and add `ANY: () => dashboardUnsupportedMethod([...allowed])` so other methods get JSON (404 off, 405
+  with `Allow` on) instead of the HTML app shell.
+  Unknown `/api/dashboard/*` paths hit the catch-all `src/routes/api/dashboard/$.ts` (404 JSON, any method).
+- `src/lib/dashboard/flag.test.ts` and `paths.test.ts` (in `npm test`) cover flag parsing, the API guard
+  and 405 helper, the flag-off rewrite, the no-advice scan of dashboard files, and checks that the
+  calculator neither links to nor reads the flag. `npm run check:dashboard-built` checks the built server.
+- On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
+  `/dashboard` is a 404 on a preview, the variable isn't set there yet.
 
 ## Repo leftovers from the Grok template
 
