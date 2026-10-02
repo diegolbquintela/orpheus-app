@@ -11,8 +11,8 @@ affects the repo.
 
 - The harness (this `AGENTS.md`), the spec docs (`attachments/dca-app-spec.md` for the calculator;
   `attachments/dashboard-spec.md` for the signed-in dashboard, **approved by Diego 2026-10-02 for
-  decisions D1–D7, D10, D11**; D8, D9 and D12 are still pending; Amendment A (daily-close source) is
-  written in section 14 and recommended as D13, pending Diego) and `README.md` are the source of truth for this
+  all decisions D1–D13**: D8, D9 and D12 were approved as recommended, and Amendment A
+  (section 14) is decided as D13: $0, Yahoo primary, Neon cache, Alpha Vantage free fallback) and `README.md` are the source of truth for this
   app.
 - Every feature PR updates `README.md`, the relevant spec and this harness **in the same PR**, or says
   in the PR body, for each of the three, why it did not change.
@@ -60,7 +60,7 @@ A new test file is only run if it is added to the `test` script in `package.json
 
 ## Feature flags: feature work lands behind a flag until a release go
 
-*Active since 2026-10-02, when the dashboard spec was approved. The rule does not depend on the pending D8, D9 or D12.*
+*Active since 2026-10-02, when the dashboard spec was approved.*
 
 - New user-facing features merge to `main` **behind a flag** and stay hidden on production until Diego
   gives a release go. Each ticket still gets its own PR, preview and QA pass.
@@ -84,7 +84,8 @@ A new test file is only run if it is added to the `test` script in `package.json
   values into chat, PR bodies, logs or the vault. (`.grok/app-env.json` holds only the non-secret local
   default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The approved dashboard
   spec adds more Vercel-only variables as its tickets land (`DASHBOARD_ENABLED`, `DATABASE_URL` from the Neon integration,
-  `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC contact for the User-Agent, a sign-up email allow-list if D12 is approved); none
+  `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC contact for the User-Agent, the sign-up email allow-list (D12, approved), an Alpha Vantage free key for the
+  daily-close fallback (D13)); none
   exist yet. Each is added by an owner when its ticket lands.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.

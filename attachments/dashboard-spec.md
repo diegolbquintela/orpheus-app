@@ -1,10 +1,10 @@
 # Orpheus dashboard (signed-in area): spec
 
-Status: **APPROVED 2026-10-02 (D1–D7, D10, D11); D8, D9 and D12 are recommended and pending Diego;
-none of them block #9–#13** (see [13. Decisions record](#13-decisions-record)).
-[Amendment A: daily-close source](#14-amendment-a-daily-close-source) is written and recommended as
-**D13, pending Diego** (paid, $19.99/mo, and it needs EODHD's terms confirmation). It doesn't block #9–#13
-either. Nothing is built yet; work starts with ticket T01 (#9).
+Status: **APPROVED 2026-10-02. All decisions D1–D13 are decided** (see
+[13. Decisions record](#13-decisions-record)). D8, D9 and D12 were approved as recommended.
+[Amendment A: daily-close source](#14-amendment-a-daily-close-source) is decided as **D13: stay at $0,
+with Yahoo as the primary source behind `DailyCloseProvider`, each close cached once in Neon, and Alpha
+Vantage's free tier as the fallback**. Nothing is built yet; work starts with ticket T01 (#9).
 
 Date: 2026-10-02. All provider facts below were checked on the provider's own page on 2026-10-02, and
 each one has its link inline. When a provider page does not say something, this document says
@@ -210,14 +210,16 @@ A bar whose exchange-local date is "today" while that exchange is still open is 
 **Source.** All price fetching goes through **one provider interface, `DailyCloseProvider`**
 ([Amendment A](#14-amendment-a-daily-close-source)); nothing else in the dashboard calls a price
 feed. The first implementation wraps the Yahoo daily chart call the calculator already uses
-(`src/lib/dca/yahoo.server.ts`, raw close). Amendment A recommends replacing it with EODHD (primary) and
-Alpha Vantage (gap-fill), and taking Yahoo off the automated path (decision D13, pending Diego). Honest caveat: this is an unofficial endpoint with no published API terms, rate limits or
+(`src/lib/dca/yahoo.server.ts`, raw close). D13 (Amendment A) keeps Yahoo as the primary source, caches
+each close once in Neon, and uses Alpha Vantage's free tier as the fallback. Fetching runs in background
+jobs only. Honest caveat: this is an unofficial endpoint with no published API terms, rate limits or
 SLA (not stated on any provider page I could find), and Yahoo's Terms of Service forbid collecting data
 "using any automated means … without our express, prior permission" (section 2.d.ix) and commercial
 reuse without permission (section 2.e)
 ([Yahoo Terms of Service](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html), checked 2026-10-02).
-The calculator already carries this risk; the dashboard adds one call per held symbol per day. The paid
-alternative for daily closes is EODHD "EOD Historical All-World" at $19.99/mo (sections 7 and 14).
+The calculator already carries this risk; the dashboard adds one call per held symbol per day. **Diego
+knows this risk and accepts it for now (D13).** Paid daily-close options (EODHD, Twelve Data) are marked
+"revisit later" in section 14.
 
 ## 7. Fundamentals source, and 10-year CAGR coverage
 
@@ -287,7 +289,7 @@ adds nothing paid.
 ### Recommendation
 
 Start at **$0**: SEC EDGAR `companyfacts` for fundamentals; daily closes through the `DailyCloseProvider`
-interface (Yahoo implementation first; replacing it is recommended in
+interface (Yahoo is the primary source, decided in
 [Amendment A](#14-amendment-a-daily-close-source)). Every holding
 without SEC coverage shows `—` with the reason "not covered" in metric cells, and portfolio metrics show
 coverage % (section 9). If Diego's real holdings are mostly EU/TSX-only names, the $0 path will show a
@@ -336,7 +338,7 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
 - **CAGR from a negative or zero base** is `n/m` for that company and excluded.
 - **EPS:** per-share amounts in different currencies do not add up across companies, so the portfolio row
   shows **weighted 1y EPS growth** (EPS FY0 / EPS FY−1 − 1, `n/m` if either ≤ 0) in the EPS column, labelled
-  as such. (Decision D9: recommended, **pending Diego**.)
+  as such. (Decision D9: approved 2026-10-02.)
 - Holdings with no price (no close yet) are excluded from weights and from the pie, and listed as
   "price pending".
 
@@ -373,7 +375,7 @@ or label implies good/bad.
 - **Cost basis:** average cost is entered in the listing currency. Total return % is computed in the
   listing currency ((close − avg cost) / avg cost). Base-currency amounts (market value, cost, return)
   use the **same** current FX rate for value and cost, so the FX effect since purchase is not captured.
-  (Decision D8: recommended, **pending Diego**.)
+  (Decision D8: approved 2026-10-02.)
 
 ## 11. Daily refresh
 
@@ -402,8 +404,11 @@ or label implies good/bad.
   gives the same result.
 - **Budget:** one `DailyCloseProvider` call per batch of symbols, two FX calls, and SEC calls only for stale symbols, in batches that
   finish well under 300 s; if a batch is not done, the next run continues (reconciliation).
-- **New holding added during the day:** the server calls `DailyCloseProvider.getCloses()` for that symbol once, keeps only
-  completed sessions, and stores the prior session's close. No intraday bar is ever stored.
+- **New holding added during the day:** saving the holding never calls a provider inside the browser
+  request. It writes a `price_coverage` row and returns. A **background job** then calls
+  `DailyCloseProvider.getCloses()` for that symbol once and stores the completed sessions (section 14, A.3):
+  Vercel `waitUntil()` after the response, or else the next daily run or the preview refresh button. Until
+  then the holding shows "price pending". No intraday bar is ever stored.
 - **Previews:** cron only calls production, so preview QA cannot wait for it. When `VERCEL_ENV=preview`
   and the flag is on, the dashboard shows a "Run daily refresh (preview only)" button for signed-in users
   that calls the same job. It does not exist on production.
@@ -431,7 +436,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-10 | The cron route rejects a request without the right `Authorization` header (401). The preview-only refresh button exists on previews and not on production. |
 | DASH-11 | FX: the stored `USD` and `EUR` rates for a date equal the BoC Valet values for that date; for a BoC holiday the previous rate is used and its date is shown. DKK/HUF/CZK (if held) use ECB × BoC `FXEURCAD`. |
 | DASH-12 | Base currency defaults to CAD; changing it to USD or EUR re-expresses all totals, and the setting persists. |
-| DASH-13 | (Cost-basis FX per D8, pending Diego.) Holdings table shows: ticker, name, shares, average cost (listing ccy), last close + session date (listing ccy), market value (base), cost (base), total return (amount and %), % of portfolio; a total row with total position, total cost, total return. % of portfolio sums to 100.0% (± rounding). |
+| DASH-13 | (Cost-basis FX per D8, approved.) Holdings table shows: ticker, name, shares, average cost (listing ccy), last close + session date (listing ccy), market value (base), cost (base), total return (amount and %), % of portfolio; a total row with total position, total cost, total return. % of portfolio sums to 100.0% (± rounding). |
 | DASH-14 | Values recompute only after the daily job: reloading during market hours does not change any price. |
 | DASH-15 | Metric column picker: add/remove/reorder columns; choice persists per user. |
 | DASH-16 | Revenue growth 1y and 3y/5y/10y CAGR match a hand calculation from the SEC `companyfacts` values for KO (tag stitching) and Philips; RY shows `—` "insufficient history" for 10y; a negative or zero base shows `—` "not meaningful". |
@@ -441,7 +446,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-20 | Gross margin (1y) matches `companyfacts`; uses revenue − cost of revenue when no gross-profit tag; banks show `—`. |
 | DASH-21 | A holding without SEC coverage (e.g. a TSX-only or EU-only issuer) shows `—` "not covered" in every metric cell. |
 | DASH-22 | Portfolio row: each metric equals the market-value-weighted mean over covered holdings (hand check with 3 holdings), with coverage % shown; `n/m`/missing are excluded, never counted as 0; negatives are included. |
-| DASH-23 | Portfolio EPS column shows weighted 1y EPS growth, labelled as such. (Depends on D9, pending Diego.) |
+| DASH-23 | Portfolio EPS column shows weighted 1y EPS growth, labelled as such. (Per D9, approved.) |
 | DASH-24 | Pie chart: one slice per holding by % of portfolio in base currency, matching the table's % column; > 10 holdings group into "Other"; holdings without a price are excluded and listed as "price pending". |
 | DASH-25 | Header shows "Prices as of … close · FX …"; with the last successful run older than 4 days, the out-of-date note appears. |
 | DASH-26 | Release check (flag on, full pass): DASH-00..25 all pass in one run on the release candidate, then on production right after the flip. |
@@ -449,25 +454,25 @@ to dashboard files); `noindex` still present on `/dashboard`.
 ## Tickets
 
 Each ticket is one PR, one Vercel preview, one QA pass, merged behind `DASHBOARD_ENABLED`. All carry the
-label `dashboard`. The spec was approved on 2026-10-02 (D1–D7, D10, D11), so `blocked: spec approval` is removed.
-Tickets that depend on a pending decision (D8, D9, D12) say so below; that part may change before they merge.
+label `dashboard`. The spec was approved on 2026-10-02, and all decisions D1–D13 are decided, so `blocked: spec approval` is
+removed. The tickets that implement D8, D9 and D12 say so below.
 
 | # | Issue | Ticket | Depends on | ACs |
 |---|---|---|---|---|
 | T01 | #9 | Feature flag + hidden `/dashboard` route shell | spec approval | DASH-00, 01, 02 |
 | T02 | #10 | Per-user storage: Neon Postgres + `0002_dashboard.sql` schema | T01 (+ owner installs Neon) | DASH-03 |
-| T03 | #11 | Auth on Vercel: Better Auth email/password, auth schema, preview origins. **Sign-up restriction depends on D12 (pending Diego)** | T01, T02 | DASH-04, 05, 06 |
+| T03 | #11 | Auth on Vercel: Better Auth email/password, auth schema, preview origins. **Sign-up limited to the email allow-list (D12, approved)** | T01, T02 | DASH-04, 05, 06 |
 | T04 | #12 | Holdings table CRUD (no prices yet) | T03 | DASH-07, 08, 06 |
 | T05 | #13 | Daily close job (cron, prior-session rule, preview refresh button); all fetching through the `DailyCloseProvider` interface (Amendment A) | T02, T04 | DASH-09, 10, 14 |
 | T06 | #14 | FX rates (BoC + ECB cross) and base-currency setting | T02, T05 | DASH-11, 12 |
-| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header. **Cost-basis FX depends on D8 (pending Diego)**; reads stored closes only (written via `DailyCloseProvider`, never a feed directly) | T04, T05, T06 | DASH-13, 14, 25 |
+| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header. **Cost-basis FX per D8 (approved)**; reads stored closes only (written via `DailyCloseProvider`, never a feed directly) | T04, T05, T06 | DASH-13, 14, 25 |
 | T08 | #16 | Fundamentals ingest from SEC EDGAR companyfacts (+ metric column picker) | T02, T05, T07 | DASH-15, 21 |
 | T09 | #17 | Metric: Revenue growth 1y + 3y/5y/10y CAGR | T08 | DASH-16 |
 | T10 | #18 | Metric: ROIC (1y) | T08 | DASH-17 |
 | T11 | #19 | Metric: EPS (1y) | T08 | DASH-18 |
 | T12 | #20 | Metric: EBIT margin (1y) | T08 | DASH-19 |
 | T13 | #21 | Metric: Gross margin (1y) | T08 | DASH-20 |
-| T14 | #22 | Portfolio aggregates (weighted, coverage %). **Portfolio EPS column depends on D9 (pending Diego)** | T07 + at least one of T09–T13 (each metric gets its portfolio cell as it lands) | DASH-22, 23 |
+| T14 | #22 | Portfolio aggregates (weighted, coverage %). **Portfolio EPS column per D9 (approved)** | T07 + at least one of T09–T13 (each metric gets its portfolio cell as it lands) | DASH-22, 23 |
 | T15 | #23 | Holdings pie chart by % of portfolio | T07 | DASH-24 |
 | T16 | #24 | Release: full flag-on QA run, then production flip on Diego's go | T01–T15 merged with QA PASS | DASH-26 |
 
@@ -497,34 +502,39 @@ GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard`
 
 ## 13. Decisions record
 
-Diego approved D1–D7, D10 and D11 on 2026-10-02. D8, D9 and D12 were not among the items he saw. They
-stay **recommended, pending Diego**, and none of them block tickets #9–#13. D13 (Amendment A,
-daily-close source) was added later and is also **recommended, pending Diego**. This record replaces the
-earlier "Open questions" and "Decisions for Diego" lists.
+Diego decided every item on 2026-10-02: D1–D12 approved (D8, D9 and D12 as recommended), and D13
+(Amendment A, daily-close source) decided at $0 with Yahoo as primary. This record replaces the earlier
+"Open questions" and "Decisions for Diego" lists.
 
 | # | Decision | Outcome | Status | Cost |
 |---|---|---|---|---|
 | D1 | Auth | Better Auth (already in repo), email/password, Grok broker path removed (section 3) | **Approved 2026-10-02** | $0 |
 | D2 | Storage | Neon Postgres Free via Vercel Marketplace, preview branching off (section 4) | **Approved 2026-10-02** | $0 |
-| D3 | Data source | SEC EDGAR `companyfacts` for fundamentals; daily close through `DailyCloseProvider` (Yahoo first). **A change of daily-close source is recommended in Amendment A (D13, pending)** | **Approved 2026-10-02** | $0 |
+| D3 | Data source | SEC EDGAR `companyfacts` for fundamentals; daily close through `DailyCloseProvider` (Yahoo first). **Daily-close source settled by D13: Yahoo primary, Neon cache, Alpha Vantage free fallback** | **Approved 2026-10-02** | $0 |
 | D4 | Weighting | Market-value weighted in base currency, renormalised over covered holdings, coverage % shown, `n/m` excluded (section 9) | **Approved 2026-10-02** | — |
 | D5 | Currency | CAD default, per-user USD/EUR; BoC daily rates (ECB cross for DKK/HUF/CZK), same date as the price (section 10) | **Approved 2026-10-02** | $0 |
 | D6 | Refresh | One Vercel Cron at `0 23 * * *` UTC, idempotent catch-up, `CRON_SECRET`; preview-only manual refresh button (section 11) | **Approved 2026-10-02** | $0 |
 | D7 | Holdings input | Manual holdings entry instead of an IBKR/Fiscal.ai feed first (settles the DCA spec's sequence note) | **Approved 2026-10-02** | — |
-| D8 | Cost basis | Average cost in listing currency; base-currency amounts use the current FX rate for value and cost (FX effect since purchase not shown) | **Recommended, pending Diego** | — |
-| D9 | Portfolio EPS | Weighted 1y EPS growth shown in the portfolio EPS column, labelled as such | **Recommended, pending Diego** | — |
-| D10 | Paid data | Stay on the $0 path; non-SEC EU/TSX names show "not covered"; no paid vendor now | **Approved 2026-10-02** | $0 |
+| D8 | Cost basis | Average cost in listing currency; base-currency amounts use the current FX rate for value and cost (FX effect since purchase not shown) | **Approved 2026-10-02** | — |
+| D9 | Portfolio EPS | Weighted 1y EPS growth shown in the portfolio EPS column, labelled as such | **Approved 2026-10-02** | — |
+| D10 | Paid data | Stay on the $0 path; non-SEC EU/TSX names show "not covered"; no paid vendor now. D13 decided $0, consistent with D10 | **Approved 2026-10-02** | $0 |
 | D11 | Sign-in methods | Email/password only at launch; Google later only as its own ticket | **Approved 2026-10-02** | $0 |
-| D12 | Who may sign up | Allow-list of emails in a Vercel env var (no open sign-up); handled in T03 (#11) | **Recommended, pending Diego** | $0 |
-| D13 | Daily-close source (Amendment A, section 14) | Primary EODHD All-World; Alpha Vantage free as gap-fill; Yahoo off the automated path (at most a manual repair switch, off by default). Needs Diego's go and EODHD's written usage-terms confirmation | **Recommended, pending Diego** | $19.99/mo or $199/yr |
+| D12 | Who may sign up | Allow-list of emails in a Vercel env var (no open sign-up); handled in T03 (#11) | **Approved 2026-10-02** | $0 |
+| D13 | Daily-close source (Amendment A, section 14) | Stay at $0: Yahoo primary behind `DailyCloseProvider`; each close cached once per ticker and date in Neon, never fetched again; Alpha Vantage free as fallback where it fits (fit partly **unverified**); no EODHD (EODHD and Twelve Data: revisit later); Yahoo ToS §2.d.ix risk known and accepted for now; consistent with D10 | **Decided 2026-10-02: $0, Yahoo primary** | $0 |
 
 ## 14. Amendment A: daily-close source
 
-Status: **Recommended, pending Diego (decision D13).** It is a paid plan ($19.99/mo or $199/yr), so it
-needs two things before anything changes: Diego's go, and EODHD's written confirmation that its usage terms
-cover this app (see A.2). Until then the approved D3 design stands, and the first `DailyCloseProvider`
-implementation wraps Yahoo (section 6). Nothing has been signed up for, no API key exists, and no
-environment variable was added.
+Status: **Decided 2026-10-02 (D13): stay at $0.**
+- **Primary: Yahoo**, behind `DailyCloseProvider`. It wraps the calculator's existing Yahoo chart call.
+- **Cache:** every close is cached **once per ticker and session date** in Neon and is never fetched
+  again.
+- **Fallback: Alpha Vantage's free tier**, behind the same interface, where it fits its limits (A.5). Any
+  fit that isn't confirmed is marked **unverified**.
+- **No paid vendor**, no EODHD, no email to any vendor and no sign-up for a paid plan. EODHD and Twelve
+  Data stay in the comparison as **revisit later**.
+- **Yahoo terms risk accepted:** Diego knows about the Yahoo Terms of Service risk (§2.d.ix bans automated
+  collection without permission) and **accepts it for now**.
+- **Consistent with D10** (stay on the $0 path).
 
 This section condenses the Engineering Lead's research (2026-10-02, America/Toronto). Every fact comes
 from the provider's own pricing, docs or terms page, linked inline. Anything that could not be confirmed
@@ -546,27 +556,29 @@ Prices are in USD as listed on 2026-10-02. "EU" means Xetra, Euronext Amsterdam 
 
 | Provider | Free tier | Coverage (US / EU / CA) | History | Splits / dividends | Display in a private app | Cheapest paid tier for US+EU+CA EOD | Meets R1–R6? |
 |---|---|---|---|---|---|---|---|
-| **EODHD** | 20 calls/day, 1 yr history | "Stocks Global" EOD. Free-tier exchange restrictions **unverified** | Paid "30+ yrs". Non-US depth **unverified** | Raw OHLC + `adjusted_close`; dividends and splits endpoints, full history in 1 call each | Personal use allowed; displaying **to others** prohibited (A.2) | **All-World $19.99/mo or $199/yr**, 100,000 calls/day | **Paid: yes** (R6 needs confirmation). Free: no |
-| **Twelve Data** | 800 credits/day | Free tier is **US only**. Xetra, Euronext and TSX need Grow | AAPL to 1980-12-12. Non-US depth **unverified** | `adjust` = all/splits/dividends/none; `/dividends` and `/splits` on Grow+ | Free tier: "Internal non-display usage" only. Grow: "Internal display data access" | **Grow $29/mo ($24/mo billed yearly)** | Grow: yes. Free: no |
-| **Alpha Vantage** | **25 requests/day** | US, `.LON`, `.TRT` and `.DEX` examples. Euronext **unverified** | "25+ years" | Free: raw `compact` (last 100 points). `full` history and daily adjusted are premium. `DIVIDENDS`/`SPLITS` aren't marked premium | **Yes, explicitly** ("display") | Premium **$49.99/mo** | Free: no (25/day, no full history). Premium: likely yes (Euronext **unverified**) |
+| **EODHD** (revisit later) | 20 calls/day, 1 yr history | "Stocks Global" EOD. Free-tier exchange restrictions **unverified** | Paid "30+ yrs". Non-US depth **unverified** | Raw OHLC + `adjusted_close`; dividends and splits endpoints, full history in 1 call each | Personal use allowed; displaying **to others** prohibited (A.2) | **All-World $19.99/mo or $199/yr**, 100,000 calls/day | Paid: yes (R6 would need confirmation). Free: no. **Revisit later** |
+| **Twelve Data** (revisit later) | 800 credits/day | Free tier is **US only**. Xetra, Euronext and TSX need Grow | AAPL to 1980-12-12. Non-US depth **unverified** | `adjust` = all/splits/dividends/none; `/dividends` and `/splits` on Grow+ | Free tier: "Internal non-display usage" only. Grow: "Internal display data access" | **Grow $29/mo ($24/mo billed yearly)** | Grow: yes. Free: no. **Revisit later** |
+| **Alpha Vantage** | **25 requests/day** | US, `.LON`, `.TRT` and `.DEX` examples. Euronext **unverified** | "25+ years" | Free: raw `compact` (last 100 points). `full` history and daily adjusted are premium. `DIVIDENDS`/`SPLITS` aren't marked premium | **Yes, explicitly** ("display") | Premium **$49.99/mo** | Free: no as primary (25/day, no full history); **chosen as $0 fallback** (A.5). Premium: likely yes (Euronext **unverified**) |
 | **Tiingo** | 1,000 req/day | **US only**, no TSX/EU (`supported_tickers.zip`) | "30+ Years" | `adjClose`, `divCash`, `splitFactor` | Self-display only | Power $30/mo, still no EU/CA | **No.** Free plan forbids persistent storage |
 | **Massive (formerly Polygon.io)** | 5 calls/min, 2 yrs | **US only** | Up to "20+ yrs" (Advanced $199) | Corporate actions on all tiers | Personal, non-business use | None with EU/CA prices | **No** |
 | **Financial Modeling Prep** | 250 calls/day, 5 yrs | Free coverage **unverified**. "Global" on Ultimate only | 30+ yrs on Premium/Ultimate | By plan, **unverified** | Multi-user display needs an agreement; single-user use **unverified** | Ultimate $99/mo billed annually; monthly price **unverified** | Coverage yes, but storage terms are hostile to caching |
 | **Marketstack** | 100 requests/**month** | 72+ exchanges claimed; Xetra/Euronext/TSX **unverified** | Professional "15+ Years"; reaching 2000 **unverified** | Listed on all tiers | **Unverified** | Coverage unverified | **No / unverified** (R3) |
-| **Nasdaq Data Link** | No free EOD equities | **US only** | 1996 to present | Yes | **Unverified** | Price not public (**unverified**) | **No** |
+| **Nasdaq Data Link** | No free EOD equities | **US only** (**unverified**) | 1996 to present (**unverified**) | Yes (**unverified**) | **Unverified** | Price not public (**unverified**) | **No** |
 | **Stooq** | No documented API (**unverified**) | **Unverified** | **Unverified** | **Unverified** | Redistribution needs consent (terms 5.3) | No paid API found | **No.** Same scraping risk as Yahoo |
-| *Yahoo (current)* | Unofficial | — | — | — | Automated collection banned without permission (ToS 2.d.ix) | — | **No** |
+| *Yahoo (current, stays primary)* | Unofficial; no published limits (**unverified** fit) | US/EU/CA, as the calculator uses today | As the calculator uses today | Daily bars plus dividend and split events (`events=div,split`) | Automated collection banned without permission (ToS 2.d.ix) | — | Fails R5 on paper. **Risk known and accepted for now (D13)** |
 
-Call volume, estimated on EODHD for 30 holdings plus occasional backtests:
-- One-time backfill: 90 calls (3 per ticker).
-- Steady state: about 900–1,000 calls/month, or 30–45/day. That's about 0.05% of the paid plan.
-- This is above EODHD's free 20/day and Alpha Vantage's free 25/day, and both free tiers also fail R3. **No free tier can be the primary.**
-- On Twelve Data Grow a backfill costs about 42 credits per ticker, roughly 25 minutes for 30 tickers.
+Call volume (the research's estimate for 30 holdings plus occasional backtests; similar for any provider):
+- One-time backfill: about 3 calls per ticker on providers that split prices, dividends and splits into
+  separate calls. On Yahoo it's 1 call, because the chart call returns events too.
+- Steady state: about **30–45 calls/day, or about 900–1,350 calls/month**.
+- Yahoo publishes no limits, so whether this volume fits is **unverified**. The Neon cache keeps it to
+  one fetch per close.
+- Alpha Vantage's free 25 requests/day can't carry this as a primary, so it is a gap-filler only.
 
 ### A.2 Terms quotes
 
 - **EODHD.** A Non-Professional User "views or uses EOD Historical Data Information solely in a personal capacity for their own personal investment activities … Non-Professional Users are permitted to **store, manipulate, and analyze** the data for private, non-commercial purposes. However, they are prohibited from: Sharing access to their account with others … Selling, reselling, retransmitting, redistributing, **displaying**, or granting access to the Information or Services." — https://eodhd.com/financial-apis/terms-conditions
-  - *Reading:* a noindex, single-user, auth-gated dashboard fits personal use, but the bare word "displaying" is ambiguous. **Before relying on it, get a written confirmation from EODHD sales.** This is not sent yet and needs Diego's go. With more users it becomes Professional (commercial) use.
+  - *Reading:* a noindex, single-user, auth-gated dashboard fits personal use, but the bare word "displaying" is ambiguous. If EODHD is revisited, it would need a written confirmation from EODHD first. **Nothing was sent; D13 chose $0.** With more users it becomes Professional (commercial) use.
   - Pricing: "History depth … 1 yr" on the free plan. All-World is $19.99/mo or $199.00/year with "30+ yrs" — https://eodhd.com/pricing
   - Data: "The OHLC fields are **raw** … The adjusted_close field is adjusted for **both splits and dividends**." — https://eodhd.com/financial-apis/api-for-historical-data-and-volumes
   - Splits and dividends: "Both endpoints cost 1 API call per request, whatever the date range." — https://eodhd.com/financial-apis/api-splits-dividends
@@ -588,40 +600,58 @@ Call volume, estimated on EODHD for 30 holdings plus occasional backtests:
 - **Financial Modeling Prep.** §2.2.1: "The Customer may not copy or download any content from the Services except with the prior written approval of FMP."
   - §2.8: "Customer will notify FMP of the IP and domain aliases of any location where data is stored or processed." — https://site.financialmodelingprep.com/terms-of-service
 - **Marketstack.** Pricing: https://marketstack.com/pricing. Display terms **unverified**.
-- **Nasdaq Data Link.** Coverage: https://help.data.nasdaq.com/article/507-where-can-i-find-data-for-aapl-amzn-googl-etc
+- **Nasdaq Data Link.** The coverage facts in A.1 (US only, 1996 to present, dividends and splits) are **unverified**. The research's help-centre article and docs page now redirect to a 404 (checked 2026-10-02), and no live Nasdaq page confirming them was found.
 - **Stooq.** Terms 5.3: "Redistribution of data found on the website is not allowed without the consent of Stooq." — https://stooq.com/terms.html
   - The page was read through the search index, because the live page is behind a JavaScript check.
   - A documented API is **unverified**.
 - **Yahoo.** Collecting data "using any automated means … without our express, prior permission" is forbidden (§2.d.ix). — https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
+  - **Known and accepted for now** (Diego, D13, 2026-10-02). The Neon cache keeps the exposure to one fetch per close, plus the weekly events check.
 
 ### A.3 Neon cache design
 
-**Principle:** each close for an (instrument, session date) and each corporate action is fetched **once**.
-Every app read comes from Postgres and never from a provider, whether it's the dashboard or, after the
-calculator ticket (rollout step 4), a calculator backtest.
+**Principle:** each close for an (instrument, session date) is fetched **once** and never fetched again.
+Every dashboard read comes from Postgres, never from a provider. Corporate-action events are refreshed
+weekly (flow 3). The calculator is unchanged and keeps calling Yahoo through `/api/chart` as it does
+today.
 
 **Storage is raw.** The series of record is raw closes plus explicit split and dividend events, and Orpheus
-computes its own adjustment factors and total-return series. Provider-adjusted closes differ by method
-(e.g. CRSP vs others, with or without dividends). So they are stored only in `adj_close_src` and used
-**only as a cross-check**, never as the series of record.
+computes its own adjustment factors and total-return series.
+- Yahoo's chart `close` and dividend amounts are scaled by later splits. `rawBars()` and `rawDividends()`
+  in `src/lib/dca/raw.ts` already undo that, and the Yahoo implementation reuses them.
+- A provider-adjusted close, where one is returned, goes only into `adj_close_src` and is **only a
+  cross-check**, never the series of record.
+- Today's Yahoo code doesn't read an adjusted close, and Alpha Vantage's free tier has none (its daily
+  adjusted series is premium). So `adj_close_src` may stay empty, and the weekly audit (A.4, rule 5) then
+  doesn't run.
 
-**Schema delta**, applied to the section 5 tables in the provider ticket, and only if D13 is approved:
+**Schema delta** on the section 5 tables. It lands with T05 (#13) or a follow-up ticket, which the
+Engineering Lead decides when cutting work:
 
 | Table | Change |
 |---|---|
-| `instruments` | Add `mic` (XETR, XAMS, XPAR, XTSE, XNYS, XNAS) and `provider_ids` jsonb, e.g. `{"eodhd":"SAP.XETRA","alphavantage":"SAP.DEX"}`. `currency` stays one per series and is never mixed. |
-| `daily_closes` | `close` stays the raw as-traded value. Add `adj_close_src` numeric null, the provider's adjusted close, used only for validation. `source` records the provider. |
+| `instruments` | Add `mic` (XETR, XAMS, XPAR, XTSE, XNYS, XNAS) and `provider_ids` jsonb, e.g. `{"yahoo":"SAP.DE","alphavantage":"SAP.DEX"}`. `currency` stays one per series and is never mixed. |
+| `daily_closes` | `close` stays the raw as-traded value. Add `adj_close_src` numeric null, the provider's adjusted close, used only for validation. `source` records the provider. A row, once written, is never fetched again. |
 | `corporate_actions` (new) | `symbol`, `ex_date`, `kind` (`dividend` \| `split`), `cash_unadj` (dividend per share as declared, **not** split-adjusted), `split_from`, `split_to`, `source`, `fetched_at`. PK (`symbol`, `ex_date`, `kind`). |
-| `price_coverage` (new) | `symbol` (PK), `first_session_date`, `last_session_date`, `actions_checked_at`, `last_error`. It records what is already stored, so nothing is fetched again. |
+| `price_coverage` (new) | `symbol` (PK), `first_session_date`, `last_session_date`, `actions_checked_at`, `last_error`. It records what is already stored, so nothing is fetched again. A row with no `last_session_date` is a backfill still waiting to run. |
 
-**Flows:**
-1. **Backfill on first use.** When a holding is added, or a backtest names an uncovered ticker, one job runs. On EODHD that's 3 calls: full history from 2000-01-01, then dividends, then splits. Rows are written with `on conflict do nothing`.
-2. **Nightly incremental.** For each held symbol, fetch from `last_session_date + 1`. This runs in the D6 cron job.
-   - The research suggests running after every provider has published, e.g. 02:00 America/Toronto. D6 runs at `0 23 * * *` UTC.
-   - Whether EODHD has published US/CA closes by then is **unverified**. Any session missed is picked up by the next run's idempotent catch-up.
+**Fetching runs in background jobs only.** No browser request ever calls a provider.
+1. **Backfill on a new holding.** The server function that saves the holding only writes a
+   `price_coverage` row and returns. A background job does the fetch after the response is sent:
+   - Vercel's `waitUntil()`
+     ([Vercel Functions package](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package),
+     checked 2026-10-02), or else the next daily run or the preview refresh button.
+   - It fetches full history from 2000-01-01 plus the dividend and split events. On Yahoo that's 1 call.
+   - Rows are written with `on conflict do nothing`. Until the job finishes, the holding shows "price
+     pending" (DASH-24).
+2. **Nightly incremental.** For each held symbol, fetch only from `last_session_date + 1`. This runs in the
+   D6 cron job at `0 23 * * *` UTC.
+   - Whether every exchange's close is published on Yahoo by then is **unverified**.
+   - Any session missed is picked up by the next run's idempotent catch-up.
    - Any bar dated today or later in the exchange's time zone is rejected (R1).
-3. **Corporate actions.** Refreshed weekly per held symbol (2 calls). A refresh also runs early when `adj_close_src / close` drifts for an old date.
-4. **Guards.** A per-provider token bucket stays below the documented limit, and a daily call budget alerts at 50%. Concurrency is 1–2. A browser request path never calls a provider.
+3. **Corporate actions.** Refreshed weekly per held symbol through `getCorporateActions()`. Only
+   `corporate_actions` is written; closes in the same response are never written again.
+4. **Guards.** A per-provider budget applies: Alpha Vantage at 25/day, and a conservative self-imposed cap
+   for Yahoo, which publishes none. Concurrency is 1–2.
 
 ### A.4 Provider interface: primary plus fallback
 
@@ -634,7 +664,7 @@ interface DailyClose {
   date: string;          // exchange-local session date, YYYY-MM-DD (completed sessions only)
   close: number;         // RAW official close, listing currency (series of record)
   currency: string;      // ISO code, must match the instruments row
-  source: string;        // provider id, e.g. "eodhd"
+  source: string;        // provider id: "yahoo" or "alphavantage"
   adjCloseSrc?: number;  // provider-adjusted close, stored only as a cross-check
 }
 
@@ -649,7 +679,7 @@ interface CorporateAction {
 }
 
 interface DailyCloseProvider {
-  id: string;                                  // "eodhd" | "alphavantage" | "yahoo" (first impl.)
+  id: string;                                  // "yahoo" (primary) | "alphavantage" (fallback)
   supports(symbol: string): boolean;           // exchange coverage
   budget: { perMinute: number; perDay: number };
   /** Raw closes for completed sessions on or before `date` (the latest one, plus any missing since `since`). */
@@ -661,54 +691,60 @@ interface DailyCloseProvider {
 
 **Resolution.** The primary is tried first, then the fallback, then the call fails soft. If both fail, the
 UI shows the last cached close with a "stale since <date>" badge and never a made-up value.
-- A primary row may overwrite a fallback row. A fallback row never overwrites a primary row.
-- Only the daily job (T05, #13) and the new-holding path call the provider. T07 #15, T14 #22 and T15 #23 read stored rows only.
+- A stored close is never replaced, whichever provider wrote it; its `source` column records which one.
+- Only background jobs call the provider: the daily job (T05, #13) and the new-holding backfill job. T07 #15, T14 #22 and T15 #23 read stored rows only.
 
 **Reconciliation:**
 1. **Overlap check.** On the first fallback fetch, compare raw closes on overlapping dates. If the median absolute difference is > 0.5%, flag a mapping or currency problem and don't write.
-2. **Raw history only.** Always request unadjusted bars, e.g. Twelve Data's `adjust=none`, since its default is `splits`. Otherwise divide out known splits before storing.
-3. **Unadjusted dividends.** Store unadjusted dividend amounts, e.g. EODHD's `unadjustedValue`. Split-adjusted amounts are multiplied back by the cumulative split factor.
+2. **Raw history only.** Request unadjusted bars where a provider offers them. Otherwise divide out known splits before storing, as `rawBars()` already does for Yahoo.
+3. **Unadjusted dividends.** Store unadjusted dividend amounts. Split-adjusted amounts, such as Yahoo's, are multiplied back by the cumulative split factor (`rawDividends()`).
 4. **No listing substitution.** A fallback never uses a different listing, e.g. the US ADR `ASML` for `ASML.AS`. Currency and MIC must match the `instruments` row.
-5. **Weekly audit.** The locally adjusted series must match the primary's `adj_close_src` within 0.1%. A mismatch triggers a refetch of corporate actions.
+5. **Weekly audit** (only where `adj_close_src` exists). The locally adjusted series must match `adj_close_src` within 0.1%. A mismatch triggers a refetch of corporate actions only; closes are never fetched again.
 
-### A.5 Recommendation (D13, recommended, pending Diego)
+### A.5 Decision (D13, decided 2026-10-02)
 
-- **Primary: EODHD "EOD Historical All-World", $19.99/mo or $199/yr (about $16.58/mo).**
-  - It's the cheapest option found that meets R1–R5 for US, Xetra, Euronext and TSX.
-  - It allows storage, so the Neon cache is fine, and it allows 100,000 calls/day against the 30–45 needed.
-  - R6 rests on the personal-use reading in A.2, so it needs **EODHD's written confirmation first**.
-- **Gap-fill: Alpha Vantage free key ($0).**
-  - Its terms explicitly allow display.
-  - Free `TIME_SERIES_DAILY` `compact` plus `DIVIDENDS`/`SPLITS` can fill a few missed days for US, TSX and Xetra listings.
-  - At 25 requests/day it is a gap-filler only. Euronext coverage is **unverified**; check `SYMBOL_SEARCH` once a key exists.
-- **Yahoo: removed from the automated path.** Even low-frequency fallback use breaches ToS §2.d.ix. If Yahoo is kept at all, it's a manual, owner-triggered repair switch, **off by default**.
-- **Alternative**, if R6 must be explicit in the terms text: **Twelve Data Grow, $29/mo ($24/mo yearly).** Its terms grant "Internal display data access". The costs: $9/mo more, a throttled backfill, the undocumented caching timeframe, and **unverified** non-US depth.
+- **Primary: Yahoo ($0).** It wraps `src/lib/dca/yahoo.server.ts` behind `DailyCloseProvider` and caches
+  each close once in Neon (A.3).
+  - Its terms risk (ToS §2.d.ix) is **known and accepted for now**.
+  - Its fit for this volume is **unverified**, because Yahoo publishes no limits.
+- **Fallback: Alpha Vantage free key ($0)**, behind the same interface and used only when Yahoo fails for a
+  symbol. Its terms explicitly allow personal display.
+  - Free `TIME_SERIES_DAILY` `compact` (the last 100 sessions) plus `DIVIDENDS`/`SPLITS` can fill missed
+    days.
+  - It can't backfill: full history is premium, so a backfill waits for Yahoo.
+  - At 25 requests/day it covers up to about 25 symbol-gaps a day. Anything beyond that waits for the next
+    run.
+  - **Unverified:** Euronext Paris/Amsterdam coverage (check `SYMBOL_SEARCH` once a key exists), and
+    whether DIVIDENDS/SPLITS cover non-US listings. A symbol it doesn't cover just keeps its last close,
+    marked "stale since <date>".
+  - The key is a free Alpha Vantage key, not a paid plan. The owner claims it and adds it as a Vercel env
+    var when the fallback ticket lands. Bots never do this.
+- **Revisit later (no action now):**
+  - EODHD All-World, $19.99/mo or $199/yr. It would need EODHD's written usage-terms confirmation.
+  - Twelve Data Grow, $29/mo ($24/mo yearly).
 - **Rejected:**
   - Tiingo: no EU/CA, and the free plan bans storage.
-  - Massive and Nasdaq Data Link: US only.
+  - Massive and Nasdaq Data Link: US only (the Nasdaq facts are **unverified**).
   - FMP: $99/mo, and storage-hostile terms.
   - Marketstack: history to 2000 **unverified**.
   - Stooq: scraping risk.
-  - Free-only stacks: none meets R2 + R3 at this volume.
-- **Tradeoffs:**
-  - About $200/yr.
-  - The licence is personal; more users means a commercial licence, as with every option.
-  - Non-US depth must be checked at backfill and logged in `price_coverage.first_session_date`.
-  - After a lapse, the treatment of cached data is **unverified for EODHD**.
+  - Free-only stacks other than Yahoo + Alpha Vantage: none meets R2 + R3.
+- **Tradeoffs accepted:**
+  - The Yahoo terms risk, and the fact that Yahoo can change or block the endpoint without notice. If it
+    does, the fallback fills gaps where it can, the dashboard shows "stale since <date>", and D13 is
+    revisited.
+  - Non-US depth is checked at backfill time and logged in `price_coverage.first_session_date`.
 
-### A.6 Rollout (only after D13 is approved)
+### A.6 Rollout
 
-1. **Diego's go**, and EODHD's written usage-terms confirmation. The owner signs up and adds the API keys
-   as Vercel env vars. Bots never do this.
-2. **Interface and tables.** Add the extended `DailyCloseProvider` and the schema delta in A.3.
-3. **One-week shadow run.** Run EODHD next to Yahoo and produce the A.4 reconciliation report.
-4. **Switch.** Make EODHD the primary and Alpha Vantage the gap-fill. Delete the Yahoo automated path,
-   including the calculator's `src/lib/dca/yahoo.server.ts` route. That PR also updates
-   `attachments/dca-app-spec.md`, `README.md` and `AGENTS.md`, which still name Yahoo as the calculator's
-   price source.
+1. **T05 (#13):** the daily close job implements `DailyCloseProvider` with Yahoo and the Neon cache (A.3,
+   A.4). Fetching runs in background jobs only.
+2. **Alpha Vantage fallback**, as its own small ticket once T05 has merged. The owner claims the free key
+   and sets it in Vercel; bots never do. Run the overlap check (A.4, rule 1) and record Euronext coverage.
+3. **Revisit EODHD or Twelve Data** only if Yahoo fails in practice or Diego reopens D13.
 
-These steps become their own tickets once D13 is approved. No dashboard ticket (#9–#24) changes, because
-they all go through `DailyCloseProvider`.
+The calculator stays on Yahoo, so nothing in `attachments/dca-app-spec.md` or `README.md` changes. No
+dashboard ticket (#9–#24) changes, because they all go through `DailyCloseProvider`.
 
 ## Sources (all checked 2026-10-02)
 
@@ -728,6 +764,6 @@ they all go through `DailyCloseProvider`.
   [ESMA ESEF tutorial 3](https://www.esma.europa.eu/sites/default/files/library/esma32-60-494_-_esef_tutorial_3_script.pdf) ·
   [filings.xbrl.org](https://filings.xbrl.org/about.html) · [ECB reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html)
 - Daily-close vendors for Amendment A (EODHD, Twelve Data, Alpha Vantage, Tiingo, Massive, FMP, Marketstack,
-  Nasdaq Data Link, Stooq): linked inline in section 14.
+  Stooq): linked inline in section 14. Nasdaq Data Link: no live source (facts marked unverified).
 - Data vendors: [FMP pricing](https://site.financialmodelingprep.com/developer/docs/pricing) · [EODHD pricing](https://eodhd.com/pricing) ·
   [Yahoo Terms of Service](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html)
