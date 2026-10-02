@@ -71,10 +71,20 @@ npm run fixtures:build        # rebuild qa/fixtures.json offline from qa/snapsho
 npm run fixtures:hand-check   # independent arithmetic check, prints "hand check: MATCH"
 ```
 
-**QA run logs.** QA's pass/fail run logs and screenshot evidence are **not in this repo yet**. Today
-they live on the team's shared machine at `/workspace/orpheus-app/qa/`: `run-YYYY-MM-DD-*.md` plus
-`evidence/<run>/`. QA's working copy of the fixtures and the acceptance-criteria pack
-(`CANONICAL-AC-PACK.md`) live there too.
+**QA run logs and AC pack.** QA's pass/fail run logs live in [`qa/runs/`](qa/runs/) as
+`YYYY-MM-DD-<label>.md`, with small JSON/text evidence in a folder of the same name. Screenshots and large
+raw dumps are not committed. The canonical acceptance-criteria pack is
+[`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md). Policy: [`qa/README.md`](qa/README.md).
+
+**QA tools.** [`qa/tools/`](qa/tools/README.md) holds QA's Playwright scripts and a Python price fetcher.
+Each takes the app URL as `--base-url` or `QA_BASE_URL` (default: production), so they run against a PR
+preview or production:
+
+```bash
+npx playwright install chromium                 # once
+node qa/tools/full.mjs --base-url https://<preview>.vercel.app
+python3 qa/tools/fetch.py --base-url https://<preview>.vercel.app --out /tmp/orpheus-fetch
+```
 
 ## Deploy
 

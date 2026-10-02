@@ -1,0 +1,1174 @@
+{
+ "us-single-dividend-ko": [
+  {
+   "path": "weightsApplied",
+   "exp": [
+    1
+   ],
+   "obs": [
+    1
+   ],
+   "match": true
+  },
+  {
+   "path": "weightsScaled",
+   "exp": false,
+   "obs": false,
+   "match": true
+  },
+  {
+   "path": "currency[KO]",
+   "exp": "USD",
+   "obs": "USD",
+   "match": true
+  },
+  {
+   "path": "exchange[KO]",
+   "exp": "NYSE",
+   "obs": "NYSE",
+   "match": true
+  },
+  {
+   "path": "dividendsInWindow[KO]",
+   "exp": [
+    {
+     "date": "2023-03-16",
+     "amt": 0.46
+    },
+    {
+     "date": "2023-06-15",
+     "amt": 0.46
+    },
+    {
+     "date": "2023-09-14",
+     "amt": 0.46
+    },
+    {
+     "date": "2023-11-30",
+     "amt": 0.46
+    },
+    {
+     "date": "2024-03-14",
+     "amt": 0.485
+    },
+    {
+     "date": "2024-06-14",
+     "amt": 0.485
+    },
+    {
+     "date": "2024-09-13",
+     "amt": 0.485
+    },
+    {
+     "date": "2024-11-29",
+     "amt": 0.485
+    }
+   ],
+   "obs": [
+    {
+     "date": "2023-03-16",
+     "amt": 0.46
+    },
+    {
+     "date": "2023-06-15",
+     "amt": 0.46
+    },
+    {
+     "date": "2023-09-14",
+     "amt": 0.46
+    },
+    {
+     "date": "2023-11-30",
+     "amt": 0.46
+    },
+    {
+     "date": "2024-03-14",
+     "amt": 0.485
+    },
+    {
+     "date": "2024-06-14",
+     "amt": 0.485
+    },
+    {
+     "date": "2024-09-13",
+     "amt": 0.485
+    },
+    {
+     "date": "2024-11-29",
+     "amt": 0.485
+    }
+   ],
+   "match": true
+  },
+  {
+   "path": "splitsInWindow[KO]",
+   "exp": [],
+   "obs": [],
+   "match": true
+  },
+  {
+   "path": "lumpDeploy.price[KO]",
+   "exp": 62.95000076293945,
+   "obs": 62.95000076293945,
+   "diff": 0
+  },
+  {
+   "path": "run.sessions",
+   "exp": 502,
+   "obs": 502,
+   "diff": 0
+  },
+  {
+   "path": "run.years",
+   "exp": 1.9931553730321698,
+   "obs": 1.9931553730321698,
+   "diff": 0
+  },
+  {
+   "path": "run.missedContributions",
+   "exp": 0,
+   "obs": 0,
+   "diff": 0
+  },
+  {
+   "path": "run.lastPrices[0]",
+   "exp": 62.2599983215332,
+   "obs": 62.2599983215332,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.lump[0]",
+   "exp": 168.81096119704168,
+   "obs": 168.81096119704168,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.invested",
+   "exp": 10000,
+   "obs": 10000,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.endNlv",
+   "exp": 10510.170160784222,
+   "obs": 10510.170160784222,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.totalReturn",
+   "exp": 0.05101701607842224,
+   "obs": 0.05101701607842224,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.cagr",
+   "exp": 0.025278802124778066,
+   "obs": 0.025278802124778066,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.mwr",
+   "exp": 0.025278802053071543,
+   "obs": 0.025278802053071543,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.maxDrop",
+   "exp": -0.1728030061920279,
+   "obs": -0.1728030061920279,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.maxDropDate",
+   "exp": "2023-10-05",
+   "obs": "2023-10-05",
+   "match": true
+  },
+  {
+   "path": "run.lump.nlvAtDrop",
+   "exp": 8513.823731037455,
+   "obs": 8513.823731037455,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.returnToDrop",
+   "exp": -0.14861762689625446,
+   "obs": -0.14861762689625446,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.dca[0]",
+   "exp": 200.9479303650937,
+   "obs": 200.9479303650937,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.invested",
+   "exp": 12000,
+   "obs": 12000,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.endNlv",
+   "exp": 12511.017807246304,
+   "obs": 12511.017807246304,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.totalReturn",
+   "exp": 0.04258481727052543,
+   "obs": 0.04258481727052543,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.cagr",
+   "exp": 0.02114354403901131,
+   "obs": 0.02114354403901131,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.mwr",
+   "exp": 0.040836550504900496,
+   "obs": 0.040836550504900496,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.maxDrop",
+   "exp": -0.08860009542942585,
+   "obs": -0.08860009542942585,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.maxDropDate",
+   "exp": "2024-11-15",
+   "obs": "2024-11-15",
+   "match": true
+  },
+  {
+   "path": "run.dca.nlvAtDrop",
+   "exp": 11830.9920800376,
+   "obs": 11830.9920800376,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.returnToDrop",
+   "exp": 0.028781920003269512,
+   "obs": 0.028781920003269512,
+   "diff": 0
+  },
+  {
+   "path": "run.chartPoints",
+   "exp": 502,
+   "obs": 502,
+   "diff": 0
+  },
+  {
+   "path": "run.chartFirst",
+   "exp": {
+    "date": "2023-01-03",
+    "lump": 10000,
+    "dca": 500
+   },
+   "obs": {
+    "date": "2023-01-03",
+    "lump": 10000,
+    "dca": 500
+   },
+   "match": true
+  },
+  {
+   "path": "run.chartLast",
+   "exp": {
+    "date": "2024-12-31",
+    "lump": 10510.170160784222,
+    "dca": 12511.017807246304
+   },
+   "obs": {
+    "date": "2024-12-31",
+    "lump": 10510.170160784222,
+    "dca": 12511.017807246304
+   },
+   "match": true
+  },
+  {
+   "path": "contributions.placed",
+   "exp": 24,
+   "obs": 24,
+   "diff": 0
+  },
+  {
+   "path": "contributions.invested",
+   "exp": 12000,
+   "obs": 12000,
+   "diff": 0
+  },
+  {
+   "path": "lumpDeploy.nlvOnDeployDate",
+   "exp": 10000,
+   "obs": 10000,
+   "diff": 0
+  }
+ ],
+ "us-basket-jnj-pg-wmt": [
+  {
+   "path": "weightsApplied",
+   "exp": [
+    0.5,
+    0.3,
+    0.2
+   ],
+   "obs": [
+    0.5,
+    0.3,
+    0.2
+   ],
+   "match": true
+  },
+  {
+   "path": "weightsScaled",
+   "exp": false,
+   "obs": false,
+   "match": true
+  },
+  {
+   "path": "currency[JNJ]",
+   "exp": "USD",
+   "obs": "USD",
+   "match": true
+  },
+  {
+   "path": "exchange[JNJ]",
+   "exp": "NYSE",
+   "obs": "NYSE",
+   "match": true
+  },
+  {
+   "path": "dividendsInWindow[JNJ]",
+   "exp": [
+    {
+     "date": "2023-02-17",
+     "amt": 1.13
+    },
+    {
+     "date": "2023-05-22",
+     "amt": 1.19
+    },
+    {
+     "date": "2023-08-25",
+     "amt": 1.19
+    },
+    {
+     "date": "2023-11-20",
+     "amt": 1.19
+    },
+    {
+     "date": "2024-02-16",
+     "amt": 1.19
+    },
+    {
+     "date": "2024-05-20",
+     "amt": 1.24
+    },
+    {
+     "date": "2024-08-27",
+     "amt": 1.24
+    },
+    {
+     "date": "2024-11-26",
+     "amt": 1.24
+    }
+   ],
+   "obs": [
+    {
+     "date": "2023-02-17",
+     "amt": 1.13
+    },
+    {
+     "date": "2023-05-22",
+     "amt": 1.19
+    },
+    {
+     "date": "2023-08-25",
+     "amt": 1.19
+    },
+    {
+     "date": "2023-11-20",
+     "amt": 1.19
+    },
+    {
+     "date": "2024-02-16",
+     "amt": 1.19
+    },
+    {
+     "date": "2024-05-20",
+     "amt": 1.24
+    },
+    {
+     "date": "2024-08-27",
+     "amt": 1.24
+    },
+    {
+     "date": "2024-11-26",
+     "amt": 1.24
+    }
+   ],
+   "match": true
+  },
+  {
+   "path": "splitsInWindow[JNJ]",
+   "exp": [],
+   "obs": [],
+   "match": true
+  },
+  {
+   "path": "lumpDeploy.price[JNJ]",
+   "exp": 178.19000244140625,
+   "obs": 178.19000244140625,
+   "diff": 0
+  },
+  {
+   "path": "currency[PG]",
+   "exp": "USD",
+   "obs": "USD",
+   "match": true
+  },
+  {
+   "path": "exchange[PG]",
+   "exp": "NYSE",
+   "obs": "NYSE",
+   "match": true
+  },
+  {
+   "path": "dividendsInWindow[PG]",
+   "exp": [
+    {
+     "date": "2023-01-19",
+     "amt": 0.913
+    },
+    {
+     "date": "2023-04-20",
+     "amt": 0.941
+    },
+    {
+     "date": "2023-07-20",
+     "amt": 0.941
+    },
+    {
+     "date": "2023-10-19",
+     "amt": 0.941
+    },
+    {
+     "date": "2024-01-18",
+     "amt": 0.941
+    },
+    {
+     "date": "2024-04-18",
+     "amt": 1.007
+    },
+    {
+     "date": "2024-07-19",
+     "amt": 1.007
+    },
+    {
+     "date": "2024-10-18",
+     "amt": 1.007
+    }
+   ],
+   "obs": [
+    {
+     "date": "2023-01-19",
+     "amt": 0.913
+    },
+    {
+     "date": "2023-04-20",
+     "amt": 0.941
+    },
+    {
+     "date": "2023-07-20",
+     "amt": 0.941
+    },
+    {
+     "date": "2023-10-19",
+     "amt": 0.941
+    },
+    {
+     "date": "2024-01-18",
+     "amt": 0.941
+    },
+    {
+     "date": "2024-04-18",
+     "amt": 1.007
+    },
+    {
+     "date": "2024-07-19",
+     "amt": 1.007
+    },
+    {
+     "date": "2024-10-18",
+     "amt": 1.007
+    }
+   ],
+   "match": true
+  },
+  {
+   "path": "splitsInWindow[PG]",
+   "exp": [],
+   "obs": [],
+   "match": true
+  },
+  {
+   "path": "lumpDeploy.price[PG]",
+   "exp": 151.57000732421875,
+   "obs": 151.57000732421875,
+   "diff": 0
+  },
+  {
+   "path": "currency[WMT]",
+   "exp": "USD",
+   "obs": "USD",
+   "match": true
+  },
+  {
+   "path": "exchange[WMT]",
+   "exp": "NasdaqGS",
+   "obs": "NasdaqGS",
+   "match": true
+  },
+  {
+   "path": "dividendsInWindow[WMT]",
+   "exp": [
+    {
+     "date": "2023-03-16",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2023-05-04",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2023-08-10",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2023-12-07",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2024-03-14",
+     "amt": 0.208
+    },
+    {
+     "date": "2024-05-09",
+     "amt": 0.208
+    },
+    {
+     "date": "2024-08-16",
+     "amt": 0.208
+    },
+    {
+     "date": "2024-12-13",
+     "amt": 0.208
+    }
+   ],
+   "obs": [
+    {
+     "date": "2023-03-16",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2023-05-04",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2023-08-10",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2023-12-07",
+     "amt": 0.5700000000000001
+    },
+    {
+     "date": "2024-03-14",
+     "amt": 0.208
+    },
+    {
+     "date": "2024-05-09",
+     "amt": 0.208
+    },
+    {
+     "date": "2024-08-16",
+     "amt": 0.208
+    },
+    {
+     "date": "2024-12-13",
+     "amt": 0.208
+    }
+   ],
+   "match": true
+  },
+  {
+   "path": "splitsInWindow[WMT]",
+   "exp": [
+    {
+     "date": "2024-02-26",
+     "ratio": 3
+    }
+   ],
+   "obs": [
+    {
+     "date": "2024-02-26",
+     "ratio": 3
+    }
+   ],
+   "match": true
+  },
+  {
+   "path": "lumpDeploy.price[WMT]",
+   "exp": 143.60000610351562,
+   "obs": 143.60000610351562,
+   "diff": 0
+  },
+  {
+   "path": "run.sessions",
+   "exp": 502,
+   "obs": 502,
+   "diff": 0
+  },
+  {
+   "path": "run.years",
+   "exp": 1.9931553730321698,
+   "obs": 1.9931553730321698,
+   "diff": 0
+  },
+  {
+   "path": "run.missedContributions",
+   "exp": 0,
+   "obs": 0,
+   "diff": 0
+  },
+  {
+   "path": "run.lastPrices[0]",
+   "exp": 144.6199951171875,
+   "obs": 144.6199951171875,
+   "diff": 0
+  },
+  {
+   "path": "run.lastPrices[1]",
+   "exp": 167.64999389648438,
+   "obs": 167.64999389648438,
+   "diff": 0
+  },
+  {
+   "path": "run.lastPrices[2]",
+   "exp": 90.3499984741211,
+   "obs": 90.3499984741211,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.lump[0]",
+   "exp": 59.64541202507944,
+   "obs": 59.64541202507944,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.lump[1]",
+   "exp": 41.60362017057198,
+   "obs": 41.60362017057198,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.lump[2]",
+   "exp": 85.85653374350574,
+   "obs": 85.85653374350574,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.invested",
+   "exp": 20000,
+   "obs": 20000,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.endNlv",
+   "exp": 23357.90355621674,
+   "obs": 23357.90355621674,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.totalReturn",
+   "exp": 0.16789517781083707,
+   "obs": 0.16789517781083707,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.cagr",
+   "exp": 0.0809800210559184,
+   "obs": 0.0809800210559184,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.mwr",
+   "exp": 0.08098002078477295,
+   "obs": 0.08098002078477295,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.maxDrop",
+   "exp": -0.12258242181747012,
+   "obs": -0.12258242181747012,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.maxDropDate",
+   "exp": "2023-03-09",
+   "obs": "2023-03-09",
+   "match": true
+  },
+  {
+   "path": "run.lump.nlvAtDrop",
+   "exp": 17809.130539674814,
+   "obs": 17809.130539674814,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.returnToDrop",
+   "exp": -0.10954347301625933,
+   "obs": -0.10954347301625933,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.dca[0]",
+   "exp": 85.98003447823152,
+   "obs": 85.98003447823152,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.dca[1]",
+   "exp": 51.58945519910419,
+   "obs": 51.58945519910419,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.dca[2]",
+   "exp": 91.12124885730495,
+   "obs": 91.12124885730495,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.invested",
+   "exp": 26250,
+   "obs": 26250,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.endNlv",
+   "exp": 29316.208710887735,
+   "obs": 29316.208710887735,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.totalReturn",
+   "exp": 0.11680795089096141,
+   "obs": 0.11680795089096141,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.cagr",
+   "exp": 0.05699182706486239,
+   "obs": 0.05699182706486239,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.mwr",
+   "exp": 0.11499717819970098,
+   "obs": 0.11499717819970098,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.maxDrop",
+   "exp": -0.031137823460997548,
+   "obs": -0.031137823460997548,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.maxDropDate",
+   "exp": "2023-01-23",
+   "obs": "2023-01-23",
+   "match": true
+  },
+  {
+   "path": "run.dca.nlvAtDrop",
+   "exp": 719.635622740919,
+   "obs": 719.635622740919,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.returnToDrop",
+   "exp": -0.04048583634544134,
+   "obs": -0.04048583634544134,
+   "diff": 0
+  },
+  {
+   "path": "run.chartPoints",
+   "exp": 502,
+   "obs": 502,
+   "diff": 0
+  },
+  {
+   "path": "run.chartFirst",
+   "exp": {
+    "date": "2023-01-03",
+    "lump": 20000,
+    "dca": 250
+   },
+   "obs": {
+    "date": "2023-01-03",
+    "lump": 20000,
+    "dca": 250
+   },
+   "match": true
+  },
+  {
+   "path": "run.chartLast",
+   "exp": {
+    "date": "2024-12-31",
+    "lump": 23357.90355621674,
+    "dca": 29316.208710887735
+   },
+   "obs": {
+    "date": "2024-12-31",
+    "lump": 23357.90355621674,
+    "dca": 29316.208710887735
+   },
+   "match": true
+  },
+  {
+   "path": "contributions.placed",
+   "exp": 105,
+   "obs": 105,
+   "diff": 0
+  },
+  {
+   "path": "contributions.invested",
+   "exp": 26250,
+   "obs": 26250,
+   "diff": 0
+  },
+  {
+   "path": "lumpDeploy.nlvOnDeployDate",
+   "exp": 20000,
+   "obs": 20000,
+   "diff": 0
+  }
+ ],
+ "ca-single-ry-to": [
+  {
+   "path": "weightsApplied",
+   "exp": [
+    1
+   ],
+   "obs": [
+    1
+   ],
+   "match": true
+  },
+  {
+   "path": "weightsScaled",
+   "exp": false,
+   "obs": false,
+   "match": true
+  },
+  {
+   "path": "currency[RY.TO]",
+   "exp": "CAD",
+   "obs": "CAD",
+   "match": true
+  },
+  {
+   "path": "exchange[RY.TO]",
+   "exp": "Toronto",
+   "obs": "Toronto",
+   "match": true
+  },
+  {
+   "path": "dividendsInWindow[RY.TO]",
+   "exp": [
+    {
+     "date": "2023-01-25",
+     "amt": 1.32
+    },
+    {
+     "date": "2023-04-24",
+     "amt": 1.32
+    },
+    {
+     "date": "2023-07-25",
+     "amt": 1.35
+    },
+    {
+     "date": "2023-10-25",
+     "amt": 1.35
+    },
+    {
+     "date": "2024-01-24",
+     "amt": 1.38
+    },
+    {
+     "date": "2024-04-24",
+     "amt": 1.38
+    },
+    {
+     "date": "2024-07-25",
+     "amt": 1.42
+    },
+    {
+     "date": "2024-10-24",
+     "amt": 1.42
+    }
+   ],
+   "obs": [
+    {
+     "date": "2023-01-25",
+     "amt": 1.32
+    },
+    {
+     "date": "2023-04-24",
+     "amt": 1.32
+    },
+    {
+     "date": "2023-07-25",
+     "amt": 1.35
+    },
+    {
+     "date": "2023-10-25",
+     "amt": 1.35
+    },
+    {
+     "date": "2024-01-24",
+     "amt": 1.38
+    },
+    {
+     "date": "2024-04-24",
+     "amt": 1.38
+    },
+    {
+     "date": "2024-07-25",
+     "amt": 1.42
+    },
+    {
+     "date": "2024-10-24",
+     "amt": 1.42
+    }
+   ],
+   "match": true
+  },
+  {
+   "path": "splitsInWindow[RY.TO]",
+   "exp": [],
+   "obs": [],
+   "match": true
+  },
+  {
+   "path": "lumpDeploy.price[RY.TO]",
+   "exp": 128.02999877929688,
+   "obs": 128.02999877929688,
+   "diff": 0
+  },
+  {
+   "path": "run.sessions",
+   "exp": 502,
+   "obs": 502,
+   "diff": 0
+  },
+  {
+   "path": "run.years",
+   "exp": 1.9931553730321698,
+   "obs": 1.9931553730321698,
+   "diff": 0
+  },
+  {
+   "path": "run.missedContributions",
+   "exp": 0,
+   "obs": 0,
+   "diff": 0
+  },
+  {
+   "path": "run.lastPrices[0]",
+   "exp": 173.32000732421875,
+   "obs": 173.32000732421875,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.lump[0]",
+   "exp": 84.66011421844469,
+   "obs": 84.66011421844469,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.invested",
+   "exp": 10000,
+   "obs": 10000,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.endNlv",
+   "exp": 14673.29161641003,
+   "obs": 14673.29161641003,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.totalReturn",
+   "exp": 0.4673291616410029,
+   "obs": 0.4673291616410029,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.cagr",
+   "exp": 0.21213141674689484,
+   "obs": 0.21213141674689484,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.mwr",
+   "exp": 0.2121314165415242,
+   "obs": 0.2121314165415242,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.maxDrop",
+   "exp": -0.19706447673184518,
+   "obs": -0.19706447673184518,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.maxDropDate",
+   "exp": "2023-10-27",
+   "obs": "2023-10-27",
+   "match": true
+  },
+  {
+   "path": "run.lump.nlvAtDrop",
+   "exp": 8838.369557885333,
+   "obs": 8838.369557885333,
+   "diff": 0
+  },
+  {
+   "path": "run.lump.returnToDrop",
+   "exp": -0.11616304421146673,
+   "obs": -0.11616304421146673,
+   "diff": 0
+  },
+  {
+   "path": "run.shares.dca[0]",
+   "exp": 91.85182135244226,
+   "obs": 91.85182135244226,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.invested",
+   "exp": 12000,
+   "obs": 12000,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.endNlv",
+   "exp": 15919.758349548125,
+   "obs": 15919.758349548125,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.totalReturn",
+   "exp": 0.3266465291290104,
+   "obs": 0.3266465291290104,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.cagr",
+   "exp": 0.15236056363816264,
+   "obs": 0.15236056363816264,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.mwr",
+   "exp": 0.29957882550079373,
+   "obs": 0.29957882550079373,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.maxDrop",
+   "exp": -0.07579628778068091,
+   "obs": -0.07579628778068091,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.maxDropDate",
+   "exp": "2023-03-24",
+   "obs": "2023-03-24",
+   "match": true
+  },
+  {
+   "path": "run.dca.nlvAtDrop",
+   "exp": 1422.7465282889036,
+   "obs": 1422.7465282889036,
+   "diff": 0
+  },
+  {
+   "path": "run.dca.returnToDrop",
+   "exp": -0.05150231447406428,
+   "obs": -0.05150231447406428,
+   "diff": 0
+  },
+  {
+   "path": "run.chartPoints",
+   "exp": 502,
+   "obs": 502,
+   "diff": 0
+  },
+  {
+   "path": "run.chartFirst",
+   "exp": {
+    "date": "2023-01-03",
+    "lump": 10000,
+    "dca": 500
+   },
+   "obs": {
+    "date": "2023-01-03",
+    "lump": 10000,
+    "dca": 500
+   },
+   "match": true
+  },
+  {
+   "path": "run.chartLast",
+   "exp": {
+    "date": "2024-12-31",
+    "lump": 14673.29161641003,
+    "dca": 15919.758349548125
+   },
+   "obs": {
+    "date": "2024-12-31",
+    "lump": 14673.29161641003,
+    "dca": 15919.758349548125
+   },
+   "match": true
+  },
+  {
+   "path": "contributions.placed",
+   "exp": 24,
+   "obs": 24,
+   "diff": 0
+  },
+  {
+   "path": "contributions.invested",
+   "exp": 12000,
+   "obs": 12000,
+   "diff": 0
+  },
+  {
+   "path": "lumpDeploy.nlvOnDeployDate",
+   "exp": 10000,
+   "obs": 10000,
+   "diff": 0
+  }
+ ]
+}

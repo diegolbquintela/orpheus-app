@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* QA run logs, fixtures and tools are not app source: keep their class-like strings out of the CSS. */
+@source not "../qa";
+
 @theme {
   --font-sans: "Schibsted Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --color-paper: #ffffff;

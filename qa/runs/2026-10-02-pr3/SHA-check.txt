@@ -1,0 +1,15 @@
+SHA check, 2026-10-02 ~16:20 ET
+Live assets (from served HTML): /assets/index-mieVlY8q.js, /assets/routes-B4udfI96.js, /assets/styles-C0rGVVtl.css
+No version/build/commit marker found in the HTML or bundles (searched for c5c5666, 778832c, buildId, VERSION).
+Local reference build: git clone of github.com/diegolbquintela/orpheus-app, checked out c5c5666 (head of fix/mobile-results-chart),
+  npm ci && npx vite build -> index-Cv4kxR1U.js, routes-Cm76ELHP.js, styles-DzwM7UtH.css
+routes bundle (all Desk/app code): byte-identical to live once the hashed sibling filename is normalized
+  sha256 (normalized) local = live = 9369b93562c48c6c7c023bc72b3a39cc29d96355e0f34c6b0636821c6ccace29
+index bundle: identical to live once the hashed filenames are normalized (0 diff lines)
+styles css: NOT identical. Live has 4 extra utility classes (.mt-6, .mb-6, .h-80, .text-card/55, all used by the
+  pre-PR3 desk.tsx) and lacks .contents. Likely Tailwind source scanning in the deploy build environment. No effect on app JS.
+Distinguishes c5c5666 from its parent fd78d38: c5c5666 removes 'Not a recommendation' and adds the basket hint;
+  live has 0 'Not a recommendation' and has the hint.
+Verdict: app JS matches c5c5666 exactly. There is no embedded build marker and the CSS is not byte-identical,
+  so this is reported as "JS-confirmed, not formally confirmed".
+qa/fixtures.json at c5c5666 sha256 = workspace copy sha256 = 9ce3761c...a008a (identical)

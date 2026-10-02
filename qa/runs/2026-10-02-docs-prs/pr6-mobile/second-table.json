@@ -1,0 +1,25 @@
+{
+ "before": {
+  "wrap": {
+   "x": 20,
+   "y": 380.234375,
+   "width": 350,
+   "height": 83.390625
+  },
+  "wrapClass": "overflow-x-auto",
+  "lastCell": {
+   "x": 458.625,
+   "y": 419.125,
+   "width": 137.375,
+   "height": 44.5
+  }
+ },
+ "after": {
+  "lastCell": {
+   "x": 232.625,
+   "y": 419.125,
+   "width": 137.375,
+   "height": 44.5
+  }
+ }
+}

@@ -1,0 +1,12 @@
+island-pearl-eagle-hill.grok.me | ticker=VOD.L&start=2023-01-03&end=2024-12-31 | 400 | {"error":"VOD.L lists on LSE. US, EU, and CA listings only."}
+orpheus-app-beta.vercel.app | ticker=VOD.L&start=2023-01-03&end=2024-12-31 | 400 | {"error":"VOD.L lists on LSE. US, EU, and CA listings only."}
+island-pearl-eagle-hill.grok.me | ticker=ZZQXJ9&start=2023-01-03&end=2024-12-31 | 404 | {"error":"ZZQXJ9: No data found, symbol may be delisted"}
+orpheus-app-beta.vercel.app | ticker=ZZQXJ9&start=2023-01-03&end=2024-12-31 | 404 | {"error":"ZZQXJ9: No data found, symbol may be delisted"}
+island-pearl-eagle-hill.grok.me | ticker=RELIANCE.BO&start=2023-01-03&end=2024-12-31 | 400 | {"error":"RELIANCE.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."}
+orpheus-app-beta.vercel.app | ticker=RELIANCE.BO&start=2023-01-03&end=2024-12-31 | 400 | {"error":"RELIANCE.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."}
+island-pearl-eagle-hill.grok.me | ticker=KO&start=2024-12-31&end=2023-01-03 | 400 | {"error":"End date is before the start date."}
+orpheus-app-beta.vercel.app | ticker=KO&start=2024-12-31&end=2023-01-03 | 400 | {"error":"End date is before the start date."}
+island-pearl-eagle-hill.grok.me | ticker=&start=2023-01-03&end=2024-12-31 | 400 | {"error":"Ticker, start, and end are required."}
+orpheus-app-beta.vercel.app | ticker=&start=2023-01-03&end=2024-12-31 | 400 | {"error":"Ticker, start, and end are required."}
+island-pearl-eagle-hill.grok.me | ticker=KO | 400 | {"error":"Ticker, start, and end are required."}
+orpheus-app-beta.vercel.app | ticker=KO | 400 | {"error":"Ticker, start, and end are required."}

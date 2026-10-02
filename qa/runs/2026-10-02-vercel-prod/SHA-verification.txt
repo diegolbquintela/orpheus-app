@@ -1,0 +1,20 @@
+SHA verification: orpheus-app-beta.vercel.app, 2026-10-02 ~16:25 ET
+1) Vercel (user-Vercel connector)
+   get_deployment(dpl_9D1CLzx7Vj8EcVBeUWywf2BSZxRT, withGitRepoInfo):
+     state READY, target production, source git
+     project orpheus-app (prj_H8xXF2c5Q8JtzHO3srxiYlKYAHGb)
+     meta.githubCommitSha 68270c8e9e70c3e11cb8171e9d1f04e91db3a279, ref main
+     aliases include orpheus-app-beta.vercel.app
+     created 16:18:41 ET, ready 16:18:58 ET
+   get_deployment("orpheus-app-beta.vercel.app") resolves to the same dpl_9D1CLzx7Vj8EcVBeUWywf2BSZxRT.
+   list_deployments(project, target=production): newest is dpl_9D1CLzx7... (68270c8).
+     The previous one is dpl_8yThUf2Hovu... (4514a86, PR #2 merge, 16:16:36 ET).
+2) GitHub (user-GitHub-xai get_commit, plus a local git clone)
+   68270c8 = "Merge pull request #3 from diegolbquintela/fix/mobile-results-chart"
+     parents 4514a86 (main) and c5c5666 (PR #3 head); committed 16:18:38 ET
+   origin/main HEAD = 68270c8. c5c5666 is an ancestor of 68270c8.
+   git diff c5c5666 68270c8 is EMPTY (identical tree), so 68270c8 contains all of c5c5666's app changes.
+3) Bytes: local `npx vite build` of 68270c8 gives index-Cv4kxR1U.js, routes-Cm76ELHP.js, styles-DzwM7UtH.css,
+   with sha256 b8bbcff7..., 8e0495fa..., 6a524f2b...
+   These are byte-identical (same filenames and sha256) to the assets served by orpheus-app-beta.vercel.app.
+Verdict: CONFIRMED. Production = dpl_9D1CLzx7Vj8EcVBeUWywf2BSZxRT = main @ 68270c8 (tree == c5c5666).

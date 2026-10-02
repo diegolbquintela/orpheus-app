@@ -1,0 +1,66 @@
+{
+ "robots": {
+  "headerXRobotsTag": "noindex, nofollow",
+  "metaCount": 1,
+  "metaContent": "noindex, nofollow"
+ },
+ "pltr": {
+  "summary": "DCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now",
+  "rows": [
+   [
+    "",
+    "Lump sum ($1,000 once)",
+    "DCA ($1,000 weekly)"
+   ],
+   [
+    "Total invested",
+    "$1,000",
+    "$314,000"
+   ],
+   [
+    "NLV at end",
+    "$12,971",
+    "$2,026,141"
+   ],
+   [
+    "Money-weighted return (XIRR, per year)",
+    "+53.3%",
+    "+65.4%"
+   ],
+   [
+    "Total return",
+    "+1197.1%",
+    "+545.3%"
+   ],
+   [
+    "CAGR on total invested, as if all invested day one",
+    "+53.3%",
+    "+36.5%"
+   ],
+   [
+    "Max drop",
+    "−79.9% · 2022-12-28",
+    "−54.9% · 2022-05-11"
+   ],
+   [
+    "NLV at that drop",
+    "$588",
+    "$38,498"
+   ],
+   [
+    "Return to the drop",
+    "−41.2%",
+    "−54.2%"
+   ]
+  ],
+  "alert": [],
+  "errs": []
+ },
+ "vod": {
+  "alert": [
+   "VOD.L lists on LSE. US, EU, and CA listings only."
+  ],
+  "results": 0,
+  "errs": []
+ }
+}

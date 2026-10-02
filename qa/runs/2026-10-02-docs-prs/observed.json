@@ -1,0 +1,930 @@
+{
+ "pr4|PLTR_TQQQ": {
+  "summary": [
+   "DCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now"
+  ],
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "Lump sum ($1,000 once)",
+     "DCA ($1,000 weekly)"
+    ],
+    [
+     "Total invested",
+     "$1,000",
+     "$314,000"
+    ],
+    [
+     "NLV at end",
+     "$12,971",
+     "$2,026,141"
+    ],
+    [
+     "Money-weighted return (XIRR, per year)",
+     "+53.3%",
+     "+65.4%"
+    ],
+    [
+     "Total return",
+     "+1197.1%",
+     "+545.3%"
+    ],
+    [
+     "CAGR on total invested, as if all invested day one",
+     "+53.3%",
+     "+36.5%"
+    ],
+    [
+     "Max drop",
+     "−79.9% · 2022-12-28",
+     "−54.9% · 2022-05-11"
+    ],
+    [
+     "NLV at that drop",
+     "$588",
+     "$38,498"
+    ],
+    [
+     "Return to the drop",
+     "−41.2%",
+     "−54.2%"
+    ]
+   ],
+   [
+    [
+     "Name",
+     "Weight",
+     "Last",
+     "Lump sum shares",
+     "DCA shares"
+    ],
+    [
+     "PLTR",
+     "50.0%",
+     "188.75",
+     "54.3478",
+     "7,877.4486"
+    ],
+    [
+     "TQQQ",
+     "50.0%",
+     "81.01",
+     "33.4864",
+     "6,656.8669"
+    ]
+   ]
+  ],
+  "charts": [
+   {
+    "caption": "DCA NLV",
+    "y": [
+     "$0",
+     "$550k",
+     "$1.1M",
+     "$1.6M",
+     "$2.2M"
+    ],
+    "x": [
+     "2021-04",
+     "2022-01",
+     "2022-10",
+     "2023-08",
+     "2024-05",
+     "2025-02",
+     "2025-12",
+     "2026-10"
+    ],
+    "lines": 1
+   },
+   {
+    "caption": "Lump sum NLV",
+    "y": [
+     "$0",
+     "$3.5k",
+     "$7k",
+     "$11k",
+     "$14k"
+    ],
+    "x": [
+     "2021-04",
+     "2022-01",
+     "2022-10",
+     "2023-08",
+     "2024-05",
+     "2025-02",
+     "2025-12",
+     "2026-10"
+    ],
+    "lines": 1
+   }
+  ],
+  "mwrRowCellClasses": [
+   "px-4 py-3 ",
+   "px-4 py-3 font-medium"
+  ],
+  "notes": [
+   "04",
+   "Each plan has its own scale, so the two charts are not drawn to the same height.",
+   "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\nDCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now\n\n\tLUMP SUM ($1,000 ONCE)\tDCA ($1,000 WEEKLY)\nTotal invested\t$1,000\t$314,000\nNLV at end\t$12,971\t$2,026,141\nMoney-weighted return (XIRR, per year)\t+53.3%\t+65.4%\nTotal return\t+1197.1%\t+545.3%\nCAGR on total invested, as if all invested day one\t+53.3%\t+36.5%\nMax drop\t−79.9% · 2022-12-28\t−54.9% · 2022-05-11\nNLV at that drop\t$588\t$38,498\nReturn to the drop\t−41.2%\t−54.2%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nPLTR\t50.0%\t188.75\t54.3478\t7,877.4486\nTQQQ\t50.0%\t81.01\t33.4864\t6,656.8669\nDCA NLV\n2021-04\n2022-01\n2022-10\n2023-08\n2024-05\n2025-02\n2025-12\n2026-10\n$0\n$550k\n$1.1M\n$1.6M\n$2.2M\nLump sum NLV\n2021-04\n2022-01\n2022-10\n2023-08\n2024-05\n2025-02\n2025-12\n2026-10\n$0\n$3.5k\n$7k\n$11k\n$14k\n\nEach plan has its own scale, so the two charts are not drawn to the same height.\n\nPrices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.\n\nOrpheus Wisdom\n$3.5k",
+  "errs": [],
+  "api": [
+   {
+    "url": "https://orpheus-app-git-docs-agents-harness-diegolbquintelas-projects.vercel.app/api/chart?ticker=PLTR&start=2020-10-02&end=2026-10-02",
+    "status": 200
+   },
+   {
+    "url": "https://orpheus-app-git-docs-agents-harness-diegolbquintelas-projects.vercel.app/api/chart?ticker=TQQQ&start=2020-10-02&end=2026-10-02",
+    "status": 200
+   }
+  ],
+  "yahooFromBrowser": []
+ },
+ "pr4|VOD": {
+  "summary": [],
+  "alert": [
+   "VOD.L lists on LSE. US, EU, and CA listings only."
+  ],
+  "tables": [],
+  "charts": [],
+  "mwrRowCellClasses": [],
+  "notes": [],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nVOD.L lists on LSE. US, EU, and CA listings only.\n\nOrpheus Wisdom",
+  "errs": [],
+  "api": [
+   {
+    "url": "https://orpheus-app-git-docs-agents-harness-diegolbquintelas-projects.vercel.app/api/chart?ticker=VOD.L&start=2023-01-03&end=2024-12-31",
+    "status": 400
+   }
+  ],
+  "yahooFromBrowser": []
+ },
+ "pr5|PLTR_TQQQ": {
+  "summary": [
+   "DCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now"
+  ],
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "Lump sum ($1,000 once)",
+     "DCA ($1,000 weekly)"
+    ],
+    [
+     "Total invested",
+     "$1,000",
+     "$314,000"
+    ],
+    [
+     "NLV at end",
+     "$12,971",
+     "$2,026,141"
+    ],
+    [
+     "Money-weighted return (XIRR, per year)",
+     "+53.3%",
+     "+65.4%"
+    ],
+    [
+     "Total return",
+     "+1197.1%",
+     "+545.3%"
+    ],
+    [
+     "CAGR on total invested, as if all invested day one",
+     "+53.3%",
+     "+36.5%"
+    ],
+    [
+     "Max drop",
+     "−79.9% · 2022-12-28",
+     "−54.9% · 2022-05-11"
+    ],
+    [
+     "NLV at that drop",
+     "$588",
+     "$38,498"
+    ],
+    [
+     "Return to the drop",
+     "−41.2%",
+     "−54.2%"
+    ]
+   ],
+   [
+    [
+     "Name",
+     "Weight",
+     "Last",
+     "Lump sum shares",
+     "DCA shares"
+    ],
+    [
+     "PLTR",
+     "50.0%",
+     "188.75",
+     "54.3478",
+     "7,877.4486"
+    ],
+    [
+     "TQQQ",
+     "50.0%",
+     "81.01",
+     "33.4864",
+     "6,656.8669"
+    ]
+   ]
+  ],
+  "charts": [
+   {
+    "caption": "DCA NLV",
+    "y": [
+     "$0",
+     "$550k",
+     "$1.1M",
+     "$1.6M",
+     "$2.2M"
+    ],
+    "x": [
+     "2021-04",
+     "2022-01",
+     "2022-10",
+     "2023-08",
+     "2024-05",
+     "2025-02",
+     "2025-12",
+     "2026-10"
+    ],
+    "lines": 1
+   },
+   {
+    "caption": "Lump sum NLV",
+    "y": [
+     "$0",
+     "$3.5k",
+     "$7k",
+     "$11k",
+     "$14k"
+    ],
+    "x": [
+     "2021-04",
+     "2022-01",
+     "2022-10",
+     "2023-08",
+     "2024-05",
+     "2025-02",
+     "2025-12",
+     "2026-10"
+    ],
+    "lines": 1
+   }
+  ],
+  "mwrRowCellClasses": [
+   "px-4 py-3 ",
+   "px-4 py-3 font-medium"
+  ],
+  "notes": [
+   "04",
+   "Each plan has its own scale, so the two charts are not drawn to the same height.",
+   "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\nDCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now\n\n\tLUMP SUM ($1,000 ONCE)\tDCA ($1,000 WEEKLY)\nTotal invested\t$1,000\t$314,000\nNLV at end\t$12,971\t$2,026,141\nMoney-weighted return (XIRR, per year)\t+53.3%\t+65.4%\nTotal return\t+1197.1%\t+545.3%\nCAGR on total invested, as if all invested day one\t+53.3%\t+36.5%\nMax drop\t−79.9% · 2022-12-28\t−54.9% · 2022-05-11\nNLV at that drop\t$588\t$38,498\nReturn to the drop\t−41.2%\t−54.2%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nPLTR\t50.0%\t188.75\t54.3478\t7,877.4486\nTQQQ\t50.0%\t81.01\t33.4864\t6,656.8669\nDCA NLV\n2021-04\n2022-01\n2022-10\n2023-08\n2024-05\n2025-02\n2025-12\n2026-10\n$0\n$550k\n$1.1M\n$1.6M\n$2.2M\nLump sum NLV\n2021-04\n2022-01\n2022-10\n2023-08\n2024-05\n2025-02\n2025-12\n2026-10\n$0\n$3.5k\n$7k\n$11k\n$14k\n\nEach plan has its own scale, so the two charts are not drawn to the same height.\n\nPrices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.\n\nOrpheus Wisdom\n$3.5k",
+  "errs": [],
+  "api": [
+   {
+    "url": "https://orpheus-app-git-docs-readme-diegolbquintelas-projects.vercel.app/api/chart?ticker=PLTR&start=2020-10-02&end=2026-10-02",
+    "status": 200
+   },
+   {
+    "url": "https://orpheus-app-git-docs-readme-diegolbquintelas-projects.vercel.app/api/chart?ticker=TQQQ&start=2020-10-02&end=2026-10-02",
+    "status": 200
+   }
+  ],
+  "yahooFromBrowser": []
+ },
+ "pr5|VOD": {
+  "summary": [],
+  "alert": [
+   "VOD.L lists on LSE. US, EU, and CA listings only."
+  ],
+  "tables": [],
+  "charts": [],
+  "mwrRowCellClasses": [],
+  "notes": [],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nVOD.L lists on LSE. US, EU, and CA listings only.\n\nOrpheus Wisdom",
+  "errs": [],
+  "api": [
+   {
+    "url": "https://orpheus-app-git-docs-readme-diegolbquintelas-projects.vercel.app/api/chart?ticker=VOD.L&start=2023-01-03&end=2024-12-31",
+    "status": 400
+   }
+  ],
+  "yahooFromBrowser": []
+ },
+ "pr6|PLTR_TQQQ": {
+  "summary": [
+   "DCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now"
+  ],
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "Lump sum ($1,000 once)",
+     "DCA ($1,000 weekly)"
+    ],
+    [
+     "Total invested",
+     "$1,000",
+     "$314,000"
+    ],
+    [
+     "NLV at end",
+     "$12,971",
+     "$2,026,141"
+    ],
+    [
+     "Money-weighted return (XIRR, per year)",
+     "+53.3%",
+     "+65.4%"
+    ],
+    [
+     "Total return",
+     "+1197.1%",
+     "+545.3%"
+    ],
+    [
+     "CAGR on total invested, as if all invested day one",
+     "+53.3%",
+     "+36.5%"
+    ],
+    [
+     "Max drop",
+     "−79.9% · 2022-12-28",
+     "−54.9% · 2022-05-11"
+    ],
+    [
+     "NLV at that drop",
+     "$588",
+     "$38,498"
+    ],
+    [
+     "Return to the drop",
+     "−41.2%",
+     "−54.2%"
+    ]
+   ],
+   [
+    [
+     "Name",
+     "Weight",
+     "Last",
+     "Lump sum shares",
+     "DCA shares"
+    ],
+    [
+     "PLTR",
+     "50.0%",
+     "188.75",
+     "54.3478",
+     "7,877.4486"
+    ],
+    [
+     "TQQQ",
+     "50.0%",
+     "81.01",
+     "33.4864",
+     "6,656.8669"
+    ]
+   ]
+  ],
+  "charts": [
+   {
+    "caption": "DCA NLV",
+    "y": [
+     "$0",
+     "$550k",
+     "$1.1M",
+     "$1.6M",
+     "$2.2M"
+    ],
+    "x": [
+     "2021-04",
+     "2022-01",
+     "2022-10",
+     "2023-08",
+     "2024-05",
+     "2025-02",
+     "2025-12",
+     "2026-10"
+    ],
+    "lines": 1
+   },
+   {
+    "caption": "Lump sum NLV",
+    "y": [
+     "$0",
+     "$3.5k",
+     "$7k",
+     "$11k",
+     "$14k"
+    ],
+    "x": [
+     "2021-04",
+     "2022-01",
+     "2022-10",
+     "2023-08",
+     "2024-05",
+     "2025-02",
+     "2025-12",
+     "2026-10"
+    ],
+    "lines": 1
+   }
+  ],
+  "mwrRowCellClasses": [
+   "px-4 py-3 ",
+   "px-4 py-3 font-medium"
+  ],
+  "notes": [
+   "04",
+   "Each plan has its own scale, so the two charts are not drawn to the same height.",
+   "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\nDCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now\n\n\tLUMP SUM ($1,000 ONCE)\tDCA ($1,000 WEEKLY)\nTotal invested\t$1,000\t$314,000\nNLV at end\t$12,971\t$2,026,141\nMoney-weighted return (XIRR, per year)\t+53.3%\t+65.4%\nTotal return\t+1197.1%\t+545.3%\nCAGR on total invested, as if all invested day one\t+53.3%\t+36.5%\nMax drop\t−79.9% · 2022-12-28\t−54.9% · 2022-05-11\nNLV at that drop\t$588\t$38,498\nReturn to the drop\t−41.2%\t−54.2%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nPLTR\t50.0%\t188.75\t54.3478\t7,877.4486\nTQQQ\t50.0%\t81.01\t33.4864\t6,656.8669\nDCA NLV\n2021-04\n2022-01\n2022-10\n2023-08\n2024-05\n2025-02\n2025-12\n2026-10\n$0\n$550k\n$1.1M\n$1.6M\n$2.2M\nLump sum NLV\n2021-04\n2022-01\n2022-10\n2023-08\n2024-05\n2025-02\n2025-12\n2026-10\n$0\n$3.5k\n$7k\n$11k\n$14k\n\nEach plan has its own scale, so the two charts are not drawn to the same height.\n\nPrices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.\n\nOrpheus Wisdom\n$3.5k",
+  "errs": [],
+  "api": [
+   {
+    "url": "https://orpheus-app-git-docs-spec-copy-update-diegolbquintelas-projects.vercel.app/api/chart?ticker=PLTR&start=2020-10-02&end=2026-10-02",
+    "status": 200
+   },
+   {
+    "url": "https://orpheus-app-git-docs-spec-copy-update-diegolbquintelas-projects.vercel.app/api/chart?ticker=TQQQ&start=2020-10-02&end=2026-10-02",
+    "status": 200
+   }
+  ],
+  "yahooFromBrowser": []
+ },
+ "pr6|VOD": {
+  "summary": [],
+  "alert": [
+   "VOD.L lists on LSE. US, EU, and CA listings only."
+  ],
+  "tables": [],
+  "charts": [],
+  "mwrRowCellClasses": [],
+  "notes": [],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nVOD.L lists on LSE. US, EU, and CA listings only.\n\nOrpheus Wisdom",
+  "errs": [],
+  "api": [
+   {
+    "url": "https://orpheus-app-git-docs-spec-copy-update-diegolbquintelas-projects.vercel.app/api/chart?ticker=VOD.L&start=2023-01-03&end=2024-12-31",
+    "status": 400
+   }
+  ],
+  "yahooFromBrowser": []
+ },
+ "spec_blank": {
+  "inputValues": [
+   "",
+   "",
+   "",
+   "",
+   "",
+   ""
+  ],
+  "select": "",
+  "results": 0,
+  "intro": [
+   "01",
+   "Pick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled."
+  ],
+  "hint": [
+   "US, EU and CA listings, one currency per basket."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\nOrpheus Wisdom",
+  "rows": {
+   "afterAdd": 2,
+   "afterRemove": 1
+  }
+ },
+ "spec_scaled": {
+  "summary": [
+   "DCA: $12k in, $11.9k now · Lump sum: $10k in, $9.57k now"
+  ],
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "Lump sum ($10,000 once)",
+     "DCA ($500 monthly)"
+    ],
+    [
+     "Total invested",
+     "$10,000",
+     "$12,000"
+    ],
+    [
+     "NLV at end",
+     "$9,568",
+     "$11,914"
+    ],
+    [
+     "Money-weighted return (XIRR, per year)",
+     "−2.2%",
+     "−0.7%"
+    ],
+    [
+     "Total return",
+     "−4.3%",
+     "−0.7%"
+    ],
+    [
+     "CAGR on total invested, as if all invested day one",
+     "−2.2%",
+     "−0.4%"
+    ],
+    [
+     "Max drop",
+     "−14.2% · 2023-10-27",
+     "−7.2% · 2023-01-30"
+    ],
+    [
+     "NLV at that drop",
+     "$8,665",
+     "$468"
+    ],
+    [
+     "Return to the drop",
+     "−13.4%",
+     "−6.4%"
+    ]
+   ],
+   [
+    [
+     "Name",
+     "Weight",
+     "Last",
+     "Lump sum shares",
+     "DCA shares"
+    ],
+    [
+     "KO",
+     "50.0%",
+     "62.26",
+     "84.4055",
+     "100.474"
+    ],
+    [
+     "JNJ",
+     "50.0%",
+     "144.62",
+     "29.8227",
+     "39.1274"
+    ]
+   ]
+  ],
+  "charts": [
+   {
+    "caption": "DCA NLV",
+    "y": [
+     "$0",
+     "$3.5k",
+     "$7k",
+     "$11k",
+     "$14k"
+    ],
+    "x": [
+     "2023-03",
+     "2023-06",
+     "2023-09",
+     "2023-12",
+     "2024-03",
+     "2024-06",
+     "2024-09",
+     "2024-12"
+    ],
+    "lines": 1
+   },
+   {
+    "caption": "Lump sum NLV",
+    "y": [
+     "$0",
+     "$3k",
+     "$6k",
+     "$9k",
+     "$12k"
+    ],
+    "x": [
+     "2023-03",
+     "2023-06",
+     "2023-09",
+     "2023-12",
+     "2024-03",
+     "2024-06",
+     "2024-09",
+     "2024-12"
+    ],
+    "lines": 1
+   }
+  ],
+  "mwrRowCellClasses": [
+   "px-4 py-3 ",
+   "px-4 py-3 font-medium"
+  ],
+  "notes": [
+   "04",
+   "Each plan has its own scale, so the two charts are not drawn to the same height.",
+   "Weights summed to 120.0 and were scaled to 100. Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\nDCA: $12k in, $11.9k now · Lump sum: $10k in, $9.57k now\n\n\tLUMP SUM ($10,000 ONCE)\tDCA ($500 MONTHLY)\nTotal invested\t$10,000\t$12,000\nNLV at end\t$9,568\t$11,914\nMoney-weighted return (XIRR, per year)\t−2.2%\t−0.7%\nTotal return\t−4.3%\t−0.7%\nCAGR on total invested, as if all invested day one\t−2.2%\t−0.4%\nMax drop\t−14.2% · 2023-10-27\t−7.2% · 2023-01-30\nNLV at that drop\t$8,665\t$468\nReturn to the drop\t−13.4%\t−6.4%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nKO\t50.0%\t62.26\t84.4055\t100.474\nJNJ\t50.0%\t144.62\t29.8227\t39.1274\nDCA NLV\n2023-03\n2023-06\n2023-09\n2023-12\n2024-03\n2024-06\n2024-09\n2024-12\n$0\n$3.5k\n$7k\n$11k\n$14k\nLump sum NLV\n2023-03\n2023-06\n2023-09\n2023-12\n2024-03\n2024-06\n2024-09\n2024-12\n$0\n$3k\n$6k\n$9k\n$12k\n\nEach plan has its own scale, so the two charts are not drawn to the same height.\n\nWeights summed to 120.0 and were scaled to 100. Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.\n\nOrpheus Wisdom\n$3k",
+  "errs": []
+ },
+ "spec_missed": {
+  "summary": [
+   "DCA: $100 in, $100 now · Lump sum: $1k in, $1k now"
+  ],
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "Lump sum ($1,000 once)",
+     "DCA ($100 weekly)"
+    ],
+    [
+     "Total invested",
+     "$1,000",
+     "$100"
+    ],
+    [
+     "NLV at end",
+     "$1,005",
+     "$100"
+    ],
+    [
+     "Money-weighted return (XIRR, per year)",
+     "+52.9%",
+     "+52.9%"
+    ],
+    [
+     "Total return",
+     "+0.5%",
+     "+0.5%"
+    ],
+    [
+     "CAGR on total invested, as if all invested day one",
+     "+32.7%",
+     "+32.7%"
+    ],
+    [
+     "Max drop",
+     "−0.6% · 2024-01-11",
+     "−0.6% · 2024-01-11"
+    ],
+    [
+     "NLV at that drop",
+     "$995",
+     "$100"
+    ],
+    [
+     "Return to the drop",
+     "−0.5%",
+     "−0.5%"
+    ]
+   ],
+   [
+    [
+     "Name",
+     "Weight",
+     "Last",
+     "Lump sum shares",
+     "DCA shares"
+    ],
+    [
+     "KO",
+     "100.0%",
+     "60.39",
+     "16.6362",
+     "1.6636"
+    ]
+   ]
+  ],
+  "charts": [
+   {
+    "caption": "DCA NLV",
+    "y": [
+     "$0",
+     "$30",
+     "$60",
+     "$90",
+     "$120"
+    ],
+    "x": [
+     "2024-01",
+     "2024-01",
+     "2024-01",
+     "2024-01",
+     "2024-01"
+    ],
+    "lines": 1
+   },
+   {
+    "caption": "Lump sum NLV",
+    "y": [
+     "$0",
+     "$300",
+     "$600",
+     "$900",
+     "$1.2k"
+    ],
+    "x": [
+     "2024-01",
+     "2024-01",
+     "2024-01",
+     "2024-01",
+     "2024-01"
+    ],
+    "lines": 1
+   }
+  ],
+  "mwrRowCellClasses": [
+   "px-4 py-3 ",
+   "px-4 py-3 font-medium"
+  ],
+  "notes": [
+   "04",
+   "Each plan has its own scale, so the two charts are not drawn to the same height.",
+   "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close. 1 contribution date had no later session."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\nDCA: $100 in, $100 now · Lump sum: $1k in, $1k now\n\n\tLUMP SUM ($1,000 ONCE)\tDCA ($100 WEEKLY)\nTotal invested\t$1,000\t$100\nNLV at end\t$1,005\t$100\nMoney-weighted return (XIRR, per year)\t+52.9%\t+52.9%\nTotal return\t+0.5%\t+0.5%\nCAGR on total invested, as if all invested day one\t+32.7%\t+32.7%\nMax drop\t−0.6% · 2024-01-11\t−0.6% · 2024-01-11\nNLV at that drop\t$995\t$100\nReturn to the drop\t−0.5%\t−0.5%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nKO\t100.0%\t60.39\t16.6362\t1.6636\nDCA NLV\n2024-01\n2024-01\n2024-01\n2024-01\n2024-01\n$0\n$30\n$60\n$90\n$120\nLump sum NLV\n2024-01\n2024-01\n2024-01\n2024-01\n2024-01\n$0\n$300\n$600\n$900\n$1.2k\n\nEach plan has its own scale, so the two charts are not drawn to the same height.\n\nPrices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close. 1 contribution date had no later session.\n\nOrpheus Wisdom\n$300",
+  "errs": []
+ },
+ "spec_mixed": {
+  "summary": [],
+  "alert": [
+   "Mixed currencies (KO USD, RY.TO CAD). One currency per basket. No conversion in this version."
+  ],
+  "tables": [],
+  "charts": [],
+  "mwrRowCellClasses": [],
+  "notes": [],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nMixed currencies (KO USD, RY.TO CAD). One currency per basket. No conversion in this version.\n\nOrpheus Wisdom",
+  "errs": []
+ },
+ "spec_bse": {
+  "summary": [],
+  "alert": [
+   "RELIANCE.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."
+  ],
+  "tables": [],
+  "charts": [],
+  "mwrRowCellClasses": [],
+  "notes": [],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nRELIANCE.BO lists on BSE. BSE and other non US/EU/CA venues are not supported.\n\nOrpheus Wisdom",
+  "errs": []
+ },
+ "spec_dup": {
+  "summary": [],
+  "alert": [
+   "Each ticker once."
+  ],
+  "tables": [],
+  "charts": [],
+  "mwrRowCellClasses": [],
+  "notes": [],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nEach ticker once.\n\nOrpheus Wisdom",
+  "errs": []
+ },
+ "spec_eu": {
+  "summary": [
+   "DCA: €12k in, €10.5k now · Lump sum: €10k in, €9.36k now"
+  ],
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "Lump sum (€10,000 once)",
+     "DCA (€500 monthly)"
+    ],
+    [
+     "Total invested",
+     "€10,000",
+     "€12,000"
+    ],
+    [
+     "NLV at end",
+     "€9,356",
+     "€10,506"
+    ],
+    [
+     "Money-weighted return (XIRR, per year)",
+     "−3.3%",
+     "−12.3%"
+    ],
+    [
+     "Total return",
+     "−6.4%",
+     "−12.4%"
+    ],
+    [
+     "CAGR on total invested, as if all invested day one",
+     "−3.3%",
+     "−6.5%"
+    ],
+    [
+     "Max drop",
+     "−34.9% · 2024-11-12",
+     "−13.0% · 2024-08-02"
+    ],
+    [
+     "NLV at that drop",
+     "€8,351",
+     "€7,845"
+    ],
+    [
+     "Return to the drop",
+     "−16.5%",
+     "−17.4%"
+    ]
+   ],
+   [
+    [
+     "Name",
+     "Weight",
+     "Last",
+     "Lump sum shares",
+     "DCA shares"
+    ],
+    [
+     "MC.PA",
+     "100.0%",
+     "635.50",
+     "14.7216",
+     "16.5319"
+    ]
+   ]
+  ],
+  "charts": [
+   {
+    "caption": "DCA NLV",
+    "y": [
+     "€0",
+     "€3k",
+     "€6k",
+     "€9k",
+     "€12k"
+    ],
+    "x": [
+     "2023-03",
+     "2023-06",
+     "2023-09",
+     "2023-12",
+     "2024-03",
+     "2024-06",
+     "2024-09",
+     "2024-12"
+    ],
+    "lines": 1
+   },
+   {
+    "caption": "Lump sum NLV",
+    "y": [
+     "€0",
+     "€3.5k",
+     "€7k",
+     "€11k",
+     "€14k"
+    ],
+    "x": [
+     "2023-03",
+     "2023-06",
+     "2023-09",
+     "2023-12",
+     "2024-03",
+     "2024-06",
+     "2024-09",
+     "2024-12"
+    ],
+    "lines": 1
+   }
+  ],
+  "mwrRowCellClasses": [
+   "px-4 py-3 ",
+   "px-4 py-3 font-medium"
+  ],
+  "notes": [
+   "04",
+   "Each plan has its own scale, so the two charts are not drawn to the same height.",
+   "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close."
+  ],
+  "body": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nPick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n\nUS, EU and CA listings, one currency per basket.\n\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\nDCA: €12k in, €10.5k now · Lump sum: €10k in, €9.36k now\n\n\tLUMP SUM (€10,000 ONCE)\tDCA (€500 MONTHLY)\nTotal invested\t€10,000\t€12,000\nNLV at end\t€9,356\t€10,506\nMoney-weighted return (XIRR, per year)\t−3.3%\t−12.3%\nTotal return\t−6.4%\t−12.4%\nCAGR on total invested, as if all invested day one\t−3.3%\t−6.5%\nMax drop\t−34.9% · 2024-11-12\t−13.0% · 2024-08-02\nNLV at that drop\t€8,351\t€7,845\nReturn to the drop\t−16.5%\t−17.4%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nMC.PA\t100.0%\t635.50\t14.7216\t16.5319\nDCA NLV\n2023-03\n2023-06\n2023-09\n2023-12\n2024-03\n2024-06\n2024-09\n2024-12\n€0\n€3k\n€6k\n€9k\n€12k\nLump sum NLV\n2023-03\n2023-06\n2023-09\n2023-12\n2024-03\n2024-06\n2024-09\n2024-12\n€0\n€3.5k\n€7k\n€11k\n€14k\n\nEach plan has its own scale, so the two charts are not drawn to the same height.\n\nPrices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.\n\nOrpheus Wisdom\n€3.5k",
+  "errs": []
+ }
+}

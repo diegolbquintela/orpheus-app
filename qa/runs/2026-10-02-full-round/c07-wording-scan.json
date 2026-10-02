@@ -1,0 +1,54 @@
+{
+ "initial_text": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "initial_html": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "c2": {
+  "matches": [],
+  "disclaimer": false
+ },
+ "aapl_monthly": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "aapl_weekly": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "c4": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "c6_VOD.L": {
+  "matches": [],
+  "disclaimer": false
+ },
+ "c6_BARC.L": {
+  "matches": [],
+  "disclaimer": false
+ },
+ "c6_RY.TO": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "c6_SHOP.TO": {
+  "matches": [],
+  "disclaimer": true
+ },
+ "c9_emptyTicker": {
+  "matches": [],
+  "disclaimer": false
+ },
+ "c9_nonsense": {
+  "matches": [],
+  "disclaimer": false
+ },
+ "c9_endBeforeStart": {
+  "matches": [],
+  "disclaimer": false
+ }
+}
