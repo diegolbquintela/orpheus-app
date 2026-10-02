@@ -13,6 +13,8 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       { name: "description", content: "Orpheus Wisdom. Compare a lump-sum cash plan with weekly or monthly contributions." },
       { name: "theme-color", content: "#1e2124" },
+      // Keep the app out of search engines (pairs with the X-Robots-Tag route rule in vite.config.ts).
+      { name: "robots", content: "noindex, nofollow" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
