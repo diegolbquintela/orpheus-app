@@ -143,6 +143,26 @@ functions and stores users in our Postgres (cost is the database, section 4).
 
 **Recommendation:** keep Better Auth, turn on email/password, run it on Neon Postgres (section 4).
 
+### Implementation notes (T03, #11)
+
+- Email/password only (D11); the Grok broker (`genericOAuth`), gate-identity, popup and bearer-token paths
+  and `src/lib/auth/preview.ts` are removed. Better Auth is mounted at `/api/auth/*` **only while
+  `DASHBOARD_ENABLED` is on** (404 JSON otherwise, every method), so production is unaffected until the
+  release go.
+- **Sign-up allow-list (D12):** server-only variable **`DASHBOARD_SIGNUP_ALLOWLIST`**, emails separated by
+  commas, semicolons or whitespace, matched case-insensitively. Unset or empty: nobody can sign up (fail
+  closed). Others get 403 "Sign-up is limited to invited email addresses." Existing users can always sign in.
+- **Database:** the shared resolver (`scripts/db-env.mjs`): `DATABASE_URL`, else
+  `orpheus_app_preview_DATABASE_URL`. Schema: `migrations/0001_auth.sql` (verbatim copy of
+  `migrations/auth/0001_auth.sql`), plus `0003_user_settings_fk.sql` for the §5 FK.
+- **Origins:** production uses `BETTER_AUTH_URL`; previews use exactly `VERCEL_BRANCH_URL` and `VERCEL_URL`
+  (https) and ignore `BETTER_AUTH_URL`, so no Preview value is needed for it. Local runs: loopback.
+- **Fail closed:** on Vercel, without `BETTER_AUTH_SECRET` or a database URL (or with
+  `VITE_AUTH_ENABLED=false`), `/api/auth/*` answers 503 JSON and nobody is signed in.
+- `/dashboard` redirects to `/dashboard/sign-in` without a session. Per-user dashboard APIs answer 401 JSON
+  signed out and 403 JSON when a request names another user's id; the user id comes only from the session.
+  `/api/dashboard/status` and `/api/dashboard/db` are diagnostics without user data and stay public.
+
 ## 4. Per-user storage on Vercel
 
 Per-user data is small: a settings row, a few dozen holdings rows and a list of chosen columns per user.
@@ -198,9 +218,9 @@ Shared market-data tables (written only by the daily job):
 | `refresh_runs` | `id`, `run_date`, `started_at`, `finished_at`, `status`, `detail` jsonb | PK `id`; unique `run_date` for the lock |
 
 Implementation notes (T02, #10):
-- The FK `user_settings.user_id → "user"(id) on delete cascade` lands with T03 (#11) in its own migration,
-  because the Better Auth `"user"` table only enters `migrations/` in T03. `0002_dashboard.sql` creates
-  every other column, key and check above.
+- The FK `user_settings.user_id → "user"(id) on delete cascade` landed with T03 (#11) in its own migration,
+  `0003_user_settings_fk.sql`, after the Better Auth schema (`0001_auth.sql`) entered `migrations/`.
+  `0002_dashboard.sql` creates every other column, key and check above.
 - Env var names as installed (2026-10-02): the Neon integration (database `neon-almond-lever`) injects
   prefixed names for Preview and Development only: `orpheus_app_preview_DATABASE_URL`, `..._UNPOOLED` and
   others. The app reads `DATABASE_URL`, else `orpheus_app_preview_DATABASE_URL`. Migrations prefer the
@@ -282,7 +302,7 @@ So: US domestic filers usually have 10+ years once tag changes are stitched; for
   ([filings.xbrl.org: About](https://filings.xbrl.org/about.html), checked 2026-10-02). Parsing ESEF is
   a bigger job than this feature; not proposed for v1.
 
-### Paid APIs (prices from their own pages)
+### Paid APIs (prices from their own pages; reference only, none bought: D10, D13)
 
 | Provider | Plan | Price | Coverage / history (as stated) |
 |---|---|---|---|
@@ -295,10 +315,10 @@ So: US domestic filers usually have 10+ years once tag changes are stitched; for
 | EODHD | Fundamentals Data Feed | $59.99/mo ($599.90/yr) | Global fundamentals; **end-of-day prices not included**; fundamentals cost 10 API calls per request; "Fundamentals go back to 1985 … for major US companies and 2000 … for non-US firms" (same page) |
 | EODHD | ALL-IN-ONE | $99.99/mo ($999.90/yr) | Prices + fundamentals (same page). Display/redistribution terms: not stated on provider pricing page. |
 
-Cheapest paid setup that covers **EU and CA fundamentals with 10y history plus daily closes**: EODHD
-Fundamentals + EOD Historical ($59.99 + $19.99 = $79.98/mo), or ALL-IN-ONE at $99.99/mo; or FMP Ultimate
-at $99/mo billed annually (plus a display licence, price not stated). Signing up is Diego's call; this spec
-adds nothing paid.
+For reference only: the cheapest paid setup that would cover **EU and CA fundamentals with 10y history plus
+daily closes** is EODHD Fundamentals + EOD Historical ($59.99 + $19.99 = $79.98/mo), or ALL-IN-ONE at
+$99.99/mo, or FMP Ultimate at $99/mo billed annually (plus a display licence, price not stated). **Decided
+(D10, D13): $0 now, nothing paid.** EODHD is a revisit-later option only, not a planned purchase.
 
 ### Recommendation
 
@@ -307,7 +327,8 @@ interface (Yahoo is the primary source, decided in
 [Amendment A](#14-amendment-a-daily-close-source)). Every holding
 without SEC coverage shows `—` with the reason "not covered" in metric cells, and portfolio metrics show
 coverage % (section 9). If Diego's real holdings are mostly EU/TSX-only names, the $0 path will show a
-lot of `—`; the decision to buy EODHD is then an informed one. The fundamentals ingest is behind one
+lot of `—`; that is the expected result at $0 (D10, D13). A paid source such as EODHD is only revisited
+later, as a new decision for Diego. The fundamentals ingest is behind one
 small adapter so a paid source can replace it in one ticket.
 
 The daily job refreshes a symbol's `companyfacts` only when it has no data yet or is older than 7 days
@@ -533,7 +554,7 @@ Diego decided every item on 2026-10-02: D1–D12 approved (D8, D9 and D12 as rec
 | D9 | Portfolio EPS | Weighted 1y EPS growth shown in the portfolio EPS column, labelled as such | **Approved 2026-10-02** | — |
 | D10 | Paid data | Stay on the $0 path; non-SEC EU/TSX names show "not covered"; no paid vendor now. D13 decided $0, consistent with D10 | **Approved 2026-10-02** | $0 |
 | D11 | Sign-in methods | Email/password only at launch; Google later only as its own ticket | **Approved 2026-10-02** | $0 |
-| D12 | Who may sign up | Allow-list of emails in a Vercel env var (no open sign-up); handled in T03 (#11) | **Approved 2026-10-02** | $0 |
+| D12 | Who may sign up | Allow-list of emails in a Vercel env var, `DASHBOARD_SIGNUP_ALLOWLIST` (no open sign-up); handled in T03 (#11) | **Approved 2026-10-02** | $0 |
 | D13 | Daily-close source (Amendment A, section 14) | Stay at $0: Yahoo primary behind `DailyCloseProvider`; each close cached once per ticker and date in Neon, never fetched again; Alpha Vantage free as fallback where it fits (fit partly **unverified**); no EODHD (EODHD and Twelve Data: revisit later); Yahoo ToS §2.d.ix risk known and accepted for now; consistent with D10 | **Decided 2026-10-02: $0, Yahoo primary** | $0 |
 
 ## 14. Amendment A: daily-close source

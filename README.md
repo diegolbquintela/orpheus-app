@@ -104,16 +104,35 @@ Diego gives the release go, it stays hidden behind one **server-only** env var, 
 - Only the exact value `true` turns it on. Unset or any other value means off.
 - Off (production): `/dashboard` and every `/api/dashboard/*` route return a real **404**. The page 404
   is the same as for any unknown URL (no dashboard title or copy); the API answers JSON for every method.
-- On (Vercel **Preview** environment only, set by an owner): `/dashboard` shows the current shell, and
-  `GET /api/dashboard/status` returns `{"dashboard":"enabled"}` (other methods: 405 JSON, `Allow: GET, HEAD`).
+- On (Vercel **Preview** environment only, set by an owner): `/dashboard` needs a session (see "Dashboard
+  sign-in" below), and `GET /api/dashboard/status` returns `{"dashboard":"enabled"}` (other methods: 405
+  JSON, `Allow: GET, HEAD`).
 - The calculator at `/` doesn't read the flag and doesn't link to the dashboard.
 
 ```bash
-DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboard
+# Local sign-in uses the in-memory PGLite database and a per-process secret. Use a test address.
+DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@example.com npm run dev
+# then open http://localhost:8080/dashboard -> redirected to /dashboard/sign-in
 ```
 
+**Dashboard sign-in (T03).** Better Auth email/password at `/api/auth/*`, only while the flag is on
+(404 JSON otherwise, so production is unaffected).
+- Sign-up is invite-only (D12): only emails listed in the server-only Vercel variable
+  `DASHBOARD_SIGNUP_ALLOWLIST` (comma- or space-separated, case-insensitive) can create an account. Unset
+  or empty means nobody can sign up. Others get "Sign-up is limited to invited email addresses." (403).
+- Signed out, `/dashboard` redirects to `/dashboard/sign-in`; per-user APIs (`/api/dashboard/me`,
+  `/api/dashboard/settings`) answer 401 JSON. A request naming another user's id gets 403. The diagnostic
+  routes `/api/dashboard/status` and `/api/dashboard/db` stay public (no user data).
+- Sign-in needs, on Vercel: `BETTER_AUTH_SECRET`, a database URL, and `VITE_AUTH_ENABLED` not `"false"`.
+  Previews derive their origin from `VERCEL_URL` / `VERCEL_BRANCH_URL`; production uses `BETTER_AUTH_URL`
+  (set at the release go). Missing pieces make `/api/auth/*` answer 503 JSON ("not configured").
+- No email sender: no email verification and no password-reset email yet (spec §3).
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
-[`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql). Data access lives in
+[`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
+[`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and
+[`migrations/0003_user_settings_fk.sql`](migrations/0003_user_settings_fk.sql) links `user_settings` to
+`"user"` (on delete cascade). Data access lives in
 `src/lib/dashboard/store.server.ts` and is server-only.
 - Database URL: `DATABASE_URL` when set, otherwise `orpheus_app_preview_DATABASE_URL`, the prefixed name the
   Vercel Neon integration injects. It's scoped to Preview and Development only; Production has none.
@@ -121,8 +140,7 @@ DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboa
   `orpheus_app_preview_DATABASE_URL_UNPOOLED`) and fall back to the pooled URL. Neon preview branching is
   on, so a preview deploy can get its own Neon branch. Precedence lives in `scripts/db-env.mjs`.
 - `npm run build` applies pending migrations when a database URL is set. It logs which env var name it used
-  (never the value), then `applied 0002_dashboard.sql`
-  once, then `up to date` on later deploys.
+  (never the value), then `applied <file>` once per new migration, then `up to date` on later deploys.
   On production builds (`VERCEL_ENV=production`) it skips unless `DASHBOARD_ENABLED=true` there too.
 - With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
   The app still builds, and the calculator never touches the database.
@@ -147,8 +165,9 @@ skip this.
 
 ## No secrets in the repo
 
-- Environment variables live only in the Vercel project settings: `VITE_AUTH_ENABLED` and
-  `BETTER_AUTH_SECRET`.
+- Environment variables live only in the Vercel project settings (`VITE_AUTH_ENABLED`,
+  `BETTER_AUTH_SECRET`, `DASHBOARD_ENABLED`, `DASHBOARD_SIGNUP_ALLOWLIST`, the Neon variables, later
+  `BETTER_AUTH_URL` for production). Owners set them; bots never do.
 - Never commit their values and never add a `.env` file.
 - Never paste secret values into issues, PRs, chat or notes.
 - `.vercel/output/` is build output and is git-ignored.

@@ -56,11 +56,13 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);
 });
 
-test("the auth schema ships outside the globbed directory", () => {
+test("the auth schema is copied into the applied directory (T03, #11) and kept at its source", () => {
   const migrationsDir = join(projectRoot(), "migrations");
-  // App migrations (e.g. 0002_dashboard.sql) live here; the opt-in auth schema must not.
+  // Sign-in is on since T03: migrations/0001_auth.sql is applied with the app migrations, before
+  // 0003_user_settings_fk.sql, which references its "user" table.
   const names = pendingMigrations(readdirSync(migrationsDir), []).map((m) => m.name);
-  assert.ok(!names.includes("0001_auth.sql"));
+  assert.ok(names.includes("0001_auth.sql"));
+  assert.ok(names.indexOf("0001_auth.sql") < names.indexOf("0003_user_settings_fk.sql"));
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
