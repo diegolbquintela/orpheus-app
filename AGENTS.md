@@ -11,7 +11,8 @@ affects the repo.
 
 - The harness (this `AGENTS.md`), the spec docs (`attachments/dca-app-spec.md` for the calculator;
   `attachments/dashboard-spec.md` for the signed-in dashboard, **approved by Diego 2026-10-02 for
-  decisions D1–D7, D10, D11**; D8, D9, D12 and Amendment A (daily-close source) are still pending) and `README.md` are the source of truth for this
+  decisions D1–D7, D10, D11**; D8, D9 and D12 are still pending; Amendment A (daily-close source) is
+  written in section 14 and recommended as D13, pending Diego) and `README.md` are the source of truth for this
   app.
 - Every feature PR updates `README.md`, the relevant spec and this harness **in the same PR**, or says
   in the PR body, for each of the three, why it did not change.
