@@ -153,6 +153,31 @@ curl -s  http://localhost:8080/api/dashboard/status
 - On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
   `/dashboard` is a 404 on a preview, the variable isn't set there yet.
 
+### Dashboard storage locally (`DATABASE_URL`)
+
+- Env var: **`DATABASE_URL`** (Neon pooled URL, injected by the Vercel Neon integration, Preview scope; set
+  by an owner, never by a bot). Never commit or paste its value. Unset = storage unavailable.
+- Schema: `migrations/0002_dashboard.sql` (spec §5). Never edit a shipped migration; add `0003_*.sql`.
+  The spec's `user_settings.user_id -> "user"(id)` FK is added by T03 (#11) together with the auth schema.
+- Data access: `src/lib/dashboard/store.server.ts`. Every per-user function takes the `userId` from the
+  verified session (`requireUserId()`), never from the client. Connection and status:
+  `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without `DATABASE_URL`
+  reports "not configured".
+- Tests: `src/lib/dashboard/store.test.ts` (in `npm test`) applies the migration to in-process PGLite and
+  exercises every function. No network or Neon needed, and it runs in CI.
+- Run migrations against a real Postgres (your own local or throwaway database, never production):
+
+```bash
+DATABASE_URL=postgresql://user:pass@localhost:5432/db node scripts/migrate.mjs   # "applied 0002_dashboard.sql", then "up to date"
+DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 9/9 tables"
+curl -s http://localhost:8080/api/dashboard/db          # JSON status; 404 when the flag is off or VERCEL_ENV=production
+```
+
+  No local Postgres? Install `@electric-sql/pglite` and `@electric-sql/pglite-socket` **outside the repo** and
+  run its `pglite-server -p 15433` for a throwaway one (that's how T02 was checked end to end).
+  Plain `npm run dev` without `DATABASE_URL` also applies `migrations/*.sql` to the template's in-memory
+  PGLite (catches SQL errors), but the dashboard status still reads "not configured" by design.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

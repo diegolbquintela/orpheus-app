@@ -111,6 +111,19 @@ Diego gives the release go, it stays hidden behind one **server-only** env var, 
 DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboard
 ```
 
+**Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
+[`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql). Data access lives in
+`src/lib/dashboard/store.server.ts` and is server-only.
+- The database URL comes only from `DATABASE_URL`, which the Neon integration injects. An owner scopes it
+  to Vercel **Preview** (a `preview` Neon branch).
+- `npm run build` applies pending migrations when `DATABASE_URL` is set. It logs `applied 0002_dashboard.sql`
+  once, then `up to date` on later deploys.
+- Without `DATABASE_URL`, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
+  The app still builds, and the calculator never touches the database.
+- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 9/9 tables" when Neon is
+  wired up. `GET /api/dashboard/db` returns the same status as JSON. Both are hidden on production.
+- After a week of previews, check Neon's usage page against the Free plan limits (spec §4).
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.
