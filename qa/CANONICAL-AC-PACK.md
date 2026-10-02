@@ -1,10 +1,10 @@
-<!-- Copied 2026-10-02 from the QA box (/workspace/orpheus-app/qa/CANONICAL-AC-PACK.md), text unchanged.
-     This repo copy is now canonical. The "Fixtures:" path below is QA's box working copy; the canonical
-     fixtures are qa/fixtures.json in this repo. -->
+<!-- Canonical copy. Seeded 2026-10-02 from QA's box (/workspace/orpheus-app/qa/CANONICAL-AC-PACK.md);
+     from now on edit this repo file, not the box copy. Only change since seeding: the "Fixtures:" line
+     now points at the repo's qa/fixtures.json. -->
 # Canonical AC pack: orpheus-app DCA calculator
 
 Source: Chief of Staff relay, 2026-10-02 (Diego-approved direction). Six rules only; no invented ACs.
-Report to: Engineering Lead. Live URL: https://orpheus-app-beta.vercel.app. Fixtures: /workspace/orpheus-app/qa/fixtures.json (an empty array counts as a pack defect).
+Report to: Engineering Lead. Live URL: https://orpheus-app-beta.vercel.app. Fixtures: [`qa/fixtures.json`](fixtures.json) in this repo (an empty array counts as a pack defect).
 
 | AC | Tier | Rule | Pass when (on the live page) |
 |----|------|------|------------------------------|
