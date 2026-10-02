@@ -248,62 +248,23 @@ export async function convert(
   base: BaseCurrency,
   date: string,
 ): Promise<{ value: number; rates: RateUsed[] } | null> {
-  if (from === base) return { value: amount, rates: [] };
+  const f = await fxFactor(db, from, base, date);
+  return f ? { value: amount * f.factor, rates: f.rates } : null;
+}
+
+/**
+ * Units of `base` per 1 unit of `from` on `date` (crossing through CAD), with the non-CAD rates used.
+ * 1 with no rates when `from` is the base. Null when a rate is missing.
+ */
+export async function fxFactor(
+  db: Queryable,
+  from: string,
+  base: BaseCurrency,
+  date: string,
+): Promise<{ factor: number; rates: RateUsed[] } | null> {
+  if (from === base) return { factor: 1, rates: [] };
   const a = await rateOnOrBefore(db, from, date);
   const b = await rateOnOrBefore(db, base, date);
   if (!a || !b) return null;
-  return { value: (amount * Number(a.cadPerUnit)) / Number(b.cadPerUnit), rates: [a, b].filter((r) => r.source !== "CAD") };
-}
-
-export type ValuedHolding = {
-  symbol: string;
-  /** shares × last close, in the base currency; null when price or FX is pending. */
-  value: number | null;
-  /** Rates used (non-CAD), with their dates; `fallback` when a rate is older than the session date. */
-  rates: RateUsed[];
-  sessionDate: string | null;
-  fallback: boolean;
-  status: "ok" | "price_pending" | "fx_pending";
-};
-
-export type Valuation = { base: BaseCurrency; rows: ValuedHolding[]; total: number; excluded: string[] };
-
-/**
- * Re-express each holding's position (shares × last stored close) and the total in `base`, using the FX
- * rate for each close's session date (D8: one current rate; the cost basis uses the same rate in T07).
- * Reads Postgres only.
- */
-export async function valueHoldings(
-  db: Queryable,
-  holdings: { symbol: string; shares: string }[],
-  prices: Record<string, { close: string | null; currency: string | null; sessionDate: string | null } | undefined>,
-  base: BaseCurrency,
-): Promise<Valuation> {
-  const rows: ValuedHolding[] = [];
-  let total = 0;
-  const excluded: string[] = [];
-  for (const h of holdings) {
-    const p = prices[h.symbol];
-    if (!p || p.close === null || !p.currency || !p.sessionDate) {
-      rows.push({ symbol: h.symbol, value: null, rates: [], sessionDate: null, fallback: false, status: "price_pending" });
-      excluded.push(h.symbol);
-      continue;
-    }
-    const c = await convert(db, Number(h.shares) * Number(p.close), p.currency, base, p.sessionDate);
-    if (!c) {
-      rows.push({ symbol: h.symbol, value: null, rates: [], sessionDate: p.sessionDate, fallback: false, status: "fx_pending" });
-      excluded.push(h.symbol);
-      continue;
-    }
-    total += c.value;
-    rows.push({
-      symbol: h.symbol,
-      value: c.value,
-      rates: c.rates,
-      sessionDate: p.sessionDate,
-      fallback: c.rates.some((r) => r.rateDate < (p.sessionDate as string)),
-      status: "ok",
-    });
-  }
-  return { base, rows, total, excluded };
+  return { factor: Number(a.cadPerUnit) / Number(b.cadPerUnit), rates: [a, b].filter((r) => r.source !== "CAD") };
 }

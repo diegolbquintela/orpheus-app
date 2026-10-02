@@ -510,13 +510,34 @@ or label implies good/bad.
   fills it (pending rows are served first). The T04 listing check on add still makes one Yahoo metadata
   request inside that request; it isn't a price and stores nothing, but it is a provider call in a
   browser request, which A.3 says shouldn't happen. **Open question for the Engineering Lead:** keep it
-  (DASH-08 needs the refusal on add) or move it behind `DailyCloseProvider`.
+  (DASH-08 needs the refusal on add) or move it behind `DailyCloseProvider`. **Answered (EL, 2026-10-02):**
+  keep it on add, routed through `DailyCloseProvider.getListing()`; done in T07 (see below).
 - **Preview button:** `POST /api/dashboard/refresh`, only when the flag is on and `VERCEL_ENV=preview` (404
   everywhere else, production and local dev included), signed in. It calls the job on the server, so
   `CRON_SECRET` is never needed or exposed; the response carries counts only.
 - **Not in T05:** FX dates, fundamentals and `metric_values` (T06, T08+), and the "Prices as of … · FX …"
   header and stale note (they need FX; T07). The page shows each row's last close and session date, or
   "price pending"; on previews the button area shows the last run's date and status.
+
+### Implementation notes (T07, #15)
+
+- **Columns:** ticker, name (`instruments.name`, filled by the backfill/daily job from the provider; "—"
+  until then), shares, average cost and last close + session date (listing currency, code shown), market
+  value and cost (base), total return (amount in base; % in the listing currency per §10), % of portfolio.
+  Total row: total position, total cost, total return (amount and Σ return / Σ cost), 100.0%.
+- **D8:** cost = shares × average cost × the same FX factor as the market value (the rate for the close's
+  session date, else the latest earlier one), so the base-currency return % equals the listing-currency %.
+- **Pending rows:** no close ("price pending") or no FX rate ("FX pending") → left out of the totals and
+  % of portfolio (§9) and listed under the total row. Average cost 0 → return % `n/m`.
+- **Header (§11 Staleness, DASH-25):** "Prices as of <latest session date among the valued holdings> close
+  · FX <latest rate date used>"; "FX not needed (all in <base>)" when every holding is in the base
+  currency. "Last successful run" = latest `refresh_runs` row with status `ok` or `partial` (a partial run
+  finished and only had per-symbol errors); the note shows when it is more than 4 calendar days (UTC dates)
+  old, or when no run has finished yet ("No daily refresh has completed yet.").
+- **DASH-14:** the page loader (`loadDashboardHoldings`) reads Postgres only.
+- **Listing check:** `listing.server.ts` → `DailyCloseProvider.getListing(symbol, { fetch: true })` (one
+  metadata request when nothing is cached; without `fetch` the daily job only reads the cached response).
+  `ProviderError.kind` maps refused / not found / unavailable to 400 / 404 / 503, same messages as before.
 
 ## 12. Acceptance criteria (QA checks these on the PR's Vercel preview)
 

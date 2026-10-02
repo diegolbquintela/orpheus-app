@@ -38,11 +38,12 @@ export const getDashboardViewer = createServerFn({ method: "GET" }).handler(asyn
 
 /**
  * The signed-in user's holdings for `/dashboard` (T04 #12), with each symbol's latest stored close or
- * "price pending" (T05 #13), and (T06 #14) the user's base currency plus each position and the total
- * re-expressed in it at the FX rate for the close's session date. 404 while the flag is off. Signed
- * out: `storage: "signed_out"` (the page redirects first anyway). No database: `"not_configured"`.
- * Reads the database only; never calls a price or FX feed, so a reload can't change a value (DASH-14).
- * `previewRefresh` is true only on Vercel previews (VERCEL_ENV=preview), never on production.
+ * "price pending" (T05 #13), the user's base currency (T06 #14), and (T07 #15) the valuation: market
+ * value, cost (D8: same rate), total return, % of portfolio, totals, the "Prices as of … · FX …" dates
+ * and the out-of-date flag. 404 while the flag is off. Signed out: `storage: "signed_out"` (the page
+ * redirects first anyway). No database: `"not_configured"`. Reads the database only; never calls a
+ * price or FX feed, so a reload can't change a value (DASH-14). `previewRefresh` is true only on
+ * Vercel previews (VERCEL_ENV=preview), never on production.
  */
 export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(async () => {
   if (!dashboardEnabledFromEnv()) throw notFound();
@@ -57,25 +58,13 @@ export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(as
     lastRun: null,
     baseCurrency: "CAD" as const,
     valuation: null,
+    freshness: null,
   };
   const user = await sessionFromRequestHeaders(getRequest().headers);
   if (!user) return { ...empty, storage: "signed_out" as const };
   const { getDashboardDb } = await import("./db.server");
   const db = await getDashboardDb();
   if (!db) return { ...empty, storage: "not_configured" as const };
-  const { getUserSettings, listHoldings } = await import("./store.server");
-  const { lastRun, priceViews } = await import("./daily-refresh.server");
-  const { valueHoldings } = await import("./fx.server");
-  const holdings = await listHoldings(db, user.id);
-  const prices = await priceViews(db, holdings.map((h) => h.symbol));
-  const { baseCurrency } = await getUserSettings(db, user.id);
-  return {
-    holdings,
-    prices,
-    previewRefresh,
-    lastRun: previewRefresh ? await lastRun(db) : null,
-    baseCurrency,
-    valuation: await valueHoldings(db, holdings, prices, baseCurrency),
-    storage: "ok" as const,
-  };
+  const { loadDashboardHoldings } = await import("./valuation.server");
+  return { ...(await loadDashboardHoldings(db, user.id, { previewRefresh })), previewRefresh, storage: "ok" as const };
 });

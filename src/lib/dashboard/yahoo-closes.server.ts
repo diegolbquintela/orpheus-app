@@ -73,18 +73,25 @@ export function createYahooCloseProvider(options: YahooProviderOptions = {}): Da
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const budget = options.budget ?? { perMinute: 30, perDay: 500 };
   const fetched = new Map<string, Fetched>();
+  /** Metadata-only responses from `getListing(symbol, { fetch: true })` (no closes are read from them). */
+  const listings = new Map<string, YahooPayload>();
   let calls = 0;
   let lastCallAt = 0;
 
-  async function request(symbol: string, since: string, date: string): Promise<YahooPayload> {
-    const prior = fetched.get(symbol);
-    if (prior && prior.since <= since && prior.date >= date) return prior.payload;
+  /** Budget and spacing for every request this provider makes. */
+  async function take(): Promise<void> {
     if (calls >= budget.perDay) throw new ProviderError(`Request budget for this run reached (${budget.perDay}).`);
     const gap = Math.ceil(60_000 / Math.max(1, budget.perMinute));
     const wait = lastCallAt + gap - now();
     if (calls > 0 && wait > 0) await sleep(wait);
     calls += 1;
     lastCallAt = now();
+  }
+
+  async function request(symbol: string, since: string, date: string): Promise<YahooPayload> {
+    const prior = fetched.get(symbol);
+    if (prior && prior.since <= since && prior.date >= date) return prior.payload;
+    await take();
     // A few days of margin each side; bars are filtered by exchange-local date afterwards.
     const period1 = daySeconds(since) - 86400 * 3;
     const period2 = daySeconds(date) + 86400 * 2;
@@ -100,11 +107,12 @@ export function createYahooCloseProvider(options: YahooProviderOptions = {}): Da
 
   function metaOf(symbol: string, payload: YahooPayload): Meta {
     const result = payload.chart?.result?.[0];
-    if (!result?.meta) throw new ProviderError(`${symbol}: ${payload.chart?.error?.description || "not found on the price feed"}`);
+    if (!result?.meta)
+      throw new ProviderError(`${symbol}: ${payload.chart?.error?.description || "not found on the price feed"}`, "not_found");
     const meta = result.meta;
     const blocked = listingError(symbol, meta.exchangeName, meta.fullExchangeName);
-    if (blocked) throw new ProviderError(blocked);
-    if (!(meta.currency ?? "").trim()) throw new ProviderError(`${symbol} has no currency on the price feed.`);
+    if (blocked) throw new ProviderError(blocked, "refused");
+    if (!(meta.currency ?? "").trim()) throw new ProviderError(`${symbol} has no currency on the price feed.`, "not_found");
     return meta;
   }
 
@@ -168,10 +176,20 @@ export function createYahooCloseProvider(options: YahooProviderOptions = {}): Da
       return actions.sort((a, b) => a.exDate.localeCompare(b.exDate) || a.kind.localeCompare(b.kind));
     },
 
-    async getListing(symbol): Promise<ListingInfo | null> {
-      const prior = fetched.get(symbol);
-      if (!prior) return null;
-      const meta = metaOf(symbol, prior.payload);
+    async getListing(symbol, opts = {}): Promise<ListingInfo | null> {
+      let payload = fetched.get(symbol)?.payload ?? listings.get(symbol);
+      if (!payload && opts.fetch) {
+        // The add-holding check (T07): one small chart request, the same one the calculator makes.
+        await take();
+        try {
+          payload = await fetchChart(symbol, "interval=1d&range=5d");
+        } catch {
+          throw new ProviderError(`Price feed refused ${symbol}.`);
+        }
+        listings.set(symbol, payload);
+      }
+      if (!payload) return null;
+      const meta = metaOf(symbol, payload);
       const region = listingRegion(meta.exchangeName, meta.fullExchangeName);
       if (!region) return null;
       const code = (meta.exchangeName ?? "").trim();

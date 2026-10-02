@@ -8,14 +8,14 @@
  * request naming another user's id is 403, and another user's holding id is 404 (it doesn't exist
  * for you). No prices: holdings are ticker, shares and average cost (listing currency) only.
  *
- * A new ticker must be a US, EU or CA listing: `listing.server.ts` applies the calculator's
- * `listingError()` and its exact messages. The ticker of an existing holding can't be edited
+ * A new ticker must be a US, EU or CA listing: `listing.server.ts` asks the `DailyCloseProvider`
+ * (`getListing`, T07), which applies the calculator's `listingError()` and its exact messages. The ticker of an existing holding can't be edited
  * (delete and add it again), so the check runs only on POST.
  */
 import { waitUntil } from "@vercel/functions";
 import { TICKER } from "../dca/yahoo.server.ts";
 import { ensureCoverage } from "./daily-refresh.server.ts";
-import { yahooListingLookup, type ListingLookup } from "./listing.server.ts";
+import { providerListingLookup, type ListingLookup } from "./listing.server.ts";
 import {
   badRequest,
   dashboardJson as json,
@@ -151,7 +151,7 @@ export async function handleHoldingsRequest(request: Request, deps: HoldingsDeps
   if (existing.length >= MAX_HOLDINGS)
     return json({ error: `You can track up to ${MAX_HOLDINGS} holdings.` }, 400);
 
-  const listing = await (deps.lookupListing ?? yahooListingLookup)(symbol);
+  const listing = await (deps.lookupListing ?? providerListingLookup)(symbol);
   if (!listing.ok) return json({ error: listing.error, field: "symbol" }, listing.status);
 
   try {

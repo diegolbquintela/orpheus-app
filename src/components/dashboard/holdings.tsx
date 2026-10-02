@@ -8,6 +8,9 @@ import { trimDecimal } from "@/lib/dashboard/format";
  * and its session date, or "price pending" until the background job has fetched it. T06 (#14) adds the
  * base-currency setting and each position (shares × last close) plus the total in that base currency,
  * at the FX rate for the close's session date (the rate's date is shown when it's an earlier one).
+ * T07 (#15) completes the table: name, market value, cost (D8: same rate as the price), total return
+ * (amount in base, % in the listing currency), % of portfolio, the total row, the "Prices as of … close ·
+ * FX …" line and the out-of-date note. Everything comes from the server's stored data.
  */
 
 export type HoldingView = {
@@ -22,26 +25,51 @@ export type PriceView = {
   currency: string | null;
   sessionDate: string | null;
   pending: boolean;
+  name?: string | null;
 };
 
 export type BaseCurrency = "CAD" | "USD" | "EUR";
 const BASES: BaseCurrency[] = ["CAD", "USD", "EUR"];
 
 type RateUsed = { quote: string; cadPerUnit: string; rateDate: string; source: string };
+type ValuedRow = {
+  symbol: string;
+  value: number | null;
+  cost: number | null;
+  returnAmount: number | null;
+  returnPct: number | null;
+  weight: number | null;
+  rates: RateUsed[];
+  sessionDate: string | null;
+  fallback: boolean;
+  status: string;
+};
 export type ValuationView = {
   base: BaseCurrency;
-  rows: { symbol: string; value: number | null; rates: RateUsed[]; sessionDate: string | null; fallback: boolean; status: string }[];
+  rows: ValuedRow[];
   total: number;
+  totalCost: number;
+  totalReturn: number;
+  totalReturnPct: number | null;
   excluded: string[];
+  pricesAsOf: string | null;
+  fxAsOf: string | null;
 } | null;
+export type FreshnessView = { lastGoodRun: string | null; stale: boolean } | null;
 
 const money = (n: number) => new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+const signedMoney = (n: number) =>
+  new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n);
+const signedPct = (n: number) =>
+  `${new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n)}%`;
+const weightPct = (n: number) => `${n.toFixed(1)}%`;
 
 type Props = {
   holdings: HoldingView[];
   prices: Record<string, PriceView | undefined>;
   baseCurrency: BaseCurrency;
   valuation: ValuationView;
+  freshness?: FreshnessView;
   storage: "ok" | "not_configured" | "signed_out";
   /** Re-run the page loader after a change. */
   onChanged: () => Promise<void> | void;
@@ -78,7 +106,7 @@ function LastClose({ price }: { price: PriceView | undefined }) {
   );
 }
 
-function PositionValue({ row, base }: { row: NonNullable<ValuationView>["rows"][number] | undefined; base: BaseCurrency }) {
+function PositionValue({ row, base }: { row: ValuedRow | undefined; base: BaseCurrency }) {
   if (!row || row.value === null)
     return (
       <span className="text-muted" data-testid="holding-value" data-status={row?.status ?? "price_pending"}>
@@ -98,6 +126,15 @@ function PositionValue({ row, base }: { row: NonNullable<ValuationView>["rows"][
   );
 }
 
+/** Placeholder for a T07 cell (cost, return, % of portfolio) while the price or FX is pending. */
+function Pending({ testId }: { testId: string }) {
+  return (
+    <span className="text-muted" data-testid={testId}>
+      —
+    </span>
+  );
+}
+
 function Row({
   holding,
   price,
@@ -107,10 +144,11 @@ function Row({
 }: {
   holding: HoldingView;
   price: PriceView | undefined;
-  valued: NonNullable<ValuationView>["rows"][number] | undefined;
+  valued: ValuedRow | undefined;
   base: BaseCurrency;
   onChanged: Props["onChanged"];
 }) {
+  const ok = valued && valued.value !== null;
   const [editing, setEditing] = useState(false);
   const [shares, setShares] = useState(trimDecimal(holding.shares));
   const [avgCost, setAvgCost] = useState(trimDecimal(holding.avgCost));
@@ -140,6 +178,9 @@ function Row({
   return (
     <tr className="border-t border-line align-top" data-testid="holding-row" data-symbol={holding.symbol}>
       <td className="py-3 pr-4 font-medium">{holding.symbol}</td>
+      <td className="py-3 pr-4 text-muted" data-testid="holding-name">
+        {price?.name ?? "—"}
+      </td>
       {editing ? (
         <>
           <td className="py-2 pr-4">
@@ -164,7 +205,10 @@ function Row({
       ) : (
         <>
           <td className="py-3 pr-4 tabular-nums">{trimDecimal(holding.shares)}</td>
-          <td className="py-3 pr-4 tabular-nums">{trimDecimal(holding.avgCost)}</td>
+          <td className="py-3 pr-4 tabular-nums whitespace-nowrap" data-testid="holding-avg-cost">
+            {trimDecimal(holding.avgCost)}
+            {price?.currency ? ` ${price.currency}` : ""}
+          </td>
         </>
       )}
       <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
@@ -172,6 +216,30 @@ function Row({
       </td>
       <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
         <PositionValue row={valued} base={base} />
+      </td>
+      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
+        {ok && valued.cost !== null ? (
+          <span data-testid="holding-cost">
+            {money(valued.cost)} {base}
+          </span>
+        ) : (
+          <Pending testId="holding-cost" />
+        )}
+      </td>
+      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
+        {ok && valued.returnAmount !== null ? (
+          <span data-testid="holding-return">
+            {signedMoney(valued.returnAmount)} {base}
+            <span className="block text-xs text-muted" data-testid="holding-return-pct">
+              {valued.returnPct === null ? "n/m" : signedPct(valued.returnPct)}
+            </span>
+          </span>
+        ) : (
+          <Pending testId="holding-return" />
+        )}
+      </td>
+      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
+        {ok && valued.weight !== null ? <span data-testid="holding-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-weight" />}
       </td>
       <td className="py-3 text-right text-sm whitespace-nowrap">
         {editing ? (
@@ -249,7 +317,29 @@ export function BaseCurrencySetting({ value, onChanged }: { value: BaseCurrency;
   );
 }
 
-export function HoldingsSection({ holdings, prices, baseCurrency, valuation, storage, onChanged }: Props) {
+/** "Prices as of … close · FX …" and, past 4 days without a successful daily run, the out-of-date note (DASH-25). */
+export function AsOf({ valuation, freshness, base }: { valuation: ValuationView; freshness: FreshnessView; base: BaseCurrency }) {
+  if (!valuation) return null;
+  return (
+    <div className="mt-6 text-sm">
+      <p data-testid="as-of" data-prices={valuation.pricesAsOf ?? ""} data-fx={valuation.fxAsOf ?? ""}>
+        {valuation.pricesAsOf ? `Prices as of ${valuation.pricesAsOf} close` : "Prices pending"}
+        {" · "}
+        {valuation.fxAsOf ? `FX ${valuation.fxAsOf}` : `FX not needed (all in ${base})`}
+      </p>
+      {freshness?.stale ? (
+        <p className="mt-1 text-sm" role="status" data-testid="stale-note" data-last-good-run={freshness.lastGoodRun ?? ""}>
+          Prices are out of date.{" "}
+          {freshness.lastGoodRun
+            ? `Last completed daily refresh: ${freshness.lastGoodRun} (UTC).`
+            : "No daily refresh has completed yet."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export function HoldingsSection({ holdings, prices, baseCurrency, valuation, freshness = null, storage, onChanged }: Props) {
   const [symbol, setSymbol] = useState("");
   const [shares, setShares] = useState("");
   const [avgCost, setAvgCost] = useState("");
@@ -285,7 +375,9 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, sto
         the prior completed session&apos;s close, updated once a day. Values are in your base currency at the Bank
         of Canada daily average rate for that close&apos;s session date (USD and EUR bases cross through CAD; DKK, HUF
         and CZK use the ECB reference rate × the Bank of Canada euro rate). When there is no rate that day, the
-        previous one is used and its date is shown. These are daily averages, not 16:00 closes.
+        previous one is used and its date is shown. These are daily averages, not 16:00 closes. Cost uses the
+        same rate as the price, so currency moves since you bought aren&apos;t included. Total return % is in the
+        listing&apos;s currency. Holdings without a price or rate yet are left out of the totals and the % of portfolio.
       </p>
       <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
       <form className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" onSubmit={add} data-testid="holding-form">
@@ -321,6 +413,7 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, sto
           {error}
         </p>
       ) : null}
+      {holdings.length ? <AsOf valuation={valuation} freshness={freshness} base={baseCurrency} /> : null}
       {holdings.length === 0 ? (
         <p className="mt-8 text-sm text-muted" data-testid="holdings-empty">
           No holdings yet.
@@ -331,10 +424,14 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, sto
             <thead>
               <tr className="text-left">
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Ticker</th>
+                <th className="kicker pb-2 pr-4 font-normal text-muted">Name</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Shares</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Average cost</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Last close</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Value ({baseCurrency})</th>
+                <th className="kicker pb-2 pr-4 font-normal text-muted">Market value ({baseCurrency})</th>
+                <th className="kicker pb-2 pr-4 font-normal text-muted">Cost ({baseCurrency})</th>
+                <th className="kicker pb-2 pr-4 font-normal text-muted">Total return</th>
+                <th className="kicker pb-2 pr-4 font-normal text-muted">% of portfolio</th>
                 <th className="pb-2" />
               </tr>
             </thead>
@@ -353,19 +450,35 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, sto
             {valuation ? (
               <tfoot>
                 <tr className="border-t-2 border-ink">
-                  <td className="py-3 pr-4 font-medium" colSpan={4}>
+                  <td className="py-3 pr-4 font-medium" colSpan={5}>
                     Total
                   </td>
                   <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total" data-base={baseCurrency}>
                     {money(valuation.total)} {baseCurrency}
-                    {valuation.excluded.length ? (
-                      <span className="block text-xs font-normal text-muted">
-                        Not included (price or FX pending): {valuation.excluded.join(", ")}
-                      </span>
-                    ) : null}
+                  </td>
+                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total-cost">
+                    {money(valuation.totalCost)} {baseCurrency}
+                  </td>
+                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total-return">
+                    {signedMoney(valuation.totalReturn)} {baseCurrency}
+                    <span className="block text-xs font-normal text-muted" data-testid="holdings-total-return-pct">
+                      {valuation.totalReturnPct === null ? "n/m" : signedPct(valuation.totalReturnPct)}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total-weight">
+                    {valuation.excluded.length === valuation.rows.length
+                      ? "—"
+                      : weightPct(valuation.rows.reduce((sum, r) => sum + (r.weight ?? 0), 0))}
                   </td>
                   <td />
                 </tr>
+                {valuation.excluded.length ? (
+                  <tr>
+                    <td colSpan={10} className="pb-3 text-xs text-muted" data-testid="holdings-excluded">
+                      Not included in the totals (price or FX pending): {valuation.excluded.join(", ")}
+                    </td>
+                  </tr>
+                ) : null}
               </tfoot>
             ) : null}
           </table>
