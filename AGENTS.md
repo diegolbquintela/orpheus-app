@@ -9,8 +9,9 @@ affects the repo.
 
 **Always the harness, then the specs, then the work.**
 
-- The harness (this `AGENTS.md`), the spec docs (`attachments/dca-app-spec.md` today) and `README.md`
-  are the source of truth for this app.
+- The harness (this `AGENTS.md`), the spec docs (`attachments/dca-app-spec.md`; plus
+  `attachments/dashboard-spec.md`, **proposed, not yet approved by Diego**) and `README.md` are the source
+  of truth for this app. Do not build from a proposed spec until it is approved.
 - Every feature PR updates `README.md`, the relevant spec and this harness **in the same PR**, or says
   in the PR body, for each of the three, why it did not change.
 - QA fails a PR that skips this.
@@ -55,6 +56,22 @@ A new test file is only run if it is added to the `test` script in `package.json
 - The PR body states which of `README.md` / spec / `AGENTS.md` changed and why the others did not.
 - Never message Diego. Blockers go to the Engineering Lead; the Chief of Staff relays.
 
+## Feature flags: feature work lands behind a flag until a release go
+
+*Proposed, pending approval of `attachments/dashboard-spec.md`.*
+
+- New user-facing features merge to `main` **behind a flag** and stay hidden on production until Diego
+  gives a release go. Each ticket still gets its own PR, preview and QA pass.
+- Mechanism (dashboard): one **server-only** env var, `DASHBOARD_ENABLED`, set to `true` only in the Vercel
+  **Preview** environment. Every dashboard route, server function and API route returns 404 unless it is
+  exactly `true` (missing = off). Never gate with a `VITE_*` variable (those are inlined into the client
+  bundle at build time).
+- QA reaches the feature on the PR's Vercel preview URL (e.g. `/dashboard`); on production it must be a 404
+  until the release go.
+- Release = Diego's go after every ticket is merged with QA PASS and a full flag-on QA run passes (see the
+  "Release plan" in the spec). Rollback = flag off for Production + redeploy.
+- Bots never set or change env vars in Vercel; the Engineering Lead or Diego does.
+
 ## What bots may not touch
 
 - **Engine math** (`src/lib/dca/simulate.ts`, `calendar.ts`, `raw.ts`, and anything else that changes
@@ -63,7 +80,10 @@ A new test file is only run if it is added to the `test` script in `package.json
 - **Secrets.** Environment variables live only in Vercel project settings: `VITE_AUTH_ENABLED`,
   `BETTER_AUTH_SECRET`. Never commit their values, never create a `.env` file in the repo, never paste
   values into chat, PR bodies, logs or the vault. (`.grok/app-env.json` holds only the non-secret local
-  default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.)
+  default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The dashboard spec
+  *proposes* more Vercel-only variables (`DASHBOARD_ENABLED`, `DATABASE_URL` from the Neon integration,
+  `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC contact for the User-Agent); none exist until that spec is
+  approved and an owner adds them.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
   The DCA-06 check in `src/lib/dca/fixtures.test.ts` scans user-facing copy for it.
