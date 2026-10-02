@@ -1,7 +1,7 @@
 # Orpheus dashboard (signed-in area): spec
 
-Status: **APPROVED** by Diego on **2026-10-02**: all decisions approved as recommended (see
-[13. Decisions record](#13-decisions-record-approved-2026-10-02)). One amendment is open:
+Status: **APPROVED 2026-10-02 (D1–D7, D10, D11); D8, D9 and D12 are recommended and pending Diego;
+none of them block #9–#13** (see [13. Decisions record](#13-decisions-record)). One amendment is open:
 [Amendment A: daily-close source (pending)](#14-amendment-a-daily-close-source-pending). Nothing is built
 yet; work starts with ticket T01 (#9).
 
@@ -30,7 +30,7 @@ A signed-in area. A user signs in and gets two things: the existing DCA calculat
 How this relates to `attachments/dca-app-spec.md`: that spec says dashboards and holdings are "later" and
 lists "a boring price and holdings feed (IBKR or Fiscal.ai) before any dashboard". This spec uses
 **manual holdings entry** and a daily close instead of a broker feed. Diego approving this spec settles
-that conflict, and Diego approved it on 2026-10-02 (decision D7 in the [Decisions record](#13-decisions-record-approved-2026-10-02)). The DCA calculator spec and its six
+that conflict, and Diego approved it on 2026-10-02 (decision D7 in the [Decisions record](#13-decisions-record)). The DCA calculator spec and its six
 rules do not change.
 
 ### Not in scope
@@ -332,7 +332,7 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
 - **CAGR from a negative or zero base** is `n/m` for that company and excluded.
 - **EPS:** per-share amounts in different currencies do not add up across companies, so the portfolio row
   shows **weighted 1y EPS growth** (EPS FY0 / EPS FY−1 − 1, `n/m` if either ≤ 0) in the EPS column, labelled
-  as such. (Decision D9, approved.)
+  as such. (Decision D9: recommended, **pending Diego**.)
 - Holdings with no price (no close yet) are excluded from weights and from the pie, and listed as
   "price pending".
 
@@ -369,7 +369,7 @@ or label implies good/bad.
 - **Cost basis:** average cost is entered in the listing currency. Total return % is computed in the
   listing currency ((close − avg cost) / avg cost). Base-currency amounts (market value, cost, return)
   use the **same** current FX rate for value and cost, so the FX effect since purchase is not captured.
-  (Decision D8, approved.)
+  (Decision D8: recommended, **pending Diego**.)
 
 ## 11. Daily refresh
 
@@ -427,7 +427,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-10 | The cron route rejects a request without the right `Authorization` header (401). The preview-only refresh button exists on previews and not on production. |
 | DASH-11 | FX: the stored `USD` and `EUR` rates for a date equal the BoC Valet values for that date; for a BoC holiday the previous rate is used and its date is shown. DKK/HUF/CZK (if held) use ECB × BoC `FXEURCAD`. |
 | DASH-12 | Base currency defaults to CAD; changing it to USD or EUR re-expresses all totals, and the setting persists. |
-| DASH-13 | Holdings table shows: ticker, name, shares, average cost (listing ccy), last close + session date (listing ccy), market value (base), cost (base), total return (amount and %), % of portfolio; a total row with total position, total cost, total return. % of portfolio sums to 100.0% (± rounding). |
+| DASH-13 | (Cost-basis FX per D8, pending Diego.) Holdings table shows: ticker, name, shares, average cost (listing ccy), last close + session date (listing ccy), market value (base), cost (base), total return (amount and %), % of portfolio; a total row with total position, total cost, total return. % of portfolio sums to 100.0% (± rounding). |
 | DASH-14 | Values recompute only after the daily job: reloading during market hours does not change any price. |
 | DASH-15 | Metric column picker: add/remove/reorder columns; choice persists per user. |
 | DASH-16 | Revenue growth 1y and 3y/5y/10y CAGR match a hand calculation from the SEC `companyfacts` values for KO (tag stitching) and Philips; RY shows `—` "insufficient history" for 10y; a negative or zero base shows `—` "not meaningful". |
@@ -437,7 +437,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-20 | Gross margin (1y) matches `companyfacts`; uses revenue − cost of revenue when no gross-profit tag; banks show `—`. |
 | DASH-21 | A holding without SEC coverage (e.g. a TSX-only or EU-only issuer) shows `—` "not covered" in every metric cell. |
 | DASH-22 | Portfolio row: each metric equals the market-value-weighted mean over covered holdings (hand check with 3 holdings), with coverage % shown; `n/m`/missing are excluded, never counted as 0; negatives are included. |
-| DASH-23 | Portfolio EPS column shows weighted 1y EPS growth, labelled as such. |
+| DASH-23 | Portfolio EPS column shows weighted 1y EPS growth, labelled as such. (Depends on D9, pending Diego.) |
 | DASH-24 | Pie chart: one slice per holding by % of portfolio in base currency, matching the table's % column; > 10 holdings group into "Other"; holdings without a price are excluded and listed as "price pending". |
 | DASH-25 | Header shows "Prices as of … close · FX …"; with the last successful run older than 4 days, the out-of-date note appears. |
 | DASH-26 | Release check (flag on, full pass): DASH-00..25 all pass in one run on the release candidate, then on production right after the flip. |
@@ -445,24 +445,25 @@ to dashboard files); `noindex` still present on `/dashboard`.
 ## Tickets
 
 Each ticket is one PR, one Vercel preview, one QA pass, merged behind `DASHBOARD_ENABLED`. All carry the
-label `dashboard`. The spec was approved on 2026-10-02, so `blocked: spec approval` is removed.
+label `dashboard`. The spec was approved on 2026-10-02 (D1–D7, D10, D11), so `blocked: spec approval` is removed.
+Tickets that depend on a pending decision (D8, D9, D12) say so below; that part may change before they merge.
 
 | # | Issue | Ticket | Depends on | ACs |
 |---|---|---|---|---|
 | T01 | #9 | Feature flag + hidden `/dashboard` route shell | spec approval | DASH-00, 01, 02 |
 | T02 | #10 | Per-user storage: Neon Postgres + `0002_dashboard.sql` schema | T01 (+ owner installs Neon) | DASH-03 |
-| T03 | #11 | Auth on Vercel: Better Auth email/password, auth schema, preview origins | T01, T02 | DASH-04, 05, 06 |
+| T03 | #11 | Auth on Vercel: Better Auth email/password, auth schema, preview origins. **Sign-up restriction depends on D12 (pending Diego)** | T01, T02 | DASH-04, 05, 06 |
 | T04 | #12 | Holdings table CRUD (no prices yet) | T03 | DASH-07, 08, 06 |
 | T05 | #13 | Daily close job (cron, prior-session rule, preview refresh button); all fetching through the `DailyCloseProvider` interface (Amendment A) | T02, T04 | DASH-09, 10, 14 |
 | T06 | #14 | FX rates (BoC + ECB cross) and base-currency setting | T02, T05 | DASH-11, 12 |
-| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header; reads stored closes only (written via `DailyCloseProvider`, never a feed directly) | T04, T05, T06 | DASH-13, 14, 25 |
+| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header. **Cost-basis FX depends on D8 (pending Diego)**; reads stored closes only (written via `DailyCloseProvider`, never a feed directly) | T04, T05, T06 | DASH-13, 14, 25 |
 | T08 | #16 | Fundamentals ingest from SEC EDGAR companyfacts (+ metric column picker) | T02, T05, T07 | DASH-15, 21 |
 | T09 | #17 | Metric: Revenue growth 1y + 3y/5y/10y CAGR | T08 | DASH-16 |
 | T10 | #18 | Metric: ROIC (1y) | T08 | DASH-17 |
 | T11 | #19 | Metric: EPS (1y) | T08 | DASH-18 |
 | T12 | #20 | Metric: EBIT margin (1y) | T08 | DASH-19 |
 | T13 | #21 | Metric: Gross margin (1y) | T08 | DASH-20 |
-| T14 | #22 | Portfolio aggregates (weighted, coverage %) | T07, at least one of T09–T13 (each metric gets its portfolio cell as it lands) | DASH-22, 23 |
+| T14 | #22 | Portfolio aggregates (weighted, coverage %). **Portfolio EPS column depends on D9 (pending Diego)** | T07, at least one of T09–T13 (each metric gets its portfolio cell as it lands) | DASH-22, 23 |
 | T15 | #23 | Holdings pie chart by % of portfolio | T07 | DASH-24 |
 | T16 | #24 | Release: full flag-on QA run, then production flip on Diego's go | T01–T15 merged with QA PASS | DASH-26 |
 
@@ -490,32 +491,33 @@ GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard`
    jobs to that deployment's set ([Vercel: Managing Cron Jobs, "Rollbacks with cron jobs"](https://vercel.com/docs/cron-jobs/manage-cron-jobs), checked 2026-10-02).
 6. After the release, README, this spec (status → "live") and `AGENTS.md` are updated in the T16 PR.
 
-## 13. Decisions record (approved 2026-10-02)
+## 13. Decisions record
 
-Diego approved **all decisions as recommended** on 2026-10-02. This record replaces the earlier
-"Open questions" and "Decisions for Diego" lists.
+Diego approved D1–D7, D10 and D11 on 2026-10-02. D8, D9 and D12 were not among the items he saw. They
+stay **recommended, pending Diego**, and none of them block tickets #9–#13. This record replaces the
+earlier "Open questions" and "Decisions for Diego" lists.
 
-| # | Decision | Approved outcome | Cost |
-|---|---|---|---|
-| D1 | Auth | Better Auth (already in repo), email/password, Grok broker path removed (section 3) | $0 |
-| D2 | Storage | Neon Postgres Free via Vercel Marketplace, preview branching off (section 4) | $0 |
-| D3 | Data source | SEC EDGAR `companyfacts` for fundamentals; daily close through `DailyCloseProvider` (Yahoo first). **Daily-close source amended: see Amendment A (pending)** | $0 |
-| D4 | Weighting | Market-value weighted in base currency, renormalised over covered holdings, coverage % shown, `n/m` excluded (section 9) | — |
-| D5 | Currency | CAD default, per-user USD/EUR; BoC daily rates (ECB cross for DKK/HUF/CZK), same date as the price (section 10) | $0 |
-| D6 | Refresh | One Vercel Cron at `0 23 * * *` UTC, idempotent catch-up, `CRON_SECRET`; preview-only manual refresh button (section 11) | $0 |
-| D7 | Holdings input | Manual holdings entry instead of an IBKR/Fiscal.ai feed first (settles the DCA spec's sequence note) | — |
-| D8 | Cost basis | Average cost in listing currency; base-currency amounts use the current FX rate for value and cost (FX effect since purchase not shown) | — |
-| D9 | Portfolio EPS | Weighted 1y EPS growth shown in the portfolio EPS column, labelled as such | — |
-| D10 | Paid data | Stay on the $0 path; non-SEC EU/TSX names show "not covered"; no paid vendor now | $0 |
-| D11 | Sign-in methods | Email/password only at launch; Google later only as its own ticket | $0 |
-| D12 | Who may sign up | Allow-list of emails in a Vercel env var (no open sign-up); handled in T03 (#11) | $0 |
+| # | Decision | Outcome | Status | Cost |
+|---|---|---|---|---|
+| D1 | Auth | Better Auth (already in repo), email/password, Grok broker path removed (section 3) | **Approved 2026-10-02** | $0 |
+| D2 | Storage | Neon Postgres Free via Vercel Marketplace, preview branching off (section 4) | **Approved 2026-10-02** | $0 |
+| D3 | Data source | SEC EDGAR `companyfacts` for fundamentals; daily close through `DailyCloseProvider` (Yahoo first). **Daily-close source amended: see Amendment A (pending)** | **Approved 2026-10-02** | $0 |
+| D4 | Weighting | Market-value weighted in base currency, renormalised over covered holdings, coverage % shown, `n/m` excluded (section 9) | **Approved 2026-10-02** | — |
+| D5 | Currency | CAD default, per-user USD/EUR; BoC daily rates (ECB cross for DKK/HUF/CZK), same date as the price (section 10) | **Approved 2026-10-02** | $0 |
+| D6 | Refresh | One Vercel Cron at `0 23 * * *` UTC, idempotent catch-up, `CRON_SECRET`; preview-only manual refresh button (section 11) | **Approved 2026-10-02** | $0 |
+| D7 | Holdings input | Manual holdings entry instead of an IBKR/Fiscal.ai feed first (settles the DCA spec's sequence note) | **Approved 2026-10-02** | — |
+| D8 | Cost basis | Average cost in listing currency; base-currency amounts use the current FX rate for value and cost (FX effect since purchase not shown) | **Recommended, pending Diego** | — |
+| D9 | Portfolio EPS | Weighted 1y EPS growth shown in the portfolio EPS column, labelled as such | **Recommended, pending Diego** | — |
+| D10 | Paid data | Stay on the $0 path; non-SEC EU/TSX names show "not covered"; no paid vendor now | **Approved 2026-10-02** | $0 |
+| D11 | Sign-in methods | Email/password only at launch; Google later only as its own ticket | **Approved 2026-10-02** | $0 |
+| D12 | Who may sign up | Allow-list of emails in a Vercel env var (no open sign-up); handled in T03 (#11) | **Recommended, pending Diego** | $0 |
 
 ## 14. Amendment A: daily-close source (pending)
 
 Status: **pending.** The Engineering Lead is researching alternative daily-close sources (because the
 Yahoo chart endpoint is unofficial and its Terms of Service restrict automated collection, section 6).
 Findings, each with its provider-page citation and date checked, will be added here in a follow-up spec PR.
-Until then the approved design stands, with one firm rule:
+Until then the design approved under D3 stands, with one firm rule:
 
 **All price fetching sits behind one provider interface,** so the source can change without touching the
 dashboard UI, tables, metrics or the cron job:
