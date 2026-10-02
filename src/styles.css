@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Schibsted Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --color-paper: #ffffff;
+  --color-ink: #1e2124;
+  --color-muted: #636363;
+  --color-line: #e3e3e3;
+  --color-card: #ffffff;
+  --color-danger: #ff4136;
+  --color-dca: #2b5945;
+  --color-focus: #2b5945;
+  --radius-control: 0;
+  --radius-panel: 0;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color-scheme: light;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.45;
+    font-feature-settings: "tnum" on, "zero" on;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  input[type="number"] {
+    appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    appearance: none;
+  }
+  .kicker {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-variant-numeric: slashed-zero;
+  }
+  .section {
+    display: grid;
+    gap: 1.75rem;
+    border-top: 1px solid var(--color-line);
+    padding: 3.5rem 0;
+  }
+  .field {
+    height: 2.75rem;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-ink);
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--color-ink);
+    font-variant-numeric: slashed-zero tabular-nums;
+    appearance: none;
+  }
+  .mast-grid {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .basket-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6.5rem 2.75rem;
+    align-items: end;
+    gap: 1.25rem;
+  }
+  @media (min-width: 64rem) {
+    .section {
+      grid-template-columns: 14rem minmax(0, 1fr);
+      column-gap: 3rem;
+      padding: 5rem 0;
+    }
+    .mast-grid {
+      grid-template-columns: 14rem minmax(0, 1fr);
+      column-gap: 3rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
