@@ -24,3 +24,14 @@ export const getDashboardDbStatusLine = createServerFn({ method: "GET" }).handle
   if (!showDbStatusLine()) return null;
   return describeDbStatus(await checkDashboardDb(await getDashboardDb()));
 });
+
+/**
+ * Who is looking at `/dashboard` (T03 #11): `{ authReady, user }`. 404 while the flag is off.
+ * `user` comes from the Better Auth session cookie on this request, never from the client.
+ */
+export const getDashboardViewer = createServerFn({ method: "GET" }).handler(async () => {
+  if (!dashboardEnabledFromEnv()) throw notFound();
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const { dashboardViewer } = await import("./session.server");
+  return dashboardViewer(getRequest().headers);
+});

@@ -65,8 +65,8 @@ These rules exist so no ticket gets missed.
 1. Every handoff that starts work goes out urgent (SendToAgent with priority true), never as a queued note.
 2. Whoever receives a ticket confirms within their next turn, either by opening a draft PR or by replying "blocked: X". If there's no draft PR, the ticket hasn't started.
 3. When a PR merges, Engineering Lead hands off the next ticket in the same turn.
-4. Stall check: the daily orpheus-app loop and any active run look for open tickets with no PR activity for 30 minutes during an active run, or none since the last loop run. Engineering Lead re-pings the owner urgently and reports the stall to Chief of Staff.
-5. The GitHub issues and their labels are the task list of record. Each ticket carries exactly one status label: `todo`, then `in-progress` (draft PR open), then `in-QA` (CI green, sent to QA), then `done` (merged and prod-checked). Whoever moves the ticket moves its label in the same turn.
+4. Stall check: the daily orpheus-app loop and any active run look for open tickets with no PR activity for 30 minutes during an active run, or none since the last loop run. Engineering Lead re-pings the owner urgently and reports the stall to Chief of Staff. Reporting a stall to Chief of Staff is an allowed ping for Engineering Lead.
+5. The GitHub issues and their labels are the task list of record. Each ticket carries exactly one status label: `todo`, then `in-progress` (draft PR open), then `in-QA` (CI green, sent to QA), then `done` (merged and prod-checked). Whoever moves the ticket moves its label in the same turn. Engineering Lead moves `in-QA` to `done` after the merge and the production check.
 
 ## Feature flags: feature work lands behind a flag until a release go
 
@@ -99,9 +99,12 @@ These rules exist so no ticket gets missed.
   - The Neon integration's `orpheus_app_preview_*` variables, e.g. `orpheus_app_preview_DATABASE_URL` and
     `orpheus_app_preview_DATABASE_URL_UNPOOLED`: set on **Preview and Development**, none in Production.
 
-  Still to come, each added by an owner when its ticket lands: `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC
-  contact for the User-Agent, the sign-up email allow-list (D12, approved), and an Alpha Vantage free key
-  for the daily-close fallback (D13). Nobody claims the Alpha Vantage key until the fallback ticket starts
+  - `DASHBOARD_SIGNUP_ALLOWLIST` (T03, #11): the sign-up email allow-list (D12, approved), server-only, for
+    **Preview** (Production at the release go). Emails are personal data: never paste the value anywhere.
+
+  Still to come, each added by an owner when its ticket lands: `BETTER_AUTH_URL` (Production only, at the
+  release go; previews derive their origin), `CRON_SECRET`, an SEC contact for the User-Agent, and an Alpha
+  Vantage free key for the daily-close fallback (D13). Nobody claims the Alpha Vantage key until the fallback ticket starts
   and Diego OKs it, asked through the Chief of Staff.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
@@ -156,7 +159,7 @@ The dashboard is gated by the server-only `DASHBOARD_ENABLED` flag (only the exa
 code in `src/lib/dashboard/flag.server.ts`). Check both states before pushing dashboard work:
 
 ```bash
-DASHBOARD_ENABLED=true npm run dev               # /dashboard and /api/dashboard/status -> 200
+DASHBOARD_ENABLED=true npm run dev               # /dashboard -> 307 to /dashboard/sign-in; /api/dashboard/status -> 200
 npm run dev                                      # flag unset -> both 404 (DASH-01, DASH-02)
 curl -sI http://localhost:8080/dashboard | head -1
 curl -s  http://localhost:8080/api/dashboard/status
@@ -193,15 +196,17 @@ curl -s  http://localhost:8080/api/dashboard/status
   - Migrations (direct): `DATABASE_URL_UNPOOLED` (else `DATABASE_URL`), else
     `orpheus_app_preview_DATABASE_URL_UNPOOLED` (else `orpheus_app_preview_DATABASE_URL`).
   - Neither pooled name set means storage is unavailable ("not configured"). Blank counts as unset.
+  - Set by an owner, never by a bot. Never commit, paste or log a value; `migrate.mjs` logs only the name
+    and redacts URLs from errors.
 - **Migration guard:** `scripts/migrate.mjs` exits 0 without connecting when `VERCEL_ENV=production` and
   `DASHBOARD_ENABLED` isn't exactly `true`. It logs `[migrate] skipped: VERCEL_ENV=production and dashboard
   flag off` (no values). The dashboard schema stays out of the production database until the release go.
   The decision function is `migrationSkipReason()` in `scripts/db-env.mjs`; tests are in
   `scripts/db-env.test.mjs`, including a script-level run.
-  - Set by an owner, never by a bot. Never commit, paste or log a value; `migrate.mjs` logs only the name
-    and redacts URLs from errors.
-- Schema: `migrations/0002_dashboard.sql` (spec §5). Never edit a shipped migration; add `0003_*.sql`.
-  The spec's `user_settings.user_id -> "user"(id)` FK is added by T03 (#11) together with the auth schema.
+- Schema: `migrations/0001_auth.sql` (Better Auth, a verbatim copy of `migrations/auth/0001_auth.sql`;
+  `scripts/migration-plan.test.mjs` fails if they differ), `0002_dashboard.sql` (spec §5) and
+  `0003_user_settings_fk.sql` (the spec's `user_settings.user_id -> "user"(id) ON DELETE CASCADE`, T03).
+  Never edit a shipped migration; add the next number (`0004_*.sql`).
 - Data access: `src/lib/dashboard/store.server.ts`. Every per-user function takes the `userId` from the
   verified session (`requireUserId()`), never from the client. Connection and status:
   `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without a database URL
@@ -225,6 +230,40 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   run its `pglite-server -p 15433` for a throwaway one (that's how T02 was checked end to end).
   Plain `npm run dev` without a database URL also applies `migrations/*.sql` to the template's in-memory
   PGLite (catches SQL errors), but the dashboard status still reads "not configured" by design.
+
+### Dashboard sign-in (Better Auth email/password, T03 #11)
+
+- Code: `src/lib/auth/config.ts` (allow-list, origins, readiness; pure), `instance.server.ts` (the Better
+  Auth config: email/password only, allow-list hooks, `__Host-orpheus-auth.*` cookies), `server.ts` (wires
+  the database via `scripts/db-env.mjs`, the secret and origins), `verify.server.ts` (session lookup).
+  Routes: `/api/auth/*` (`src/routes/api/auth/$.ts`), `/dashboard/sign-in` (`dashboard_.sign-in.tsx`).
+  The Grok broker (`genericOAuth`), gate-identity, popup and bearer-token paths are gone.
+- Everything is behind `DASHBOARD_ENABLED`: flag off, `/api/auth/*` is 404 JSON for every method and the
+  auth module never loads; `/dashboard/sign-in` is the plain 404. The calculator doesn't import auth.
+- **Allow-list (D12):** `DASHBOARD_SIGNUP_ALLOWLIST`, emails separated by commas, semicolons or spaces,
+  case-insensitive. Unset or empty: nobody can sign up (fail closed). Enforced twice: a `before` hook on
+  `/sign-up/email` (runs before the existing-user check) and a `user.create.before` database hook.
+- **Readiness:** on Vercel (`VERCEL` set) sign-in needs `BETTER_AUTH_SECRET` and a database URL;
+  `VITE_AUTH_ENABLED=false` turns it off anywhere. Not ready: `/api/auth/*` answers 503 JSON, the sign-in
+  page says "not configured", the server log names the missing variable (never a value).
+- **Origins:** production uses `BETTER_AUTH_URL`. Previews use exactly `VERCEL_BRANCH_URL` and `VERCEL_URL`
+  (https) and ignore `BETTER_AUTH_URL`, so one value can't pin all previews to a host. Local: loopback.
+- **Dashboard APIs that touch user data** (`/api/dashboard/me`, `/api/dashboard/settings`, and every
+  future one) use `src/lib/dashboard/session.server.ts`: flag off 404 JSON, unsupported method 405 JSON,
+  no session **401 JSON**, a client-named user id that isn't the session's **403 JSON**. The user id comes
+  only from the session. They never fall back to the template's dev user. `/api/dashboard/status` and
+  `/db` are diagnostics with no user data and stay public. Off production, `/status` also reports
+  `signIn` (`ready` or `not configured (<variable>)`) and `signUpAllowList` (`set`/`empty`), names and
+  states only, so QA and the Engineering Lead can see what a preview is missing without the build logs.
+- Tests: `src/lib/auth/auth.test.ts` (PGLite, offline): allow-list allowed/denied/case-insensitive/empty,
+  untrusted origin, sign-in/sign-out, 401/403/404/405, cross-user isolation, the FK cascade, migration
+  order on a database that already had `0002`. `npm run check:dashboard-built` covers the built server
+  without a database (redirect, 401s, 503). With a throwaway Postgres (never a shared one):
+  `DATABASE_URL=... node scripts/migrate.mjs && node scripts/check-dashboard-built.mjs --with-database`
+  runs the signed-in flow too (sign-up denied/allowed, `/dashboard`, isolation, sign-out).
+- Test accounts on a preview: use clearly fake addresses on the allow-list. Bots can't delete users
+  (no admin endpoint, no bot database access); an owner removes them in the Neon console
+  (`DELETE FROM "user" WHERE email = ...` cascades to sessions, accounts and `user_settings`).
 
 ## Repo leftovers from the Grok template
 
