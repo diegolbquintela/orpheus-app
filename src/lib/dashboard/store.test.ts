@@ -4,7 +4,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { checkDashboardDb, dashboardDatabaseUrl, describeDbStatus, getDashboardDb, showDbStatusLine } from "./db.server.ts";
+import {
+  checkDashboardDb,
+  dashboardDatabaseUrl,
+  describeDbStatus,
+  getDashboardDb,
+  handleDashboardDbRequest as handleDbApi,
+  showDbStatusLine,
+} from "./db.server.ts";
 import * as store from "./store.server.ts";
 
 const MIGRATION = readFileSync("migrations/0002_dashboard.sql", "utf8");
@@ -210,5 +217,43 @@ describe("storage availability (no DATABASE_URL = unavailable)", () => {
     assert.equal(showDbStatusLine({ VERCEL_ENV: "production" }), false);
     assert.equal(showDbStatusLine({ VERCEL_ENV: "preview" }), true);
     assert.equal(showDbStatusLine({}), true); // local dev
+  });
+});
+
+describe("/api/dashboard/db handler", () => {
+  const on = { DASHBOARD_ENABLED: "true" };
+  const noDb = async () => null;
+  const OTHER = ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+
+  it("flag off: 404 JSON for every method", async () => {
+    for (const env of [{}, { DASHBOARD_ENABLED: "false" }, { DASHBOARD_ENABLED: "TRUE" }])
+      for (const method of ["GET", "HEAD", ...OTHER]) {
+        const res = await handleDbApi(method, env, noDb);
+        assert.equal(res.status, 404, `${method} ${JSON.stringify(env)}`);
+        assert.match(res.headers.get("content-type") ?? "", /application\/json/);
+        assert.deepEqual(await res.json(), { error: "Not found." });
+      }
+  });
+
+  it("production: 404 JSON for every method even with the flag on", async () => {
+    for (const method of ["GET", ...OTHER]) {
+      const res = await handleDbApi(method, { ...on, VERCEL_ENV: "production" }, async () => db);
+      assert.equal(res.status, 404, method);
+      assert.deepEqual(await res.json(), { error: "Not found." });
+    }
+  });
+
+  it("flag on: GET returns the status, other methods 405 with Allow", async () => {
+    const notConfigured = await handleDbApi("GET", { ...on, VERCEL_ENV: "preview" }, noDb);
+    assert.equal(notConfigured.status, 200);
+    assert.deepEqual(await notConfigured.json(), { state: "not_configured" });
+    const connected = await handleDbApi("GET", on, async () => db);
+    assert.equal(((await connected.json()) as { state: string; tables: number }).tables, 9);
+    for (const method of OTHER) {
+      const res = await handleDbApi(method, on, noDb);
+      assert.equal(res.status, 405, method);
+      assert.equal(res.headers.get("allow"), "GET, HEAD");
+      assert.deepEqual(await res.json(), { error: "Method not allowed." });
+    }
   });
 });

@@ -1,22 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { guardDashboardApi } from "@/lib/dashboard/flag.server";
+import { handleDashboardDbRequest } from "@/lib/dashboard/db.server";
 
 // GET /api/dashboard/db: preview-only storage status for QA (DASH-03).
-// 404 JSON while DASHBOARD_ENABLED is off, and on production.
+// Flag off, or production: 404 JSON for every method. Otherwise GET (and HEAD)
+// answer the status JSON; any other method is 405 JSON with Allow: GET, HEAD.
+// Logic and tests: src/lib/dashboard/db.server.ts, store.test.ts.
 export const Route = createFileRoute("/api/dashboard/db")({
   server: {
     handlers: {
-      GET: async () => {
-        const blocked = guardDashboardApi();
-        if (blocked) return blocked;
-        const { checkDashboardDb, getDashboardDb, showDbStatusLine } = await import(
-          "@/lib/dashboard/db.server"
-        );
-        const { dashboardNotFoundResponse } = await import("@/lib/dashboard/flag.server");
-        if (!showDbStatusLine()) return dashboardNotFoundResponse();
-        const status = await checkDashboardDb(await getDashboardDb());
-        return Response.json(status, { headers: { "Cache-Control": "no-store" } });
-      },
+      GET: async ({ request }) => handleDashboardDbRequest(request.method),
+      ANY: async ({ request }) => handleDashboardDbRequest(request.method),
     },
   },
 });

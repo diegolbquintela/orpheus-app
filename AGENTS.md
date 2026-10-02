@@ -37,7 +37,7 @@ Node 22 (≥ 22.12, required by `@tanstack/react-start`), npm.
 | `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when `DATABASE_URL` is unset) |
 | `npm run fixtures:build` | Rebuild `qa/fixtures.json` offline from `qa/snapshots/*.json` through the app's own `loadChart()` and `runDesk()`. Add `-- --refresh` to re-pull Yahoo (network) |
 | `npm run fixtures:hand-check` | Independent recomputation from the raw snapshots (shares no code with `src/lib/dca`); rewrites `qa/HAND-CHECK.md`, exits non-zero on mismatch |
-| `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 on `status` when on). CI runs it after Build |
+| `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 with `Allow: GET, HEAD` on `status` and `db` when on); `/api/dashboard/db` reads `not_configured` and is 404 under `VERCEL_ENV=production`. CI runs it after Build |
 | `npm run dev` | Local dev server (Vite) on port 8080 |
 
 A new test file is only run if it is added to the `test` script in `package.json`.
@@ -172,14 +172,19 @@ curl -s  http://localhost:8080/api/dashboard/status
   verified session (`requireUserId()`), never from the client. Connection and status:
   `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without `DATABASE_URL`
   reports "not configured".
+- `GET /api/dashboard/db` follows the dashboard API pattern. Flag off: 404 JSON for every method. Flag on:
+  GET/HEAD return the status JSON and any other method gets **405 JSON with `Allow: GET, HEAD`**. On
+  production (`VERCEL_ENV=production`) it's 404 JSON for every method, and `/dashboard` has no status line.
 - Tests: `src/lib/dashboard/store.test.ts` (in `npm test`) applies the migration to in-process PGLite and
-  exercises every function. No network or Neon needed, and it runs in CI.
+  exercises every function plus the `/api/dashboard/db` handler (404/405/200 cases). No network or Neon
+  needed, and it runs in CI. `npm run check:dashboard-built` covers the same route on the built server.
 - Run migrations against a real Postgres (your own local or throwaway database, never production):
 
 ```bash
 DATABASE_URL=postgresql://user:pass@localhost:5432/db node scripts/migrate.mjs   # "applied 0002_dashboard.sql", then "up to date"
 DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 9/9 tables"
 curl -s http://localhost:8080/api/dashboard/db          # JSON status; 404 when the flag is off or VERCEL_ENV=production
+curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, Allow: GET, HEAD (flag on)
 ```
 
   No local Postgres? Install `@electric-sql/pglite` and `@electric-sql/pglite-socket` **outside the repo** and

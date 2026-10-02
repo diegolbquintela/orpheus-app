@@ -8,6 +8,11 @@
  *   preview without Neon can't look "connected" while writing to a throwaway in-memory DB.
  * - The calculator never imports this module.
  */
+import {
+  dashboardMethodNotAllowedResponse,
+  dashboardNotFoundResponse,
+  guardDashboardApi,
+} from "./flag.server.ts";
 import { DASHBOARD_TABLES, type Queryable } from "./store.server.ts";
 
 type Env = Record<string, string | undefined>;
@@ -83,4 +88,27 @@ export function describeDbStatus(status: DashboardDbStatus): string {
 /** The status line shows on previews and local dev only, never on production. */
 export function showDbStatusLine(env: Env = process.env): boolean {
   return env.VERCEL_ENV !== "production";
+}
+
+/** Methods `/api/dashboard/db` serves (HEAD is answered by GET). */
+export const DB_API_ALLOW = ["GET", "HEAD"] as const;
+
+/**
+ * `/api/dashboard/db` for any method (same pattern as `/api/dashboard/status`):
+ * - flag off: 404 JSON, every method;
+ * - production (`VERCEL_ENV=production`): 404 JSON, every method, even with the flag on;
+ * - otherwise GET/HEAD: 200 status JSON; any other method: 405 JSON, `Allow: GET, HEAD`.
+ */
+export async function handleDashboardDbRequest(
+  method: string,
+  env: Env = process.env,
+  getDb: (env: Env) => Promise<Queryable | null> = getDashboardDb,
+): Promise<Response> {
+  const blocked = guardDashboardApi(env);
+  if (blocked) return blocked;
+  if (!showDbStatusLine(env)) return dashboardNotFoundResponse();
+  const m = method.toUpperCase();
+  if (m !== "GET" && m !== "HEAD") return dashboardMethodNotAllowedResponse(DB_API_ALLOW);
+  const status = await checkDashboardDb(await getDb(env));
+  return Response.json(status, { headers: { "Cache-Control": "no-store" } });
 }
