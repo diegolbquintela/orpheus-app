@@ -265,6 +265,32 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   (no admin endpoint, no bot database access); an owner removes them in the Neon console
   (`DELETE FROM "user" WHERE email = ...` cascades to sessions, accounts and `user_settings`).
 
+### Dashboard holdings (T04 #12)
+
+- Code: `src/lib/dashboard/holdings.server.ts` (handlers, validation), `listing.server.ts` (listing check:
+  `listingFromPayload` maps a Yahoo chart payload through `listingError()` from `src/lib/dca/venues.ts`;
+  `yahooListingLookup` makes the one request), `store.server.ts` (`listHoldings`/`getHolding`/insert/update/
+  delete, all scoped by `user_id`). Routes: `src/routes/api/dashboard/holdings.ts` and
+  `holdings_.$id.ts` (flat file on purpose: `flag.test.ts` reads `src/routes/api/dashboard` without
+  recursing). UI: `src/components/dashboard/holdings.tsx`, rendered by `src/routes/dashboard.tsx`; the
+  loader uses `getDashboardHoldings` in `gate.ts`.
+- API: `GET`/`POST /api/dashboard/holdings` (`Allow: GET, HEAD, POST`), `GET`/`PUT`/`DELETE
+  /api/dashboard/holdings/<id>` (`Allow: GET, HEAD, PUT, DELETE`). Gate from `session.server.ts` (404 flag
+  off, 405, 401, 403 for a client-named other user id). A holding id that isn't the session user's (or
+  isn't numeric) answers **404 "Holding not found."**, never 403, so ids don't leak. No database: 503.
+- Rules: shares > 0, avg cost ≥ 0, ≤ 6 decimals; duplicate ticker 409 "<SYM> is already in your
+  holdings." (checked before any feed call); `PUT` takes `{shares, avgCost}` only and refuses `symbol`;
+  cap 200 per user. Ticker check only on `POST`: one Yahoo chart-metadata request; non-US/EU/CA gets
+  `listingError()`'s exact text (400), unknown symbol 404, feed down 503. Page loads never call a feed and
+  T04 never writes `instruments` (T05's job).
+- Tests: `src/lib/dashboard/holdings.test.ts` (PGLite, offline, fake listing lookup): CRUD and reload,
+  validation, duplicate, cap, DASH-06 isolation (other user's id 404 on GET/PUT/DELETE, 403 on named
+  userId), DASH-08 exact messages incl. BSE. `check:dashboard-built` checks holdings 404/405/401 without
+  a database; `--with-database` adds the signed-in CRUD run and **needs network** (it adds `KO` and
+  checks `VOD.L`/`TCS.BO` against live Yahoo).
+- `holdings.user_id` has no FK to `"user"` (spec §5 lists none), so deleting a test user doesn't remove
+  their holdings: an owner also runs `DELETE FROM holdings WHERE user_id = ...` in the Neon console.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

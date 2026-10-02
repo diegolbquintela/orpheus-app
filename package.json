@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "check:dashboard-built": "node scripts/check-dashboard-built.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/auth.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/dca/simulate.test.ts src/lib/dca/fixtures.test.ts src/lib/dca/results.test.ts src/lib/dashboard/flag.test.ts src/lib/dashboard/paths.test.ts src/lib/dashboard/store.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/auth.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/dca/simulate.test.ts src/lib/dca/fixtures.test.ts src/lib/dca/results.test.ts src/lib/dashboard/flag.test.ts src/lib/dashboard/paths.test.ts src/lib/dashboard/store.test.ts src/lib/dashboard/holdings.test.ts",
     "lint": "eslint .",
     "fixtures:build": "node --experimental-strip-types scripts/build-fixtures.ts",
     "fixtures:hand-check": "node scripts/hand-check.mjs",

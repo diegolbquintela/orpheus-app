@@ -10,10 +10,11 @@
  *   - GET /dashboard, /dashboard/x, /dashboard/sign-in: 404 HTML identical to the 404 for any
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
- *   - Every method on /api/dashboard/{status,db,me,settings}, /api/dashboard/* and /api/auth/*: 404 JSON.
+ *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1}, /api/dashboard/* and
+ *     /api/auth/*: 404 JSON.
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
- *   - /api/dashboard/me and /settings: 401 JSON; unsupported methods 405 JSON.
+ *   - /api/dashboard/{me,settings,holdings,holdings/1}: 401 JSON for served methods; others 405 JSON.
  *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
  *     /api/dashboard/db {"state":"not_configured"}; other methods 405.
  *   - /api/auth/*: 503 JSON (sign-in not configured: fail closed).
@@ -23,7 +24,10 @@
  * `--with-database` (manual; needs DATABASE_URL for a fresh throwaway, already migrated Postgres, never
  * a shared one): the same signed-out checks, then sign-up with the allow-list (denied 403 /
  * allowed), the signed-in /dashboard ("Signed in as", "connected · 9/9 tables"), /api/dashboard/me,
- * settings isolation between two accounts (403), the production status-line rule and sign-out.
+ * settings isolation between two accounts (403), holdings (T04: add KO, VOD.L and TCS.BO refused with
+ * the calculator's messages, duplicate 409, quantity checks, edit, the row after a reload, another
+ * account gets 404 on the holding id, delete), the production status-line rule and sign-out.
+ * Adding a holding asks the live price feed for the listing, so this mode needs network access.
  *
  *   node scripts/migrate.mjs && node scripts/check-dashboard-built.mjs --with-database
  */
@@ -101,7 +105,19 @@ const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 // Routes with their own handlers (GET/HEAD when on); everything else under /api/dashboard is the catch-all.
 const GATED_API_PATHS = ["/api/dashboard/status", "/api/dashboard/db"];
 // Per-user routes: 401 signed out (GET), own data signed in.
-const SESSION_API_PATHS = ["/api/dashboard/me", "/api/dashboard/settings"];
+const SESSION_API_PATHS = [
+  "/api/dashboard/me",
+  "/api/dashboard/settings",
+  "/api/dashboard/holdings",
+  "/api/dashboard/holdings/1",
+];
+// Methods each per-user route serves (anything else: 405 JSON when the flag is on).
+const SESSION_ALLOW = {
+  "/api/dashboard/me": ["GET", "HEAD"],
+  "/api/dashboard/settings": ["GET", "HEAD", "PUT"],
+  "/api/dashboard/holdings": ["GET", "HEAD", "POST"],
+  "/api/dashboard/holdings/1": ["GET", "HEAD", "PUT", "DELETE"],
+};
 const AUTH_PATHS = ["/api/auth/get-session", "/api/auth/sign-up/email", "/api/auth/sign-in/email"];
 const API_PATHS = [
   ...GATED_API_PATHS,
@@ -182,14 +198,13 @@ const isRedirectTo = (r, path) =>
       `${label}: GET ${path} -> ${r.status} ${r.body.slice(0, 60)}`,
     );
   }
-  for (const method of METHODS_NOT_GET) {
-    const me = await call(method, "/api/dashboard/me", "true");
-    check(json405(me), `${label}: ${method} /api/dashboard/me -> ${me.status}`);
-    if (method !== "PUT") {
-      const st = await call(method, "/api/dashboard/settings", "true");
-      check(json405(st), `${label}: ${method} /api/dashboard/settings -> ${st.status}`);
+  for (const path of SESSION_API_PATHS)
+    for (const method of METHODS) {
+      const r = await call(method, path, "true", undefined, method === "GET" || method === "HEAD" ? {} : { body: {} });
+      if (SESSION_ALLOW[path].includes(method))
+        check(r.status === 401, `${label}: ${method} ${path} -> ${r.status} (want 401)`);
+      else check(json405(r) && r.allow === SESSION_ALLOW[path].join(", "), `${label}: ${method} ${path} -> ${r.status} allow=${r.allow}`);
     }
-  }
   const status = await call("GET", "/api/dashboard/status", "true");
   const expected = WITH_DB
     ? '{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set"}'
@@ -253,7 +268,8 @@ if (!WITH_DB) {
   check(page.status === 200, `${label}: GET /dashboard -> ${page.status}`);
   check(/<title>Dashboard · Orpheus Wisdom<\/title>/.test(page.body), `${label}: GET /dashboard title`);
   check(/<meta name="robots" content="noindex, nofollow"\/>/.test(page.body), `${label}: GET /dashboard noindex`);
-  check(/Preview shell\. Nothing to show yet\./.test(page.body), `${label}: GET /dashboard placeholder copy`);
+  check(/data-testid="holding-form"/.test(page.body), `${label}: GET /dashboard lacks the holdings form`);
+  check(/No holdings yet\./.test(page.body), `${label}: GET /dashboard lacks "No holdings yet."`);
   check(/Signed in as (<!-- -->)?qa-allowed@example\.com/.test(page.body), `${label}: GET /dashboard lacks "Signed in as"`);
   check(/Database: connected · 9\/9 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 9/9 tables"`);
   const me = await call("GET", "/api/dashboard/me", "true", undefined, { cookie: token });
@@ -272,6 +288,47 @@ if (!WITH_DB) {
   check(own.body === '{"settings":{"baseCurrency":"CAD"}}', `${label}: other user's own settings -> ${own.body}`);
   const mine = await call("GET", "/api/dashboard/settings", "true", undefined, { cookie: token });
   check(mine.body === '{"settings":{"baseCurrency":"USD"}}', `${label}: first user's settings after the attempts -> ${mine.body}`);
+  // Holdings (T04): add / validate / duplicate / edit / isolation / delete. Adding asks the live
+  // price feed which exchange lists the ticker, so this part needs network access.
+  const H = "/api/dashboard/holdings";
+  const empty = await call("GET", H, "true", undefined, { cookie: token });
+  check(empty.status === 200 && empty.body === '{"holdings":[]}', `${label}: GET holdings -> ${empty.status} ${empty.body}`);
+  const ko = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "ko", shares: "10.5", avgCost: "52.25" } });
+  check(ko.status === 201 && /"symbol":"KO"/.test(ko.body), `${label}: POST KO -> ${ko.status} ${ko.body.slice(0, 120)}`);
+  const koId = ko.status === 201 ? JSON.parse(ko.body).holding.id : 0;
+  for (const [symbol, message] of [
+    ["VOD.L", "VOD.L lists on LSE. US, EU, and CA listings only."],
+    ["TCS.BO", "TCS.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."],
+  ]) {
+    const r = await call("POST", H, "true", undefined, { cookie: token, body: { symbol, shares: "1", avgCost: "1" } });
+    check(
+      r.status === 400 && r.body === JSON.stringify({ error: message, field: "symbol" }),
+      `${label}: POST ${symbol} -> ${r.status} ${r.body}`,
+    );
+  }
+  const dup = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "KO", shares: "1", avgCost: "1" } });
+  check(dup.status === 409 && /KO is already in your holdings\./.test(dup.body), `${label}: duplicate KO -> ${dup.status} ${dup.body}`);
+  const zero = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "0", avgCost: "1" } });
+  check(zero.status === 400 && /Shares must be greater than 0\./.test(zero.body), `${label}: shares 0 -> ${zero.status} ${zero.body}`);
+  const neg = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "1", avgCost: "-1" } });
+  check(neg.status === 400 && /Average cost must be 0 or more\./.test(neg.body), `${label}: avg cost -1 -> ${neg.status} ${neg.body}`);
+  const edit = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "50" } });
+  check(edit.status === 200 && /"shares":"12(\.0+)?"/.test(edit.body), `${label}: PUT KO -> ${edit.status} ${edit.body.slice(0, 120)}`);
+  const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
+  check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
+  for (const [method, body] of [["GET"], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE"]]) {
+    const r = await call(method, `${H}/${koId}`, "true", undefined, { cookie: otherToken, body });
+    check(r.status === 404, `${label}: other user ${method} first user's holding -> ${r.status}`);
+  }
+  const otherList = await call("GET", H, "true", undefined, { cookie: otherToken });
+  check(otherList.body === '{"holdings":[]}', `${label}: other user's holdings -> ${otherList.body}`);
+  const stillMine = await call("GET", `${H}/${koId}`, "true", undefined, { cookie: token });
+  check(stillMine.status === 200 && /"shares":"12(\.0+)?"/.test(stillMine.body), `${label}: KO after the other user's attempts -> ${stillMine.body.slice(0, 120)}`);
+  const del = await call("DELETE", `${H}/${koId}`, "true", undefined, { cookie: token });
+  check(del.status === 200 && del.body === '{"deleted":true}', `${label}: DELETE KO -> ${del.status} ${del.body}`);
+  const gone = await call("GET", H, "true", undefined, { cookie: token });
+  check(gone.body === '{"holdings":[]}', `${label}: holdings after delete -> ${gone.body}`);
+
   // Production hides the status line even signed in with the flag on.
   const prodPage = await call("GET", "/dashboard", "true", "production", { cookie: token });
   check(prodPage.status === 200 && !/Database:/.test(prodPage.body), `${label} + VERCEL_ENV=production: /dashboard -> ${prodPage.status}, status line present=${/Database:/.test(prodPage.body)}`);
@@ -289,6 +346,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 9/9; me; settings isolation (403); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 9/9; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );
