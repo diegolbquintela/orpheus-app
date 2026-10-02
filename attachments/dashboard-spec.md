@@ -4,7 +4,8 @@ Status: **APPROVED 2026-10-02. All decisions D1–D13 are decided** (see
 [13. Decisions record](#13-decisions-record)). D8, D9 and D12 were approved as recommended.
 [Amendment A: daily-close source](#14-amendment-a-daily-close-source) is decided as **D13: stay at $0,
 with Yahoo as the primary source behind `DailyCloseProvider`, each close cached once in Neon, and Alpha
-Vantage's free tier as the fallback**. Nothing is built yet; work starts with ticket T01 (#9).
+Vantage's free tier as the fallback**. Ticket T01 (#9, feature flag) is merged via PR #26. Storage, T02
+(#10), is in progress in PR #28.
 
 Date: 2026-10-02. All provider facts below were checked on the provider's own page on 2026-10-02, and
 each one has its link inline. When a provider page does not say something, this document says
@@ -712,7 +713,8 @@ UI shows the last cached close with a "stale since <date>" badge and never a mad
   - Free `TIME_SERIES_DAILY` `compact` (the last 100 sessions) plus `DIVIDENDS`/`SPLITS` can fill missed
     days.
   - It can't backfill: full history is premium, so a backfill waits for Yahoo.
-  - At 25 requests/day it covers up to about 25 symbol-gaps a day. Anything beyond that waits for the next
+  - A full gap-fill for one symbol takes 3 requests: `TIME_SERIES_DAILY`, `DIVIDENDS` and `SPLITS`. At 25
+    requests/day that covers about **8 symbols a day** (25 ÷ 3). Anything beyond that waits for the next
     run.
   - **Unverified:** Euronext Paris/Amsterdam coverage (check `SYMBOL_SEARCH` once a key exists), and
     whether DIVIDENDS/SPLITS cover non-US listings. A symbol it doesn't cover just keeps its last close,
