@@ -1,0 +1,689 @@
+[
+  {
+    "id": "us-single-dividend-ko",
+    "title": "US dividend payer, single name, ~2 years, monthly",
+    "acs": [
+      {
+        "ac": "DCA-01",
+        "rule": "Dividends reinvested"
+      },
+      {
+        "ac": "DCA-02",
+        "rule": "DCA = extra cash on each date (contributions only)"
+      },
+      {
+        "ac": "DCA-03",
+        "rule": "Lump sum deploys starting capital on day one"
+      }
+    ],
+    "kind": "run",
+    "inputs": {
+      "tickers": [
+        "KO"
+      ],
+      "weights": [
+        100
+      ],
+      "start": "2023-01-03",
+      "end": "2024-12-31",
+      "capital": 10000,
+      "contribution": 500,
+      "frequency": "monthly"
+    },
+    "data": {
+      "snapshots": [
+        "qa/snapshots/KO_2023-01-03_2024-12-31.json"
+      ],
+      "queries": [
+        "https://query2.finance.yahoo.com/v8/finance/chart/KO?period1=1671494400&period2=1735948800&interval=1d&events=div%2Csplit"
+      ],
+      "fetchedAt": [
+        "2026-10-02T18:37:05.052Z"
+      ]
+    },
+    "expected": {
+      "currency": "USD",
+      "exchanges": [
+        "NYSE"
+      ],
+      "weightsApplied": [
+        1
+      ],
+      "weightsScaled": false,
+      "events": [
+        {
+          "ticker": "KO",
+          "dividendsInWindow": [
+            {
+              "date": "2023-03-16",
+              "amt": 0.46
+            },
+            {
+              "date": "2023-06-15",
+              "amt": 0.46
+            },
+            {
+              "date": "2023-09-14",
+              "amt": 0.46
+            },
+            {
+              "date": "2023-11-30",
+              "amt": 0.46
+            },
+            {
+              "date": "2024-03-14",
+              "amt": 0.485
+            },
+            {
+              "date": "2024-06-14",
+              "amt": 0.485
+            },
+            {
+              "date": "2024-09-13",
+              "amt": 0.485
+            },
+            {
+              "date": "2024-11-29",
+              "amt": 0.485
+            }
+          ],
+          "splitsInWindow": []
+        }
+      ],
+      "lumpDeploy": {
+        "date": "2023-01-03",
+        "prices": [
+          62.95000076293945
+        ],
+        "nlvOnDeployDate": 10000,
+        "allocationAtDeploy": [
+          1
+        ]
+      },
+      "contributions": {
+        "placed": 24,
+        "invested": 12000,
+        "missed": 0
+      },
+      "run": {
+        "sessions": 502,
+        "years": 1.9931553730321698,
+        "lastPrices": [
+          62.2599983215332
+        ],
+        "shares": {
+          "lump": [
+            168.81096119704168
+          ],
+          "dca": [
+            200.9479303650937
+          ]
+        },
+        "lump": {
+          "invested": 10000,
+          "endNlv": 10510.170160784222,
+          "totalReturn": 0.05101701607842224,
+          "cagr": 0.025278802124778066,
+          "mwr": 0.025278802053071543,
+          "maxDrop": -0.1728030061920279,
+          "maxDropDate": "2023-10-05",
+          "nlvAtDrop": 8513.823731037455,
+          "returnToDrop": -0.14861762689625446
+        },
+        "dca": {
+          "invested": 12000,
+          "endNlv": 12511.017807246304,
+          "totalReturn": 0.04258481727052543,
+          "cagr": 0.02114354403901131,
+          "mwr": 0.040836550504900496,
+          "maxDrop": -0.08860009542942585,
+          "maxDropDate": "2024-11-15",
+          "nlvAtDrop": 11830.9920800376,
+          "returnToDrop": 0.028781920003269512
+        },
+        "missedContributions": 0,
+        "chartPoints": 502,
+        "chartFirst": {
+          "date": "2023-01-03",
+          "lump": 10000,
+          "dca": 500
+        },
+        "chartLast": {
+          "date": "2024-12-31",
+          "lump": 10510.170160784222,
+          "dca": 12511.017807246304
+        }
+      },
+      "withoutDividendReinvestment": {
+        "lumpEndNlv": 9890.388811271869,
+        "dcaEndNlv": 12092.994846213083,
+        "lumpShares": [
+          158.8562331819271
+        ],
+        "dcaShares": [
+          194.23378047266357
+        ]
+      }
+    }
+  },
+  {
+    "id": "us-basket-jnj-pg-wmt",
+    "title": "Weighted 3-name USD basket (includes WMT 3:1 split, Feb 2024), weekly",
+    "acs": [
+      {
+        "ac": "DCA-01",
+        "rule": "Dividends reinvested"
+      },
+      {
+        "ac": "DCA-02",
+        "rule": "DCA = extra cash on each date (contributions only)"
+      },
+      {
+        "ac": "DCA-03",
+        "rule": "Lump sum deploys starting capital on day one"
+      },
+      {
+        "ac": "DCA-04",
+        "rule": "Multi-ticker weighted basket"
+      }
+    ],
+    "kind": "run",
+    "inputs": {
+      "tickers": [
+        "JNJ",
+        "PG",
+        "WMT"
+      ],
+      "weights": [
+        50,
+        30,
+        20
+      ],
+      "start": "2023-01-03",
+      "end": "2024-12-31",
+      "capital": 20000,
+      "contribution": 250,
+      "frequency": "weekly"
+    },
+    "data": {
+      "snapshots": [
+        "qa/snapshots/JNJ_2023-01-03_2024-12-31.json",
+        "qa/snapshots/PG_2023-01-03_2024-12-31.json",
+        "qa/snapshots/WMT_2023-01-03_2024-12-31.json"
+      ],
+      "queries": [
+        "https://query2.finance.yahoo.com/v8/finance/chart/JNJ?period1=1671494400&period2=1735948800&interval=1d&events=div%2Csplit",
+        "https://query2.finance.yahoo.com/v8/finance/chart/PG?period1=1671494400&period2=1735948800&interval=1d&events=div%2Csplit",
+        "https://query2.finance.yahoo.com/v8/finance/chart/WMT?period1=1671494400&period2=1735948800&interval=1d&events=div%2Csplit"
+      ],
+      "fetchedAt": [
+        "2026-10-02T18:37:05.171Z",
+        "2026-10-02T18:37:05.264Z",
+        "2026-10-02T18:37:05.350Z"
+      ]
+    },
+    "expected": {
+      "currency": "USD",
+      "exchanges": [
+        "NYSE",
+        "NYSE",
+        "NasdaqGS"
+      ],
+      "weightsApplied": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "weightsScaled": false,
+      "events": [
+        {
+          "ticker": "JNJ",
+          "dividendsInWindow": [
+            {
+              "date": "2023-02-17",
+              "amt": 1.13
+            },
+            {
+              "date": "2023-05-22",
+              "amt": 1.19
+            },
+            {
+              "date": "2023-08-25",
+              "amt": 1.19
+            },
+            {
+              "date": "2023-11-20",
+              "amt": 1.19
+            },
+            {
+              "date": "2024-02-16",
+              "amt": 1.19
+            },
+            {
+              "date": "2024-05-20",
+              "amt": 1.24
+            },
+            {
+              "date": "2024-08-27",
+              "amt": 1.24
+            },
+            {
+              "date": "2024-11-26",
+              "amt": 1.24
+            }
+          ],
+          "splitsInWindow": []
+        },
+        {
+          "ticker": "PG",
+          "dividendsInWindow": [
+            {
+              "date": "2023-01-19",
+              "amt": 0.913
+            },
+            {
+              "date": "2023-04-20",
+              "amt": 0.941
+            },
+            {
+              "date": "2023-07-20",
+              "amt": 0.941
+            },
+            {
+              "date": "2023-10-19",
+              "amt": 0.941
+            },
+            {
+              "date": "2024-01-18",
+              "amt": 0.941
+            },
+            {
+              "date": "2024-04-18",
+              "amt": 1.007
+            },
+            {
+              "date": "2024-07-19",
+              "amt": 1.007
+            },
+            {
+              "date": "2024-10-18",
+              "amt": 1.007
+            }
+          ],
+          "splitsInWindow": []
+        },
+        {
+          "ticker": "WMT",
+          "dividendsInWindow": [
+            {
+              "date": "2023-03-16",
+              "amt": 0.5700000000000001
+            },
+            {
+              "date": "2023-05-04",
+              "amt": 0.5700000000000001
+            },
+            {
+              "date": "2023-08-10",
+              "amt": 0.5700000000000001
+            },
+            {
+              "date": "2023-12-07",
+              "amt": 0.5700000000000001
+            },
+            {
+              "date": "2024-03-14",
+              "amt": 0.208
+            },
+            {
+              "date": "2024-05-09",
+              "amt": 0.208
+            },
+            {
+              "date": "2024-08-16",
+              "amt": 0.208
+            },
+            {
+              "date": "2024-12-13",
+              "amt": 0.208
+            }
+          ],
+          "splitsInWindow": [
+            {
+              "date": "2024-02-26",
+              "ratio": 3
+            }
+          ]
+        }
+      ],
+      "lumpDeploy": {
+        "date": "2023-01-03",
+        "prices": [
+          178.19000244140625,
+          151.57000732421875,
+          143.60000610351562
+        ],
+        "nlvOnDeployDate": 20000,
+        "allocationAtDeploy": [
+          0.5,
+          0.3,
+          0.2
+        ]
+      },
+      "contributions": {
+        "placed": 105,
+        "invested": 26250,
+        "missed": 0
+      },
+      "run": {
+        "sessions": 502,
+        "years": 1.9931553730321698,
+        "lastPrices": [
+          144.6199951171875,
+          167.64999389648438,
+          90.3499984741211
+        ],
+        "shares": {
+          "lump": [
+            59.64541202507944,
+            41.60362017057198,
+            85.85653374350574
+          ],
+          "dca": [
+            85.98003447823152,
+            51.58945519910419,
+            91.12124885730495
+          ]
+        },
+        "lump": {
+          "invested": 20000,
+          "endNlv": 23357.90355621674,
+          "totalReturn": 0.16789517781083707,
+          "cagr": 0.0809800210559184,
+          "mwr": 0.08098002078477295,
+          "maxDrop": -0.12258242181747012,
+          "maxDropDate": "2023-03-09",
+          "nlvAtDrop": 17809.130539674814,
+          "returnToDrop": -0.10954347301625933
+        },
+        "dca": {
+          "invested": 26250,
+          "endNlv": 29316.208710887735,
+          "totalReturn": 0.11680795089096141,
+          "cagr": 0.05699182706486239,
+          "mwr": 0.11499717819970098,
+          "maxDrop": -0.031137823460997548,
+          "maxDropDate": "2023-01-23",
+          "nlvAtDrop": 719.635622740919,
+          "returnToDrop": -0.04048583634544134
+        },
+        "missedContributions": 0,
+        "chartPoints": 502,
+        "chartFirst": {
+          "date": "2023-01-03",
+          "lump": 20000,
+          "dca": 250
+        },
+        "chartLast": {
+          "date": "2024-12-31",
+          "lump": 23357.90355621674,
+          "dca": 29316.208710887735
+        }
+      },
+      "withoutDividendReinvestment": {
+        "lumpEndNlv": 22302.731348611364,
+        "dcaEndNlv": 28618.214476408444,
+        "lumpShares": [
+          56.119871277785485,
+          39.585668074591986,
+          83.5654560581959
+        ],
+        "dcaShares": [
+          83.34873810465693,
+          50.38456375968105,
+          89.84337254003063
+        ]
+      }
+    }
+  },
+  {
+    "id": "ca-single-ry-to",
+    "title": "CA listing (Toronto, CAD), single name, monthly",
+    "acs": [
+      {
+        "ac": "DCA-01",
+        "rule": "Dividends reinvested"
+      },
+      {
+        "ac": "DCA-02",
+        "rule": "DCA = extra cash on each date (contributions only)"
+      },
+      {
+        "ac": "DCA-03",
+        "rule": "Lump sum deploys starting capital on day one"
+      },
+      {
+        "ac": "DCA-05",
+        "rule": "US/EU/CA listings only"
+      }
+    ],
+    "kind": "run",
+    "inputs": {
+      "tickers": [
+        "RY.TO"
+      ],
+      "weights": [
+        100
+      ],
+      "start": "2023-01-03",
+      "end": "2024-12-31",
+      "capital": 10000,
+      "contribution": 500,
+      "frequency": "monthly"
+    },
+    "data": {
+      "snapshots": [
+        "qa/snapshots/RY.TO_2023-01-03_2024-12-31.json"
+      ],
+      "queries": [
+        "https://query2.finance.yahoo.com/v8/finance/chart/RY.TO?period1=1671494400&period2=1735948800&interval=1d&events=div%2Csplit"
+      ],
+      "fetchedAt": [
+        "2026-10-02T18:37:05.440Z"
+      ]
+    },
+    "expected": {
+      "currency": "CAD",
+      "exchanges": [
+        "Toronto"
+      ],
+      "weightsApplied": [
+        1
+      ],
+      "weightsScaled": false,
+      "events": [
+        {
+          "ticker": "RY.TO",
+          "dividendsInWindow": [
+            {
+              "date": "2023-01-25",
+              "amt": 1.32
+            },
+            {
+              "date": "2023-04-24",
+              "amt": 1.32
+            },
+            {
+              "date": "2023-07-25",
+              "amt": 1.35
+            },
+            {
+              "date": "2023-10-25",
+              "amt": 1.35
+            },
+            {
+              "date": "2024-01-24",
+              "amt": 1.38
+            },
+            {
+              "date": "2024-04-24",
+              "amt": 1.38
+            },
+            {
+              "date": "2024-07-25",
+              "amt": 1.42
+            },
+            {
+              "date": "2024-10-24",
+              "amt": 1.42
+            }
+          ],
+          "splitsInWindow": []
+        }
+      ],
+      "lumpDeploy": {
+        "date": "2023-01-03",
+        "prices": [
+          128.02999877929688
+        ],
+        "nlvOnDeployDate": 10000,
+        "allocationAtDeploy": [
+          1
+        ]
+      },
+      "contributions": {
+        "placed": 24,
+        "invested": 12000,
+        "missed": 0
+      },
+      "run": {
+        "sessions": 502,
+        "years": 1.9931553730321698,
+        "lastPrices": [
+          173.32000732421875
+        ],
+        "shares": {
+          "lump": [
+            84.66011421844469
+          ],
+          "dca": [
+            91.85182135244226
+          ]
+        },
+        "lump": {
+          "invested": 10000,
+          "endNlv": 14673.29161641003,
+          "totalReturn": 0.4673291616410029,
+          "cagr": 0.21213141674689484,
+          "mwr": 0.2121314165415242,
+          "maxDrop": -0.19706447673184518,
+          "maxDropDate": "2023-10-27",
+          "nlvAtDrop": 8838.369557885333,
+          "returnToDrop": -0.11616304421146673
+        },
+        "dca": {
+          "invested": 12000,
+          "endNlv": 15919.758349548125,
+          "totalReturn": 0.3266465291290104,
+          "cagr": 0.15236056363816264,
+          "mwr": 0.29957882550079373,
+          "maxDrop": -0.07579628778068091,
+          "maxDropDate": "2023-03-24",
+          "nlvAtDrop": 1422.7465282889036,
+          "returnToDrop": -0.05150231447406428
+        },
+        "missedContributions": 0,
+        "chartPoints": 502,
+        "chartFirst": {
+          "date": "2023-01-03",
+          "lump": 10000,
+          "dca": 500
+        },
+        "chartLast": {
+          "date": "2024-12-31",
+          "lump": 14673.29161641003,
+          "dca": 15919.758349548125
+        }
+      },
+      "withoutDividendReinvestment": {
+        "lumpEndNlv": 13537.452860793554,
+        "dcaEndNlv": 15298.932600724713,
+        "lumpShares": [
+          78.10669448836278
+        ],
+        "dcaShares": [
+          88.26985895578673
+        ]
+      }
+    }
+  },
+  {
+    "id": "refused-lse-vod-l",
+    "title": "Non US/EU/CA listing (London Stock Exchange) is refused",
+    "acs": [
+      {
+        "ac": "DCA-05",
+        "rule": "US/EU/CA listings only"
+      }
+    ],
+    "kind": "refused",
+    "inputs": {
+      "tickers": [
+        "VOD.L"
+      ],
+      "weights": [
+        100
+      ],
+      "start": "2023-01-03",
+      "end": "2024-12-31",
+      "capital": 10000,
+      "contribution": 500,
+      "frequency": "monthly"
+    },
+    "data": {
+      "snapshots": [
+        "qa/snapshots/VOD.L_2023-01-03_2024-12-31.json"
+      ],
+      "queries": [
+        "https://query2.finance.yahoo.com/v8/finance/chart/VOD.L?period1=1671494400&period2=1735948800&interval=1d&events=div%2Csplit"
+      ],
+      "fetchedAt": [
+        "2026-10-02T18:37:05.530Z"
+      ]
+    },
+    "expected": {
+      "outcomes": [
+        {
+          "ticker": "VOD.L",
+          "refused": true,
+          "status": 400,
+          "error": "VOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-advice-copy",
+    "title": "User-facing copy carries no buy/sell/hold recommendation",
+    "acs": [
+      {
+        "ac": "DCA-06",
+        "rule": "No buy/sell advice"
+      }
+    ],
+    "kind": "content",
+    "inputs": {
+      "files": [
+        "src/components/desk.tsx",
+        "src/routes/index.tsx",
+        "src/routes/__root.tsx"
+      ],
+      "pattern": "\\b(buy|sell|hold|recommend|recommended|recommends|strong buy|outperform|underweight|overweight)\\b",
+      "disclaimer": "Not a recommendation"
+    },
+    "expected": {
+      "adviceMatches": [],
+      "disclaimerPresent": true
+    }
+  }
+]
