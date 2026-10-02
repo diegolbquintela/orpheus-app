@@ -197,7 +197,12 @@ Implementation notes (T02, #10):
 - The FK `user_settings.user_id → "user"(id) on delete cascade` lands with T03 (#11) in its own migration,
   because the Better Auth `"user"` table only enters `migrations/` in T03. `0002_dashboard.sql` creates
   every other column, key and check above.
-- Without `DATABASE_URL`, dashboard storage is unavailable ("not configured"); there is no in-memory
+- Env var names as installed (2026-10-02): the Neon integration (database `neon-almond-lever`) injects
+  prefixed names for Preview and Development only: `orpheus_app_preview_DATABASE_URL`, `..._UNPOOLED` and
+  others. The app reads `DATABASE_URL`, else `orpheus_app_preview_DATABASE_URL`. Migrations prefer the
+  direct (`_UNPOOLED`) URL of the same pair. Neon **preview branching is on**, not off as §4 recommends,
+  so watch the Free plan's 10-branch cap (§4) and prune old preview branches.
+- Without a database URL, dashboard storage is unavailable ("not configured"); there is no in-memory
   fallback for the dashboard. The preview-only status line on `/dashboard` and `GET /api/dashboard/db`
   report "connected" plus the table count (DASH-03); both are 404 or hidden on production.
 

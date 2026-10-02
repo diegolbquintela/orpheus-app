@@ -28,7 +28,8 @@ if (!existsSync(entry)) {
   process.exit(2);
 }
 // Storage must read "not configured" here: never reach a real database from this check.
-delete process.env.DATABASE_URL;
+for (const name of Object.keys(process.env))
+  if (/DATABASE_URL|POSTGRES_URL/.test(name)) delete process.env[name];
 delete process.env.VERCEL_ENV;
 const { default: server } = await import(pathToFileURL(entry).href);
 

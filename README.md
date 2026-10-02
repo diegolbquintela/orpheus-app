@@ -115,11 +115,15 @@ DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboa
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql). Data access lives in
 `src/lib/dashboard/store.server.ts` and is server-only.
-- The database URL comes only from `DATABASE_URL`, which the Neon integration injects. An owner scopes it
-  to Vercel **Preview** (a `preview` Neon branch).
-- `npm run build` applies pending migrations when `DATABASE_URL` is set. It logs `applied 0002_dashboard.sql`
+- Database URL: `DATABASE_URL` when set, otherwise `orpheus_app_preview_DATABASE_URL`, the prefixed name the
+  Vercel Neon integration injects. It's scoped to Preview and Development only; Production has none.
+  Migrations prefer the direct connection (`DATABASE_URL_UNPOOLED`, else
+  `orpheus_app_preview_DATABASE_URL_UNPOOLED`) and fall back to the pooled URL. Neon preview branching is
+  on, so a preview deploy can get its own Neon branch. Precedence lives in `scripts/db-env.mjs`.
+- `npm run build` applies pending migrations when a database URL is set. It logs which env var name it used
+  (never the value), then `applied 0002_dashboard.sql`
   once, then `up to date` on later deploys.
-- Without `DATABASE_URL`, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
+- With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
   The app still builds, and the calculator never touches the database.
 - On previews (flag on), `/dashboard` shows a status line, "Database: connected · 9/9 tables" when Neon is
   wired up. `GET /api/dashboard/db` returns the same status as JSON; other methods get 405 JSON with

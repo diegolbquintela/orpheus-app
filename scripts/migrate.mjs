@@ -3,13 +3,15 @@
  * Deploy-time database migrator (node-postgres, `pg`).
  *
  * Runs during `npm run build` — on every Vercel deploy — applying pending files
- * in ../migrations to DATABASE_URL. Each file is applied in one transaction and
+ * in ../migrations to the configured database (scripts/db-env.mjs: DATABASE_URL_UNPOOLED /
+ * DATABASE_URL, else the Neon integration's orpheus_app_preview_* names; direct connection
+ * preferred). Each file is applied in one transaction and
  * recorded in a `_migrations` table, so it runs once and is safe to re-run.
  *
  * The read is non-recursive, so the opt-in auth schema under migrations/auth/
  * is not applied to an app that never asked for sign-in.
  *
- * No DATABASE_URL (local / preview builds) -> skip; the PGLite fallback applies
+ * No database configured -> skip; the PGLite fallback applies
  * the same files at startup instead (see src/lib/db.ts).
  */
 import { readdir, readFile } from "node:fs/promises";
@@ -17,14 +19,18 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
+import { redactUrls, resolveMigrationUrl } from "./db-env.mjs";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const target = resolveMigrationUrl(process.env);
+if (!target) {
   console.log(
-    "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
+    "[migrate] no database URL set — skipping (the PGLite fallback migrates itself).",
   );
   process.exit(0);
 }
+const databaseUrl = target.url;
+// Log the env var NAME only, never its value.
+console.log(`[migrate] using ${target.name}`);
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
@@ -81,10 +87,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[migrate] failed:", err?.message || err);
+  console.error("[migrate] failed:", redactUrls(err?.message || String(err)));
   // pg errors carry the context needed to debug a bad SQL file.
   for (const key of ["code", "detail", "hint", "position", "where"]) {
-    if (err?.[key] != null) console.error(`[migrate]   ${key}: ${err[key]}`);
+    if (err?.[key] != null) console.error(`[migrate]   ${key}: ${redactUrls(err[key])}`);
   }
   process.exit(1);
 });

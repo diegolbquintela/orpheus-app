@@ -34,7 +34,7 @@ Node 22 (≥ 22.12, required by `@tanstack/react-start`), npm.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `eslint .` (warnings allowed, errors fail) |
 | `npm test` | Node test runner: `scripts/**/*.test.mjs`, then the listed `src/**/*.test.ts` files (includes the DCA engine, results helpers and the offline fixture replay) |
-| `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when `DATABASE_URL` is unset) |
+| `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when no database URL is set; see `scripts/db-env.mjs`) |
 | `npm run fixtures:build` | Rebuild `qa/fixtures.json` offline from `qa/snapshots/*.json` through the app's own `loadChart()` and `runDesk()`. Add `-- --refresh` to re-pull Yahoo (network) |
 | `npm run fixtures:hand-check` | Independent recomputation from the raw snapshots (shares no code with `src/lib/dca`); rewrites `qa/HAND-CHECK.md`, exits non-zero on mismatch |
 | `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 with `Allow: GET, HEAD` on `status` and `db` when on); `/api/dashboard/db` reads `not_configured` and is 404 under `VERCEL_ENV=production`. CI runs it after Build |
@@ -84,7 +84,8 @@ A new test file is only run if it is added to the `test` script in `package.json
   values into chat, PR bodies, logs or the vault. (`.grok/app-env.json` holds only the non-secret local
   default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The approved dashboard
   spec adds more Vercel-only variables as its tickets land: `DASHBOARD_ENABLED` (Preview only, set
-  2026-10-02), then `DATABASE_URL` from the Neon integration, `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC
+  2026-10-02), then the Neon integration's database URLs (`orpheus_app_preview_DATABASE_URL` and friends, Preview +
+  Development, set 2026-10-02), `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC
   contact for the User-Agent, and a sign-up email allow-list if D12 is approved (none of these exist yet).
   Each is added by an owner when its ticket lands.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
@@ -162,15 +163,22 @@ curl -s  http://localhost:8080/api/dashboard/status
 - On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
   `/dashboard` is a 404 on a preview, the variable isn't set there yet.
 
-### Dashboard storage locally (`DATABASE_URL`)
+### Dashboard storage locally (`DATABASE_URL` / `orpheus_app_preview_DATABASE_URL`)
 
-- Env var: **`DATABASE_URL`** (Neon pooled URL, injected by the Vercel Neon integration, Preview scope; set
-  by an owner, never by a bot). Never commit or paste its value. Unset = storage unavailable.
+- Env vars, resolved in `scripts/db-env.mjs` (tests in `scripts/db-env.test.mjs`):
+  - App (pooled): **`DATABASE_URL`**, else **`orpheus_app_preview_DATABASE_URL`**. The prefixed names come
+    from the Vercel Neon integration (database `neon-almond-lever`), scoped to Preview and Development
+    only; Production has none. Neon preview branching is on, so a preview deploy may get its own branch.
+  - Migrations (direct): `DATABASE_URL_UNPOOLED` (else `DATABASE_URL`), else
+    `orpheus_app_preview_DATABASE_URL_UNPOOLED` (else `orpheus_app_preview_DATABASE_URL`).
+  - Neither pooled name set means storage is unavailable ("not configured"). Blank counts as unset.
+  - Set by an owner, never by a bot. Never commit, paste or log a value; `migrate.mjs` logs only the name
+    and redacts URLs from errors.
 - Schema: `migrations/0002_dashboard.sql` (spec §5). Never edit a shipped migration; add `0003_*.sql`.
   The spec's `user_settings.user_id -> "user"(id)` FK is added by T03 (#11) together with the auth schema.
 - Data access: `src/lib/dashboard/store.server.ts`. Every per-user function takes the `userId` from the
   verified session (`requireUserId()`), never from the client. Connection and status:
-  `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without `DATABASE_URL`
+  `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without a database URL
   reports "not configured".
 - `GET /api/dashboard/db` follows the dashboard API pattern. Flag off: 404 JSON for every method. Flag on:
   GET/HEAD return the status JSON and any other method gets **405 JSON with `Allow: GET, HEAD`**. On
@@ -189,7 +197,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 
   No local Postgres? Install `@electric-sql/pglite` and `@electric-sql/pglite-socket` **outside the repo** and
   run its `pglite-server -p 15433` for a throwaway one (that's how T02 was checked end to end).
-  Plain `npm run dev` without `DATABASE_URL` also applies `migrations/*.sql` to the template's in-memory
+  Plain `npm run dev` without a database URL also applies `migrations/*.sql` to the template's in-memory
   PGLite (catches SQL errors), but the dashboard status still reads "not configured" by design.
 
 ## Repo leftovers from the Grok template

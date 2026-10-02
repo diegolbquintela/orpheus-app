@@ -1,8 +1,9 @@
 /**
  * Dashboard database connection and status (server-only). Spec §4, ticket T02 (#10).
  *
- * - The database URL comes only from `DATABASE_URL` (Neon via the Vercel Marketplace
- *   integration, set by an owner for the Preview environment). Never commit its value.
+ * - The database URL comes from `DATABASE_URL`, else the Vercel Neon integration's
+ *   `orpheus_app_preview_DATABASE_URL` (Preview + Development scope, set by an owner).
+ *   Precedence lives in `scripts/db-env.mjs`. Never commit or log the value.
  * - Without it, dashboard storage is **unavailable**: `getDashboardDb()` returns null and
  *   the status reads "not configured". There is deliberately no PGLite fallback here, so a
  *   preview without Neon can't look "connected" while writing to a throwaway in-memory DB.
@@ -14,19 +15,19 @@ import {
   guardDashboardApi,
 } from "./flag.server.ts";
 import { DASHBOARD_TABLES, type Queryable } from "./store.server.ts";
+import { resolveDatabaseUrl } from "../../../scripts/db-env.mjs";
 
 type Env = Record<string, string | undefined>;
 
 /** The configured database URL, or undefined when unset or blank. */
 export function dashboardDatabaseUrl(env: Env = process.env): string | undefined {
-  const value = env.DATABASE_URL?.trim();
-  return value ? value : undefined;
+  return resolveDatabaseUrl(env)?.url;
 }
 
 /** The shared Neon client, or null when storage is not configured. */
 export async function getDashboardDb(env: Env = process.env): Promise<Queryable | null> {
   if (!dashboardDatabaseUrl(env)) return null;
-  // Loaded only when DATABASE_URL is set, so `@/lib/db` takes its Neon (`pg`) path and its
+  // Loaded only when a database URL is set, so `@/lib/db` takes its Neon (`pg`) path and its
   // PGLite fallback never boots on a deployment without a database.
   const { getSql } = await import("@/lib/db");
   return getSql();

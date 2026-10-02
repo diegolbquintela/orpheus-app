@@ -177,10 +177,17 @@ describe("shared market data access", () => {
   });
 });
 
-describe("storage availability (no DATABASE_URL = unavailable)", () => {
+describe("storage availability (no database URL = unavailable)", () => {
   it("unset or blank DATABASE_URL means not configured", async () => {
     assert.equal(dashboardDatabaseUrl({}), undefined);
     assert.equal(dashboardDatabaseUrl({ DATABASE_URL: "   " }), undefined);
+    // Neon integration name is the fallback; DATABASE_URL wins when both are set.
+    assert.equal(dashboardDatabaseUrl({ orpheus_app_preview_DATABASE_URL: "postgresql://b" }), "postgresql://b");
+    assert.equal(
+      dashboardDatabaseUrl({ DATABASE_URL: "postgresql://a", orpheus_app_preview_DATABASE_URL: "postgresql://b" }),
+      "postgresql://a",
+    );
+    assert.equal(dashboardDatabaseUrl({ orpheus_app_preview_DATABASE_URL_UNPOOLED: "postgresql://b" }), undefined);
     assert.equal(await getDashboardDb({}), null);
     const status = await checkDashboardDb(null);
     assert.deepEqual(status, { state: "not_configured" });
