@@ -105,8 +105,9 @@ Diego gives the release go, it stays hidden behind one **server-only** env var, 
 - Off (production): `/dashboard` and every `/api/dashboard/*` route return a real **404**. The page 404
   is the same as for any unknown URL (no dashboard title or copy); the API answers JSON for every method.
 - On (Vercel **Preview** environment only, set by an owner): `/dashboard` needs a session (see "Dashboard
-  sign-in" below), and `GET /api/dashboard/status` returns `{"dashboard":"enabled"}` (other methods: 405
-  JSON, `Allow: GET, HEAD`).
+  sign-in" below), and `GET /api/dashboard/status` returns `{"dashboard":"enabled"}` plus, off production,
+  sign-in diagnostics (`signIn`, `signUpAllowList`; names and states only). Other methods: 405 JSON,
+  `Allow: GET, HEAD`.
 - The calculator at `/` doesn't read the flag and doesn't link to the dashboard.
 
 ```bash

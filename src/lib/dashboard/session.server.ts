@@ -14,6 +14,8 @@ import {
   dashboardNotFoundResponse,
   guardDashboardApi,
 } from "./flag.server.ts";
+import { allowListFromEnv, authReadiness } from "../auth/config.ts";
+import { resolveDatabaseUrl } from "../../../scripts/db-env.mjs";
 import {
   BASE_CURRENCIES,
   getUserSettings,
@@ -155,4 +157,20 @@ export async function dashboardViewer(headers: Headers): Promise<DashboardViewer
   const { authConfigured } = await import("@/lib/auth/server");
   if (!authConfigured) return { authReady: false, user: null };
   return { authReady: true, user: await sessionFromRequestHeaders(headers) };
+}
+
+/**
+ * Preview-only sign-in diagnostics for `GET /api/dashboard/status` (never on production): whether
+ * sign-in can run and, if not, which variable is missing; whether the allow-list has any entry.
+ * Names and states only, never values (the allow-list's emails are not shown or counted).
+ */
+export function dashboardAuthDiagnostics(env: Env = process.env): {
+  signIn: string;
+  signUpAllowList: "set" | "empty";
+} {
+  const readiness = authReadiness(env, Boolean(resolveDatabaseUrl(env)));
+  return {
+    signIn: readiness.ready ? "ready" : `not configured (${readiness.reason})`,
+    signUpAllowList: allowListFromEnv(env).size > 0 ? "set" : "empty",
+  };
 }

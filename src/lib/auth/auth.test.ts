@@ -17,6 +17,7 @@ import {
 import { createOrpheusAuth, SESSION_TOKEN_COOKIE, SIGNUP_NOT_ALLOWED_MESSAGE } from "./instance.server.ts";
 import { pgliteDialect } from "./pglite-dialect.ts";
 import {
+  dashboardAuthDiagnostics,
   handleAuthRequest,
   handleDashboardMeRequest,
   handleDashboardSettingsRequest,
@@ -190,6 +191,24 @@ describe("config", () => {
       reason: "BETTER_AUTH_URL not set",
     });
     assert.deepEqual(authReadiness({}, false), { ready: true }, "local runs use PGLite and a per-process secret");
+  });
+});
+
+describe("preview diagnostics", () => {
+  it("names the missing piece and whether the allow-list is set, never values", () => {
+    const vercel = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_URL: "x.vercel.app" };
+    assert.deepEqual(dashboardAuthDiagnostics({ ...vercel, VITE_AUTH_ENABLED: "false" }), {
+      signIn: "not configured (VITE_AUTH_ENABLED=false)",
+      signUpAllowList: "empty",
+    });
+    const ready = dashboardAuthDiagnostics({
+      ...vercel,
+      BETTER_AUTH_SECRET: "never-shown-secret-value-0123456789abcdef",
+      orpheus_app_preview_DATABASE_URL: "postgresql://u:never-shown@h/db",
+      DASHBOARD_SIGNUP_ALLOWLIST: "hidden@example.com",
+    });
+    assert.deepEqual(ready, { signIn: "ready", signUpAllowList: "set" });
+    assert.doesNotMatch(JSON.stringify(ready), /never-shown|hidden@/);
   });
 });
 

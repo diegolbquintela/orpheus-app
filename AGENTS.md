@@ -150,7 +150,7 @@ The dashboard is gated by the server-only `DASHBOARD_ENABLED` flag (only the exa
 code in `src/lib/dashboard/flag.server.ts`). Check both states before pushing dashboard work:
 
 ```bash
-DASHBOARD_ENABLED=true npm run dev               # /dashboard and /api/dashboard/status -> 200
+DASHBOARD_ENABLED=true npm run dev               # /dashboard -> 307 to /dashboard/sign-in; /api/dashboard/status -> 200
 npm run dev                                      # flag unset -> both 404 (DASH-01, DASH-02)
 curl -sI http://localhost:8080/dashboard | head -1
 curl -s  http://localhost:8080/api/dashboard/status
@@ -243,7 +243,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   future one) use `src/lib/dashboard/session.server.ts`: flag off 404 JSON, unsupported method 405 JSON,
   no session **401 JSON**, a client-named user id that isn't the session's **403 JSON**. The user id comes
   only from the session. They never fall back to the template's dev user. `/api/dashboard/status` and
-  `/db` are diagnostics with no user data and stay public.
+  `/db` are diagnostics with no user data and stay public. Off production, `/status` also reports
+  `signIn` (`ready` or `not configured (<variable>)`) and `signUpAllowList` (`set`/`empty`), names and
+  states only, so QA and the Engineering Lead can see what a preview is missing without the build logs.
 - Tests: `src/lib/auth/auth.test.ts` (PGLite, offline): allow-list allowed/denied/case-insensitive/empty,
   untrusted origin, sign-in/sign-out, 401/403/404/405, cross-user isolation, the FK cascade, migration
   order on a database that already had `0002`. `npm run check:dashboard-built` covers the built server

@@ -14,12 +14,13 @@
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
  *   - /api/dashboard/me and /settings: 401 JSON; unsupported methods 405 JSON.
- *   - /api/dashboard/status 200, /api/dashboard/db {"state":"not_configured"}; other methods 405.
+ *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
+ *     /api/dashboard/db {"state":"not_configured"}; other methods 405.
  *   - /api/auth/*: 503 JSON (sign-in not configured: fail closed).
  *   - VERCEL_ENV=production: /api/dashboard/db is 404 JSON for every method.
  *   - Unknown /api/dashboard/*: 404 JSON for every method.
  *
- * `--with-database` (manual; needs DATABASE_URL for a throwaway, already migrated Postgres, never
+ * `--with-database` (manual; needs DATABASE_URL for a fresh throwaway, already migrated Postgres, never
  * a shared one): the same signed-out checks, then sign-up with the allow-list (denied 403 /
  * allowed), the signed-in /dashboard ("Signed in as", "connected · 9/9 tables"), /api/dashboard/me,
  * settings isolation between two accounts (403), the production status-line rule and sign-out.
@@ -190,9 +191,14 @@ const isRedirectTo = (r, path) =>
     }
   }
   const status = await call("GET", "/api/dashboard/status", "true");
+  const expected = WITH_DB
+    ? '{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set"}'
+    : '{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set"}';
+  check(status.status === 200 && status.body === expected, `${label}: GET status -> ${status.status} ${status.body}`);
+  const prodStatus = await call("GET", "/api/dashboard/status", "true", "production");
   check(
-    status.status === 200 && status.body === '{"dashboard":"enabled"}',
-    `${label}: GET status -> ${status.status} ${status.body}`,
+    prodStatus.status === 200 && prodStatus.body === '{"dashboard":"enabled"}',
+    `${label} + VERCEL_ENV=production: GET status -> ${prodStatus.status} ${prodStatus.body}`,
   );
   for (const path of GATED_API_PATHS)
     for (const method of METHODS_NOT_GET) {
