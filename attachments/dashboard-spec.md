@@ -1,7 +1,9 @@
 # Orpheus dashboard (signed-in area): spec
 
-Status: **PROPOSED, waiting for Diego's approval.** Nothing in this document is built yet. Until Diego
-approves it, every ticket below carries the `blocked: spec approval` label.
+Status: **APPROVED** by Diego on **2026-10-02**: all decisions approved as recommended (see
+[13. Decisions record](#13-decisions-record-approved-2026-10-02)). One amendment is open:
+[Amendment A: daily-close source (pending)](#14-amendment-a-daily-close-source-pending). Nothing is built
+yet; work starts with ticket T01 (#9).
 
 Date: 2026-10-02. All provider facts below were checked on the provider's own page on 2026-10-02, and
 each one has its link inline. When a provider page does not say something, this document says
@@ -28,14 +30,14 @@ A signed-in area. A user signs in and gets two things: the existing DCA calculat
 How this relates to `attachments/dca-app-spec.md`: that spec says dashboards and holdings are "later" and
 lists "a boring price and holdings feed (IBKR or Fiscal.ai) before any dashboard". This spec uses
 **manual holdings entry** and a daily close instead of a broker feed. Diego approving this spec settles
-that conflict (see [Open questions](#13-open-questions-for-diego)). The DCA calculator spec and its six
+that conflict, and Diego approved it on 2026-10-02 (decision D7 in the [Decisions record](#13-decisions-record-approved-2026-10-02)). The DCA calculator spec and its six
 rules do not change.
 
 ### Not in scope
 
 - Intraday prices, quotes, alerts, order tickets or any link to a broker.
 - Any rating, target price, "cheap/expensive" label, ranking called "best", or buy/sell/hold wording.
-- Transactions history, lots, dividends received, tax lots or account types (TFSA/RRSP). Open question.
+- Transactions history, lots, dividends received, tax lots or account types (TFSA/RRSP). Not in v1.
 - Listings outside US/EU/CA (the same `listingError()` rule as the calculator, in `src/lib/dca/venues.ts`).
 
 ## 2. Feature flag and hidden route (how every ticket ships)
@@ -66,8 +68,8 @@ Every dashboard ticket merges to `main` behind one flag, so production is never 
 **Who sets it:** the Engineering Lead (or Diego) adds `DASHBOARD_ENABLED=true` to the Preview environment
 once, when ticket T01 (#9) is approved. Bots never set environment variables and never paste values anywhere.
 
-This becomes a harness rule in `AGENTS.md`: *feature work lands behind a flag until a release go*
-(marked "proposed, pending spec approval" until Diego approves this spec).
+This is an active harness rule in `AGENTS.md` (since spec approval, 2026-10-02): *feature work lands
+behind a flag until a release go*.
 
 ## 3. Auth provider
 
@@ -202,8 +204,10 @@ use their own exchange calendar; a holiday on one exchange (for example a US hol
 simply means that listing keeps its previous close. The dashboard shows the session date next to the close.
 A bar whose exchange-local date is "today" while that exchange is still open is discarded.
 
-**Source.** The same Yahoo daily chart call the calculator already uses (`src/lib/dca/yahoo.server.ts`,
-raw close). Honest caveat: this is an unofficial endpoint with no published API terms, rate limits or
+**Source.** All price fetching goes through **one provider interface, `DailyCloseProvider`**
+([Amendment A](#14-amendment-a-daily-close-source-pending)); nothing else in the dashboard calls a price
+feed. The first implementation wraps the Yahoo daily chart call the calculator already uses
+(`src/lib/dca/yahoo.server.ts`, raw close). Amendment A may replace it. Honest caveat: this is an unofficial endpoint with no published API terms, rate limits or
 SLA (not stated on any provider page I could find), and Yahoo's Terms of Service forbid collecting data
 "using any automated means … without our express, prior permission" (section 2.d.ix) and commercial
 reuse without permission (section 2.e)
@@ -278,7 +282,9 @@ adds nothing paid.
 
 ### Recommendation
 
-Start at **$0**: SEC EDGAR `companyfacts` for fundamentals, Yahoo daily close for prices. Every holding
+Start at **$0**: SEC EDGAR `companyfacts` for fundamentals; daily closes through the `DailyCloseProvider`
+interface (Yahoo implementation first, source under review in
+[Amendment A](#14-amendment-a-daily-close-source-pending)). Every holding
 without SEC coverage shows `—` with the reason "not covered" in metric cells, and portfolio metrics show
 coverage % (section 9). If Diego's real holdings are mostly EU/TSX-only names, the $0 path will show a
 lot of `—`; the decision to buy EODHD is then an informed one. The fundamentals ingest is behind one
@@ -326,7 +332,7 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
 - **CAGR from a negative or zero base** is `n/m` for that company and excluded.
 - **EPS:** per-share amounts in different currencies do not add up across companies, so the portfolio row
   shows **weighted 1y EPS growth** (EPS FY0 / EPS FY−1 − 1, `n/m` if either ≤ 0) in the EPS column, labelled
-  as such. (Open question 3.)
+  as such. (Decision D9, approved.)
 - Holdings with no price (no close yet) are excluded from weights and from the pie, and listed as
   "price pending".
 
@@ -363,7 +369,7 @@ or label implies good/bad.
 - **Cost basis:** average cost is entered in the listing currency. Total return % is computed in the
   listing currency ((close − avg cost) / avg cost). Base-currency amounts (market value, cost, return)
   use the **same** current FX rate for value and cost, so the FX effect since purchase is not captured.
-  (Open question 2.)
+  (Decision D8, approved.)
 
 ## 11. Daily refresh
 
@@ -387,12 +393,12 @@ or label implies good/bad.
   or delivered twice, and the docs ask for idempotent, reconciliation-based jobs with a lock
   ([Vercel: Managing Cron Jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs), checked 2026-10-02).
   So the job: takes a lock (`refresh_runs.run_date` unique), then for every held symbol fills **all**
-  missing sessions since its last stored close (upserts keyed by `(symbol, session_date)`), fills missing
+  missing sessions since its last stored close via `DailyCloseProvider.getCloses()` (upserts keyed by `(symbol, session_date)`), fills missing
   FX dates, refreshes stale fundamentals, recomputes `metric_values`, and records the run. Running it twice
   gives the same result.
-- **Budget:** one Yahoo call per symbol, two FX calls, and SEC calls only for stale symbols, in batches that
+- **Budget:** one `DailyCloseProvider` call per batch of symbols, two FX calls, and SEC calls only for stale symbols, in batches that
   finish well under 300 s; if a batch is not done, the next run continues (reconciliation).
-- **New holding added during the day:** the server fetches that symbol's history once, keeps only
+- **New holding added during the day:** the server calls `DailyCloseProvider.getCloses()` for that symbol once, keeps only
   completed sessions, and stores the prior session's close. No intraday bar is ever stored.
 - **Previews:** cron only calls production, so preview QA cannot wait for it. When `VERCEL_ENV=preview`
   and the flag is on, the dashboard shows a "Run daily refresh (preview only)" button for signed-in users
@@ -417,7 +423,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-06 | User A cannot see or change user B's holdings or settings (two accounts on the same preview; direct API calls with A's session and B's ids return 404/403). |
 | DASH-07 | Add a holding with ticker, shares and average cost; it persists after reload. Edit and delete work. Shares must be > 0, average cost ≥ 0; duplicate ticker for the same user is refused. |
 | DASH-08 | A non US/EU/CA ticker is refused with the calculator's exact message (`X lists on Y. US, EU, and CA listings only.`; BSE message for BSE). |
-| DASH-09 | The daily job stores, per held symbol, the latest completed session's close and its session date; running it twice in a row changes nothing; no bar dated "today" is stored while that exchange is open. |
+| DASH-09 | The daily job (through `DailyCloseProvider` only) stores, per held symbol, the latest completed session's close and its session date; running it twice in a row changes nothing; no bar dated "today" is stored while that exchange is open. |
 | DASH-10 | The cron route rejects a request without the right `Authorization` header (401). The preview-only refresh button exists on previews and not on production. |
 | DASH-11 | FX: the stored `USD` and `EUR` rates for a date equal the BoC Valet values for that date; for a BoC holiday the previous rate is used and its date is shown. DKK/HUF/CZK (if held) use ECB × BoC `FXEURCAD`. |
 | DASH-12 | Base currency defaults to CAD; changing it to USD or EUR re-expresses all totals, and the setting persists. |
@@ -439,7 +445,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 ## Tickets
 
 Each ticket is one PR, one Vercel preview, one QA pass, merged behind `DASHBOARD_ENABLED`. All carry the
-labels `dashboard` and `blocked: spec approval` until this spec is approved.
+label `dashboard`. The spec was approved on 2026-10-02, so `blocked: spec approval` is removed.
 
 | # | Issue | Ticket | Depends on | ACs |
 |---|---|---|---|---|
@@ -447,9 +453,9 @@ labels `dashboard` and `blocked: spec approval` until this spec is approved.
 | T02 | #10 | Per-user storage: Neon Postgres + `0002_dashboard.sql` schema | T01 (+ owner installs Neon) | DASH-03 |
 | T03 | #11 | Auth on Vercel: Better Auth email/password, auth schema, preview origins | T01, T02 | DASH-04, 05, 06 |
 | T04 | #12 | Holdings table CRUD (no prices yet) | T03 | DASH-07, 08, 06 |
-| T05 | #13 | Daily close job (cron, prior-session rule, preview refresh button) | T02, T04 | DASH-09, 10, 14 |
+| T05 | #13 | Daily close job (cron, prior-session rule, preview refresh button); all fetching through the `DailyCloseProvider` interface (Amendment A) | T02, T04 | DASH-09, 10, 14 |
 | T06 | #14 | FX rates (BoC + ECB cross) and base-currency setting | T02, T05 | DASH-11, 12 |
-| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header | T04, T05, T06 | DASH-13, 14, 25 |
+| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header; reads stored closes only (written via `DailyCloseProvider`, never a feed directly) | T04, T05, T06 | DASH-13, 14, 25 |
 | T08 | #16 | Fundamentals ingest from SEC EDGAR companyfacts (+ metric column picker) | T02, T05, T07 | DASH-15, 21 |
 | T09 | #17 | Metric: Revenue growth 1y + 3y/5y/10y CAGR | T08 | DASH-16 |
 | T10 | #18 | Metric: ROIC (1y) | T08 | DASH-17 |
@@ -460,7 +466,7 @@ labels `dashboard` and `blocked: spec approval` until this spec is approved.
 | T15 | #23 | Holdings pie chart by % of portfolio | T07 | DASH-24 |
 | T16 | #24 | Release: full flag-on QA run, then production flip on Diego's go | T01–T15 merged with QA PASS | DASH-26 |
 
-GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard` and `blocked: spec approval`, each linking back to this spec PR (#8).
+GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard`, each linking back to this spec PR (#8).
 
 ## Release plan
 
@@ -484,26 +490,58 @@ GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard`
    jobs to that deployment's set ([Vercel: Managing Cron Jobs, "Rollbacks with cron jobs"](https://vercel.com/docs/cron-jobs/manage-cron-jobs), checked 2026-10-02).
 6. After the release, README, this spec (status → "live") and `AGENTS.md` are updated in the T16 PR.
 
-## 13. Open questions for Diego
+## 13. Decisions record (approved 2026-10-02)
 
-1. Manual holdings entry instead of an IBKR/Fiscal.ai feed first (the DCA spec's sequence note). OK?
-2. Cost basis in listing currency with current FX (FX effect since purchase not shown), or let users also
-   enter cost in the base currency?
-3. Portfolio EPS: weighted 1y EPS growth in the EPS column, or leave the portfolio EPS cell empty?
-4. Is a $0 source with `—` for non-SEC EU/TSX names acceptable for v1, or buy EODHD (from $79.98/mo)?
-5. Email/password only at launch, or add Google sign-in (production callback + OAuth Proxy for previews)?
-6. Who may sign up: open sign-up, or an invite/allow-list (recommended: allow-list of emails in an env var)?
+Diego approved **all decisions as recommended** on 2026-10-02. This record replaces the earlier
+"Open questions" and "Decisions for Diego" lists.
 
-## 14. Decisions for Diego (one recommendation each)
+| # | Decision | Approved outcome | Cost |
+|---|---|---|---|
+| D1 | Auth | Better Auth (already in repo), email/password, Grok broker path removed (section 3) | $0 |
+| D2 | Storage | Neon Postgres Free via Vercel Marketplace, preview branching off (section 4) | $0 |
+| D3 | Data source | SEC EDGAR `companyfacts` for fundamentals; daily close through `DailyCloseProvider` (Yahoo first). **Daily-close source amended: see Amendment A (pending)** | $0 |
+| D4 | Weighting | Market-value weighted in base currency, renormalised over covered holdings, coverage % shown, `n/m` excluded (section 9) | — |
+| D5 | Currency | CAD default, per-user USD/EUR; BoC daily rates (ECB cross for DKK/HUF/CZK), same date as the price (section 10) | $0 |
+| D6 | Refresh | One Vercel Cron at `0 23 * * *` UTC, idempotent catch-up, `CRON_SECRET`; preview-only manual refresh button (section 11) | $0 |
+| D7 | Holdings input | Manual holdings entry instead of an IBKR/Fiscal.ai feed first (settles the DCA spec's sequence note) | — |
+| D8 | Cost basis | Average cost in listing currency; base-currency amounts use the current FX rate for value and cost (FX effect since purchase not shown) | — |
+| D9 | Portfolio EPS | Weighted 1y EPS growth shown in the portfolio EPS column, labelled as such | — |
+| D10 | Paid data | Stay on the $0 path; non-SEC EU/TSX names show "not covered"; no paid vendor now | $0 |
+| D11 | Sign-in methods | Email/password only at launch; Google later only as its own ticket | $0 |
+| D12 | Who may sign up | Allow-list of emails in a Vercel env var (no open sign-up); handled in T03 (#11) | $0 |
 
-| Topic | Recommendation | Cost |
-|---|---|---|
-| Auth | Better Auth (already in repo), email/password, Grok broker path removed | $0 |
-| Storage | Neon Postgres Free via Vercel Marketplace, preview branching off | $0 (Free: 100 CU-h, 1 GB per project) |
-| Data source | SEC EDGAR companyfacts (fundamentals) + existing Yahoo daily close; EODHD only if EU/TSX coverage matters | $0 (paid option from $79.98/mo) |
-| Weighting | Market-value weighted in base currency, renormalised over covered holdings, coverage % shown, `n/m` excluded | — |
-| Currency | CAD default, per-user USD/EUR; BoC daily rates (ECB cross for DKK/HUF/CZK), same date as the price | $0 |
-| Refresh | One Vercel Cron at `0 23 * * *` UTC, idempotent catch-up, `CRON_SECRET`; preview-only manual button | $0 |
+## 14. Amendment A: daily-close source (pending)
+
+Status: **pending.** The Engineering Lead is researching alternative daily-close sources (because the
+Yahoo chart endpoint is unofficial and its Terms of Service restrict automated collection, section 6).
+Findings, each with its provider-page citation and date checked, will be added here in a follow-up spec PR.
+Until then the approved design stands, with one firm rule:
+
+**All price fetching sits behind one provider interface,** so the source can change without touching the
+dashboard UI, tables, metrics or the cron job:
+
+```ts
+interface DailyClose {
+  symbol: string;   // feed symbol, e.g. "RY.TO"
+  date: string;     // exchange-local session date, YYYY-MM-DD (completed sessions only)
+  close: number;    // raw official close, listing currency
+  currency: string; // ISO code, e.g. "CAD"
+  source: string;   // provider id, e.g. "yahoo"
+}
+
+interface DailyCloseProvider {
+  /** Closes for completed sessions on or before `date` (the latest one, plus any missing since `since`). */
+  getCloses(symbols: string[], date: string, opts?: { since?: string }): Promise<DailyClose[]>;
+}
+```
+
+- One implementation is active, chosen in one server-side module; the first wraps
+  `src/lib/dca/yahoo.server.ts`.
+- Only the daily job (T05, #13) and the "new holding" path call it. Everything else (T07 #15 valuation,
+  T14 #22 aggregates, T15 #23 pie) reads the stored `daily_closes` rows, whose `source` column records which
+  provider wrote them.
+- Swapping the source = a new implementation + a spec update under this amendment; no dashboard ticket
+  changes.
 
 ## Sources (all checked 2026-10-02)
 
