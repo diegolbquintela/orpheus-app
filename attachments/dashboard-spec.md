@@ -717,8 +717,9 @@ UI shows the last cached close with a "stale since <date>" badge and never a mad
   - **Unverified:** Euronext Paris/Amsterdam coverage (check `SYMBOL_SEARCH` once a key exists), and
     whether DIVIDENDS/SPLITS cover non-US listings. A symbol it doesn't cover just keeps its last close,
     marked "stale since <date>".
-  - The key is a free Alpha Vantage key, not a paid plan. The owner claims it and adds it as a Vercel env
-    var when the fallback ticket lands. Bots never do this.
+  - The key is a free Alpha Vantage key, not a paid plan. Nobody claims it until the fallback ticket
+    starts and Diego OKs it, asked through the Chief of Staff. The owner then claims it and adds it as a
+    Vercel env var; bots never do.
 - **Revisit later (no action now):**
   - EODHD All-World, $19.99/mo or $199/yr. It would need EODHD's written usage-terms confirmation.
   - Twelve Data Grow, $29/mo ($24/mo yearly).
@@ -739,8 +740,9 @@ UI shows the last cached close with a "stale since <date>" badge and never a mad
 
 1. **T05 (#13):** the daily close job implements `DailyCloseProvider` with Yahoo and the Neon cache (A.3,
    A.4). Fetching runs in background jobs only.
-2. **Alpha Vantage fallback**, as its own small ticket once T05 has merged. The owner claims the free key
-   and sets it in Vercel; bots never do. Run the overlap check (A.4, rule 1) and record Euronext coverage.
+2. **Alpha Vantage fallback**, as its own small ticket once T05 has merged. When it starts, the Chief of
+   Staff asks Diego to OK the free key. Only after that OK does the owner claim it and set it in Vercel;
+   nobody claims it earlier, and bots never do. Run the overlap check (A.4, rule 1) and record Euronext coverage.
 3. **Revisit EODHD or Twelve Data** only if Yahoo fails in practice or Diego reopens D13.
 
 The calculator stays on Yahoo, so nothing in `attachments/dca-app-spec.md` or `README.md` changes. No

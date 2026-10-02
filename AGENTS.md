@@ -85,7 +85,7 @@ A new test file is only run if it is added to the `test` script in `package.json
   default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The approved dashboard
   spec adds more Vercel-only variables as its tickets land (`DASHBOARD_ENABLED`, `DATABASE_URL` from the Neon integration,
   `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC contact for the User-Agent, the sign-up email allow-list (D12, approved), an Alpha Vantage free key for the
-  daily-close fallback (D13)); none
+  daily-close fallback (D13; claimed only after Diego OKs it, asked through the Chief of Staff, when that ticket starts)); none
   exist yet. Each is added by an owner when its ticket lands.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
