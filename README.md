@@ -82,14 +82,17 @@ The app is hosted on Vercel.
 
 - `main` deploys automatically to production: https://orpheus-app-beta.vercel.app.
 - Every pull request gets its own public preview URL, which vercel[bot] posts as a comment on the PR.
-- Nothing deploys from anywhere else. The earlier Grok hosting is retired.
+- Vercel is the only deploy path. Deploying through Grok has stopped. The old Grok copy at
+  https://island-pearl-eagle-hill.grok.me stays published as a frozen old copy until the Chief of Staff
+  confirms its retirement with Diego. It is not production and does not get updates.
 
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.
 2. CI must be green. The Engineering Lead reviews.
 3. QA runs the six rules on the PR's **Vercel preview** and says pass or fail.
-4. The Engineering Lead merges. Vercel deploys `main` to production.
+4. Only Engineering Lead merges, after QA passes on the preview. Vercel then deploys `main` to
+   production.
 5. QA re-checks production.
 
 **Source-of-truth rule (Diego):** always the harness, then the specs, then the work. `AGENTS.md`, the
