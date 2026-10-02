@@ -112,6 +112,25 @@ Diego gives the release go, it stays hidden behind one **server-only** env var, 
 DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboard
 ```
 
+**Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
+[`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql). Data access lives in
+`src/lib/dashboard/store.server.ts` and is server-only.
+- Database URL: `DATABASE_URL` when set, otherwise `orpheus_app_preview_DATABASE_URL`, the prefixed name the
+  Vercel Neon integration injects. It's scoped to Preview and Development only; Production has none.
+  Migrations prefer the direct connection (`DATABASE_URL_UNPOOLED`, else
+  `orpheus_app_preview_DATABASE_URL_UNPOOLED`) and fall back to the pooled URL. Neon preview branching is
+  on, so a preview deploy can get its own Neon branch. Precedence lives in `scripts/db-env.mjs`.
+- `npm run build` applies pending migrations when a database URL is set. It logs which env var name it used
+  (never the value), then `applied 0002_dashboard.sql`
+  once, then `up to date` on later deploys.
+  On production builds (`VERCEL_ENV=production`) it skips unless `DASHBOARD_ENABLED=true` there too.
+- With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
+  The app still builds, and the calculator never touches the database.
+- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 9/9 tables" when Neon is
+  wired up. `GET /api/dashboard/db` returns the same status as JSON; other methods get 405 JSON with
+  `Allow: GET, HEAD`. Both are hidden on production (the API is 404 there).
+- After a week of previews, check Neon's usage page against the Free plan limits (spec §4).
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.

@@ -35,10 +35,10 @@ Node 22 (≥ 22.12, required by `@tanstack/react-start`), npm.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `eslint .` (warnings allowed, errors fail) |
 | `npm test` | Node test runner: `scripts/**/*.test.mjs`, then the listed `src/**/*.test.ts` files (includes the DCA engine, results helpers and the offline fixture replay) |
-| `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when `DATABASE_URL` is unset) |
+| `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when no database URL is set; see `scripts/db-env.mjs`) |
 | `npm run fixtures:build` | Rebuild `qa/fixtures.json` offline from `qa/snapshots/*.json` through the app's own `loadChart()` and `runDesk()`. Add `-- --refresh` to re-pull Yahoo (network) |
 | `npm run fixtures:hand-check` | Independent recomputation from the raw snapshots (shares no code with `src/lib/dca`); rewrites `qa/HAND-CHECK.md`, exits non-zero on mismatch |
-| `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 on `status` when on). CI runs it after Build |
+| `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 with `Allow: GET, HEAD` on `status` and `db` when on); `/api/dashboard/db` reads `not_configured` and is 404 under `VERCEL_ENV=production`. CI runs it after Build |
 | `npm run dev` | Local dev server (Vite) on port 8080 |
 
 A new test file is only run if it is added to the `test` script in `package.json`.
@@ -168,6 +168,54 @@ curl -s  http://localhost:8080/api/dashboard/status
   calculator neither links to nor reads the flag. `npm run check:dashboard-built` checks the built server.
 - On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
   `/dashboard` is a 404 on a preview, the variable isn't set there yet.
+
+### Dashboard storage locally (`DATABASE_URL` / `orpheus_app_preview_DATABASE_URL`)
+
+- Env vars, resolved in `scripts/db-env.mjs` (tests in `scripts/db-env.test.mjs`):
+  - App (pooled): **`DATABASE_URL`**, else **`orpheus_app_preview_DATABASE_URL`**. The prefixed names come
+    from the Vercel Neon integration (database `neon-almond-lever`), scoped to Preview and Development
+    only; Production has none. Neon preview branching is **on** (Engineering Lead decision 2026-10-02), so
+    a preview deploy may get its own branch. The dashboard code doesn't depend on that: it reads whatever
+    URL is injected, and migrations are idempotent and tracked by name. It works the same against one
+    shared preview branch or a fresh branch per deploy.
+  - **Branch cap (owner / Engineering Lead action; bots never do this):** Neon Free caps a project at 10
+    branches. A preview branch is deleted only when its Vercel deployment is deleted. To prune, delete old
+    preview deployments in Vercel, or delete stale preview branches in the Neon console or integration.
+  - Migrations (direct): `DATABASE_URL_UNPOOLED` (else `DATABASE_URL`), else
+    `orpheus_app_preview_DATABASE_URL_UNPOOLED` (else `orpheus_app_preview_DATABASE_URL`).
+  - Neither pooled name set means storage is unavailable ("not configured"). Blank counts as unset.
+- **Migration guard:** `scripts/migrate.mjs` exits 0 without connecting when `VERCEL_ENV=production` and
+  `DASHBOARD_ENABLED` isn't exactly `true`. It logs `[migrate] skipped: VERCEL_ENV=production and dashboard
+  flag off` (no values). The dashboard schema stays out of the production database until the release go.
+  The decision function is `migrationSkipReason()` in `scripts/db-env.mjs`; tests are in
+  `scripts/db-env.test.mjs`, including a script-level run.
+  - Set by an owner, never by a bot. Never commit, paste or log a value; `migrate.mjs` logs only the name
+    and redacts URLs from errors.
+- Schema: `migrations/0002_dashboard.sql` (spec §5). Never edit a shipped migration; add `0003_*.sql`.
+  The spec's `user_settings.user_id -> "user"(id)` FK is added by T03 (#11) together with the auth schema.
+- Data access: `src/lib/dashboard/store.server.ts`. Every per-user function takes the `userId` from the
+  verified session (`requireUserId()`), never from the client. Connection and status:
+  `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without a database URL
+  reports "not configured".
+- `GET /api/dashboard/db` follows the dashboard API pattern. Flag off: 404 JSON for every method. Flag on:
+  GET/HEAD return the status JSON and any other method gets **405 JSON with `Allow: GET, HEAD`**. On
+  production (`VERCEL_ENV=production`) it's 404 JSON for every method, and `/dashboard` has no status line.
+- Tests: `src/lib/dashboard/store.test.ts` (in `npm test`) applies the migration to in-process PGLite and
+  exercises every function plus the `/api/dashboard/db` handler (404/405/200 cases). No network or Neon
+  needed, and it runs in CI. `npm run check:dashboard-built` covers the same route on the built server.
+- Run migrations against a real Postgres (your own local or throwaway database, never production):
+
+```bash
+DATABASE_URL=postgresql://user:pass@localhost:5432/db node scripts/migrate.mjs   # "applied 0002_dashboard.sql", then "up to date"
+DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 9/9 tables"
+curl -s http://localhost:8080/api/dashboard/db          # JSON status; 404 when the flag is off or VERCEL_ENV=production
+curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, Allow: GET, HEAD (flag on)
+```
+
+  No local Postgres? Install `@electric-sql/pglite` and `@electric-sql/pglite-socket` **outside the repo** and
+  run its `pglite-server -p 15433` for a throwaway one (that's how T02 was checked end to end).
+  Plain `npm run dev` without a database URL also applies `migrations/*.sql` to the template's in-memory
+  PGLite (catches SQL errors), but the dashboard status still reads "not configured" by design.
 
 ## Repo leftovers from the Grok template
 

@@ -11,3 +11,16 @@ export const ensureDashboardEnabled = createServerFn({ method: "GET" }).handler(
   if (!dashboardEnabledFromEnv()) throw notFound();
   return { enabled: true as const };
 });
+
+/**
+ * Preview-only database status line for `/dashboard` (DASH-03). 404 while the flag
+ * is off; null on production so the line never renders there.
+ */
+export const getDashboardDbStatusLine = createServerFn({ method: "GET" }).handler(async () => {
+  if (!dashboardEnabledFromEnv()) throw notFound();
+  const { checkDashboardDb, describeDbStatus, getDashboardDb, showDbStatusLine } = await import(
+    "./db.server"
+  );
+  if (!showDbStatusLine()) return null;
+  return describeDbStatus(await checkDashboardDb(await getDashboardDb()));
+});

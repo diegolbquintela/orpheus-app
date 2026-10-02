@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ensureDashboardEnabled } from "@/lib/dashboard/gate";
+import { ensureDashboardEnabled, getDashboardDbStatusLine } from "@/lib/dashboard/gate";
 
 // Hidden route: 404 unless DASHBOARD_ENABLED is exactly "true" on the server.
 // Nothing on the calculator links here.
@@ -8,7 +8,8 @@ export const Route = createFileRoute("/dashboard")({
     await ensureDashboardEnabled();
   },
   // Only reached when the gate passed, so loaderData doubles as "flag on".
-  loader: () => ({ enabled: true as const }),
+  // dbStatus: preview-only storage status line (null on production), DASH-03.
+  loader: async () => ({ enabled: true as const, dbStatus: await getDashboardDbStatusLine() }),
   // No dashboard title unless the gate passed (spec §2: no dashboard copy when off).
   head: ({ loaderData }) =>
     loaderData?.enabled
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardShell() {
+  const { dbStatus } = Route.useLoaderData();
   return (
     <div className="min-h-screen bg-paper">
       <header className="bg-ink text-card">
@@ -36,6 +38,11 @@ function DashboardShell() {
         <p className="mt-4 max-w-xl text-sm" data-testid="dashboard-placeholder">
           Preview shell. Nothing to show yet.
         </p>
+        {dbStatus ? (
+          <p className="mt-8 text-xs text-muted" data-testid="dashboard-db-status">
+            {dbStatus}
+          </p>
+        ) : null}
       </main>
     </div>
   );

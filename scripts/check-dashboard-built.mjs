@@ -9,10 +9,13 @@
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it: no
  *     dashboard title, no "Preview shell" copy, no dashboard chunk reference.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
- *   - Every method on /api/dashboard/status and /api/dashboard/*: 404 JSON.
+ *   - Every method on /api/dashboard/status, /api/dashboard/db and /api/dashboard/*: 404 JSON.
  * Flag on ("true"):
  *   - GET /dashboard: 200, dashboard title, noindex, placeholder copy.
  *   - GET /api/dashboard/status: 200 {"dashboard":"enabled"}; other methods 405 JSON, Allow: GET, HEAD.
+ *   - GET /api/dashboard/db (no DATABASE_URL): 200 {"state":"not_configured"}; /dashboard shows
+ *     "Database: not configured"; other methods 405 JSON, Allow: GET, HEAD.
+ *   - VERCEL_ENV=production: /api/dashboard/db is 404 JSON for every method; no status line.
  *   - /api/dashboard/*: 404 JSON for every method.
  */
 import { existsSync } from "node:fs";
@@ -24,6 +27,10 @@ if (!existsSync(entry)) {
   console.error(`[check-dashboard-built] ${entry} not found; run npm run build first`);
   process.exit(2);
 }
+// Storage must read "not configured" here: never reach a real database from this check.
+for (const name of Object.keys(process.env))
+  if (/DATABASE_URL|POSTGRES_URL/.test(name)) delete process.env[name];
+delete process.env.VERCEL_ENV;
 const { default: server } = await import(pathToFileURL(entry).href);
 
 const failures = [];
@@ -31,9 +38,11 @@ const check = (ok, msg) => {
   if (!ok) failures.push(msg);
 };
 
-async function call(method, path, flag) {
+async function call(method, path, flag, vercelEnv) {
   if (flag === undefined) delete process.env.DASHBOARD_ENABLED;
   else process.env.DASHBOARD_ENABLED = flag;
+  if (vercelEnv === undefined) delete process.env.VERCEL_ENV;
+  else process.env.VERCEL_ENV = vercelEnv;
   const res = await server.fetch(
     new Request(`http://localhost${path}`, {
       method,
@@ -55,8 +64,10 @@ async function call(method, path, flag) {
 // Router state carries per-request timestamps (u:<ms>); nothing else may differ.
 const normalise = (html) => html.replace(/u:\d+/g, "u:0");
 const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+// Routes with their own handlers (GET/HEAD when on); everything else under /api/dashboard is the catch-all.
+const GATED_API_PATHS = ["/api/dashboard/status", "/api/dashboard/db"];
 const API_PATHS = [
-  "/api/dashboard/status",
+  ...GATED_API_PATHS,
   "/api/dashboard/foo",
   "/api/dashboard/a/b",
   "/api/dashboard",
@@ -126,18 +137,41 @@ for (const flag of [undefined, "", "false", "TRUE", "1", "true "]) {
     status.status === 200 && status.body === '{"dashboard":"enabled"}',
     `${label}: GET status -> ${status.status} ${status.body}`,
   );
-  for (const method of METHODS.filter((m) => m !== "GET" && m !== "HEAD")) {
-    const r = await call(method, "/api/dashboard/status", "true");
+  check(
+    /Database: not configured/.test(page.body),
+    `${label}: GET /dashboard lacks the "Database: not configured" status line`,
+  );
+  const dbStatus = await call("GET", "/api/dashboard/db", "true");
+  check(
+    dbStatus.status === 200 && dbStatus.body === '{"state":"not_configured"}',
+    `${label}: GET db -> ${dbStatus.status} ${dbStatus.body}`,
+  );
+  for (const path of GATED_API_PATHS)
+    for (const method of METHODS.filter((m) => m !== "GET" && m !== "HEAD")) {
+      const r = await call(method, path, "true");
+      check(
+        r.status === 405 &&
+          /application\/json/.test(r.type) &&
+          r.allow === "GET, HEAD" &&
+          r.body === '{"error":"Method not allowed."}',
+        `${label}: ${method} ${path} -> ${r.status} ${r.type} allow=${r.allow} ${r.body.slice(0, 60)}`,
+      );
+    }
+  // Production hides the storage status even with the flag on.
+  for (const method of METHODS) {
+    const r = await call(method, "/api/dashboard/db", "true", "production");
     check(
-      r.status === 405 &&
-        /application\/json/.test(r.type) &&
-        r.allow === "GET, HEAD" &&
-        r.body === '{"error":"Method not allowed."}',
-      `${label}: ${method} status -> ${r.status} ${r.type} allow=${r.allow} ${r.body.slice(0, 60)}`,
+      isJson404(r),
+      `${label} + VERCEL_ENV=production: ${method} db -> ${r.status} ${r.type} ${r.body.slice(0, 60)}`,
     );
   }
+  const prodPage = await call("GET", "/dashboard", "true", "production");
+  check(
+    prodPage.status === 200 && !/Database:/.test(prodPage.body),
+    `${label} + VERCEL_ENV=production: /dashboard -> ${prodPage.status}, status line present=${/Database:/.test(prodPage.body)}`,
+  );
   for (const method of METHODS)
-    for (const path of API_PATHS.slice(1)) {
+    for (const path of API_PATHS.filter((p) => !GATED_API_PATHS.includes(p))) {
       const r = await call(method, path, "true");
       check(
         isJson404(r),
@@ -153,5 +187,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404; API methods answer JSON; flag-on shell and status OK",
+  "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404; API methods answer JSON; flag-on shell, status and db OK; db hidden on production",
 );
