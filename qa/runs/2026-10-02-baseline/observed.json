@@ -1,0 +1,531 @@
+{
+ "us-single-dividend-ko": {
+  "id": "us-single-dividend-ko",
+  "kind": "run",
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "$10,000",
+     "$12,000"
+    ],
+    [
+     "NLV at end",
+     "$10,510",
+     "$12,511"
+    ],
+    [
+     "Total return",
+     "+5.1%",
+     "+4.3%"
+    ],
+    [
+     "CAGR",
+     "+2.5%",
+     "+2.1%"
+    ],
+    [
+     "Money-weighted return",
+     "+2.5%",
+     "+4.1%"
+    ],
+    [
+     "Max drop",
+     "−17.3% · 2023-10-05",
+     "−8.9% · 2024-11-15"
+    ],
+    [
+     "NLV at that drop",
+     "$8,514",
+     "$11,831"
+    ],
+    [
+     "Return to the drop",
+     "−14.9%",
+     "+2.9%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "KO",
+     "100.0%",
+     "62.26",
+     "168.811",
+     "200.9479"
+    ]
+   ]
+  ],
+  "note": "KO · USD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "tooltips": {
+   "first": "",
+   "last": ""
+  },
+  "fullText": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nSame window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.\n\nNot a recommendation. US, EU, and CA listings only. One currency.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\tLUMP SUM\tDCA\nTotal invested\t$10,000\t$12,000\nNLV at end\t$10,510\t$12,511\nTotal return\t+5.1%\t+4.3%\nCAGR\t+2.5%\t+2.1%\nMoney-weighted return\t+2.5%\t+4.1%\nMax drop\t−17.3% · 2023-10-05\t−8.9% · 2024-11-15\nNLV at that drop\t$8,514\t$11,831\nReturn to the drop\t−14.9%\t+2.9%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nKO\t100.0%\t62.26\t168.811\t200.9479\nLump sum NLV\nDCA NLV\n2023-02-27\n2023-06-13\n2023-09-28\n2024-01-16\n2024-05-01\n2024-08-16\n2024-12-31\n$0\n$3,500\n$7,000\n$10,500\n$14,000\n\nKO · USD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.\n\nOrpheus Wisdom\nNOT A RECOMMENDATION\n$0",
+  "api": [
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=KO&start=2023-01-03&end=2024-12-31",
+    "status": 200,
+    "currency": "USD",
+    "exchange": "NYSE",
+    "keys": [
+     "ticker",
+     "exchange",
+     "currency",
+     "bars",
+     "dividends",
+     "splits"
+    ],
+    "bars": 512,
+    "dividends": [
+     {
+      "t": 1678973400000,
+      "amt": 0.46
+     },
+     {
+      "t": 1686835800000,
+      "amt": 0.46
+     },
+     {
+      "t": 1694698200000,
+      "amt": 0.46
+     },
+     {
+      "t": 1701354600000,
+      "amt": 0.46
+     },
+     {
+      "t": 1710423000000,
+      "amt": 0.485
+     },
+     {
+      "t": 1718371800000,
+      "amt": 0.485
+     },
+     {
+      "t": 1726234200000,
+      "amt": 0.485
+     },
+     {
+      "t": 1732890600000,
+      "amt": 0.485
+     }
+    ],
+    "splits": []
+   }
+  ]
+ },
+ "us-basket-jnj-pg-wmt": {
+  "id": "us-basket-jnj-pg-wmt",
+  "kind": "run",
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "$20,000",
+     "$26,250"
+    ],
+    [
+     "NLV at end",
+     "$23,358",
+     "$29,316"
+    ],
+    [
+     "Total return",
+     "+16.8%",
+     "+11.7%"
+    ],
+    [
+     "CAGR",
+     "+8.1%",
+     "+5.7%"
+    ],
+    [
+     "Money-weighted return",
+     "+8.1%",
+     "+11.5%"
+    ],
+    [
+     "Max drop",
+     "−12.3% · 2023-03-09",
+     "−3.1% · 2023-01-23"
+    ],
+    [
+     "NLV at that drop",
+     "$17,809",
+     "$720"
+    ],
+    [
+     "Return to the drop",
+     "−11.0%",
+     "−4.0%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "JNJ",
+     "50.0%",
+     "144.62",
+     "59.6454",
+     "85.98"
+    ],
+    [
+     "PG",
+     "30.0%",
+     "167.65",
+     "41.6036",
+     "51.5895"
+    ],
+    [
+     "WMT",
+     "20.0%",
+     "90.35",
+     "85.8565",
+     "91.1212"
+    ]
+   ]
+  ],
+  "note": "JNJ · PG · WMT · USD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "tooltips": {
+   "first": "",
+   "last": ""
+  },
+  "fullText": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nSame window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.\n\nNot a recommendation. US, EU, and CA listings only. One currency.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\nTicker\nWeight\nTicker\nWeight\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\tLUMP SUM\tDCA\nTotal invested\t$20,000\t$26,250\nNLV at end\t$23,358\t$29,316\nTotal return\t+16.8%\t+11.7%\nCAGR\t+8.1%\t+5.7%\nMoney-weighted return\t+8.1%\t+11.5%\nMax drop\t−12.3% · 2023-03-09\t−3.1% · 2023-01-23\nNLV at that drop\t$17,809\t$720\nReturn to the drop\t−11.0%\t−4.0%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nJNJ\t50.0%\t144.62\t59.6454\t85.98\nPG\t30.0%\t167.65\t41.6036\t51.5895\nWMT\t20.0%\t90.35\t85.8565\t91.1212\nLump sum NLV\nDCA NLV\n2023-02-27\n2023-06-13\n2023-09-28\n2024-01-16\n2024-05-01\n2024-08-16\n2024-12-31\n$0\n$7,500\n$15,000\n$22,500\n$30,000\n\nJNJ · PG · WMT · USD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.\n\nOrpheus Wisdom\nNOT A RECOMMENDATION\n$0",
+  "api": [
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=PG&start=2023-01-03&end=2024-12-31",
+    "status": 200,
+    "currency": "USD",
+    "exchange": "NYSE",
+    "keys": [
+     "ticker",
+     "exchange",
+     "currency",
+     "bars",
+     "dividends",
+     "splits"
+    ],
+    "bars": 512,
+    "dividends": [
+     {
+      "t": 1674138600000,
+      "amt": 0.913
+     },
+     {
+      "t": 1681997400000,
+      "amt": 0.941
+     },
+     {
+      "t": 1689859800000,
+      "amt": 0.941
+     },
+     {
+      "t": 1697722200000,
+      "amt": 0.941
+     },
+     {
+      "t": 1705588200000,
+      "amt": 0.941
+     },
+     {
+      "t": 1713447000000,
+      "amt": 1.007
+     },
+     {
+      "t": 1721395800000,
+      "amt": 1.007
+     },
+     {
+      "t": 1729258200000,
+      "amt": 1.007
+     }
+    ],
+    "splits": []
+   },
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=JNJ&start=2023-01-03&end=2024-12-31",
+    "status": 200,
+    "currency": "USD",
+    "exchange": "NYSE",
+    "keys": [
+     "ticker",
+     "exchange",
+     "currency",
+     "bars",
+     "dividends",
+     "splits"
+    ],
+    "bars": 512,
+    "dividends": [
+     {
+      "t": 1676644200000,
+      "amt": 1.13
+     },
+     {
+      "t": 1684762200000,
+      "amt": 1.19
+     },
+     {
+      "t": 1692970200000,
+      "amt": 1.19
+     },
+     {
+      "t": 1700490600000,
+      "amt": 1.19
+     },
+     {
+      "t": 1708093800000,
+      "amt": 1.19
+     },
+     {
+      "t": 1716211800000,
+      "amt": 1.24
+     },
+     {
+      "t": 1724765400000,
+      "amt": 1.24
+     },
+     {
+      "t": 1732631400000,
+      "amt": 1.24
+     }
+    ],
+    "splits": []
+   },
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=WMT&start=2023-01-03&end=2024-12-31",
+    "status": 200,
+    "currency": "USD",
+    "exchange": "NasdaqGS",
+    "keys": [
+     "ticker",
+     "exchange",
+     "currency",
+     "bars",
+     "dividends",
+     "splits"
+    ],
+    "bars": 512,
+    "dividends": [
+     {
+      "t": 1678973400000,
+      "amt": 0.5700000000000001
+     },
+     {
+      "t": 1683207000000,
+      "amt": 0.5700000000000001
+     },
+     {
+      "t": 1691674200000,
+      "amt": 0.5700000000000001
+     },
+     {
+      "t": 1701959400000,
+      "amt": 0.5700000000000001
+     },
+     {
+      "t": 1710423000000,
+      "amt": 0.208
+     },
+     {
+      "t": 1715261400000,
+      "amt": 0.208
+     },
+     {
+      "t": 1723815000000,
+      "amt": 0.208
+     },
+     {
+      "t": 1734100200000,
+      "amt": 0.208
+     }
+    ],
+    "splits": [
+     {
+      "t": 1708957800000,
+      "ratio": 3
+     }
+    ]
+   }
+  ]
+ },
+ "ca-single-ry-to": {
+  "id": "ca-single-ry-to",
+  "kind": "run",
+  "alert": [],
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "CA$10,000",
+     "CA$12,000"
+    ],
+    [
+     "NLV at end",
+     "CA$14,673",
+     "CA$15,920"
+    ],
+    [
+     "Total return",
+     "+46.7%",
+     "+32.7%"
+    ],
+    [
+     "CAGR",
+     "+21.2%",
+     "+15.2%"
+    ],
+    [
+     "Money-weighted return",
+     "+21.2%",
+     "+30.0%"
+    ],
+    [
+     "Max drop",
+     "−19.7% · 2023-10-27",
+     "−7.6% · 2023-03-24"
+    ],
+    [
+     "NLV at that drop",
+     "CA$8,838",
+     "CA$1,423"
+    ],
+    [
+     "Return to the drop",
+     "−11.6%",
+     "−5.2%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "RY.TO",
+     "100.0%",
+     "173.32",
+     "84.6601",
+     "91.8518"
+    ]
+   ]
+  ],
+  "note": "RY.TO · CAD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "tooltips": {
+   "first": "",
+   "last": ""
+  },
+  "fullText": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nSame window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.\n\nNot a recommendation. US, EU, and CA listings only. One currency.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\n04\n\nResult\n\tLUMP SUM\tDCA\nTotal invested\tCA$10,000\tCA$12,000\nNLV at end\tCA$14,673\tCA$15,920\nTotal return\t+46.7%\t+32.7%\nCAGR\t+21.2%\t+15.2%\nMoney-weighted return\t+21.2%\t+30.0%\nMax drop\t−19.7% · 2023-10-27\t−7.6% · 2023-03-24\nNLV at that drop\tCA$8,838\tCA$1,423\nReturn to the drop\t−11.6%\t−5.2%\nNAME\tWEIGHT\tLAST\tLUMP SUM SHARES\tDCA SHARES\nRY.TO\t100.0%\t173.32\t84.6601\t91.8518\nLump sum NLV\nDCA NLV\n2023-02-24\n2023-06-12\n2023-09-27\n2024-01-15\n2024-04-30\n2024-08-15\n2024-12-31\nCA$0\nCA$4,500\nCA$9,000\nCA$13,500\nCA$18,000\n\nRY.TO · CAD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.\n\nOrpheus Wisdom\nNOT A RECOMMENDATION\nCA$0",
+  "api": [
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=RY.TO&start=2023-01-03&end=2024-12-31",
+    "status": 200,
+    "currency": "CAD",
+    "exchange": "Toronto",
+    "keys": [
+     "ticker",
+     "exchange",
+     "currency",
+     "bars",
+     "dividends",
+     "splits"
+    ],
+    "bars": 511,
+    "dividends": [
+     {
+      "t": 1674657000000,
+      "amt": 1.32
+     },
+     {
+      "t": 1682343000000,
+      "amt": 1.32
+     },
+     {
+      "t": 1690291800000,
+      "amt": 1.35
+     },
+     {
+      "t": 1698240600000,
+      "amt": 1.35
+     },
+     {
+      "t": 1706106600000,
+      "amt": 1.38
+     },
+     {
+      "t": 1713965400000,
+      "amt": 1.38
+     },
+     {
+      "t": 1721914200000,
+      "amt": 1.42
+     },
+     {
+      "t": 1729776600000,
+      "amt": 1.42
+     }
+    ],
+    "splits": []
+   }
+  ]
+ },
+ "refused-lse-vod-l": {
+  "id": "refused-lse-vod-l",
+  "kind": "refused",
+  "alert": [
+   "VOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+  ],
+  "tables": [],
+  "note": "03",
+  "fullText": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nSame window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.\n\nNot a recommendation. US, EU, and CA listings only. One currency.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\n\nVOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception.\n\nOrpheus Wisdom\nNOT A RECOMMENDATION",
+  "api": [
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=VOD.L&start=2023-01-03&end=2024-12-31",
+    "status": 400,
+    "error": "VOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception.",
+    "keys": [
+     "error"
+    ]
+   }
+  ]
+ },
+ "no-advice-copy": {
+  "id": "no-advice-copy",
+  "kind": "content",
+  "initialText": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nSame window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.\n\nNot a recommendation. US, EU, and CA listings only. One currency.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\nOrpheus Wisdom\nNOT A RECOMMENDATION",
+  "html": "<!DOCTYPE html><html lang=\"en\" class=\"antialiased\"><head><meta name=\"twitter:card\" content=\"summary_large_image\"><meta property=\"og:title\" content=\"Orpheus Wisdom\"><meta property=\"og:image\" content=\"https://og.grok.me/v1/card.png?host=island-pearl-eagle-hill.grok.me&amp;title=Orpheus%20Wisdom\"><meta property=\"og:image:width\" content=\"1200\"><meta property=\"og:image:height\" content=\"630\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;1,400&amp;display=swap\" data-precedence=\"default\"><link rel=\"stylesheet\" href=\"/assets/styles-DS8Qx1ug.css\" data-precedence=\"default\"><title>Orpheus Wisdom</title><meta name=\"description\" content=\"Orpheus Wisdom. Compare a lump-sum cash plan with weekly or monthly contributions. Not a recommendation.\"><meta name=\"theme-color\" content=\"#1e2124\"><link rel=\"modulepreload\" href=\"/assets/index-CdYVN9LZ.js\"><link rel=\"modulepreload\" href=\"/assets/routes-FIuiFnXo.js\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin=\"anonymous\"><link rel=\"manifest\" href=\"/__grok/manifest.webmanifest\"><link rel=\"apple-touch-icon\" href=\"/__grok/icon-180.png\"><meta name=\"apple-mobile-web-app-title\" content=\"Orpheus Wisdom\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\"><meta name=\"grok-project-id\" content=\"01a0fddd-7ba0-7732-b8f9-5314cc2d3f3d\"><script src=\"https://grok.com/grok-app-builder/extensions.js\" data-project-id=\"01a0fddd-7ba0-7732-b8f9-5314cc2d3f3d\" defer=\"\"></script><meta property=\"grok:app_id\" content=\"01a0fddd-7ba0-7732-b8f9-5314cc2d3f3d\"><meta property=\"x:creator\" content=\"@diegolbquintela\"><meta property=\"x:creator:id\" content=\"2525233991\"></head><body><!--$--><div class=\"min-h-screen bg-paper\"><header class=\"bg-ink text-card\"><div class=\"mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8\"><span class=\"text-sm\">Orpheus Wisdom</span><span class=\"kicker text-card/60\">Desk</span></div><div class=\"mast-grid mx-auto w-full max-w-6xl px-5 pt-16 pb-20 sm:px-8 sm:pt-24 sm:pb-28\"><p class=\"kicker text-card/50\">01</p><div class=\"max-w-3xl\"><h1 class=\"text-balance text-5xl leading-none font-normal tracking-tight sm:text-7xl\">DCA vs lump sum</h1><p class=\"mt-8 max-w-xl text-pretty text-card/75\">Same window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.</p><p class=\"mt-6 text-sm text-card/55\">Not a recommendation. US, EU, and CA listings only. One currency.</p></div></div></header><main class=\"mx-auto w-full max-w-6xl px-5 sm:px-8\"><form autocomplete=\"off\"><section class=\"section\"><div><p class=\"kicker text-muted\">02</p><h2 class=\"mt-3 text-3xl leading-none font-normal tracking-tight\">Basket</h2></div><fieldset class=\"flex min-w-0 flex-col gap-6\"><legend class=\"sr-only\">Basket</legend><div class=\"basket-row\"><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Ticker</span><input spellcheck=\"false\" autocapitalize=\"characters\" class=\"field text-base\" value=\"\"></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Weight</span><input inputmode=\"decimal\" class=\"field text-base tabular-nums\" value=\"\"></label><button type=\"button\" disabled=\"\" aria-label=\"Remove name\" class=\"mb-2 text-muted disabled:opacity-30\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-minus size-4\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path></svg></button></div><button type=\"button\" class=\"self-start text-sm\">↳ Add name</button></fieldset></section><section class=\"section\"><div><p class=\"kicker text-muted\">03</p><h2 class=\"mt-3 text-3xl leading-none font-normal tracking-tight\">Window</h2></div><div class=\"grid min-w-0 gap-8 sm:grid-cols-2\"><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Start</span><input type=\"date\" class=\"field text-base\" value=\"\"></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">End</span><input type=\"date\" class=\"field text-base\" value=\"\"></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Starting capital</span><input inputmode=\"decimal\" class=\"field text-base tabular-nums\" value=\"\"><span class=\"text-xs text-muted\">Used only by the lump-sum plan.</span></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Contribution</span><input inputmode=\"decimal\" class=\"field text-base tabular-nums\" value=\"\"><span class=\"text-xs text-muted\">New cash on each DCA date.</span></label><label class=\"flex flex-col gap-2 sm:col-span-2 sm:max-w-xs\"><span class=\"kicker text-muted\">Frequency</span><select class=\"field text-base\"><option value=\"\" selected=\"\"></option><option value=\"weekly\">Weekly</option><option value=\"monthly\">Monthly</option></select></label><button type=\"submit\" class=\"inline-flex h-12 items-center justify-center self-start bg-ink px-6 text-sm text-card disabled:opacity-50 sm:col-span-2\">Compare plans</button></div></section></form></main><footer class=\"bg-ink text-card\"><div class=\"mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 sm:px-8\"><span class=\"text-sm\">Orpheus Wisdom</span><span class=\"kicker text-card/60\">Not a recommendation</span></div></footer></div><!--/$--><script type=\"module\" async=\"\" src=\"/assets/index-CdYVN9LZ.js\"></script></body></html>"
+ }
+}

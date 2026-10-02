@@ -1,0 +1,170 @@
+{
+ "before": {
+  "cueText": "Lump sum\nSwipe for DCA →",
+  "cueVisible": true,
+  "dots": 2,
+  "dotClasses": [
+   "inline-block size-2 rounded-full bg-ink",
+   "inline-block size-2 rounded-full bg-line"
+  ],
+  "swipeCue": 1,
+  "swipeVisible": true,
+  "fade": 1,
+  "headsRaw": [
+   "",
+   "Lump sum ($1,000 once)",
+   "DCA ($1,000 weekly)"
+  ],
+  "labelBox": {
+   "x": 20,
+   "y": 311.734375,
+   "width": 144,
+   "height": 85
+  },
+  "labelText": "Money-weighted return (XIRR, per year)",
+  "dcaHead": {
+   "x": 394.5625,
+   "y": 182.84375,
+   "width": 201.4375,
+   "height": 38.890625
+  },
+  "lumpHead": {
+   "x": 164,
+   "y": 182.84375,
+   "width": 230.5625,
+   "height": 38.890625
+  },
+  "dcaMwr": {
+   "x": 394.5625,
+   "y": 311.734375,
+   "width": 201.4375,
+   "height": 85
+  }
+ },
+ "mid": {
+  "cueText": "Lump sum\nSwipe for DCA →",
+  "cueVisible": true,
+  "dots": 2,
+  "dotClasses": [
+   "inline-block size-2 rounded-full bg-ink",
+   "inline-block size-2 rounded-full bg-line"
+  ],
+  "swipeCue": 1,
+  "swipeVisible": true,
+  "fade": 1,
+  "headsRaw": [
+   "",
+   "Lump sum ($1,000 once)",
+   "DCA ($1,000 weekly)"
+  ],
+  "labelBox": {
+   "x": 20,
+   "y": 311.734375,
+   "width": 144,
+   "height": 85
+  },
+  "labelText": "Money-weighted return (XIRR, per year)",
+  "dcaHead": {
+   "x": 367.5625,
+   "y": 182.84375,
+   "width": 201.4375,
+   "height": 38.890625
+  },
+  "lumpHead": {
+   "x": 137,
+   "y": 182.84375,
+   "width": 230.5625,
+   "height": 38.890625
+  },
+  "dcaMwr": {
+   "x": 367.5625,
+   "y": 311.734375,
+   "width": 201.4375,
+   "height": 85
+  }
+ },
+ "end": {
+  "cueText": "DCA",
+  "cueVisible": true,
+  "dots": 2,
+  "dotClasses": [
+   "inline-block size-2 rounded-full bg-line",
+   "inline-block size-2 rounded-full bg-dca"
+  ],
+  "swipeCue": 0,
+  "swipeVisible": false,
+  "fade": 0,
+  "headsRaw": [
+   "",
+   "Lump sum ($1,000 once)",
+   "DCA ($1,000 weekly)"
+  ],
+  "labelBox": {
+   "x": 20,
+   "y": 311.734375,
+   "width": 144,
+   "height": 85
+  },
+  "labelText": "Money-weighted return (XIRR, per year)",
+  "dcaHead": {
+   "x": 168.5625,
+   "y": 182.84375,
+   "width": 201.4375,
+   "height": 38.890625
+  },
+  "lumpHead": {
+   "x": -62,
+   "y": 182.84375,
+   "width": 230.5625,
+   "height": 38.890625
+  },
+  "dcaMwr": {
+   "x": 168.5625,
+   "y": 311.734375,
+   "width": 201.4375,
+   "height": 85
+  }
+ },
+ "back": {
+  "cueText": "Lump sum\nSwipe for DCA →",
+  "cueVisible": true,
+  "dots": 2,
+  "dotClasses": [
+   "inline-block size-2 rounded-full bg-ink",
+   "inline-block size-2 rounded-full bg-line"
+  ],
+  "swipeCue": 1,
+  "swipeVisible": true,
+  "fade": 1,
+  "headsRaw": [
+   "",
+   "Lump sum ($1,000 once)",
+   "DCA ($1,000 weekly)"
+  ],
+  "labelBox": {
+   "x": 20,
+   "y": 311.734375,
+   "width": 144,
+   "height": 85
+  },
+  "labelText": "Money-weighted return (XIRR, per year)",
+  "dcaHead": {
+   "x": 394.5625,
+   "y": 182.84375,
+   "width": 201.4375,
+   "height": 38.890625
+  },
+  "lumpHead": {
+   "x": 164,
+   "y": 182.84375,
+   "width": 230.5625,
+   "height": 38.890625
+  },
+  "dcaMwr": {
+   "x": 394.5625,
+   "y": 311.734375,
+   "width": 201.4375,
+   "height": 85
+  }
+ }
+}

@@ -1,0 +1,845 @@
+{
+ "c1": {
+  "title": "Orpheus Wisdom",
+  "btnVisible": true,
+  "btnText": "Compare plans",
+  "h1": "DCA vs lump sum",
+  "pageErrors": []
+ },
+ "c7init": {
+  "text": "Orpheus Wisdom\nDESK\n\n01\n\nDCA vs lump sum\n\nSame window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.\n\nNot a recommendation. US, EU, and CA listings only. One currency.\n\n02\n\nBasket\nBasket\nTICKER\nWEIGHT\n↳ Add name\n\n03\n\nWindow\nSTART\nEND\nSTARTING CAPITAL\nUsed only by the lump-sum plan.\nCONTRIBUTION\nNew cash on each DCA date.\nFREQUENCY\nWeekly\nMonthly\nCompare plans\nOrpheus Wisdom\nNOT A RECOMMENDATION",
+  "html": "<!DOCTYPE html><html lang=\"en\" class=\"antialiased\"><head><meta name=\"twitter:card\" content=\"summary_large_image\"><meta property=\"og:title\" content=\"Orpheus Wisdom\"><meta property=\"og:image\" content=\"https://og.grok.me/v1/card.png?host=island-pearl-eagle-hill.grok.me&amp;title=Orpheus%20Wisdom\"><meta property=\"og:image:width\" content=\"1200\"><meta property=\"og:image:height\" content=\"630\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;1,400&amp;display=swap\" data-precedence=\"default\"><link rel=\"stylesheet\" href=\"/assets/styles-DS8Qx1ug.css\" data-precedence=\"default\"><title>Orpheus Wisdom</title><meta name=\"description\" content=\"Orpheus Wisdom. Compare a lump-sum cash plan with weekly or monthly contributions. Not a recommendation.\"><meta name=\"theme-color\" content=\"#1e2124\"><link rel=\"modulepreload\" href=\"/assets/index-CdYVN9LZ.js\"><link rel=\"modulepreload\" href=\"/assets/routes-FIuiFnXo.js\"><link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\"><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin=\"anonymous\"><link rel=\"manifest\" href=\"/__grok/manifest.webmanifest\"><link rel=\"apple-touch-icon\" href=\"/__grok/icon-180.png\"><meta name=\"apple-mobile-web-app-title\" content=\"Orpheus Wisdom\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\"><meta name=\"grok-project-id\" content=\"01a0fddd-7ba0-7732-b8f9-5314cc2d3f3d\"><script src=\"https://grok.com/grok-app-builder/extensions.js\" data-project-id=\"01a0fddd-7ba0-7732-b8f9-5314cc2d3f3d\" defer=\"\"></script><meta property=\"grok:app_id\" content=\"01a0fddd-7ba0-7732-b8f9-5314cc2d3f3d\"><meta property=\"x:creator\" content=\"@diegolbquintela\"><meta property=\"x:creator:id\" content=\"2525233991\"></head><body><!--$--><div class=\"min-h-screen bg-paper\"><header class=\"bg-ink text-card\"><div class=\"mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8\"><span class=\"text-sm\">Orpheus Wisdom</span><span class=\"kicker text-card/60\">Desk</span></div><div class=\"mast-grid mx-auto w-full max-w-6xl px-5 pt-16 pb-20 sm:px-8 sm:pt-24 sm:pb-28\"><p class=\"kicker text-card/50\">01</p><div class=\"max-w-3xl\"><h1 class=\"text-balance text-5xl leading-none font-normal tracking-tight sm:text-7xl\">DCA vs lump sum</h1><p class=\"mt-8 max-w-xl text-pretty text-card/75\">Same window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital on the first session every name has a price, split by weight. DCA does not use that capital. On each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.</p><p class=\"mt-6 text-sm text-card/55\">Not a recommendation. US, EU, and CA listings only. One currency.</p></div></div></header><main class=\"mx-auto w-full max-w-6xl px-5 sm:px-8\"><form autocomplete=\"off\"><section class=\"section\"><div><p class=\"kicker text-muted\">02</p><h2 class=\"mt-3 text-3xl leading-none font-normal tracking-tight\">Basket</h2></div><fieldset class=\"flex min-w-0 flex-col gap-6\"><legend class=\"sr-only\">Basket</legend><div class=\"basket-row\"><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Ticker</span><input spellcheck=\"false\" autocapitalize=\"characters\" class=\"field text-base\" value=\"\"></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Weight</span><input inputmode=\"decimal\" class=\"field text-base tabular-nums\" value=\"\"></label><button type=\"button\" disabled=\"\" aria-label=\"Remove name\" class=\"mb-2 text-muted disabled:opacity-30\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-minus size-4\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path></svg></button></div><button type=\"button\" class=\"self-start text-sm\">↳ Add name</button></fieldset></section><section class=\"section\"><div><p class=\"kicker text-muted\">03</p><h2 class=\"mt-3 text-3xl leading-none font-normal tracking-tight\">Window</h2></div><div class=\"grid min-w-0 gap-8 sm:grid-cols-2\"><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Start</span><input type=\"date\" class=\"field text-base\" value=\"\"></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">End</span><input type=\"date\" class=\"field text-base\" value=\"\"></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Starting capital</span><input inputmode=\"decimal\" class=\"field text-base tabular-nums\" value=\"\"><span class=\"text-xs text-muted\">Used only by the lump-sum plan.</span></label><label class=\"flex flex-col gap-2\"><span class=\"kicker text-muted\">Contribution</span><input inputmode=\"decimal\" class=\"field text-base tabular-nums\" value=\"\"><span class=\"text-xs text-muted\">New cash on each DCA date.</span></label><label class=\"flex flex-col gap-2 sm:col-span-2 sm:max-w-xs\"><span class=\"kicker text-muted\">Frequency</span><select class=\"field text-base\"><option value=\"\" selected=\"\"></option><option value=\"weekly\">Weekly</option><option value=\"monthly\">Monthly</option></select></label><button type=\"submit\" class=\"inline-flex h-12 items-center justify-center self-start bg-ink px-6 text-sm text-card disabled:opacity-50 sm:col-span-2\">Compare plans</button></div></section></form></main><footer class=\"bg-ink text-card\"><div class=\"mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 sm:px-8\"><span class=\"text-sm\">Orpheus Wisdom</span><span class=\"kicker text-card/60\">Not a recommendation</span></div></footer></div><!--/$--><script type=\"module\" async=\"\" src=\"/assets/index-CdYVN9LZ.js\"></script></body></html>",
+  "buttons": [
+   "",
+   "↳ Add name",
+   "Compare plans"
+  ]
+ },
+ "c2": {
+  "alert": [
+   "Add a ticker."
+  ],
+  "hasResult": false,
+  "tables": [],
+  "note": null,
+  "chart": {
+   "svg": 0,
+   "lines": 0,
+   "legend": []
+  },
+  "apiCalls": 0,
+  "pageErrors": []
+ },
+ "aapl_monthly": {
+  "alert": [],
+  "hasResult": true,
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "$10,000",
+     "$12,000"
+    ],
+    [
+     "NLV at end",
+     "$20,232",
+     "$16,480"
+    ],
+    [
+     "Total return",
+     "+102.3%",
+     "+37.3%"
+    ],
+    [
+     "CAGR",
+     "+42.4%",
+     "+17.3%"
+    ],
+    [
+     "Money-weighted return",
+     "+42.4%",
+     "+34.0%"
+    ],
+    [
+     "Max drop",
+     "−16.6% · 2024-04-19",
+     "−10.2% · 2023-09-27"
+    ],
+    [
+     "NLV at that drop",
+     "$13,283",
+     "$4,643"
+    ],
+    [
+     "Return to the drop",
+     "+32.8%",
+     "+3.2%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "AAPL",
+     "100.0%",
+     "250.42",
+     "80.7937",
+     "65.8112"
+    ]
+   ]
+  ],
+  "note": "AAPL · USD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "chart": {
+   "svg": 1,
+   "lines": 2,
+   "legend": [
+    "Lump sum NLV",
+    "DCA NLV"
+   ]
+  },
+  "pageErrors": [],
+  "apiStatus": [
+   200
+  ]
+ },
+ "aapl_weekly": {
+  "alert": [],
+  "hasResult": true,
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "$10,000",
+     "$52,500"
+    ],
+    [
+     "NLV at end",
+     "$20,232",
+     "$71,114"
+    ],
+    [
+     "Total return",
+     "+102.3%",
+     "+35.5%"
+    ],
+    [
+     "CAGR",
+     "+42.4%",
+     "+16.4%"
+    ],
+    [
+     "Money-weighted return",
+     "+42.4%",
+     "+33.7%"
+    ],
+    [
+     "Max drop",
+     "−16.6% · 2024-04-19",
+     "−9.1% · 2024-08-05"
+    ],
+    [
+     "NLV at that drop",
+     "$13,283",
+     "$49,330"
+    ],
+    [
+     "Return to the drop",
+     "+32.8%",
+     "+18.9%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "AAPL",
+     "100.0%",
+     "250.42",
+     "80.7937",
+     "283.9772"
+    ]
+   ]
+  ],
+  "note": "AAPL · USD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "chart": {
+   "svg": 1,
+   "lines": 2,
+   "legend": [
+    "Lump sum NLV",
+    "DCA NLV"
+   ]
+  },
+  "pageErrors": [],
+  "apiStatus": [
+   200
+  ]
+ },
+ "c4": {
+  "alert": [],
+  "hasResult": true,
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "$10,000",
+     "$12,000"
+    ],
+    [
+     "NLV at end",
+     "$9,568",
+     "$11,914"
+    ],
+    [
+     "Total return",
+     "−4.3%",
+     "−0.7%"
+    ],
+    [
+     "CAGR",
+     "−2.2%",
+     "−0.4%"
+    ],
+    [
+     "Money-weighted return",
+     "−2.2%",
+     "−0.7%"
+    ],
+    [
+     "Max drop",
+     "−14.2% · 2023-10-27",
+     "−7.2% · 2023-01-30"
+    ],
+    [
+     "NLV at that drop",
+     "$8,665",
+     "$468"
+    ],
+    [
+     "Return to the drop",
+     "−13.4%",
+     "−6.4%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "KO",
+     "50.0%",
+     "62.26",
+     "84.4055",
+     "100.474"
+    ],
+    [
+     "JNJ",
+     "50.0%",
+     "144.62",
+     "29.8227",
+     "39.1274"
+    ]
+   ]
+  ],
+  "note": "KO · JNJ · USD · 502 sessions. Weights summed to 120.0 and were scaled to 100. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "chart": {
+   "svg": 1,
+   "lines": 2,
+   "legend": [
+    "Lump sum NLV",
+    "DCA NLV"
+   ]
+  },
+  "pageErrors": []
+ },
+ "c6_VOD.L": {
+  "alert": [
+   "VOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+  ],
+  "hasResult": false,
+  "tables": [],
+  "note": null,
+  "chart": {
+   "svg": 0,
+   "lines": 0,
+   "legend": []
+  },
+  "pageErrors": [],
+  "api": [
+   {
+    "status": 400,
+    "error": "VOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+   }
+  ]
+ },
+ "c6_BARC.L": {
+  "alert": [
+   "BARC.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+  ],
+  "hasResult": false,
+  "tables": [],
+  "note": null,
+  "chart": {
+   "svg": 0,
+   "lines": 0,
+   "legend": []
+  },
+  "pageErrors": [],
+  "api": [
+   {
+    "status": 400,
+    "error": "BARC.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+   }
+  ]
+ },
+ "c6_RY.TO": {
+  "alert": [],
+  "hasResult": true,
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "CA$10,000",
+     "CA$12,000"
+    ],
+    [
+     "NLV at end",
+     "CA$14,673",
+     "CA$15,920"
+    ],
+    [
+     "Total return",
+     "+46.7%",
+     "+32.7%"
+    ],
+    [
+     "CAGR",
+     "+21.2%",
+     "+15.2%"
+    ],
+    [
+     "Money-weighted return",
+     "+21.2%",
+     "+30.0%"
+    ],
+    [
+     "Max drop",
+     "−19.7% · 2023-10-27",
+     "−7.6% · 2023-03-24"
+    ],
+    [
+     "NLV at that drop",
+     "CA$8,838",
+     "CA$1,423"
+    ],
+    [
+     "Return to the drop",
+     "−11.6%",
+     "−5.2%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "RY.TO",
+     "100.0%",
+     "173.32",
+     "84.6601",
+     "91.8518"
+    ]
+   ]
+  ],
+  "note": "RY.TO · CAD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "chart": {
+   "svg": 1,
+   "lines": 2,
+   "legend": [
+    "Lump sum NLV",
+    "DCA NLV"
+   ]
+  },
+  "pageErrors": [],
+  "api": [
+   {
+    "status": 200,
+    "currency": "CAD",
+    "exchange": "Toronto",
+    "bars": 511
+   }
+  ]
+ },
+ "c6_SHOP.TO": {
+  "alert": [],
+  "hasResult": true,
+  "tables": [
+   [
+    [
+     "",
+     "LUMP SUM",
+     "DCA"
+    ],
+    [
+     "Total invested",
+     "CA$10,000",
+     "CA$12,000"
+    ],
+    [
+     "NLV at end",
+     "CA$31,357",
+     "CA$22,018"
+    ],
+    [
+     "Total return",
+     "+213.6%",
+     "+83.5%"
+    ],
+    [
+     "CAGR",
+     "+77.4%",
+     "+35.6%"
+    ],
+    [
+     "Money-weighted return",
+     "+77.4%",
+     "+71.6%"
+    ],
+    [
+     "Max drop",
+     "−38.9% · 2024-08-06",
+     "−26.4% · 2024-05-21"
+    ],
+    [
+     "NLV at that drop",
+     "CA$15,282",
+     "CA$8,405"
+    ],
+    [
+     "Return to the drop",
+     "+52.8%",
+     "−1.1%"
+    ]
+   ],
+   [
+    [
+     "NAME",
+     "WEIGHT",
+     "LAST",
+     "LUMP SUM SHARES",
+     "DCA SHARES"
+    ],
+    [
+     "SHOP.TO",
+     "100.0%",
+     "152.99",
+     "204.96",
+     "143.9187"
+    ]
+   ]
+  ],
+  "note": "SHOP.TO · CAD · 502 sessions. Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count. CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure. Not a recommendation.",
+  "chart": {
+   "svg": 1,
+   "lines": 2,
+   "legend": [
+    "Lump sum NLV",
+    "DCA NLV"
+   ]
+  },
+  "pageErrors": [],
+  "api": [
+   {
+    "status": 200,
+    "currency": "CAD",
+    "exchange": "Toronto",
+    "bars": 511
+   }
+  ]
+ },
+ "c9_emptyTicker": {
+  "alert": [
+   "Each name needs a ticker and a weight."
+  ],
+  "hasResult": false,
+  "tables": [],
+  "note": null,
+  "chart": {
+   "svg": 0,
+   "lines": 0,
+   "legend": []
+  },
+  "pageErrors": [],
+  "console": [],
+  "api": [],
+  "stillUsable": true
+ },
+ "c9_nonsense": {
+  "alert": [
+   "ZZQXJ9: No data found, symbol may be delisted"
+  ],
+  "hasResult": false,
+  "tables": [],
+  "note": null,
+  "chart": {
+   "svg": 0,
+   "lines": 0,
+   "legend": []
+  },
+  "pageErrors": [],
+  "console": [
+   "Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "api": [
+   {
+    "url": "https://island-pearl-eagle-hill.grok.me/api/chart?ticker=ZZQXJ9&start=2023-01-03&end=2024-12-31",
+    "status": 404,
+    "error": "ZZQXJ9: No data found, symbol may be delisted"
+   }
+  ],
+  "stillUsable": true
+ },
+ "c9_endBeforeStart": {
+  "alert": [
+   "End date is before the start date."
+  ],
+  "hasResult": false,
+  "tables": [],
+  "note": null,
+  "chart": {
+   "svg": 0,
+   "lines": 0,
+   "legend": []
+  },
+  "pageErrors": [],
+  "console": [],
+  "api": [],
+  "stillUsable": true
+ },
+ "c10": {
+  "before": {
+   "vw": 390,
+   "scrollW": 390,
+   "bodyScrollW": 390,
+   "offscreen": [],
+   "els": [
+    {
+     "tag": "INPUT",
+     "label": "TICKER",
+     "left": 20,
+     "right": 182,
+     "w": 162,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "WEIGHT",
+     "left": 202,
+     "right": 306,
+     "w": 104,
+     "h": 44
+    },
+    {
+     "tag": "BUTTON",
+     "label": "Remove name",
+     "left": 326,
+     "right": 370,
+     "w": 44,
+     "h": 16
+    },
+    {
+     "tag": "BUTTON",
+     "label": "↳ Add name",
+     "left": 20,
+     "right": 102,
+     "w": 82,
+     "h": 20
+    },
+    {
+     "tag": "INPUT",
+     "label": "START",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "END",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "STARTING CAPITAL",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "CONTRIBUTION",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "SELECT",
+     "label": "FREQUENCY",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "BUTTON",
+     "label": "Compare plans",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 48
+    }
+   ]
+  },
+  "after": {
+   "vw": 390,
+   "scrollW": 390,
+   "bodyScrollW": 390,
+   "offscreen": [],
+   "els": [
+    {
+     "tag": "INPUT",
+     "label": "TICKER",
+     "left": 20,
+     "right": 182,
+     "w": 162,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "WEIGHT",
+     "left": 202,
+     "right": 306,
+     "w": 104,
+     "h": 44
+    },
+    {
+     "tag": "BUTTON",
+     "label": "Remove name",
+     "left": 326,
+     "right": 370,
+     "w": 44,
+     "h": 16
+    },
+    {
+     "tag": "INPUT",
+     "label": "Ticker",
+     "left": 20,
+     "right": 182,
+     "w": 162,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "Weight",
+     "left": 202,
+     "right": 306,
+     "w": 104,
+     "h": 44
+    },
+    {
+     "tag": "BUTTON",
+     "label": "Remove name",
+     "left": 326,
+     "right": 370,
+     "w": 44,
+     "h": 16
+    },
+    {
+     "tag": "BUTTON",
+     "label": "↳ Add name",
+     "left": 20,
+     "right": 102,
+     "w": 82,
+     "h": 20
+    },
+    {
+     "tag": "INPUT",
+     "label": "START",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "END",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "STARTING CAPITAL",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "INPUT",
+     "label": "CONTRIBUTION",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "SELECT",
+     "label": "FREQUENCY",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 44
+    },
+    {
+     "tag": "BUTTON",
+     "label": "Compare plans",
+     "left": 20,
+     "right": 370,
+     "w": 350,
+     "h": 48
+    }
+   ]
+  },
+  "result": {
+   "hasResult": true,
+   "alert": [],
+   "tables": [
+    [
+     [
+      "",
+      "LUMP SUM",
+      "DCA"
+     ],
+     [
+      "Total invested",
+      "$10,000",
+      "$12,000"
+     ],
+     [
+      "NLV at end",
+      "$9,568",
+      "$11,914"
+     ],
+     [
+      "Total return",
+      "−4.3%",
+      "−0.7%"
+     ],
+     [
+      "CAGR",
+      "−2.2%",
+      "−0.4%"
+     ],
+     [
+      "Money-weighted return",
+      "−2.2%",
+      "−0.7%"
+     ],
+     [
+      "Max drop",
+      "−14.2% · 2023-10-27",
+      "−7.2% · 2023-01-30"
+     ],
+     [
+      "NLV at that drop",
+      "$8,665",
+      "$468"
+     ],
+     [
+      "Return to the drop",
+      "−13.4%",
+      "−6.4%"
+     ]
+    ],
+    [
+     [
+      "NAME",
+      "WEIGHT",
+      "LAST",
+      "LUMP SUM SHARES",
+      "DCA SHARES"
+     ],
+     [
+      "KO",
+      "50.0%",
+      "62.26",
+      "84.4055",
+      "100.474"
+     ],
+     [
+      "JNJ",
+      "50.0%",
+      "144.62",
+      "29.8227",
+      "39.1274"
+     ]
+    ]
+   ]
+  },
+  "pageErrors": [],
+  "tableWrapScroll": [
+   {
+    "client": 350,
+    "scroll": 576
+   },
+   {
+    "client": 350,
+    "scroll": 576
+   }
+  ]
+ }
+}

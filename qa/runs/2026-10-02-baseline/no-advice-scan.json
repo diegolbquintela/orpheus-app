@@ -1,0 +1,45 @@
+{
+ "rendered": {
+  "us-single-dividend-ko": {
+   "matches": [],
+   "disclaimer": true
+  },
+  "us-basket-jnj-pg-wmt": {
+   "matches": [],
+   "disclaimer": true
+  },
+  "ca-single-ry-to": {
+   "matches": [],
+   "disclaimer": true
+  },
+  "refused-lse-vod-l": {
+   "matches": [],
+   "disclaimer": true
+  },
+  "no-advice-copy": {
+   "matches": [],
+   "disclaimer": true
+  },
+  "initial-html-incl-meta": {
+   "matches": [],
+   "disclaimer": true
+  }
+ },
+ "source": {
+  "desk.tsx": {
+   "matches": [],
+   "matchesCI": [],
+   "disclaimer": true
+  },
+  "index.tsx": {
+   "matches": [],
+   "matchesCI": [],
+   "disclaimer": false
+  },
+  "__root.tsx": {
+   "matches": [],
+   "matchesCI": [],
+   "disclaimer": true
+  }
+ }
+}

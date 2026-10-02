@@ -1,0 +1,11 @@
+HTTP/2 400 
+age: 0
+cache-control: no-store
+content-type: application/json
+date: Fri, 02 Oct 2026 20:42:04 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-robots-tag: noindex, nofollow
+x-vercel-cache: MISS
+x-vercel-id: pdx1::iad1::6zq6h-1790973723938-01acf5380f9b
+

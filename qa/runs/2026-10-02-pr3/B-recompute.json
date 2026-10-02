@@ -1,0 +1,90 @@
+{
+ "weeklyDates": 314,
+ "firstDate": "2020-10-02",
+ "lastDate": "2026-10-02",
+ "expectedInvested": 314000,
+ "run": {
+  "dcaInvested": 314000,
+  "dcaEnd": 2026141.225315432,
+  "dcaMwr": 0.6535917940316723,
+  "lumpInvested": 1000,
+  "lumpEnd": 12970.885803881876,
+  "lumpMwr": 0.5329827588284389,
+  "missed": 0,
+  "sessions": 1507,
+  "chartFirst": {
+   "date": "2020-10-02",
+   "lump": 1000,
+   "dca": 1000
+  },
+  "chartLast": {
+   "date": "2026-10-02",
+   "lump": 12970.885803881876,
+   "dca": 2026141.225315432
+  }
+ },
+ "firstBar": [
+  "2020-09-30",
+  "2020-09-18"
+ ],
+ "lastBar": [
+  "2026-10-02",
+  "2026-10-02"
+ ],
+ "renderedSummaryExpected": "DCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now",
+ "headingsExpected": [
+  "Lump sum ($1,000 once)",
+  "DCA ($1,000 weekly)"
+ ],
+ "rendered": {
+  "summary": "DCA: $314k in, $2.03M now · Lump sum: $1k in, $13k now",
+  "table": [
+   [
+    "",
+    "LUMP SUM ($1,000 ONCE)",
+    "DCA ($1,000 WEEKLY)"
+   ],
+   [
+    "Total invested",
+    "$1,000",
+    "$314,000"
+   ],
+   [
+    "NLV at end",
+    "$12,971",
+    "$2,026,141"
+   ],
+   [
+    "Money-weighted return (XIRR, per year)",
+    "+53.3%",
+    "+65.4%"
+   ],
+   [
+    "Total return",
+    "+1197.1%",
+    "+545.3%"
+   ],
+   [
+    "CAGR on total invested, as if all invested day one",
+    "+53.3%",
+    "+36.5%"
+   ],
+   [
+    "Max drop",
+    "−79.9% · 2022-12-28",
+    "−54.9% · 2022-05-11"
+   ],
+   [
+    "NLV at that drop",
+    "$588",
+    "$38,498"
+   ],
+   [
+    "Return to the drop",
+    "−41.2%",
+    "−54.2%"
+   ]
+  ]
+ },
+ "dcaIndependentOfCapital": true
+}

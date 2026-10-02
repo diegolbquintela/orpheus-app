@@ -1,4 +1,13 @@
-# QA fixtures for the canonical AC pack (DCA-01..DCA-06)
+# QA: AC pack, fixtures, run logs and tools
+
+| Path | What |
+|---|---|
+| [`CANONICAL-AC-PACK.md`](CANONICAL-AC-PACK.md) | The canonical acceptance-criteria pack (DCA-01..DCA-06). **This repo copy is canonical**; QA's box copy was the source on 2026-10-02 |
+| `fixtures.json`, `snapshots/`, `HAND-CHECK.md` | Fixtures for the pack (below) |
+| `runs/` | QA run logs and small JSON/text evidence (below) |
+| [`tools/`](tools/README.md) | QA browser and data scripts, parameterised by base URL |
+
+## QA fixtures for the canonical AC pack (DCA-01..DCA-06)
 
 `qa/fixtures.json` is a non-empty JSON array. Each entry:
 
@@ -17,7 +26,7 @@ window, split-unadjusted), `lumpDeploy` (date, prices, NLV on that date, per-nam
 stats, first and last chart points) and `withoutDividendReinvestment` (same run with dividends removed,
 for DCA-01).
 
-## Cases
+### Cases
 
 | id | ACs | What it pins |
 |---|---|---|
@@ -27,7 +36,7 @@ for DCA-01).
 | `refused-lse-vod-l` | DCA-05 | VOD.L (LSE) refused with HTTP 400 and the app's message |
 | `no-advice-copy` | DCA-06 | Scan of user-facing copy (UI, meta description, result labels, refusal messages): no buy/sell/hold output |
 
-## Regenerate
+### Regenerate
 
 ```bash
 npm run fixtures:build               # offline: reuse qa/snapshots, recompute expected via the engine
@@ -40,3 +49,16 @@ Snapshots are the raw Yahoo v8 chart responses, recorded by swapping global `fet
 `loadChart()` (src/lib/dca/yahoo.server.ts). The test swaps in a replayer that only answers those URLs.
 
 These numbers are historical simulation outputs for testing.
+
+## Run logs (`qa/runs/`)
+
+- One Markdown log per QA run: `qa/runs/YYYY-MM-DD-<label>.md` (for example `2026-10-02-prod-b07d21e.md`).
+- Its small evidence goes next to it in `qa/runs/YYYY-MM-DD-<label>/`: JSON, text and response-header
+  files only, each 40 KB or less.
+- **No screenshots or images in git**, and no large raw dumps (built JS/CSS, HTML pages, raw `/api/chart`
+  price payloads over 2 KB, which can be re-fetched). Those stay on the QA box or in a temp dir.
+- **Scrub before committing**: cookies (`set-cookie`, `cookie`), auth headers, tokens and any secret values
+  become `[REDACTED]`. Logs must not contain advice (no buy, sell or hold recommendation).
+- The 2026-10-02 logs were copied from QA's box (`/workspace/orpheus-app/qa/run-*.md` and `evidence/`).
+  Each starts with a comment saying so; the log text is unchanged, so evidence paths inside it point at
+  the box. Four Cloudflare `__cf_bm` cookie values in `2026-10-02-vercel-prod/hostdiff/G-*.hdr` were redacted.

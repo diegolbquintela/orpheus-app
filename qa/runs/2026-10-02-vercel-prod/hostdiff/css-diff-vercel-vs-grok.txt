@@ -1,0 +1,12 @@
+112a113
+> .mt-6{margin-top:calc(var(--spacing) * 6)
+115a117
+> .mb-6{margin-bottom:calc(var(--spacing) * 6)
+118d119
+< .contents{display:contents
+133a135
+> .h-80{height:calc(var(--spacing) * 80)
+238a241,243
+> 
+> .text-card\/55{color:#ffffff8c
+> @supports (color:color-mix(in lab, red, red)){.text-card\/55{color:color-mix(in oklab, var(--color-card) 55%, transparent)

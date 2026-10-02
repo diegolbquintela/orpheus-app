@@ -1,0 +1,24 @@
+== G api headers
+HTTP/2 200 
+content-type: application/json
+age: 0
+cache-control: no-store
+strict-transport-security: max-age=31536000; includeSubDomains
+x-robots-tag: noindex
+x-vercel-cache: MISS
+x-envoy-upstream-service-time: 213
+cf-cache-status: DYNAMIC
+vary: accept-encoding
+server: cloudflare
+
+3cd7202864598227942de35a18a1f891f464a65a3d3750df16f57f31c0f5b1fb  /tmp/k.json
+== V api headers
+HTTP/2 200 
+age: 0
+cache-control: no-store
+content-type: application/json
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-vercel-cache: MISS
+
+3cd7202864598227942de35a18a1f891f464a65a3d3750df16f57f31c0f5b1fb  /tmp/k.json

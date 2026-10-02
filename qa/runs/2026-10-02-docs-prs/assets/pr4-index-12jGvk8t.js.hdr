@@ -1,0 +1,17 @@
+HTTP/2 200 
+accept-ranges: bytes
+access-control-allow-origin: *
+age: 0
+cache-control: public, max-age=31536000, immutable
+content-disposition: inline; filename="index-12jGvk8t.js"
+content-type: application/javascript; charset=utf-8
+date: Fri, 02 Oct 2026 20:36:32 GMT
+etag: "f214e88aaec38478d6db463307011bee"
+last-modified: Fri, 02 Oct 2026 20:36:32 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-robots-tag: noindex, nofollow
+x-vercel-cache: MISS
+x-vercel-id: pdx1::djfkr-1790973391985-a54bf852f128
+content-length: 432341
+

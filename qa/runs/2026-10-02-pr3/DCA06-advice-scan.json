@@ -1,0 +1,90 @@
+{
+ "states": {
+  "us-single-dividend-ko": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "us-basket-jnj-pg-wmt": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "ca-single-ry-to": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "refused-lse-vod-l": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "B": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "no-advice-copy initial": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "D mobile result": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "E initial": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "E blank submit": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "E_nonsense": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "E_bse": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "E_lse2": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  },
+  "initial HTML (no scripts, incl. meta)": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARecPresent": false,
+   "unlessExceptionPresent": false
+  }
+ },
+ "broadHitContexts": {},
+ "fixtureSourceScan_c5c5666": {
+  "src/components/desk.tsx": [],
+  "src/routes/index.tsx": [],
+  "src/routes/__root.tsx": [],
+  "src/lib/dca/results.ts": [],
+  "src/lib/dca/venues.ts": []
+ }
+}

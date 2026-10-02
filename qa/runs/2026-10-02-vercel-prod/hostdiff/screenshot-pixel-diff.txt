@@ -1,0 +1,5 @@
+<stdin>:9: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+KO desktop size (1280, 2824) diff pixels 0 bbox None
+KO mobile size (1170, 10149) diff pixels 0 bbox None
+PLTR_TQQQ desktop size (1280, 2937) diff pixels 0 bbox None
+PLTR_TQQQ mobile size (1170, 10488) diff pixels 0 bbox None
