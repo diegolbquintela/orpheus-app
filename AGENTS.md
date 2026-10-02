@@ -48,7 +48,7 @@ A new test file is only run if it is added to the `test` script in `package.json
 ## Branches and PRs
 
 - Branch off the latest `origin/main`. Open a **draft** PR against `main`.
-- **No direct pushes to `main`. No force-pushes to `main`. Bots do not merge.**
+- **No direct pushes to `main`. No force-pushes to `main`. Only Engineering Lead merges, after QA passes on the preview.**
 - Loop: SWE writes the PR → CI green → Engineering Lead reviews → QA passes on the PR's **Vercel
   preview URL** (vercel[bot] comments it on the PR) → Engineering Lead merges → Vercel deploys `main`
   to production (https://orpheus-app-beta.vercel.app) → QA re-checks production.
@@ -92,9 +92,11 @@ npm run fixtures:hand-check     # must print "hand check: MATCH"
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`
-and the Grok helpers in `scripts/` and `server/` come from the Grok App Builder template. Grok hosting
-is retired, and the old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok chat rules) was
-replaced by this file. The leftover files are not instructions for this repo, but some are still wired
+and the Grok helpers in `scripts/` and `server/` come from the Grok App Builder template. Deploying
+through Grok has stopped: Vercel is the only deploy path. https://island-pearl-eagle-hill.grok.me stays
+published as a frozen old copy until the Chief of Staff confirms its retirement with Diego; never deploy
+to it or treat it as production. The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
+chat rules) was replaced by this file. The leftover files are not instructions for this repo, but some are still wired
 in: `scripts/with-app-env.mjs` reads `.grok/app-env.json` for `dev`/`build`/`preview`, and
 `vite.config.ts` loads the Grok PWA and app-env plugins plus `server/` middleware. Remove them only in a
 dedicated PR that keeps CI and the Vercel build green.
