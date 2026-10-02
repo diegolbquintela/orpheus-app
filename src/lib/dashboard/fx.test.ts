@@ -136,7 +136,7 @@ describe("refreshFx (DASH-11)", () => {
     assert.equal(await rateOnOrBefore(db, "USD", "2026-09-01"), null);
   });
 
-  it("DKK/HUF/CZK when held: ECB rate × BoC FXEURCAD for the same date; SEK/PLN from BoC", async () => {
+  it("DKK/HUF/CZK when held: BoC FXEURCAD ÷ ECB X-per-EUR for the same date; SEK/PLN from BoC", async () => {
     await hold([
       ["alice", "NOVO-B.CO", "DKK", "EU"],
       ["alice", "OTP.BD", "HUF", "EU"],
@@ -288,6 +288,37 @@ describe("GET /api/dashboard/fx", () => {
     assert.equal(post.headers.get("allow"), "GET, HEAD");
     assert.equal((await fx("/api/dashboard/fx", { signedIn: false })).status, 401);
     assert.equal((await fx("/api/dashboard/fx?date=30-09-2026")).status, 400);
+  });
+
+  const IMPOSSIBLE = ["2026-02-31", "2026-02-29", "2026-02-30", "2026-04-31", "0000-01-01"];
+
+  it("QA F1: impossible calendar dates are 400 JSON before any database access", async () => {
+    for (const date of IMPOSSIBLE) {
+      let dbCalls = 0;
+      const res = await handleFxRequest(new Request(`http://localhost/api/dashboard/fx?date=${date}`), {
+        env: { DASHBOARD_ENABLED: "true" },
+        getUser: async () => ({ id: "alice", email: null }),
+        getDb: async () => {
+          dbCalls++;
+          return db;
+        },
+      });
+      assert.equal(res.status, 400, date);
+      assert.match(res.headers.get("content-type") ?? "", /application\/json/, date);
+      assert.match(((await res.json()) as { error: string }).error, /calendar date/, date);
+      assert.equal(dbCalls, 0, `${date}: no database access`);
+    }
+  });
+
+  it("QA F1: signed out stays 401 for an impossible date (gate runs first)", async () => {
+    for (const date of IMPOSSIBLE)
+      assert.equal((await fx(`/api/dashboard/fx?date=${date}`, { signedIn: false })).status, 401, date);
+  });
+
+  it("a real leap day (2024-02-29) is accepted", async () => {
+    const res = await fx("/api/dashboard/fx?date=2024-02-29");
+    assert.equal(res.status, 200);
+    assert.equal(((await res.json()) as { date: string }).date, "2024-02-29");
   });
 
   it("returns the stored rates for a date, each with the date it comes from", async () => {

@@ -170,15 +170,16 @@ session date, and never fetches or changes a stored close again (spec §6, §11,
 (default), USD or EUR, chosen with the "Base currency" select on `/dashboard` (saved through
 `PUT /api/dashboard/settings`, per user). Last close and average cost stay in the listing's currency.
 - Rates: Bank of Canada Valet daily averages, CAD per 1 unit (`FXUSDCAD`, `FXEURCAD` always; `FXSEKCAD`,
-  `FXPLNCAD` when someone holds a SEK or PLN listing). DKK, HUF and CZK = ECB euro reference rate crossed
-  with BoC `FXEURCAD` for the same date. USD and EUR bases cross through CAD.
+  `FXPLNCAD` when someone holds a SEK or PLN listing). DKK, HUF and CZK: CAD per unit = BoC `FXEURCAD`
+  (CAD per EUR) ÷ ECB euro reference rate (units per EUR), for the same date. USD and EUR bases cross through CAD.
 - Each position uses the rate for its close's session date; if there's none that day (e.g. 2026-09-30, a
   BoC holiday), the previous rate is used and its date is shown ("previous rate"). A position with no
   close or no rate yet is left out of the total and listed under it.
 - Rates are stored in `fx_rates` once per currency and date and never fetched again. Only the daily job
   (cron, the preview button, the new-holding backfill) fetches them; page loads never do.
 - `GET /api/dashboard/fx?date=YYYY-MM-DD` (signed in; default today, UTC) returns the stored rates that
-  apply on that date, each with the date it comes from. Same gate as the other per-user APIs.
+  apply on that date, each with the date it comes from. Same gate as the other per-user APIs. A `date` that
+  isn't a real calendar date (e.g. 2026-02-31) is 400.
 - Per D8, cost (T07) will use the same current rate as value, so the FX effect since purchase isn't shown.
 
 **Dashboard holdings valuation (T07).** The holdings table shows ticker, name, shares, average cost and

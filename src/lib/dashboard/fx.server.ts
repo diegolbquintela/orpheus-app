@@ -14,6 +14,7 @@
  *   and return the date actually used so the page can show it. USD/EUR bases cross through CAD.
  */
 import { addDays } from "./close-provider.ts";
+import { isCalendarDate } from "./dates.ts";
 import type { BaseCurrency, Queryable } from "./store.server.ts";
 
 /** Currencies the BoC publishes that the dashboard can need (US/EU/CA listings). */
@@ -23,7 +24,7 @@ export const BOC_SERIES: Record<string, string> = {
   SEK: "FXSEKCAD",
   PLN: "FXPLNCAD",
 };
-/** EU listing currencies the BoC doesn't publish: ECB reference rate × BoC FXEURCAD. */
+/** EU listing currencies the BoC doesn't publish: CAD per X = BoC FXEURCAD ÷ ECB X-per-EUR (same date). */
 export const ECB_CROSS: readonly string[] = ["DKK", "HUF", "CZK"];
 /** Always fetched: the non-CAD bases. */
 export const ALWAYS: readonly string[] = ["USD", "EUR"];
@@ -51,7 +52,7 @@ export function parseBocValet(json: unknown, quotes: string[]): BocDay[] {
   const out: BocDay[] = [];
   for (const o of obs) {
     const date = typeof o.d === "string" ? o.d : "";
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (!isCalendarDate(date)) continue;
     const rates: Record<string, string> = {};
     for (const q of quotes) {
       const v = (o[BOC_SERIES[q]] as { v?: unknown } | undefined)?.v;
@@ -72,7 +73,7 @@ export function parseEcbXml(xml: string, quotes: readonly string[]): EcbDay[] {
     const rate = /<Cube\s+currency=["']([A-Z]{3})["']\s+rate=["']([\d.]+)["']\s*\/>/g;
     for (let r = rate.exec(m[2]); r; r = rate.exec(m[2]))
       if (quotes.includes(r[1]) && Number(r[2]) > 0) rates[r[1]] = r[2];
-    if (Object.keys(rates).length) out.push({ date: m[1], rates });
+    if (Object.keys(rates).length && isCalendarDate(m[1])) out.push({ date: m[1], rates });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }

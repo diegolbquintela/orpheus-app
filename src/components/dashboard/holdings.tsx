@@ -374,7 +374,8 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, fre
         US, EU and CA listings only. Average cost is per share, in the listing&apos;s own currency. Last close is
         the prior completed session&apos;s close, updated once a day. Values are in your base currency at the Bank
         of Canada daily average rate for that close&apos;s session date (USD and EUR bases cross through CAD; DKK, HUF
-        and CZK use the ECB reference rate × the Bank of Canada euro rate). When there is no rate that day, the
+        and CZK: CAD per unit = the Bank of Canada euro rate (CAD per EUR) ÷ the ECB reference rate (units per
+        EUR), same date). When there is no rate that day, the
         previous one is used and its date is shown. These are daily averages, not 16:00 closes. Cost uses the
         same rate as the price, so currency moves since you bought aren&apos;t included. Total return % is in the
         listing&apos;s currency. Holdings without a price or rate yet are left out of the totals and the % of portfolio.
