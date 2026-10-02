@@ -7,7 +7,7 @@ Date: 2026-10-02. All provider facts below were checked on the provider's own pa
 each one has its link inline. When a provider page does not say something, this document says
 "not stated on provider page" and does not guess.
 
-Spec PR: #SPEC_PR. Tickets: see [Tickets](#tickets).
+Spec PR: #8. Tickets: see [Tickets](#tickets).
 
 ## 1. What we are building
 
@@ -64,7 +64,7 @@ Every dashboard ticket merges to `main` behind one flag, so production is never 
 (https://orpheus-app-beta.vercel.app/dashboard) QA expects a 404 until the release go.
 
 **Who sets it:** the Engineering Lead (or Diego) adds `DASHBOARD_ENABLED=true` to the Preview environment
-once, when ticket #T01 is approved. Bots never set environment variables and never paste values anywhere.
+once, when ticket T01 (#9) is approved. Bots never set environment variables and never paste values anywhere.
 
 This becomes a harness rule in `AGENTS.md`: *feature work lands behind a flag until a release go*
 (marked "proposed, pending spec approval" until Diego approves this spec).
@@ -441,26 +441,26 @@ to dashboard files); `noindex` still present on `/dashboard`.
 Each ticket is one PR, one Vercel preview, one QA pass, merged behind `DASHBOARD_ENABLED`. All carry the
 labels `dashboard` and `blocked: spec approval` until this spec is approved.
 
-| # | Ticket | Depends on | ACs |
-|---|---|---|---|
-| T01 | Feature flag + hidden `/dashboard` route shell | spec approval | DASH-00, 01, 02 |
-| T02 | Per-user storage: Neon Postgres + `0002_dashboard.sql` schema | T01 (+ owner installs Neon) | DASH-03 |
-| T03 | Auth on Vercel: Better Auth email/password, auth schema, preview origins | T01, T02 | DASH-04, 05, 06 |
-| T04 | Holdings table CRUD (no prices yet) | T03 | DASH-07, 08, 06 |
-| T05 | Daily close job (cron, prior-session rule, preview refresh button) | T02, T04 | DASH-09, 10, 14 |
-| T06 | FX rates (BoC + ECB cross) and base-currency setting | T02, T05 | DASH-11, 12 |
-| T07 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header | T04, T05, T06 | DASH-13, 14, 25 |
-| T08 | Fundamentals ingest from SEC EDGAR companyfacts (+ metric column picker) | T02, T05, T07 | DASH-15, 21 |
-| T09 | Metric: Revenue growth 1y + 3y/5y/10y CAGR | T08 | DASH-16 |
-| T10 | Metric: ROIC (1y) | T08 | DASH-17 |
-| T11 | Metric: EPS (1y) | T08 | DASH-18 |
-| T12 | Metric: EBIT margin (1y) | T08 | DASH-19 |
-| T13 | Metric: Gross margin (1y) | T08 | DASH-20 |
-| T14 | Portfolio aggregates (weighted, coverage %) | T07, at least one of T09–T13 (each metric gets its portfolio cell as it lands) | DASH-22, 23 |
-| T15 | Holdings pie chart by % of portfolio | T07 | DASH-24 |
-| T16 | Release: full flag-on QA run, then production flip on Diego's go | T01–T15 merged with QA PASS | DASH-26 |
+| # | Issue | Ticket | Depends on | ACs |
+|---|---|---|---|---|
+| T01 | #9 | Feature flag + hidden `/dashboard` route shell | spec approval | DASH-00, 01, 02 |
+| T02 | #10 | Per-user storage: Neon Postgres + `0002_dashboard.sql` schema | T01 (+ owner installs Neon) | DASH-03 |
+| T03 | #11 | Auth on Vercel: Better Auth email/password, auth schema, preview origins | T01, T02 | DASH-04, 05, 06 |
+| T04 | #12 | Holdings table CRUD (no prices yet) | T03 | DASH-07, 08, 06 |
+| T05 | #13 | Daily close job (cron, prior-session rule, preview refresh button) | T02, T04 | DASH-09, 10, 14 |
+| T06 | #14 | FX rates (BoC + ECB cross) and base-currency setting | T02, T05 | DASH-11, 12 |
+| T07 | #15 | Holdings valuation: market value, total return, % of portfolio, totals, as-of header | T04, T05, T06 | DASH-13, 14, 25 |
+| T08 | #16 | Fundamentals ingest from SEC EDGAR companyfacts (+ metric column picker) | T02, T05, T07 | DASH-15, 21 |
+| T09 | #17 | Metric: Revenue growth 1y + 3y/5y/10y CAGR | T08 | DASH-16 |
+| T10 | #18 | Metric: ROIC (1y) | T08 | DASH-17 |
+| T11 | #19 | Metric: EPS (1y) | T08 | DASH-18 |
+| T12 | #20 | Metric: EBIT margin (1y) | T08 | DASH-19 |
+| T13 | #21 | Metric: Gross margin (1y) | T08 | DASH-20 |
+| T14 | #22 | Portfolio aggregates (weighted, coverage %) | T07, at least one of T09–T13 (each metric gets its portfolio cell as it lands) | DASH-22, 23 |
+| T15 | #23 | Holdings pie chart by % of portfolio | T07 | DASH-24 |
+| T16 | #24 | Release: full flag-on QA run, then production flip on Diego's go | T01–T15 merged with QA PASS | DASH-26 |
 
-GitHub issues: ISSUE_TABLE_PLACEHOLDER
+GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard` and `blocked: spec approval`, each linking back to this spec PR (#8).
 
 ## Release plan
 
