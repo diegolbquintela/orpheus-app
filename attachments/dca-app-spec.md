@@ -25,7 +25,7 @@ Compare two cash plans on the same window, for one name or a weighted basket.
 - Dividends are reinvested in the name that paid them.
 - Splits change the share count.
 - Prices are raw daily closes, not split-adjusted closes. Using adjusted closes and also reinvesting dividends would count dividends twice.
-- Not a recommendation. No buy or sell language. No order ticket.
+- No buy, sell or hold output anywhere on the page. No order ticket.
 
 ## Inputs
 
@@ -41,9 +41,9 @@ Weights that do not sum to 100 are scaled to 100, and the note says so. A zero s
 
 ## Listings
 
-US, EU, and CA only, unless Diego names an exception.
+US, EU, and CA only.
 
-Refuse BSE and other non US/EU/CA venues, and name the exchange in the error. One currency per basket. Mixed currencies are an error. No FX conversion in v1.
+Refuse BSE and other non US/EU/CA venues, and name the exchange in the error: `X lists on Y. US, EU, and CA listings only.` One currency per basket. Mixed currencies are an error. No FX conversion in v1.
 
 ## Prices
 
@@ -79,13 +79,13 @@ Second table: ticker, weight, last price, lump-sum shares, DCA shares.
 
 Chart: two NLV lines, lump sum and DCA, over the sessions in the window.
 
-Note: names, currency, session count, weight scaling if any, the cash-plan sentence, dividends reinvested, the CAGR caveat, and “Not a recommendation.”
+Note: names, currency, session count, weight scaling if any, the cash-plan sentence, dividends reinvested, and the CAGR caveat.
 
 ## Rules already in force
 
 - No buy or sell.
 - No BSE.
-- US / EU / CA listings only unless Diego names an exception.
+- US / EU / CA listings only.
 - Do not auto-trade. Do not imply a recommendation.
 
 ## What already failed
@@ -99,4 +99,4 @@ Do not repeat these.
 
 ## Done when
 
-Diego can open the app, leave every field blank, fill a US, EU, or CA basket, and get the table and two NLV lines from live prices. A name outside that set is refused with the exchange. The page says it is not a recommendation.
+Diego can open the app, leave every field blank, fill a US, EU, or CA basket, and get the table and two NLV lines from live prices. A name outside that set is refused with the exchange. The page has no buy, sell or hold output.
