@@ -334,6 +334,10 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Code: `src/lib/dashboard/fx.server.ts` (Valet / ECB parsers, `createFxFetcher()`, `refreshFx()`,
   `rateOnOrBefore()`, `convert()`, `valueHoldings()`), `fx-api.server.ts` + `src/routes/api/dashboard/fx.ts`
   (`GET /api/dashboard/fx?date=`, `Allow: GET, HEAD`, usual 404/405/401 gate, 400 bad date, 503 no db).
+  `date` must be a real calendar date (`isCalendarDate()` in `src/lib/dashboard/dates.ts`: strict
+  `YYYY-MM-DD`, year >= 1, round-trips through a UTC `Date`), checked after the gate and before any
+  database access, so 2026-02-31 or 0000-01-01 is 400, not a Postgres error (500). The Valet/ECB parsers
+  drop provider rows with impossible dates the same way. Tests: `dates.test.ts`, `fx.test.ts`.
   `gate.ts` adds `baseCurrency` and `valuation` to the page data; `holdings.tsx` has the "Base currency"
   select, the "Value (BASE)" column with an FX line per rate, and the total row.
 - Sources: BoC Valet `https://www.bankofcanada.ca/valet/observations/<series>/json?start_date=&end_date=`

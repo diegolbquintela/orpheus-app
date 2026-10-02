@@ -15,6 +15,8 @@
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
  *   - /api/dashboard/{me,settings,holdings,holdings/1,fx}: 401 JSON for served methods; others 405 JSON.
+ *   - /api/dashboard/fx?date=<impossible date> (2026-02-31, 02-29, 02-30, 04-31, 0000-01-01) and the leap
+ *     day 2024-02-29 signed out: 401 JSON (gate first, never 500). --with-database: 400 / 200 signed in.
  *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
  *     /api/dashboard/db {"state":"not_configured"}; other methods 405.
  *   - /api/auth/*: 503 JSON (sign-in not configured: fail closed).
@@ -256,6 +258,17 @@ const isRedirectTo = (r, path) =>
     }
 }
 
+// QA F1 (T06): impossible calendar dates on /api/dashboard/fx. Signed out the gate answers first
+// (401 JSON, never a 500); signed in they are 400 (checked in --with-database mode and in fx.test.ts).
+const IMPOSSIBLE_DATES = ["2026-02-31", "2026-02-29", "2026-02-30", "2026-04-31", "0000-01-01"];
+for (const date of [...IMPOSSIBLE_DATES, "2024-02-29"]) {
+  const r = await call("GET", `/api/dashboard/fx?date=${date}`, "true");
+  check(
+    r.status === 401 && /application\/json/.test(r.type) && r.body === '{"error":"Unauthorized."}',
+    `flag "true", signed out: GET /api/dashboard/fx?date=${date} -> ${r.status} ${r.body.slice(0, 60)}`,
+  );
+}
+
 {
   // T05 (DASH-10): the cron route needs `Authorization: Bearer <CRON_SECRET>`.
   const label = 'flag "true", cron';
@@ -421,6 +434,12 @@ if (!WITH_DB) {
   const fxBody = fxRes.status === 200 ? JSON.parse(fxRes.body) : { rates: [] };
   const usdRate = fxBody.rates.find((r) => r.quote === "USD");
   check(usdRate && /^\d+\.\d+$/.test(usdRate.cadPerUnit) && usdRate.rateDate <= closeCell[1] && fxBody.rates.some((r) => r.quote === "EUR"), `${label}: GET fx?date=${closeCell?.[1]} -> ${fxRes.status} ${fxRes.body.slice(0, 300)}`);
+  for (const date of IMPOSSIBLE_DATES) {
+    const r = await call("GET", `/api/dashboard/fx?date=${date}`, "true", undefined, { cookie: token });
+    check(r.status === 400 && /application\/json/.test(r.type), `${label}: GET fx?date=${date} -> ${r.status} ${r.body.slice(0, 80)} (want 400)`);
+  }
+  const leap = await call("GET", "/api/dashboard/fx?date=2024-02-29", "true", undefined, { cookie: token });
+  check(leap.status === 200, `${label}: GET fx?date=2024-02-29 -> ${leap.status} (want 200)`);
   const asBase = async (base) => {
     const r = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: token, body: { baseCurrency: base } });
     check(r.status === 200, `${label}: PUT settings ${base} -> ${r.status} ${r.body}`);
