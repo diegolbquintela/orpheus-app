@@ -288,6 +288,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   userId), DASH-08 exact messages incl. BSE. `check:dashboard-built` checks holdings 404/405/401 without
   a database; `--with-database` adds the signed-in CRUD run and **needs network** (it adds `KO` and
   checks `VOD.L`/`TCS.BO` against live Yahoo).
+- `holdings.user_id` has no FK to `"user"` (spec §5 lists none), so deleting a test user doesn't remove
+  their holdings: an owner also runs `DELETE FROM holdings WHERE user_id = ...` in the Neon console.
 
 ## Repo leftovers from the Grok template
 
