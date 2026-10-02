@@ -47,23 +47,17 @@ async function loadChart(ticker: string, start: string, end: string): Promise<Ch
 }
 
 function describe(ready: Ready): string {
-  const parts = [
-    `${ready.names.map((name) => name.ticker).join(" · ")} · ${ready.currency} · ${ready.run.sessions} sessions.`,
-  ];
+  const parts: string[] = [];
   if (ready.scaled) {
     parts.push(`Weights summed to ${ready.weightSum.toFixed(1)} and were scaled to 100.`);
   }
   parts.push(
-    "Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count.",
-  );
-  parts.push(
-    "CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure.",
+    "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.",
   );
   if (ready.run.missedContributions > 0) {
     const count = ready.run.missedContributions;
     parts.push(`${count} contribution ${count === 1 ? "date had" : "dates had"} no later session.`);
   }
-  parts.push("Not a recommendation.");
   return parts.join(" ");
 }
 
@@ -188,13 +182,8 @@ export function Desk() {
               DCA vs lump sum
             </h1>
             <p className="mt-8 max-w-xl text-pretty text-card/75">
-              Same window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital
-              on the first session every name has a price, split by weight. DCA does not use that capital. On
-              each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are
-              reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.
-            </p>
-            <p className="mt-6 text-sm text-card/55">
-              Not a recommendation. US, EU, and CA listings only. One currency.
+              Pick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day
+              one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.
             </p>
           </div>
         </div>
@@ -241,6 +230,7 @@ export function Desk() {
                   </button>
                 </div>
               ))}
+              <p className="-mt-3 text-xs text-muted">US, EU and CA listings, one currency per basket.</p>
               <button type="button" onClick={addRow} className="self-start text-sm">
                 ↳ Add name
               </button>
@@ -362,7 +352,6 @@ export function Desk() {
       <footer className="bg-ink text-card">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 sm:px-8">
           <span className="text-sm">Orpheus Wisdom</span>
-          <span className="kicker text-card/60">Not a recommendation</span>
         </div>
       </footer>
     </div>

@@ -94,7 +94,7 @@ export function listingError(
   if (allowed(ex) || allowed(full)) return null;
   const label = full || ex || "an unknown exchange";
   if (/bse|bombay/i.test(ex) || /bse|bombay/i.test(full)) {
-    return `${ticker} lists on ${label}. BSE and other non US/EU/CA venues stay out unless you name an exception.`;
+    return `${ticker} lists on ${label}. BSE and other non US/EU/CA venues are not supported.`;
   }
-  return `${ticker} lists on ${label}. US, EU, and CA listings only, unless you name an exception.`;
+  return `${ticker} lists on ${label}. US, EU, and CA listings only.`;
 }
