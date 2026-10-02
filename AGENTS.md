@@ -59,6 +59,15 @@ A new test file is only run if it is added to the `test` script in `package.json
 - The PR body states which of `README.md` / spec / `AGENTS.md` changed and why the others did not.
 - Never message Diego. Blockers go to the Engineering Lead; the Chief of Staff relays.
 
+## Ticket handoff rules (Diego, 2026-10-02)
+
+These rules exist so no ticket gets missed.
+1. Every handoff that starts work goes out urgent (SendToAgent with priority true), never as a queued note.
+2. Whoever receives a ticket confirms within their next turn, either by opening a draft PR or by replying "blocked: X". If there's no draft PR, the ticket hasn't started.
+3. When a PR merges, Engineering Lead hands off the next ticket in the same turn.
+4. Stall check: the daily orpheus-app loop and any active run look for open tickets with no PR activity for 30 minutes during an active run, or none since the last loop run. Engineering Lead re-pings the owner urgently and reports the stall to Chief of Staff.
+5. The GitHub issues and their labels are the task list of record. Each ticket carries exactly one status label: `todo`, then `in-progress` (draft PR open), then `in-QA` (CI green, sent to QA), then `done` (merged and prod-checked). Whoever moves the ticket moves its label in the same turn.
+
 ## Feature flags: feature work lands behind a flag until a release go
 
 *Active since 2026-10-02, when the dashboard spec was approved.*
