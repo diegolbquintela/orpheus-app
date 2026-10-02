@@ -86,8 +86,30 @@ npm run fixtures:hand-check     # must print "hand check: MATCH"
 - Fixtures: `qa/fixtures.json`, schema and cases in `qa/README.md`, raw data in `qa/snapshots/`,
   independent arithmetic in `qa/HAND-CHECK.md`.
 - `npm test` replays every fixture offline (no network) through `loadChart()` and `runDesk()`.
-- QA's acceptance pass runs the six DCA rules against the PR preview, then production. QA run logs
-  currently live outside the repo on the shared box (see `README.md`).
+- QA's acceptance pass runs the six DCA rules against the PR preview, then production, using the
+  canonical pack `qa/CANONICAL-AC-PACK.md`. Run logs go in `qa/runs/YYYY-MM-DD-<label>.md` with small
+  JSON/text evidence beside them; no images in git, scrub cookies/tokens first (policy in `qa/README.md`).
+
+### QA tools against a preview or production URL
+
+The scripts in `qa/tools/` drive the deployed app (they do not start a local server). Pass the URL as
+`--base-url` or `QA_BASE_URL`; the default is production, https://orpheus-app-beta.vercel.app. Output
+(screenshots, JSON) goes to `--out` / `QA_OUT_DIR`, default a temp dir outside the repo. Never point them
+at the frozen Grok copy except as an explicit `--compare-url` for `sidebyside.mjs`.
+
+```bash
+npx playwright install chromium                     # once; playwright is already a devDependency
+PREVIEW=https://<vercel-bot-preview>.vercel.app
+node qa/tools/run.mjs   --base-url "$PREVIEW"       # baseline fixture cases (reads qa/fixtures.json)
+node qa/tools/full.mjs  --base-url "$PREVIEW"       # full DCA round, desktop + mobile
+node qa/tools/pr3.mjs   --base-url "$PREVIEW"       # results table / charts / mobile cue
+node qa/tools/sidebyside.mjs --base-url "$PREVIEW" --compare-url https://orpheus-app-beta.vercel.app
+QA_BASE_URL="$PREVIEW" python3 qa/tools/fetch.py --out /tmp/orpheus-fetch   # raw Yahoo/app/stooq data
+```
+
+Full list and flags: `qa/tools/README.md`. The `.mjs` tools are linted by `npm run lint` (they are not
+in `tsconfig`, so `typecheck` skips them); they are not part of `npm test` or CI because they need a
+browser and the network.
 
 ## Repo leftovers from the Grok template
 
