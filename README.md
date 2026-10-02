@@ -86,6 +86,21 @@ The app is hosted on Vercel.
   https://island-pearl-eagle-hill.grok.me stays published as a frozen old copy until the Chief of Staff
   confirms its retirement with Diego. It is not production and does not get updates.
 
+## Dashboard (hidden, behind a flag)
+
+A signed-in dashboard is being built ticket by ticket (spec: `attachments/dashboard-spec.md`). Until
+Diego gives the release go, it stays hidden behind one **server-only** env var, `DASHBOARD_ENABLED`:
+
+- Only the exact value `true` turns it on. Unset or any other value means off.
+- Off (production): `/dashboard` and every `/api/dashboard/*` route return a real **404**.
+- On (Vercel **Preview** environment only, set by an owner): `/dashboard` shows the current shell, and
+  `GET /api/dashboard/status` returns `{"dashboard":"enabled"}`.
+- The calculator at `/` doesn't read the flag and doesn't link to the dashboard.
+
+```bash
+DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboard
+```
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.

@@ -89,6 +89,26 @@ npm run fixtures:hand-check     # must print "hand check: MATCH"
 - QA's acceptance pass runs the six DCA rules against the PR preview, then production. QA run logs
   currently live outside the repo on the shared box (see `README.md`).
 
+### Dashboard flag locally (`DASHBOARD_ENABLED`)
+
+The dashboard is gated by the server-only `DASHBOARD_ENABLED` flag (only the exact string `true` enables;
+code in `src/lib/dashboard/flag.server.ts`). Check both states before pushing dashboard work:
+
+```bash
+DASHBOARD_ENABLED=true npm run dev               # /dashboard and /api/dashboard/status -> 200
+npm run dev                                      # flag unset -> both 404 (DASH-01, DASH-02)
+curl -sI http://localhost:8080/dashboard | head -1
+curl -s  http://localhost:8080/api/dashboard/status
+```
+
+- New dashboard pages call `ensureDashboardEnabled()` (`src/lib/dashboard/gate.ts`) in `beforeLoad`.
+  New `/api/dashboard/*` handlers start with `guardDashboardApi()`, which returns the 404 JSON when off.
+  Unknown `/api/dashboard/*` paths hit the catch-all `src/routes/api/dashboard/$.ts` (404 JSON).
+- `src/lib/dashboard/flag.test.ts` (in `npm test`) covers flag parsing, the API guard, the no-advice scan
+  of dashboard files, and checks that the calculator neither links to nor reads the flag.
+- On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
+  `/dashboard` is a 404 on a preview, the variable isn't set there yet.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`
