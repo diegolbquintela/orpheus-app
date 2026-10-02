@@ -109,6 +109,15 @@ export async function listHoldings(db: Queryable, userId: string): Promise<Holdi
   return rows.map(toHolding);
 }
 
+/** One of the user's holdings by id; null when it doesn't exist or isn't theirs. */
+export async function getHolding(db: Queryable, userId: string, id: number): Promise<Holding | null> {
+  const rows = await db.query<HoldingRow>(
+    `SELECT ${HOLDING_COLUMNS} FROM holdings WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
+  return rows[0] ? toHolding(rows[0]) : null;
+}
+
 /** Thrown when the user already holds this symbol (unique per user). */
 export class DuplicateHoldingError extends Error {
   constructor(symbol: string) {

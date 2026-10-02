@@ -230,6 +230,17 @@ Implementation notes (T02, #10):
   fallback for the dashboard. The preview-only status line on `/dashboard` and `GET /api/dashboard/db`
   report "connected" plus the table count (DASH-03); both are 404 or hidden on production.
 
+Implementation notes (T04, #12):
+- Ticker check: on add only, the server makes one Yahoo chart-metadata request for the symbol (the
+  calculator's existing feed module) and applies `listingError()` from `src/lib/dca/venues.ts`, so DASH-08
+  messages are the calculator's exact text. This is a one-off validation on `POST`, not a page load and not
+  a price; nothing from it is stored. T04 doesn't write `instruments` (left to T05's daily job).
+- The ticker isn't editable: `PUT` changes `shares` and `avg_cost` only; to change a ticker, delete and add.
+- Duplicate (`user_id`, `symbol`) is refused with 409 "<SYM> is already in your holdings." before the feed
+  call. Cap: 200 holdings per user.
+- Isolation: another user's holding id answers 404 "Holding not found." (not 403, so ids don't leak); a
+  request that names another user id answers 403, as in T03.
+
 Caching: the database **is** the cache. Dashboard pages read only these tables. No page load ever calls
 a price, FX or fundamentals provider, so nothing on the page can be intraday.
 

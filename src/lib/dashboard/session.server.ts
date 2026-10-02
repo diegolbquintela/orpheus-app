@@ -41,18 +41,19 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
     headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", ...headers },
   });
 
+export const dashboardJson = json;
 export const unauthorizedResponse = () => json({ error: "Unauthorized." }, 401);
 export const forbiddenResponse = () => json({ error: "Forbidden." }, 403);
-const storageUnavailable = () => json({ error: "Storage not configured." }, 503);
-const badRequest = (error: string) => json({ error }, 400);
+export const storageUnavailable = () => json({ error: "Storage not configured." }, 503);
+export const badRequest = (error: string) => json({ error }, 400);
 
 /** Methods `/api/dashboard/me` serves (HEAD answered by GET). */
 export const ME_ALLOW = ["GET", "HEAD"] as const;
 /** Methods `/api/dashboard/settings` serves. */
 export const SETTINGS_ALLOW = ["GET", "HEAD", "PUT"] as const;
 
-/** Flag, method and session checks shared by every per-user route. */
-async function gate(
+/** Flag, method and session checks shared by every per-user route (in that order). */
+export async function gateDashboardRequest(
   request: Request,
   allow: readonly string[],
   deps: DashboardApiDeps,
@@ -69,13 +70,13 @@ async function gate(
 
 /** `GET /api/dashboard/me`: the signed-in user's id and email. */
 export async function handleDashboardMeRequest(request: Request, deps: DashboardApiDeps) {
-  const g = await gate(request, ME_ALLOW, deps);
+  const g = await gateDashboardRequest(request, ME_ALLOW, deps);
   if ("response" in g) return g.response;
   return json({ user: { id: g.user.id, email: g.user.email } });
 }
 
 /** A client-named user id that isn't the session's: true means answer 403. */
-function namesOtherUser(claimed: unknown, user: DashboardUser): boolean {
+export function namesOtherUser(claimed: unknown, user: DashboardUser): boolean {
   return claimed !== undefined && claimed !== null && claimed !== user.id;
 }
 
@@ -87,7 +88,7 @@ function namesOtherUser(claimed: unknown, user: DashboardUser): boolean {
  * The base-currency UI is T06 (#14); this route exists so DASH-06 isolation can be checked now.
  */
 export async function handleDashboardSettingsRequest(request: Request, deps: DashboardApiDeps) {
-  const g = await gate(request, SETTINGS_ALLOW, deps);
+  const g = await gateDashboardRequest(request, SETTINGS_ALLOW, deps);
   if ("response" in g) return g.response;
   const { user } = g;
   if (namesOtherUser(new URL(request.url).searchParams.get("userId") ?? undefined, user))
@@ -113,7 +114,7 @@ export async function handleDashboardSettingsRequest(request: Request, deps: Das
   return json({ settings: { baseCurrency: settings.baseCurrency } });
 }
 
-async function defaultGetDb(env: Env) {
+export async function defaultGetDb(env: Env) {
   const { getDashboardDb } = await import("./db.server.ts");
   return getDashboardDb(env);
 }

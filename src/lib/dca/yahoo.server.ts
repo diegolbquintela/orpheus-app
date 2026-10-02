@@ -11,7 +11,7 @@ export class ChartError extends Error {
   }
 }
 
-type YahooPayload = {
+export type YahooPayload = {
   chart?: {
     result?: Array<{
       meta?: {
@@ -31,14 +31,16 @@ type YahooPayload = {
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,14}$/;
+/** Feed-symbol shape the calculator accepts (also used by dashboard holdings). */
+export const TICKER = /^[A-Z0-9][A-Z0-9.-]{0,14}$/;
 
 function daySeconds(iso: string): number {
   const [y, m, d] = iso.split("-").map(Number);
   return Math.floor(Date.UTC(y, m - 1, d) / 1000);
 }
 
-async function pull(ticker: string, query: string): Promise<YahooPayload> {
+/** One Yahoo chart request (also used by the dashboard listing check). */
+export async function pull(ticker: string, query: string): Promise<YahooPayload> {
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?${query}`;
   let response: Response;
   try {

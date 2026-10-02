@@ -129,6 +129,20 @@ DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@exa
   (set at the release go). Missing pieces make `/api/auth/*` answer 503 JSON ("not configured").
 - No email sender: no email verification and no password-reset email yet (spec §3).
 
+**Dashboard holdings (T04).** Signed in, `/dashboard` lists your holdings and lets you add, edit and
+delete them. No prices yet (those come with the daily close job and valuation tickets).
+- `GET /api/dashboard/holdings` lists yours; `POST` with `{symbol, shares, avgCost}` adds one (201).
+  `GET`/`PUT`/`DELETE /api/dashboard/holdings/<id>` reads, edits (`{shares, avgCost}` only) or deletes one.
+  Same gate as the other per-user APIs: 404 flag off, 405 wrong method (with `Allow`), 401 signed out,
+  403 if the request names another user id. Another user's holding id answers 404 "Holding not found.".
+- Validation: shares > 0, average cost ≥ 0 (per share, in the listing's own currency), up to 6 decimals.
+  One row per ticker per user: a second `KO` gets 409 "KO is already in your holdings.". The ticker can't
+  be edited (delete and add again). At most 200 holdings per user.
+- Listing check on add only: the server makes one Yahoo chart-metadata request for the ticker and refuses
+  anything outside US/EU/CA with the calculator's exact `listingError()` messages (e.g. "VOD.L lists on LSE. US, EU,
+  and CA listings only." and "TCS.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."). Page
+  loads never call a feed; nothing is written to the shared `instruments` table.
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

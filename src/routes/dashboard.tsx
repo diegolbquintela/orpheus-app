@@ -1,8 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { HoldingsSection } from "@/components/dashboard/holdings";
 import {
   ensureDashboardEnabled,
   getDashboardDbStatusLine,
+  getDashboardHoldings,
   getDashboardViewer,
 } from "@/lib/dashboard/gate";
 
@@ -18,11 +20,10 @@ export const Route = createFileRoute("/dashboard")({
   },
   // Only reached when the gate passed, so loaderData doubles as "flag on".
   // dbStatus: preview-only storage status line (null on production), DASH-03.
-  loader: async ({ context }) => ({
-    enabled: true as const,
-    email: context.user.email,
-    dbStatus: await getDashboardDbStatusLine(),
-  }),
+  loader: async ({ context }) => {
+    const [dbStatus, holdings] = await Promise.all([getDashboardDbStatusLine(), getDashboardHoldings()]);
+    return { enabled: true as const, email: context.user.email, dbStatus, ...holdings };
+  },
   // No dashboard title unless the gate passed (spec §2: no dashboard copy when off).
   head: ({ loaderData }) =>
     loaderData?.enabled
@@ -66,7 +67,8 @@ function SignOutButton() {
 }
 
 function DashboardShell() {
-  const { dbStatus, email } = Route.useLoaderData();
+  const { dbStatus, email, holdings, storage } = Route.useLoaderData();
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-paper">
       <header className="bg-ink text-card">
@@ -80,12 +82,10 @@ function DashboardShell() {
       </header>
       <main className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8">
         <h1 className="text-3xl">Dashboard</h1>
-        <p className="mt-4 max-w-xl text-sm" data-testid="dashboard-placeholder">
-          Preview shell. Nothing to show yet.
-        </p>
         <p className="mt-2 text-sm text-muted" data-testid="dashboard-user">
           Signed in as {email ?? "your account"}
         </p>
+        <HoldingsSection holdings={holdings} storage={storage} onChanged={() => router.invalidate()} />
         {dbStatus ? (
           <p className="mt-8 text-xs text-muted" data-testid="dashboard-db-status">
             {dbStatus}

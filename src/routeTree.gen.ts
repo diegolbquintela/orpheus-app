@@ -16,9 +16,11 @@ import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
 import { Route as ApiDashboardDbRouteImport } from './routes/api/dashboard/db'
+import { Route as ApiDashboardHoldingsRouteImport } from './routes/api/dashboard/holdings'
 import { Route as ApiDashboardMeRouteImport } from './routes/api/dashboard/me'
 import { Route as ApiDashboardSettingsRouteImport } from './routes/api/dashboard/settings'
 import { Route as ApiDashboardStatusRouteImport } from './routes/api/dashboard/status'
+import { Route as ApiDashboardHoldingsIdRouteImport } from './routes/api/dashboard/holdings_.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -55,6 +57,11 @@ const ApiDashboardDbRoute = ApiDashboardDbRouteImport.update({
   path: '/api/dashboard/db',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDashboardHoldingsRoute = ApiDashboardHoldingsRouteImport.update({
+  id: '/api/dashboard/holdings',
+  path: '/api/dashboard/holdings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDashboardMeRoute = ApiDashboardMeRouteImport.update({
   id: '/api/dashboard/me',
   path: '/api/dashboard/me',
@@ -70,6 +77,11 @@ const ApiDashboardStatusRoute = ApiDashboardStatusRouteImport.update({
   path: '/api/dashboard/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDashboardHoldingsIdRoute = ApiDashboardHoldingsIdRouteImport.update({
+  id: '/api/dashboard/holdings_/$id',
+  path: '/api/dashboard/holdings/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,9 +91,11 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
+  '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
   '/api/dashboard/me': typeof ApiDashboardMeRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
+  '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,9 +105,11 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
+  '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
   '/api/dashboard/me': typeof ApiDashboardMeRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
+  '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,9 +120,11 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
+  '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
   '/api/dashboard/me': typeof ApiDashboardMeRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
+  '/api/dashboard/holdings_/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,9 +136,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/dashboard/$'
     | '/api/dashboard/db'
+    | '/api/dashboard/holdings'
     | '/api/dashboard/me'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
+    | '/api/dashboard/holdings/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -130,9 +150,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/dashboard/$'
     | '/api/dashboard/db'
+    | '/api/dashboard/holdings'
     | '/api/dashboard/me'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
+    | '/api/dashboard/holdings/$id'
   id:
     | '__root__'
     | '/'
@@ -142,9 +164,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/dashboard/$'
     | '/api/dashboard/db'
+    | '/api/dashboard/holdings'
     | '/api/dashboard/me'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
+    | '/api/dashboard/holdings_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -155,9 +179,11 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
   ApiDashboardDbRoute: typeof ApiDashboardDbRoute
+  ApiDashboardHoldingsRoute: typeof ApiDashboardHoldingsRoute
   ApiDashboardMeRoute: typeof ApiDashboardMeRoute
   ApiDashboardSettingsRoute: typeof ApiDashboardSettingsRoute
   ApiDashboardStatusRoute: typeof ApiDashboardStatusRoute
+  ApiDashboardHoldingsIdRoute: typeof ApiDashboardHoldingsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardDbRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dashboard/holdings': {
+      id: '/api/dashboard/holdings'
+      path: '/api/dashboard/holdings'
+      fullPath: '/api/dashboard/holdings'
+      preLoaderRoute: typeof ApiDashboardHoldingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dashboard/me': {
       id: '/api/dashboard/me'
       path: '/api/dashboard/me'
@@ -232,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dashboard/holdings_/$id': {
+      id: '/api/dashboard/holdings_/$id'
+      path: '/api/dashboard/holdings/$id'
+      fullPath: '/api/dashboard/holdings/$id'
+      preLoaderRoute: typeof ApiDashboardHoldingsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -243,9 +283,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
   ApiDashboardDbRoute: ApiDashboardDbRoute,
+  ApiDashboardHoldingsRoute: ApiDashboardHoldingsRoute,
   ApiDashboardMeRoute: ApiDashboardMeRoute,
   ApiDashboardSettingsRoute: ApiDashboardSettingsRoute,
   ApiDashboardStatusRoute: ApiDashboardStatusRoute,
+  ApiDashboardHoldingsIdRoute: ApiDashboardHoldingsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

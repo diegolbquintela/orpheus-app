@@ -42,6 +42,8 @@ describe("DASHBOARD_ENABLED flag", () => {
 
 const DASHBOARD_FILES = [
   "src/routes/dashboard.tsx",
+  "src/routes/dashboard_.sign-in.tsx",
+  ...readdirSync("src/components/dashboard").map((f) => join("src/components/dashboard", f)),
   ...readdirSync("src/routes/api/dashboard").map((f) => join("src/routes/api/dashboard", f)),
   ...readdirSync("src/lib/dashboard")
     .filter((f) => !f.endsWith(".test.ts"))
