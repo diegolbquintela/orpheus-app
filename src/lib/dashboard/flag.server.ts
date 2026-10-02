@@ -33,6 +33,33 @@ export function dashboardNotFoundResponse(): Response {
   );
 }
 
+/** The 405 JSON a dashboard API route returns for a method it does not serve (flag on). */
+export function dashboardMethodNotAllowedResponse(allow: readonly string[]): Response {
+  return Response.json(
+    { error: "Method not allowed." },
+    {
+      status: 405,
+      headers: {
+        Allow: allow.join(", "),
+        "Cache-Control": "no-store",
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    },
+  );
+}
+
+/**
+ * `ANY` handler for a dashboard API route: answers every method the route does not
+ * serve with JSON, never the HTML app shell. Flag off: the same 404 as everything
+ * else (the route does not exist). Flag on: 405 with an `Allow` header.
+ */
+export function dashboardUnsupportedMethod(
+  allow: readonly string[],
+  env: Env = process.env,
+): Response {
+  return guardDashboardApi(env) ?? dashboardMethodNotAllowedResponse(allow);
+}
+
 /**
  * Guard for dashboard API handlers: returns the 404 response when the flag is off,
  * or null when the handler may continue.

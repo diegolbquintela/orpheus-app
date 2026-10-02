@@ -37,6 +37,7 @@ Node 22 (≥ 22.12, required by `@tanstack/react-start`), npm.
 | `npm run build` | `vite build` (Vercel preset, output in `.vercel/output/`) then `db:migrate` (skips when `DATABASE_URL` is unset) |
 | `npm run fixtures:build` | Rebuild `qa/fixtures.json` offline from `qa/snapshots/*.json` through the app's own `loadChart()` and `runDesk()`. Add `-- --refresh` to re-pull Yahoo (network) |
 | `npm run fixtures:hand-check` | Independent recomputation from the raw snapshots (shares no code with `src/lib/dca`); rewrites `qa/HAND-CHECK.md`, exits non-zero on mismatch |
+| `npm run check:dashboard-built` | After `npm run build`: drives the built server function for each `DASHBOARD_ENABLED` value (no network/browser). Flag-off `/dashboard` 404 must equal any unknown-path 404; every method on `/api/dashboard/*` must answer JSON (404, or 405 on `status` when on). CI runs it after Build |
 | `npm run dev` | Local dev server (Vite) on port 8080 |
 
 A new test file is only run if it is added to the `test` script in `package.json`.
@@ -145,11 +146,19 @@ curl -sI http://localhost:8080/dashboard | head -1
 curl -s  http://localhost:8080/api/dashboard/status
 ```
 
-- New dashboard pages call `ensureDashboardEnabled()` (`src/lib/dashboard/gate.ts`) in `beforeLoad`.
-  New `/api/dashboard/*` handlers start with `guardDashboardApi()`, which returns the 404 JSON when off.
-  Unknown `/api/dashboard/*` paths hit the catch-all `src/routes/api/dashboard/$.ts` (404 JSON).
-- `src/lib/dashboard/flag.test.ts` (in `npm test`) covers flag parsing, the API guard, the no-advice scan
-  of dashboard files, and checks that the calculator neither links to nor reads the flag.
+- Flag off, the server router reads `/dashboard` and anything under it as an unmatched path
+  (`rewrite` in `src/router.tsx`, helpers in `src/lib/dashboard/paths.ts`), so the 404 is byte-for-byte
+  the app's ordinary 404: title "Orpheus Wisdom", no dashboard chunk, no dashboard copy (spec §2).
+- New dashboard pages live under `/dashboard`, call `ensureDashboardEnabled()` (`src/lib/dashboard/gate.ts`)
+  in `beforeLoad`, and gate `head()` on loader data (`loaderData?.enabled`) so a client-side 404 shows no
+  dashboard title either.
+  New `/api/dashboard/*` handlers start with `guardDashboardApi()`, which returns the 404 JSON when off,
+  and add `ANY: () => dashboardUnsupportedMethod([...allowed])` so other methods get JSON (404 off, 405
+  with `Allow` on) instead of the HTML app shell.
+  Unknown `/api/dashboard/*` paths hit the catch-all `src/routes/api/dashboard/$.ts` (404 JSON, any method).
+- `src/lib/dashboard/flag.test.ts` and `paths.test.ts` (in `npm test`) cover flag parsing, the API guard
+  and 405 helper, the flag-off rewrite, the no-advice scan of dashboard files, and checks that the
+  calculator neither links to nor reads the flag. `npm run check:dashboard-built` checks the built server.
 - On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
   `/dashboard` is a 404 on a preview, the variable isn't set there yet.
 
