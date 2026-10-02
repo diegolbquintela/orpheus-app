@@ -1,0 +1,551 @@
+{
+ "us-single-dividend-ko": {
+  "rendered": [
+   {
+    "field": "lump invested",
+    "expected": "$10,000",
+    "observed": "$10,000",
+    "ok": true
+   },
+   {
+    "field": "lump endNlv",
+    "expected": "$10,510",
+    "observed": "$10,510",
+    "ok": true
+   },
+   {
+    "field": "lump mwr",
+    "expected": "+2.5%",
+    "observed": "+2.5%",
+    "ok": true
+   },
+   {
+    "field": "lump totalReturn",
+    "expected": "+5.1%",
+    "observed": "+5.1%",
+    "ok": true
+   },
+   {
+    "field": "lump cagr",
+    "expected": "+2.5%",
+    "observed": "+2.5%",
+    "ok": true
+   },
+   {
+    "field": "lump maxDrop",
+    "expected": "−17.3% · 2023-10-05",
+    "observed": "−17.3% · 2023-10-05",
+    "ok": true
+   },
+   {
+    "field": "lump nlvAtDrop",
+    "expected": "$8,514",
+    "observed": "$8,514",
+    "ok": true
+   },
+   {
+    "field": "lump returnToDrop",
+    "expected": "−14.9%",
+    "observed": "−14.9%",
+    "ok": true
+   },
+   {
+    "field": "dca invested",
+    "expected": "$12,000",
+    "observed": "$12,000",
+    "ok": true
+   },
+   {
+    "field": "dca endNlv",
+    "expected": "$12,511",
+    "observed": "$12,511",
+    "ok": true
+   },
+   {
+    "field": "dca mwr",
+    "expected": "+4.1%",
+    "observed": "+4.1%",
+    "ok": true
+   },
+   {
+    "field": "dca totalReturn",
+    "expected": "+4.3%",
+    "observed": "+4.3%",
+    "ok": true
+   },
+   {
+    "field": "dca cagr",
+    "expected": "+2.1%",
+    "observed": "+2.1%",
+    "ok": true
+   },
+   {
+    "field": "dca maxDrop",
+    "expected": "−8.9% · 2024-11-15",
+    "observed": "−8.9% · 2024-11-15",
+    "ok": true
+   },
+   {
+    "field": "dca nlvAtDrop",
+    "expected": "$11,831",
+    "observed": "$11,831",
+    "ok": true
+   },
+   {
+    "field": "dca returnToDrop",
+    "expected": "+2.9%",
+    "observed": "+2.9%",
+    "ok": true
+   },
+   {
+    "field": "KO weight",
+    "expected": "100.0%",
+    "observed": "100.0%",
+    "ok": true
+   },
+   {
+    "field": "KO last",
+    "expected": "62.26",
+    "observed": "62.26",
+    "ok": true
+   },
+   {
+    "field": "KO lumpShares",
+    "expected": "168.811",
+    "observed": "168.811",
+    "ok": true
+   },
+   {
+    "field": "KO dcaShares",
+    "expected": "200.9479",
+    "observed": "200.9479",
+    "ok": true
+   },
+   {
+    "field": "KO no-DRIP counterfactual shares",
+    "ifNotReinvested": [
+     "158.8562",
+     "194.2338"
+    ],
+    "observed": [
+     "168.811",
+     "200.9479"
+    ],
+    "differs": true
+   },
+   {
+    "field": "no-DRIP counterfactual NLV",
+    "ifNotReinvested": [
+     "$9,890",
+     "$12,093"
+    ],
+    "observed": [
+     "$10,510",
+     "$12,511"
+    ],
+    "differs": true
+   },
+   {
+    "field": "summary",
+    "expected": "DCA: $12k in, $12.5k now · Lump sum: $10k in, $10.5k now",
+    "observed": "DCA: $12k in, $12.5k now · Lump sum: $10k in, $10.5k now",
+    "ok": true
+   }
+  ],
+  "renderedChecked": 21,
+  "renderedMismatch": [],
+  "fullPrecisionChecks": 48,
+  "maxAbsDiff": 0,
+  "fullMismatch": []
+ },
+ "us-basket-jnj-pg-wmt": {
+  "rendered": [
+   {
+    "field": "lump invested",
+    "expected": "$20,000",
+    "observed": "$20,000",
+    "ok": true
+   },
+   {
+    "field": "lump endNlv",
+    "expected": "$23,358",
+    "observed": "$23,358",
+    "ok": true
+   },
+   {
+    "field": "lump mwr",
+    "expected": "+8.1%",
+    "observed": "+8.1%",
+    "ok": true
+   },
+   {
+    "field": "lump totalReturn",
+    "expected": "+16.8%",
+    "observed": "+16.8%",
+    "ok": true
+   },
+   {
+    "field": "lump cagr",
+    "expected": "+8.1%",
+    "observed": "+8.1%",
+    "ok": true
+   },
+   {
+    "field": "lump maxDrop",
+    "expected": "−12.3% · 2023-03-09",
+    "observed": "−12.3% · 2023-03-09",
+    "ok": true
+   },
+   {
+    "field": "lump nlvAtDrop",
+    "expected": "$17,809",
+    "observed": "$17,809",
+    "ok": true
+   },
+   {
+    "field": "lump returnToDrop",
+    "expected": "−11.0%",
+    "observed": "−11.0%",
+    "ok": true
+   },
+   {
+    "field": "dca invested",
+    "expected": "$26,250",
+    "observed": "$26,250",
+    "ok": true
+   },
+   {
+    "field": "dca endNlv",
+    "expected": "$29,316",
+    "observed": "$29,316",
+    "ok": true
+   },
+   {
+    "field": "dca mwr",
+    "expected": "+11.5%",
+    "observed": "+11.5%",
+    "ok": true
+   },
+   {
+    "field": "dca totalReturn",
+    "expected": "+11.7%",
+    "observed": "+11.7%",
+    "ok": true
+   },
+   {
+    "field": "dca cagr",
+    "expected": "+5.7%",
+    "observed": "+5.7%",
+    "ok": true
+   },
+   {
+    "field": "dca maxDrop",
+    "expected": "−3.1% · 2023-01-23",
+    "observed": "−3.1% · 2023-01-23",
+    "ok": true
+   },
+   {
+    "field": "dca nlvAtDrop",
+    "expected": "$720",
+    "observed": "$720",
+    "ok": true
+   },
+   {
+    "field": "dca returnToDrop",
+    "expected": "−4.0%",
+    "observed": "−4.0%",
+    "ok": true
+   },
+   {
+    "field": "JNJ weight",
+    "expected": "50.0%",
+    "observed": "50.0%",
+    "ok": true
+   },
+   {
+    "field": "JNJ last",
+    "expected": "144.62",
+    "observed": "144.62",
+    "ok": true
+   },
+   {
+    "field": "JNJ lumpShares",
+    "expected": "59.6454",
+    "observed": "59.6454",
+    "ok": true
+   },
+   {
+    "field": "JNJ dcaShares",
+    "expected": "85.98",
+    "observed": "85.98",
+    "ok": true
+   },
+   {
+    "field": "JNJ no-DRIP counterfactual shares",
+    "ifNotReinvested": [
+     "56.1199",
+     "83.3487"
+    ],
+    "observed": [
+     "59.6454",
+     "85.98"
+    ],
+    "differs": true
+   },
+   {
+    "field": "PG weight",
+    "expected": "30.0%",
+    "observed": "30.0%",
+    "ok": true
+   },
+   {
+    "field": "PG last",
+    "expected": "167.65",
+    "observed": "167.65",
+    "ok": true
+   },
+   {
+    "field": "PG lumpShares",
+    "expected": "41.6036",
+    "observed": "41.6036",
+    "ok": true
+   },
+   {
+    "field": "PG dcaShares",
+    "expected": "51.5895",
+    "observed": "51.5895",
+    "ok": true
+   },
+   {
+    "field": "PG no-DRIP counterfactual shares",
+    "ifNotReinvested": [
+     "39.5857",
+     "50.3846"
+    ],
+    "observed": [
+     "41.6036",
+     "51.5895"
+    ],
+    "differs": true
+   },
+   {
+    "field": "WMT weight",
+    "expected": "20.0%",
+    "observed": "20.0%",
+    "ok": true
+   },
+   {
+    "field": "WMT last",
+    "expected": "90.35",
+    "observed": "90.35",
+    "ok": true
+   },
+   {
+    "field": "WMT lumpShares",
+    "expected": "85.8565",
+    "observed": "85.8565",
+    "ok": true
+   },
+   {
+    "field": "WMT dcaShares",
+    "expected": "91.1212",
+    "observed": "91.1212",
+    "ok": true
+   },
+   {
+    "field": "WMT no-DRIP counterfactual shares",
+    "ifNotReinvested": [
+     "83.5655",
+     "89.8434"
+    ],
+    "observed": [
+     "85.8565",
+     "91.1212"
+    ],
+    "differs": true
+   },
+   {
+    "field": "no-DRIP counterfactual NLV",
+    "ifNotReinvested": [
+     "$22,303",
+     "$28,618"
+    ],
+    "observed": [
+     "$23,358",
+     "$29,316"
+    ],
+    "differs": true
+   },
+   {
+    "field": "summary",
+    "expected": "DCA: $26.3k in, $29.3k now · Lump sum: $20k in, $23.4k now",
+    "observed": "DCA: $26.3k in, $29.3k now · Lump sum: $20k in, $23.4k now",
+    "ok": true
+   }
+  ],
+  "renderedChecked": 29,
+  "renderedMismatch": [],
+  "fullPrecisionChecks": 60,
+  "maxAbsDiff": 0,
+  "fullMismatch": []
+ },
+ "ca-single-ry-to": {
+  "rendered": [
+   {
+    "field": "lump invested",
+    "expected": "CA$10,000",
+    "observed": "CA$10,000",
+    "ok": true
+   },
+   {
+    "field": "lump endNlv",
+    "expected": "CA$14,673",
+    "observed": "CA$14,673",
+    "ok": true
+   },
+   {
+    "field": "lump mwr",
+    "expected": "+21.2%",
+    "observed": "+21.2%",
+    "ok": true
+   },
+   {
+    "field": "lump totalReturn",
+    "expected": "+46.7%",
+    "observed": "+46.7%",
+    "ok": true
+   },
+   {
+    "field": "lump cagr",
+    "expected": "+21.2%",
+    "observed": "+21.2%",
+    "ok": true
+   },
+   {
+    "field": "lump maxDrop",
+    "expected": "−19.7% · 2023-10-27",
+    "observed": "−19.7% · 2023-10-27",
+    "ok": true
+   },
+   {
+    "field": "lump nlvAtDrop",
+    "expected": "CA$8,838",
+    "observed": "CA$8,838",
+    "ok": true
+   },
+   {
+    "field": "lump returnToDrop",
+    "expected": "−11.6%",
+    "observed": "−11.6%",
+    "ok": true
+   },
+   {
+    "field": "dca invested",
+    "expected": "CA$12,000",
+    "observed": "CA$12,000",
+    "ok": true
+   },
+   {
+    "field": "dca endNlv",
+    "expected": "CA$15,920",
+    "observed": "CA$15,920",
+    "ok": true
+   },
+   {
+    "field": "dca mwr",
+    "expected": "+30.0%",
+    "observed": "+30.0%",
+    "ok": true
+   },
+   {
+    "field": "dca totalReturn",
+    "expected": "+32.7%",
+    "observed": "+32.7%",
+    "ok": true
+   },
+   {
+    "field": "dca cagr",
+    "expected": "+15.2%",
+    "observed": "+15.2%",
+    "ok": true
+   },
+   {
+    "field": "dca maxDrop",
+    "expected": "−7.6% · 2023-03-24",
+    "observed": "−7.6% · 2023-03-24",
+    "ok": true
+   },
+   {
+    "field": "dca nlvAtDrop",
+    "expected": "CA$1,423",
+    "observed": "CA$1,423",
+    "ok": true
+   },
+   {
+    "field": "dca returnToDrop",
+    "expected": "−5.2%",
+    "observed": "−5.2%",
+    "ok": true
+   },
+   {
+    "field": "RY.TO weight",
+    "expected": "100.0%",
+    "observed": "100.0%",
+    "ok": true
+   },
+   {
+    "field": "RY.TO last",
+    "expected": "173.32",
+    "observed": "173.32",
+    "ok": true
+   },
+   {
+    "field": "RY.TO lumpShares",
+    "expected": "84.6601",
+    "observed": "84.6601",
+    "ok": true
+   },
+   {
+    "field": "RY.TO dcaShares",
+    "expected": "91.8518",
+    "observed": "91.8518",
+    "ok": true
+   },
+   {
+    "field": "RY.TO no-DRIP counterfactual shares",
+    "ifNotReinvested": [
+     "78.1067",
+     "88.2699"
+    ],
+    "observed": [
+     "84.6601",
+     "91.8518"
+    ],
+    "differs": true
+   },
+   {
+    "field": "no-DRIP counterfactual NLV",
+    "ifNotReinvested": [
+     "CA$13,537",
+     "CA$15,299"
+    ],
+    "observed": [
+     "CA$14,673",
+     "CA$15,920"
+    ],
+    "differs": true
+   },
+   {
+    "field": "summary",
+    "expected": "DCA: CA$12k in, CA$15.9k now · Lump sum: CA$10k in, CA$14.7k now",
+    "observed": "DCA: CA$12k in, CA$15.9k now · Lump sum: CA$10k in, CA$14.7k now",
+    "ok": true
+   }
+  ],
+  "renderedChecked": 21,
+  "renderedMismatch": [],
+  "fullPrecisionChecks": 48,
+  "maxAbsDiff": 0,
+  "fullMismatch": []
+ }
+}

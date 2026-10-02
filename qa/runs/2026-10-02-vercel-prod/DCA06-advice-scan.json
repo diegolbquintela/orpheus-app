@@ -1,0 +1,89 @@
+{
+ "states": {
+  "us-single-dividend-ko": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "us-basket-jnj-pg-wmt": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "ca-single-ry-to": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "refused-lse-vod-l": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "B": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "initial": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "D mobile result": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "E initial": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "E blank submit": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "E_nonsense": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "E_bse": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "E_lse2": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  },
+  "initial HTML": {
+   "fixturePattern": [],
+   "broadHits": [],
+   "notARec": false,
+   "unlessException": false
+  }
+ },
+ "fixtureSourceScan_68270c8": {
+  "src/components/desk.tsx": [],
+  "src/routes/index.tsx": [],
+  "src/routes/__root.tsx": [],
+  "src/lib/dca/results.ts": [],
+  "src/lib/dca/venues.ts": []
+ }
+}

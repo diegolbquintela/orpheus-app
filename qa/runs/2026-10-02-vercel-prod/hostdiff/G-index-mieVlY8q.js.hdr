@@ -1,0 +1,21 @@
+HTTP/2 200 
+date: Fri, 02 Oct 2026 20:21:29 GMT
+content-type: application/javascript; charset=utf-8
+access-control-allow-origin: *
+cache-control: public, max-age=31536000
+content-disposition: inline; filename="index-mieVlY8q.js"
+etag: W/"dc3cc2955ec822f9aca9fe88fcd9b18e"
+last-modified: Fri, 02 Oct 2026 20:07:02 GMT
+strict-transport-security: max-age=31536000; includeSubDomains
+x-robots-tag: noindex
+x-vercel-cache: HIT
+x-vercel-id: iad1::p6qhd-1790971973587-88b565aa6d00
+x-envoy-upstream-service-time: 20
+set-cookie: __cf_bm=[REDACTED]; HttpOnly; SameSite=None; Secure; Path=/; Domain=grok.me; Expires=Fri, 02 Oct 2026 20:51:29 GMT
+vary: accept-encoding
+age: 515
+expires: Sat, 02 Oct 2027 20:21:29 GMT
+cf-cache-status: HIT
+server: cloudflare
+cf-ray: a44669eafb0cff0a-PDX
+

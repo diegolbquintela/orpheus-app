@@ -1,0 +1,16 @@
+HTTP/2 200 
+accept-ranges: bytes
+access-control-allow-origin: *
+age: 65
+cache-control: public, max-age=31536000, immutable
+content-disposition: inline; filename="routes-Cm76ELHP.js"
+content-type: application/javascript; charset=utf-8
+date: Fri, 02 Oct 2026 20:21:30 GMT
+etag: "ce5164015a4339027651e99de88269ae"
+last-modified: Fri, 02 Oct 2026 20:20:24 GMT
+server: Vercel
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-vercel-cache: HIT
+x-vercel-id: pdx1::c6pbj-1790972490098-e86e202f5b8f
+content-length: 398077
+
