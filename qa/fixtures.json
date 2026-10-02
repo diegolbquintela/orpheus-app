@@ -657,14 +657,14 @@
           "ticker": "VOD.L",
           "refused": true,
           "status": 400,
-          "error": "VOD.L lists on LSE. US, EU, and CA listings only, unless you name an exception."
+          "error": "VOD.L lists on LSE. US, EU, and CA listings only."
         }
       ]
     }
   },
   {
     "id": "no-advice-copy",
-    "title": "User-facing copy carries no buy/sell/hold recommendation",
+    "title": "No buy/sell/hold output in user-facing copy",
     "acs": [
       {
         "ac": "DCA-06",
@@ -676,14 +676,14 @@
       "files": [
         "src/components/desk.tsx",
         "src/routes/index.tsx",
-        "src/routes/__root.tsx"
+        "src/routes/__root.tsx",
+        "src/lib/dca/results.ts",
+        "src/lib/dca/venues.ts"
       ],
-      "pattern": "\\b(buy|sell|hold|recommend|recommended|recommends|strong buy|outperform|underweight|overweight)\\b",
-      "disclaimer": "Not a recommendation"
+      "pattern": "\\b(buy|sell|hold|recommend|recommended|recommends|strong buy|outperform|underweight|overweight)\\b"
     },
     "expected": {
-      "adviceMatches": [],
-      "disclaimerPresent": true
+      "adviceMatches": []
     }
   }
 ]

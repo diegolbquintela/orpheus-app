@@ -1,7 +1,17 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type UIEvent } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Minus } from "lucide-react";
-import { money, pct, quote, shareCount, weightLabel } from "@/lib/dca/format";
+import { money, quote, shareCount, weightLabel } from "@/lib/dca/format";
+import {
+  compactMoney,
+  HEADLINE_KEY,
+  METRIC_ROWS,
+  PLAN_ORDER,
+  planHeading,
+  planName,
+  resultSummary,
+  type PlanKey,
+} from "@/lib/dca/results";
 import { runDesk, scaleWeights } from "@/lib/dca/simulate";
 import type { ChartPayload, DeskRun, Frequency } from "@/lib/dca/types";
 
@@ -14,58 +24,10 @@ type Ready = {
   run: DeskRun;
   scaled: boolean;
   weightSum: number;
+  capital: number;
+  contribution: number;
+  frequency: Frequency;
 };
-
-const METRICS: { key: string; label: string; lump: (ready: Ready) => string; dca: (ready: Ready) => string }[] = [
-  {
-    key: "invested",
-    label: "Total invested",
-    lump: (ready) => money(ready.run.lump.invested, ready.currency),
-    dca: (ready) => money(ready.run.dca.invested, ready.currency),
-  },
-  {
-    key: "nlv",
-    label: "NLV at end",
-    lump: (ready) => money(ready.run.lump.endNlv, ready.currency),
-    dca: (ready) => money(ready.run.dca.endNlv, ready.currency),
-  },
-  {
-    key: "total",
-    label: "Total return",
-    lump: (ready) => pct(ready.run.lump.totalReturn),
-    dca: (ready) => pct(ready.run.dca.totalReturn),
-  },
-  {
-    key: "cagr",
-    label: "CAGR",
-    lump: (ready) => pct(ready.run.lump.cagr),
-    dca: (ready) => pct(ready.run.dca.cagr),
-  },
-  {
-    key: "mwr",
-    label: "Money-weighted return",
-    lump: (ready) => pct(ready.run.lump.mwr),
-    dca: (ready) => pct(ready.run.dca.mwr),
-  },
-  {
-    key: "drop",
-    label: "Max drop",
-    lump: (ready) => `${pct(ready.run.lump.maxDrop)} · ${ready.run.lump.maxDropDate}`,
-    dca: (ready) => `${pct(ready.run.dca.maxDrop)} · ${ready.run.dca.maxDropDate}`,
-  },
-  {
-    key: "at",
-    label: "NLV at that drop",
-    lump: (ready) => money(ready.run.lump.nlvAtDrop, ready.currency),
-    dca: (ready) => money(ready.run.dca.nlvAtDrop, ready.currency),
-  },
-  {
-    key: "to",
-    label: "Return to the drop",
-    lump: (ready) => pct(ready.run.lump.returnToDrop),
-    dca: (ready) => pct(ready.run.dca.returnToDrop),
-  },
-];
 
 function nextId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -85,23 +47,17 @@ async function loadChart(ticker: string, start: string, end: string): Promise<Ch
 }
 
 function describe(ready: Ready): string {
-  const parts = [
-    `${ready.names.map((name) => name.ticker).join(" · ")} · ${ready.currency} · ${ready.run.sessions} sessions.`,
-  ];
+  const parts: string[] = [];
   if (ready.scaled) {
     parts.push(`Weights summed to ${ready.weightSum.toFixed(1)} and were scaled to 100.`);
   }
   parts.push(
-    "Lump sum deploys the starting capital on the first session every name has a price. DCA adds the contribution as new cash on each weekly or monthly date. Dividends are reinvested in the name that paid them. Splits change the share count.",
-  );
-  parts.push(
-    "CAGR treats invested capital as if it had been in for the whole window. For the contribution plan, money-weighted return is the fairer figure.",
+    "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.",
   );
   if (ready.run.missedContributions > 0) {
     const count = ready.run.missedContributions;
     parts.push(`${count} contribution ${count === 1 ? "date had" : "dates had"} no later session.`);
   }
-  parts.push("Not a recommendation.");
   return parts.join(" ");
 }
 
@@ -192,7 +148,17 @@ export function Desk() {
         start,
         end,
       });
-      setReady({ names, weights: scaled.weights, currency, run, scaled: scaled.scaled, weightSum: scaled.sum });
+      setReady({
+        names,
+        weights: scaled.weights,
+        currency,
+        run,
+        scaled: scaled.scaled,
+        weightSum: scaled.sum,
+        capital: capitalAmount,
+        contribution: contributionAmount,
+        frequency,
+      });
       queueMicrotask(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (caught) {
       setReady(null);
@@ -216,13 +182,8 @@ export function Desk() {
               DCA vs lump sum
             </h1>
             <p className="mt-8 max-w-xl text-pretty text-card/75">
-              Same window, two cash plans, one name or a weighted basket. Lump sum deploys the starting capital
-              on the first session every name has a price, split by weight. DCA does not use that capital. On
-              each weekly or monthly date it adds the contribution as new cash, split by weight. Dividends are
-              reinvested in the name that paid them. Splits change the share count. Prices are raw daily closes.
-            </p>
-            <p className="mt-6 text-sm text-card/55">
-              Not a recommendation. US, EU, and CA listings only. One currency.
+              Pick tickers and weights, a date range, and amounts. Lump sum invests your starting capital on day
+              one. DCA adds your contribution on each date. Dividends are reinvested and splits are handled.
             </p>
           </div>
         </div>
@@ -269,6 +230,7 @@ export function Desk() {
                   </button>
                 </div>
               ))}
+              <p className="-mt-3 text-xs text-muted">US, EU and CA listings, one currency per basket.</p>
               <button type="button" onClick={addRow} className="self-start text-sm">
                 ↳ Add name
               </button>
@@ -345,26 +307,7 @@ export function Desk() {
               <h2 className="mt-3 text-3xl leading-none font-normal tracking-tight">Result</h2>
             </div>
             <div className="flex min-w-0 flex-col gap-12">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-xl border-collapse text-sm tabular-nums">
-                  <thead>
-                    <tr className="kicker text-left text-muted">
-                      <th className="py-3 pr-4 font-normal"></th>
-                      <th className="px-4 py-3 font-normal">Lump sum</th>
-                      <th className="px-4 py-3 font-normal">DCA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {METRICS.map((metric) => (
-                      <tr key={metric.key} className="border-t border-line">
-                        <th className="py-3 pr-4 text-left font-normal text-muted">{metric.label}</th>
-                        <td className="px-4 py-3">{metric.lump(ready)}</td>
-                        <td className="px-4 py-3">{metric.dca(ready)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ResultsTable ready={ready} />
 
               <div className="overflow-x-auto">
                 <table className="w-full min-w-xl border-collapse text-sm tabular-nums">
@@ -391,73 +334,14 @@ export function Desk() {
                 </table>
               </div>
 
-              <figure>
-                <figcaption className="mb-6 flex flex-wrap gap-6 text-sm text-muted">
-                  <span className="inline-flex items-center gap-2">
-                    <i className="inline-block h-px w-6 bg-ink" aria-hidden="true" />
-                    Lump sum NLV
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <i className="inline-block h-px w-6 bg-dca" aria-hidden="true" />
-                    DCA NLV
-                  </span>
-                </figcaption>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={ready.run.chart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke="var(--color-line)" vertical={false} />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fill: "var(--color-muted)", fontSize: 12 }}
-                        tickLine={false}
-                        axisLine={false}
-                        minTickGap={32}
-                      />
-                      <YAxis
-                        tick={{ fill: "var(--color-muted)", fontSize: 12 }}
-                        tickLine={false}
-                        axisLine={false}
-                        width={72}
-                        tickFormatter={(value: number) => money(value, ready.currency)}
-                      />
-                      <Tooltip
-                        formatter={(value, name) => [
-                          money(Number(value), ready.currency),
-                          name === "lump" ? "Lump sum" : "DCA",
-                        ]}
-                        labelFormatter={(label) => String(label)}
-                        contentStyle={{
-                          background: "var(--color-ink)",
-                          color: "var(--color-card)",
-                          border: "0",
-                          borderRadius: 0,
-                          fontSize: 13,
-                        }}
-                        labelStyle={{ color: "var(--color-card)" }}
-                        itemStyle={{ color: "var(--color-card)" }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="lump"
-                        name="lump"
-                        stroke="var(--color-ink)"
-                        strokeWidth={1.5}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="dca"
-                        name="dca"
-                        stroke="var(--color-dca)"
-                        strokeWidth={1.5}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </figure>
+              <div className="grid gap-10">
+                {(["dca", "lump"] as PlanKey[]).map((plan) => (
+                  <PlanChart key={plan} ready={ready} plan={plan} />
+                ))}
+                <p className="text-xs text-muted">
+                  Each plan has its own scale, so the two charts are not drawn to the same height.
+                </p>
+              </div>
 
               <p className="max-w-xl text-pretty text-sm text-muted">{note}</p>
             </div>
@@ -468,9 +352,142 @@ export function Desk() {
       <footer className="bg-ink text-card">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 sm:px-8">
           <span className="text-sm">Orpheus Wisdom</span>
-          <span className="kicker text-card/60">Not a recommendation</span>
         </div>
       </footer>
     </div>
+  );
+}
+/**
+ * Plan comparison table. On narrow screens it scrolls sideways (lump sum first,
+ * DCA behind the swipe), with a pinned row-label column, a right-edge fade, a
+ * "Swipe for DCA" hint and column dots that follow the scroll position.
+ */
+function ResultsTable({ ready }: { ready: Ready }) {
+  const [active, setActive] = useState(0);
+  const [atEnd, setAtEnd] = useState(false);
+
+  function onScroll(event: UIEvent<HTMLDivElement>) {
+    const el = event.currentTarget;
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 0) return;
+    setActive(el.scrollLeft >= max / 2 ? 1 : 0);
+    setAtEnd(el.scrollLeft >= max - 4);
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <p className="text-sm tabular-nums" data-testid="result-summary">
+        {resultSummary(ready.run, ready.currency)}
+      </p>
+      <div className="relative">
+        <div className="overflow-x-auto" onScroll={onScroll} data-testid="results-scroll">
+          <table className="w-full min-w-xl border-collapse text-sm tabular-nums">
+            <thead>
+              <tr className="kicker text-left text-muted">
+                <th className="sticky left-0 z-10 w-36 bg-paper py-3 pr-4 font-normal sm:w-auto"></th>
+                {PLAN_ORDER.map((plan) => (
+                  <th key={plan} className={`px-4 py-3 font-normal ${plan === "dca" ? "text-dca" : ""}`}>
+                    {planHeading(plan, ready)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {METRIC_ROWS.map((metric) => (
+                <tr key={metric.key} className="border-t border-line">
+                  <th className="sticky left-0 z-10 w-36 bg-paper py-3 pr-4 text-left font-normal text-muted sm:w-auto">
+                    {metric.label}
+                  </th>
+                  {PLAN_ORDER.map((plan) => (
+                    <td
+                      key={plan}
+                      className={`px-4 py-3 ${metric.key === HEADLINE_KEY && plan === "dca" ? "font-medium" : ""}`}
+                    >
+                      {metric.value(ready.run[plan], ready.currency)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {atEnd ? null : (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-l from-paper to-transparent sm:hidden"
+          />
+        )}
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted sm:hidden">
+        <span className="flex items-center gap-2" aria-hidden="true">
+          {PLAN_ORDER.map((plan, index) => (
+            <i
+              key={plan}
+              title={planName(plan)}
+              className={`inline-block size-2 rounded-full ${index === active ? (plan === "dca" ? "bg-dca" : "bg-ink") : "bg-line"}`}
+            />
+          ))}
+          <span>{planName(PLAN_ORDER[active])}</span>
+        </span>
+        {atEnd ? null : <span>Swipe for DCA →</span>}
+      </div>
+    </div>
+  );
+}
+
+/** One small chart per plan with its own y-axis, so the smaller plan stays readable. */
+function PlanChart({ ready, plan }: { ready: Ready; plan: PlanKey }) {
+  const color = plan === "dca" ? "var(--color-dca)" : "var(--color-ink)";
+  return (
+    <figure className="min-w-0">
+      <figcaption className="mb-3 flex items-center gap-2 text-sm text-muted">
+        <i className={`inline-block h-px w-6 ${plan === "dca" ? "bg-dca" : "bg-ink"}`} aria-hidden="true" />
+        {planName(plan)} NLV
+      </figcaption>
+      <div className="h-56 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={ready.run.chart} margin={{ top: 8, right: 20, left: 4, bottom: 0 }}>
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={40}
+              tickFormatter={(value: string) => value.slice(0, 7)}
+            />
+            <YAxis
+              tick={{ fill: "var(--color-muted)", fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              width={60}
+              tickFormatter={(value: number) => compactMoney(value, ready.currency)}
+            />
+            <Tooltip
+              formatter={(value) => [money(Number(value), ready.currency), planName(plan)]}
+              labelFormatter={(label) => String(label)}
+              contentStyle={{
+                background: "var(--color-ink)",
+                color: "var(--color-card)",
+                border: "0",
+                borderRadius: 0,
+                fontSize: 13,
+              }}
+              labelStyle={{ color: "var(--color-card)" }}
+              itemStyle={{ color: "var(--color-card)" }}
+            />
+            <Line
+              type="monotone"
+              dataKey={plan}
+              name={plan}
+              stroke={color}
+              strokeWidth={1.5}
+              dot={false}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </figure>
   );
 }

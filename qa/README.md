@@ -25,7 +25,7 @@ for DCA-01).
 | `us-basket-jnj-pg-wmt` | DCA-01..04 | JNJ/PG/WMT 50/30/20 USD basket, 20,000 + 250 weekly, includes WMT 3:1 split (2024-02-26) |
 | `ca-single-ry-to` | DCA-01, 02, 03, 05 | RY.TO (Toronto, CAD), 10,000 + 500 monthly; CA listing accepted |
 | `refused-lse-vod-l` | DCA-05 | VOD.L (LSE) refused with HTTP 400 and the app's message |
-| `no-advice-copy` | DCA-06 | Scan of user-facing copy files for recommendation words; disclaimer present |
+| `no-advice-copy` | DCA-06 | Scan of user-facing copy (UI, meta description, result labels, refusal messages): no buy/sell/hold output |
 
 ## Regenerate
 
@@ -39,4 +39,4 @@ npm test                             # includes src/lib/dca/fixtures.test.ts (of
 Snapshots are the raw Yahoo v8 chart responses, recorded by swapping global `fetch` around the app's own
 `loadChart()` (src/lib/dca/yahoo.server.ts). The test swaps in a replayer that only answers those URLs.
 
-These numbers are historical simulation outputs for testing. They are not a recommendation.
+These numbers are historical simulation outputs for testing.

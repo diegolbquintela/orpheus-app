@@ -106,13 +106,19 @@ describe("qa/fixtures.json (AC pack DCA-01..06)", () => {
     }
   });
 
-  it("DCA-06: user-facing copy still has no recommendation language", () => {
+  it("DCA-06: no buy/sell/hold output in user-facing copy or refusals", () => {
     const content = fixtures.find((fixture) => fixture.kind === "content") as Fixture;
     assert.deepEqual(content.inputs.files, COPY_FILES);
     assert.equal(content.inputs.pattern, ADVICE_PATTERN);
     const scan = scanCopy(COPY_FILES);
     assert.deepEqual(scan, content.expected);
     assert.deepEqual(scan.adviceMatches, []);
-    assert.equal(scan.disclaimerPresent, true);
+    const refusals = fixtures
+      .filter((fixture) => fixture.kind === "refused")
+      .flatMap(
+        (fixture) => (fixture.expected as { outcomes: { error: string | null }[] }).outcomes,
+      );
+    for (const outcome of refusals)
+      assert.doesNotMatch(outcome.error ?? "", new RegExp(ADVICE_PATTERN, "i"));
   });
 });

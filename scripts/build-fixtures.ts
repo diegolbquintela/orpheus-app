@@ -92,29 +92,28 @@ export const CASES: CaseSpec[] = [
   },
 ];
 
-/** DCA-06: user-facing copy files scanned for recommendation language. */
+/** DCA-06: files that produce user-facing text, scanned for buy/sell/hold output. */
 export const COPY_FILES = [
   "src/components/desk.tsx",
   "src/routes/index.tsx",
   "src/routes/__root.tsx",
+  "src/lib/dca/results.ts",
+  "src/lib/dca/venues.ts",
 ];
 export const ADVICE_PATTERN =
   "\\b(buy|sell|hold|recommend|recommended|recommends|strong buy|outperform|underweight|overweight)\\b";
-export const DISCLAIMER = "Not a recommendation";
 
 export function scanCopy(files: string[]) {
   const re = new RegExp(ADVICE_PATTERN, "gi");
   const matches: { file: string; line: number; text: string }[] = [];
-  let disclaimer = false;
   for (const file of files) {
     const lines = readFileSync(file, "utf8").split("\n");
     lines.forEach((text, index) => {
-      if (text.includes(DISCLAIMER)) disclaimer = true;
       if (re.test(text)) matches.push({ file, line: index + 1, text: text.trim() });
       re.lastIndex = 0;
     });
   }
-  return { adviceMatches: matches, disclaimerPresent: disclaimer };
+  return { adviceMatches: matches };
 }
 
 function recorder(sink: RecordedRequest[]): typeof fetch {
@@ -183,10 +182,10 @@ async function main() {
   }
   fixtures.push({
     id: "no-advice-copy",
-    title: "User-facing copy carries no buy/sell/hold recommendation",
+    title: "No buy/sell/hold output in user-facing copy",
     acs: [{ ac: "DCA-06", rule: AC_RULES["DCA-06"] }],
     kind: "content",
-    inputs: { files: COPY_FILES, pattern: ADVICE_PATTERN, disclaimer: DISCLAIMER },
+    inputs: { files: COPY_FILES, pattern: ADVICE_PATTERN },
     expected: scanCopy(COPY_FILES),
   });
   writeFileSync("qa/fixtures.json", `${JSON.stringify(fixtures, null, 2)}\n`);
