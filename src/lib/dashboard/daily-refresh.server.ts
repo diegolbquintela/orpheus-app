@@ -10,11 +10,14 @@
  *   never inside the browser request; until it finishes the holding shows "price pending".
  * - Callers: `GET /api/cron/daily-refresh` (Vercel Cron, `CRON_SECRET`) and the preview-only
  *   `POST /api/dashboard/refresh` button. Both run this same code.
- * - FX, fundamentals and metric values belong to later tickets (T06, T08+); this job doesn't touch them.
+ * - FX (T06 #14): after the closes, `refreshFx()` fills missing BoC / ECB-cross dates when the caller
+ *   passes an `FxFetcher` (the cron route and the preview button do). Fundamentals and metric values
+ *   belong to later tickets (T08+).
  */
 import type { DailyClose, DailyCloseProvider } from "./close-provider.ts";
 import { addDays, dateInZone } from "./close-provider.ts";
 import { BACKFILL_FROM } from "./yahoo-closes.server.ts";
+import { refreshFx, type FxFetcher, type FxSummary } from "./fx.server.ts";
 import type { Queryable } from "./store.server.ts";
 
 /** A run that has been "running" longer than this is treated as crashed and can be taken over. */
@@ -48,6 +51,7 @@ export type RefreshSummary =
       errors: { symbol: string; error: string }[];
       deferred: string[];
       latest: Record<string, string | null>;
+      fx?: FxSummary;
     };
 
 type Coverage = {
@@ -189,6 +193,8 @@ export type RunOptions = {
   now?: () => number;
   timeBudgetMs?: number;
   staleLockMs?: number;
+  /** FX source (T06). Omitted: the run stores closes only. */
+  fx?: FxFetcher;
 };
 
 /** The daily job. Safe to run any number of times; a concurrent second run gets `locked`. */
@@ -234,10 +240,12 @@ export async function runDailyRefresh(
       summary.latest[symbol] = r.latest;
       if (r.error) summary.errors.push({ symbol, error: r.error });
     }
+    if (options.fx) summary.fx = await refreshFx(db, options.fx, { today: runDate });
+    const fxFailed = Boolean(summary.fx?.errors.length);
     summary.status =
       summary.symbols > 0 && summary.errors.length === summary.symbols
         ? "failed"
-        : summary.errors.length || summary.deferred.length
+        : summary.errors.length || summary.deferred.length || fxFailed
           ? "partial"
           : "ok";
   } catch (err) {

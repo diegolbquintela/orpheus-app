@@ -329,6 +329,34 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `check:dashboard-built` covers the built routes; `--with-database` also runs the button and the cron
   route against live Yahoo (network needed).
 
+### Dashboard FX and base currency (T06 #14)
+
+- Code: `src/lib/dashboard/fx.server.ts` (Valet / ECB parsers, `createFxFetcher()`, `refreshFx()`,
+  `rateOnOrBefore()`, `convert()`, `valueHoldings()`), `fx-api.server.ts` + `src/routes/api/dashboard/fx.ts`
+  (`GET /api/dashboard/fx?date=`, `Allow: GET, HEAD`, usual 404/405/401 gate, 400 bad date, 503 no db).
+  `gate.ts` adds `baseCurrency` and `valuation` to the page data; `holdings.tsx` has the "Base currency"
+  select, the "Value (BASE)" column with an FX line per rate, and the total row.
+- Sources: BoC Valet `https://www.bankofcanada.ca/valet/observations/<series>/json?start_date=&end_date=`
+  (USD, EUR always; SEK, PLN only when held). ECB: `https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml`
+  (DKK, HUF, CZK only when held). The ECB data API (`data-api.ecb.europa.eu`) answered 502 on 2026-10-02,
+  so the eurofxref file is used; it only covers the last 90 days, which is enough because a cross is only
+  built for dates the BoC also published and the job runs daily.
+- Cross: `cad = FXEURCAD(d) / ECB_X(d)`, stored with `toPrecision(10)`, source `ECB_CROSS`; only for dates
+  both sources have (none for a BoC holiday; the lookup falls back to the previous day). BoC values are
+  stored verbatim (source `BOC`).
+- Fetch rules: `refreshFx()` runs at the end of `runDailyRefresh()` (cron and preview button) and in the
+  new-holding backfill. Per currency it asks from the day after the last stored date (first time: 30 days
+  back, or the oldest held close − 7 days), inserts `ON CONFLICT DO NOTHING`, never throws (errors make the
+  run `partial`; `fxInserted`/`fxErrors` in the summary). Page loads and `/api/dashboard/fx` only read.
+- Rate date: `rateOnOrBefore(quote, sessionDate)`; `fallback` = rate date ≠ session date, shown as
+  "(previous rate)". Unknown currencies or missing rates → `fx_pending`, left out of the total.
+- Tests: `src/lib/dashboard/fx.test.ts` (PGLite, offline) with the recorded responses in `test-fixtures/fx/`
+  (BoC Valet 2026-09-21..10-02 verbatim; ECB 90-day file trimmed to the same dates), checked against live
+  Valet/ECB on 2026-10-02. DASH-11 (stored = Valet; 2026-09-30 → 2026-09-29 rate; DKK/HUF/CZK cross),
+  idempotence, outage, job wiring, DASH-12 (CAD default, USD/EUR re-express every value and the total,
+  setting persists per user), `/api/dashboard/fx`. `check:dashboard-built --with-database` also checks the
+  select, `/api/dashboard/fx` and the CAD/EUR/USD totals against live BoC.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

@@ -5,7 +5,9 @@ import { trimDecimal } from "@/lib/dashboard/format";
  * Holdings table on /dashboard (T04 #12): add, edit (shares, average cost) and delete.
  * Talks to /api/dashboard/holdings; the server validates everything (US/EU/CA listings only,
  * shares > 0, average cost >= 0, one row per ticker). T05 (#13) adds each ticker's last stored close
- * and its session date, or "price pending" until the background job has fetched it. No values yet.
+ * and its session date, or "price pending" until the background job has fetched it. T06 (#14) adds the
+ * base-currency setting and each position (shares × last close) plus the total in that base currency,
+ * at the FX rate for the close's session date (the rate's date is shown when it's an earlier one).
  */
 
 export type HoldingView = {
@@ -22,9 +24,24 @@ export type PriceView = {
   pending: boolean;
 };
 
+export type BaseCurrency = "CAD" | "USD" | "EUR";
+const BASES: BaseCurrency[] = ["CAD", "USD", "EUR"];
+
+type RateUsed = { quote: string; cadPerUnit: string; rateDate: string; source: string };
+export type ValuationView = {
+  base: BaseCurrency;
+  rows: { symbol: string; value: number | null; rates: RateUsed[]; sessionDate: string | null; fallback: boolean; status: string }[];
+  total: number;
+  excluded: string[];
+} | null;
+
+const money = (n: number) => new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
 type Props = {
   holdings: HoldingView[];
   prices: Record<string, PriceView | undefined>;
+  baseCurrency: BaseCurrency;
+  valuation: ValuationView;
   storage: "ok" | "not_configured" | "signed_out";
   /** Re-run the page loader after a change. */
   onChanged: () => Promise<void> | void;
@@ -61,13 +78,37 @@ function LastClose({ price }: { price: PriceView | undefined }) {
   );
 }
 
+function PositionValue({ row, base }: { row: NonNullable<ValuationView>["rows"][number] | undefined; base: BaseCurrency }) {
+  if (!row || row.value === null)
+    return (
+      <span className="text-muted" data-testid="holding-value" data-status={row?.status ?? "price_pending"}>
+        {row?.status === "fx_pending" ? "FX pending" : "—"}
+      </span>
+    );
+  return (
+    <span data-testid="holding-value" data-status="ok" data-fx-fallback={row.fallback ? "true" : "false"}>
+      {money(row.value)} {base}
+      {row.rates.map((r) => (
+        <span key={r.quote} className="block text-xs text-muted" data-testid="holding-fx">
+          FX {r.quote} {r.cadPerUnit} · {r.rateDate}
+          {r.rateDate < (row.sessionDate ?? "") ? " (previous rate)" : ""}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Row({
   holding,
   price,
+  valued,
+  base,
   onChanged,
 }: {
   holding: HoldingView;
   price: PriceView | undefined;
+  valued: NonNullable<ValuationView>["rows"][number] | undefined;
+  base: BaseCurrency;
   onChanged: Props["onChanged"];
 }) {
   const [editing, setEditing] = useState(false);
@@ -129,6 +170,9 @@ function Row({
       <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
         <LastClose price={price} />
       </td>
+      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
+        <PositionValue row={valued} base={base} />
+      </td>
       <td className="py-3 text-right text-sm whitespace-nowrap">
         {editing ? (
           <>
@@ -169,7 +213,43 @@ function Row({
   );
 }
 
-export function HoldingsSection({ holdings, prices, storage, onChanged }: Props) {
+/** Base currency setting (T06): saved with PUT /api/dashboard/settings, then the page reloads its data. */
+export function BaseCurrencySetting({ value, onChanged }: { value: BaseCurrency; onChanged: Props["onChanged"] }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <label className="mt-6 flex flex-wrap items-center gap-3 text-sm" data-testid="base-currency">
+      <span className="kicker text-muted">Base currency</span>
+      <select
+        value={value}
+        disabled={busy}
+        data-testid="base-currency-select"
+        onChange={async (e) => {
+          setBusy(true);
+          setError(null);
+          const err = await send("/api/dashboard/settings", "PUT", { baseCurrency: e.target.value });
+          setBusy(false);
+          if (err) return setError(err);
+          await onChanged();
+        }}
+        className="field h-10 text-base"
+      >
+        {BASES.map((b) => (
+          <option key={b} value={b}>
+            {b}
+          </option>
+        ))}
+      </select>
+      {error ? (
+        <span className="text-xs text-red-700" role="alert">
+          {error}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+export function HoldingsSection({ holdings, prices, baseCurrency, valuation, storage, onChanged }: Props) {
   const [symbol, setSymbol] = useState("");
   const [shares, setShares] = useState("");
   const [avgCost, setAvgCost] = useState("");
@@ -202,8 +282,12 @@ export function HoldingsSection({ holdings, prices, storage, onChanged }: Props)
       <h2 className="text-xl">Holdings</h2>
       <p className="mt-2 max-w-xl text-xs text-muted">
         US, EU and CA listings only. Average cost is per share, in the listing&apos;s own currency. Last close is
-        the prior completed session&apos;s close, updated once a day.
+        the prior completed session&apos;s close, updated once a day. Values are in your base currency at the Bank
+        of Canada daily average rate for that close&apos;s session date (USD and EUR bases cross through CAD; DKK, HUF
+        and CZK use the ECB reference rate × the Bank of Canada euro rate). When there is no rate that day, the
+        previous one is used and its date is shown. These are daily averages, not 16:00 closes.
       </p>
+      <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
       <form className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" onSubmit={add} data-testid="holding-form">
         <label className="flex flex-col gap-2">
           <span className="kicker text-muted">Ticker</span>
@@ -250,14 +334,40 @@ export function HoldingsSection({ holdings, prices, storage, onChanged }: Props)
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Shares</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Average cost</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Last close</th>
+                <th className="kicker pb-2 pr-4 font-normal text-muted">Value ({baseCurrency})</th>
                 <th className="pb-2" />
               </tr>
             </thead>
             <tbody>
               {holdings.map((h) => (
-                <Row key={`${h.id}:${h.shares}:${h.avgCost}`} holding={h} price={prices[h.symbol]} onChanged={onChanged} />
+                <Row
+                  key={`${h.id}:${h.shares}:${h.avgCost}`}
+                  holding={h}
+                  price={prices[h.symbol]}
+                  valued={valuation?.rows.find((r) => r.symbol === h.symbol)}
+                  base={baseCurrency}
+                  onChanged={onChanged}
+                />
               ))}
             </tbody>
+            {valuation ? (
+              <tfoot>
+                <tr className="border-t-2 border-ink">
+                  <td className="py-3 pr-4 font-medium" colSpan={4}>
+                    Total
+                  </td>
+                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total" data-base={baseCurrency}>
+                    {money(valuation.total)} {baseCurrency}
+                    {valuation.excluded.length ? (
+                      <span className="block text-xs font-normal text-muted">
+                        Not included (price or FX pending): {valuation.excluded.join(", ")}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         </div>
       )}

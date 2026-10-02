@@ -426,6 +426,25 @@ or label implies good/bad.
   use the **same** current FX rate for value and cost, so the FX effect since purchase is not captured.
   (Decision D8: approved 2026-10-02.)
 
+### Implementation notes (T06, #14)
+
+- **ECB source:** the ECB data API (`data-api.ecb.europa.eu`) answered 502 when this was built
+  (2026-10-02), so the job reads the ECB's own reference-rate file
+  `https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml` (same rates, last 90 days).
+- **Cross only on shared dates:** DKK/HUF/CZK = `FXEURCAD(d) / ECB(d)` only when both published for `d`.
+  On a BoC holiday (2026-09-30: ECB published, BoC didn't) no cross is stored and the lookup uses the
+  previous day's, with its date shown, like USD/EUR.
+- **Storage:** BoC values stored verbatim (4 decimals as published); crosses with 10 significant digits.
+  One row per currency and date, never fetched again. First fetch covers 30 days back (or the oldest held
+  close − 7 days); then only dates after the last stored one. SEK/PLN/DKK/HUF/CZK only while held.
+- **Where it runs:** at the end of the daily job (cron, preview button) and in the new-holding backfill;
+  never in a page or API request. `GET /api/dashboard/fx?date=` reads stored rates (QA aid).
+- **UI for DASH-12:** the base-currency select, a "Value (base)" column (shares × last close converted,
+  with the rate and its date) and a total row were added so switching the base visibly re-expresses
+  every total. T07 adds cost, return, % of portfolio and the as-of header on top of this.
+- Fixtures (`test-fixtures/fx/`) were checked against live Valet and ECB on 2026-10-02; e.g. 2026-09-29
+  `FXUSDCAD` 1.4188, `FXEURCAD` 1.6084; ECB 2026-09-29 DKK 7.4754, HUF 366.38, CZK 24.411.
+
 ## 11. Daily refresh
 
 - **Mechanism:** one Vercel Cron Job calling `GET /api/cron/daily-refresh` on the production deployment.
