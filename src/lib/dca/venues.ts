@@ -98,3 +98,16 @@ export function listingError(
   }
   return `${ticker} lists on ${label}. US, EU, and CA listings only.`;
 }
+
+/** Region of a US, EU or CA listing (same sets as listingError()); null for anything else. */
+export function listingRegion(
+  exchangeName?: string | null,
+  fullExchangeName?: string | null,
+): "US" | "EU" | "CA" | null {
+  for (const code of [(exchangeName ?? "").trim(), (fullExchangeName ?? "").trim()]) {
+    if (US.has(code)) return "US";
+    if (CA.has(code)) return "CA";
+    if (EU.has(code)) return "EU";
+  }
+  return null;
+}

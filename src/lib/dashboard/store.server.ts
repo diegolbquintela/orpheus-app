@@ -27,7 +27,7 @@ export type IsoDate = string;
 export const BASE_CURRENCIES: readonly BaseCurrency[] = ["CAD", "USD", "EUR"];
 export const DEFAULT_BASE_CURRENCY: BaseCurrency = "CAD";
 
-/** Every table `0002_dashboard.sql` creates (used by the DB status check). */
+/** Every table `0002_dashboard.sql` and `0004_daily_close.sql` create (used by the DB status check). */
 export const DASHBOARD_TABLES = [
   "user_settings",
   "holdings",
@@ -38,6 +38,8 @@ export const DASHBOARD_TABLES = [
   "fundamentals_annual",
   "metric_values",
   "refresh_runs",
+  "corporate_actions",
+  "price_coverage",
 ] as const;
 
 // ------------------------------------------------------------------ per-user: settings

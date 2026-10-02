@@ -130,7 +130,8 @@ DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@exa
 - No email sender: no email verification and no password-reset email yet (spec §3).
 
 **Dashboard holdings (T04).** Signed in, `/dashboard` lists your holdings and lets you add, edit and
-delete them. No prices yet (those come with the daily close job and valuation tickets).
+delete them. Each row shows the ticker's last stored close and its session date, or "price pending"
+(T05, below). No values or totals yet (valuation tickets).
 - `GET /api/dashboard/holdings` lists yours; `POST` with `{symbol, shares, avgCost}` adds one (201).
   `GET`/`PUT`/`DELETE /api/dashboard/holdings/<id>` reads, edits (`{shares, avgCost}` only) or deletes one.
   Same gate as the other per-user APIs: 404 flag off, 405 wrong method (with `Allow`), 401 signed out,
@@ -142,6 +143,27 @@ delete them. No prices yet (those come with the daily close job and valuation ti
   anything outside US/EU/CA with the calculator's exact `listingError()` messages (e.g. "VOD.L lists on LSE. US, EU,
   and CA listings only." and "TCS.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."). Page
   loads never call a feed; nothing is written to the shared `instruments` table.
+- Deleting a user deletes their holdings (`holdings.user_id` → `"user"(id)` on delete cascade, migration 0004).
+
+**Dashboard daily closes (T05).** One job stores each held ticker's closes in Neon, once per ticker and
+session date, and never fetches or changes a stored close again (spec §6, §11, §14 Amendment A, D13).
+- Source: Yahoo, behind the `DailyCloseProvider` interface (`src/lib/dashboard/close-provider.ts`); it
+  reuses the calculator's chart code, so closes and dividends are raw (`rawBars()` / `rawDividends()`).
+  Splits and dividends go to `corporate_actions`; `price_coverage` records what is stored. The Alpha
+  Vantage fallback is a later ticket.
+- Completed sessions only: a bar dated today in the exchange's own time zone is stored only once that
+  session ended at least 30 minutes ago; a run during market hours stops at the prior session.
+- `GET /api/cron/daily-refresh`: Vercel Cron, `0 23 * * *` UTC (`vercel.json`). It needs
+  `Authorization: Bearer <CRON_SECRET>` (401 otherwise, also when `CRON_SECRET` isn't set; Vercel sends
+  the header itself). Like every dashboard API it is 404 while `DASHBOARD_ENABLED` is off, so on
+  production it does nothing until the release go.
+- Lock: one `refresh_runs` row per UTC date. A run already in progress makes a second one answer
+  `locked`; a finished day can run again and changes nothing (catch-up fills every missing session).
+- A new holding's history is fetched once in a background job after the save (Vercel `waitUntil()`),
+  never inside the browser request. Until then the row says "price pending".
+- Previews only (`VERCEL_ENV=preview`, flag on): a "Run daily refresh (preview only)" button on
+  `/dashboard` runs the same job server-side through `POST /api/dashboard/refresh` (signed in; counts
+  only in the response). It never needs `CRON_SECRET`; the route is 404 on production and locally.
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
@@ -159,7 +181,7 @@ delete them. No prices yet (those come with the daily close job and valuation ti
   On production builds (`VERCEL_ENV=production`) it skips unless `DASHBOARD_ENABLED=true` there too.
 - With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
   The app still builds, and the calculator never touches the database.
-- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 9/9 tables" when Neon is
+- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 11/11 tables" when Neon is
   wired up. `GET /api/dashboard/db` returns the same status as JSON; other methods get 405 JSON with
   `Allow: GET, HEAD`. Both are hidden on production (the API is 404 there).
 - After a week of previews, check Neon's usage page against the Free plan limits (spec §4).

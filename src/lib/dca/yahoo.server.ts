@@ -18,6 +18,11 @@ export type YahooPayload = {
         currency?: string;
         exchangeName?: string;
         fullExchangeName?: string;
+        // Read by the dashboard's daily close job (T05) only; the calculator ignores them.
+        exchangeTimezoneName?: string;
+        longName?: string;
+        shortName?: string;
+        currentTradingPeriod?: { regular?: { start?: number; end?: number } };
       };
       timestamp?: number[];
       indicators?: { quote?: Array<{ close?: Array<number | null> }> };
@@ -56,7 +61,8 @@ export async function pull(ticker: string, query: string): Promise<YahooPayload>
   return payload;
 }
 
-function toChart(ticker: string, payload: YahooPayload): ChartPayload | null {
+/** Raw bars, raw dividends and splits from one chart payload (also used by the dashboard's daily job). */
+export function toChart(ticker: string, payload: YahooPayload): ChartPayload | null {
   const result = payload.chart?.result?.[0];
   if (!result?.timestamp?.length) return null;
   const meta = result.meta ?? {};

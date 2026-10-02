@@ -36,6 +36,7 @@ const payloadFor = (symbol: string) =>
     ? { chart: { result: [{ meta: META[symbol] }], error: null } }
     : { chart: { result: null, error: { description: "No data found, symbol may be delisted" } } };
 const lookups: string[] = [];
+const backfills: string[] = [];
 const fakeLookup: ListingLookup = async (symbol) => {
   lookups.push(symbol);
   return listingFromPayload(symbol, payloadFor(symbol));
@@ -50,6 +51,9 @@ before(async () => {
     await pg.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
   }
   db = { query: async (text, params) => (await pg.query(text, params)).rows as never[] };
+  // holdings.user_id references "user"(id) since 0004.
+  for (const u of Object.values(USERS))
+    await pg.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $1, $2, false)`, [u.id, u.email]);
 });
 after(async () => {
   await pg.close();
@@ -65,6 +69,7 @@ const deps = (env: Record<string, string | undefined> = { DASHBOARD_ENABLED: "tr
   getUser: async (headers) => USERS[headers.get("x-test-session") ?? ""] ?? null,
   getDb: async () => db,
   lookupListing: fakeLookup,
+  scheduleBackfill: (_db, symbol) => backfills.push(symbol),
 });
 const req = (path: string, opts: { method?: string; as?: string; body?: unknown } = {}) =>
   new Request(`${ORIGIN}${path}`, {
@@ -157,6 +162,12 @@ describe("DASH-07: add, edit, delete", () => {
     assert.equal(trimDecimal(body.holding.shares), "10.5");
     assert.equal(trimDecimal(body.holding.avgCost), "52.25");
     assert.deepEqual(body.listing, { exchange: "NYSE", currency: "USD" });
+    // T05: the save only records the symbol as pending and hands the fetch to a background job.
+    assert.equal((body as unknown as { price: string }).price, "pending");
+    assert.ok(backfills.includes("KO"));
+    assert.deepEqual((await pg.query("SELECT symbol, last_session_date FROM price_coverage WHERE symbol = 'KO'")).rows, [
+      { symbol: "KO", last_session_date: null },
+    ]);
     koId = body.holding.id;
     assert.equal((await add({ symbol: "RY.TO", shares: 3, avgCost: 0 })).status, 201, "average cost 0 is allowed");
     assert.deepEqual(await symbols(), ["KO", "RY.TO"]);
@@ -219,6 +230,7 @@ describe("DASH-07: add, edit, delete", () => {
   });
 
   it(`caps a user at ${MAX_HOLDINGS} holdings`, async () => {
+    await pg.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('user-cap', 'cap', 'cap@example.com', false)`);
     for (let i = 0; i < MAX_HOLDINGS; i += 1)
       await pg.query("INSERT INTO holdings (user_id, symbol, shares, avg_cost) VALUES ('user-cap', $1, 1, 1)", [`C${i}`]);
     USERS.cap = { id: "user-cap", email: "cap@example.com" };
