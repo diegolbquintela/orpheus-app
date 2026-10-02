@@ -11,7 +11,8 @@ affects the repo.
 
 - The harness (this `AGENTS.md`), the spec docs (`attachments/dca-app-spec.md` for the calculator;
   `attachments/dashboard-spec.md` for the signed-in dashboard, **approved by Diego 2026-10-02 for
-  decisions D1–D7, D10, D11**; D8, D9, D12 and Amendment A (daily-close source) are still pending) and `README.md` are the source of truth for this
+  all decisions D1–D13**: D8, D9 and D12 were approved as recommended, and Amendment A
+  (section 14) is decided as D13: $0, Yahoo primary, Neon cache, Alpha Vantage free fallback) and `README.md` are the source of truth for this
   app.
 - Every feature PR updates `README.md`, the relevant spec and this harness **in the same PR**, or says
   in the PR body, for each of the three, why it did not change.
@@ -60,7 +61,7 @@ A new test file is only run if it is added to the `test` script in `package.json
 
 ## Feature flags: feature work lands behind a flag until a release go
 
-*Active since 2026-10-02, when the dashboard spec was approved. The rule does not depend on the pending D8, D9 or D12.*
+*Active since 2026-10-02, when the dashboard spec was approved.*
 
 - New user-facing features merge to `main` **behind a flag** and stay hidden on production until Diego
   gives a release go. Each ticket still gets its own PR, preview and QA pass.
@@ -83,11 +84,16 @@ A new test file is only run if it is added to the `test` script in `package.json
   `BETTER_AUTH_SECRET`. Never commit their values, never create a `.env` file in the repo, never paste
   values into chat, PR bodies, logs or the vault. (`.grok/app-env.json` holds only the non-secret local
   default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The approved dashboard
-  spec adds more Vercel-only variables as its tickets land: `DASHBOARD_ENABLED` (Preview only, set
-  2026-10-02), then the Neon integration's database URLs (`orpheus_app_preview_DATABASE_URL` and friends, Preview +
-  Development, set 2026-10-02), `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC
-  contact for the User-Agent, and a sign-up email allow-list if D12 is approved (none of these exist yet).
-  Each is added by an owner when its ticket lands.
+  spec adds more Vercel-only variables as its tickets land. Variables that exist now (names only,
+  never values):
+  - `DASHBOARD_ENABLED`: a plain variable set on **Preview only**, not Production (since 2026-10-02).
+  - The Neon integration's `orpheus_app_preview_*` variables, e.g. `orpheus_app_preview_DATABASE_URL` and
+    `orpheus_app_preview_DATABASE_URL_UNPOOLED`: set on **Preview and Development**, none in Production.
+
+  Still to come, each added by an owner when its ticket lands: `BETTER_AUTH_URL`, `CRON_SECRET`, an SEC
+  contact for the User-Agent, the sign-up email allow-list (D12, approved), and an Alpha Vantage free key
+  for the daily-close fallback (D13). Nobody claims the Alpha Vantage key until the fallback ticket starts
+  and Diego OKs it, asked through the Chief of Staff.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
   The DCA-06 check in `src/lib/dca/fixtures.test.ts` scans user-facing copy for it.
@@ -168,10 +174,21 @@ curl -s  http://localhost:8080/api/dashboard/status
 - Env vars, resolved in `scripts/db-env.mjs` (tests in `scripts/db-env.test.mjs`):
   - App (pooled): **`DATABASE_URL`**, else **`orpheus_app_preview_DATABASE_URL`**. The prefixed names come
     from the Vercel Neon integration (database `neon-almond-lever`), scoped to Preview and Development
-    only; Production has none. Neon preview branching is on, so a preview deploy may get its own branch.
+    only; Production has none. Neon preview branching is **on** (Engineering Lead decision 2026-10-02), so
+    a preview deploy may get its own branch. The dashboard code doesn't depend on that: it reads whatever
+    URL is injected, and migrations are idempotent and tracked by name. It works the same against one
+    shared preview branch or a fresh branch per deploy.
+  - **Branch cap (owner / Engineering Lead action; bots never do this):** Neon Free caps a project at 10
+    branches. A preview branch is deleted only when its Vercel deployment is deleted. To prune, delete old
+    preview deployments in Vercel, or delete stale preview branches in the Neon console or integration.
   - Migrations (direct): `DATABASE_URL_UNPOOLED` (else `DATABASE_URL`), else
     `orpheus_app_preview_DATABASE_URL_UNPOOLED` (else `orpheus_app_preview_DATABASE_URL`).
   - Neither pooled name set means storage is unavailable ("not configured"). Blank counts as unset.
+- **Migration guard:** `scripts/migrate.mjs` exits 0 without connecting when `VERCEL_ENV=production` and
+  `DASHBOARD_ENABLED` isn't exactly `true`. It logs `[migrate] skipped: VERCEL_ENV=production and dashboard
+  flag off` (no values). The dashboard schema stays out of the production database until the release go.
+  The decision function is `migrationSkipReason()` in `scripts/db-env.mjs`; tests are in
+  `scripts/db-env.test.mjs`, including a script-level run.
   - Set by an owner, never by a bot. Never commit, paste or log a value; `migrate.mjs` logs only the name
     and redacts URLs from errors.
 - Schema: `migrations/0002_dashboard.sql` (spec §5). Never edit a shipped migration; add `0003_*.sql`.
