@@ -175,6 +175,15 @@ export default defineConfig(({ command, isPreview }) => ({
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
+            // Keep the app out of search engines: X-Robots-Tag on every response
+            // (pairs with the robots meta tag in src/routes/__root.tsx). Prepended to
+            // .vercel/output/config.json routes; `continue` lets routing go on to
+            // the filesystem and the server function.
+            vercel: {
+              config: {
+                routes: [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex, nofollow" }, continue: true }],
+              },
+            },
           }),
         ]
       : []),
