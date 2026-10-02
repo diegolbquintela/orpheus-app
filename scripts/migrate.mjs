@@ -11,6 +11,9 @@
  * The read is non-recursive, so the opt-in auth schema under migrations/auth/
  * is not applied to an app that never asked for sign-in.
  *
+ * Production build (VERCEL_ENV=production) without DASHBOARD_ENABLED=true -> skip, so the
+ * dashboard schema stays out of production until the release go.
+ *
  * No database configured -> skip; the PGLite fallback applies
  * the same files at startup instead (see src/lib/db.ts).
  */
@@ -19,15 +22,19 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
-import { redactUrls, resolveMigrationUrl } from "./db-env.mjs";
+import { migrationSkipReason, redactUrls, resolveMigrationUrl } from "./db-env.mjs";
 
-const target = resolveMigrationUrl(process.env);
-if (!target) {
+const skip = migrationSkipReason(process.env);
+if (skip) {
+  // Reason text names variables and states only; never values.
   console.log(
-    "[migrate] no database URL set — skipping (the PGLite fallback migrates itself).",
+    skip === "no database URL set"
+      ? "[migrate] skipped: no database URL set (the PGLite fallback migrates itself)."
+      : `[migrate] skipped: ${skip}`,
   );
   process.exit(0);
 }
+const target = /** @type {{ url: string, name: string }} */ (resolveMigrationUrl(process.env));
 const databaseUrl = target.url;
 // Log the env var NAME only, never its value.
 console.log(`[migrate] using ${target.name}`);

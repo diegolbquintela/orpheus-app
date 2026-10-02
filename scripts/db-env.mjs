@@ -65,3 +65,19 @@ export function resolveMigrationUrl(env) {
 export function redactUrls(text) {
   return String(text).replace(/postgres(?:ql)?:\/\/\S+/gi, "[redacted-url]");
 }
+
+/**
+ * Why `scripts/migrate.mjs` must not run, or null when it may. Values are never included.
+ * - No database URL: nothing to migrate.
+ * - Production build (`VERCEL_ENV=production`) with the dashboard flag not exactly "true":
+ *   the dashboard schema stays out of the production database until the release go, even if
+ *   a database URL is ever set there.
+ * @param {Record<string, string | undefined>} env
+ * @returns {string | null}
+ */
+export function migrationSkipReason(env) {
+  if (!resolveMigrationUrl(env)) return "no database URL set";
+  if (env.VERCEL_ENV === "production" && env.DASHBOARD_ENABLED !== "true")
+    return "VERCEL_ENV=production and dashboard flag off";
+  return null;
+}

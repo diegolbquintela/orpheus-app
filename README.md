@@ -123,6 +123,7 @@ DASHBOARD_ENABLED=true npm run dev     # then open http://localhost:8080/dashboa
 - `npm run build` applies pending migrations when a database URL is set. It logs which env var name it used
   (never the value), then `applied 0002_dashboard.sql`
   once, then `up to date` on later deploys.
+  On production builds (`VERCEL_ENV=production`) it skips unless `DASHBOARD_ENABLED=true` there too.
 - With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
   The app still builds, and the calculator never touches the database.
 - On previews (flag on), `/dashboard` shows a status line, "Database: connected · 9/9 tables" when Neon is

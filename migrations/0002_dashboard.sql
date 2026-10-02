@@ -1,8 +1,11 @@
 -- Dashboard schema (attachments/dashboard-spec.md §5, ticket T02 / #10).
 --
--- Applied by `scripts/migrate.mjs` during `npm run build` when DATABASE_URL is set (Neon), and by the
--- local PGLite fallback in `npm run dev`. Recorded by name in `_migrations`; never edit after it ships,
--- add a new numbered file instead.
+-- Applied by `scripts/migrate.mjs` during `npm run build` when a database URL is set (resolver in
+-- scripts/db-env.mjs: DATABASE_URL_UNPOOLED / DATABASE_URL, else the Neon integration's
+-- orpheus_app_preview_DATABASE_URL_UNPOOLED / orpheus_app_preview_DATABASE_URL), and skipped on
+-- production builds unless DASHBOARD_ENABLED=true there. The local PGLite fallback in `npm run dev` also
+-- applies it. Recorded by name in `_migrations` and idempotent (IF NOT EXISTS), so it is safe on a shared
+-- preview branch or a fresh per-preview Neon branch. Never edit after it ships; add a new numbered file.
 --
 -- Per-user tables carry `user_id TEXT NOT NULL` (Better Auth ids are text). Every query is scoped to
 -- the verified session user on the server; a client-supplied user id is never trusted.
