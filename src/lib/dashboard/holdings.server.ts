@@ -12,7 +12,9 @@
  * `listingError()` and its exact messages. The ticker of an existing holding can't be edited
  * (delete and add it again), so the check runs only on POST.
  */
+import { waitUntil } from "@vercel/functions";
 import { TICKER } from "../dca/yahoo.server.ts";
+import { ensureCoverage } from "./daily-refresh.server.ts";
 import { yahooListingLookup, type ListingLookup } from "./listing.server.ts";
 import {
   badRequest,
@@ -40,7 +42,31 @@ export const HOLDING_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
 /** Per-user cap, so one account can't grow the table without bound. */
 export const MAX_HOLDINGS = 200;
 
-export type HoldingsDeps = DashboardApiDeps & { lookupListing?: ListingLookup };
+export type HoldingsDeps = DashboardApiDeps & {
+  lookupListing?: ListingLookup;
+  /** Starts the new-holding price backfill after the response (T05). Default: Vercel `waitUntil()`. */
+  scheduleBackfill?: (db: Queryable, symbol: string) => void;
+};
+
+/**
+ * Default new-holding backfill (T05 #13, spec §11 / A.3 flow 1): runs the daily job's per-symbol fetch
+ * in the background via `waitUntil()`, after the response, never inside the browser request. Without
+ * a Vercel request context (local dev) the promise just runs on. If it never finishes, the next daily
+ * run or the preview button picks the symbol up (its price_coverage row has no last_session_date).
+ */
+export function scheduleBackfillInBackground(db: Queryable, symbol: string): void {
+  const job = (async () => {
+    const { backfillSymbol } = await import("./daily-refresh.server.ts");
+    const { createYahooCloseProvider } = await import("./yahoo-closes.server.ts");
+    const r = await backfillSymbol(db, createYahooCloseProvider(), symbol);
+    if (r?.error) console.error(`[backfill] ${symbol}: ${r.error}`);
+  })().catch(() => console.error(`[backfill] ${symbol} failed`));
+  try {
+    waitUntil(job);
+  } catch {
+    // No request context: the job keeps running on its own.
+  }
+}
 
 type Field = "symbol" | "shares" | "avgCost";
 type Invalid = { field: Field; error: string };
@@ -126,7 +152,13 @@ export async function handleHoldingsRequest(request: Request, deps: HoldingsDeps
 
   try {
     const holding = await addHolding(db, user.id, { symbol, shares, avgCost });
-    return json({ holding, listing: { exchange: listing.exchange, currency: listing.currency } }, 201);
+    // T05: record the symbol as pending and fetch its closes in the background ("price pending").
+    await ensureCoverage(db, symbol);
+    (deps.scheduleBackfill ?? scheduleBackfillInBackground)(db, symbol);
+    return json(
+      { holding, listing: { exchange: listing.exchange, currency: listing.currency }, price: "pending" },
+      201,
+    );
   } catch (err) {
     if (err instanceof DuplicateHoldingError) return json({ error: err.message, field: "symbol" }, 409);
     throw err;

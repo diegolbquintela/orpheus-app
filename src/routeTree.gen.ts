@@ -14,10 +14,12 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronDailyRefreshRouteImport } from './routes/api/cron/daily-refresh'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
 import { Route as ApiDashboardDbRouteImport } from './routes/api/dashboard/db'
 import { Route as ApiDashboardHoldingsRouteImport } from './routes/api/dashboard/holdings'
 import { Route as ApiDashboardMeRouteImport } from './routes/api/dashboard/me'
+import { Route as ApiDashboardRefreshRouteImport } from './routes/api/dashboard/refresh'
 import { Route as ApiDashboardSettingsRouteImport } from './routes/api/dashboard/settings'
 import { Route as ApiDashboardStatusRouteImport } from './routes/api/dashboard/status'
 import { Route as ApiDashboardHoldingsIdRouteImport } from './routes/api/dashboard/holdings_.$id'
@@ -47,6 +49,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronDailyRefreshRoute = ApiCronDailyRefreshRouteImport.update({
+  id: '/api/cron/daily-refresh',
+  path: '/api/cron/daily-refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDashboardSplatRoute = ApiDashboardSplatRouteImport.update({
   id: '/api/dashboard/$',
   path: '/api/dashboard/$',
@@ -65,6 +72,11 @@ const ApiDashboardHoldingsRoute = ApiDashboardHoldingsRouteImport.update({
 const ApiDashboardMeRoute = ApiDashboardMeRouteImport.update({
   id: '/api/dashboard/me',
   path: '/api/dashboard/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDashboardRefreshRoute = ApiDashboardRefreshRouteImport.update({
+  id: '/api/dashboard/refresh',
+  path: '/api/dashboard/refresh',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDashboardSettingsRoute = ApiDashboardSettingsRouteImport.update({
@@ -89,10 +101,12 @@ export interface FileRoutesByFullPath {
   '/api/chart': typeof ApiChartRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
   '/api/dashboard/me': typeof ApiDashboardMeRoute
+  '/api/dashboard/refresh': typeof ApiDashboardRefreshRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
@@ -103,10 +117,12 @@ export interface FileRoutesByTo {
   '/api/chart': typeof ApiChartRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
   '/api/dashboard/me': typeof ApiDashboardMeRoute
+  '/api/dashboard/refresh': typeof ApiDashboardRefreshRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
@@ -118,10 +134,12 @@ export interface FileRoutesById {
   '/api/chart': typeof ApiChartRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
   '/api/dashboard/me': typeof ApiDashboardMeRoute
+  '/api/dashboard/refresh': typeof ApiDashboardRefreshRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
   '/api/dashboard/holdings_/$id': typeof ApiDashboardHoldingsIdRoute
@@ -134,10 +152,12 @@ export interface FileRouteTypes {
     | '/api/chart'
     | '/dashboard/sign-in'
     | '/api/auth/$'
+    | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
     | '/api/dashboard/db'
     | '/api/dashboard/holdings'
     | '/api/dashboard/me'
+    | '/api/dashboard/refresh'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
     | '/api/dashboard/holdings/$id'
@@ -148,10 +168,12 @@ export interface FileRouteTypes {
     | '/api/chart'
     | '/dashboard/sign-in'
     | '/api/auth/$'
+    | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
     | '/api/dashboard/db'
     | '/api/dashboard/holdings'
     | '/api/dashboard/me'
+    | '/api/dashboard/refresh'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
     | '/api/dashboard/holdings/$id'
@@ -162,10 +184,12 @@ export interface FileRouteTypes {
     | '/api/chart'
     | '/dashboard_/sign-in'
     | '/api/auth/$'
+    | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
     | '/api/dashboard/db'
     | '/api/dashboard/holdings'
     | '/api/dashboard/me'
+    | '/api/dashboard/refresh'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
     | '/api/dashboard/holdings_/$id'
@@ -177,10 +201,12 @@ export interface RootRouteChildren {
   ApiChartRoute: typeof ApiChartRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronDailyRefreshRoute: typeof ApiCronDailyRefreshRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
   ApiDashboardDbRoute: typeof ApiDashboardDbRoute
   ApiDashboardHoldingsRoute: typeof ApiDashboardHoldingsRoute
   ApiDashboardMeRoute: typeof ApiDashboardMeRoute
+  ApiDashboardRefreshRoute: typeof ApiDashboardRefreshRoute
   ApiDashboardSettingsRoute: typeof ApiDashboardSettingsRoute
   ApiDashboardStatusRoute: typeof ApiDashboardStatusRoute
   ApiDashboardHoldingsIdRoute: typeof ApiDashboardHoldingsIdRoute
@@ -223,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/daily-refresh': {
+      id: '/api/cron/daily-refresh'
+      path: '/api/cron/daily-refresh'
+      fullPath: '/api/cron/daily-refresh'
+      preLoaderRoute: typeof ApiCronDailyRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dashboard/$': {
       id: '/api/dashboard/$'
       path: '/api/dashboard/$'
@@ -249,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/api/dashboard/me'
       fullPath: '/api/dashboard/me'
       preLoaderRoute: typeof ApiDashboardMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dashboard/refresh': {
+      id: '/api/dashboard/refresh'
+      path: '/api/dashboard/refresh'
+      fullPath: '/api/dashboard/refresh'
+      preLoaderRoute: typeof ApiDashboardRefreshRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/dashboard/settings': {
@@ -281,10 +321,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChartRoute: ApiChartRoute,
   DashboardSignInRoute: DashboardSignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronDailyRefreshRoute: ApiCronDailyRefreshRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
   ApiDashboardDbRoute: ApiDashboardDbRoute,
   ApiDashboardHoldingsRoute: ApiDashboardHoldingsRoute,
   ApiDashboardMeRoute: ApiDashboardMeRoute,
+  ApiDashboardRefreshRoute: ApiDashboardRefreshRoute,
   ApiDashboardSettingsRoute: ApiDashboardSettingsRoute,
   ApiDashboardStatusRoute: ApiDashboardStatusRoute,
   ApiDashboardHoldingsIdRoute: ApiDashboardHoldingsIdRoute,

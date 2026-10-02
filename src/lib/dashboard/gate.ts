@@ -37,19 +37,32 @@ export const getDashboardViewer = createServerFn({ method: "GET" }).handler(asyn
 });
 
 /**
- * The signed-in user's holdings for `/dashboard` (T04 #12). 404 while the flag is off. Signed out:
- * `{ holdings: [], storage: "signed_out" }` (the page redirects first anyway). No database:
- * `storage: "not_configured"`. Reads the database only; never calls a price feed.
+ * The signed-in user's holdings for `/dashboard` (T04 #12), with each symbol's latest stored close or
+ * "price pending" (T05 #13). 404 while the flag is off. Signed out: `{ holdings: [], storage:
+ * "signed_out" }` (the page redirects first anyway). No database: `storage: "not_configured"`.
+ * Reads the database only; never calls a price feed, so a reload can't change a price (DASH-14).
+ * `previewRefresh` is true only on Vercel previews (VERCEL_ENV=preview), never on production.
  */
 export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(async () => {
   if (!dashboardEnabledFromEnv()) throw notFound();
   const { getRequest } = await import("@tanstack/react-start/server");
   const { sessionFromRequestHeaders } = await import("./session.server");
+  const { previewRefreshAvailable } = await import("./refresh-api.server");
+  const previewRefresh = previewRefreshAvailable();
+  const empty = { holdings: [], prices: {}, previewRefresh, lastRun: null };
   const user = await sessionFromRequestHeaders(getRequest().headers);
-  if (!user) return { holdings: [], storage: "signed_out" as const };
+  if (!user) return { ...empty, storage: "signed_out" as const };
   const { getDashboardDb } = await import("./db.server");
   const db = await getDashboardDb();
-  if (!db) return { holdings: [], storage: "not_configured" as const };
+  if (!db) return { ...empty, storage: "not_configured" as const };
   const { listHoldings } = await import("./store.server");
-  return { holdings: await listHoldings(db, user.id), storage: "ok" as const };
+  const { lastRun, priceViews } = await import("./daily-refresh.server");
+  const holdings = await listHoldings(db, user.id);
+  return {
+    holdings,
+    prices: await priceViews(db, holdings.map((h) => h.symbol)),
+    previewRefresh,
+    lastRun: previewRefresh ? await lastRun(db) : null,
+    storage: "ok" as const,
+  };
 });

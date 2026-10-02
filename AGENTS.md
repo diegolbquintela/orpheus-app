@@ -103,7 +103,8 @@ These rules exist so no ticket gets missed.
     **Preview** (Production at the release go). Emails are personal data: never paste the value anywhere.
 
   Still to come, each added by an owner when its ticket lands: `BETTER_AUTH_URL` (Production only, at the
-  release go; previews derive their origin), `CRON_SECRET`, an SEC contact for the User-Agent, and an Alpha
+  release go; previews derive their origin), `CRON_SECRET` on Production at the release go (T05, #13: set on
+  Preview 2026-10-02 as a sensitive variable; bots never read, print or ask for it), an SEC contact for the User-Agent, and an Alpha
   Vantage free key for the daily-close fallback (D13). Nobody claims the Alpha Vantage key until the fallback ticket starts
   and Diego OKs it, asked through the Chief of Staff.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
@@ -221,7 +222,7 @@ curl -s  http://localhost:8080/api/dashboard/status
 
 ```bash
 DATABASE_URL=postgresql://user:pass@localhost:5432/db node scripts/migrate.mjs   # "applied 0002_dashboard.sql", then "up to date"
-DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 9/9 tables"
+DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 11/11 tables"
 curl -s http://localhost:8080/api/dashboard/db          # JSON status; 404 when the flag is off or VERCEL_ENV=production
 curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, Allow: GET, HEAD (flag on)
 ```
@@ -263,7 +264,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   runs the signed-in flow too (sign-up denied/allowed, `/dashboard`, isolation, sign-out).
 - Test accounts on a preview: use clearly fake addresses on the allow-list. Bots can't delete users
   (no admin endpoint, no bot database access); an owner removes them in the Neon console
-  (`DELETE FROM "user" WHERE email = ...` cascades to sessions, accounts and `user_settings`).
+  (`DELETE FROM "user" WHERE email = ...` cascades to sessions, accounts, `user_settings` and, since 0004, `holdings`).
 
 ### Dashboard holdings (T04 #12)
 
@@ -288,8 +289,45 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   userId), DASH-08 exact messages incl. BSE. `check:dashboard-built` checks holdings 404/405/401 without
   a database; `--with-database` adds the signed-in CRUD run and **needs network** (it adds `KO` and
   checks `VOD.L`/`TCS.BO` against live Yahoo).
-- `holdings.user_id` has no FK to `"user"` (spec §5 lists none), so deleting a test user doesn't remove
-  their holdings: an owner also runs `DELETE FROM holdings WHERE user_id = ...` in the Neon console.
+- `holdings.user_id` → `"user"(id)` on delete cascade (migration `0004_daily_close.sql`, T05), so deleting
+  a test user removes their holdings too. 0004 first deletes holdings whose user no longer exists.
+
+### Dashboard daily closes (T05 #13)
+
+- Code: `src/lib/dashboard/close-provider.ts` (the `DailyCloseProvider` interface from spec A.4, plus an
+  optional `getListing()`), `yahoo-closes.server.ts` (Yahoo implementation: reuses `pull()` and `toChart()`
+  from `src/lib/dca/yahoo.server.ts`, so `rawBars()`/`rawDividends()` apply), `daily-refresh.server.ts`
+  (the job, the lock, the new-holding backfill, `priceViews()` for the page), `refresh-api.server.ts`
+  (cron and preview-button handlers). Routes: `src/routes/api/cron/daily-refresh.ts`,
+  `src/routes/api/dashboard/refresh.ts`. Schema: `migrations/0004_daily_close.sql` (A.3 deltas:
+  `instruments.mic`/`provider_ids`, `daily_closes.adj_close_src`, `corporate_actions`, `price_coverage`;
+  plus the holdings FK). `vercel.json` has the cron (`0 23 * * *` UTC).
+- **Nothing else calls a price feed for the dashboard.** Pages read Postgres only (DASH-14). Only the
+  cron route, the preview button and the new-holding backfill (`waitUntil()` from `@vercel/functions`)
+  call the provider. The T04 listing check on `POST /api/dashboard/holdings` still makes its one
+  metadata request; it isn't a price and stores nothing.
+- Cron route order: flag off 404 → non-GET 405 (`Allow: GET`) → `Authorization: Bearer <CRON_SECRET>`
+  compared in constant time, else **401** (also when `CRON_SECRET` is unset; the log says it's unset,
+  never a value) → no database 503 → run summary. On production the flag is off, so the cron call gets
+  404 until the release go. `/api/dashboard/status` shows `cronSecret: set|empty` off production.
+- Preview button: `POST /api/dashboard/refresh`, 404 unless flag on **and** `VERCEL_ENV=preview`
+  (production and local dev never have it), 405, 401 signed out. It calls the job directly, so
+  CRON_SECRET never reaches the browser. Its response is counts only (no other users' tickers).
+- Job rules: lock = upsert on `refresh_runs.run_date` (UTC date) that only succeeds when no run for that
+  date is `running` (a run stuck > 10 min is taken over). Per held symbol: fetch from the day after
+  `price_coverage.last_session_date` (from 2000-01-01 on a backfill), insert `ON CONFLICT DO NOTHING`,
+  refuse a currency that differs from `instruments`, refresh `corporate_actions` weekly, record errors in
+  `price_coverage.last_error` and carry on. Budget: 30 requests/min, 500 per run, 240 s per run; the rest
+  waits for the next run. Closes are rounded to 4 decimals (Yahoo float noise).
+- Completed sessions only: bars after today (exchange zone) are dropped; today's bar is kept only 30 min
+  after `currentTradingPeriod.regular.end`.
+- Tests: `src/lib/dashboard/daily-close.test.ts` (PGLite, recorded-shape Yahoo payloads, offline): open
+  vs closed market, raw closes across a split, unadjusted dividends, non-US/EU/CA refusal, DASH-09 (latest
+  close per symbol, second run changes nothing and makes no request), catch-up of missed sessions, the
+  lock, DASH-14 (a revised feed never changes a stored close), per-symbol errors, currency guard, backfill
+  once, cron 401/404/405/200, preview button visibility and 404/405/401, the holdings cascade, vercel.json.
+  `check:dashboard-built` covers the built routes; `--with-database` also runs the button and the cron
+  route against live Yahoo (network needed).
 
 ## Repo leftovers from the Grok template
 

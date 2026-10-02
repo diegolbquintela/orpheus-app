@@ -1,7 +1,7 @@
 // Offline tests for migrations/0002_dashboard.sql and the dashboard data access layer.
 // Runs against PGLite (Postgres compiled to WASM, already a dependency): no network, no Neon.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { after, before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -13,6 +13,7 @@ import {
   showDbStatusLine,
 } from "./db.server.ts";
 import * as store from "./store.server.ts";
+import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 
 const MIGRATION = readFileSync("migrations/0002_dashboard.sql", "utf8");
 // Same result parsers as src/lib/db.ts: int8 -> number, date -> 'YYYY-MM-DD'.
@@ -24,8 +25,14 @@ before(async () => {
   pg = new PGlite({ parsers: { 20: Number, 1082: identity } });
   await pg.waitReady;
   await pg.exec("CREATE TABLE _migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())");
-  await pg.exec(MIGRATION);
-  await pg.query("INSERT INTO _migrations (name) VALUES ('0002_dashboard.sql')");
+  // Every migration in order (0001 auth, 0002 dashboard, 0003 and 0004 add the FKs to "user").
+  for (const { name } of pendingMigrations(readdirSync("migrations"), [])) {
+    await pg.exec(readFileSync(`migrations/${name}`, "utf8"));
+    await pg.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
+  }
+  // holdings and user_settings reference "user"(id) (0003, 0004).
+  for (const id of ["alice", "bob", "u", "c1"])
+    await pg.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ($1, $1, $1 || '@example.com', false)`, [id]);
   db = { query: async (text, params) => (await pg.query(text, params)).rows as never[] };
 });
 after(async () => {
@@ -40,12 +47,12 @@ describe("0002_dashboard.sql", () => {
     const status = await checkDashboardDb(db);
     assert.deepEqual(status, {
       state: "connected",
-      tables: 9,
-      expectedTables: 9,
+      tables: 11,
+      expectedTables: 11,
       missingTables: [],
       migrationApplied: true,
     });
-    assert.equal(describeDbStatus(status), "Database: connected · 9/9 tables");
+    assert.equal(describeDbStatus(status), "Database: connected · 11/11 tables");
     await pg.exec(MIGRATION); // IF NOT EXISTS everywhere
   });
 
@@ -217,7 +224,7 @@ describe("storage availability (no database URL = unavailable)", () => {
     const status = await checkDashboardDb({ query: async (t, p) => (await empty.query(t, p)).rows as never[] });
     await empty.close();
     assert.equal(status.state, "connected");
-    assert.match(describeDbStatus(status), /0\/9 tables, schema incomplete/);
+    assert.match(describeDbStatus(status), /0\/11 tables, schema incomplete/);
   });
 
   it("the status line never shows on production", () => {
@@ -255,7 +262,7 @@ describe("/api/dashboard/db handler", () => {
     assert.equal(notConfigured.status, 200);
     assert.deepEqual(await notConfigured.json(), { state: "not_configured" });
     const connected = await handleDbApi("GET", on, async () => db);
-    assert.equal(((await connected.json()) as { state: string; tables: number }).tables, 9);
+    assert.equal(((await connected.json()) as { state: string; tables: number }).tables, 11);
     for (const method of OTHER) {
       const res = await handleDbApi(method, on, noDb);
       assert.equal(res.status, 405, method);

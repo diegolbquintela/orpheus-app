@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { HoldingsSection } from "@/components/dashboard/holdings";
+import { HoldingsSection, PreviewRefresh } from "@/components/dashboard/holdings";
 import {
   ensureDashboardEnabled,
   getDashboardDbStatusLine,
@@ -67,7 +67,7 @@ function SignOutButton() {
 }
 
 function DashboardShell() {
-  const { dbStatus, email, holdings, storage } = Route.useLoaderData();
+  const { dbStatus, email, holdings, prices, previewRefresh, lastRun, storage } = Route.useLoaderData();
   const router = useRouter();
   return (
     <div className="min-h-screen bg-paper">
@@ -85,7 +85,10 @@ function DashboardShell() {
         <p className="mt-2 text-sm text-muted" data-testid="dashboard-user">
           Signed in as {email ?? "your account"}
         </p>
-        <HoldingsSection holdings={holdings} storage={storage} onChanged={() => router.invalidate()} />
+        <HoldingsSection holdings={holdings} prices={prices} storage={storage} onChanged={() => router.invalidate()} />
+        {previewRefresh && storage === "ok" ? (
+          <PreviewRefresh lastRun={lastRun} onChanged={() => router.invalidate()} />
+        ) : null}
         {dbStatus ? (
           <p className="mt-8 text-xs text-muted" data-testid="dashboard-db-status">
             {dbStatus}

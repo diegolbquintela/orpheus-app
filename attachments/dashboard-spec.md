@@ -240,6 +240,9 @@ Implementation notes (T04, #12):
   call. Cap: 200 holdings per user.
 - Isolation: another user's holding id answers 404 "Holding not found." (not 403, so ids don't leak); a
   request that names another user id answers 403, as in T03.
+- `holdings.user_id` → `"user"(id)` on delete cascade landed with T05 (#13) in `0004_daily_close.sql`
+  (the table above lists no FK for holdings; added so deleting a user removes their holdings). 0004 first
+  deletes holdings whose user no longer exists, like 0003 did for `user_settings`.
 
 Caching: the database **is** the cache. Dashboard pages read only these tables. No page load ever calls
 a price, FX or fundamentals provider, so nothing on the page can be intraday.
@@ -460,6 +463,41 @@ or label implies good/bad.
   that calls the same job. It does not exist on production.
 - **Staleness:** the dashboard header shows "Prices as of <latest session date> close · FX <date>". If the
   last successful run is more than 4 calendar days old, it shows a plain "Prices are out of date" note.
+
+### Implementation notes (T05, #13)
+
+- **Flag:** `/api/cron/daily-refresh` is a dashboard API route, so it answers 404 while `DASHBOARD_ENABLED`
+  is off (§2). On production the daily cron call is therefore a no-op until the release go. Order: 404
+  flag off, 405 for non-GET, 401 without the exact `Authorization: Bearer <CRON_SECRET>` (also when
+  `CRON_SECRET` is unset: fail closed), 503 without a database, then the run.
+- **Lock:** `refresh_runs.run_date` is the UTC date of the run. Taking the lock is one upsert that only
+  succeeds when no run for that date is `running` (one stuck for > 10 min counts as crashed). A finished
+  date can run again (the preview button, a duplicate cron delivery); writes are `ON CONFLICT DO NOTHING`,
+  so a second run changes nothing.
+- **Completed sessions:** bars are dated in the exchange's own time zone (Yahoo's `exchangeTimezoneName`).
+  Today's bar is stored only once 30 minutes have passed since that session's regular end
+  (`currentTradingPeriod.regular.end`), so the 23:00 UTC run stores that day's US, CA and EU closes and a
+  run during market hours stops at the prior session.
+- **Provider:** `DailyCloseProvider` exactly as A.4, plus one optional method, `getListing(symbol)`, which
+  returns the exchange, region, MIC and currency from the response already fetched (no extra request), so
+  the job can fill `instruments`. The Yahoo implementation reuses `pull()` and `toChart()`
+  (`rawBars()`/`rawDividends()`). It doesn't read Yahoo's adjusted close, so `adj_close_src` stays empty and
+  the weekly audit (A.4 rule 5) doesn't run yet. Closes are rounded to 4 decimals, dividends to 6.
+- **Budget (self-imposed for Yahoo):** 30 requests a minute (one at a time), 500 per run, and no new symbol
+  is started after 240 s; whatever is left waits for the next run. A symbol that already has today's close
+  makes no request at all.
+- **New holding:** the save writes the `price_coverage` row, then starts the backfill with `waitUntil()`
+  (`@vercel/functions`) after the response. If that never finishes, the next run or the preview button
+  fills it (pending rows are served first). The T04 listing check on add still makes one Yahoo metadata
+  request inside that request; it isn't a price and stores nothing, but it is a provider call in a
+  browser request, which A.3 says shouldn't happen. **Open question for the Engineering Lead:** keep it
+  (DASH-08 needs the refusal on add) or move it behind `DailyCloseProvider`.
+- **Preview button:** `POST /api/dashboard/refresh`, only when the flag is on and `VERCEL_ENV=preview` (404
+  everywhere else, production and local dev included), signed in. It calls the job on the server, so
+  `CRON_SECRET` is never needed or exposed; the response carries counts only.
+- **Not in T05:** FX dates, fundamentals and `metric_values` (T06, T08+), and the "Prices as of … · FX …"
+  header and stale note (they need FX; T07). The page shows each row's last close and session date, or
+  "price pending"; on previews the button area shows the last run's date and status.
 
 ## 12. Acceptance criteria (QA checks these on the PR's Vercel preview)
 

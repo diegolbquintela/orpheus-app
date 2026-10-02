@@ -10,14 +10,19 @@
  *   - GET /dashboard, /dashboard/x, /dashboard/sign-in: 404 HTML identical to the 404 for any
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
- *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1}, /api/dashboard/* and
- *     /api/auth/*: 404 JSON.
+ *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,refresh},
+ *     /api/dashboard/*, /api/auth/* and /api/cron/daily-refresh: 404 JSON.
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
  *   - /api/dashboard/{me,settings,holdings,holdings/1}: 401 JSON for served methods; others 405 JSON.
  *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
  *     /api/dashboard/db {"state":"not_configured"}; other methods 405.
  *   - /api/auth/*: 503 JSON (sign-in not configured: fail closed).
+ *   - /api/cron/daily-refresh (T05): 401 JSON without / with a wrong `Authorization: Bearer`, and with no
+ *     CRON_SECRET at all; other methods 405 (Allow: GET); right header but no database 503.
+ *     CRON_SECRET here is a random per-run value made by this script, never a real one.
+ *   - /api/dashboard/refresh (preview-only button): 404 JSON unless VERCEL_ENV=preview; on a preview,
+ *     POST signed out 401, other methods 405 (Allow: POST).
  *   - VERCEL_ENV=production: /api/dashboard/db is 404 JSON for every method.
  *   - Unknown /api/dashboard/*: 404 JSON for every method.
  *
@@ -26,11 +31,15 @@
  * allowed), the signed-in /dashboard ("Signed in as", "connected · 9/9 tables"), /api/dashboard/me,
  * settings isolation between two accounts (403), holdings (T04: add KO, VOD.L and TCS.BO refused with
  * the calculator's messages, duplicate 409, quantity checks, edit, the row after a reload, another
- * account gets 404 on the holding id, delete), the production status-line rule and sign-out.
- * Adding a holding asks the live price feed for the listing, so this mode needs network access.
+ * account gets 404 on the holding id, delete), the daily close job (T05: "Run daily refresh" shown only
+ * with VERCEL_ENV=preview, POST /api/dashboard/refresh stores KO's last completed close, a second run
+ * and the cron route with the right header insert nothing, reloads show the same close), the
+ * production status-line rule and sign-out.
+ * Adding a holding and the refresh call the live price feed, so this mode needs network access.
  *
  *   node scripts/migrate.mjs && node scripts/check-dashboard-built.mjs --with-database
  */
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -48,7 +57,7 @@ if (WITH_DB && !keepDb) {
 }
 // Default mode never reaches a real database: storage must read "not configured".
 for (const name of Object.keys(process.env))
-  if (/DATABASE_URL|POSTGRES_URL|^BETTER_AUTH_|^VERCEL|^VITE_AUTH_ENABLED$|SIGNUP_ALLOWLIST/.test(name))
+  if (/DATABASE_URL|POSTGRES_URL|^BETTER_AUTH_|^VERCEL|^VITE_AUTH_ENABLED$|SIGNUP_ALLOWLIST|^CRON_SECRET$/.test(name))
     delete process.env[name];
 if (WITH_DB) process.env.DATABASE_URL = keepDb;
 // No VERCEL: local rules (loopback origins, per-process secret). VERCEL=1 without a secret or
@@ -58,6 +67,9 @@ else process.env.VERCEL = "1";
 const ALLOWED = "qa-allowed@example.com";
 process.env.DASHBOARD_SIGNUP_ALLOWLIST = `${ALLOWED}, other@example.com`;
 const ORIGIN = "http://localhost";
+// Random per run, only for this process: never a real CRON_SECRET.
+const CRON = `check-${randomUUID()}`;
+process.env.CRON_SECRET = CRON;
 const { default: server } = await import(pathToFileURL(entry).href);
 
 const failures = [];
@@ -65,7 +77,7 @@ const check = (ok, msg) => {
   if (!ok) failures.push(msg);
 };
 
-async function call(method, path, flag, vercelEnv, { cookie, body: payload } = {}) {
+async function call(method, path, flag, vercelEnv, { cookie, body: payload, headers: extra } = {}) {
   if (flag === undefined) delete process.env.DASHBOARD_ENABLED;
   else process.env.DASHBOARD_ENABLED = flag;
   if (vercelEnv === undefined) delete process.env.VERCEL_ENV;
@@ -78,6 +90,7 @@ async function call(method, path, flag, vercelEnv, { cookie, body: payload } = {
         origin: ORIGIN,
         ...(cookie ? { cookie } : {}),
         ...(payload ? { "content-type": "application/json" } : {}),
+        ...(extra ?? {}),
       },
       body: payload ? JSON.stringify(payload) : undefined,
       redirect: "manual",
@@ -119,10 +132,15 @@ const SESSION_ALLOW = {
   "/api/dashboard/holdings/1": ["GET", "HEAD", "PUT", "DELETE"],
 };
 const AUTH_PATHS = ["/api/auth/get-session", "/api/auth/sign-up/email", "/api/auth/sign-in/email"];
+// T05: the cron route and the preview-only refresh button (checked separately when the flag is on).
+const CRON_PATH = "/api/cron/daily-refresh";
+const REFRESH_PATH = "/api/dashboard/refresh";
+const JOB_PATHS = [CRON_PATH, REFRESH_PATH];
 const API_PATHS = [
   ...GATED_API_PATHS,
   ...SESSION_API_PATHS,
   ...AUTH_PATHS,
+  ...JOB_PATHS,
   "/api/dashboard/foo",
   "/api/dashboard/a/b",
   "/api/dashboard",
@@ -207,8 +225,8 @@ const isRedirectTo = (r, path) =>
     }
   const status = await call("GET", "/api/dashboard/status", "true");
   const expected = WITH_DB
-    ? '{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set"}'
-    : '{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set"}';
+    ? '{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set","cronSecret":"set"}'
+    : '{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set","cronSecret":"set"}';
   check(status.status === 200 && status.body === expected, `${label}: GET status -> ${status.status} ${status.body}`);
   const prodStatus = await call("GET", "/api/dashboard/status", "true", "production");
   check(
@@ -226,10 +244,46 @@ const isRedirectTo = (r, path) =>
     check(isJson404(r), `${label} + VERCEL_ENV=production: ${method} db -> ${r.status} ${r.body.slice(0, 60)}`);
   }
   for (const method of METHODS)
-    for (const path of API_PATHS.filter((p) => ![...GATED_API_PATHS, ...SESSION_API_PATHS, ...AUTH_PATHS].includes(p))) {
+    for (const path of API_PATHS.filter((p) => ![...GATED_API_PATHS, ...SESSION_API_PATHS, ...AUTH_PATHS, ...JOB_PATHS].includes(p))) {
       const r = await call(method, path, "true");
       check(isJson404(r), `${label}: ${method} ${path} -> ${r.status} ${r.type} ${r.body.slice(0, 60)}`);
     }
+}
+
+{
+  // T05 (DASH-10): the cron route needs `Authorization: Bearer <CRON_SECRET>`.
+  const label = 'flag "true", cron';
+  const unauthorized = (r) => r.status === 401 && /application\/json/.test(r.type) && r.body === '{"error":"Unauthorized."}';
+  for (const headers of [{}, { authorization: "Bearer wrong" }, { authorization: CRON }, { authorization: `Basic ${CRON}` }]) {
+    const r = await call("GET", CRON_PATH, "true", undefined, { headers });
+    check(unauthorized(r), `${label}: GET ${CRON_PATH} ${Object.keys(headers).length ? "with a wrong header" : "without a header"} -> ${r.status} ${r.body.slice(0, 60)}`);
+  }
+  for (const method of METHODS_NOT_GET) {
+    const r = await call(method, CRON_PATH, "true", undefined, { headers: { authorization: `Bearer ${CRON}` } });
+    check(json405(r) && r.allow === "GET", `${label}: ${method} ${CRON_PATH} -> ${r.status} allow=${r.allow}`);
+  }
+  delete process.env.CRON_SECRET;
+  const noSecret = await call("GET", CRON_PATH, "true", undefined, { headers: { authorization: "Bearer " } });
+  check(unauthorized(noSecret), `${label}: no CRON_SECRET set -> ${noSecret.status}`);
+  const noSecretStatus = await call("GET", "/api/dashboard/status", "true");
+  check(/"cronSecret":"empty"/.test(noSecretStatus.body), `${label}: status without CRON_SECRET -> ${noSecretStatus.body}`);
+  process.env.CRON_SECRET = CRON;
+  if (!WITH_DB) {
+    const noDb = await call("GET", CRON_PATH, "true", undefined, { headers: { authorization: `Bearer ${CRON}` } });
+    check(noDb.status === 503 && noDb.body === '{"error":"Storage not configured."}', `${label}: right header, no database -> ${noDb.status} ${noDb.body}`);
+  }
+  // The preview-only refresh route exists only with VERCEL_ENV=preview.
+  for (const vercelEnv of [undefined, "production", "development"])
+    for (const method of METHODS) {
+      const r = await call(method, REFRESH_PATH, "true", vercelEnv, method === "POST" ? { body: {} } : {});
+      check(isJson404(r), `flag "true", VERCEL_ENV=${vercelEnv}: ${method} ${REFRESH_PATH} -> ${r.status} ${r.body.slice(0, 60)}`);
+    }
+  const signedOut = await call("POST", REFRESH_PATH, "true", "preview", { body: {} });
+  check(signedOut.status === 401, `flag "true", VERCEL_ENV=preview, signed out: POST ${REFRESH_PATH} -> ${signedOut.status}`);
+  for (const method of METHODS.filter((m) => m !== "POST")) {
+    const r = await call(method, REFRESH_PATH, "true", "preview");
+    check((method === "HEAD" ? r.status === 405 : json405(r)) && r.allow === "POST", `flag "true", VERCEL_ENV=preview: ${method} ${REFRESH_PATH} -> ${r.status} allow=${r.allow}`);
+  }
 }
 
 if (!WITH_DB) {
@@ -271,7 +325,8 @@ if (!WITH_DB) {
   check(/data-testid="holding-form"/.test(page.body), `${label}: GET /dashboard lacks the holdings form`);
   check(/No holdings yet\./.test(page.body), `${label}: GET /dashboard lacks "No holdings yet."`);
   check(/Signed in as (<!-- -->)?qa-allowed@example\.com/.test(page.body), `${label}: GET /dashboard lacks "Signed in as"`);
-  check(/Database: connected · 9\/9 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 9/9 tables"`);
+  check(/Database: connected · 11\/11 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 11/11 tables"`);
+  check(!/data-testid="preview-refresh"/.test(page.body), `${label}: refresh button shown without VERCEL_ENV=preview`);
   const me = await call("GET", "/api/dashboard/me", "true", undefined, { cookie: token });
   check(me.status === 200 && me.body.includes(`"email":"${ALLOWED}"`), `${label}: GET me -> ${me.status} ${me.body}`);
   const put = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: token, body: { baseCurrency: "USD" } });
@@ -316,6 +371,35 @@ if (!WITH_DB) {
   check(edit.status === 200 && /"shares":"12(\.0+)?"/.test(edit.body), `${label}: PUT KO -> ${edit.status} ${edit.body.slice(0, 120)}`);
   const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
   check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
+  check(/data-testid="holding-close"/.test(withKo.body), `${label}: /dashboard lacks the KO last-close cell`);
+
+  // Daily close job (T05). The button shows only on previews; production never.
+  const previewPage = await call("GET", "/dashboard", "true", "preview", { cookie: token });
+  check(/data-testid="preview-refresh"/.test(previewPage.body) && /Run daily refresh \(preview only\)/.test(previewPage.body), `${label} + VERCEL_ENV=preview: /dashboard lacks the refresh button`);
+  const prodNoButton = await call("GET", "/dashboard", "true", "production", { cookie: token });
+  check(!/preview-refresh/.test(prodNoButton.body), `${label} + VERCEL_ENV=production: refresh button present`);
+  const run1 = await call("POST", REFRESH_PATH, "true", "preview", { cookie: token, body: {} });
+  const r1 = run1.status === 200 ? JSON.parse(run1.body) : {};
+  check(run1.status === 200 && ["ok", "partial", "locked"].includes(r1.status) && !/KO/.test(run1.body), `${label}: POST refresh -> ${run1.status} ${run1.body}`);
+  const afterRun = await call("GET", "/dashboard", "true", "preview", { cookie: token });
+  // <span data-testid="holding-close" data-session-date="D">61.23<!-- --> <!-- -->USD<span …>D close</span></span>
+  const closeOf = (html) => {
+    const m = /data-testid="holding-close" data-session-date="(\d{4}-\d{2}-\d{2})">(.*?)<span/.exec(html);
+    return m ? [m[0], m[1], m[2].replace(/<!-- -->/g, "")] : null;
+  };
+  const closeCell = closeOf(afterRun.body);
+  check(closeCell && /^\d+(\.\d+)? USD$/.test(closeCell[2]), `${label}: after the refresh, KO has no stored close (${closeCell ? closeCell[2] : /price pending/.test(afterRun.body) ? "price pending" : "no cell"})`);
+  if (closeCell) {
+    const nyToday = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+    check(closeCell[1] <= nyToday, `${label}: KO close dated ${closeCell[1]}, after New York's today ${nyToday}`);
+  }
+  const run2 = await call("POST", REFRESH_PATH, "true", "preview", { cookie: token, body: {} });
+  check(run2.status === 200 && JSON.parse(run2.body).inserted === 0, `${label}: second refresh -> ${run2.status} ${run2.body}`);
+  const cronOk = await call("GET", CRON_PATH, "true", undefined, { headers: { authorization: `Bearer ${CRON}` } });
+  check(cronOk.status === 200 && JSON.parse(cronOk.body).inserted === 0 && !cronOk.body.includes(CRON), `${label}: cron with the right header -> ${cronOk.status} ${cronOk.body.slice(0, 160)}`);
+  const reload = await call("GET", "/dashboard", "true", "preview", { cookie: token });
+  const closeAgain = closeOf(reload.body);
+  check(closeCell && closeAgain && closeAgain[0] === closeCell[0], `${label}: reload changed KO's close (${closeCell?.[0]} -> ${closeAgain?.[0]})`);
   for (const [method, body] of [["GET"], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE"]]) {
     const r = await call(method, `${H}/${koId}`, "true", undefined, { cookie: otherToken, body });
     check(r.status === 404, `${label}: other user ${method} first user's holding -> ${r.status}`);
@@ -346,6 +430,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 9/9; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); sign-out"
-    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; sign-in off without secret/database (503); status and db OK; db hidden on production",
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); sign-out"
+    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );
