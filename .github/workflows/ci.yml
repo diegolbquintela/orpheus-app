@@ -40,3 +40,8 @@ jobs:
       - name: Build
         # No DATABASE_URL in CI, so the db:migrate tail of `npm run build` is a no-op skip.
         run: npm run build
+
+      - name: Dashboard flag gate (built server)
+        # Flag-off /dashboard 404 must equal any unknown-path 404 (no dashboard title, chunk or copy);
+        # non-GET dashboard API calls must answer JSON 404/405, never the HTML shell.
+        run: npm run check:dashboard-built
