@@ -447,7 +447,16 @@ and `not_covered` ("not covered") cells show `—` with the reason on hover/tap.
   Diluted only (basic is never substituted). Missing → `n/m`; a unit without a currency → `insufficient_data`.
 - Splits: the FY0 figure is the most recent filing's (restatements win); no cross-year adjustment is needed
   because only FY0 is used. The 1y EPS growth for the portfolio cell (D9) is T14.
-- Hand check (fixtures): KO FY2025 3.04 USD; Philips 0.93 EUR; RY 14.07 CAD; ASML 24.71 EUR.
+- Hand check (fixtures): KO FY2025 3.04 USD; Philips (PHG) 0.93 EUR; RY 14.07 CAD; ASML 24.71 EUR.
+
+### Implementation notes (T12, #20)
+
+- `ebit_margin_1y` = FY0 `operating_income` (us-gaap `OperatingIncomeLoss`, ifrs-full
+  `ProfitLossFromOperatingActivities`) / FY0 `revenue`, both as stored. Missing FY0 revenue is treated like
+  revenue ≤ 0 (`n/m`); no FY0 operating income → `n/m`; the two facts in different units →
+  `insufficient_data`. No new tags, so no parser bump.
+- Hand check (fixtures): KO FY2025 13,762 / 47,941 = 28.7%; Philips (PHG) 1,424 / 17,834 = 8.0%; RY → not
+  meaningful (no operating income).
 
 ## 9. Portfolio aggregates and weighting
 
@@ -642,7 +651,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-13 | (Cost-basis FX per D8, approved.) Holdings table shows: ticker, name, shares, average cost (listing ccy), last close + session date (listing ccy), market value (base), cost (base), total return (amount and %), % of portfolio; a total row with total position, total cost, total return. % of portfolio sums to 100.0% (± rounding). |
 | DASH-14 | Values recompute only after the daily job: reloading during market hours does not change any price. |
 | DASH-15 | Metric column picker: add/remove/reorder columns; choice persists per user. |
-| DASH-16 | Revenue growth 1y and 3y/5y/10y CAGR match a hand calculation from the SEC `companyfacts` values for KO (tag stitching) and Philips; RY shows `—` "insufficient history" for 10y; a negative or zero base shows `—` "not meaningful". |
+| DASH-16 | Revenue growth 1y and 3y/5y/10y CAGR match a hand calculation from the SEC `companyfacts` values for KO (tag stitching) and Philips (PHG; PHIA.AS is not covered); RY shows `—` "insufficient history" for 10y; a negative or zero base shows `—` "not meaningful". |
 | DASH-17 | ROIC (1y) matches a hand calculation using the section 8 formula for one US filer; a bank (e.g. RY) shows `—` "not meaningful". |
 | DASH-18 | EPS (1y) equals the FY0 diluted EPS in `companyfacts`, shown with its reporting currency code. |
 | DASH-19 | EBIT margin (1y) = operating income / revenue for FY0, matching `companyfacts`. |
