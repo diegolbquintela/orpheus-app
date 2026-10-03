@@ -162,7 +162,7 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
     );
     assert.equal(row.rows[0].value, (32667300000 / 28262900000 - 1).toPrecision(12));
     assert.equal(row.rows[0].fiscal_year_end, "2025-12-31");
-    assert.equal(out.length, 7, "4 revenue metrics + ROIC (T10) + EPS (T11) + EBIT margin (T12)");
+    assert.equal(out.length, 8, "4 revenue metrics + ROIC (T10) + EPS (T11) + EBIT margin (T12) + gross margin (T13)");
   });
 
   it("the metric cell renders ok values as a percent and has no rating wording", () => {
@@ -520,6 +520,61 @@ describe("DASH-19: EBIT margin (1y) = operating income / revenue for FY0, matchi
     const h = METRIC_HELP.ebit_margin_1y!;
     assert.match(h, /operating income ÷ revenue/);
     assert.match(h, /no adjustments/);
+    assert.doesNotMatch(h, /\b(buy|sell|good|bad|score|rating|strong|weak|healthy)\b/i);
+  });
+});
+
+// ------------------------------------------------------------------ T13 (#21): gross margin (1y)
+
+import { grossMargin } from "./metric-compute.server.ts";
+
+describe("DASH-20: gross margin (1y) matches companyfacts; revenue − cost of revenue fallback; banks n/m", () => {
+  const pct = (v: string | number | null) => (Number(v) * 100).toFixed(1);
+  it("KO hand check: FY2025 GrossProfit 29,544 / Revenues 47,941 (USD m) = 61.6%", async () => {
+    await ingest();
+    const m = (await stored("KO")).gross_margin_1y;
+    assert.deepEqual([m.status, m.fiscalYearEnd], ["ok", "2025-12-31"]);
+    assert.ok(close(Number(m.value), 29544 / 47941));
+    assert.equal(pct(m.value), "61.6");
+  });
+
+  it("Philips (PHG, IFRS) 45.2%; ASML 52.8%; RY (bank, neither concept) n/m", async () => {
+    await ingest();
+    assert.equal(pct((await stored("PHG")).gross_margin_1y.value), "45.2");
+    assert.ok(close(Number((await stored("ASML.AS")).gross_margin_1y.value), 17258000000 / 32667300000));
+    const ry = (await stored("RY.TO")).gross_margin_1y;
+    assert.deepEqual([ry.status, ry.value], ["n/m", null]);
+    assert.equal(STATUS_REASON[ry.status], "not meaningful");
+  });
+
+  it("fallback: KO without its GrossProfit rows uses (47,941 − CostOfGoodsAndServicesSold 18,397) / 47,941 = same 61.6%", async () => {
+    await ingest();
+    await pg.exec(`DELETE FROM fundamentals_annual WHERE symbol = 'KO' AND concept = 'gross_profit'`);
+    const m = (await computeStoredMetrics(db, "KO")).find((x) => x.key === "gross_margin_1y")!;
+    assert.equal(m.status, "ok");
+    assert.ok(close(m.value!, (47941 - 18397) / 47941));
+  });
+
+  it("rules: gross profit wins over cost of revenue; revenue ≤ 0 / missing or neither concept → n/m; negative margin is a value; unit mismatch → insufficient data", () => {
+    const usd = (value: number) => ({ value, unit: "USD" });
+    const fy = "2025-12-31";
+    const gp = grossMargin(fy, usd(100), usd(40), usd(70));
+    assert.deepEqual([gp.basis, gp.value], ["gross_profit", 0.4]);
+    const rc = grossMargin(fy, usd(100), undefined, usd(70));
+    assert.equal(rc.basis, "revenue_minus_cost");
+    assert.ok(close(rc.value!, 0.3));
+    assert.ok(close(grossMargin(fy, usd(100), undefined, usd(130)).value!, -0.3));
+    for (const rev of [usd(0), usd(-5), undefined]) assert.equal(grossMargin(fy, rev, usd(40), usd(70)).status, "n/m");
+    assert.equal(grossMargin(fy, usd(100), undefined, undefined).status, "n/m");
+    assert.equal(grossMargin(null, usd(100), usd(40), undefined).status, "n/m");
+    assert.equal(grossMargin(fy, usd(100), { value: 40, unit: "EUR" }, undefined).status, "insufficient_data");
+    assert.equal(grossMargin(fy, usd(100), undefined, { value: 70, unit: "EUR" }).status, "insufficient_data");
+  });
+
+  it("the tooltip states both formulas and the n/m rule; no rating wording", () => {
+    const h = METRIC_HELP.gross_margin_1y!;
+    assert.match(h, /gross profit ÷ revenue/);
+    assert.match(h, /revenue − cost of revenue/);
     assert.doesNotMatch(h, /\b(buy|sell|good|bad|score|rating|strong|weak|healthy)\b/i);
   });
 });

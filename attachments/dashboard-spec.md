@@ -458,6 +458,15 @@ and `not_covered` ("not covered") cells show `—` with the reason on hover/tap.
 - Hand check (fixtures): KO FY2025 13,762 / 47,941 = 28.7%; Philips (PHG) 1,424 / 17,834 = 8.0%; RY → not
   meaningful (no operating income).
 
+### Implementation notes (T13, #21)
+
+- `gross_margin_1y` = FY0 `gross_profit` / FY0 `revenue`; when there is no FY0 `gross_profit` fact,
+  (FY0 `revenue` − FY0 `cost_of_revenue`) / FY0 `revenue`. "No gross-profit concept" is read per FY0 (a
+  company that dropped GrossProfit in its latest 10-K uses the derivation). Missing FY0 revenue is treated
+  like revenue ≤ 0 (`n/m`); facts in different units → `insufficient_data`. No new tags, so no parser bump.
+- Hand check (fixtures): KO FY2025 29,544 / 47,941 = 61.6% (also (47,941 − 18,397) / 47,941 via the
+  fallback); Philips (PHG) 8,058 / 17,834 = 45.2%; RY → not meaningful.
+
 ## 9. Portfolio aggregates and weighting
 
 - **Weight:** market value in the user's base currency (section 10). For metric *m*, the portfolio value

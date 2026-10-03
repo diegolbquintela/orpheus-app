@@ -508,6 +508,19 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Tests: `metric-compute.test.ts` DASH-19 block: KO 13,762 / 47,941 = 28.7%, Philips (PHG) 8.0% (IFRS),
   ASML, RY n/m, negative margin, revenue ≤ 0 / missing, unit mismatch, tooltip.
 
+### Dashboard gross margin (T13 #21)
+
+- Code: `metric-compute.server.ts` `grossMargin()`; `computeStoredMetrics()` writes `gross_margin_1y`
+  (`COMPUTED_METRIC_KEYS` now 8; the catch-up fills companies stored earlier). `gross_profit` and
+  `cost_of_revenue` tags exist since T08: no new tags, no parser bump, no migration. Tooltip in `METRIC_HELP`.
+- Rules (spec §8): FY0 gross profit / FY0 revenue; if there is no FY0 gross-profit fact, (FY0 revenue − FY0
+  cost of revenue) / FY0 revenue (decided per FY0, so all inputs are from the same year). `n/m`: FY0 revenue
+  ≤ 0 or missing, or neither concept for FY0 (banks such as RY). `insufficient_data`: facts in different
+  units. Negative margins are values.
+- Tests: `metric-compute.test.ts` DASH-20 block: KO 29,544 / 47,941 = 61.6%, the fallback (KO with
+  GrossProfit removed → same 61.6% from `CostOfGoodsAndServicesSold`), Philips (PHG) 45.2%, ASML, RY n/m,
+  revenue ≤ 0 / missing, negative, unit mismatch, tooltip.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

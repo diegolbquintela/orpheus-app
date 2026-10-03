@@ -13,6 +13,7 @@
  * T10 (#18) `roic_1y` = NOPAT FY0 / average invested capital (FY0, FY−1), see `roic()`.
  * T11 (#19) `eps_1y` = diluted EPS for FY0 in the reporting currency, see `eps()`.
  * T12 (#20) `ebit_margin_1y` = operating income FY0 / revenue FY0, see `ebitMargin()`.
+ * T13 (#21) `gross_margin_1y` = gross profit FY0 / revenue FY0, else (revenue − cost of revenue) / revenue, see `grossMargin()`.
  */
 import type { MetricStatus, Queryable } from "./store.server.ts";
 
@@ -205,10 +206,34 @@ export function ebitMargin(fy0: string | null, revenue: UnitFact | undefined, op
   return { key, value: operatingIncome.value / revenue.value, status: "ok", fiscalYearEnd: fy0 };
 }
 
+// ------------------------------------------------------------------ gross margin (T13)
+
+/**
+ * Gross margin (1y) (spec §8) = FY0 gross profit / FY0 revenue; when there is no FY0 gross-profit fact,
+ * (FY0 revenue − FY0 cost of revenue) / FY0 revenue. `n/m` when FY0 revenue is ≤ 0 or missing, or neither
+ * concept is present for FY0 (banks). `insufficient_data` when the facts used are in different units.
+ * `basis` says which path produced the value (for tests and the column tooltip wording).
+ */
+export function grossMargin(
+  fy0: string | null,
+  revenue: UnitFact | undefined,
+  grossProfit: UnitFact | undefined,
+  costOfRevenue: UnitFact | undefined,
+): ComputedMetric & { basis?: "gross_profit" | "revenue_minus_cost" } {
+  const key = "gross_margin_1y";
+  if (!fy0) return { key, value: null, status: "n/m", fiscalYearEnd: null };
+  if (!revenue || !(revenue.value > 0)) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
+  const used = grossProfit && Number.isFinite(grossProfit.value) ? grossProfit : costOfRevenue && Number.isFinite(costOfRevenue.value) ? costOfRevenue : null;
+  if (!used) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
+  if (used.unit !== revenue.unit) return { key, value: null, status: "insufficient_data", fiscalYearEnd: fy0 };
+  if (used === grossProfit) return { key, value: used.value / revenue.value, status: "ok", fiscalYearEnd: fy0, basis: "gross_profit" };
+  return { key, value: (revenue.value - used.value) / revenue.value, status: "ok", fiscalYearEnd: fy0, basis: "revenue_minus_cost" };
+}
+
 // ------------------------------------------------------------------ storage
 
 /** Metric keys computed so far (T09, T10); T11–T13 add theirs. */
-export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y", "ebit_margin_1y"] as const;
+export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y", "ebit_margin_1y", "gross_margin_1y"] as const;
 
 /** Recompute every implemented metric for one covered symbol from `fundamentals_annual` and store them. */
 export async function computeStoredMetrics(db: Queryable, symbol: string): Promise<ComputedMetric[]> {
@@ -238,7 +263,8 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
     return r ? { value: Number(r.value), unit: r.unit } : undefined;
   };
   const ebitRow = ebitMargin(fy0, fy0Fact("revenue"), fy0Fact("operating_income"));
-  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow, ebitRow].map((m) =>
+  const { basis: _basis, ...grossRow } = grossMargin(fy0, fy0Fact("revenue"), fy0Fact("gross_profit"), fy0Fact("cost_of_revenue"));
+  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow, ebitRow, grossRow].map((m) =>
     (METRIC_MIN_PARSER[m.key] ?? 1) > parser ? { ...m, value: null, status: "insufficient_data" as const } : m,
   );
   for (const m of out)
