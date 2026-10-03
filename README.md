@@ -213,7 +213,9 @@ shows "— insufficient history". Negative growth is shown as a negative percent
 (latest and prior fiscal year), computed in the background from the stored SEC figures; the column header
 and cells explain the formula on hover. Banks and insurers (SEC industry code 6000–6399, or no operating
 income) show "— not meaningful", as does a zero or negative average invested capital. Negative ROIC is shown
-as negative.
+as negative. If a debt or cash figure the company normally reports is missing for one of the two years, the
+cell shows "— insufficient data" rather than a number; figures stored by an older version of the importer are
+fetched again automatically on the next daily run.
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in

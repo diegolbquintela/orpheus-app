@@ -81,19 +81,42 @@ export function roicTaxRate(tax: number | undefined, pretax: number | undefined)
   return { rate: Math.min(ROIC_TAX_CAP, Math.max(0, tax / pretax)), fallback: false };
 }
 
+/** Balance-sheet line groups of invested capital (besides equity). */
+export const IC_GROUPS: Record<"short_term_debt" | "long_term_debt" | "cash", string[]> = {
+  short_term_debt: ["short_term_borrowings", "commercial_paper", "other_short_term_borrowings", "current_borrowings_total"],
+  long_term_debt: ["long_term_debt", "long_term_debt_current", "long_term_debt_noncurrent", "current_borrowings_total"],
+  cash: ["cash"],
+};
+export type IcGroup = keyof typeof IC_GROUPS;
+
+/** The groups a company reports in any stored fiscal year (a group it never reports counts as 0). */
+export function reportedGroups(facts: FactTable): Set<IcGroup> {
+  const out = new Set<IcGroup>();
+  for (const f of facts.values())
+    for (const [g, concepts] of Object.entries(IC_GROUPS) as [IcGroup, string[]][]) if (concepts.some((c) => f.has(c))) out.add(g);
+  return out;
+}
+
 /**
- * Invested capital at one balance-sheet date, or null when no equity is reported there:
+ * Invested capital at one balance-sheet date (T10; QA F2 rules):
  * equity (incl. non-controlling interests; the parent's equity when the filer reports no NCI total)
  * + short-term debt (short-term borrowings, else commercial paper + other short-term borrowings)
  * + long-term debt incl. the current portion (the total, else current + noncurrent)
  * − cash and cash equivalents. IFRS filers that only report "current borrowings incl. the current portion
- * of non-current borrowings" use that for the two current parts. Missing debt or cash lines count as 0
- * (a filer without debt doesn't tag it). Leases: operating lease liabilities are never included.
+ * of non-current borrowings" use that for the two current parts.
+ * - `null` when no equity is reported there.
+ * - A line group (short-term debt, long-term debt, cash) the company never reports in any stored year
+ *   counts as 0 (e.g. a filer without debt). A group it reports in other years but not at this date can't
+ *   be confirmed → "insufficient_data": never a number from partial inputs.
+ * Leases: operating lease liabilities are never included (finance leases only via the fallback tags).
  */
-export function investedCapital(f: Map<string, number> | undefined): number | null {
+export function investedCapital(f: Map<string, number> | undefined, reported?: Set<IcGroup>): number | null | "insufficient_data" {
   if (!f) return null;
   const equity = f.get("equity_incl_nci") ?? f.get("equity_parent");
   if (equity === undefined) return null;
+  const everReported = reported ?? new Set<IcGroup>();
+  for (const [g, concepts] of Object.entries(IC_GROUPS) as [IcGroup, string[]][])
+    if (everReported.has(g) && !concepts.some((c) => f.has(c))) return "insufficient_data";
   const g = (k: string) => f.get(k) ?? 0;
   const hasShort = f.has("short_term_borrowings") || f.has("commercial_paper") || f.has("other_short_term_borrowings");
   const hasLtdCurrent = f.has("long_term_debt_current");
@@ -108,10 +131,14 @@ export function investedCapital(f: Map<string, number> | undefined): number | nu
   return equity + debt - g("cash");
 }
 
+/** Parser version a metric's inputs need (rows stored by an older parser → "insufficient_data"). */
+export const METRIC_MIN_PARSER: Record<string, number> = { roic_1y: 2 };
+
 /**
  * ROIC (1y) = NOPAT FY0 / average invested capital (FY0, FY−1); NOPAT = operating income × (1 − t).
  * `n/m`: SIC 6000–6399 or no operating income at FY0 (banks, insurers), no equity at FY0, or average
  * invested capital ≤ 0. `insufficient_history`: no FY−1 balance sheet (equity) for the average.
+ * `insufficient_data`: a debt or cash line the company reports can't be confirmed at FY0 or FY−1.
  * Negative ROIC (negative operating income) is a real value.
  */
 export function roic(facts: FactTable, fy0: string | null, sic: number | null): ComputedMetric & { taxFallback?: boolean } {
@@ -120,11 +147,14 @@ export function roic(facts: FactTable, fy0: string | null, sic: number | null): 
   const now = facts.get(fy0);
   const oi = now?.get("operating_income");
   if (isFinancialSic(sic) || oi === undefined) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
-  const icNow = investedCapital(now);
+  const reported = reportedGroups(facts);
+  const icNow = investedCapital(now, reported);
   if (icNow === null) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
   const prevEnd = fiscalYearBack([...facts.keys()], fy0, 1);
-  const icPrev = prevEnd ? investedCapital(facts.get(prevEnd)) : null;
+  const icPrev = prevEnd ? investedCapital(facts.get(prevEnd), reported) : null;
   if (icPrev === null) return { key, value: null, status: "insufficient_history", fiscalYearEnd: fy0 };
+  if (icNow === "insufficient_data" || icPrev === "insufficient_data")
+    return { key, value: null, status: "insufficient_data", fiscalYearEnd: fy0 };
   const avg = (icNow + icPrev) / 2;
   if (!(avg > 0)) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
   const t = roicTaxRate(now?.get("income_tax"), now?.get("pretax_income"));
@@ -142,7 +172,11 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
     `SELECT fiscal_year_end::text AS fye, concept, value::text AS value FROM fundamentals_annual WHERE symbol = $1`,
     [symbol],
   );
-  const inst = await db.query<{ sic: number | null }>("SELECT sic FROM instruments WHERE symbol = $1", [symbol]);
+  const inst = await db.query<{ sic: number | null; parser: number | null }>(
+    "SELECT sic, fundamentals_parser_version AS parser FROM instruments WHERE symbol = $1",
+    [symbol],
+  );
+  const parser = inst[0]?.parser ?? 1;
   const fy0 = rows.map((r) => r.fye).sort().at(-1) ?? null;
   const revenue = rows.filter((r) => r.concept === "revenue").map((r) => ({ fiscalYearEnd: r.fye, value: Number(r.value) }));
   const table: FactTable = new Map();
@@ -152,7 +186,10 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
   }
   const { taxFallback: _t, ...roicRow } = roic(table, fy0, inst[0]?.sic ?? null);
   void _t;
-  const out = [...revenueGrowth(revenue, fy0), roicRow];
+  // Rows stored by an older parser may lack inputs a newer metric needs: say so instead of computing.
+  const out = [...revenueGrowth(revenue, fy0), roicRow].map((m) =>
+    (METRIC_MIN_PARSER[m.key] ?? 1) > parser ? { ...m, value: null, status: "insufficient_data" as const } : m,
+  );
   for (const m of out)
     await db.query(
       `INSERT INTO metric_values (symbol, metric_key, value, status, fiscal_year_end, computed_at)
@@ -164,15 +201,22 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
   return out;
 }
 
-/** Covered symbols (SEC facts stored) that lack a row for an implemented metric: e.g. ingested earlier. */
+/**
+ * Covered symbols (SEC facts stored) that lack a row for an implemented metric (e.g. ingested earlier), or
+ * whose rows predate a metric's parser version but still carry a value for it (recomputed to
+ * "insufficient_data" until the refetch).
+ */
 export async function symbolsMissingMetrics(db: Queryable): Promise<string[]> {
   const rows = await db.query<{ symbol: string }>(
     `SELECT i.symbol FROM instruments i
      WHERE i.fundamentals_source = 'sec'
        AND i.symbol IN (SELECT DISTINCT symbol FROM holdings)
-       AND (SELECT count(*) FROM metric_values m WHERE m.symbol = i.symbol AND m.metric_key = ANY($1::text[])) < $2
+       AND ((SELECT count(*) FROM metric_values m WHERE m.symbol = i.symbol AND m.metric_key = ANY($1::text[])) < $2
+         OR EXISTS (SELECT 1 FROM metric_values m, jsonb_each_text($3::jsonb) AS need(k, v)
+                    WHERE m.symbol = i.symbol AND m.metric_key = need.k AND m.status <> 'insufficient_data'
+                      AND COALESCE(i.fundamentals_parser_version, 1) < need.v::int))
      ORDER BY i.symbol`,
-    [COMPUTED_METRIC_KEYS as unknown as string[], COMPUTED_METRIC_KEYS.length],
+    [COMPUTED_METRIC_KEYS as unknown as string[], COMPUTED_METRIC_KEYS.length, JSON.stringify(METRIC_MIN_PARSER)],
   );
   return rows.map((r) => r.symbol);
 }

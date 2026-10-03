@@ -18,7 +18,7 @@ export interface Queryable {
 export type BaseCurrency = "CAD" | "USD" | "EUR";
 export type Region = "US" | "EU" | "CA";
 export type FxSource = "BOC" | "ECB_CROSS";
-export type MetricStatus = "ok" | "n/m" | "insufficient_history" | "not_covered";
+export type MetricStatus = "ok" | "n/m" | "insufficient_history" | "insufficient_data" | "not_covered";
 /** Decimal as a string, e.g. "12.5" (NUMERIC keeps exact precision). */
 export type Decimal = string;
 /** Calendar date, `YYYY-MM-DD`. */

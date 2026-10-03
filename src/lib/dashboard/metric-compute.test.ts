@@ -269,3 +269,98 @@ describe("DASH-17: ROIC (1y) per spec §8", () => {
     assert.match(readFileSync("src/components/dashboard/holdings.tsx", "utf8"), /title=\{METRIC_HELP\[key as MetricKey\]\}/);
   });
 });
+
+// ------------------------------------------------------------------ T10 QA (#37): F1, F2
+
+import { annualFactsFromCompanyFacts, FUNDAMENTALS_PARSER_VERSION } from "./fundamentals.server.ts";
+
+describe("QA F1: debt tags rank before the filing date (lease-inclusive tags are a fallback only)", () => {
+  const ko = annualFactsFromCompanyFacts(JSON.parse(readFileSync(`${FIX}/companyfacts-CIK0000021344-2026-10-02-subset.json`, "utf8")));
+  const at = (concept: string, fye: string) => ko.find((f) => f.concept === concept && f.fiscalYearEnd === fye);
+  it("KO FY2023: LongTermDebt* (filed 2024-02-20) wins over the lease-inclusive tag filed 2025-02-20", () => {
+    for (const [concept, tag] of [
+      ["long_term_debt", "us-gaap:LongTermDebt"],
+      ["long_term_debt_current", "us-gaap:LongTermDebtCurrent"],
+      ["long_term_debt_noncurrent", "us-gaap:LongTermDebtNoncurrent"],
+    ]) {
+      const f = at(concept, "2023-12-31")!;
+      assert.equal(f.sourceTag, tag, concept);
+      assert.equal(f.filed, "2024-02-20", concept);
+    }
+  });
+  it("KO FY2024/FY2025 (no lease-excluded tag): the fallback is used", () => {
+    assert.equal(at("long_term_debt", "2024-12-31")?.sourceTag, "us-gaap:LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities");
+    assert.equal(at("long_term_debt", "2025-12-31")?.value, "43941000000");
+  });
+  it("revenue keeps most-recent-filing stitching (not rank-first)", () => {
+    assert.equal(at("revenue", "2016-12-31")?.sourceTag, "us-gaap:Revenues");
+  });
+  it("the tooltip mentions the fallback", () => {
+    assert.match(METRIC_HELP.roic_1y!, /finance leases is used only when/);
+  });
+});
+
+describe("QA F2: rows from an older parser are refetched and never yield a metric from partial inputs", () => {
+  /** KO as #35/#36 stored it on the shared database: parser v1 (null), no long-term debt rows for FY2024/25. */
+  async function oldKo() {
+    await ingest();
+    await pg.exec(`DELETE FROM fundamentals_annual WHERE symbol = 'KO' AND concept LIKE 'long_term_debt%' AND fiscal_year_end >= '2024-01-01';
+      UPDATE instruments SET fundamentals_parser_version = NULL, fundamentals_checked_at = '2026-10-03T00:00:00Z' WHERE symbol = 'KO';
+      UPDATE metric_values SET value = 0.5306, status = 'ok' WHERE symbol = 'KO' AND metric_key = 'roic_1y';`);
+  }
+  it("an old stored KO shows insufficient data (not 53.1%) until the refetch, without SEC calls", async () => {
+    await oldKo();
+    const s = await refreshFundamentals(db, null, { nowMs: NOW + 60_000 });
+    assert.equal(s.computed, 1);
+    const m = await stored("KO");
+    assert.deepEqual([m.roic_1y.status, m.roic_1y.value], ["insufficient_data", null]);
+    assert.equal(STATUS_REASON.insufficient_data, "insufficient data");
+    assert.equal(m.rev_g_1y.status, "ok", "revenue metrics don't need the newer parser");
+  });
+  it("the next run refetches it inside the 7-day window and stores the new fields → 17.4%", async () => {
+    await oldKo();
+    const calls: string[] = [];
+    const s = await refreshFundamentals(
+      db,
+      createSecFundamentalsSource({ userAgent: "t (t@example.com)", minIntervalMs: 0, get: async (u, h) => (calls.push(u), get(u, h)) }),
+      { nowMs: NOW + 60_000 },
+    );
+    assert.ok(calls.some((u) => u.endsWith("CIK0000021344.json") && u.includes("companyfacts")), "KO refetched");
+    assert.equal(s.errors.length, 0);
+    const ltd = await pg.query<{ value: string }>("SELECT value::text FROM fundamentals_annual WHERE symbol = 'KO' AND concept = 'long_term_debt' AND fiscal_year_end = '2025-12-31'");
+    assert.equal(ltd.rows[0]?.value, "43941000000");
+    const v = await pg.query<{ v: number }>("SELECT fundamentals_parser_version AS v FROM instruments WHERE symbol = 'KO'");
+    assert.equal(v.rows[0].v, FUNDAMENTALS_PARSER_VERSION);
+    assert.equal((Number((await stored("KO")).roic_1y.value) * 100).toFixed(1), "17.4");
+    const again: string[] = [];
+    await refreshFundamentals(
+      db,
+      createSecFundamentalsSource({ userAgent: "t (t@example.com)", minIntervalMs: 0, get: async (u, h) => (again.push(u), get(u, h)) }),
+      { nowMs: NOW + 120_000 },
+    );
+    assert.deepEqual(again, [], "current parser: back to the 7-day window");
+  });
+  it("a debt or cash line reported in other years but missing at FY0/FY−1 → insufficient data; never reported → 0", () => {
+    const t = table({
+      "2023-12-31": { equity_incl_nci: 90, long_term_debt: 40, cash: 10 },
+      "2024-12-31": { equity_incl_nci: 100, long_term_debt: 50, cash: 30 },
+      "2025-12-31": { operating_income: 20, pretax_income: 18, income_tax: 4.5, equity_incl_nci: 110, cash: 20 },
+    });
+    assert.equal(roic(t, "2025-12-31", null).status, "insufficient_data", "FY2025 long-term debt missing");
+    const noDebtEver = table({
+      "2024-12-31": { equity_incl_nci: 100, cash: 30 },
+      "2025-12-31": { operating_income: 20, pretax_income: 18, income_tax: 4.5, equity_incl_nci: 110, cash: 20 },
+    });
+    const r = roic(noDebtEver, "2025-12-31", null);
+    assert.equal(r.status, "ok");
+    assert.ok(close(r.value!, (20 * 0.75) / ((70 + 90) / 2)));
+  });
+});
+
+describe("QA: holdings delete fires once", () => {
+  it("the row guards a second click and treats 404 (already deleted) as done", () => {
+    const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
+    assert.match(src, /if \(deleting\.current\) return;/);
+    assert.match(src, /send\(`\/api\/dashboard\/holdings\/\$\{holding\.id\}`, "DELETE", undefined, \[404\]\)/);
+  });
+});

@@ -424,6 +424,14 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
   finance leases are a fallback only**, used for a fiscal year only when no lease-excluded debt tag exists for
   that year (KO FY2024+ → ROIC 17.4%).
 - **Average:** (IC FY0 + IC FY−1) / 2, FY−1 as in T09 (±45 days); no FY−1 equity → `insufficient_history`.
+- **QA F2 (no metric from partial inputs):** replaces "missing debt or cash lines = 0". Each line group
+  (short-term debt, long-term debt, cash) that a company never reports in any stored year counts as 0; a
+  group it reports in other years but not at FY0 or FY−1 → new status `insufficient_data` ("— insufficient
+  data"). Rows stored by an older parser (`instruments.fundamentals_parser_version` < the code's version,
+  migration `0007`) are refetched without waiting for the 7-day window and replaced; until then ROIC is
+  `insufficient_data`. Migration `0007` also adds `insufficient_data` to the `metric_values.status` CHECK.
+- **QA F1:** for the debt concepts the tag order decides before the filing date, so a lease-inclusive tag is
+  used for a fiscal year end only when no lease-excluded tag exists for it (KO FY2023 uses `LongTermDebt*`).
 - **Tooltip:** the header and every ROIC cell carry the formula, the 0–50% clamp and the 25% fallback.
 - **Hand check (fixtures):** KO FY2025 NOPAT 13,762 × (1 − 2,861/15,998) = 11,300.9; IC 69,497 (FY2025) and
   60,066 (FY2024) → 17.4%. RY (SIC 6029, no operating income) → not meaningful.

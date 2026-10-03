@@ -455,6 +455,16 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `n/m`: SIC 6000–6399, no FY0 operating income, no FY0 equity, average ≤ 0. `insufficient_history`: no FY−1
   equity. Symbols ingested before T10 have no SIC until their next 7-day SEC refresh (the operating-income
   rule still applies).
+- QA fixes (#37 run 2026-10-03): **F2** `FUNDAMENTALS_PARSER_VERSION` (2) stored per instrument
+  (`fundamentals_parser_version`, migration `0007`, idempotent; it also widens the `metric_values.status`
+  CHECK with `insufficient_data`). Covered symbols with an older version are refetched regardless of the
+  7-day window, their `fundamentals_annual` rows are replaced (not merged), and until then metrics that need
+  the newer parser (`METRIC_MIN_PARSER`: `roic_1y` → 2) are stored as `insufficient_data` ("— insufficient
+  data"). Invested capital: a line group (short-term debt / long-term debt / cash) never reported by the
+  company in any stored year = 0; reported in other years but missing at FY0 or FY−1 → `insufficient_data`
+  (this replaces the old "missing debt or cash lines = 0"). **F1** debt concepts are `rankFirst`: tag order
+  beats filing date, so lease-inclusive tags are used for a year only when no lease-excluded tag exists
+  (KO FY2023 → `LongTermDebt*` filed 2024-02-20). Holdings rows: one DELETE per row (ref guard), 404 = done.
 - Tests: `metric-compute.test.ts` DASH-17 block: KO hand check (17.4%), Philips IFRS path, RY n/m (SIC
   6029), negative ROIC, SIC range, avg ≤ 0, insufficient history, tax clamp/fallback, invested-capital
   fallbacks, tooltip. Fixtures: KO companyfacts gained the 3 lease-inclusive debt tags (verbatim from a
