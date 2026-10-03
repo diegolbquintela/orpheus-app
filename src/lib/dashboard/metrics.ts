@@ -21,6 +21,7 @@ export const metricLabel = (k: string) => METRICS.find((m) => m.key === k)?.labe
 
 /** How a metric is computed, shown as the column header's and the cells' tooltip (spec §8). */
 export const METRIC_HELP: Partial<Record<MetricKey, string>> = {
+  eps_1y: "EPS (1y) = diluted earnings per share for the latest fiscal year, as reported to the SEC, in the reporting currency.",
   roic_1y:
     "ROIC (1y) = NOPAT ÷ average invested capital (latest and prior fiscal year). NOPAT = operating income × (1 − tax rate); " +
     "tax rate = income tax ÷ pre-tax income, limited to 0–50%, or 25% when pre-tax income is ≤ 0 or tax is missing. " +

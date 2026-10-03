@@ -22,7 +22,7 @@
  *   is recorded in `instruments.fundamentals_error` and the run carries on.
  * - Pages never call this module's fetchers; they read `metricViews()` (Postgres only).
  */
-import { computeStoredMetrics, symbolsMissingMetrics } from "./metric-compute.server.ts";
+import { computeStoredMetrics, epsCurrency, symbolsMissingMetrics } from "./metric-compute.server.ts";
 import { METRIC_KEYS } from "./metrics.ts";
 import type { Queryable } from "./store.server.ts";
 
@@ -523,7 +523,8 @@ export async function refreshFundamentals(
 
 // ------------------------------------------------------------------ page reads (Postgres only)
 
-export type MetricCell = { value: string | null; status: string; fiscalYearEnd: string | null };
+/** `currency`: for EPS (T11), the reporting currency from the stored FY0 fact's unit; null otherwise. */
+export type MetricCell = { value: string | null; status: string; fiscalYearEnd: string | null; currency: string | null };
 export type MetricView = { coverage: "covered" | "not_covered" | "pending"; metrics: Record<string, MetricCell> };
 
 /** Coverage and stored metric values for the page's symbols (DASH-21). Reads Postgres only. */
@@ -540,12 +541,28 @@ export async function metricViews(db: Queryable, symbols: string[]): Promise<Rec
       coverage: r.checked === null ? "pending" : r.source === "sec" ? "covered" : "not_covered",
       metrics: {},
     };
-  const vals = await db.query<{ symbol: string; metric_key: string; value: string | null; status: string; fye: string | null }>(
-    `SELECT symbol, metric_key, value::text AS value, status, fiscal_year_end::text AS fye
-     FROM metric_values WHERE symbol = ANY($1::text[])`,
+  const vals = await db.query<{
+    symbol: string;
+    metric_key: string;
+    value: string | null;
+    status: string;
+    fye: string | null;
+    unit: string | null;
+  }>(
+    `SELECT m.symbol, m.metric_key, m.value::text AS value, m.status, m.fiscal_year_end::text AS fye, fa.unit
+     FROM metric_values m
+     LEFT JOIN fundamentals_annual fa ON m.metric_key = 'eps_1y' AND fa.symbol = m.symbol
+       AND fa.fiscal_year_end = m.fiscal_year_end AND fa.concept = 'eps_diluted'
+     WHERE m.symbol = ANY($1::text[])`,
     [symbols],
   );
   for (const v of vals)
-    if (out[v.symbol]) out[v.symbol].metrics[v.metric_key] = { value: v.value, status: v.status, fiscalYearEnd: v.fye };
+    if (out[v.symbol])
+      out[v.symbol].metrics[v.metric_key] = {
+        value: v.value,
+        status: v.status,
+        fiscalYearEnd: v.fye,
+        currency: epsCurrency(v.unit),
+      };
   return out;
 }

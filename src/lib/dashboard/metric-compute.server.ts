@@ -11,6 +11,7 @@
  * Values are fractions (0.0187 = 1.87%); negative growth is a real value.
  *
  * T10 (#18) `roic_1y` = NOPAT FY0 / average invested capital (FY0, FY−1), see `roic()`.
+ * T11 (#19) `eps_1y` = diluted EPS for FY0 in the reporting currency, see `eps()`.
  */
 import type { MetricStatus, Queryable } from "./store.server.ts";
 
@@ -161,15 +162,38 @@ export function roic(facts: FactTable, fy0: string | null, sic: number | null): 
   return { key, value: (oi * (1 - t.rate)) / avg, status: "ok", fiscalYearEnd: fy0, taxFallback: t.fallback };
 }
 
+// ------------------------------------------------------------------ EPS (T11)
+
+/** The currency of an EPS unit ("USD/shares" → "USD"); null for anything else. */
+export function epsCurrency(unit: string | null | undefined): string | null {
+  const m = /^([A-Z]{3})\/shares$/.exec(unit ?? "");
+  return m ? m[1] : null;
+}
+
+/**
+ * EPS (1y) = diluted EPS for FY0 (spec §8), as reported, in the reporting currency (the fact's unit).
+ * Diluted only: basic EPS is never substituted. `n/m` when FY0 has no diluted EPS. `insufficient_data`
+ * when the unit isn't "<currency>/shares" (no currency code to show). Negative EPS is a real value.
+ * Splits: the value is the most recent filing's figure for FY0 (a later filing restating FY0 after a
+ * split wins), and only FY0 is used, so no cross-year split adjustment is needed here.
+ */
+export function eps(fy0: string | null, fact: { value: number; unit: string } | undefined): ComputedMetric {
+  const key = "eps_1y";
+  if (!fy0) return { key, value: null, status: "n/m", fiscalYearEnd: null };
+  if (!fact || !Number.isFinite(fact.value)) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
+  if (!epsCurrency(fact.unit)) return { key, value: null, status: "insufficient_data", fiscalYearEnd: fy0 };
+  return { key, value: fact.value, status: "ok", fiscalYearEnd: fy0 };
+}
+
 // ------------------------------------------------------------------ storage
 
 /** Metric keys computed so far (T09, T10); T11–T13 add theirs. */
-export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y"] as const;
+export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y"] as const;
 
 /** Recompute every implemented metric for one covered symbol from `fundamentals_annual` and store them. */
 export async function computeStoredMetrics(db: Queryable, symbol: string): Promise<ComputedMetric[]> {
-  const rows = await db.query<{ fye: string; concept: string; value: string }>(
-    `SELECT fiscal_year_end::text AS fye, concept, value::text AS value FROM fundamentals_annual WHERE symbol = $1`,
+  const rows = await db.query<{ fye: string; concept: string; value: string; unit: string }>(
+    `SELECT fiscal_year_end::text AS fye, concept, value::text AS value, unit FROM fundamentals_annual WHERE symbol = $1`,
     [symbol],
   );
   const inst = await db.query<{ sic: number | null; parser: number | null }>(
@@ -187,7 +211,9 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
   const { taxFallback: _t, ...roicRow } = roic(table, fy0, inst[0]?.sic ?? null);
   void _t;
   // Rows stored by an older parser may lack inputs a newer metric needs: say so instead of computing.
-  const out = [...revenueGrowth(revenue, fy0), roicRow].map((m) =>
+  const epsFact = rows.find((r) => r.concept === "eps_diluted" && r.fye === fy0);
+  const epsRow = eps(fy0, epsFact ? { value: Number(epsFact.value), unit: epsFact.unit } : undefined);
+  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow].map((m) =>
     (METRIC_MIN_PARSER[m.key] ?? 1) > parser ? { ...m, value: null, status: "insufficient_data" as const } : m,
   );
   for (const m of out)

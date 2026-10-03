@@ -219,6 +219,11 @@ fetched again automatically on the next daily run. A metric cell shows `—` wit
 "not covered", "not meaningful", "insufficient history", "insufficient data" (an input can't be confirmed, so no
 value is computed from partial inputs), "coverage check pending" or "not computed yet".
 
+**Dashboard EPS (T11).** The "EPS (1y)" column shows the latest fiscal year's diluted earnings per share
+exactly as reported to the SEC, with its reporting currency code (e.g. "3.04 USD", "0.93 EUR"). A company
+without a diluted EPS figure for that year shows "— not meaningful". The portfolio row's EPS cell (weighted
+1-year EPS growth, decision D9) comes with the portfolio totals ticket (T14).
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

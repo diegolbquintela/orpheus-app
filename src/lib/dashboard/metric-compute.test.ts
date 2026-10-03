@@ -101,7 +101,7 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
   it("RY (FYE 31 Oct, 9 years stored): 10y is insufficient history; 1y/3y/5y are values", async () => {
     await ingest();
     const m = await stored("RY.TO");
-    assert.deepEqual(m.rev_cagr_10y, { value: null, status: "insufficient_history", fiscalYearEnd: "2025-10-31" });
+    assert.deepEqual(m.rev_cagr_10y, { value: null, status: "insufficient_history", fiscalYearEnd: "2025-10-31", currency: null });
     assert.equal(STATUS_REASON[m.rev_cagr_10y.status], "insufficient history");
     assert.ok(close(Number(m.rev_g_1y.value), 66605 / 57344 - 1));
     assert.ok(close(Number(m.rev_cagr_5y.value), (66605 / 47181) ** (1 / 5) - 1));
@@ -162,7 +162,7 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
     );
     assert.equal(row.rows[0].value, (32667300000 / 28262900000 - 1).toPrecision(12));
     assert.equal(row.rows[0].fiscal_year_end, "2025-12-31");
-    assert.equal(out.length, 5, "4 revenue metrics + ROIC (T10)");
+    assert.equal(out.length, 6, "4 revenue metrics + ROIC (T10) + EPS (T11)");
   });
 
   it("the metric cell renders ok values as a percent and has no rating wording", () => {
@@ -210,7 +210,7 @@ describe("DASH-17: ROIC (1y) per spec §8", () => {
   it("a bank (RY: SIC 6029, no operating income) shows not meaningful", async () => {
     await ingest();
     const m = await stored("RY.TO");
-    assert.deepEqual(m.roic_1y, { value: null, status: "n/m", fiscalYearEnd: "2025-10-31" });
+    assert.deepEqual(m.roic_1y, { value: null, status: "n/m", fiscalYearEnd: "2025-10-31", currency: null });
     assert.equal(STATUS_REASON[m.roic_1y.status], "not meaningful");
     const sic = await pg.query<{ sic: number | null }>("SELECT sic FROM instruments WHERE symbol = 'RY.TO'");
     assert.equal(sic.rows[0].sic, 6029);
@@ -402,5 +402,74 @@ describe("the refetch replaces a symbol's rows atomically", () => {
     assert.deepEqual(s.errors.map((e) => e.symbol), ["KO"]);
     assert.deepEqual(await rows(), before);
     assert.equal((await stored("KO")).rev_g_1y.value, metricsBefore.rev_g_1y.value);
+  });
+});
+
+// ------------------------------------------------------------------ T11 (#19): EPS (1y)
+
+import { eps, epsCurrency } from "./metric-compute.server.ts";
+import { formatEps } from "./format.ts";
+
+describe("DASH-18: EPS (1y) = FY0 diluted EPS from companyfacts, with its reporting currency", () => {
+  it("KO hand check: FY2025 EarningsPerShareDiluted 3.04 USD/shares → “3.04 USD”", async () => {
+    await ingest();
+    const m = await stored("KO");
+    assert.equal(m.eps_1y.status, "ok");
+    assert.equal(Number(m.eps_1y.value), 3.04);
+    assert.equal(m.eps_1y.fiscalYearEnd, "2025-12-31");
+    assert.equal(m.eps_1y.currency, "USD");
+    assert.equal(formatEps(Number(m.eps_1y.value), m.eps_1y.currency), "3.04 USD");
+    const src = await pg.query<{ source_tag: string; unit: string }>(
+      "SELECT source_tag, unit FROM fundamentals_annual WHERE symbol = 'KO' AND concept = 'eps_diluted' AND fiscal_year_end = '2025-12-31'",
+    );
+    assert.deepEqual(src.rows[0], { source_tag: "us-gaap:EarningsPerShareDiluted", unit: "USD/shares" });
+  });
+
+  it("IFRS and non-USD filers: Philips 0.93 EUR (ifrs-full), RY 14.07 CAD (banks have EPS), ASML 24.71 EUR (US GAAP in EUR)", async () => {
+    await ingest();
+    const show = async (s: string) => {
+      const m = (await stored(s)).eps_1y;
+      return [m.status, formatEps(Number(m.value), m.currency)];
+    };
+    assert.deepEqual(await show("PHG"), ["ok", "0.93 EUR"]);
+    assert.deepEqual(await show("RY.TO"), ["ok", "14.07 CAD"]);
+    assert.deepEqual(await show("ASML.AS"), ["ok", "24.71 EUR"]);
+  });
+
+  it("missing diluted EPS at FY0 → n/m (basic EPS is never substituted); negative EPS is a value; odd unit → insufficient data", () => {
+    assert.deepEqual(eps("2025-12-31", undefined), { key: "eps_1y", value: null, status: "n/m", fiscalYearEnd: "2025-12-31" });
+    assert.equal(eps(null, undefined).status, "n/m");
+    assert.deepEqual(eps("2025-12-31", { value: -0.75, unit: "EUR/shares" }), { key: "eps_1y", value: -0.75, status: "ok", fiscalYearEnd: "2025-12-31" });
+    assert.equal(eps("2025-12-31", { value: 1.2, unit: "pure" }).status, "insufficient_data");
+    assert.equal(epsCurrency("USD/shares"), "USD");
+    assert.equal(epsCurrency("shares"), null);
+    // A filer that tags only basic EPS stores no eps_diluted row at all.
+    const basicOnly = annualFactsFromCompanyFacts({
+      facts: {
+        "us-gaap": {
+          Revenues: { units: { USD: [{ start: "2025-01-01", end: "2025-12-31", val: 10, accn: "a", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-01" }] } },
+          EarningsPerShareBasic: { units: { "USD/shares": [{ start: "2025-01-01", end: "2025-12-31", val: 1.5, accn: "a", fy: 2025, fp: "FY", form: "10-K", filed: "2026-02-01" }] } },
+        },
+      },
+    } as never);
+    assert.equal(basicOnly.filter((f) => f.concept === "eps_diluted").length, 0);
+  });
+
+  it("splits: FY0's figure comes from the most recent filing (a 10-K/A restating FY0 after a split wins)", () => {
+    const f = (val: number, form: string, filed: string) => ({ start: "2025-01-01", end: "2025-12-31", val, accn: filed, fy: 2025, fp: "FY", form, filed });
+    const rows = annualFactsFromCompanyFacts({
+      facts: { "us-gaap": { EarningsPerShareDiluted: { units: { "USD/shares": [f(10, "10-K", "2026-02-01"), f(5, "10-K/A", "2026-06-01")] } } } },
+    } as never);
+    assert.equal(rows.find((r) => r.concept === "eps_diluted")?.value, "5");
+  });
+
+  it("shown as reported: never rounded to fewer digits; the tooltip says diluted / reporting currency", () => {
+    assert.equal(formatEps(0.1, "USD"), "0.10 USD");
+    assert.equal(formatEps(0.105, "USD"), "0.105 USD");
+    assert.equal(formatEps(-0.75, "EUR"), "-0.75 EUR");
+    assert.equal(formatEps(24.71, null), "24.71");
+    assert.match(METRIC_HELP.eps_1y!, /diluted/);
+    assert.match(METRIC_HELP.eps_1y!, /reporting currency/);
+    assert.doesNotMatch(METRIC_HELP.eps_1y!, /\b(buy|sell|good|bad|score|rating|cheap|expensive)\b/i);
   });
 });

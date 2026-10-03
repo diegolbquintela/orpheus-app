@@ -440,6 +440,15 @@ and `not_covered` ("not covered") cells show `—` with the reason on hover/tap.
 - **Hand check (fixtures):** KO FY2025 NOPAT 13,762 × (1 − 2,861/15,998) = 11,300.9; IC 69,497 (FY2025) and
   60,066 (FY2024) → 17.4%. RY (SIC 6029, no operating income) → not meaningful.
 
+### Implementation notes (T11, #19)
+
+- `eps_1y` = the FY0 `eps_diluted` fact (us-gaap `EarningsPerShareDiluted`, ifrs-full
+  `DilutedEarningsLossPerShare`) as reported, shown with the currency of its unit ("USD/shares" → "3.04 USD").
+  Diluted only (basic is never substituted). Missing → `n/m`; a unit without a currency → `insufficient_data`.
+- Splits: the FY0 figure is the most recent filing's (restatements win); no cross-year adjustment is needed
+  because only FY0 is used. The 1y EPS growth for the portfolio cell (D9) is T14.
+- Hand check (fixtures): KO FY2025 3.04 USD; Philips 0.93 EUR; RY 14.07 CAD; ASML 24.71 EUR.
+
 ## 9. Portfolio aggregates and weighting
 
 - **Weight:** market value in the user's base currency (section 10). For metric *m*, the portfolio value

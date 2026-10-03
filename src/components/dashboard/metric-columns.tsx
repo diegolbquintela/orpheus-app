@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatEps } from "@/lib/dashboard/format";
 import { METRIC_HELP, METRICS, STATUS_REASON, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
 
 const help = (key: string) => METRIC_HELP[key as MetricKey];
@@ -10,7 +11,7 @@ const help = (key: string) => METRIC_HELP[key as MetricKey];
  * without SEC coverage reads "— not covered" in every metric cell (DASH-21). Cells never rate or rank.
  */
 
-export type MetricCellView = { value: string | null; status: string; fiscalYearEnd: string | null };
+export type MetricCellView = { value: string | null; status: string; fiscalYearEnd: string | null; currency?: string | null };
 export type MetricViewData = { coverage: "covered" | "not_covered" | "pending"; metrics: Record<string, MetricCellView> };
 
 async function save(columns: string[]): Promise<string | null> {
@@ -124,7 +125,7 @@ export function MetricCell({ metricKey, view }: { metricKey: string; view: Metri
     const v = Number(cell.value);
     return (
       <span data-testid="metric-cell" data-key={metricKey} data-status="ok" title={[cell.fiscalYearEnd ? `FY ending ${cell.fiscalYearEnd}` : "", help(metricKey) ?? ""].filter(Boolean).join(". ") || undefined}>
-        {metricKey === "eps_1y" ? v.toFixed(2) : PERCENT(v)}
+        {metricKey === "eps_1y" ? formatEps(v, cell.currency) : PERCENT(v)}
       </span>
     );
   }
