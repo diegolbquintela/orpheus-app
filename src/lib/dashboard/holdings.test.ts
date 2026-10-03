@@ -1,5 +1,6 @@
 // Offline tests for T04 (#12): holdings CRUD API, validation, duplicates, DASH-08 refusal messages
-// and cross-user isolation (DASH-06). PGLite (Postgres in WASM) and a fake listing lookup: no network.
+// and cross-user isolation (DASH-06). PGLite (Postgres in WASM) and the real listing check running through
+// the Yahoo `DailyCloseProvider` (T07) with recorded chart-metadata payloads: no network.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { after, before, describe, it } from "node:test";
@@ -15,7 +16,9 @@ import {
   parseQuantity,
   type HoldingsDeps,
 } from "./holdings.server.ts";
-import { listingFromPayload, type ListingLookup } from "./listing.server.ts";
+import { ProviderError, type DailyCloseProvider } from "./close-provider.ts";
+import { listingLookupFrom, type ListingLookup } from "./listing.server.ts";
+import { createYahooCloseProvider } from "./yahoo-closes.server.ts";
 import type { Queryable } from "./store.server.ts";
 
 const ORIGIN = "http://localhost:3000";
@@ -36,11 +39,20 @@ const payloadFor = (symbol: string) =>
     ? { chart: { result: [{ meta: META[symbol] }], error: null } }
     : { chart: { result: null, error: { description: "No data found, symbol may be delisted" } } };
 const lookups: string[] = [];
+const queries: string[] = [];
 const backfills: string[] = [];
-const fakeLookup: ListingLookup = async (symbol) => {
-  lookups.push(symbol);
-  return listingFromPayload(symbol, payloadFor(symbol));
-};
+let feedDown = false;
+/** A fresh Yahoo provider per check, as in production; its chart request is answered from META. */
+const yahooWithRecordedMeta = () =>
+  createYahooCloseProvider({
+    fetchChart: async (symbol, query) => {
+      lookups.push(symbol);
+      queries.push(query);
+      if (feedDown) throw new Error("fetch failed");
+      return payloadFor(symbol) as never;
+    },
+  });
+const fakeLookup: ListingLookup = (symbol) => listingLookupFrom(yahooWithRecordedMeta())(symbol);
 
 before(async () => {
   pg = new PGlite({ parsers: { 20: Number, 1082: (v: string) => v } });
@@ -118,23 +130,55 @@ describe("validation helpers", () => {
 });
 
 describe("DASH-08: listing check uses the calculator's exact messages", () => {
-  it("allows US, CA and EU listings and refuses others with listingError()'s text", () => {
-    assert.deepEqual(listingFromPayload("KO", payloadFor("KO")), { ok: true, exchange: "NYSE", currency: "USD" });
-    assert.equal(listingFromPayload("RY.TO", payloadFor("RY.TO")).ok, true);
-    assert.equal(listingFromPayload("ASML.AS", payloadFor("ASML.AS")).ok, true);
-    const lse = listingFromPayload("VOD.L", payloadFor("VOD.L"));
+  it("allows US, CA and EU listings and refuses others with listingError()'s text", async () => {
+    assert.deepEqual(await fakeLookup("KO"), { ok: true, exchange: "NYSE", currency: "USD", name: null });
+    assert.equal((await fakeLookup("RY.TO")).ok, true);
+    assert.equal((await fakeLookup("ASML.AS")).ok, true);
+    const lse = await fakeLookup("VOD.L");
     assert.deepEqual(lse, { ok: false, status: 400, error: "VOD.L lists on LSE. US, EU, and CA listings only." });
     assert.equal(lse.ok ? null : lse.error, listingError("VOD.L", "LSE", "LSE"));
-    assert.deepEqual(listingFromPayload("TCS.BO", payloadFor("TCS.BO")), {
+    assert.deepEqual(await fakeLookup("TCS.BO"), {
       ok: false,
       status: 400,
       error: "TCS.BO lists on BSE. BSE and other non US/EU/CA venues are not supported.",
     });
-    assert.deepEqual(listingFromPayload("NOPE", payloadFor("NOPE")), {
+    assert.deepEqual(await fakeLookup("NOPE"), {
       ok: false,
       status: 404,
       error: "NOPE: No data found, symbol may be delisted",
     });
+  });
+
+  it("the check goes through DailyCloseProvider.getListing: one metadata request, fails closed (T07)", async () => {
+    lookups.length = 0;
+    queries.length = 0;
+    const p = yahooWithRecordedMeta();
+    assert.equal(await p.getListing!("KO"), null, "without { fetch: true } only a cached response is used");
+    assert.equal(lookups.length, 0);
+    assert.equal((await p.getListing!("KO", { fetch: true }))?.currency, "USD");
+    assert.equal((await p.getListing!("KO", { fetch: true }))?.region, "US");
+    assert.deepEqual(queries, ["interval=1d&range=5d"], "one request, then the cached response");
+    await assert.rejects(p.getListing!("VOD.L", { fetch: true }), (e: unknown) => e instanceof ProviderError && e.kind === "refused");
+    feedDown = true;
+    try {
+      assert.deepEqual(await fakeLookup("KO"), {
+        ok: false,
+        status: 503,
+        error: "Couldn't check KO's listing right now. Try again in a minute.",
+      });
+    } finally {
+      feedDown = false;
+    }
+    const noListing: DailyCloseProvider = {
+      id: "x",
+      supports: () => true,
+      budget: { perMinute: 1, perDay: 1 },
+      getCloses: async () => [],
+      getCorporateActions: async () => [],
+    };
+    assert.equal((await listingLookupFrom(noListing)("KO")).ok, false, "a provider that can't tell fails closed");
+    const src = readFileSync("src/lib/dashboard/listing.server.ts", "utf8") + readFileSync("src/lib/dashboard/holdings.server.ts", "utf8");
+    assert.doesNotMatch(src, /import \{[^}]*\bpull\b[^}]*\} from "\.\.\/dca\/yahoo\.server/, "no direct feed call outside the provider");
   });
 
   it("POST refuses a non US/EU/CA ticker with that message and stores nothing", async () => {

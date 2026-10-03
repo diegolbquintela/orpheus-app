@@ -39,7 +39,9 @@
  * production status-line rule and sign-out. T06: the base-currency select defaults to CAD; Bank of
  * Canada USD/EUR rates are stored (by the add's background backfill or the refresh; fxErrors 0, fxInserted 0
  * on the second run); GET /api/dashboard/fx returns them for KO's session date; switching the setting to CAD / EUR / USD re-expresses the total
- * (data-base, and CAD total = USD total × the USD rate used).
+ * (data-base, and CAD total = USD total × the USD rate used). T07: the out-of-date note before any run, then
+ * every column header, KO's name, average cost, cost (D8: same rate), total return and %, 100.0% of
+ * portfolio, the total row, and "Prices as of <KO session> close · FX …" in USD and CAD.
  * Adding a holding and the refresh call the live price feed and the live Bank of Canada Valet API, so
  * this mode needs network access.
  *
@@ -393,6 +395,8 @@ if (!WITH_DB) {
   const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
   check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
   check(/data-testid="holding-close"/.test(withKo.body), `${label}: /dashboard lacks the KO last-close cell`);
+  // T07: no daily run has finished yet on this fresh database, so the out-of-date note shows.
+  check(/data-testid="stale-note"[^>]*>Prices are out of date\.(<!-- -->)? (<!-- -->)?No daily refresh has completed yet\./.test(withKo.body), `${label}: /dashboard before any run lacks the out-of-date note`);
 
   // Daily close job (T05). The button shows only on previews; production never.
   const previewPage = await call("GET", "/dashboard", "true", "preview", { cookie: token });
@@ -440,10 +444,12 @@ if (!WITH_DB) {
   }
   const leap = await call("GET", "/api/dashboard/fx?date=2024-02-29", "true", undefined, { cookie: token });
   check(leap.status === 200, `${label}: GET fx?date=2024-02-29 -> ${leap.status} (want 200)`);
+  const pages = {};
   const asBase = async (base) => {
     const r = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: token, body: { baseCurrency: base } });
     check(r.status === 200, `${label}: PUT settings ${base} -> ${r.status} ${r.body}`);
-    return totalOf((await call("GET", "/dashboard", "true", undefined, { cookie: token })).body);
+    pages[base] = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
+    return totalOf(pages[base]);
   };
   const cadTotal = await asBase("CAD");
   check(cadTotal && cadTotal.base === "CAD" && usdRate && Math.abs(cadTotal.n - usdTotal.n * Number(usdRate.cadPerUnit)) <= 0.011, `${label}: CAD total ${JSON.stringify(cadTotal)} != USD total × ${usdRate?.cadPerUnit}`);
@@ -451,6 +457,28 @@ if (!WITH_DB) {
   check(eurTotal && eurTotal.base === "EUR" && / EUR$/.test(eurTotal.text) && eurTotal.n !== usdTotal.n, `${label}: EUR total -> ${JSON.stringify(eurTotal)}`);
   const backToUsd = await asBase("USD");
   check(backToUsd && backToUsd.n === usdTotal.n, `${label}: back to USD -> ${JSON.stringify(backToUsd)}`);
+  // Valuation (T07, DASH-13/25). KO: 12 shares, average cost 50 USD.
+  const textOf = (html, id) => {
+    const m = new RegExp(`data-testid="${id}"[^>]*>((?:[^<]|<!-- -->)*)`).exec(html);
+    return m ? m[1].replace(/<!-- -->/g, "").trim() : null;
+  };
+  const fmt = (n, sign) => new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, ...(sign ? { signDisplay: "exceptZero" } : {}) }).format(n);
+  const usdPage = reload.body;
+  for (const th of ["Ticker", "Name", "Shares", "Average cost", "Last close", "Market value (USD)", "Cost (USD)", "Total return", "% of portfolio"])
+    check(usdPage.replace(/<!-- -->/g, "").includes(`>${th}</th>`), `${label}: holdings table lacks the "${th}" column`);
+  const koName = textOf(usdPage, "holding-name");
+  check(koName && koName !== "—", `${label}: KO name -> ${koName}`);
+  check(textOf(usdPage, "holding-avg-cost") === "50 USD", `${label}: KO average cost -> ${textOf(usdPage, "holding-avg-cost")}`);
+  check(textOf(usdPage, "holding-cost") === "600.00 USD", `${label}: KO cost -> ${textOf(usdPage, "holding-cost")}`);
+  const koClose = closeCell ? Number(closeCell[2].split(" ")[0]) : NaN;
+  check(textOf(usdPage, "holding-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: KO total return -> ${textOf(usdPage, "holding-return")} (close ${koClose})`);
+  check(textOf(usdPage, "holding-return-pct") === `${fmt(((koClose - 50) / 50) * 100, true)}%`, `${label}: KO return % -> ${textOf(usdPage, "holding-return-pct")}`);
+  check(textOf(usdPage, "holding-weight") === "100.0%" && textOf(usdPage, "holdings-total-weight") === "100.0%", `${label}: % of portfolio -> ${textOf(usdPage, "holding-weight")} / ${textOf(usdPage, "holdings-total-weight")}`);
+  check(textOf(usdPage, "holdings-total-cost") === "600.00 USD" && textOf(usdPage, "holdings-total-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: total cost/return -> ${textOf(usdPage, "holdings-total-cost")} / ${textOf(usdPage, "holdings-total-return")}`);
+  check(textOf(usdPage, "as-of") === `Prices as of ${closeCell?.[1]} close · FX not needed (all in USD)`, `${label}: USD as-of -> ${textOf(usdPage, "as-of")}`);
+  check(!/data-testid="stale-note"/.test(usdPage), `${label}: out-of-date note shown right after a successful run`);
+  check(textOf(pages.CAD, "as-of") === `Prices as of ${closeCell?.[1]} close · FX ${usdRate?.rateDate}`, `${label}: CAD as-of -> ${textOf(pages.CAD, "as-of")}`);
+  check(textOf(pages.CAD, "holding-cost") === `${fmt(600 * Number(usdRate?.cadPerUnit))} CAD`, `${label}: KO cost in CAD -> ${textOf(pages.CAD, "holding-cost")} (rate ${usdRate?.cadPerUnit})`);
   for (const [method, body] of [["GET"], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE"]]) {
     const r = await call(method, `${H}/${koId}`, "true", undefined, { cookie: otherToken, body });
     check(r.status === 404, `${label}: other user ${method} first user's holding -> ${r.status}`);
@@ -481,6 +509,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (columns, cost, return, % of portfolio, totals, as-of line, out-of-date note); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

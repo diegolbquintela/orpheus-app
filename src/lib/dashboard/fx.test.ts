@@ -16,8 +16,8 @@ import {
   parseEcbXml,
   rateOnOrBefore,
   refreshFx,
-  valueHoldings,
 } from "./fx.server.ts";
+import { valueHoldings } from "./valuation.server.ts";
 import { handleDashboardSettingsRequest } from "./session.server.ts";
 import { getUserSettings, type Queryable } from "./store.server.ts";
 import type { DailyCloseProvider } from "./close-provider.ts";

@@ -131,8 +131,8 @@ DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@exa
 
 **Dashboard holdings (T04).** Signed in, `/dashboard` lists your holdings and lets you add, edit and
 delete them. Each row shows the ticker's last stored close and its session date, or "price pending"
-(T05, below), and its value and the total in your base currency (T06, below). Cost, return and % of
-portfolio come with T07.
+(T05, below), and its market value, cost, total return and % of portfolio, with totals, in your base
+currency (T06 and T07, below).
 - `GET /api/dashboard/holdings` lists yours; `POST` with `{symbol, shares, avgCost}` adds one (201).
   `GET`/`PUT`/`DELETE /api/dashboard/holdings/<id>` reads, edits (`{shares, avgCost}` only) or deletes one.
   Same gate as the other per-user APIs: 404 flag off, 405 wrong method (with `Allow`), 401 signed out,
@@ -181,6 +181,18 @@ session date, and never fetches or changes a stored close again (spec §6, §11,
   apply on that date, each with the date it comes from. Same gate as the other per-user APIs. A `date` that
   isn't a real calendar date (e.g. 2026-02-31) is 400.
 - Per D8, cost (T07) will use the same current rate as value, so the FX effect since purchase isn't shown.
+
+**Dashboard holdings valuation (T07).** The holdings table shows ticker, name, shares, average cost and
+last close (listing currency, with the session date), market value and cost (base currency), total return
+(amount in base, % in the listing currency) and % of portfolio, plus a total row (total position, total
+cost, total return, 100.0%).
+- Cost uses the same current FX rate as the price (decision D8), so currency moves since purchase aren't
+  included. Holdings without a price or rate yet are left out of the totals and the %, and listed.
+- Above the table: "Prices as of <date> close · FX <date>". If the last successful daily run is more than
+  4 days old (or none has finished yet), it adds "Prices are out of date.".
+- All of it is read from stored closes and rates; reloading never changes a value (DASH-14).
+- The add-holding listing check (US/EU/CA only) now runs through the `DailyCloseProvider` interface
+  (`getListing`), still one metadata request on add.
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in

@@ -55,17 +55,28 @@ export interface DailyCloseProvider {
   /** Unadjusted dividends and splits, full history or since `since`. */
   getCorporateActions(symbol: string, opts?: { since?: string }): Promise<CorporateAction[]>;
   /**
-   * Listing facts for a symbol (exchange, region, MIC, currency) from the provider's last response for
-   * it, without another request; null when unknown. Optional: a provider that can't tell returns null.
+   * Listing facts for a symbol (name, exchange, region, MIC, currency). By default from the provider's
+   * last response for it, without another request (the daily job); null when unknown. With
+   * `{ fetch: true }` (T07: the add-holding listing check) it makes one small metadata request when
+   * nothing is cached. Throws `ProviderError` (kind "refused") with the calculator's `listingError()`
+   * text for a listing outside US/EU/CA. Optional: a provider that can't tell returns null.
    */
-  getListing?(symbol: string): Promise<ListingInfo | null>;
+  getListing?(symbol: string, opts?: { fetch?: boolean }): Promise<ListingInfo | null>;
 }
+
+/**
+ * Why a provider call failed: "refused" (outside US/EU/CA, `listingError()` text), "not_found" (unknown
+ * symbol, no currency), "unavailable" (network, unreadable reply, request budget).
+ */
+export type ProviderErrorKind = "refused" | "not_found" | "unavailable";
 
 /** Thrown by a provider for one symbol (the job records it in price_coverage.last_error). */
 export class ProviderError extends Error {
-  constructor(message: string) {
+  kind: ProviderErrorKind;
+  constructor(message: string, kind: ProviderErrorKind = "unavailable") {
     super(message);
     this.name = "ProviderError";
+    this.kind = kind;
   }
 }
 

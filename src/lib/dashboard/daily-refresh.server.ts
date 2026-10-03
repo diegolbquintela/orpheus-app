@@ -286,6 +286,8 @@ export type PriceView = {
   sessionDate: string | null;
   pending: boolean;
   lastError: string | null;
+  /** Company name from `instruments` (filled by the backfill / daily job); null until then. */
+  name: string | null;
 };
 
 export async function priceViews(db: Queryable, symbols: string[]): Promise<Record<string, PriceView>> {
@@ -296,14 +298,16 @@ export async function priceViews(db: Queryable, symbols: string[]): Promise<Reco
     currency: string | null;
     session_date: string | null;
     last_error: string | null;
+    name: string | null;
   }>(
-    `SELECT s.symbol, d.close, d.currency, d.session_date::text AS session_date, c.last_error
+    `SELECT s.symbol, d.close, d.currency, d.session_date::text AS session_date, c.last_error, i.name
      FROM unnest($1::text[]) AS s(symbol)
      LEFT JOIN LATERAL (
        SELECT close, currency, session_date FROM daily_closes
        WHERE symbol = s.symbol ORDER BY session_date DESC LIMIT 1
      ) d ON true
-     LEFT JOIN price_coverage c ON c.symbol = s.symbol`,
+     LEFT JOIN price_coverage c ON c.symbol = s.symbol
+     LEFT JOIN instruments i ON i.symbol = s.symbol`,
     [symbols],
   );
   const out: Record<string, PriceView> = {};
@@ -315,6 +319,7 @@ export async function priceViews(db: Queryable, symbols: string[]): Promise<Reco
       sessionDate: toIsoDate(r.session_date),
       pending: r.close === null,
       lastError: r.last_error,
+      name: r.name,
     };
   return out;
 }

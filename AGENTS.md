@@ -268,9 +268,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 
 ### Dashboard holdings (T04 #12)
 
-- Code: `src/lib/dashboard/holdings.server.ts` (handlers, validation), `listing.server.ts` (listing check:
-  `listingFromPayload` maps a Yahoo chart payload through `listingError()` from `src/lib/dca/venues.ts`;
-  `yahooListingLookup` makes the one request), `store.server.ts` (`listHoldings`/`getHolding`/insert/update/
+- Code: `src/lib/dashboard/holdings.server.ts` (handlers, validation), `listing.server.ts` (listing check;
+  since T07 it goes through `DailyCloseProvider.getListing(symbol, { fetch: true })`, see the T07 section), `store.server.ts` (`listHoldings`/`getHolding`/insert/update/
   delete, all scoped by `user_id`). Routes: `src/routes/api/dashboard/holdings.ts` and
   `holdings_.$id.ts` (flat file on purpose: `flag.test.ts` reads `src/routes/api/dashboard` without
   recursing). UI: `src/components/dashboard/holdings.tsx`, rendered by `src/routes/dashboard.tsx`; the
@@ -284,7 +283,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   cap 200 per user. Ticker check only on `POST`: one Yahoo chart-metadata request; non-US/EU/CA gets
   `listingError()`'s exact text (400), unknown symbol 404, feed down 503. Page loads never call a feed and
   T04 never writes `instruments` (T05's job).
-- Tests: `src/lib/dashboard/holdings.test.ts` (PGLite, offline, fake listing lookup): CRUD and reload,
+- Tests: `src/lib/dashboard/holdings.test.ts` (PGLite, offline; the real listing check through the
+  Yahoo provider with recorded chart metadata): CRUD and reload,
   validation, duplicate, cap, DASH-06 isolation (other user's id 404 on GET/PUT/DELETE, 403 on named
   userId), DASH-08 exact messages incl. BSE. `check:dashboard-built` checks holdings 404/405/401 without
   a database; `--with-database` adds the signed-in CRUD run and **needs network** (it adds `KO` and
@@ -360,6 +360,36 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   idempotence, outage, job wiring, DASH-12 (CAD default, USD/EUR re-express every value and the total,
   setting persists per user), `/api/dashboard/fx`. `check:dashboard-built --with-database` also checks the
   select, `/api/dashboard/fx` and the CAD/EUR/USD totals against live BoC.
+
+### Dashboard holdings valuation (T07 #15)
+
+- Code: `src/lib/dashboard/valuation.server.ts`: `valueHoldings()` (moved here from `fx.server.ts`; uses
+  `fxFactor()` from `fx.server.ts`), `freshness()` and `loadDashboardHoldings()`, which the `/dashboard`
+  loader (`gate.ts` `getDashboardHoldings`) calls. `priceViews()` now also returns `instruments.name`.
+  UI: `holdings.tsx` (`AsOf`, the new columns and the total row).
+- Formulas, with f = base units per listing-currency unit at the rate for the close's session date (else
+  the latest earlier rate): market value = shares × close × f; cost = shares × avg cost × f (**D8**: the same
+  rate); total return = value − cost; return % = (close − avg) / avg in the listing currency (`n/m` when
+  avg is 0); % of portfolio = value / Σ value. Price- or FX-pending rows are left out of the totals and the
+  %, and listed under the total row. Total return % = Σ return / Σ cost.
+- Header: "Prices as of <latest session date of the valued rows> close · FX <latest rate date used>"
+  ("FX not needed (all in BASE)" when no rate was used). Out-of-date note (DASH-25) when the latest
+  `refresh_runs` row with status `ok` or `partial` is more than 4 calendar days (UTC) before today, or there
+  is none ("No daily refresh has completed yet."; that's what a fresh preview shows until the button runs,
+  since the new-holding backfill doesn't write `refresh_runs`).
+- Stored data only (DASH-14): nothing in `valuation.server.ts` takes a provider or a fetcher; a test
+  checks the source for feed calls.
+- Listing check (EL decision 2026-10-02): it stays on add, but `listing.server.ts` now calls
+  `DailyCloseProvider.getListing(symbol, { fetch: true })` (`listingLookupFrom(provider)`;
+  `providerListingLookup` = a fresh Yahoo provider per request). Without `fetch` (the daily job) the
+  provider only reads its cached response. `ProviderError.kind` (`refused` / `not_found` /
+  `unavailable`) maps to 400 / 404 / 503. Nothing in `holdings.server.ts` or `listing.server.ts`
+  imports the Yahoo `pull()` directly.
+- Tests: `src/lib/dashboard/valuation.test.ts` (PGLite, offline): the DASH-13 hand check (KO USD, ASML.AS
+  EUR, RY.TO CAD, CAD base: 4,141.21 / 3,778.18 / +363.03, weights 24.1 / 54.2 / 21.7 = 100.0), D8, USD/EUR
+  bases, pending rows, avg cost 0, DASH-14 (reloads identical, values change only after `runDailyRefresh`),
+  DASH-25 (as-of dates incl. the 2026-09-30 BoC holiday, the 4/5-day boundary, partial/running/failed).
+  `check:dashboard-built --with-database` checks the rendered columns and values.
 
 ## Repo leftovers from the Grok template
 

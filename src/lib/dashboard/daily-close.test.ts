@@ -287,7 +287,7 @@ describe("daily refresh job (DASH-09, DASH-14)", () => {
     await runDailyRefresh(db, provider(), { trigger: "preview", now: () => clock });
     assert.deepEqual(await latest("KO"), { session_date: "2026-10-01", close: "61" });
     assert.deepEqual(await priceViews(db, ["KO"]), view);
-    assert.deepEqual(view.KO, { symbol: "KO", close: "61", currency: "USD", sessionDate: "2026-10-01", pending: false, lastError: null });
+    assert.deepEqual(view.KO, { symbol: "KO", close: "61", currency: "USD", sessionDate: "2026-10-01", pending: false, lastError: null, name: "KO Inc." });
   });
 
   it("catches up every missing session since the last stored close (gaps from missed runs)", async () => {
