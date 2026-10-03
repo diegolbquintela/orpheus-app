@@ -359,8 +359,8 @@ variable (no address committed to the repo).
 - **Coverage:** `company_tickers_exchange.json` ticker → CIK. US: the symbol. CA/EU: suffix stripped and
   the SEC name must match the listing name (case, punctuation and legal suffixes ignored; a prefix match
   needs ≥2 words). This rejects same-ticker decoys (MC.PA vs Moelis, L.TO vs Loews, AIR.PA vs AAR, CNR.TO
-  vs Core Natural Resources). PHIA.AS is not covered (Philips files as PHG, a different ticker); open
-  question for EL whether to map such cases. No match or a companyfacts 404 → `not_covered` (DASH-21).
+  vs Core Natural Resources). PHIA.AS is not covered (Philips files as PHG, a different ticker). Decided
+  (EL 2026-10-02): filers under a different ticker stay not covered for now; a ticker mapping is a later gap. No match or a companyfacts 404 → `not_covered` (DASH-21).
 - **Concepts (first matching tag per year, most recent filing wins):** revenue, cost_of_revenue,
   gross_profit, operating_income, pretax_income, income_tax, eps_diluted, equity_incl_nci, equity_parent,
   short-term borrowings / commercial paper / other short-term borrowings, long-term debt (current,
