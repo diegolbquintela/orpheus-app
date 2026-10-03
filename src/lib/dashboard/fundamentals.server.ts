@@ -22,7 +22,7 @@
  *   is recorded in `instruments.fundamentals_error` and the run carries on.
  * - Pages never call this module's fetchers; they read `metricViews()` (Postgres only).
  */
-import { computeRevenueMetrics, symbolsMissingRevenueMetrics } from "./metric-compute.server.ts";
+import { computeStoredMetrics, symbolsMissingMetrics } from "./metric-compute.server.ts";
 import { METRIC_KEYS } from "./metrics.ts";
 import type { Queryable } from "./store.server.ts";
 
@@ -47,12 +47,16 @@ export interface FundamentalsSource {
   resolve(listing: ListingForCoverage): Promise<{ id: string; name: string } | null>;
   /** Annual facts for a covered company; null when the source has no facts for it (not covered). */
   annualFacts(id: string): Promise<AnnualFact[] | null>;
+  /** The filer's SIC code (T10), or null when unknown. */
+  sic?(id: string): Promise<number | null>;
 }
 
 // ------------------------------------------------------------------ SEC EDGAR
 
 export const SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 export const SEC_FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts";
+/** Filer profile (T10: the SIC code, for the bank/insurer rule of ROIC). */
+export const SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions";
 /** Spacing between SEC requests: ≤ 5 per second. */
 export const SEC_MIN_INTERVAL_MS = 200;
 /** A symbol's facts are refreshed when older than this (spec §7). */
@@ -121,9 +125,20 @@ export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: stri
   short_term_borrowings: { kind: "instant", tags: ["us-gaap:ShortTermBorrowings", "ifrs-full:ShorttermBorrowings"] },
   commercial_paper: { kind: "instant", tags: ["us-gaap:CommercialPaper"] },
   other_short_term_borrowings: { kind: "instant", tags: ["us-gaap:OtherShortTermBorrowings"] },
-  long_term_debt_current: { kind: "instant", tags: ["us-gaap:LongTermDebtCurrent", "ifrs-full:CurrentPortionOfLongtermBorrowings"] },
-  long_term_debt_noncurrent: { kind: "instant", tags: ["us-gaap:LongTermDebtNoncurrent", "ifrs-full:LongtermBorrowings"] },
-  long_term_debt: { kind: "instant", tags: ["us-gaap:LongTermDebt"] },
+  // T10: the *AndCapitalLeaseObligations* tags are fallbacks for filers (e.g. KO since FY2024) that tag
+  // their balance-sheet debt lines only that way; they include finance leases (operating leases are never used).
+  long_term_debt_current: {
+    kind: "instant",
+    tags: ["us-gaap:LongTermDebtCurrent", "ifrs-full:CurrentPortionOfLongtermBorrowings", "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent"],
+  },
+  long_term_debt_noncurrent: {
+    kind: "instant",
+    tags: ["us-gaap:LongTermDebtNoncurrent", "ifrs-full:LongtermBorrowings", "us-gaap:LongTermDebtAndCapitalLeaseObligations"],
+  },
+  long_term_debt: {
+    kind: "instant",
+    tags: ["us-gaap:LongTermDebt", "us-gaap:LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"],
+  },
   current_borrowings_total: { kind: "instant", tags: ["ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings"] },
   cash: { kind: "instant", tags: ["us-gaap:CashAndCashEquivalentsAtCarryingValue", "ifrs-full:CashAndCashEquivalents"] },
 };
@@ -290,6 +305,16 @@ export function createSecFundamentalsSource(options: SecSourceOptions): Fundamen
       if (listing.region !== "US" && !(listing.name && sameCompany(listing.name, hit.name))) return null;
       return { id: String(hit.cik).padStart(10, "0"), name: hit.name };
     },
+    async sic(id) {
+      try {
+        const doc = JSON.parse(await request(`${SEC_SUBMISSIONS_URL}/CIK${id}.json`)) as { sic?: string | number };
+        const sic = Number(doc.sic);
+        return Number.isInteger(sic) && sic > 0 ? sic : null;
+      } catch (err) {
+        if (err instanceof SecHttpError && err.status === 404) return null;
+        throw err;
+      }
+    },
     async annualFacts(id) {
       try {
         return annualFactsFromCompanyFacts(JSON.parse(await request(`${SEC_FACTS_URL}/CIK${id}.json`)) as CompanyFacts);
@@ -361,11 +386,11 @@ export async function refreshFundamentals(
       }
       return h.checked === null || nowMs - Date.parse(h.checked) >= FUNDAMENTALS_MAX_AGE_MS;
     });
-    // T09: covered symbols stored before their metrics existed get them now (Postgres only, no SEC call).
-    for (const symbol of await symbolsMissingRevenueMetrics(db)) {
+    // T09+: covered symbols stored before their metrics existed get them now (Postgres only, no SEC call).
+    for (const symbol of await symbolsMissingMetrics(db)) {
       if (options.only && !options.only.includes(symbol)) continue;
       try {
-        await computeRevenueMetrics(db, symbol);
+        await computeStoredMetrics(db, symbol);
         summary.computed += 1;
       } catch (err) {
         summary.errors.push({ symbol, error: message(err) });
@@ -409,13 +434,20 @@ export async function refreshFundamentals(
               [h.symbol, f.fiscalYearEnd, f.concept, f.value, f.unit, f.sourceTag, f.accession, f.filed],
             );
           }
+          // SIC (T10, ROIC's bank/insurer rule). A failed profile request keeps the stored code.
+          let sic: number | null | undefined;
+          try {
+            sic = source.sic ? await source.sic(hit.id) : undefined;
+          } catch {
+            sic = undefined;
+          }
           await db.query(
             `UPDATE instruments SET fundamentals_source = 'sec', sec_cik = $2, fundamentals_checked_at = $3,
-               fundamentals_error = NULL WHERE symbol = $1`,
-            [h.symbol, hit.id, at],
+               fundamentals_error = NULL, sic = CASE WHEN $4::boolean THEN $5::int ELSE sic END WHERE symbol = $1`,
+            [h.symbol, hit.id, at, sic !== undefined, sic ?? null],
           );
           await db.query("DELETE FROM metric_values WHERE symbol = $1 AND status = 'not_covered'", [h.symbol]);
-          await computeRevenueMetrics(db, h.symbol);
+          await computeStoredMetrics(db, h.symbol);
           summary.computed += 1;
           summary.covered += 1;
           summary.rows += facts.length;

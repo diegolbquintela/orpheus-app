@@ -1,0 +1,14 @@
+{
+  "cik": "0000021344",
+  "entityType": "operating",
+  "sic": "2080",
+  "sicDescription": "Beverages",
+  "name": "COCA COLA CO",
+  "tickers": [
+    "KO"
+  ],
+  "exchanges": [
+    "NYSE"
+  ],
+  "fiscalYearEnd": "1231"
+}

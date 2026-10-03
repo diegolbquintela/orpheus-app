@@ -209,6 +209,12 @@ computed by the background job from the stored SEC revenue (latest fiscal year v
 the reporting currency). A zero or negative base shows "— not meaningful"; too few stored years for a CAGR
 shows "— insufficient history". Negative growth is shown as a negative percentage.
 
+**Dashboard ROIC (T10).** The "ROIC (1y)" column = after-tax operating income ÷ average invested capital
+(latest and prior fiscal year), computed in the background from the stored SEC figures; the column header
+and cells explain the formula on hover. Banks and insurers (SEC industry code 6000–6399, or no operating
+income) show "— not meaningful", as does a zero or negative average invested capital. Negative ROIC is shown
+as negative.
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { METRICS, STATUS_REASON, metricLabel } from "@/lib/dashboard/metrics";
+import { METRIC_HELP, METRICS, STATUS_REASON, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
+
+const help = (key: string) => METRIC_HELP[key as MetricKey];
 
 /**
  * Metric columns on /dashboard (T08 #16): the per-user column picker (DASH-15: add, remove, reorder;
@@ -121,14 +123,14 @@ export function MetricCell({ metricKey, view }: { metricKey: string; view: Metri
   if (status === "ok" && cell?.value != null) {
     const v = Number(cell.value);
     return (
-      <span data-testid="metric-cell" data-key={metricKey} data-status="ok" title={cell.fiscalYearEnd ? `FY ending ${cell.fiscalYearEnd}` : undefined}>
+      <span data-testid="metric-cell" data-key={metricKey} data-status="ok" title={[cell.fiscalYearEnd ? `FY ending ${cell.fiscalYearEnd}` : "", help(metricKey) ?? ""].filter(Boolean).join(". ") || undefined}>
         {metricKey === "eps_1y" ? v.toFixed(2) : PERCENT(v)}
       </span>
     );
   }
   const reason = STATUS_REASON[status] ?? status;
   return (
-    <span className="text-muted" data-testid="metric-cell" data-key={metricKey} data-status={status} title={reason}>
+    <span className="text-muted" data-testid="metric-cell" data-key={metricKey} data-status={status} title={[reason, help(metricKey) ?? ""].filter(Boolean).join(". ")}>
       —<span className="ml-1 text-xs">{reason}</span>
     </span>
   );

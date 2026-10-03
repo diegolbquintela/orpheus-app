@@ -434,6 +434,30 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Tests: `src/lib/dashboard/metric-compute.test.ts` (SEC fixtures → ingest → metrics): KO hand check
   (1.9 / 3.7 / 7.7 / 0.8 %, 10y base from `SalesRevenueGoodsNet`), Philips, RY 10y insufficient history,
   zero/negative base, fiscal-year alignment, catch-up without SEC calls.
+
+### Dashboard ROIC (T10 #18)
+
+- Code: `metric-compute.server.ts` `roic()`, `roicTaxRate()`, `investedCapital()`, `isFinancialSic()`;
+  `computeStoredMetrics()` (renamed from `computeRevenueMetrics`) now writes the 4 revenue rows + `roic_1y`;
+  `symbolsMissingMetrics()` / `COMPUTED_METRIC_KEYS` drive the catch-up. Tooltip text: `METRIC_HELP` in
+  `metrics.ts` (column header `title` and cell `title`).
+- Data: migration `0006_instrument_sic.sql` (`ALTER TABLE instruments ADD COLUMN IF NOT EXISTS sic INTEGER`,
+  idempotent; previews share the main Neon branch). The SEC source gained `sic(id)` = one
+  `https://data.sec.gov/submissions/CIK##########.json` request per covered symbol per 7-day refresh (same
+  UA and ≥200 ms spacing; failure keeps the stored code). `CONCEPTS` gained fallback debt tags
+  `LongTermDebtAndCapitalLeaseObligations{,Current,IncludingCurrentMaturities}` (KO tags only these since
+  FY2024; they include finance leases).
+- Rules: NOPAT = operating income FY0 × (1 − t); t = tax / pre-tax clamped 0–50%, 25% if pre-tax ≤ 0 or
+  either missing. Invested capital = equity incl. NCI (else parent equity) + short-term borrowings (else
+  CP + other short-term) + LTD total (else current + noncurrent; IFRS current-borrowings total when it's
+  the only current line) − cash; missing debt/cash = 0. Average of FY0 and FY−1 (FY−1 = ±45 days).
+  `n/m`: SIC 6000–6399, no FY0 operating income, no FY0 equity, average ≤ 0. `insufficient_history`: no FY−1
+  equity. Symbols ingested before T10 have no SIC until their next 7-day SEC refresh (the operating-income
+  rule still applies).
+- Tests: `metric-compute.test.ts` DASH-17 block: KO hand check (17.4%), Philips IFRS path, RY n/m (SIC
+  6029), negative ROIC, SIC range, avg ≤ 0, insufficient history, tax clamp/fallback, invested-capital
+  fallbacks, tooltip. Fixtures: KO companyfacts gained the 3 lease-inclusive debt tags (verbatim from a
+  2026-10-03 live download); `submissions-CIK{KO,RY}-2026-10-03-subset.json` (cik, name, sic only).
   D9 (portfolio EPS) is T14.
 - Tests: `src/lib/dashboard/fundamentals.test.ts` with `test-fixtures/sec/` (live 2026-10-02, trimmed to
   the mapped tags, facts verbatim; values checked against live EDGAR companyconcept once).

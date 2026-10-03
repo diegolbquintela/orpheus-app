@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { trimDecimal } from "@/lib/dashboard/format";
-import { metricLabel } from "@/lib/dashboard/metrics";
+import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
 import { MetricCell, MetricColumnsPicker, type MetricViewData } from "./metric-columns";
 
 /**
@@ -459,7 +459,7 @@ export function HoldingsSection({
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Total return</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">% of portfolio</th>
                 {metricColumns.map((key) => (
-                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key}>
+                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
                     {metricLabel(key)}
                   </th>
                 ))}

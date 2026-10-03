@@ -409,6 +409,23 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
   insufficient history.
 - Portfolio cells for these metrics (weighted mean, coverage %) come with T14 (§9).
 
+### Implementation notes (T10, #18)
+
+- `roic_1y` per the table above, computed in `metric-compute.server.ts` with the other metrics.
+- **SIC:** stored in `instruments.sic` (migration `0006`, idempotent `ADD COLUMN IF NOT EXISTS`) from SEC
+  `submissions/CIK##########.json`, fetched with companyfacts (one extra request per covered symbol per
+  7-day refresh). SIC 6000–6399 or no FY0 operating income → `n/m`.
+- **Concepts:** equity = `equity_incl_nci`, else `equity_parent` (filers without NCI report only that).
+  Short-term debt = `short_term_borrowings`, else commercial paper + other short-term borrowings. Long-term
+  debt incl. current = `long_term_debt`, else current + noncurrent; IFRS filers whose only current line is
+  "current borrowings incl. current portion" use it. Missing debt or cash lines = 0. New fallback tags
+  `us-gaap:LongTermDebtAndCapitalLeaseObligations{,Current,IncludingCurrentMaturities}` (KO uses only these
+  since FY2024): they include **finance** leases; operating lease liabilities are never used. EL to confirm.
+- **Average:** (IC FY0 + IC FY−1) / 2, FY−1 as in T09 (±45 days); no FY−1 equity → `insufficient_history`.
+- **Tooltip:** the header and every ROIC cell carry the formula, the 0–50% clamp and the 25% fallback.
+- **Hand check (fixtures):** KO FY2025 NOPAT 13,762 × (1 − 2,861/15,998) = 11,300.9; IC 69,497 (FY2025) and
+  60,066 (FY2024) → 17.4%. RY (SIC 6029, no operating income) → not meaningful.
+
 ## 9. Portfolio aggregates and weighting
 
 - **Weight:** market value in the user's base currency (section 10). For metric *m*, the portfolio value
