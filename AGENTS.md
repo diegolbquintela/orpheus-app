@@ -446,7 +446,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `https://data.sec.gov/submissions/CIK##########.json` request per covered symbol per 7-day refresh (same
   UA and ≥200 ms spacing; failure keeps the stored code). `CONCEPTS` gained fallback debt tags
   `LongTermDebtAndCapitalLeaseObligations{,Current,IncludingCurrentMaturities}` (KO tags only these since
-  FY2024; they include finance leases).
+  FY2024; they include finance leases). Named deviation (EL 2026-10-03): debt tags that include finance
+  leases are a fallback only, used per fiscal year only when no lease-excluded tag exists (tag order enforces it).
 - Rules: NOPAT = operating income FY0 × (1 − t); t = tax / pre-tax clamped 0–50%, 25% if pre-tax ≤ 0 or
   either missing. Invested capital = equity incl. NCI (else parent equity) + short-term borrowings (else
   CP + other short-term) + LTD total (else current + noncurrent; IFRS current-borrowings total when it's

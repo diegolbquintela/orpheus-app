@@ -388,7 +388,7 @@ fixed list per concept (e.g. revenue: `Revenues`, `RevenueFromContractWithCustom
 |---|---|---|---|
 | `rev_g_1y` | Revenue growth 1y | Rev FY0 / Rev FY−1 − 1 | either value ≤ 0 or missing |
 | `rev_cagr_3y`, `_5y`, `_10y` | Revenue CAGR | (Rev FY0 / Rev FY−n)^(1/n) − 1 | either endpoint ≤ 0 (CAGR from a negative or zero base is undefined). FY−n missing → `insufficient_history` |
-| `roic_1y` | ROIC (1y) | NOPAT FY0 / average invested capital (FY0, FY−1). NOPAT = operating income × (1 − t), t = income tax expense / pre-tax income, clamped to 0–50%; if pre-tax income ≤ 0 or tax missing, t = 25% (stated in the tooltip). Invested capital = total equity (incl. non-controlling interests) + short-term debt + long-term debt (incl. current portion) − cash and equivalents. Leases excluded. | average invested capital ≤ 0; banks and insurers (SIC 6000–6399 or no operating-income concept), where ROIC is not meaningful |
+| `roic_1y` | ROIC (1y) | NOPAT FY0 / average invested capital (FY0, FY−1). NOPAT = operating income × (1 − t), t = income tax expense / pre-tax income, clamped to 0–50%; if pre-tax income ≤ 0 or tax missing, t = 25% (stated in the tooltip). Invested capital = total equity (incl. non-controlling interests) + short-term debt + long-term debt (incl. current portion) − cash and equivalents. Leases excluded (named deviation: debt tags that include finance leases are a fallback only, see T10 notes). | average invested capital ≤ 0; banks and insurers (SIC 6000–6399 or no operating-income concept), where ROIC is not meaningful |
 | `eps_1y` | EPS (1y) | Diluted EPS for FY0, reporting currency | missing |
 | `ebit_margin_1y` | EBIT margin (1y) | Operating income FY0 / Rev FY0 (EBIT = reported operating income, no adjustments) | revenue ≤ 0 or operating income missing |
 | `gross_margin_1y` | Gross margin (1y) | Gross profit FY0 / Rev FY0; if no gross-profit concept, (Rev − cost of revenue) / Rev | revenue ≤ 0 or neither concept present (e.g. banks) |
@@ -420,7 +420,9 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
   debt incl. current = `long_term_debt`, else current + noncurrent; IFRS filers whose only current line is
   "current borrowings incl. current portion" use it. Missing debt or cash lines = 0. New fallback tags
   `us-gaap:LongTermDebtAndCapitalLeaseObligations{,Current,IncludingCurrentMaturities}` (KO uses only these
-  since FY2024): they include **finance** leases; operating lease liabilities are never used. EL to confirm.
+  since FY2024): they include **finance** leases; operating lease liabilities are never used. **Named deviation (EL 2026-10-03): debt tags that include
+  finance leases are a fallback only**, used for a fiscal year only when no lease-excluded debt tag exists for
+  that year (KO FY2024+ → ROIC 17.4%).
 - **Average:** (IC FY0 + IC FY−1) / 2, FY−1 as in T09 (±45 days); no FY−1 equity → `insufficient_history`.
 - **Tooltip:** the header and every ROIC cell carry the formula, the 0–50% clamp and the 25% fallback.
 - **Hand check (fixtures):** KO FY2025 NOPAT 13,762 × (1 − 2,861/15,998) = 11,300.9; IC 69,497 (FY2025) and
