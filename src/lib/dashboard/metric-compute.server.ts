@@ -12,6 +12,7 @@
  *
  * T10 (#18) `roic_1y` = NOPAT FY0 / average invested capital (FY0, FY−1), see `roic()`.
  * T11 (#19) `eps_1y` = diluted EPS for FY0 in the reporting currency, see `eps()`.
+ * T12 (#20) `ebit_margin_1y` = operating income FY0 / revenue FY0, see `ebitMargin()`.
  */
 import type { MetricStatus, Queryable } from "./store.server.ts";
 
@@ -185,10 +186,29 @@ export function eps(fy0: string | null, fact: { value: number; unit: string } | 
   return { key, value: fact.value, status: "ok", fiscalYearEnd: fy0 };
 }
 
+// ------------------------------------------------------------------ EBIT margin (T12)
+
+type UnitFact = { value: number; unit: string };
+
+/**
+ * EBIT margin (1y) = reported operating income FY0 / revenue FY0 (spec §8; no adjustments).
+ * `n/m` when FY0 revenue is ≤ 0 or missing, or FY0 operating income is missing (banks and insurers
+ * usually report none). `insufficient_data` when the two facts are in different units (no ratio from
+ * mismatched inputs). Negative margins are real values.
+ */
+export function ebitMargin(fy0: string | null, revenue: UnitFact | undefined, operatingIncome: UnitFact | undefined): ComputedMetric {
+  const key = "ebit_margin_1y";
+  if (!fy0) return { key, value: null, status: "n/m", fiscalYearEnd: null };
+  if (!revenue || !(revenue.value > 0) || !operatingIncome || !Number.isFinite(operatingIncome.value))
+    return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
+  if (revenue.unit !== operatingIncome.unit) return { key, value: null, status: "insufficient_data", fiscalYearEnd: fy0 };
+  return { key, value: operatingIncome.value / revenue.value, status: "ok", fiscalYearEnd: fy0 };
+}
+
 // ------------------------------------------------------------------ storage
 
 /** Metric keys computed so far (T09, T10); T11–T13 add theirs. */
-export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y"] as const;
+export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y", "ebit_margin_1y"] as const;
 
 /** Recompute every implemented metric for one covered symbol from `fundamentals_annual` and store them. */
 export async function computeStoredMetrics(db: Queryable, symbol: string): Promise<ComputedMetric[]> {
@@ -213,7 +233,12 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
   // Rows stored by an older parser may lack inputs a newer metric needs: say so instead of computing.
   const epsFact = rows.find((r) => r.concept === "eps_diluted" && r.fye === fy0);
   const epsRow = eps(fy0, epsFact ? { value: Number(epsFact.value), unit: epsFact.unit } : undefined);
-  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow].map((m) =>
+  const fy0Fact = (concept: string) => {
+    const r = rows.find((x) => x.concept === concept && x.fye === fy0);
+    return r ? { value: Number(r.value), unit: r.unit } : undefined;
+  };
+  const ebitRow = ebitMargin(fy0, fy0Fact("revenue"), fy0Fact("operating_income"));
+  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow, ebitRow].map((m) =>
     (METRIC_MIN_PARSER[m.key] ?? 1) > parser ? { ...m, value: null, status: "insufficient_data" as const } : m,
   );
   for (const m of out)

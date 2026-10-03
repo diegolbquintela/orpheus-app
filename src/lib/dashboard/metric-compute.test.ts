@@ -162,7 +162,7 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
     );
     assert.equal(row.rows[0].value, (32667300000 / 28262900000 - 1).toPrecision(12));
     assert.equal(row.rows[0].fiscal_year_end, "2025-12-31");
-    assert.equal(out.length, 6, "4 revenue metrics + ROIC (T10) + EPS (T11)");
+    assert.equal(out.length, 7, "4 revenue metrics + ROIC (T10) + EPS (T11) + EBIT margin (T12)");
   });
 
   it("the metric cell renders ok values as a percent and has no rating wording", () => {
@@ -471,5 +471,55 @@ describe("DASH-18: EPS (1y) = FY0 diluted EPS from companyfacts, with its report
     assert.match(METRIC_HELP.eps_1y!, /diluted/);
     assert.match(METRIC_HELP.eps_1y!, /reporting currency/);
     assert.doesNotMatch(METRIC_HELP.eps_1y!, /\b(buy|sell|good|bad|score|rating|cheap|expensive)\b/i);
+  });
+});
+
+// ------------------------------------------------------------------ T12 (#20): EBIT margin (1y)
+
+import { ebitMargin } from "./metric-compute.server.ts";
+
+describe("DASH-19: EBIT margin (1y) = operating income / revenue for FY0, matching companyfacts", () => {
+  const pct = (v: string | null) => (Number(v) * 100).toFixed(1);
+  it("KO hand check: FY2025 OperatingIncomeLoss 13,762 / Revenues 47,941 (USD m) = 28.7%", async () => {
+    await ingest();
+    const m = (await stored("KO")).ebit_margin_1y;
+    assert.equal(m.status, "ok");
+    assert.equal(m.fiscalYearEnd, "2025-12-31");
+    assert.ok(close(Number(m.value), 13762 / 47941));
+    assert.equal(pct(m.value), "28.7");
+  });
+
+  it("Philips (PHG, IFRS ProfitLossFromOperatingActivities / Revenue) 8.0%; ASML 34.6%; Shopify 12.7%; RY (no operating income) n/m", async () => {
+    await ingest();
+    const phg = (await stored("PHG")).ebit_margin_1y;
+    assert.ok(close(Number(phg.value), 1424 / 17834));
+    assert.equal(pct(phg.value), "8.0");
+    assert.ok(close(Number((await stored("ASML.AS")).ebit_margin_1y.value), 11301400000 / 32667300000));
+    const ry = (await stored("RY.TO")).ebit_margin_1y;
+    assert.deepEqual([ry.status, ry.value], ["n/m", null]);
+    assert.equal(STATUS_REASON[ry.status], "not meaningful");
+  });
+
+  it("negative margin is a value; revenue ≤ 0 or missing, or no operating income → n/m; mismatched units → insufficient data", () => {
+    const usd = (value: number) => ({ value, unit: "USD" });
+    const neg = ebitMargin("2025-12-31", usd(5000), usd(-1418));
+    assert.equal(neg.status, "ok");
+    assert.ok(close(neg.value!, -1418 / 5000));
+    for (const rev of [usd(0), usd(-10), undefined]) assert.equal(ebitMargin("2025-12-31", rev, usd(5)).status, "n/m");
+    assert.equal(ebitMargin("2025-12-31", usd(100), undefined).status, "n/m");
+    assert.equal(ebitMargin(null, usd(100), usd(5)).status, "n/m");
+    assert.equal(ebitMargin("2025-12-31", usd(100), { value: 5, unit: "EUR" }).status, "insufficient_data");
+  });
+
+  it("FY0 only: a company whose latest year lacks operating income doesn't fall back to an older year", () => {
+    // fy0 is the latest stored year; computeStoredMetrics passes only FY0 facts.
+    assert.equal(ebitMargin("2025-12-31", { value: 100, unit: "USD" }, undefined).status, "n/m");
+  });
+
+  it("the tooltip states the formula and the n/m rule; no rating wording", () => {
+    const h = METRIC_HELP.ebit_margin_1y!;
+    assert.match(h, /operating income ÷ revenue/);
+    assert.match(h, /no adjustments/);
+    assert.doesNotMatch(h, /\b(buy|sell|good|bad|score|rating|strong|weak|healthy)\b/i);
   });
 });
