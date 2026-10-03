@@ -491,7 +491,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   Splits: FY0's value is the most recent filing's (a 10-K/A restatement wins); only FY0 is used, so no
   cross-year adjustment. IFRS: `ifrs-full:DilutedEarningsLossPerShare`. The portfolio EPS cell (D9,
   weighted 1y EPS growth) is T14.
-- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips (PHG) 0.93 EUR (IFRS),
+- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips (PHG) 0.93 EUR (IFRS; PHIA.AS is not covered),
   RY 14.07 CAD, ASML 24.71 EUR, missing → n/m, basic-only filer, negative EPS, odd unit, 10-K/A
   restatement, display without rounding.
 - #38 (second DELETE on one click) is not folded in: the cause isn't obvious from the client code (the

@@ -425,7 +425,7 @@ describe("DASH-18: EPS (1y) = FY0 diluted EPS from companyfacts, with its report
     assert.deepEqual(src.rows[0], { source_tag: "us-gaap:EarningsPerShareDiluted", unit: "USD/shares" });
   });
 
-  it("IFRS and non-USD filers: Philips 0.93 EUR (ifrs-full), RY 14.07 CAD (banks have EPS), ASML 24.71 EUR (US GAAP in EUR)", async () => {
+  it("IFRS and non-USD filers: Philips (PHG) 0.93 EUR (ifrs-full), RY 14.07 CAD (banks have EPS), ASML 24.71 EUR (US GAAP in EUR)", async () => {
     await ingest();
     const show = async (s: string) => {
       const m = (await stored(s)).eps_1y;
