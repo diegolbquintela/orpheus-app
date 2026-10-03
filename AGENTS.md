@@ -418,6 +418,22 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Stitching: per concept a ranked tag list; per fiscal year the most recently filed annual fact wins
   (10-K/20-F/40-F, fp FY, 335–395-day durations; instants only at fiscal year ends), one unit per concept.
 - Metric values themselves come in T09–T13; until then a covered cell reads "— not computed yet".
+
+### Dashboard revenue growth (T09 #17)
+
+- Code: `src/lib/dashboard/metric-compute.server.ts`: `revenueGrowth()` (pure), `fiscalYearBack()`,
+  `computeRevenueMetrics(db, symbol)` (reads `fundamentals_annual`, upserts `metric_values` for
+  `rev_g_1y`, `rev_cagr_3y/5y/10y`) and `symbolsMissingRevenueMetrics()`. Called from `refreshFundamentals()`
+  right after a covered symbol's facts are stored, and at the start of every `refreshFundamentals()` call for
+  covered held symbols with missing rows (Postgres only, also when no SEC contact is set). Summary field
+  `computed`. Pages still read `metric_values` only. T10–T13 add their metrics to the same module.
+- Rules (spec §8): FY0 = latest stored fiscal year end (any concept); FY−n = stored year end n years back
+  ± 45 days (closest). 1y: `n/m` when either value ≤ 0 or missing. CAGR: `n/m` when an endpoint ≤ 0 or FY0
+  revenue missing; `insufficient_history` when FY−n missing. Values are fractions (`toPrecision(12)`),
+  shown as % with 1 decimal. The portfolio cell for these metrics is T14 (spec §9), not here.
+- Tests: `src/lib/dashboard/metric-compute.test.ts` (SEC fixtures → ingest → metrics): KO hand check
+  (1.9 / 3.7 / 7.7 / 0.8 %, 10y base from `SalesRevenueGoodsNet`), Philips, RY 10y insufficient history,
+  zero/negative base, fiscal-year alignment, catch-up without SEC calls.
   D9 (portfolio EPS) is T14.
 - Tests: `src/lib/dashboard/fundamentals.test.ts` with `test-fixtures/sec/` (live 2026-10-02, trimmed to
   the mapped tags, facts verbatim; values checked against live EDGAR companyconcept once).

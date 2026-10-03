@@ -204,6 +204,11 @@ preview button / new-holding backfill) and stored in `fundamentals_annual`; page
 - "Metric columns" lets each user add, remove and reorder columns (saved per user). The values are
   computed in later tickets (T09–T13); until then covered rows show "— not computed yet".
 
+**Dashboard revenue growth (T09).** The "Revenue growth 1y" and "Revenue CAGR 3y / 5y / 10y" columns are
+computed by the background job from the stored SEC revenue (latest fiscal year vs 1/3/5/10 years earlier, in
+the reporting currency). A zero or negative base shows "— not meaningful"; too few stored years for a CAGR
+shows "— insufficient history". Negative growth is shown as a negative percentage.
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and
