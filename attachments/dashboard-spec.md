@@ -396,6 +396,19 @@ fixed list per concept (e.g. revenue: `Revenues`, `RevenueFromContractWithCustom
 Negative values are real values and are shown as negative (negative ROIC, negative margin, negative
 growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with the reason on hover/tap.
 
+### Implementation notes (T09, #17)
+
+- `metric-compute.server.ts` computes `rev_g_1y` and `rev_cagr_3y/5y/10y` from `fundamentals_annual` in the
+  background (after each SEC ingest; covered symbols stored earlier are caught up on the next run without
+  SEC calls). FY0 = the company's latest stored fiscal year end across concepts (revenue missing there →
+  `n/m`); FY−n = the stored fiscal year end n years earlier, ± 45 days (52/53-week years), closest wins.
+- Statuses exactly as in the table above: 1y `n/m` when either value is ≤ 0 or missing; CAGR `n/m` when an
+  endpoint is ≤ 0, `insufficient_history` when FY−n is missing. Stored as fractions, shown as % (1 decimal).
+- Hand check (fixtures, live 2026-10-02): KO FY2025 47,941 vs FY2024 47,061 / FY2022 43,004 / FY2020
+  33,014 / FY2015 44,294 (`SalesRevenueGoodsNet`) USD m → 1.9% / 3.7% / 7.7% / 0.8%. RY (9 years) 10y →
+  insufficient history.
+- Portfolio cells for these metrics (weighted mean, coverage %) come with T14 (§9).
+
 ## 9. Portfolio aggregates and weighting
 
 - **Weight:** market value in the user's base currency (section 10). For metric *m*, the portfolio value

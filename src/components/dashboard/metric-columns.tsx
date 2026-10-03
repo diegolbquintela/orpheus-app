@@ -4,7 +4,7 @@ import { METRICS, STATUS_REASON, metricLabel } from "@/lib/dashboard/metrics";
 /**
  * Metric columns on /dashboard (T08 #16): the per-user column picker (DASH-15: add, remove, reorder;
  * saved with PUT /api/dashboard/columns) and the metric cells. Values come from `metric_values`
- * (computed by T09–T13); until then a covered holding's cell reads "— not computed yet". A holding
+ * (computed by T09–T13; revenue growth/CAGR since T09); a metric not computed yet reads "— not computed yet". A holding
  * without SEC coverage reads "— not covered" in every metric cell (DASH-21). Cells never rate or rank.
  */
 

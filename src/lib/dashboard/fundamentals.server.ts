@@ -22,6 +22,7 @@
  *   is recorded in `instruments.fundamentals_error` and the run carries on.
  * - Pages never call this module's fetchers; they read `metricViews()` (Postgres only).
  */
+import { computeRevenueMetrics, symbolsMissingRevenueMetrics } from "./metric-compute.server.ts";
 import { METRIC_KEYS } from "./metrics.ts";
 import type { Queryable } from "./store.server.ts";
 
@@ -318,6 +319,8 @@ export type FundamentalsSummary = {
   /** Held symbols with no instruments row yet (their listing comes with the price backfill). */
   waiting: number;
   deferred: number;
+  /** Symbols whose metric values (T09+) were computed from stored facts in this call. */
+  computed: number;
   errors: { symbol: string; error: string }[];
 };
 
@@ -342,7 +345,7 @@ export async function refreshFundamentals(
   const now = options.now ?? (() => Date.now());
   const nowMs = options.nowMs ?? now();
   const started = now();
-  const summary: FundamentalsSummary = { checked: 0, covered: 0, notCovered: 0, rows: 0, waiting: 0, deferred: 0, errors: [] };
+  const summary: FundamentalsSummary = { checked: 0, covered: 0, notCovered: 0, rows: 0, waiting: 0, deferred: 0, computed: 0, errors: [] };
   try {
     const held = await db.query<{ symbol: string; region: "US" | "EU" | "CA" | null; name: string | null; checked: string | null }>(
       `SELECT h.symbol, i.region, i.name, i.fundamentals_checked_at::text AS checked
@@ -358,6 +361,16 @@ export async function refreshFundamentals(
       }
       return h.checked === null || nowMs - Date.parse(h.checked) >= FUNDAMENTALS_MAX_AGE_MS;
     });
+    // T09: covered symbols stored before their metrics existed get them now (Postgres only, no SEC call).
+    for (const symbol of await symbolsMissingRevenueMetrics(db)) {
+      if (options.only && !options.only.includes(symbol)) continue;
+      try {
+        await computeRevenueMetrics(db, symbol);
+        summary.computed += 1;
+      } catch (err) {
+        summary.errors.push({ symbol, error: message(err) });
+      }
+    }
     if (!source) {
       if (due.length) summary.skipped = "SEC_CONTACT_EMAIL is not set; no SEC request made.";
       return summary;
@@ -402,6 +415,8 @@ export async function refreshFundamentals(
             [h.symbol, hit.id, at],
           );
           await db.query("DELETE FROM metric_values WHERE symbol = $1 AND status = 'not_covered'", [h.symbol]);
+          await computeRevenueMetrics(db, h.symbol);
+          summary.computed += 1;
           summary.covered += 1;
           summary.rows += facts.length;
         }
