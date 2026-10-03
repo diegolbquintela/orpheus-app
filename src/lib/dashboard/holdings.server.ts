@@ -60,6 +60,10 @@ export function scheduleBackfillInBackground(db: Queryable, symbol: string): voi
     const { createYahooCloseProvider } = await import("./yahoo-closes.server.ts");
     const r = await backfillSymbol(db, createYahooCloseProvider(), symbol);
     if (r?.error) console.error(`[backfill] ${symbol}: ${r.error}`);
+    // T06: the new listing's currency may need FX dates nothing has fetched yet.
+    const { createFxFetcher, refreshFx } = await import("./fx.server.ts");
+    const fx = await refreshFx(db, createFxFetcher(), { today: new Date().toISOString().slice(0, 10) });
+    if (fx.errors.length) console.error(`[backfill] FX: ${fx.errors.join("; ")}`);
   })().catch(() => console.error(`[backfill] ${symbol} failed`));
   try {
     waitUntil(job);

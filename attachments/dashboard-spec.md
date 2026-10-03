@@ -410,7 +410,7 @@ or label implies good/bad.
   checked 2026-10-02).
 - **Currencies the BoC does not publish:** the calculator's EU venues include Copenhagen, Budapest and
   Prague (DKK, HUF, CZK), which are not in the BoC daily list (same page). For those, use the ECB euro
-  reference rate (X per EUR) crossed with BoC `FXEURCAD`. ECB rates are "usually updated at around
+  reference rate (X per EUR) crossed with BoC `FXEURCAD` (CAD per EUR): CAD per X = `FXEURCAD` ÷ ECB (X per EUR). ECB rates are "usually updated at around
   16:00 CET every working day, except on TARGET closing days" and are "for information purposes only"
   ([ECB: Euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html),
   checked 2026-10-02). SEK and PLN are in the BoC list.
@@ -425,6 +425,26 @@ or label implies good/bad.
   listing currency ((close − avg cost) / avg cost). Base-currency amounts (market value, cost, return)
   use the **same** current FX rate for value and cost, so the FX effect since purchase is not captured.
   (Decision D8: approved 2026-10-02.)
+
+### Implementation notes (T06, #14)
+
+- **ECB source:** the ECB data API (`data-api.ecb.europa.eu`) answered 502 when this was built
+  (2026-10-02), so the job reads the ECB's own reference-rate file
+  `https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml` (same rates, last 90 days).
+- **Cross only on shared dates:** DKK/HUF/CZK = `FXEURCAD(d) / ECB(d)` only when both published for `d`.
+  On a BoC holiday (2026-09-30: ECB published, BoC didn't) no cross is stored and the lookup uses the
+  previous day's, with its date shown, like USD/EUR.
+- **Storage:** BoC values stored verbatim (4 decimals as published); crosses with 10 significant digits.
+  One row per currency and date, never fetched again. First fetch covers 30 days back (or the oldest held
+  close − 7 days); then only dates after the last stored one. SEK/PLN/DKK/HUF/CZK only while held.
+- **Where it runs:** at the end of the daily job (cron, preview button) and in the new-holding backfill;
+  never in a page or API request. `GET /api/dashboard/fx?date=` reads stored rates (QA aid); a `date` that is not a real calendar date
+  (e.g. 2026-02-31, 0000-01-01) is 400, checked before any database access (signed out is 401 first).
+- **UI for DASH-12:** the base-currency select, a "Value (base)" column (shares × last close converted,
+  with the rate and its date) and a total row were added so switching the base visibly re-expresses
+  every total. T07 adds cost, return, % of portfolio and the as-of header on top of this.
+- Fixtures (`test-fixtures/fx/`) were checked against live Valet and ECB on 2026-10-02; e.g. 2026-09-29
+  `FXUSDCAD` 1.4188, `FXEURCAD` 1.6084; ECB 2026-09-29 DKK 7.4754, HUF 366.38, CZK 24.411.
 
 ## 11. Daily refresh
 
@@ -518,7 +538,7 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-08 | A non US/EU/CA ticker is refused with the calculator's exact message (`X lists on Y. US, EU, and CA listings only.`; BSE message for BSE). |
 | DASH-09 | The daily job (through `DailyCloseProvider` only) stores, per held symbol, the latest completed session's close and its session date; running it twice in a row changes nothing; no bar dated "today" is stored while that exchange is open. |
 | DASH-10 | The cron route rejects a request without the right `Authorization` header (401). The preview-only refresh button exists on previews and not on production. |
-| DASH-11 | FX: the stored `USD` and `EUR` rates for a date equal the BoC Valet values for that date; for a BoC holiday the previous rate is used and its date is shown. DKK/HUF/CZK (if held) use ECB × BoC `FXEURCAD`. |
+| DASH-11 | FX: the stored `USD` and `EUR` rates for a date equal the BoC Valet values for that date; for a BoC holiday the previous rate is used and its date is shown. DKK/HUF/CZK (if held) use BoC `FXEURCAD` ÷ ECB X-per-EUR for the same date (CAD per X). |
 | DASH-12 | Base currency defaults to CAD; changing it to USD or EUR re-expresses all totals, and the setting persists. |
 | DASH-13 | (Cost-basis FX per D8, approved.) Holdings table shows: ticker, name, shares, average cost (listing ccy), last close + session date (listing ccy), market value (base), cost (base), total return (amount and %), % of portfolio; a total row with total position, total cost, total return. % of portfolio sums to 100.0% (± rounding). |
 | DASH-14 | Values recompute only after the daily job: reloading during market hours does not change any price. |

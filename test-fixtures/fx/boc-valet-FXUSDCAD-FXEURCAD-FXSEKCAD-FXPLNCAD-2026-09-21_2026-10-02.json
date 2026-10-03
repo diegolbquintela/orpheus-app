@@ -1,0 +1,176 @@
+{
+    "terms": {
+        "url": "https://www.bankofcanada.ca/terms/"
+    },
+    "seriesDetail": {
+        "FXEURCAD": {
+            "label": "EUR/CAD",
+            "description": "Daily average exchange rate of the euro in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            }
+        },
+        "FXPLNCAD": {
+            "label": "PLN/CAD",
+            "description": "Daily average exchange rate of the Polish zloty in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            }
+        },
+        "FXSEKCAD": {
+            "label": "SEK/CAD",
+            "description": "Daily average exchange rate of the Swedish krona in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            }
+        },
+        "FXUSDCAD": {
+            "label": "USD/CAD",
+            "description": "Daily average exchange rate of the US dollar in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            }
+        }
+    },
+    "observations": [
+        {
+            "d": "2026-09-21",
+            "FXEURCAD": {
+                "v": "1.6086"
+            },
+            "FXPLNCAD": {
+                "v": "0.3700"
+            },
+            "FXUSDCAD": {
+                "v": "1.4021"
+            },
+            "FXSEKCAD": {
+                "v": "0.1426"
+            }
+        },
+        {
+            "d": "2026-09-22",
+            "FXEURCAD": {
+                "v": "1.6096"
+            },
+            "FXPLNCAD": {
+                "v": "0.3700"
+            },
+            "FXUSDCAD": {
+                "v": "1.4064"
+            },
+            "FXSEKCAD": {
+                "v": "0.1429"
+            }
+        },
+        {
+            "d": "2026-09-23",
+            "FXPLNCAD": {
+                "v": "0.3669"
+            },
+            "FXEURCAD": {
+                "v": "1.6059"
+            },
+            "FXSEKCAD": {
+                "v": "0.1423"
+            },
+            "FXUSDCAD": {
+                "v": "1.4096"
+            }
+        },
+        {
+            "d": "2026-09-24",
+            "FXSEKCAD": {
+                "v": "0.1425"
+            },
+            "FXEURCAD": {
+                "v": "1.6076"
+            },
+            "FXPLNCAD": {
+                "v": "0.3671"
+            },
+            "FXUSDCAD": {
+                "v": "1.4136"
+            }
+        },
+        {
+            "d": "2026-09-25",
+            "FXEURCAD": {
+                "v": "1.6122"
+            },
+            "FXPLNCAD": {
+                "v": "0.3686"
+            },
+            "FXUSDCAD": {
+                "v": "1.4145"
+            },
+            "FXSEKCAD": {
+                "v": "0.1428"
+            }
+        },
+        {
+            "d": "2026-09-28",
+            "FXEURCAD": {
+                "v": "1.6109"
+            },
+            "FXPLNCAD": {
+                "v": "0.3686"
+            },
+            "FXUSDCAD": {
+                "v": "1.4168"
+            },
+            "FXSEKCAD": {
+                "v": "0.1423"
+            }
+        },
+        {
+            "d": "2026-09-29",
+            "FXPLNCAD": {
+                "v": "0.3680"
+            },
+            "FXUSDCAD": {
+                "v": "1.4188"
+            },
+            "FXSEKCAD": {
+                "v": "0.1419"
+            },
+            "FXEURCAD": {
+                "v": "1.6084"
+            }
+        },
+        {
+            "d": "2026-10-01",
+            "FXEURCAD": {
+                "v": "1.6030"
+            },
+            "FXPLNCAD": {
+                "v": "0.3664"
+            },
+            "FXUSDCAD": {
+                "v": "1.4243"
+            },
+            "FXSEKCAD": {
+                "v": "0.1417"
+            }
+        },
+        {
+            "d": "2026-10-02",
+            "FXUSDCAD": {
+                "v": "1.4246"
+            },
+            "FXSEKCAD": {
+                "v": "0.1420"
+            },
+            "FXEURCAD": {
+                "v": "1.6037"
+            },
+            "FXPLNCAD": {
+                "v": "0.3661"
+            }
+        }
+    ]
+}

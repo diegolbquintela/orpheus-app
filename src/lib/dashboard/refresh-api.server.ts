@@ -17,6 +17,7 @@
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { DailyCloseProvider } from "./close-provider.ts";
+import type { FxFetcher } from "./fx.server.ts";
 import { runDailyRefresh, type RefreshSummary } from "./daily-refresh.server.ts";
 import { dashboardEnabledFromEnv, dashboardMethodNotAllowedResponse, guardDashboardApi } from "./flag.server.ts";
 import {
@@ -37,6 +38,8 @@ export type RefreshDeps = {
   env?: Env;
   getDb?: (env: Env) => Promise<Queryable | null>;
   provider?: () => DailyCloseProvider;
+  /** FX source (T06); default: live BoC Valet + ECB. */
+  fx?: () => FxFetcher;
   now?: () => number;
 };
 
@@ -69,12 +72,15 @@ export function publicSummary(s: RefreshSummary) {
     actions: s.actions,
     errors: s.errors.length,
     deferred: s.deferred.length,
+    fxInserted: s.fx?.inserted ?? 0,
+    fxErrors: s.fx?.errors.length ?? 0,
   };
 }
 
 async function run(deps: RefreshDeps, db: Queryable, trigger: "cron" | "preview") {
   const provider = deps.provider ? deps.provider() : await defaultProvider();
-  return runDailyRefresh(db, provider, { trigger, now: deps.now });
+  const fx = deps.fx ? deps.fx() : (await import("./fx.server.ts")).createFxFetcher();
+  return runDailyRefresh(db, provider, { trigger, now: deps.now, fx });
 }
 
 export async function handleCronRequest(request: Request, deps: RefreshDeps = {}): Promise<Response> {

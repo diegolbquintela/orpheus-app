@@ -10,11 +10,13 @@
  *   - GET /dashboard, /dashboard/x, /dashboard/sign-in: 404 HTML identical to the 404 for any
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
- *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,refresh},
+ *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,fx,refresh},
  *     /api/dashboard/*, /api/auth/* and /api/cron/daily-refresh: 404 JSON.
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
- *   - /api/dashboard/{me,settings,holdings,holdings/1}: 401 JSON for served methods; others 405 JSON.
+ *   - /api/dashboard/{me,settings,holdings,holdings/1,fx}: 401 JSON for served methods; others 405 JSON.
+ *   - /api/dashboard/fx?date=<impossible date> (2026-02-31, 02-29, 02-30, 04-31, 0000-01-01) and the leap
+ *     day 2024-02-29 signed out: 401 JSON (gate first, never 500). --with-database: 400 / 200 signed in.
  *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
  *     /api/dashboard/db {"state":"not_configured"}; other methods 405.
  *   - /api/auth/*: 503 JSON (sign-in not configured: fail closed).
@@ -34,8 +36,12 @@
  * account gets 404 on the holding id, delete), the daily close job (T05: "Run daily refresh" shown only
  * with VERCEL_ENV=preview, POST /api/dashboard/refresh stores KO's last completed close, a second run
  * and the cron route with the right header insert nothing, reloads show the same close), the
- * production status-line rule and sign-out.
- * Adding a holding and the refresh call the live price feed, so this mode needs network access.
+ * production status-line rule and sign-out. T06: the base-currency select defaults to CAD; Bank of
+ * Canada USD/EUR rates are stored (by the add's background backfill or the refresh; fxErrors 0, fxInserted 0
+ * on the second run); GET /api/dashboard/fx returns them for KO's session date; switching the setting to CAD / EUR / USD re-expresses the total
+ * (data-base, and CAD total = USD total × the USD rate used).
+ * Adding a holding and the refresh call the live price feed and the live Bank of Canada Valet API, so
+ * this mode needs network access.
  *
  *   node scripts/migrate.mjs && node scripts/check-dashboard-built.mjs --with-database
  */
@@ -123,6 +129,7 @@ const SESSION_API_PATHS = [
   "/api/dashboard/settings",
   "/api/dashboard/holdings",
   "/api/dashboard/holdings/1",
+  "/api/dashboard/fx",
 ];
 // Methods each per-user route serves (anything else: 405 JSON when the flag is on).
 const SESSION_ALLOW = {
@@ -130,6 +137,7 @@ const SESSION_ALLOW = {
   "/api/dashboard/settings": ["GET", "HEAD", "PUT"],
   "/api/dashboard/holdings": ["GET", "HEAD", "POST"],
   "/api/dashboard/holdings/1": ["GET", "HEAD", "PUT", "DELETE"],
+  "/api/dashboard/fx": ["GET", "HEAD"],
 };
 const AUTH_PATHS = ["/api/auth/get-session", "/api/auth/sign-up/email", "/api/auth/sign-in/email"];
 // T05: the cron route and the preview-only refresh button (checked separately when the flag is on).
@@ -250,6 +258,17 @@ const isRedirectTo = (r, path) =>
     }
 }
 
+// QA F1 (T06): impossible calendar dates on /api/dashboard/fx. Signed out the gate answers first
+// (401 JSON, never a 500); signed in they are 400 (checked in --with-database mode and in fx.test.ts).
+const IMPOSSIBLE_DATES = ["2026-02-31", "2026-02-29", "2026-02-30", "2026-04-31", "0000-01-01"];
+for (const date of [...IMPOSSIBLE_DATES, "2024-02-29"]) {
+  const r = await call("GET", `/api/dashboard/fx?date=${date}`, "true");
+  check(
+    r.status === 401 && /application\/json/.test(r.type) && r.body === '{"error":"Unauthorized."}',
+    `flag "true", signed out: GET /api/dashboard/fx?date=${date} -> ${r.status} ${r.body.slice(0, 60)}`,
+  );
+}
+
 {
   // T05 (DASH-10): the cron route needs `Authorization: Bearer <CRON_SECRET>`.
   const label = 'flag "true", cron';
@@ -329,6 +348,8 @@ if (!WITH_DB) {
   check(!/data-testid="preview-refresh"/.test(page.body), `${label}: refresh button shown without VERCEL_ENV=preview`);
   const me = await call("GET", "/api/dashboard/me", "true", undefined, { cookie: token });
   check(me.status === 200 && me.body.includes(`"email":"${ALLOWED}"`), `${label}: GET me -> ${me.status} ${me.body}`);
+  // Base currency (T06): CAD until changed.
+  check(/data-testid="base-currency-select"/.test(page.body) && /<option value="CAD" selected="">/.test(page.body), `${label}: /dashboard lacks the base-currency select with CAD selected`);
   const put = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: token, body: { baseCurrency: "USD" } });
   check(put.status === 200 && put.body === '{"settings":{"baseCurrency":"USD"}}', `${label}: PUT settings -> ${put.status} ${put.body}`);
   // A second account cannot read or change the first one's settings (DASH-06).
@@ -381,6 +402,8 @@ if (!WITH_DB) {
   const run1 = await call("POST", REFRESH_PATH, "true", "preview", { cookie: token, body: {} });
   const r1 = run1.status === 200 ? JSON.parse(run1.body) : {};
   check(run1.status === 200 && ["ok", "partial", "locked"].includes(r1.status) && !/KO/.test(run1.body), `${label}: POST refresh -> ${run1.status} ${run1.body}`);
+  // Adding KO already ran the background backfill (closes + FX), so the run may insert nothing new.
+  check(Number.isInteger(r1.fxInserted) && r1.fxErrors === 0, `${label}: refresh FX fields -> ${run1.body}`);
   const afterRun = await call("GET", "/dashboard", "true", "preview", { cookie: token });
   // <span data-testid="holding-close" data-session-date="D">61.23<!-- --> <!-- -->USD<span …>D close</span></span>
   const closeOf = (html) => {
@@ -394,12 +417,40 @@ if (!WITH_DB) {
     check(closeCell[1] <= nyToday, `${label}: KO close dated ${closeCell[1]}, after New York's today ${nyToday}`);
   }
   const run2 = await call("POST", REFRESH_PATH, "true", "preview", { cookie: token, body: {} });
-  check(run2.status === 200 && JSON.parse(run2.body).inserted === 0, `${label}: second refresh -> ${run2.status} ${run2.body}`);
+  check(run2.status === 200 && JSON.parse(run2.body).inserted === 0 && JSON.parse(run2.body).fxInserted === 0, `${label}: second refresh -> ${run2.status} ${run2.body}`);
   const cronOk = await call("GET", CRON_PATH, "true", undefined, { headers: { authorization: `Bearer ${CRON}` } });
   check(cronOk.status === 200 && JSON.parse(cronOk.body).inserted === 0 && !cronOk.body.includes(CRON), `${label}: cron with the right header -> ${cronOk.status} ${cronOk.body.slice(0, 160)}`);
   const reload = await call("GET", "/dashboard", "true", "preview", { cookie: token });
   const closeAgain = closeOf(reload.body);
   check(closeCell && closeAgain && closeAgain[0] === closeCell[0], `${label}: reload changed KO's close (${closeCell?.[0]} -> ${closeAgain?.[0]})`);
+  // FX and base currency (T06). The base is USD (set above), so KO's value needs no rate.
+  const totalOf = (html) => {
+    const m = /data-testid="holdings-total" data-base="([A-Z]{3})">(.*?)(<span|<\/td>)/.exec(html);
+    return m ? { base: m[1], text: m[2].replace(/<!-- -->/g, ""), n: Number(m[2].replace(/<!-- -->|,/g, "").split(" ")[0]) } : null;
+  };
+  const usdTotal = totalOf(reload.body);
+  check(usdTotal && usdTotal.base === "USD" && / USD$/.test(usdTotal.text) && usdTotal.n > 0, `${label}: USD total -> ${JSON.stringify(usdTotal)}`);
+  const fxRes = closeCell ? await call("GET", `/api/dashboard/fx?date=${closeCell[1]}`, "true", undefined, { cookie: token }) : { status: 0, body: "{}" };
+  const fxBody = fxRes.status === 200 ? JSON.parse(fxRes.body) : { rates: [] };
+  const usdRate = fxBody.rates.find((r) => r.quote === "USD");
+  check(usdRate && /^\d+\.\d+$/.test(usdRate.cadPerUnit) && usdRate.rateDate <= closeCell[1] && fxBody.rates.some((r) => r.quote === "EUR"), `${label}: GET fx?date=${closeCell?.[1]} -> ${fxRes.status} ${fxRes.body.slice(0, 300)}`);
+  for (const date of IMPOSSIBLE_DATES) {
+    const r = await call("GET", `/api/dashboard/fx?date=${date}`, "true", undefined, { cookie: token });
+    check(r.status === 400 && /application\/json/.test(r.type), `${label}: GET fx?date=${date} -> ${r.status} ${r.body.slice(0, 80)} (want 400)`);
+  }
+  const leap = await call("GET", "/api/dashboard/fx?date=2024-02-29", "true", undefined, { cookie: token });
+  check(leap.status === 200, `${label}: GET fx?date=2024-02-29 -> ${leap.status} (want 200)`);
+  const asBase = async (base) => {
+    const r = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: token, body: { baseCurrency: base } });
+    check(r.status === 200, `${label}: PUT settings ${base} -> ${r.status} ${r.body}`);
+    return totalOf((await call("GET", "/dashboard", "true", undefined, { cookie: token })).body);
+  };
+  const cadTotal = await asBase("CAD");
+  check(cadTotal && cadTotal.base === "CAD" && usdRate && Math.abs(cadTotal.n - usdTotal.n * Number(usdRate.cadPerUnit)) <= 0.011, `${label}: CAD total ${JSON.stringify(cadTotal)} != USD total × ${usdRate?.cadPerUnit}`);
+  const eurTotal = await asBase("EUR");
+  check(eurTotal && eurTotal.base === "EUR" && / EUR$/.test(eurTotal.text) && eurTotal.n !== usdTotal.n, `${label}: EUR total -> ${JSON.stringify(eurTotal)}`);
+  const backToUsd = await asBase("USD");
+  check(backToUsd && backToUsd.n === usdTotal.n, `${label}: back to USD -> ${JSON.stringify(backToUsd)}`);
   for (const [method, body] of [["GET"], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE"]]) {
     const r = await call(method, `${H}/${koId}`, "true", undefined, { cookie: otherToken, body });
     check(r.status === 404, `${label}: other user ${method} first user's holding -> ${r.status}`);
@@ -430,6 +481,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); sign-out"
-    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; sign-in off without secret/database (503); status and db OK; db hidden on production",
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); sign-out"
+    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

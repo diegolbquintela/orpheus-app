@@ -131,7 +131,8 @@ DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@exa
 
 **Dashboard holdings (T04).** Signed in, `/dashboard` lists your holdings and lets you add, edit and
 delete them. Each row shows the ticker's last stored close and its session date, or "price pending"
-(T05, below). No values or totals yet (valuation tickets).
+(T05, below), and its value and the total in your base currency (T06, below). Cost, return and % of
+portfolio come with T07.
 - `GET /api/dashboard/holdings` lists yours; `POST` with `{symbol, shares, avgCost}` adds one (201).
   `GET`/`PUT`/`DELETE /api/dashboard/holdings/<id>` reads, edits (`{shares, avgCost}` only) or deletes one.
   Same gate as the other per-user APIs: 404 flag off, 405 wrong method (with `Allow`), 401 signed out,
@@ -164,6 +165,22 @@ session date, and never fetches or changes a stored close again (spec §6, §11,
 - Previews only (`VERCEL_ENV=preview`, flag on): a "Run daily refresh (preview only)" button on
   `/dashboard` runs the same job server-side through `POST /api/dashboard/refresh` (signed in; counts
   only in the response). It never needs `CRON_SECRET`; the route is 404 on production and locally.
+
+**Dashboard FX and base currency (T06).** Values and totals are shown in your base currency: CAD
+(default), USD or EUR, chosen with the "Base currency" select on `/dashboard` (saved through
+`PUT /api/dashboard/settings`, per user). Last close and average cost stay in the listing's currency.
+- Rates: Bank of Canada Valet daily averages, CAD per 1 unit (`FXUSDCAD`, `FXEURCAD` always; `FXSEKCAD`,
+  `FXPLNCAD` when someone holds a SEK or PLN listing). DKK, HUF and CZK: CAD per unit = BoC `FXEURCAD`
+  (CAD per EUR) ÷ ECB euro reference rate (units per EUR), for the same date. USD and EUR bases cross through CAD.
+- Each position uses the rate for its close's session date; if there's none that day (e.g. 2026-09-30, a
+  BoC holiday), the previous rate is used and its date is shown ("previous rate"). A position with no
+  close or no rate yet is left out of the total and listed under it.
+- Rates are stored in `fx_rates` once per currency and date and never fetched again. Only the daily job
+  (cron, the preview button, the new-holding backfill) fetches them; page loads never do.
+- `GET /api/dashboard/fx?date=YYYY-MM-DD` (signed in; default today, UTC) returns the stored rates that
+  apply on that date, each with the date it comes from. Same gate as the other per-user APIs. A `date` that
+  isn't a real calendar date (e.g. 2026-02-31) is 400.
+- Per D8, cost (T07) will use the same current rate as value, so the FX effect since purchase isn't shown.
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in

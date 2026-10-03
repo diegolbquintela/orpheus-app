@@ -380,6 +380,8 @@ describe("daily refresh job (DASH-09, DASH-14)", () => {
 // ------------------------------------------------------------------ routes
 
 const fakeProvider = (): DailyCloseProvider => provider();
+// FX has its own tests (fx.test.ts); here the source returns nothing, offline.
+const noFx = () => ({ boc: async () => [], ecb: async () => [] });
 const SECRET = "test-only-cron-secret"; // dummy value for the offline test, not a real secret
 
 describe("cron route (DASH-10)", () => {
@@ -389,6 +391,7 @@ describe("cron route (DASH-10)", () => {
       env,
       getDb: async () => db,
       provider: fakeProvider,
+      fx: noFx,
       now: () => at("2026-10-01", [23, 0]),
     });
 
@@ -436,6 +439,7 @@ describe("preview-only refresh button (DASH-10)", () => {
       getUser: async () => (opts.signedIn === false ? null : user),
       getDb: async () => db,
       provider: fakeProvider,
+      fx: noFx,
       now: () => at("2026-10-01", [23, 0]),
     });
 
@@ -472,7 +476,7 @@ describe("preview-only refresh button (DASH-10)", () => {
     const res = await refresh({ DASHBOARD_ENABLED: "true", VERCEL_ENV: "preview" });
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.deepEqual(body, { status: "ok", runDate: "2026-10-01", symbols: 3, inserted: 12, actions: 0, errors: 0, deferred: 0 });
+    assert.deepEqual(body, { status: "ok", runDate: "2026-10-01", symbols: 3, inserted: 12, actions: 0, errors: 0, deferred: 0, fxInserted: 0, fxErrors: 0 });
     assert.doesNotMatch(JSON.stringify(body), /RY\.TO|KO|ASML/);
     assert.equal((await latest("RY.TO")).session_date, "2026-10-01");
   });

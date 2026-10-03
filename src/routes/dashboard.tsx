@@ -67,7 +67,8 @@ function SignOutButton() {
 }
 
 function DashboardShell() {
-  const { dbStatus, email, holdings, prices, previewRefresh, lastRun, storage } = Route.useLoaderData();
+  const { dbStatus, email, holdings, prices, previewRefresh, lastRun, storage, baseCurrency, valuation } =
+    Route.useLoaderData();
   const router = useRouter();
   return (
     <div className="min-h-screen bg-paper">
@@ -85,7 +86,14 @@ function DashboardShell() {
         <p className="mt-2 text-sm text-muted" data-testid="dashboard-user">
           Signed in as {email ?? "your account"}
         </p>
-        <HoldingsSection holdings={holdings} prices={prices} storage={storage} onChanged={() => router.invalidate()} />
+        <HoldingsSection
+          holdings={holdings}
+          prices={prices}
+          baseCurrency={baseCurrency}
+          valuation={valuation}
+          storage={storage}
+          onChanged={() => router.invalidate()}
+        />
         {previewRefresh && storage === "ok" ? (
           <PreviewRefresh lastRun={lastRun} onChanged={() => router.invalidate()} />
         ) : null}
