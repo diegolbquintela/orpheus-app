@@ -19,11 +19,22 @@ export const METRIC_KEYS: MetricKey[] = METRICS.map((m) => m.key);
 export const isMetricKey = (k: unknown): k is MetricKey => typeof k === "string" && (METRIC_KEYS as string[]).includes(k);
 export const metricLabel = (k: string) => METRICS.find((m) => m.key === k)?.label ?? k;
 
+/** How a metric is computed, shown as the column header's and the cells' tooltip (spec §8). */
+export const METRIC_HELP: Partial<Record<MetricKey, string>> = {
+  roic_1y:
+    "ROIC (1y) = NOPAT ÷ average invested capital (latest and prior fiscal year). NOPAT = operating income × (1 − tax rate); " +
+    "tax rate = income tax ÷ pre-tax income, limited to 0–50%, or 25% when pre-tax income is ≤ 0 or tax is missing. " +
+    "Invested capital = equity incl. non-controlling interests + short- and long-term debt − cash. Leases excluded " +
+    "(debt that includes finance leases is used only when a filer reports no other debt figure for that year). " +
+    "Not meaningful for banks and insurers.",
+};
+
 /** Reason text for a `—` cell (spec §8: shown on hover/tap). */
 export const STATUS_REASON: Record<string, string> = {
   not_covered: "not covered",
   "n/m": "not meaningful",
   insufficient_history: "insufficient history",
+  insufficient_data: "insufficient data",
   pending: "coverage check pending",
   not_computed: "not computed yet",
 };

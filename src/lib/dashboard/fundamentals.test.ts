@@ -55,6 +55,17 @@ const fact = (rows: AnnualFact[], concept: string, fyEnd: string) =>
 const years = (rows: AnnualFact[], concept: string) =>
   rows.filter((r) => r.concept === concept).map((r) => r.fiscalYearEnd.slice(0, 4));
 
+/** T10: recorded filer profiles (SIC) for KO and RY; other CIKs 404 (SIC unknown). */
+function submission(url: string) {
+  const cik = url.match(/CIK(\d{10})\.json$/)?.[1];
+  try {
+    return { status: 200, text: readFileSync(`${FIX}/submissions-CIK${cik}-2026-10-03-subset.json`, "utf8") };
+  } catch {
+    return { status: 404, text: "" };
+  }
+}
+
+
 const CONTACT = "dashboard-owner@example.com"; // placeholder for tests; the real one is the SEC_CONTACT_EMAIL env var
 const UA = secUserAgent({ SEC_CONTACT_EMAIL: CONTACT })!;
 
@@ -65,6 +76,7 @@ function fakeSec(opts: { fail?: Record<string, number | "network"> } = {}) {
   const get: SecGet = async (url, headers) => {
     calls.push({ url, headers, at: t });
     if (url === SEC_TICKERS_URL) return { status: 200, text: TICKERS };
+    if (url.includes("/submissions/")) return submission(url);
     const cik = url.match(/CIK(\d{10})\.json$/)?.[1];
     const fail = cik ? opts.fail?.[cik] : undefined;
     if (fail === "network") throw new TypeError("fetch failed");
@@ -233,7 +245,7 @@ describe("SEC rules: User-Agent with a contact, ≤5 requests/s, ticker map once
     await seed(["KO", "ASML.AS", "RY.TO"]);
     const sec = fakeSec();
     await refreshFundamentals(db, sec.source, { nowMs: NOW });
-    assert.equal(sec.calls.length, 4, "ticker map + 3 companyfacts");
+    assert.equal(sec.calls.length, 7, "ticker map + 3 companyfacts + 3 filer profiles (SIC, T10)");
     for (const c of sec.calls) {
       assert.equal(c.headers["User-Agent"], `OrpheusWisdom/1.0 (orpheus-app dashboard; ${CONTACT})`);
       assert.match(c.url, /^https:\/\/(www\.sec\.gov|data\.sec\.gov)\//);
@@ -384,7 +396,7 @@ describe("DASH-21: a holding without SEC coverage reads “not covered” in eve
     }
     assert.equal(views.KO.coverage, "covered");
     // T09: a covered symbol gets its revenue metrics computed right after the ingest.
-    assert.deepEqual(Object.keys(views.KO.metrics).sort(), ["rev_cagr_10y", "rev_cagr_3y", "rev_cagr_5y", "rev_g_1y"]);
+    assert.deepEqual(Object.keys(views.KO.metrics).sort(), ["rev_cagr_10y", "rev_cagr_3y", "rev_cagr_5y", "rev_g_1y", "roic_1y"]);
     assert.deepEqual(views["RY.TO"], { coverage: "pending", metrics: {} });
   });
 

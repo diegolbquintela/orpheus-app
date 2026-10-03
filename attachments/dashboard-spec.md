@@ -388,13 +388,15 @@ fixed list per concept (e.g. revenue: `Revenues`, `RevenueFromContractWithCustom
 |---|---|---|---|
 | `rev_g_1y` | Revenue growth 1y | Rev FY0 / Rev FY−1 − 1 | either value ≤ 0 or missing |
 | `rev_cagr_3y`, `_5y`, `_10y` | Revenue CAGR | (Rev FY0 / Rev FY−n)^(1/n) − 1 | either endpoint ≤ 0 (CAGR from a negative or zero base is undefined). FY−n missing → `insufficient_history` |
-| `roic_1y` | ROIC (1y) | NOPAT FY0 / average invested capital (FY0, FY−1). NOPAT = operating income × (1 − t), t = income tax expense / pre-tax income, clamped to 0–50%; if pre-tax income ≤ 0 or tax missing, t = 25% (stated in the tooltip). Invested capital = total equity (incl. non-controlling interests) + short-term debt + long-term debt (incl. current portion) − cash and equivalents. Leases excluded. | average invested capital ≤ 0; banks and insurers (SIC 6000–6399 or no operating-income concept), where ROIC is not meaningful |
+| `roic_1y` | ROIC (1y) | NOPAT FY0 / average invested capital (FY0, FY−1). NOPAT = operating income × (1 − t), t = income tax expense / pre-tax income, clamped to 0–50%; if pre-tax income ≤ 0 or tax missing, t = 25% (stated in the tooltip). Invested capital = total equity (incl. non-controlling interests) + short-term debt + long-term debt (incl. current portion) − cash and equivalents. Leases excluded (named deviation: debt tags that include finance leases are a fallback only, see T10 notes). | average invested capital ≤ 0; banks and insurers (SIC 6000–6399 or no operating-income concept), where ROIC is not meaningful. **Insufficient data** (`insufficient_data`, EL 2026-10-03): a debt or cash line group the company reports in other years is missing at FY0 or FY−1 (a group never reported counts as 0), or the stored rows predate the current parser. No FY−1 balance sheet → `insufficient_history` |
 | `eps_1y` | EPS (1y) | Diluted EPS for FY0, reporting currency | missing |
 | `ebit_margin_1y` | EBIT margin (1y) | Operating income FY0 / Rev FY0 (EBIT = reported operating income, no adjustments) | revenue ≤ 0 or operating income missing |
 | `gross_margin_1y` | Gross margin (1y) | Gross profit FY0 / Rev FY0; if no gross-profit concept, (Rev − cost of revenue) / Rev | revenue ≤ 0 or neither concept present (e.g. banks) |
 
 Negative values are real values and are shown as negative (negative ROIC, negative margin, negative
-growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with the reason on hover/tap.
+growth). `n/m` ("not meaningful"), `insufficient_history` ("insufficient history"), `insufficient_data`
+("insufficient data": an input can't be confirmed, so no value is computed from partial inputs; EL 2026-10-03)
+and `not_covered` ("not covered") cells show `—` with the reason on hover/tap.
 
 ### Implementation notes (T09, #17)
 
@@ -408,6 +410,35 @@ growth). `n/m`, `insufficient_history` and `not_covered` cells show `—` with t
   33,014 / FY2015 44,294 (`SalesRevenueGoodsNet`) USD m → 1.9% / 3.7% / 7.7% / 0.8%. RY (9 years) 10y →
   insufficient history.
 - Portfolio cells for these metrics (weighted mean, coverage %) come with T14 (§9).
+
+### Implementation notes (T10, #18)
+
+- `roic_1y` per the table above, computed in `metric-compute.server.ts` with the other metrics.
+- **SIC:** stored in `instruments.sic` (migration `0006`, idempotent `ADD COLUMN IF NOT EXISTS`) from SEC
+  `submissions/CIK##########.json`, fetched with companyfacts (one extra request per covered symbol per
+  7-day refresh). SIC 6000–6399 or no FY0 operating income → `n/m`.
+- **Concepts:** equity = `equity_incl_nci`, else `equity_parent` (filers without NCI report only that).
+  Short-term debt = `short_term_borrowings`, else commercial paper + other short-term borrowings. Long-term
+  debt incl. current = `long_term_debt`, else current + noncurrent; IFRS filers whose only current line is
+  "current borrowings incl. current portion" use it. Missing debt or cash lines = 0. New fallback tags
+  `us-gaap:LongTermDebtAndCapitalLeaseObligations{,Current,IncludingCurrentMaturities}` (KO uses only these
+  since FY2024): they include **finance** leases; operating lease liabilities are never used. **Named deviation (EL 2026-10-03): debt tags that include
+  finance leases are a fallback only**, used for a fiscal year only when no lease-excluded debt tag exists for
+  that year (KO FY2024+ → ROIC 17.4%).
+- **Average:** (IC FY0 + IC FY−1) / 2, FY−1 as in T09 (±45 days); no FY−1 equity → `insufficient_history`.
+- **QA F2 (no metric from partial inputs):** replaces "missing debt or cash lines = 0". Each line group
+  (short-term debt, long-term debt, cash) that a company never reports in any stored year counts as 0; a
+  group it reports in other years but not at FY0 or FY−1 → new status `insufficient_data` ("— insufficient
+  data"). Rows stored by an older parser (`instruments.fundamentals_parser_version` < the code's version,
+  migration `0007`) are refetched without waiting for the 7-day window and replaced; until then ROIC is
+  `insufficient_data`. Migration `0007` also adds `insufficient_data` to the `metric_values.status` CHECK.
+- **Atomic refetch:** a symbol's rows are replaced in one SQL statement (upsert new + delete rows not in the
+  new set), so an interrupted or failing refetch leaves the previous rows intact (no partial set).
+- **QA F1:** for the debt concepts the tag order decides before the filing date, so a lease-inclusive tag is
+  used for a fiscal year end only when no lease-excluded tag exists for it (KO FY2023 uses `LongTermDebt*`).
+- **Tooltip:** the header and every ROIC cell carry the formula, the 0–50% clamp and the 25% fallback.
+- **Hand check (fixtures):** KO FY2025 NOPAT 13,762 × (1 − 2,861/15,998) = 11,300.9; IC 69,497 (FY2025) and
+  60,066 (FY2024) → 17.4%. RY (SIC 6029, no operating income) → not meaningful.
 
 ## 9. Portfolio aggregates and weighting
 

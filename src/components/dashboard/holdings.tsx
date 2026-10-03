@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { trimDecimal } from "@/lib/dashboard/format";
-import { metricLabel } from "@/lib/dashboard/metrics";
+import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
 import { MetricCell, MetricColumnsPicker, type MetricViewData } from "./metric-columns";
 
 /**
@@ -80,14 +80,14 @@ type Props = {
   onChanged: () => Promise<void> | void;
 };
 
-async function send(url: string, method: string, body?: unknown): Promise<string | null> {
+async function send(url: string, method: string, body?: unknown, alsoOk: number[] = []): Promise<string | null> {
   try {
     const res = await fetch(url, {
       method,
       headers: body ? { "content-type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (res.ok) return null;
+    if (res.ok || alsoOk.includes(res.status)) return null;
     const data = (await res.json().catch(() => null)) as { error?: string } | null;
     if (res.status === 401) return "Your session has ended. Sign in again.";
     return data?.error ?? `Something went wrong (${res.status}). Try again.`;
@@ -174,11 +174,17 @@ function Row({
     await onChanged();
   }
 
+  // One DELETE per row: a second click before React re-renders the disabled button is ignored, and a
+  // 404 (the row is already gone, e.g. deleted in another tab) counts as done.
+  const deleting = useRef(false);
   async function remove() {
+    if (deleting.current) return;
     if (!window.confirm(`Delete ${holding.symbol} from your holdings?`)) return;
+    deleting.current = true;
     setBusy(true);
     setError(null);
-    const err = await send(`/api/dashboard/holdings/${holding.id}`, "DELETE");
+    const err = await send(`/api/dashboard/holdings/${holding.id}`, "DELETE", undefined, [404]);
+    deleting.current = false;
     setBusy(false);
     if (err) return setError(err);
     await onChanged();
@@ -459,7 +465,7 @@ export function HoldingsSection({
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Total return</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">% of portfolio</th>
                 {metricColumns.map((key) => (
-                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key}>
+                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
                     {metricLabel(key)}
                   </th>
                 ))}

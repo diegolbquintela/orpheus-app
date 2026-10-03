@@ -22,7 +22,7 @@
  *   is recorded in `instruments.fundamentals_error` and the run carries on.
  * - Pages never call this module's fetchers; they read `metricViews()` (Postgres only).
  */
-import { computeRevenueMetrics, symbolsMissingRevenueMetrics } from "./metric-compute.server.ts";
+import { computeStoredMetrics, symbolsMissingMetrics } from "./metric-compute.server.ts";
 import { METRIC_KEYS } from "./metrics.ts";
 import type { Queryable } from "./store.server.ts";
 
@@ -47,12 +47,16 @@ export interface FundamentalsSource {
   resolve(listing: ListingForCoverage): Promise<{ id: string; name: string } | null>;
   /** Annual facts for a covered company; null when the source has no facts for it (not covered). */
   annualFacts(id: string): Promise<AnnualFact[] | null>;
+  /** The filer's SIC code (T10), or null when unknown. */
+  sic?(id: string): Promise<number | null>;
 }
 
 // ------------------------------------------------------------------ SEC EDGAR
 
 export const SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 export const SEC_FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts";
+/** Filer profile (T10: the SIC code, for the bank/insurer rule of ROIC). */
+export const SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions";
 /** Spacing between SEC requests: ≤ 5 per second. */
 export const SEC_MIN_INTERVAL_MS = 200;
 /** A symbol's facts are refreshed when older than this (spec §7). */
@@ -84,7 +88,16 @@ const liveGet: SecGet = async (url, headers) => {
 };
 
 /** Concept → XBRL tags (spec §8 fixed lists). Earlier tags win a tie on the same filing. */
-export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: string[] }> = {
+/**
+ * Version of the concept list / parser. Stored per instrument (`fundamentals_parser_version`, 0007); a
+ * covered symbol stored by an older version is refetched regardless of the 7-day window, and metrics that
+ * need newer concepts are not computed from its rows until then (T10 QA F2).
+ * 1 = T08 (null in the database). 2 = T10: lease-inclusive debt fallbacks, debt tags ranked before filing date.
+ */
+export const FUNDAMENTALS_PARSER_VERSION = 2;
+
+/** `rankFirst`: the tag order beats the filing date (T10 F1: fallback-only tags never replace a primary tag). */
+export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: string[]; rankFirst?: boolean }> = {
   revenue: {
     kind: "duration",
     tags: [
@@ -121,9 +134,23 @@ export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: stri
   short_term_borrowings: { kind: "instant", tags: ["us-gaap:ShortTermBorrowings", "ifrs-full:ShorttermBorrowings"] },
   commercial_paper: { kind: "instant", tags: ["us-gaap:CommercialPaper"] },
   other_short_term_borrowings: { kind: "instant", tags: ["us-gaap:OtherShortTermBorrowings"] },
-  long_term_debt_current: { kind: "instant", tags: ["us-gaap:LongTermDebtCurrent", "ifrs-full:CurrentPortionOfLongtermBorrowings"] },
-  long_term_debt_noncurrent: { kind: "instant", tags: ["us-gaap:LongTermDebtNoncurrent", "ifrs-full:LongtermBorrowings"] },
-  long_term_debt: { kind: "instant", tags: ["us-gaap:LongTermDebt"] },
+  // T10: the *AndCapitalLeaseObligations* tags are fallbacks for filers (e.g. KO since FY2024) that tag
+  // their balance-sheet debt lines only that way; they include finance leases (operating leases are never used).
+  long_term_debt_current: {
+    kind: "instant",
+    rankFirst: true,
+    tags: ["us-gaap:LongTermDebtCurrent", "ifrs-full:CurrentPortionOfLongtermBorrowings", "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent"],
+  },
+  long_term_debt_noncurrent: {
+    kind: "instant",
+    rankFirst: true,
+    tags: ["us-gaap:LongTermDebtNoncurrent", "ifrs-full:LongtermBorrowings", "us-gaap:LongTermDebtAndCapitalLeaseObligations"],
+  },
+  long_term_debt: {
+    kind: "instant",
+    rankFirst: true,
+    tags: ["us-gaap:LongTermDebt", "us-gaap:LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"],
+  },
   current_borrowings_total: { kind: "instant", tags: ["ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings"] },
   cash: { kind: "instant", tags: ["us-gaap:CashAndCashEquivalentsAtCarryingValue", "ifrs-full:CashAndCashEquivalents"] },
 };
@@ -142,6 +169,8 @@ const days = (a: string, b: string) => (Date.parse(`${b}T00:00:00Z`) - Date.pars
  * - One unit per concept: the unit of the concept's latest fiscal year.
  * - Per (concept, fiscal year end): the most recently filed fact among the concept's tags (this stitches
  *   tag changes, e.g. KO's SalesRevenueGoodsNet → Revenues); ties go to the earlier tag in the list.
+ *   For `rankFirst` concepts (debt) the tag order decides first and the filing date only breaks ties, so a
+ *   lease-inclusive fallback tag is used for a fiscal year end only when no primary tag exists for it.
  */
 export function annualFactsFromCompanyFacts(doc: CompanyFacts): AnnualFact[] {
   type Cand = Fact & { tag: string; unit: string; rank: number };
@@ -174,13 +203,18 @@ export function annualFactsFromCompanyFacts(doc: CompanyFacts): AnnualFact[] {
     if (!cands.length) continue;
     const latest = cands.reduce((a, b) => (b.end > a.end || (b.end === a.end && (b.filed ?? "") > (a.filed ?? "")) ? b : a));
     const best = new Map<string, Cand>();
+    const rankFirst = CONCEPTS[concept].rankFirst === true;
     for (const c of cands) {
       if (c.unit !== latest.unit) continue;
       const cur = best.get(c.end);
-      const better =
-        !cur ||
-        (c.filed ?? "") > (cur.filed ?? "") ||
-        ((c.filed ?? "") === (cur.filed ?? "") && (c.rank < cur.rank || (c.rank === cur.rank && (c.accn ?? "") > (cur.accn ?? ""))));
+      const byFiled = (c.filed ?? "").localeCompare(cur?.filed ?? "");
+      const byRank = cur ? cur.rank - c.rank : 0; // > 0: c's tag comes earlier in the list
+      const byAccn = (c.accn ?? "").localeCompare(cur?.accn ?? "");
+      const better = !cur
+        ? true
+        : rankFirst
+          ? byRank > 0 || (byRank === 0 && (byFiled > 0 || (byFiled === 0 && byAccn > 0)))
+          : byFiled > 0 || (byFiled === 0 && (byRank > 0 || (byRank === 0 && byAccn > 0)));
       if (better) best.set(c.end, c);
     }
     for (const c of [...best.values()].sort((a, b) => a.end.localeCompare(b.end)))
@@ -290,6 +324,16 @@ export function createSecFundamentalsSource(options: SecSourceOptions): Fundamen
       if (listing.region !== "US" && !(listing.name && sameCompany(listing.name, hit.name))) return null;
       return { id: String(hit.cik).padStart(10, "0"), name: hit.name };
     },
+    async sic(id) {
+      try {
+        const doc = JSON.parse(await request(`${SEC_SUBMISSIONS_URL}/CIK${id}.json`)) as { sic?: string | number };
+        const sic = Number(doc.sic);
+        return Number.isInteger(sic) && sic > 0 ? sic : null;
+      } catch (err) {
+        if (err instanceof SecHttpError && err.status === 404) return null;
+        throw err;
+      }
+    },
     async annualFacts(id) {
       try {
         return annualFactsFromCompanyFacts(JSON.parse(await request(`${SEC_FACTS_URL}/CIK${id}.json`)) as CompanyFacts);
@@ -336,6 +380,38 @@ export type FundamentalsOptions = {
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err)).slice(0, 300);
 
+/**
+ * Replace a symbol's `fundamentals_annual` rows with `facts` in ONE SQL statement (so it is atomic on
+ * every driver, including the pooled Neon client where BEGIN/COMMIT could land on different connections):
+ * upsert the new rows and delete the symbol's rows that are not in the new set. If any value fails, the
+ * statement fails and the old rows stay exactly as they were (T10 QA).
+ */
+export async function replaceFundamentals(db: Queryable, symbol: string, facts: AnnualFact[]): Promise<void> {
+  const rows = facts.map((f) => ({
+    fye: f.fiscalYearEnd,
+    concept: f.concept,
+    value: f.value,
+    unit: f.unit,
+    source_tag: f.sourceTag,
+    accession: f.accession,
+    filed: f.filed,
+  }));
+  await db.query(
+    `WITH input AS (
+       SELECT * FROM jsonb_to_recordset($2::jsonb)
+         AS x(fye date, concept text, value numeric, unit text, source_tag text, accession text, filed date)
+     ), dropped AS (
+       DELETE FROM fundamentals_annual f WHERE f.symbol = $1
+         AND NOT EXISTS (SELECT 1 FROM input i WHERE i.fye = f.fiscal_year_end AND i.concept = f.concept)
+     )
+     INSERT INTO fundamentals_annual (symbol, fiscal_year_end, concept, value, unit, source_tag, accession, filed)
+     SELECT $1, fye, concept, value, unit, source_tag, accession, filed FROM input
+     ON CONFLICT (symbol, fiscal_year_end, concept) DO UPDATE SET value = EXCLUDED.value, unit = EXCLUDED.unit,
+       source_tag = EXCLUDED.source_tag, accession = EXCLUDED.accession, filed = EXCLUDED.filed`,
+    [symbol, JSON.stringify(rows)],
+  );
+}
+
 /** Store facts for held symbols that are unchecked or older than 7 days. Never throws. */
 export async function refreshFundamentals(
   db: Queryable,
@@ -347,8 +423,16 @@ export async function refreshFundamentals(
   const started = now();
   const summary: FundamentalsSummary = { checked: 0, covered: 0, notCovered: 0, rows: 0, waiting: 0, deferred: 0, computed: 0, errors: [] };
   try {
-    const held = await db.query<{ symbol: string; region: "US" | "EU" | "CA" | null; name: string | null; checked: string | null }>(
-      `SELECT h.symbol, i.region, i.name, i.fundamentals_checked_at::text AS checked
+    const held = await db.query<{
+      symbol: string;
+      region: "US" | "EU" | "CA" | null;
+      name: string | null;
+      checked: string | null;
+      source: string | null;
+      parser: number | null;
+    }>(
+      `SELECT h.symbol, i.region, i.name, i.fundamentals_checked_at::text AS checked,
+         i.fundamentals_source AS source, i.fundamentals_parser_version AS parser
        FROM (SELECT DISTINCT symbol FROM holdings) h LEFT JOIN instruments i ON i.symbol = h.symbol
        WHERE ($1::text[] IS NULL OR h.symbol = ANY($1::text[]))
        ORDER BY i.fundamentals_checked_at ASC NULLS FIRST, h.symbol`,
@@ -359,13 +443,15 @@ export async function refreshFundamentals(
         summary.waiting += 1;
         return false;
       }
-      return h.checked === null || nowMs - Date.parse(h.checked) >= FUNDAMENTALS_MAX_AGE_MS;
+      // Covered symbols stored by an older parser are refetched now (T10 QA F2), not after 7 days.
+      const stale = h.source === "sec" && (h.parser ?? 1) < FUNDAMENTALS_PARSER_VERSION;
+      return h.checked === null || stale || nowMs - Date.parse(h.checked) >= FUNDAMENTALS_MAX_AGE_MS;
     });
-    // T09: covered symbols stored before their metrics existed get them now (Postgres only, no SEC call).
-    for (const symbol of await symbolsMissingRevenueMetrics(db)) {
+    // T09+: covered symbols stored before their metrics existed get them now (Postgres only, no SEC call).
+    for (const symbol of await symbolsMissingMetrics(db)) {
       if (options.only && !options.only.includes(symbol)) continue;
       try {
-        await computeRevenueMetrics(db, symbol);
+        await computeStoredMetrics(db, symbol);
         summary.computed += 1;
       } catch (err) {
         summary.errors.push({ symbol, error: message(err) });
@@ -388,8 +474,8 @@ export async function refreshFundamentals(
         if (!hit || !facts) {
           await db.query(
             `UPDATE instruments SET fundamentals_source = 'none', sec_cik = NULL, fundamentals_checked_at = $2,
-               fundamentals_error = NULL WHERE symbol = $1`,
-            [h.symbol, at],
+               fundamentals_error = NULL, fundamentals_parser_version = $3 WHERE symbol = $1`,
+            [h.symbol, at, FUNDAMENTALS_PARSER_VERSION],
           );
           await db.query(
             `INSERT INTO metric_values (symbol, metric_key, value, status, fiscal_year_end, computed_at)
@@ -400,22 +486,24 @@ export async function refreshFundamentals(
           );
           summary.notCovered += 1;
         } else {
-          for (const f of facts) {
-            await db.query(
-              `INSERT INTO fundamentals_annual (symbol, fiscal_year_end, concept, value, unit, source_tag, accession, filed)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-               ON CONFLICT (symbol, fiscal_year_end, concept) DO UPDATE SET value = EXCLUDED.value, unit = EXCLUDED.unit,
-                 source_tag = EXCLUDED.source_tag, accession = EXCLUDED.accession, filed = EXCLUDED.filed`,
-              [h.symbol, f.fiscalYearEnd, f.concept, f.value, f.unit, f.sourceTag, f.accession, f.filed],
-            );
+          // Replace, not merge, in one statement (atomic): rows from an older parser must not survive,
+          // and an interrupted refetch must never leave a partial set for the metrics to read.
+          await replaceFundamentals(db, h.symbol, facts);
+          // SIC (T10, ROIC's bank/insurer rule). A failed profile request keeps the stored code.
+          let sic: number | null | undefined;
+          try {
+            sic = source.sic ? await source.sic(hit.id) : undefined;
+          } catch {
+            sic = undefined;
           }
           await db.query(
             `UPDATE instruments SET fundamentals_source = 'sec', sec_cik = $2, fundamentals_checked_at = $3,
-               fundamentals_error = NULL WHERE symbol = $1`,
-            [h.symbol, hit.id, at],
+               fundamentals_error = NULL, sic = CASE WHEN $4::boolean THEN $5::int ELSE sic END,
+               fundamentals_parser_version = $6 WHERE symbol = $1`,
+            [h.symbol, hit.id, at, sic !== undefined, sic ?? null, FUNDAMENTALS_PARSER_VERSION],
           );
           await db.query("DELETE FROM metric_values WHERE symbol = $1 AND status = 'not_covered'", [h.symbol]);
-          await computeRevenueMetrics(db, h.symbol);
+          await computeStoredMetrics(db, h.symbol);
           summary.computed += 1;
           summary.covered += 1;
           summary.rows += facts.length;

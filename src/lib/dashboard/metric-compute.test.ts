@@ -6,7 +6,7 @@ import { after, before, beforeEach, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import { createSecFundamentalsSource, metricViews, refreshFundamentals, SEC_TICKERS_URL, type SecGet } from "./fundamentals.server.ts";
-import { computeRevenueMetrics, fiscalYearBack, revenueGrowth } from "./metric-compute.server.ts";
+import { computeStoredMetrics, fiscalYearBack, revenueGrowth } from "./metric-compute.server.ts";
 import { STATUS_REASON } from "./metrics.ts";
 import type { Queryable } from "./store.server.ts";
 
@@ -29,6 +29,12 @@ after(async () => {
 const FIX = "test-fixtures/sec";
 const CIKS = ["0000021344", "0000937966", "0001000275", "0001594805", "0000313216"];
 const get: SecGet = async (url) => {
+  if (url.includes("/submissions/")) {
+    const cik = url.match(/CIK(\d{10})\.json$/)?.[1];
+    return ["0000021344", "0001000275"].includes(cik ?? "")
+      ? { status: 200, text: readFileSync(`${FIX}/submissions-CIK${cik}-2026-10-03-subset.json`, "utf8") }
+      : { status: 404, text: "" };
+  }
   if (url === SEC_TICKERS_URL) return { status: 200, text: readFileSync(`${FIX}/company_tickers_exchange-2026-10-02-subset.json`, "utf8") };
   const cik = url.match(/CIK(\d{10})\.json$/)?.[1];
   return cik && CIKS.includes(cik)
@@ -148,20 +154,253 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
     assert.equal(offline.computed, 0, "nothing missing any more");
   });
 
-  it("computeRevenueMetrics stores fractions with 12 significant digits and the FY0 date", async () => {
+  it("computeStoredMetrics stores fractions with 12 significant digits and the FY0 date", async () => {
     await ingest();
-    const out = await computeRevenueMetrics(db, "ASML.AS");
+    const out = await computeStoredMetrics(db, "ASML.AS");
     const row = await pg.query<{ value: string; fiscal_year_end: string }>(
       "SELECT value::text, fiscal_year_end FROM metric_values WHERE symbol = 'ASML.AS' AND metric_key = 'rev_g_1y'",
     );
     assert.equal(row.rows[0].value, (32667300000 / 28262900000 - 1).toPrecision(12));
     assert.equal(row.rows[0].fiscal_year_end, "2025-12-31");
-    assert.equal(out.length, 4);
+    assert.equal(out.length, 5, "4 revenue metrics + ROIC (T10)");
   });
 
   it("the metric cell renders ok values as a percent and has no rating wording", () => {
     const cell = readFileSync("src/components/dashboard/metric-columns.tsx", "utf8");
     assert.match(cell, /\(v \* 100\)\.toFixed\(1\)\}%/);
     assert.doesNotMatch(readFileSync("src/lib/dashboard/metric-compute.server.ts", "utf8"), /\b(buy|sell|score|rating|strong|weak)\b/i);
+  });
+});
+
+// ------------------------------------------------------------------ T10 (#18): ROIC (1y)
+
+import { investedCapital, roic, roicTaxRate, type FactTable } from "./metric-compute.server.ts";
+import { METRIC_HELP } from "./metrics.ts";
+
+const table = (rows: Record<string, Record<string, number>>): FactTable =>
+  new Map(Object.entries(rows).map(([fye, f]) => [fye, new Map(Object.entries(f))]));
+
+describe("DASH-17: ROIC (1y) per spec §8", () => {
+  it("KO hand check from the SEC fixtures (FY2025, USD)", async () => {
+    await ingest();
+    const m = await stored("KO");
+    // Operating income 13,762; tax 2,861 / pre-tax 15,998 = 17.88% (inside 0–50%).
+    const nopat = 13762 * (1 - 2861 / 15998); // 11,300.93
+    // Invested capital = equity incl. NCI + commercial paper + other short-term borrowings
+    //   + long-term debt incl. current maturities (LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities) − cash.
+    const ic2025 = 34275 + 1495 + 56 + 43941 - 10270; // 69,497
+    const ic2024 = 26372 + 1139 + 360 + 43023 - 10828; // 60,066
+    const hand = nopat / ((ic2025 + ic2024) / 2); // 0.17445 → 17.4%
+    assert.equal(m.roic_1y.status, "ok");
+    assert.equal(m.roic_1y.fiscalYearEnd, "2025-12-31");
+    assert.ok(close(Number(m.roic_1y.value), hand), `${m.roic_1y.value} vs ${hand}`);
+    assert.equal((Number(m.roic_1y.value) * 100).toFixed(1), "17.4");
+    const sic = await pg.query<{ sic: number | null }>("SELECT sic FROM instruments WHERE symbol = 'KO'");
+    assert.equal(sic.rows[0].sic, 2080, "SIC from the recorded filer profile");
+  });
+
+  it("Philips (IFRS: short-term borrowings + current/non-current borrowings)", async () => {
+    await ingest();
+    const m = await stored("PHG");
+    const ic2025 = 10990 + 52 + 1098 + 6934 - 2794;
+    const ic2024 = 12043 + 92 + 434 + 7113 - 2401;
+    assert.ok(close(Number(m.roic_1y.value), (1424 * (1 - 282 / 1182)) / ((ic2025 + ic2024) / 2)));
+  });
+
+  it("a bank (RY: SIC 6029, no operating income) shows not meaningful", async () => {
+    await ingest();
+    const m = await stored("RY.TO");
+    assert.deepEqual(m.roic_1y, { value: null, status: "n/m", fiscalYearEnd: "2025-10-31" });
+    assert.equal(STATUS_REASON[m.roic_1y.status], "not meaningful");
+    const sic = await pg.query<{ sic: number | null }>("SELECT sic FROM instruments WHERE symbol = 'RY.TO'");
+    assert.equal(sic.rows[0].sic, 6029);
+  });
+
+  const base = {
+    "2024-12-31": { equity_incl_nci: 100, long_term_debt: 50, cash: 30 },
+    "2025-12-31": { operating_income: 20, pretax_income: 18, income_tax: 4.5, equity_incl_nci: 110, long_term_debt: 40, cash: 20 },
+  };
+  it("negative ROIC is a real value; SIC 6000–6399 is n/m even with operating income", () => {
+    const neg = roic(table({ ...base, "2025-12-31": { ...base["2025-12-31"], operating_income: -10 } }), "2025-12-31", 2080);
+    assert.equal(neg.status, "ok");
+    assert.ok(close(neg.value!, (-10 * (1 - 0.25)) / 125));
+    assert.ok(neg.value! < 0);
+    for (const sic of [6000, 6311, 6399]) assert.equal(roic(table(base), "2025-12-31", sic).status, "n/m", String(sic));
+    assert.equal(roic(table(base), "2025-12-31", 6500).status, "ok", "real estate (65xx) is not excluded");
+  });
+
+  it("n/m when average invested capital ≤ 0 or FY0 has no operating income / equity; insufficient history without FY−1", () => {
+    const cashRich = table({
+      "2024-12-31": { equity_incl_nci: 10, cash: 30 },
+      "2025-12-31": { operating_income: 5, equity_incl_nci: 10, cash: 10 },
+    });
+    assert.equal(roic(cashRich, "2025-12-31", null).status, "n/m", "average (−20 + 0) / 2 ≤ 0");
+    const { operating_income: _oi, ...noOi } = base["2025-12-31"];
+    void _oi;
+    assert.equal(roic(table({ ...base, "2025-12-31": noOi }), "2025-12-31", null).status, "n/m");
+    assert.equal(roic(table({ "2025-12-31": base["2025-12-31"] }), "2025-12-31", null).status, "insufficient_history");
+    assert.equal(roic(table({ "2024-12-31": { cash: 1 }, "2025-12-31": base["2025-12-31"] }), "2025-12-31", null).status, "insufficient_history");
+    assert.equal(roic(new Map(), null, null).status, "n/m");
+  });
+
+  it("tax rate: clamped to 0–50%, 25% when pre-tax ≤ 0 or tax/pre-tax missing", () => {
+    assert.deepEqual(roicTaxRate(4.5, 18), { rate: 0.25, fallback: false });
+    assert.deepEqual(roicTaxRate(963, 123), { rate: 0.5, fallback: false }, "Philips FY2024: 783% → 50%");
+    assert.deepEqual(roicTaxRate(-5, 100), { rate: 0, fallback: false });
+    assert.deepEqual(roicTaxRate(10, -5), { rate: 0.25, fallback: true });
+    assert.deepEqual(roicTaxRate(undefined, 100), { rate: 0.25, fallback: true });
+    assert.deepEqual(roicTaxRate(10, undefined), { rate: 0.25, fallback: true });
+    const r = roic(table(base), "2025-12-31", null);
+    assert.ok(close(r.value!, (20 * (1 - 0.25)) / ((130 + 120) / 2)));
+  });
+
+  it("invested capital: NCI total else parent equity; short-term borrowings else CP + other; LTD total else parts; IFRS current total", () => {
+    assert.equal(investedCapital(new Map(Object.entries({ equity_parent: 100, long_term_debt_current: 5, long_term_debt_noncurrent: 20, cash: 10 }))), 115);
+    assert.equal(investedCapital(new Map(Object.entries({ equity_incl_nci: 100, equity_parent: 90, short_term_borrowings: 7, commercial_paper: 3, cash: 0 }))), 107);
+    assert.equal(investedCapital(new Map(Object.entries({ equity_incl_nci: 100, commercial_paper: 3, other_short_term_borrowings: 2 }))), 105);
+    assert.equal(investedCapital(new Map(Object.entries({ equity_incl_nci: 100, current_borrowings_total: 9, long_term_debt_noncurrent: 20, cash: 4 }))), 125);
+    assert.equal(investedCapital(new Map(Object.entries({ cash: 4 }))), null);
+  });
+
+  it("the tooltip states the formula, the tax rule and the 25% fallback; no rating wording", () => {
+    const h = METRIC_HELP.roic_1y!;
+    for (const part of ["NOPAT", "average invested capital", "0–50%", "25%", "Leases excluded", "banks and insurers"]) assert.ok(h.includes(part), part);
+    assert.doesNotMatch(h, /\b(buy|sell|good|bad|score|rating|strong|weak)\b/i);
+    assert.match(readFileSync("src/components/dashboard/holdings.tsx", "utf8"), /title=\{METRIC_HELP\[key as MetricKey\]\}/);
+  });
+});
+
+// ------------------------------------------------------------------ T10 QA (#37): F1, F2
+
+import { annualFactsFromCompanyFacts, FUNDAMENTALS_PARSER_VERSION } from "./fundamentals.server.ts";
+
+describe("QA F1: debt tags rank before the filing date (lease-inclusive tags are a fallback only)", () => {
+  const ko = annualFactsFromCompanyFacts(JSON.parse(readFileSync(`${FIX}/companyfacts-CIK0000021344-2026-10-02-subset.json`, "utf8")));
+  const at = (concept: string, fye: string) => ko.find((f) => f.concept === concept && f.fiscalYearEnd === fye);
+  it("KO FY2023: LongTermDebt* (filed 2024-02-20) wins over the lease-inclusive tag filed 2025-02-20", () => {
+    for (const [concept, tag] of [
+      ["long_term_debt", "us-gaap:LongTermDebt"],
+      ["long_term_debt_current", "us-gaap:LongTermDebtCurrent"],
+      ["long_term_debt_noncurrent", "us-gaap:LongTermDebtNoncurrent"],
+    ]) {
+      const f = at(concept, "2023-12-31")!;
+      assert.equal(f.sourceTag, tag, concept);
+      assert.equal(f.filed, "2024-02-20", concept);
+    }
+  });
+  it("KO FY2024/FY2025 (no lease-excluded tag): the fallback is used", () => {
+    assert.equal(at("long_term_debt", "2024-12-31")?.sourceTag, "us-gaap:LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities");
+    assert.equal(at("long_term_debt", "2025-12-31")?.value, "43941000000");
+  });
+  it("revenue keeps most-recent-filing stitching (not rank-first)", () => {
+    assert.equal(at("revenue", "2016-12-31")?.sourceTag, "us-gaap:Revenues");
+  });
+  it("the tooltip mentions the fallback", () => {
+    assert.match(METRIC_HELP.roic_1y!, /finance leases is used only when/);
+  });
+});
+
+describe("QA F2: rows from an older parser are refetched and never yield a metric from partial inputs", () => {
+  /** KO as #35/#36 stored it on the shared database: parser v1 (null), no long-term debt rows for FY2024/25. */
+  async function oldKo() {
+    await ingest();
+    await pg.exec(`DELETE FROM fundamentals_annual WHERE symbol = 'KO' AND concept LIKE 'long_term_debt%' AND fiscal_year_end >= '2024-01-01';
+      UPDATE instruments SET fundamentals_parser_version = NULL, fundamentals_checked_at = '2026-10-03T00:00:00Z' WHERE symbol = 'KO';
+      UPDATE metric_values SET value = 0.5306, status = 'ok' WHERE symbol = 'KO' AND metric_key = 'roic_1y';`);
+  }
+  it("an old stored KO shows insufficient data (not 53.1%) until the refetch, without SEC calls", async () => {
+    await oldKo();
+    const s = await refreshFundamentals(db, null, { nowMs: NOW + 60_000 });
+    assert.equal(s.computed, 1);
+    const m = await stored("KO");
+    assert.deepEqual([m.roic_1y.status, m.roic_1y.value], ["insufficient_data", null]);
+    assert.equal(STATUS_REASON.insufficient_data, "insufficient data");
+    assert.equal(m.rev_g_1y.status, "ok", "revenue metrics don't need the newer parser");
+  });
+  it("the next run refetches it inside the 7-day window and stores the new fields → 17.4%", async () => {
+    await oldKo();
+    const calls: string[] = [];
+    const s = await refreshFundamentals(
+      db,
+      createSecFundamentalsSource({ userAgent: "t (t@example.com)", minIntervalMs: 0, get: async (u, h) => (calls.push(u), get(u, h)) }),
+      { nowMs: NOW + 60_000 },
+    );
+    assert.ok(calls.some((u) => u.endsWith("CIK0000021344.json") && u.includes("companyfacts")), "KO refetched");
+    assert.equal(s.errors.length, 0);
+    const ltd = await pg.query<{ value: string }>("SELECT value::text FROM fundamentals_annual WHERE symbol = 'KO' AND concept = 'long_term_debt' AND fiscal_year_end = '2025-12-31'");
+    assert.equal(ltd.rows[0]?.value, "43941000000");
+    const v = await pg.query<{ v: number }>("SELECT fundamentals_parser_version AS v FROM instruments WHERE symbol = 'KO'");
+    assert.equal(v.rows[0].v, FUNDAMENTALS_PARSER_VERSION);
+    assert.equal((Number((await stored("KO")).roic_1y.value) * 100).toFixed(1), "17.4");
+    const again: string[] = [];
+    await refreshFundamentals(
+      db,
+      createSecFundamentalsSource({ userAgent: "t (t@example.com)", minIntervalMs: 0, get: async (u, h) => (again.push(u), get(u, h)) }),
+      { nowMs: NOW + 120_000 },
+    );
+    assert.deepEqual(again, [], "current parser: back to the 7-day window");
+  });
+  it("a debt or cash line reported in other years but missing at FY0/FY−1 → insufficient data; never reported → 0", () => {
+    const t = table({
+      "2023-12-31": { equity_incl_nci: 90, long_term_debt: 40, cash: 10 },
+      "2024-12-31": { equity_incl_nci: 100, long_term_debt: 50, cash: 30 },
+      "2025-12-31": { operating_income: 20, pretax_income: 18, income_tax: 4.5, equity_incl_nci: 110, cash: 20 },
+    });
+    assert.equal(roic(t, "2025-12-31", null).status, "insufficient_data", "FY2025 long-term debt missing");
+    const noDebtEver = table({
+      "2024-12-31": { equity_incl_nci: 100, cash: 30 },
+      "2025-12-31": { operating_income: 20, pretax_income: 18, income_tax: 4.5, equity_incl_nci: 110, cash: 20 },
+    });
+    const r = roic(noDebtEver, "2025-12-31", null);
+    assert.equal(r.status, "ok");
+    assert.ok(close(r.value!, (20 * 0.75) / ((70 + 90) / 2)));
+  });
+});
+
+describe("QA: holdings delete fires once", () => {
+  it("the row guards a second click and treats 404 (already deleted) as done", () => {
+    const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
+    assert.match(src, /if \(deleting\.current\) return;/);
+    assert.match(src, /send\(`\/api\/dashboard\/holdings\/\$\{holding\.id\}`, "DELETE", undefined, \[404\]\)/);
+  });
+});
+
+// ------------------------------------------------------------------ T10 QA re-check: atomic replace
+
+import { replaceFundamentals } from "./fundamentals.server.ts";
+
+describe("the refetch replaces a symbol's rows atomically", () => {
+  const rows = async () =>
+    (await pg.query<{ k: string }>("SELECT fiscal_year_end || ' ' || concept || ' ' || value::text AS k FROM fundamentals_annual WHERE symbol = 'KO' ORDER BY 1")).rows.map((r) => r.k);
+  const fact = (fye: string, concept: string, value: string) => ({ fiscalYearEnd: fye, concept, value, unit: "USD", sourceTag: "t", accession: "a", filed: "2026-01-01" });
+
+  it("a value that fails mid-way leaves the old rows exactly as they were", async () => {
+    await ingest();
+    const before = await rows();
+    assert.ok(before.length > 50);
+    await assert.rejects(replaceFundamentals(db, "KO", [fact("2025-12-31", "revenue", "1"), fact("2026-12-31", "revenue", "not-a-number")]));
+    assert.deepEqual(await rows(), before);
+  });
+
+  it("a successful replace upserts the new set and drops rows not in it", async () => {
+    await ingest();
+    await replaceFundamentals(db, "KO", [fact("2024-12-31", "revenue", "2"), fact("2025-12-31", "revenue", "3")]);
+    assert.deepEqual(await rows(), ["2024-12-31 revenue 2", "2025-12-31 revenue 3"]);
+  });
+
+  it("through the job: a source returning a bad fact records an error and keeps the stored rows and metrics", async () => {
+    await ingest();
+    const before = await rows();
+    const metricsBefore = await stored("KO");
+    await pg.exec("UPDATE instruments SET fundamentals_parser_version = NULL WHERE symbol = 'KO'");
+    const bad = {
+      id: "sec" as const,
+      resolve: async () => ({ id: "0000021344", name: "COCA COLA CO" }),
+      annualFacts: async () => [fact("2025-12-31", "revenue", "1"), fact("2026-12-31", "revenue", "oops")],
+    };
+    const s = await refreshFundamentals(db, bad, { nowMs: NOW + 60_000, only: ["KO"] });
+    assert.deepEqual(s.errors.map((e) => e.symbol), ["KO"]);
+    assert.deepEqual(await rows(), before);
+    assert.equal((await stored("KO")).rev_g_1y.value, metricsBefore.rev_g_1y.value);
   });
 });
