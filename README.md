@@ -224,6 +224,10 @@ exactly as reported to the SEC, with its reporting currency code (e.g. "3.04 USD
 without a diluted EPS figure for that year shows "— not meaningful". The portfolio row's EPS cell (weighted
 1-year EPS growth, decision D9) comes with the portfolio totals ticket (T14).
 
+**Dashboard EBIT margin (T12).** The "EBIT margin (1y)" column = operating income ÷ revenue for the latest
+fiscal year, both as reported to the SEC (no adjustments), e.g. KO 28.7%. Negative margins are shown as
+negative; zero or negative revenue, or no reported operating income (e.g. banks), shows "— not meaningful".
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

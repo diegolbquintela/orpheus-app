@@ -21,6 +21,9 @@ export const metricLabel = (k: string) => METRICS.find((m) => m.key === k)?.labe
 
 /** How a metric is computed, shown as the column header's and the cells' tooltip (spec §8). */
 export const METRIC_HELP: Partial<Record<MetricKey, string>> = {
+  ebit_margin_1y:
+    "EBIT margin (1y) = operating income ÷ revenue for the latest fiscal year, both as reported to the SEC (no adjustments). " +
+    "Not meaningful when revenue is zero or negative or no operating income is reported (e.g. banks).",
   eps_1y: "EPS (1y) = diluted earnings per share for the latest fiscal year, as reported to the SEC, in the reporting currency.",
   roic_1y:
     "ROIC (1y) = NOPAT ÷ average invested capital (latest and prior fiscal year). NOPAT = operating income × (1 − tax rate); " +

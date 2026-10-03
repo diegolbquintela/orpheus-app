@@ -432,7 +432,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   revenue missing; `insufficient_history` when FY−n missing. Values are fractions (`toPrecision(12)`),
   shown as % with 1 decimal. The portfolio cell for these metrics is T14 (spec §9), not here.
 - Tests: `src/lib/dashboard/metric-compute.test.ts` (SEC fixtures → ingest → metrics): KO hand check
-  (1.9 / 3.7 / 7.7 / 0.8 %, 10y base from `SalesRevenueGoodsNet`), Philips, RY 10y insufficient history,
+  (1.9 / 3.7 / 7.7 / 0.8 %, 10y base from `SalesRevenueGoodsNet`), Philips (PHG), RY 10y insufficient history,
   zero/negative base, fiscal-year alignment, catch-up without SEC calls.
 
 ### Dashboard ROIC (T10 #18)
@@ -471,7 +471,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   ONE SQL statement (CTE: upsert the new set + delete rows not in it). The app's Neon client is a `pg` Pool
   where each `query()` may use a different connection, so BEGIN/COMMIT across calls isn't safe; a single
   statement is atomic everywhere. A failing value leaves the old rows untouched (tested).
-- Tests: `metric-compute.test.ts` DASH-17 block: KO hand check (17.4%), Philips IFRS path, RY n/m (SIC
+- Tests: `metric-compute.test.ts` DASH-17 block: KO hand check (17.4%), Philips (PHG) IFRS path, RY n/m (SIC
   6029), negative ROIC, SIC range, avg ≤ 0, insufficient history, tax clamp/fallback, invested-capital
   fallbacks, tooltip. Fixtures: KO companyfacts gained the 3 lease-inclusive debt tags (verbatim from a
   2026-10-03 live download); `submissions-CIK{KO,RY}-2026-10-03-subset.json` (cik, name, sic only).
@@ -491,11 +491,22 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   Splits: FY0's value is the most recent filing's (a 10-K/A restatement wins); only FY0 is used, so no
   cross-year adjustment. IFRS: `ifrs-full:DilutedEarningsLossPerShare`. The portfolio EPS cell (D9,
   weighted 1y EPS growth) is T14.
-- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips 0.93 EUR (IFRS),
+- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips (PHG) 0.93 EUR (IFRS),
   RY 14.07 CAD, ASML 24.71 EUR, missing → n/m, basic-only filer, negative EPS, odd unit, 10-K/A
   restatement, display without rounding.
 - #38 (second DELETE on one click) is not folded in: the cause isn't obvious from the client code (the
   per-row guard already blocks double clicks); left for its own ticket.
+
+### Dashboard EBIT margin (T12 #20)
+
+- Code: `metric-compute.server.ts` `ebitMargin()`; `computeStoredMetrics()` writes `ebit_margin_1y`
+  (`COMPUTED_METRIC_KEYS` now 7; the catch-up fills companies stored earlier). Revenue and operating income
+  tags are unchanged since T08: no new tags, no parser bump, no migration. Tooltip in `METRIC_HELP`.
+- Rules (spec §8): FY0 operating income / FY0 revenue, both as stored (no adjustments). `n/m`: FY0 revenue
+  ≤ 0 or missing, or no FY0 operating income (banks such as RY). `insufficient_data`: the two facts are in
+  different units. Negative margins are values. No SIC rule (the spec has none for this metric).
+- Tests: `metric-compute.test.ts` DASH-19 block: KO 13,762 / 47,941 = 28.7%, Philips (PHG) 8.0% (IFRS),
+  ASML, RY n/m, negative margin, revenue ≤ 0 / missing, unit mismatch, tooltip.
 
 ## Repo leftovers from the Grok template
 
