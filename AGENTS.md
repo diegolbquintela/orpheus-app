@@ -479,6 +479,24 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Tests: `src/lib/dashboard/fundamentals.test.ts` with `test-fixtures/sec/` (live 2026-10-02, trimmed to
   the mapped tags, facts verbatim; values checked against live EDGAR companyconcept once).
 
+### Dashboard EPS (T11 #19)
+
+- Code: `metric-compute.server.ts` `eps()` + `epsCurrency()`; `computeStoredMetrics()` writes `eps_1y`
+  (`COMPUTED_METRIC_KEYS` now 6, so the catch-up fills it for companies stored earlier; no new tags, no
+  parser bump, no migration). `metricViews()` adds `currency` (from the stored FY0 `eps_diluted` unit,
+  "USD/shares" → "USD"). Display: `formatEps()` in `format.ts` (as reported, ≥ 2 decimals, + code);
+  tooltip in `METRIC_HELP`.
+- Rules: diluted EPS for FY0 (the latest stored fiscal year end, any concept), as reported; basic EPS is
+  never substituted; no FY0 diluted EPS → `n/m`; a unit that isn't `<CUR>/shares` → `insufficient_data`.
+  Splits: FY0's value is the most recent filing's (a 10-K/A restatement wins); only FY0 is used, so no
+  cross-year adjustment. IFRS: `ifrs-full:DilutedEarningsLossPerShare`. The portfolio EPS cell (D9,
+  weighted 1y EPS growth) is T14.
+- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips 0.93 EUR (IFRS),
+  RY 14.07 CAD, ASML 24.71 EUR, missing → n/m, basic-only filer, negative EPS, odd unit, 10-K/A
+  restatement, display without rounding.
+- #38 (second DELETE on one click) is not folded in: the cause isn't obvious from the client code (the
+  per-row guard already blocks double clicks); left for its own ticket.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`
