@@ -380,6 +380,38 @@ export type FundamentalsOptions = {
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err)).slice(0, 300);
 
+/**
+ * Replace a symbol's `fundamentals_annual` rows with `facts` in ONE SQL statement (so it is atomic on
+ * every driver, including the pooled Neon client where BEGIN/COMMIT could land on different connections):
+ * upsert the new rows and delete the symbol's rows that are not in the new set. If any value fails, the
+ * statement fails and the old rows stay exactly as they were (T10 QA).
+ */
+export async function replaceFundamentals(db: Queryable, symbol: string, facts: AnnualFact[]): Promise<void> {
+  const rows = facts.map((f) => ({
+    fye: f.fiscalYearEnd,
+    concept: f.concept,
+    value: f.value,
+    unit: f.unit,
+    source_tag: f.sourceTag,
+    accession: f.accession,
+    filed: f.filed,
+  }));
+  await db.query(
+    `WITH input AS (
+       SELECT * FROM jsonb_to_recordset($2::jsonb)
+         AS x(fye date, concept text, value numeric, unit text, source_tag text, accession text, filed date)
+     ), dropped AS (
+       DELETE FROM fundamentals_annual f WHERE f.symbol = $1
+         AND NOT EXISTS (SELECT 1 FROM input i WHERE i.fye = f.fiscal_year_end AND i.concept = f.concept)
+     )
+     INSERT INTO fundamentals_annual (symbol, fiscal_year_end, concept, value, unit, source_tag, accession, filed)
+     SELECT $1, fye, concept, value, unit, source_tag, accession, filed FROM input
+     ON CONFLICT (symbol, fiscal_year_end, concept) DO UPDATE SET value = EXCLUDED.value, unit = EXCLUDED.unit,
+       source_tag = EXCLUDED.source_tag, accession = EXCLUDED.accession, filed = EXCLUDED.filed`,
+    [symbol, JSON.stringify(rows)],
+  );
+}
+
 /** Store facts for held symbols that are unchecked or older than 7 days. Never throws. */
 export async function refreshFundamentals(
   db: Queryable,
@@ -454,17 +486,9 @@ export async function refreshFundamentals(
           );
           summary.notCovered += 1;
         } else {
-          // Replace, not merge: rows from an older parser (other tags, dropped concepts) must not survive.
-          await db.query("DELETE FROM fundamentals_annual WHERE symbol = $1", [h.symbol]);
-          for (const f of facts) {
-            await db.query(
-              `INSERT INTO fundamentals_annual (symbol, fiscal_year_end, concept, value, unit, source_tag, accession, filed)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-               ON CONFLICT (symbol, fiscal_year_end, concept) DO UPDATE SET value = EXCLUDED.value, unit = EXCLUDED.unit,
-                 source_tag = EXCLUDED.source_tag, accession = EXCLUDED.accession, filed = EXCLUDED.filed`,
-              [h.symbol, f.fiscalYearEnd, f.concept, f.value, f.unit, f.sourceTag, f.accession, f.filed],
-            );
-          }
+          // Replace, not merge, in one statement (atomic): rows from an older parser must not survive,
+          // and an interrupted refetch must never leave a partial set for the metrics to read.
+          await replaceFundamentals(db, h.symbol, facts);
           // SIC (T10, ROIC's bank/insurer rule). A failed profile request keeps the stored code.
           let sic: number | null | undefined;
           try {

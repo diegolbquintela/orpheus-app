@@ -364,3 +364,43 @@ describe("QA: holdings delete fires once", () => {
     assert.match(src, /send\(`\/api\/dashboard\/holdings\/\$\{holding\.id\}`, "DELETE", undefined, \[404\]\)/);
   });
 });
+
+// ------------------------------------------------------------------ T10 QA re-check: atomic replace
+
+import { replaceFundamentals } from "./fundamentals.server.ts";
+
+describe("the refetch replaces a symbol's rows atomically", () => {
+  const rows = async () =>
+    (await pg.query<{ k: string }>("SELECT fiscal_year_end || ' ' || concept || ' ' || value::text AS k FROM fundamentals_annual WHERE symbol = 'KO' ORDER BY 1")).rows.map((r) => r.k);
+  const fact = (fye: string, concept: string, value: string) => ({ fiscalYearEnd: fye, concept, value, unit: "USD", sourceTag: "t", accession: "a", filed: "2026-01-01" });
+
+  it("a value that fails mid-way leaves the old rows exactly as they were", async () => {
+    await ingest();
+    const before = await rows();
+    assert.ok(before.length > 50);
+    await assert.rejects(replaceFundamentals(db, "KO", [fact("2025-12-31", "revenue", "1"), fact("2026-12-31", "revenue", "not-a-number")]));
+    assert.deepEqual(await rows(), before);
+  });
+
+  it("a successful replace upserts the new set and drops rows not in it", async () => {
+    await ingest();
+    await replaceFundamentals(db, "KO", [fact("2024-12-31", "revenue", "2"), fact("2025-12-31", "revenue", "3")]);
+    assert.deepEqual(await rows(), ["2024-12-31 revenue 2", "2025-12-31 revenue 3"]);
+  });
+
+  it("through the job: a source returning a bad fact records an error and keeps the stored rows and metrics", async () => {
+    await ingest();
+    const before = await rows();
+    const metricsBefore = await stored("KO");
+    await pg.exec("UPDATE instruments SET fundamentals_parser_version = NULL WHERE symbol = 'KO'");
+    const bad = {
+      id: "sec" as const,
+      resolve: async () => ({ id: "0000021344", name: "COCA COLA CO" }),
+      annualFacts: async () => [fact("2025-12-31", "revenue", "1"), fact("2026-12-31", "revenue", "oops")],
+    };
+    const s = await refreshFundamentals(db, bad, { nowMs: NOW + 60_000, only: ["KO"] });
+    assert.deepEqual(s.errors.map((e) => e.symbol), ["KO"]);
+    assert.deepEqual(await rows(), before);
+    assert.equal((await stored("KO")).rev_g_1y.value, metricsBefore.rev_g_1y.value);
+  });
+});

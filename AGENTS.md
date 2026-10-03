@@ -464,7 +464,13 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   company in any stored year = 0; reported in other years but missing at FY0 or FY−1 → `insufficient_data`
   (this replaces the old "missing debt or cash lines = 0"). **F1** debt concepts are `rankFirst`: tag order
   beats filing date, so lease-inclusive tags are used for a year only when no lease-excluded tag exists
-  (KO FY2023 → `LongTermDebt*` filed 2024-02-20). Holdings rows: one DELETE per row (ref guard), 404 = done.
+  (KO FY2023 → `LongTermDebt*` filed 2024-02-20). Holdings rows: one DELETE per row (ref guard), 404 = done
+  (remaining DELETE 404s: issue #38). EL 2026-10-03 accepted `insufficient_data` as a cell state (spec §8
+  table + dash reasons) and 0007's CHECK widening as is.
+- Atomic refetch: `replaceFundamentals(db, symbol, facts)` replaces a symbol's `fundamentals_annual` rows in
+  ONE SQL statement (CTE: upsert the new set + delete rows not in it). The app's Neon client is a `pg` Pool
+  where each `query()` may use a different connection, so BEGIN/COMMIT across calls isn't safe; a single
+  statement is atomic everywhere. A failing value leaves the old rows untouched (tested).
 - Tests: `metric-compute.test.ts` DASH-17 block: KO hand check (17.4%), Philips IFRS path, RY n/m (SIC
   6029), negative ROIC, SIC range, avg ≤ 0, insufficient history, tax clamp/fallback, invested-capital
   fallbacks, tooltip. Fixtures: KO companyfacts gained the 3 lease-inclusive debt tags (verbatim from a

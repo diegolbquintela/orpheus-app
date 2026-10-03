@@ -215,7 +215,9 @@ and cells explain the formula on hover. Banks and insurers (SEC industry code 60
 income) show "— not meaningful", as does a zero or negative average invested capital. Negative ROIC is shown
 as negative. If a debt or cash figure the company normally reports is missing for one of the two years, the
 cell shows "— insufficient data" rather than a number; figures stored by an older version of the importer are
-fetched again automatically on the next daily run.
+fetched again automatically on the next daily run. A metric cell shows `—` with one of these reasons:
+"not covered", "not meaningful", "insufficient history", "insufficient data" (an input can't be confirmed, so no
+value is computed from partial inputs), "coverage check pending" or "not computed yet".
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
