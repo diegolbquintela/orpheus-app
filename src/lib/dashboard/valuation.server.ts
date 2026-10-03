@@ -16,7 +16,9 @@
  */
 import { lastRun, priceViews, type PriceView } from "./daily-refresh.server.ts";
 import { fxFactor, type RateUsed } from "./fx.server.ts";
-import { getUserSettings, listHoldings, type BaseCurrency, type Queryable } from "./store.server.ts";
+import { metricViews, type MetricView } from "./fundamentals.server.ts";
+import { isMetricKey, type MetricKey } from "./metrics.ts";
+import { getUserSettings, listHoldings, listMetricColumns, type BaseCurrency, type Queryable } from "./store.server.ts";
 
 /** More than this many calendar days since the last successful daily run: "Prices are out of date". */
 export const STALE_AFTER_DAYS = 4;
@@ -172,6 +174,10 @@ export type DashboardHoldingsData = {
   baseCurrency: BaseCurrency;
   valuation: Valuation;
   freshness: Freshness;
+  /** The user's metric columns in order (T08, DASH-15). */
+  metricColumns: MetricKey[];
+  /** Coverage and stored metric values per held symbol (T08, DASH-21). */
+  metrics: Record<string, MetricView>;
 };
 
 /** Everything `/dashboard` shows for one user, from Postgres only (the page loader calls this). */
@@ -190,5 +196,7 @@ export async function loadDashboardHoldings(
     baseCurrency,
     valuation: await valueHoldings(db, holdings, prices, baseCurrency),
     freshness: await freshness(db, opts.nowMs),
+    metricColumns: (await listMetricColumns(db, userId)).filter(isMetricKey),
+    metrics: await metricViews(db, holdings.map((h) => h.symbol)),
   };
 }

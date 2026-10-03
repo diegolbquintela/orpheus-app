@@ -332,7 +332,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 ### Dashboard FX and base currency (T06 #14)
 
 - Code: `src/lib/dashboard/fx.server.ts` (Valet / ECB parsers, `createFxFetcher()`, `refreshFx()`,
-  `rateOnOrBefore()`, `convert()`, `valueHoldings()`), `fx-api.server.ts` + `src/routes/api/dashboard/fx.ts`
+  `rateOnOrBefore()`, `convert()`, `fxFactor()`; `valueHoldings()` moved to `valuation.server.ts` in T07),
+  `fx-api.server.ts` + `src/routes/api/dashboard/fx.ts`
   (`GET /api/dashboard/fx?date=`, `Allow: GET, HEAD`, usual 404/405/401 gate, 400 bad date, 503 no db).
   `date` must be a real calendar date (`isCalendarDate()` in `src/lib/dashboard/dates.ts`: strict
   `YYYY-MM-DD`, year >= 1, round-trips through a UTC `Date`), checked after the gate and before any
@@ -377,6 +378,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `refresh_runs` row with status `ok` or `partial` is more than 4 calendar days (UTC) before today, or there
   is none ("No daily refresh has completed yet."; that's what a fresh preview shows until the button runs,
   since the new-holding backfill doesn't write `refresh_runs`).
+- EL confirmed both choices (2026-10-02, recorded in spec §11): (a) a daily run that finishes with some
+  per-ticker errors (`partial`) still counts as successful for the out-of-date note, because each row shows
+  its own close date; (b) the note shows when no run has ever finished.
 - Stored data only (DASH-14): nothing in `valuation.server.ts` takes a provider or a fetcher; a test
   checks the source for feed calls.
 - Listing check (EL decision 2026-10-02): it stays on add, but `listing.server.ts` now calls
@@ -390,6 +394,33 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   bases, pending rows, avg cost 0, DASH-14 (reloads identical, values change only after `runDailyRefresh`),
   DASH-25 (as-of dates incl. the 2026-09-30 BoC holiday, the 4/5-day boundary, partial/running/failed).
   `check:dashboard-built --with-database` checks the rendered columns and values.
+
+### Dashboard fundamentals and metric columns (T08 #16)
+
+- Code: `src/lib/dashboard/fundamentals.server.ts` (the one `FundamentalsSource` adapter:
+  `createSecFundamentalsSource()`, `annualFactsFromCompanyFacts()`, the `CONCEPTS` tag map, name matching,
+  `refreshFundamentals()` (the job), `metricViews()` (page read)); `metrics.ts` (the 8 metric keys and
+  labels, status reasons); `columns-api.server.ts` + `src/routes/api/dashboard/columns.ts`
+  (`GET`/`HEAD`/`PUT`); UI `src/components/dashboard/metric-columns.tsx` (picker + `MetricCell`), wired
+  in `holdings.tsx`. Migration `0005_fundamentals.sql` adds `instruments.fundamentals_checked_at` and
+  `fundamentals_error` (still 11 tables).
+- SEC rules: User-Agent `OrpheusWisdom/1.0 (orpheus-app dashboard; <SEC_CONTACT_EMAIL>)`. The address is an
+  env var the owner sets on Vercel; never commit one. Without it no SEC request is made and the run says
+  `fundamentalsSkipped: true`. ≥200 ms between requests (≤5/s; SEC allows 10/s), ticker map once per run,
+  companyfacts only when unchecked or ≥7 days old, ≤25 symbols and ≤60 s per run (whole run capped at
+  270 s). Fetches happen only in the daily job / preview button and the new-holding backfill; pages and
+  `/api/dashboard/columns` read Postgres only.
+- Coverage: US symbol = SEC ticker. CA/EU: strip the venue suffix (`RY.TO` → `RY`) and require the same
+  company name (tokens after dropping case, punctuation and legal suffixes; a prefix match needs ≥2
+  tokens). No match, or a companyfacts 404 → `fundamentals_source='none'` + `not_covered` rows in
+  `metric_values` for every key (DASH-21: "— not covered"). Errors (5xx, network) → `fundamentals_error`,
+  retried next run, run `partial`.
+- Stitching: per concept a ranked tag list; per fiscal year the most recently filed annual fact wins
+  (10-K/20-F/40-F, fp FY, 335–395-day durations; instants only at fiscal year ends), one unit per concept.
+- Metric values themselves come in T09–T13; until then a covered cell reads "— not computed yet".
+  D9 (portfolio EPS) is T14.
+- Tests: `src/lib/dashboard/fundamentals.test.ts` with `test-fixtures/sec/` (live 2026-10-02, trimmed to
+  the mapped tags, facts verbatim; values checked against live EDGAR companyconcept once).
 
 ## Repo leftovers from the Grok template
 

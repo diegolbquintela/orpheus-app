@@ -11,13 +11,16 @@
  * - Callers: `GET /api/cron/daily-refresh` (Vercel Cron, `CRON_SECRET`) and the preview-only
  *   `POST /api/dashboard/refresh` button. Both run this same code.
  * - FX (T06 #14): after the closes, `refreshFx()` fills missing BoC / ECB-cross dates when the caller
- *   passes an `FxFetcher` (the cron route and the preview button do). Fundamentals and metric values
- *   belong to later tickets (T08+).
+ *   passes an `FxFetcher` (the cron route and the preview button do).
+ * - Fundamentals (T08 #16): last, `refreshFundamentals()` stores SEC companyfacts for held symbols that
+ *   are unchecked or older than 7 days when the caller passes a source (`fundamentals`; null = no SEC
+ *   contact configured, reported as skipped). Metric values belong to T09+.
  */
 import type { DailyClose, DailyCloseProvider } from "./close-provider.ts";
 import { addDays, dateInZone } from "./close-provider.ts";
 import { BACKFILL_FROM } from "./yahoo-closes.server.ts";
 import { refreshFx, type FxFetcher, type FxSummary } from "./fx.server.ts";
+import { refreshFundamentals, type FundamentalsSource, type FundamentalsSummary } from "./fundamentals.server.ts";
 import type { Queryable } from "./store.server.ts";
 
 /** A run that has been "running" longer than this is treated as crashed and can be taken over. */
@@ -52,6 +55,7 @@ export type RefreshSummary =
       deferred: string[];
       latest: Record<string, string | null>;
       fx?: FxSummary;
+      fundamentals?: FundamentalsSummary;
     };
 
 type Coverage = {
@@ -195,7 +199,12 @@ export type RunOptions = {
   staleLockMs?: number;
   /** FX source (T06). Omitted: the run stores closes only. */
   fx?: FxFetcher;
+  /** Fundamentals source (T08). Undefined: not run. Null: no SEC contact configured (skipped, reported). */
+  fundamentals?: FundamentalsSource | null;
 };
+
+/** Overall cap for the whole run, fundamentals included (Hobby functions stop at 300 s). */
+export const RUN_DEADLINE_MS = 270 * 1000;
 
 /** The daily job. Safe to run any number of times; a concurrent second run gets `locked`. */
 export async function runDailyRefresh(
@@ -241,7 +250,12 @@ export async function runDailyRefresh(
       if (r.error) summary.errors.push({ symbol, error: r.error });
     }
     if (options.fx) summary.fx = await refreshFx(db, options.fx, { today: runDate });
-    const fxFailed = Boolean(summary.fx?.errors.length);
+    if (options.fundamentals !== undefined)
+      summary.fundamentals = await refreshFundamentals(db, options.fundamentals, {
+        now,
+        timeBudgetMs: Math.max(5_000, Math.min(60_000, RUN_DEADLINE_MS - (now() - started))),
+      });
+    const fxFailed = Boolean(summary.fx?.errors.length) || Boolean(summary.fundamentals?.errors.length);
     summary.status =
       summary.symbols > 0 && summary.errors.length === summary.symbols
         ? "failed"

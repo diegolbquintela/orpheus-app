@@ -16,6 +16,7 @@ import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronDailyRefreshRouteImport } from './routes/api/cron/daily-refresh'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
+import { Route as ApiDashboardColumnsRouteImport } from './routes/api/dashboard/columns'
 import { Route as ApiDashboardDbRouteImport } from './routes/api/dashboard/db'
 import { Route as ApiDashboardFxRouteImport } from './routes/api/dashboard/fx'
 import { Route as ApiDashboardHoldingsRouteImport } from './routes/api/dashboard/holdings'
@@ -58,6 +59,11 @@ const ApiCronDailyRefreshRoute = ApiCronDailyRefreshRouteImport.update({
 const ApiDashboardSplatRoute = ApiDashboardSplatRouteImport.update({
   id: '/api/dashboard/$',
   path: '/api/dashboard/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDashboardColumnsRoute = ApiDashboardColumnsRouteImport.update({
+  id: '/api/dashboard/columns',
+  path: '/api/dashboard/columns',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDashboardDbRoute = ApiDashboardDbRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
+  '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/fx': typeof ApiDashboardFxRoute
   '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
+  '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/fx': typeof ApiDashboardFxRoute
   '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
+  '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
   '/api/dashboard/fx': typeof ApiDashboardFxRoute
   '/api/dashboard/holdings': typeof ApiDashboardHoldingsRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
+    | '/api/dashboard/columns'
     | '/api/dashboard/db'
     | '/api/dashboard/fx'
     | '/api/dashboard/holdings'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
+    | '/api/dashboard/columns'
     | '/api/dashboard/db'
     | '/api/dashboard/fx'
     | '/api/dashboard/holdings'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
+    | '/api/dashboard/columns'
     | '/api/dashboard/db'
     | '/api/dashboard/fx'
     | '/api/dashboard/holdings'
@@ -215,6 +227,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronDailyRefreshRoute: typeof ApiCronDailyRefreshRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
+  ApiDashboardColumnsRoute: typeof ApiDashboardColumnsRoute
   ApiDashboardDbRoute: typeof ApiDashboardDbRoute
   ApiDashboardFxRoute: typeof ApiDashboardFxRoute
   ApiDashboardHoldingsRoute: typeof ApiDashboardHoldingsRoute
@@ -274,6 +287,13 @@ declare module '@tanstack/react-router' {
       path: '/api/dashboard/$'
       fullPath: '/api/dashboard/$'
       preLoaderRoute: typeof ApiDashboardSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dashboard/columns': {
+      id: '/api/dashboard/columns'
+      path: '/api/dashboard/columns'
+      fullPath: '/api/dashboard/columns'
+      preLoaderRoute: typeof ApiDashboardColumnsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/dashboard/db': {
@@ -343,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronDailyRefreshRoute: ApiCronDailyRefreshRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
+  ApiDashboardColumnsRoute: ApiDashboardColumnsRoute,
   ApiDashboardDbRoute: ApiDashboardDbRoute,
   ApiDashboardFxRoute: ApiDashboardFxRoute,
   ApiDashboardHoldingsRoute: ApiDashboardHoldingsRoute,

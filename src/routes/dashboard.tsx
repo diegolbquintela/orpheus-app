@@ -67,7 +67,7 @@ function SignOutButton() {
 }
 
 function DashboardShell() {
-  const { dbStatus, email, holdings, prices, previewRefresh, lastRun, storage, baseCurrency, valuation, freshness } =
+  const { dbStatus, email, holdings, prices, previewRefresh, lastRun, storage, baseCurrency, valuation, freshness, metricColumns, metrics } =
     Route.useLoaderData();
   const router = useRouter();
   return (
@@ -92,6 +92,8 @@ function DashboardShell() {
           baseCurrency={baseCurrency}
           valuation={valuation}
           freshness={freshness}
+          metricColumns={metricColumns}
+          metrics={metrics}
           storage={storage}
           onChanged={() => router.invalidate()}
         />
