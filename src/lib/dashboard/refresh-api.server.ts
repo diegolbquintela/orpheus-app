@@ -18,6 +18,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { DailyCloseProvider } from "./close-provider.ts";
 import type { FxFetcher } from "./fx.server.ts";
+import type { FundamentalsSource } from "./fundamentals.server.ts";
 import { runDailyRefresh, type RefreshSummary } from "./daily-refresh.server.ts";
 import { dashboardEnabledFromEnv, dashboardMethodNotAllowedResponse, guardDashboardApi } from "./flag.server.ts";
 import {
@@ -40,6 +41,8 @@ export type RefreshDeps = {
   provider?: () => DailyCloseProvider;
   /** FX source (T06); default: live BoC Valet + ECB. */
   fx?: () => FxFetcher;
+  /** Fundamentals source (T08); default: SEC EDGAR when SEC_CONTACT_EMAIL is set, else null (skipped). */
+  fundamentals?: () => FundamentalsSource | null;
   now?: () => number;
 };
 
@@ -74,13 +77,19 @@ export function publicSummary(s: RefreshSummary) {
     deferred: s.deferred.length,
     fxInserted: s.fx?.inserted ?? 0,
     fxErrors: s.fx?.errors.length ?? 0,
+    fundamentalsChecked: s.fundamentals?.checked ?? 0,
+    fundamentalsErrors: s.fundamentals?.errors.length ?? 0,
+    fundamentalsSkipped: Boolean(s.fundamentals?.skipped),
   };
 }
 
 async function run(deps: RefreshDeps, db: Queryable, trigger: "cron" | "preview") {
   const provider = deps.provider ? deps.provider() : await defaultProvider();
   const fx = deps.fx ? deps.fx() : (await import("./fx.server.ts")).createFxFetcher();
-  return runDailyRefresh(db, provider, { trigger, now: deps.now, fx });
+  const fundamentals = deps.fundamentals
+    ? deps.fundamentals()
+    : (await import("./fundamentals.server.ts")).secSourceFromEnv(deps.env ?? process.env);
+  return runDailyRefresh(db, provider, { trigger, now: deps.now, fx, fundamentals });
 }
 
 export async function handleCronRequest(request: Request, deps: RefreshDeps = {}): Promise<Response> {

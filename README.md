@@ -194,6 +194,16 @@ cost, total return, 100.0%).
 - The add-holding listing check (US/EU/CA only) now runs through the `DailyCloseProvider` interface
   (`getListing`), still one metadata request on add.
 
+**Dashboard fundamentals and metric columns (T08).** Annual figures (revenue, margins, operating income,
+EPS, debt, equity, cash…) come from SEC EDGAR XBRL `companyfacts`, fetched only by the daily job (and the
+preview button / new-holding backfill) and stored in `fundamentals_annual`; pages read stored data only.
+- Set `SEC_CONTACT_EMAIL` (owner's contact address) in the Vercel env: the SEC requires a User-Agent with a
+  contact. Without it no SEC request is made and the dashboard shows "coverage check pending".
+- Coverage: US tickers directly; Canadian/European listings only when the same company files with the SEC
+  under the same ticker (e.g. RY.TO, ASML.AS, SHOP.TO). Others show "— not covered" in every metric cell.
+- "Metric columns" lets each user add, remove and reorder columns (saved per user). The values are
+  computed in later tickets (T09–T13); until then covered rows show "— not computed yet".
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

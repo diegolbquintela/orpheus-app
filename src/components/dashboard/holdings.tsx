@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { trimDecimal } from "@/lib/dashboard/format";
+import { metricLabel } from "@/lib/dashboard/metrics";
+import { MetricCell, MetricColumnsPicker, type MetricViewData } from "./metric-columns";
 
 /**
  * Holdings table on /dashboard (T04 #12): add, edit (shares, average cost) and delete.
@@ -70,6 +72,9 @@ type Props = {
   baseCurrency: BaseCurrency;
   valuation: ValuationView;
   freshness?: FreshnessView;
+  /** T08: the user's metric columns (in order) and each symbol's coverage / stored metric values. */
+  metricColumns?: string[];
+  metrics?: Record<string, MetricViewData>;
   storage: "ok" | "not_configured" | "signed_out";
   /** Re-run the page loader after a change. */
   onChanged: () => Promise<void> | void;
@@ -140,8 +145,12 @@ function Row({
   price,
   valued,
   base,
+  metricColumns,
+  metricView,
   onChanged,
 }: {
+  metricColumns: string[];
+  metricView: MetricViewData | undefined;
   holding: HoldingView;
   price: PriceView | undefined;
   valued: ValuedRow | undefined;
@@ -241,6 +250,11 @@ function Row({
       <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
         {ok && valued.weight !== null ? <span data-testid="holding-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-weight" />}
       </td>
+      {metricColumns.map((key) => (
+        <td key={key} className="py-3 pr-4 tabular-nums whitespace-nowrap">
+          <MetricCell metricKey={key} view={metricView} />
+        </td>
+      ))}
       <td className="py-3 text-right text-sm whitespace-nowrap">
         {editing ? (
           <>
@@ -339,7 +353,17 @@ export function AsOf({ valuation, freshness, base }: { valuation: ValuationView;
   );
 }
 
-export function HoldingsSection({ holdings, prices, baseCurrency, valuation, freshness = null, storage, onChanged }: Props) {
+export function HoldingsSection({
+  holdings,
+  prices,
+  baseCurrency,
+  valuation,
+  freshness = null,
+  metricColumns = [],
+  metrics = {},
+  storage,
+  onChanged,
+}: Props) {
   const [symbol, setSymbol] = useState("");
   const [shares, setShares] = useState("");
   const [avgCost, setAvgCost] = useState("");
@@ -381,6 +405,7 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, fre
         listing&apos;s currency. Holdings without a price or rate yet are left out of the totals and the % of portfolio.
       </p>
       <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
+      <MetricColumnsPicker columns={metricColumns} onChanged={onChanged} />
       <form className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" onSubmit={add} data-testid="holding-form">
         <label className="flex flex-col gap-2">
           <span className="kicker text-muted">Ticker</span>
@@ -433,6 +458,11 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, fre
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Cost ({baseCurrency})</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">Total return</th>
                 <th className="kicker pb-2 pr-4 font-normal text-muted">% of portfolio</th>
+                {metricColumns.map((key) => (
+                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key}>
+                    {metricLabel(key)}
+                  </th>
+                ))}
                 <th className="pb-2" />
               </tr>
             </thead>
@@ -444,6 +474,8 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, fre
                   price={prices[h.symbol]}
                   valued={valuation?.rows.find((r) => r.symbol === h.symbol)}
                   base={baseCurrency}
+                  metricColumns={metricColumns}
+                  metricView={metrics[h.symbol]}
                   onChanged={onChanged}
                 />
               ))}
@@ -471,11 +503,14 @@ export function HoldingsSection({ holdings, prices, baseCurrency, valuation, fre
                       ? "—"
                       : weightPct(valuation.rows.reduce((sum, r) => sum + (r.weight ?? 0), 0))}
                   </td>
+                  {metricColumns.map((key) => (
+                    <td key={key} />
+                  ))}
                   <td />
                 </tr>
                 {valuation.excluded.length ? (
                   <tr>
-                    <td colSpan={10} className="pb-3 text-xs text-muted" data-testid="holdings-excluded">
+                    <td colSpan={10 + metricColumns.length} className="pb-3 text-xs text-muted" data-testid="holdings-excluded">
                       Not included in the totals (price or FX pending): {valuation.excluded.join(", ")}
                     </td>
                   </tr>

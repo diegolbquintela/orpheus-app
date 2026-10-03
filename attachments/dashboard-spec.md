@@ -350,6 +350,28 @@ The daily job refreshes a symbol's `companyfacts` only when it has no data yet o
 limit), with a User-Agent naming the app and a contact address that the owner sets in an environment
 variable (no address committed to the repo).
 
+### Implementation notes (T08, #16)
+
+- **Contact:** User-Agent `OrpheusWisdom/1.0 (orpheus-app dashboard; <SEC_CONTACT_EMAIL>)`, the address from
+  the `SEC_CONTACT_EMAIL` env var (owner-set on Vercel; none in the repo). Not set → no SEC request; the
+  run reports `fundamentalsSkipped`. A test request without a contact address got 403 (2026-10-02).
+- **Schema:** `0005_fundamentals.sql` adds `instruments.fundamentals_checked_at` and `fundamentals_error`.
+- **Coverage:** `company_tickers_exchange.json` ticker → CIK. US: the symbol. CA/EU: suffix stripped and
+  the SEC name must match the listing name (case, punctuation and legal suffixes ignored; a prefix match
+  needs ≥2 words). This rejects same-ticker decoys (MC.PA vs Moelis, L.TO vs Loews, AIR.PA vs AAR, CNR.TO
+  vs Core Natural Resources). PHIA.AS is not covered (Philips files as PHG, a different ticker). Decided
+  (EL 2026-10-02): filers under a different ticker stay not covered for now; a ticker mapping is a later gap. No match or a companyfacts 404 → `not_covered` (DASH-21).
+- **Concepts (first matching tag per year, most recent filing wins):** revenue, cost_of_revenue,
+  gross_profit, operating_income, pretax_income, income_tax, eps_diluted, equity_incl_nci, equity_parent,
+  short-term borrowings / commercial paper / other short-term borrowings, long-term debt (current,
+  noncurrent, total), current borrowings total, cash; us-gaap and ifrs-full tags (`CONCEPTS` in
+  `fundamentals.server.ts`). Annual forms only (10-K, 20-F, 40-F and amendments), fp FY, durations
+  335–395 days, one unit per concept (the latest year's).
+- **Budget:** ≤5 requests/s, ≤25 symbols and ≤60 s per run, whole run ≤270 s; refetch after 7 days.
+  Failures are per symbol (`fundamentals_error`, retried next run, run `partial`).
+- **Picker (DASH-15):** `GET|PUT /api/dashboard/columns` (`{columns:[keys]}`; unknown/repeated → 400),
+  stored in `user_metric_columns`; default no columns. Values are T09–T13; D9 is T14.
+
 ## 8. Metric definitions (the app computes every metric itself)
 
 Each data provider computes ratios its own way, and the pricing pages above do not state their formulas,
@@ -483,6 +505,9 @@ or label implies good/bad.
   that calls the same job. It does not exist on production.
 - **Staleness:** the dashboard header shows "Prices as of <latest session date> close · FX <date>". If the
   last successful run is more than 4 calendar days old, it shows a plain "Prices are out of date" note.
+  EL confirmed (2026-10-02, #34): (a) a daily run that finishes with some per-ticker errors (`partial`)
+  still counts as successful for this note, because each row shows its own close date; (b) the note also
+  shows when no run has ever finished.
 
 ### Implementation notes (T05, #13)
 

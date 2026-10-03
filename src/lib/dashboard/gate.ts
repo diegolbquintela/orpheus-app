@@ -59,6 +59,8 @@ export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(as
     baseCurrency: "CAD" as const,
     valuation: null,
     freshness: null,
+    metricColumns: [],
+    metrics: {},
   };
   const user = await sessionFromRequestHeaders(getRequest().headers);
   if (!user) return { ...empty, storage: "signed_out" as const };

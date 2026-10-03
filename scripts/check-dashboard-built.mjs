@@ -10,11 +10,11 @@
  *   - GET /dashboard, /dashboard/x, /dashboard/sign-in: 404 HTML identical to the 404 for any
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
- *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,fx,refresh},
+ *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,fx,columns,refresh},
  *     /api/dashboard/*, /api/auth/* and /api/cron/daily-refresh: 404 JSON.
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
- *   - /api/dashboard/{me,settings,holdings,holdings/1,fx}: 401 JSON for served methods; others 405 JSON.
+ *   - /api/dashboard/{me,settings,holdings,holdings/1,fx,columns}: 401 JSON for served methods; others 405 JSON.
  *   - /api/dashboard/fx?date=<impossible date> (2026-02-31, 02-29, 02-30, 04-31, 0000-01-01) and the leap
  *     day 2024-02-29 signed out: 401 JSON (gate first, never 500). --with-database: 400 / 200 signed in.
  *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
@@ -41,7 +41,11 @@
  * on the second run); GET /api/dashboard/fx returns them for KO's session date; switching the setting to CAD / EUR / USD re-expresses the total
  * (data-base, and CAD total = USD total × the USD rate used). T07: the out-of-date note before any run, then
  * every column header, KO's name, average cost, cost (D8: same rate), total return and %, 100.0% of
- * portfolio, the total row, and "Prices as of <KO session> close · FX …" in USD and CAD.
+ * portfolio, the total row, and "Prices as of <KO session> close · FX …" in USD and CAD. T08: PUT
+ * /api/dashboard/columns adds, reorders and removes metric columns (400 for an unknown key), GET and the
+ * page show the saved order (metric-th), and KO's metric cells render. Run it without SEC_CONTACT_EMAIL
+ * (the normal case): then the refresh reports fundamentalsSkipped and KO's cells read "coverage check
+ * pending"; no SEC request is made by this script.
  * Adding a holding and the refresh call the live price feed and the live Bank of Canada Valet API, so
  * this mode needs network access.
  *
@@ -132,6 +136,7 @@ const SESSION_API_PATHS = [
   "/api/dashboard/holdings",
   "/api/dashboard/holdings/1",
   "/api/dashboard/fx",
+  "/api/dashboard/columns",
 ];
 // Methods each per-user route serves (anything else: 405 JSON when the flag is on).
 const SESSION_ALLOW = {
@@ -140,6 +145,7 @@ const SESSION_ALLOW = {
   "/api/dashboard/holdings": ["GET", "HEAD", "POST"],
   "/api/dashboard/holdings/1": ["GET", "HEAD", "PUT", "DELETE"],
   "/api/dashboard/fx": ["GET", "HEAD"],
+  "/api/dashboard/columns": ["GET", "HEAD", "PUT"],
 };
 const AUTH_PATHS = ["/api/auth/get-session", "/api/auth/sign-up/email", "/api/auth/sign-in/email"];
 // T05: the cron route and the preview-only refresh button (checked separately when the flag is on).
@@ -234,9 +240,10 @@ const isRedirectTo = (r, path) =>
       else check(json405(r) && r.allow === SESSION_ALLOW[path].join(", "), `${label}: ${method} ${path} -> ${r.status} allow=${r.allow}`);
     }
   const status = await call("GET", "/api/dashboard/status", "true");
+  const SEC = process.env.SEC_CONTACT_EMAIL ? "set" : "empty";
   const expected = WITH_DB
-    ? '{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set","cronSecret":"set"}'
-    : '{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set","cronSecret":"set"}';
+    ? `{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set","cronSecret":"set","secContact":"${SEC}"}`
+    : `{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set","cronSecret":"set","secContact":"${SEC}"}`;
   check(status.status === 200 && status.body === expected, `${label}: GET status -> ${status.status} ${status.body}`);
   const prodStatus = await call("GET", "/api/dashboard/status", "true", "production");
   check(
@@ -487,6 +494,34 @@ if (!WITH_DB) {
   check(otherList.body === '{"holdings":[]}', `${label}: other user's holdings -> ${otherList.body}`);
   const stillMine = await call("GET", `${H}/${koId}`, "true", undefined, { cookie: token });
   check(stillMine.status === 200 && /"shares":"12(\.0+)?"/.test(stillMine.body), `${label}: KO after the other user's attempts -> ${stillMine.body.slice(0, 120)}`);
+  // Metric columns (T08, DASH-15) and the metric cells (DASH-21 wording comes from the same component).
+  if (!process.env.SEC_CONTACT_EMAIL)
+    check(r1.fundamentalsSkipped === true && r1.fundamentalsChecked === 0, `${label}: refresh without SEC_CONTACT_EMAIL -> ${run1.body}`);
+  const COLS = "/api/dashboard/columns";
+  const colsOf = async (tok = token) => {
+    const r = await call("GET", COLS, "true", undefined, { cookie: tok });
+    return r.status === 200 ? JSON.parse(r.body).columns : `status ${r.status}`;
+  };
+  check(JSON.stringify(await colsOf()) === "[]", `${label}: default metric columns -> ${JSON.stringify(await colsOf())}`);
+  for (const [cols, want] of [
+    [["rev_g_1y"], ["rev_g_1y"]],
+    [["rev_g_1y", "roic_1y", "eps_1y"], ["rev_g_1y", "roic_1y", "eps_1y"]],
+    [["eps_1y", "rev_g_1y", "roic_1y"], ["eps_1y", "rev_g_1y", "roic_1y"]],
+    [["eps_1y", "roic_1y"], ["eps_1y", "roic_1y"]],
+  ]) {
+    const r = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: cols } });
+    check(r.status === 200 && JSON.stringify(await colsOf()) === JSON.stringify(want), `${label}: PUT columns ${cols} -> ${r.status} ${r.body.slice(0, 120)}`);
+  }
+  const badCol = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: ["nope"] } });
+  check(badCol.status === 400 && badCol.body === JSON.stringify({ error: "Unknown metric column: nope." }), `${label}: PUT unknown column -> ${badCol.status} ${badCol.body}`);
+  check(JSON.stringify(await colsOf(otherToken)) === "[]", `${label}: other user's columns -> ${JSON.stringify(await colsOf(otherToken))}`);
+  const colPage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
+  const ths = [...colPage.matchAll(/data-testid="metric-th" data-key="([a-z0-9_]+)"/g)].map((m) => m[1]);
+  check(JSON.stringify(ths) === JSON.stringify(["eps_1y", "roic_1y"]), `${label}: metric headers on /dashboard -> ${JSON.stringify(ths)}`);
+  const cells = [...colPage.matchAll(/data-testid="metric-cell" data-key="([a-z0-9_]+)" data-status="([a-z_/]+)"/g)].map((m) => `${m[1]}:${m[2]}`);
+  const wantStatus = process.env.SEC_CONTACT_EMAIL ? /^(eps_1y|roic_1y):(not_computed|ok|n\/m|insufficient_history)$/ : /^(eps_1y|roic_1y):pending$/;
+  check(cells.length === 2 && cells.every((c) => wantStatus.test(c)), `${label}: KO metric cells -> ${JSON.stringify(cells)}`);
+  check(/data-testid="metric-picker"/.test(colPage), `${label}: /dashboard lacks the metric picker`);
   const del = await call("DELETE", `${H}/${koId}`, "true", undefined, { cookie: token });
   check(del.status === 200 && del.body === '{"deleted":true}', `${label}: DELETE KO -> ${del.status} ${del.body}`);
   const gone = await call("GET", H, "true", undefined, { cookie: token });
@@ -509,6 +544,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (columns, cost, return, % of portfolio, totals, as-of line, out-of-date note); sign-out"
-    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (columns, cost, return, % of portfolio, totals, as-of line, out-of-date note); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
+    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

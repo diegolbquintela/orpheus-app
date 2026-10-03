@@ -476,7 +476,7 @@ describe("preview-only refresh button (DASH-10)", () => {
     const res = await refresh({ DASHBOARD_ENABLED: "true", VERCEL_ENV: "preview" });
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.deepEqual(body, { status: "ok", runDate: "2026-10-01", symbols: 3, inserted: 12, actions: 0, errors: 0, deferred: 0, fxInserted: 0, fxErrors: 0 });
+    assert.deepEqual(body, { status: "ok", runDate: "2026-10-01", symbols: 3, inserted: 12, actions: 0, errors: 0, deferred: 0, fxInserted: 0, fxErrors: 0, fundamentalsChecked: 0, fundamentalsErrors: 0, fundamentalsSkipped: true });
     assert.doesNotMatch(JSON.stringify(body), /RY\.TO|KO|ASML/);
     assert.equal((await latest("RY.TO")).session_date, "2026-10-01");
   });
