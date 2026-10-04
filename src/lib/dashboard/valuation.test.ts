@@ -265,3 +265,83 @@ describe("DASH-25: as-of line and out-of-date note", () => {
     assert.deepEqual((await load()).freshness, { lastGoodRun: "2026-09-27", stale: true });
   });
 });
+
+// ------------------------------------------------------------------ T15 (#23): holdings pie (DASH-24)
+
+import { excludedNote, PIE_COLOURS, PIE_MAX_SLICES, piePct, pieSlices } from "./pie.ts";
+
+describe("DASH-24: pie slices = the table's % of portfolio in the base currency", () => {
+  it("KO + ASML.AS + RY.TO in CAD: each slice equals the row's weight, largest first, sum 100.0", async () => {
+    await seed({ base: "CAD" });
+    const { valuation } = await load();
+    const pie = pieSlices(valuation.rows);
+    assert.deepEqual(pie.slices.map((s) => s.label), ["ASML.AS", "KO", "RY.TO"]); // 2,244.20 > 997.01 > 900.00 CAD
+    for (const s of pie.slices) {
+      const row = valuation.rows.find((r) => r.symbol === s.label)!;
+      assert.ok(close(s.pct, row.weight!), s.label);
+      assert.equal(piePct(s.pct), `${row.weight!.toFixed(1)}%`, "same label as the table's % column");
+    }
+    assert.ok(Math.abs(pie.slices.reduce((t, s) => t + s.pct, 0) - 100) < 1e-9);
+    assert.equal(pie.slices.reduce((t, s) => t + s.pct, 0).toFixed(1), "100.0");
+    assert.ok(close(pie.total, valuation.total));
+    assert.deepEqual([pie.pricePending, pie.fxPending], [[], []]);
+  });
+
+  it("a holding with no close gets no slice, is listed as price pending, and the others still sum to 100", async () => {
+    await seed({ base: "CAD" });
+    await pg.exec(`INSERT INTO instruments (symbol, name, exchange, region, currency) VALUES ('SHOP', 'Shopify', 'NASDAQ', 'US', 'USD');
+      INSERT INTO holdings (user_id, symbol, shares, avg_cost) VALUES ('${USER}', 'SHOP', 3, 100);`);
+    const { valuation } = await load();
+    const pie = pieSlices(valuation.rows);
+    assert.deepEqual(pie.pricePending, ["SHOP"]);
+    assert.ok(!pie.slices.some((s) => s.symbols.includes("SHOP")));
+    assert.ok(Math.abs(pie.slices.reduce((t, s) => t + s.pct, 0) - 100) < 1e-9);
+    assert.equal(excludedNote(pie.pricePending.length, pie.fxPending.length), "1 holding without a price excluded");
+  });
+
+  it("more than 10 holdings: 10 largest + Other (sum of the rest); exactly 10: no Other; ties by ticker", () => {
+    const rows = Array.from({ length: 13 }, (_, i) => ({ symbol: `S${String(i).padStart(2, "0")}`, value: 100 - i, status: "ok" }));
+    const pie = pieSlices(rows);
+    assert.equal(pie.slices.length, PIE_MAX_SLICES + 1);
+    assert.deepEqual(pie.slices.slice(0, 10).map((s) => s.label), rows.slice(0, 10).map((r) => r.symbol));
+    const other = pie.slices[10];
+    assert.deepEqual([other.label, other.symbols, other.value], ["Other", ["S10", "S11", "S12"], 90 + 89 + 88]);
+    assert.ok(close(other.pct, (267 / rows.reduce((t, r) => t + r.value, 0)) * 100));
+    assert.ok(Math.abs(pie.slices.reduce((t, s) => t + s.pct, 0) - 100) < 1e-9);
+    assert.equal(pieSlices(rows.slice(0, 10)).slices.some((s) => s.label === "Other"), false);
+    const tie = pieSlices([{ symbol: "B", value: 5, status: "ok" }, { symbol: "A", value: 5, status: "ok" }]);
+    assert.deepEqual(tie.slices.map((s) => s.label), ["A", "B"]);
+  });
+
+  it("empty and pending-only portfolios: no slices; FX pending listed separately; neutral colours", () => {
+    assert.deepEqual(pieSlices([]).slices, []);
+    const p = pieSlices([
+      { symbol: "X", value: null, status: "price_pending" },
+      { symbol: "Y", value: null, status: "fx_pending" },
+    ]);
+    assert.deepEqual([p.slices, p.pricePending, p.fxPending, p.total], [[], ["X"], ["Y"], 0]);
+    for (const c of PIE_COLOURS) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+      assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 16, `${c} is a grey`);
+    }
+  });
+});
+
+describe("EL (#43): the total row flags holdings excluded for no price / FX rate", () => {
+  it("singular, plural, FX wording; nothing when N = 0", () => {
+    assert.equal(excludedNote(0, 0), null);
+    assert.equal(excludedNote(1, 0), "1 holding without a price excluded");
+    assert.equal(excludedNote(3, 0), "3 holdings without a price excluded");
+    assert.equal(excludedNote(1, 1), "2 holdings without a price or FX rate excluded");
+    assert.equal(excludedNote(0, 1), "1 holding without a price or FX rate excluded");
+    assert.doesNotMatch(String(excludedNote(2, 1)), /\b(buy|sell|good|bad|score|rating|recommend)\b/i);
+  });
+  it("the holdings table renders it in the total row only when N > 0, and the pie below the table", () => {
+    const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
+    assert.match(src, /return note \? \(\s*<span[^>]*data-testid="holdings-total-excluded-count"/);
+    assert.match(src, /<HoldingsPie rows=\{valuation\.rows\} base=\{baseCurrency\} \/>/);
+    const pie = readFileSync("src/components/dashboard/holdings-pie.tsx", "utf8");
+    assert.match(pie, /role="img" aria-label=\{`Pie chart of % of portfolio: \$\{summary\}`\}/);
+    assert.match(pie, /from "recharts"/);
+  });
+});

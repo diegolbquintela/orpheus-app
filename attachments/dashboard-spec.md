@@ -501,6 +501,23 @@ or label implies good/bad.
   PHG 854.58, MC.PA 801.50 (not covered); EBIT margin over KO/ASML/PHG = 27.6% · 71% covered; EPS growth
   over KO (23.6%), ASML (28.4%), RY (25.1%) = 26.5% · 71% covered (PHG n/m: FY2024 EPS −0.75).
 
+- EL approved (2026-10-03, #42/#43): whole-% coverage that never rounds to 0% or 100% unless exact;
+  price/FX-pending holdings outside both weights and coverage; no FY−1 diluted EPS → insufficient history.
+- Excluded-holdings flag (EL, #43): when N > 0 holdings are left out for no price (or no FX rate), the total
+  row says "1 holding without a price excluded" / "N holdings without a price excluded" ("… without a
+  price or FX rate excluded" when an FX-pending one is among them), so the coverage figure isn't read as
+  covering them. Nothing is shown when N = 0.
+
+### Implementation notes (T15, #23)
+
+- Slices from the T07 valuation rows: value / Σ value × 100, i.e. exactly the table's "% of portfolio",
+  shown with the same 1-decimal rounding (rounded labels can sum to 99.9/100.1; the slices themselves sum
+  to 100). Largest first, ties by ticker. More than 10 valued holdings: the 10 largest + "Other" (11
+  slices). Holdings without a price or FX rate: no slice, listed under the chart ("price pending" / "FX
+  pending"). No priced holding: "No holdings with a price yet."
+- recharts (already used by the DCA chart). Neutral greys only. A ticker + % list beside the chart (under it
+  on small screens) is the text alternative; the chart has an `aria-label` with the same list.
+
 ## 10. Currency
 
 - **Base currency:** per-user setting, `CAD` (default, Diego is Canadian), `USD` or `EUR`. All totals,

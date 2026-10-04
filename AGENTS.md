@@ -540,6 +540,25 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   MC.PA (not covered) from the fixtures (EBIT margin 3 of 5, 71% covered; D9 KO/ASML/RY growth, PHG n/m),
   every metric vs Σ formula, negatives (PHG revenue growth), pending price, 0% coverage, epsGrowth rules.
 
+- EL approved (#42 / #43): whole-% coverage that never rounds to 0% or 100% unless exact; price/FX-pending
+  holdings outside both the weights and coverage; no FY−1 diluted EPS → `insufficient_history`.
+
+### Dashboard pie chart (T15 #23) and the excluded-holdings flag
+
+- Code: `src/lib/dashboard/pie.ts` `pieSlices()` (pure, from `valuation.rows`: value / total × 100, the same
+  numbers as the table's % column, labelled with the same `toFixed(1)`), `PIE_MAX_SLICES = 10` (10 largest +
+  "Other"), ties by ticker, neutral greys `PIE_COLOURS`; `excludedNote()`. UI:
+  `src/components/dashboard/holdings-pie.tsx` (recharts `PieChart`, the library the DCA chart already
+  uses; no new dependency) rendered under the table; the legend list doubles as the accessible text and
+  the server-rendered content (the chart itself mounts client-side). Empty state "No holdings with a price
+  yet."; "price pending: …" / "FX pending: …" lists under the chart.
+- Total row (EL, #43): `holdings-total-excluded-count` under "Total": "1 holding without a price excluded" /
+  "N holdings without a price excluded" ("… or FX rate" when one is FX pending); absent when N = 0.
+- Tests: `valuation.test.ts` DASH-24 block (KO + ASML.AS + RY.TO in CAD: slice = row weight, same label,
+  sum 100.0; price pending; > 10 → Other; ties; empty / FX pending; greys) and the excluded-flag block;
+  `check-dashboard-built.mjs --with-database` checks the empty/price-pending pie, the "1 holding without a
+  price excluded" flag before the first close, and KO 100.0% afterwards.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

@@ -239,8 +239,18 @@ with the share of the portfolio's market value it covers, e.g. `27.6% · 71% cov
 (not meaningful, insufficient history or data, not covered) are left out and never counted as zero;
 negative values are included. The EPS column's portfolio cell is the weighted 1-year EPS growth (EPS FY0 ÷
 EPS FY−1 − 1; not meaningful if either is ≤ 0), labelled, because EPS in different currencies can't be
-added (D9). Holdings waiting for a price or FX rate carry no weight. Computed when the page loads, from
-stored values only.
+added (D9). Holdings waiting for a price or FX rate carry no weight and are outside the coverage figure;
+the total row then says so ("1 holding without a price excluded" / "N holdings without a price excluded",
+"… or FX rate" when one is waiting for a rate). Coverage is a whole percent that never shows 0% or 100%
+unless exact. A company without a prior-year EPS shows insufficient history for EPS growth. Computed when
+the page loads, from stored values only.
+
+**Dashboard pie chart (T15).** Below the holdings table, a pie chart shows each holding's % of portfolio
+(market value in your base currency, the same figures as the table's "% of portfolio" column), largest
+first; with more than 10 holdings the 10 largest keep their slice and the rest are grouped into "Other".
+Slices are neutral greys labelled ticker + %, with a text list next to the chart (stacked under it on
+small screens). Holdings without a price or FX rate get no slice and are listed under the chart ("price
+pending"); with no priced holdings it says "No holdings with a price yet."
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
