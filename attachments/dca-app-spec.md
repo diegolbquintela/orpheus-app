@@ -32,9 +32,12 @@ The app is one site with three routes. The calculator rules below don't change.
 - `/` with a query string redirects to `/calculator` with the same query (the calculator reads no URL
   parameters, so this only keeps old links working).
 - `noindex` meta on every page plus the `X-Robots-Tag: noindex, nofollow` header.
+- **Referrers (#50):** `Referrer-Policy: no-referrer` on every response plus a matching meta tag, so no request
+  carries the page URL or its query string in a `Referer`.
 - **Analytics (#48):** Vercel Web Analytics on every page. It collects anonymous page views only (the path,
   with query strings and hashes stripped), sets no cookies and sends no custom events, so no tickers,
-  amounts or other inputs. Why: to see which tools get used. No other trackers.
+  amounts or other inputs. Why: to see which tools get used. No other trackers; nothing loads from grok.com
+  (#50 removed the Grok template's script, manifest and install page).
 
 ## What v1 is
 

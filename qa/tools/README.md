@@ -28,6 +28,7 @@ Flags win over env vars. Keep `--out` outside the repo: screenshots and raw dump
 | `pr3-mobile-cue.mjs` | Mobile (390x844) swipe-cue measurements on the results table |
 | `c5live.mjs` | Check 5 live: AAPL 2023-01-03..2024-12-31, 50,000 + 500 monthly; dumps the result tables |
 | `site.mjs` | Site shell (#46): menu on every route (fixed on scroll, current page, no dropdowns), home with exactly two cards and no price requests, footer exactly "Orpheus Wisdom", noindex, `/?ticker=KO` → `/calculator?ticker=KO`; then at `/calculator` the $313,000 regression (PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly) and VOD.L (400, exact message). Read-only, no sign-in |
+| `privacy.mjs` | Trackers and referrers (#48, #50) on `/`, `/calculator?…`, `/dashboard`, `/dashboard/sign-in?email=…` and a 404: no grok.com / grok.me request or cookie, `X-Robots-Tag` + `Referrer-Policy: no-referrer` + the referrer meta, no manifest link, no `Referer` with a path or query on any request (the Vercel Analytics beacon included), beacon URLs without a query. Hides `navigator.webdriver` so Vercel's script runs. Read-only, no sign-in |
 | `sidebyside.mjs` | Same cases on two hosts (`--base-url` vs `--compare-url`), desktop and mobile; prints what differs |
 | `config.mjs` | Shared flag/env parsing used by the scripts above |
 | `fetch.py` | Raw price data for a hand-check: Yahoo query1/query2, the app's `/api/chart`, stooq. `--tickers`, `--start`, `--end` |

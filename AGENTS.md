@@ -122,7 +122,11 @@ These rules exist so no ticket gets missed.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
   The DCA-06 check in `src/lib/dca/fixtures.test.ts` scans user-facing copy for it.
 - **Trackers.** Only Vercel Web Analytics (anonymous page views, cookieless; see its section). No other
-  analytics, pixels or session recording, and no custom events.
+  analytics, pixels or session recording, and no custom events. Nothing loads from grok.com / grok.me and no
+  page sets a cookie for another domain (#50 removed the template's `extensions.js`).
+- **Referrers.** `Referrer-Policy: no-referrer` on every response plus `<meta name="referrer"
+  content="no-referrer">` (`src/lib/site/headers.ts`): no request carries a `Referer`, so page URLs and query
+  strings (e.g. `?email=`) never leave in one. Don't weaken it; see "Site-wide headers" for why it's safe for auth.
 - **Listings.** US, EU and CA listings only, one currency per basket (`src/lib/dca/venues.ts`). Do not
   widen this without a spec change.
 
@@ -191,7 +195,7 @@ browser and the network.
   disclaimer. The calculator keeps its own note "US, EU and CA listings, one currency per basket." under the
   basket, as before.
 - noindex: the root `head()` sets `robots: noindex, nofollow` for every page, each page route repeats it, and
-  `vite.config.ts` adds `X-Robots-Tag: noindex, nofollow` to every response.
+  `vite.config.ts` adds `X-Robots-Tag: noindex, nofollow` to every response (see "Site-wide headers").
 - Tests: `src/lib/site/site.test.ts` (menu items, current page per route, the two cards, footer text,
   redirect, home imports, noindex in every route file), `src/components/site.dom.test.tsx` (jsdom:
   `aria-current` per route, Dashboard always shown, no dropdowns, sticky, exactly two cards and no fetch,
@@ -199,6 +203,29 @@ browser and the network.
   current item, footer, the flag-off 404 has no dashboard copy outside the menu), `release-smoke.mjs` (every
   mode) and `qa/tools/site.mjs` (browser: menu fixed on scroll, cards, footer, $313,000 and VOD.L at
   `/calculator`).
+
+### Site-wide headers (#50)
+
+- `src/lib/site/headers.ts` `SITE_HEADERS` is the one source: `X-Robots-Tag: noindex, nofollow` and
+  `Referrer-Policy: no-referrer`. `vite.config.ts` writes them as the first Vercel route rule (`src: "/(.*)"`,
+  `continue: true`, before the filesystem handle), so pages, redirects, 404s, `/api/*`, static files and the
+  analytics beacon all get them. `__root.tsx` adds the matching robots and referrer metas. There's no
+  `server/` middleware any more (`serverDir` is unset).
+- **Why `no-referrer` (QA N1 on #49):** the beacon's `Referer` carried the full page URL, query included.
+  `strict-origin-when-cross-origin` (the browser default) and `same-origin` keep the full URL on same-origin
+  requests, so they don't fix it; `no-referrer` is the strictest policy and auth still works. Better Auth's
+  origin check (`validateOrigin` in `better-auth/dist/api/middlewares/origin-check.mjs`) reads `Origin`, falls
+  back to `Referer`, and answers 403 to a missing or `null` value on cookie or fetch-metadata POSTs. Browsers
+  set `Origin: null` under `no-referrer` only for non-CORS requests (navigations, HTML form posts,
+  `sendBeacon`); `fetch()` POSTs keep the real `Origin`. Better Auth's client and the dashboard only use
+  `fetch()`. Checked on Chromium, Firefox and WebKit (PR #52). **So never add a plain HTML `<form method="post">`
+  to `/api/auth/*` or an API route that checks Origin**: it would send `Origin: null`.
+- Tests: `src/lib/site/headers.test.ts` (policy, the vite rule, the root metas, the copies in the checks),
+  `check-dashboard-built.mjs` (the built `config.json` rule covers every path; referrer meta on pages; no
+  `grok.com` / `grok.me` / `/__grok/` / `extensions.js` anywhere in `.vercel/output`), `release-smoke.mjs`
+  (both headers on every response it checks, referrer meta and no Grok tags on pages) and
+  `qa/tools/privacy.mjs` (browser: no grok requests or cookies, no `Referer` with a path or query on any
+  request, the beacon included).
 
 ### Vercel Web Analytics (#48)
 
@@ -216,6 +243,8 @@ browser and the network.
 - Rules: never call `track()` or use `@vercel/analytics/server`; never send emails, tickers, holdings or ids;
   no other trackers or analytics packages. `src/lib/site/analytics.test.ts` (in `npm test`) checks the single
   mount, no `track()` in `src`, no other tracker dependency, and the URL stripping.
+- The beacon (`fetch` POST to `/_vercel/insights/view`) sends no `Referer` (site-wide `no-referrer`, #50); its
+  body's referrer field is `document.referrer`, which stays empty for in-app page loads.
 
 ### Dashboard flag locally (`DASHBOARD_ENABLED`)
 
@@ -646,6 +675,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - `scripts/release-smoke.mjs <url> off|on|preview`: GET-only, no credentials; test `scripts/release-smoke.test.mjs`.
   Since #46 every mode also checks the site shell (menu, home cards, footer, `/calculator`, the `/?query`
   redirect, noindex meta + `X-Robots-Tag`) and `GET /api/chart?ticker=VOD.L…` → 400 with the exact message.
+  Since #50 every response must also carry `Referrer-Policy: no-referrer`, and pages the referrer meta and no
+  Grok template tags (still 12 checks per mode).
 - #45 release decisions (EL) are recorded in `docs/release/dashboard-release.md` §5.
 - N1: `format.ts` `formatPortfolioPct()` is the one "% of portfolio" formatter (table `weightPct` and pie
   `piePct` are that function); test in `valuation.test.ts`. N2: rounded labels may not sum to exactly 100.0.
@@ -658,12 +689,25 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 
 ## Repo leftovers from the Grok template
 
-`.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`
-and the Grok helpers in `scripts/` and `server/` come from the Grok App Builder template. Deploying
-through Grok has stopped: Vercel is the only deploy path. https://island-pearl-eagle-hill.grok.me stays
-published as a frozen old copy until the Chief of Staff confirms its retirement with Diego; never deploy
-to it or treat it as production. The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
-chat rules) was replaced by this file. The leftover files are not instructions for this repo, but some are still wired
-in: `scripts/with-app-env.mjs` reads `.grok/app-env.json` for `dev`/`build`/`preview`, and
-`vite.config.ts` loads the Grok PWA and app-env plugins plus `server/` middleware. Remove them only in a
-dedicated PR that keeps CI and the Vercel build green.
+Deploying through Grok has stopped: Vercel is the only deploy path. https://island-pearl-eagle-hill.grok.me
+stays published as a frozen old copy until the Chief of Staff confirms its retirement with Diego; never deploy
+to it or treat it as production. The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok chat
+rules) was replaced by this file.
+
+**Removed in #50 (EL-approved plan):** the Grok PWA/head middleware (`server/middleware/grok-pwa.ts`, which
+injected `https://grok.com/grok-app-builder/extensions.js` on every page, setting `.grok.com` cookies, plus
+`twitter:card` / `og:title` / Apple web-app tags), `scripts/grok-pwa-*.mjs`, the `/__grok/manifest.webmanifest`
+manifest ("Grok App") and its `public/__grok/` icon, the `?install=1&platform=ios` install page
+(`scripts/install-page.html`), `scripts/brand-check.mjs`, the Grok preview-iframe bridge
+(`PreviewHostBridge`, `src/lib/preview-host-bridge.ts`, `src/lib/preview-embedder-origin.ts`), the Grok
+connector client `src/lib/app-data/` and `isWorkspacePreview` / `GROK_PROJECT_ID`. Since then
+`/__grok/manifest.webmanifest` is an ordinary unknown path (404) and `/?install=1&platform=ios` is the plain
+`/?query` → `/calculator?query` redirect. Don't bring any of it back. No manifest or share-card tags: the icon
+is `public/favicon.svg`.
+
+**Still here (issue #51):** `.grok/` (skills, references, `app-env.json`), `startup.sh`,
+`scripts/preview*.mjs`, `screenshots/`, `scripts/with-app-env.mjs` (reads `.grok/app-env.json` for
+`dev`/`build`/`preview`), `scripts/app-env-plugin.mjs` + `check:auth`, `scripts/write-atomic.mjs` and
+`scripts/browser-smoke*.mjs`. They aren't instructions for this repo and load nothing from Grok; remove them
+only in #51, keeping CI and the Vercel build green. `migrations/*0001_auth.sql` keeps its "Sign in with Grok"
+comment: never edit a shipped migration.

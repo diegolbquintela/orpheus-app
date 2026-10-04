@@ -40,6 +40,7 @@ flip, `… off` on production before the flip and after a rollback.
 | Calculator at `/calculator` (moved from `/` in #46) | Unchanged; DCA-01..06 pass (table below). The site menu's Dashboard item and the home card link to `/dashboard` on every page, flag on or off (#46); flag off they land on the generic 404 |
 | Wording scan over dashboard copy (page, tooltips, labels, errors) | No buy, sell, hold, "undervalued", "overvalued", rating, score or target wording |
 | `noindex` | `<meta name="robots" content="noindex, nofollow">` and `X-Robots-Tag: noindex, nofollow` on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` |
+| Referrers and trackers (#50) | `Referrer-Policy: no-referrer` on every response (pages, `/api/*`, static files) and `<meta name="referrer" content="no-referrer">` on pages; no request to grok.com and no `.grok.com` cookie (`release-smoke.mjs`, `qa/tools/privacy.mjs`) |
 | Rollback behaviour (rehearse on a preview before the flip; see §3 step 9) | Flag not exactly `true` + redeploy → `/dashboard` 404 again, API 404 JSON, calculator untouched, data kept |
 
 ### DCA calculator regression (canonical pack, `qa/CANONICAL-AC-PACK.md`)
