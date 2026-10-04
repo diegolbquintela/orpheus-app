@@ -165,8 +165,12 @@ export function PortfolioMetricCell({ metricKey, cell }: { metricKey: string; ce
       data-coverage={cell?.coverage ?? ""}
       title={title}
     >
-      {label ? <span className="block text-xs font-normal text-muted" data-testid="portfolio-metric-label">{label}</span> : null}
-      {text}
+      <span data-testid="portfolio-metric-value">{text}</span>
+      {label ? (
+        <span className="block text-xs font-normal text-muted" data-testid="portfolio-metric-label">
+          {label}
+        </span>
+      ) : null}
     </span>
   );
 }

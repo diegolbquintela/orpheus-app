@@ -178,9 +178,12 @@ function Row({
     await onChanged();
   }
 
-  // One DELETE per row: a second click before React re-renders the disabled button is ignored, and a
-  // 404 (the row is already gone, e.g. deleted in another tab) counts as done.
+  // One DELETE per row, ever: a second click before React re-renders the disabled button is ignored, and
+  // a 404 (the row is already gone, e.g. deleted in another tab) counts as done. #38: after a successful
+  // DELETE the row stays on screen until the page loader's refetch returns (seconds on Vercel), so the
+  // guard is only released on an error; on success the row is marked deleted and loses its buttons.
   const deleting = useRef(false);
+  const [deleted, setDeleted] = useState(false);
   async function remove() {
     if (deleting.current) return;
     if (!window.confirm(`Delete ${holding.symbol} from your holdings?`)) return;
@@ -188,14 +191,17 @@ function Row({
     setBusy(true);
     setError(null);
     const err = await send(`/api/dashboard/holdings/${holding.id}`, "DELETE", undefined, [404]);
-    deleting.current = false;
-    setBusy(false);
-    if (err) return setError(err);
+    if (err) {
+      deleting.current = false;
+      setBusy(false);
+      return setError(err);
+    }
+    setDeleted(true);
     await onChanged();
   }
 
   return (
-    <tr className="border-t border-line align-top" data-testid="holding-row" data-symbol={holding.symbol}>
+    <tr className={`border-t border-line align-top${deleted ? " opacity-50" : ""}`} data-testid="holding-row" data-symbol={holding.symbol} aria-busy={deleted || undefined}>
       <td className="py-3 pr-4 font-medium">{holding.symbol}</td>
       <td className="py-3 pr-4 text-muted" data-testid="holding-name">
         {price?.name ?? "—"}
@@ -285,6 +291,10 @@ function Row({
               Cancel
             </button>
           </>
+        ) : deleted ? (
+          <span className="text-xs text-muted" data-testid="holding-deleted">
+            Deleted
+          </span>
         ) : (
           <>
             <button type="button" disabled={busy} onClick={() => setEditing(true)} className="mr-3 underline-offset-4 hover:underline disabled:opacity-50">

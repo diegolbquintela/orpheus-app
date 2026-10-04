@@ -528,6 +528,9 @@ if (!WITH_DB) {
   const wantStatus = process.env.SEC_CONTACT_EMAIL ? /^(eps_1y|roic_1y):(not_computed|ok|n\/m|insufficient_history)$/ : /^(eps_1y|roic_1y):pending$/;
   check(cells.length === 2 && cells.every((c) => wantStatus.test(c)), `${label}: KO metric cells -> ${JSON.stringify(cells)}`);
   check(/data-testid="metric-picker"/.test(colPage), `${label}: /dashboard lacks the metric picker`);
+  // QA N3 (#44): the EPS column's portfolio cell carries a visible sub-label (not only the tooltip).
+  check(/data-testid="portfolio-metric" data-key="eps_1y"[^>]*>(?:(?!<\/td>).)*data-testid="portfolio-metric-label"[^>]*>EPS growth 1y \(weighted\)</s.test(colPage), `${label}: EPS portfolio cell lacks the visible "EPS growth 1y (weighted)" sub-label`);
+  check(!/data-testid="portfolio-metric" data-key="roic_1y"[^>]*>(?:(?!<\/td>).)*portfolio-metric-label/s.test(colPage), `${label}: non-EPS portfolio cell has an EPS sub-label`);
   const del = await call("DELETE", `${H}/${koId}`, "true", undefined, { cookie: token });
   check(del.status === 200 && del.body === '{"deleted":true}', `${label}: DELETE KO -> ${del.status} ${del.body}`);
   const gone = await call("GET", H, "true", undefined, { cookie: token });

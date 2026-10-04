@@ -357,11 +357,20 @@ describe("QA F2: rows from an older parser are refetched and never yield a metri
   });
 });
 
-describe("QA: holdings delete fires once", () => {
+describe("QA: holdings delete fires once (#37, #38)", () => {
   it("the row guards a second click and treats 404 (already deleted) as done", () => {
     const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
     assert.match(src, /if \(deleting\.current\) return;/);
     assert.match(src, /send\(`\/api\/dashboard\/holdings\/\$\{holding\.id\}`, "DELETE", undefined, \[404\]\)/);
+  });
+  it("#38: after a successful DELETE the guard stays set and the row loses its buttons until the refetch removes it", () => {
+    const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
+    const body = src.slice(src.indexOf("async function remove()"), src.indexOf("return (", src.indexOf("async function remove()")));
+    // The guard is released only inside the error branch, never on the success path.
+    assert.equal(body.match(/deleting\.current = false;/g)?.length, 1);
+    assert.match(body, /if \(err\) \{\s*deleting\.current = false;\s*setBusy\(false\);\s*return setError\(err\);\s*\}\s*setDeleted\(true\);\s*await onChanged\(\);/);
+    // A deleted row renders "Deleted" instead of Edit/Delete.
+    assert.match(src, /\) : deleted \? \(\s*<span[^>]*data-testid="holding-deleted"/);
   });
 });
 
@@ -707,5 +716,17 @@ describe("DASH-22/23: portfolio row = MV-weighted mean over covered holdings, wi
   it("no advice, score or rating wording in the portfolio labels", () => {
     const text = formatPortfolioCell("eps_1y", { value: 0.1, coverage: 0.5 }).label!;
     assert.doesNotMatch(text, /\b(buy|sell|good|bad|score|rating|strong|weak|healthy|recommend)\b/i);
+  });
+});
+
+describe("QA N3 (#44): the EPS column's portfolio cell has a visible 'EPS growth 1y (weighted)' sub-label", () => {
+  it("formatPortfolioCell labels only the EPS column, also with 0% coverage or nothing valued", () => {
+    for (const cell of [{ value: 0.265, coverage: 0.714 }, { value: null, coverage: 0 }, undefined])
+      assert.equal(formatPortfolioCell("eps_1y", cell).label, "EPS growth 1y (weighted)");
+    for (const k of ["roic_1y", "rev_g_1y", "ebit_margin_1y", "gross_margin_1y"]) assert.equal(formatPortfolioCell(k, { value: 0.1, coverage: 1 }).label, null);
+  });
+  it("PortfolioMetricCell renders the label as visible text under the value, not only in the title", () => {
+    const src = readFileSync("src/components/dashboard/metric-columns.tsx", "utf8");
+    assert.match(src, /<span data-testid="portfolio-metric-value">\{text\}<\/span>\s*\{label \? \(\s*<span className="block text-xs[^"]*" data-testid="portfolio-metric-label">\s*\{label\}/);
   });
 });
