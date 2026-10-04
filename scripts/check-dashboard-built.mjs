@@ -402,6 +402,9 @@ if (!WITH_DB) {
   const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
   check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
   check(/data-testid="holding-close"/.test(withKo.body), `${label}: /dashboard lacks the KO last-close cell`);
+  // T15 (#23): KO has no close yet → no slice, listed as price pending; the total row flags the exclusion.
+  check(/data-testid="holdings-pie-empty"/.test(withKo.body) && /data-testid="pie-price-pending"[^>]*>price pending: (<!-- -->)?KO</.test(withKo.body), `${label}: pie before any close lacks the empty state / price-pending list`);
+  check(/data-testid="holdings-total-excluded-count"[^>]*>1 holding without a price excluded</.test(withKo.body), `${label}: total row lacks "1 holding without a price excluded"`);
   // T07: no daily run has finished yet on this fresh database, so the out-of-date note shows.
   check(/data-testid="stale-note"[^>]*>Prices are out of date\.(<!-- -->)? (<!-- -->)?No daily refresh has completed yet\./.test(withKo.body), `${label}: /dashboard before any run lacks the out-of-date note`);
 
@@ -481,6 +484,9 @@ if (!WITH_DB) {
   check(textOf(usdPage, "holding-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: KO total return -> ${textOf(usdPage, "holding-return")} (close ${koClose})`);
   check(textOf(usdPage, "holding-return-pct") === `${fmt(((koClose - 50) / 50) * 100, true)}%`, `${label}: KO return % -> ${textOf(usdPage, "holding-return-pct")}`);
   check(textOf(usdPage, "holding-weight") === "100.0%" && textOf(usdPage, "holdings-total-weight") === "100.0%", `${label}: % of portfolio -> ${textOf(usdPage, "holding-weight")} / ${textOf(usdPage, "holdings-total-weight")}`);
+  // T15 (#23): one slice, KO 100.0%, same as the table's % of portfolio; no exclusion note.
+  check(/data-testid="holdings-pie" data-slices="1"/.test(usdPage) && textOf(usdPage, "pie-slice-pct") === "100.0%" && /data-testid="pie-slice" data-label="KO"/.test(usdPage), `${label}: pie -> ${textOf(usdPage, "pie-slice-pct")}`);
+  check(!/data-testid="holdings-total-excluded-count"/.test(usdPage) && !/data-testid="pie-price-pending"/.test(usdPage), `${label}: exclusion note shown with every holding priced`);
   check(textOf(usdPage, "holdings-total-cost") === "600.00 USD" && textOf(usdPage, "holdings-total-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: total cost/return -> ${textOf(usdPage, "holdings-total-cost")} / ${textOf(usdPage, "holdings-total-return")}`);
   check(textOf(usdPage, "as-of") === `Prices as of ${closeCell?.[1]} close · FX not needed (all in USD)`, `${label}: USD as-of -> ${textOf(usdPage, "as-of")}`);
   check(!/data-testid="stale-note"/.test(usdPage), `${label}: out-of-date note shown right after a successful run`);

@@ -1,6 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
 import { trimDecimal } from "@/lib/dashboard/format";
 import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
+import { excludedNote } from "@/lib/dashboard/pie";
+import { HoldingsPie } from "./holdings-pie";
 import { MetricCell, MetricColumnsPicker, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
 
 /**
@@ -454,6 +456,7 @@ export function HoldingsSection({
           No holdings yet.
         </p>
       ) : (
+        <>
         <div className="mt-8 overflow-x-auto">
           <table className="w-full border-collapse text-sm tabular-nums">
             <thead>
@@ -494,6 +497,15 @@ export function HoldingsSection({
                 <tr className="border-t-2 border-ink">
                   <td className="py-3 pr-4 font-medium" colSpan={5}>
                     Total
+                    {(() => {
+                      const pend = valuation.rows.filter((r) => r.value === null);
+                      const note = excludedNote(pend.filter((r) => r.status !== "fx_pending").length, pend.filter((r) => r.status === "fx_pending").length);
+                      return note ? (
+                        <span className="block text-xs font-normal text-muted" data-testid="holdings-total-excluded-count">
+                          {note}
+                        </span>
+                      ) : null;
+                    })()}
                   </td>
                   <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total" data-base={baseCurrency}>
                     {money(valuation.total)} {baseCurrency}
@@ -530,6 +542,8 @@ export function HoldingsSection({
             ) : null}
           </table>
         </div>
+        {valuation ? <HoldingsPie rows={valuation.rows} base={baseCurrency} /> : null}
+        </>
       )}
     </section>
   );
