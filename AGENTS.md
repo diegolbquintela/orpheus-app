@@ -430,7 +430,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Rules (spec §8): FY0 = latest stored fiscal year end (any concept); FY−n = stored year end n years back
   ± 45 days (closest). 1y: `n/m` when either value ≤ 0 or missing. CAGR: `n/m` when an endpoint ≤ 0 or FY0
   revenue missing; `insufficient_history` when FY−n missing. Values are fractions (`toPrecision(12)`),
-  shown as % with 1 decimal. The portfolio cell for these metrics is T14 (spec §9), not here.
+  shown as % with 1 decimal. The portfolio cell for these metrics is T14 (spec §9).
 - Tests: `src/lib/dashboard/metric-compute.test.ts` (SEC fixtures → ingest → metrics): KO hand check
   (1.9 / 3.7 / 7.7 / 0.8 %, 10y base from `SalesRevenueGoodsNet`), Philips (PHG), RY 10y insufficient history,
   zero/negative base, fiscal-year alignment, catch-up without SEC calls.
@@ -520,6 +520,25 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - Tests: `metric-compute.test.ts` DASH-20 block: KO 29,544 / 47,941 = 61.6%, the fallback (KO with
   GrossProfit removed → same 61.6% from `CostOfGoodsAndServicesSold`), Philips (PHG) 45.2%, ASML, RY n/m,
   revenue ≤ 0 / missing, negative, unit mismatch, tooltip.
+
+### Dashboard portfolio aggregates (T14 #22)
+
+- Code: `src/lib/dashboard/portfolio.ts` `portfolioMetrics()` (pure; called by `loadDashboardHoldings()`
+  → `portfolio`, computed at read time from the stored valuation and `metric_values`; no new table, no
+  migration). UI: `PortfolioMetricCell` in `metric-columns.tsx`, rendered in the holdings `<tfoot>` total
+  row; text from `format.ts` `formatPortfolioCell()` / `formatCoverage()`.
+- Rules (spec §9): value = Σ MVᵢ·mᵢ / Σ MVᵢ over valued holdings whose company is covered and whose stored
+  status is `ok`; coverage = that Σ MV / Σ MV of all valued holdings. Everything else (n/m, insufficient
+  history/data, not covered, pending, not computed) is excluded and counts against coverage; negatives are
+  included. Price/FX-pending holdings are outside both sums. 0% coverage → `— · 0% covered`; nothing valued → `—`.
+  Coverage is a whole percent, never rounded to 100% (or 0%) unless exact.
+- D9: new stored per-company metric `eps_g_1y` (`epsGrowth()` in `metric-compute.server.ts`; not a picker
+  column) = diluted EPS FY0 / FY−1 − 1; n/m if FY0 EPS missing or either ≤ 0; insufficient history if no
+  FY−1 (±45-day match); insufficient data if units differ. The EPS column's portfolio cell uses it, labelled
+  "EPS growth 1y (weighted)". `COMPUTED_METRIC_KEYS` now 9 (catch-up fills stored companies; no parser bump).
+- Tests: `metric-compute.test.ts` DASH-22/23 block: hand-checked CAD portfolio KO + ASML.AS + RY.TO + PHG +
+  MC.PA (not covered) from the fixtures (EBIT margin 3 of 5, 71% covered; D9 KO/ASML/RY growth, PHG n/m),
+  every metric vs Σ formula, negatives (PHG revenue growth), pending price, 0% coverage, epsGrowth rules.
 
 ## Repo leftovers from the Grok template
 

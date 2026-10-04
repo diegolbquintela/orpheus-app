@@ -488,6 +488,19 @@ and `not_covered` ("not covered") cells show `—` with the reason on hover/tap.
 there are more than 10 holdings, the rest are grouped into "Other". Labels show ticker and %. No colour
 or label implies good/bad.
 
+### Implementation notes (T14, #22)
+
+- Computed at read time (`portfolio.ts`) from the stored valuation (T07) and `metric_values`; no new
+  table. "Valid" = covered company + stored status `ok`. Price/FX-pending holdings are outside both the
+  weights and the coverage denominator (they have no market value). Coverage is shown as a whole percent
+  (never 100% unless fully covered, never 0% unless none); 0% shows `— · 0% covered`.
+- D9: per-company `eps_g_1y` stored alongside the other metrics (not a picker column): diluted EPS
+  FY0 / FY−1 − 1; `n/m` if FY0 EPS is missing or either year ≤ 0; `insufficient_history` if no FY−1;
+  `insufficient_data` if the units differ. Portfolio EPS cell label: "EPS growth 1y (weighted)".
+- Hand check (fixtures, base CAD, USD 1.4243 / EUR 1.6030): KO 997.01, ASML.AS 2,244.20, RY.TO 900.00,
+  PHG 854.58, MC.PA 801.50 (not covered); EBIT margin over KO/ASML/PHG = 27.6% · 71% covered; EPS growth
+  over KO (23.6%), ASML (28.4%), RY (25.1%) = 26.5% · 71% covered (PHG n/m: FY2024 EPS −0.75).
+
 ## 10. Currency
 
 - **Base currency:** per-user setting, `CAD` (default, Diego is Canadian), `USD` or `EUR`. All totals,
