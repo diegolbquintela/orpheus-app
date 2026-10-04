@@ -121,6 +121,8 @@ These rules exist so no ticket gets missed.
 - **`.vercel/output/`**: build output, git-ignored. Never commit it.
 - **Advice.** No buy, sell or hold recommendation anywhere: UI copy, code comments, docs, fixtures.
   The DCA-06 check in `src/lib/dca/fixtures.test.ts` scans user-facing copy for it.
+- **Trackers.** Only Vercel Web Analytics (anonymous page views, cookieless; see its section). No other
+  analytics, pixels or session recording, and no custom events.
 - **Listings.** US, EU and CA listings only, one currency per basket (`src/lib/dca/venues.ts`). Do not
   widen this without a spec change.
 
@@ -197,6 +199,23 @@ browser and the network.
   current item, footer, the flag-off 404 has no dashboard copy outside the menu), `release-smoke.mjs` (every
   mode) and `qa/tools/site.mjs` (browser: menu fixed on scroll, cards, footer, $313,000 and VOD.L at
   `/calculator`).
+
+### Vercel Web Analytics (#48)
+
+- **What's collected:** anonymous page views only, **no cookies**, no custom events. Per Vercel's
+  [privacy page](https://vercel.com/docs/analytics/privacy-policy) (checked 2026-10-04) a page view stores the
+  URL path, referrer, coarse geolocation, OS, browser and device type; visitors are counted by a hash of the
+  request that is discarded after 24 hours. **Why:** to see which tools get used (home, calculator, dashboard).
+  Diego enabled Web Analytics on the Vercel project; there's no env var for it.
+- Code: `<Analytics beforeSend={analyticsBeforeSend} />` from `@vercel/analytics/react` (the package has no
+  TanStack Start entry; the React one works in any React app), rendered **once** in `src/routes/__root.tsx`, so it
+  covers every page. On a deployment it loads Vercel's script from the same origin (`/_vercel/insights/script.js`
+  by default; package v2 may use a build-seeded path, "Resilient Intake") and renders nothing on the server. `src/lib/site/analytics.ts` `analyticsBeforeSend` strips the query string and hash
+  from every page-view URL (page paths carry no personal data, but `/?query` keeps its query on the way to
+  `/calculator`) and drops any custom event.
+- Rules: never call `track()` or use `@vercel/analytics/server`; never send emails, tickers, holdings or ids;
+  no other trackers or analytics packages. `src/lib/site/analytics.test.ts` (in `npm test`) checks the single
+  mount, no `track()` in `src`, no other tracker dependency, and the URL stripping.
 
 ### Dashboard flag locally (`DASHBOARD_ENABLED`)
 

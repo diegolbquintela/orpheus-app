@@ -12,7 +12,11 @@ It is one site with three routes (#46):
 Every page has the same menu, a thin bar that stays at the top: "Orpheus" (home) on the left, "Calculator" and
 "Dashboard" on the right, the current page marked (`aria-current="page"` plus an underline), no dropdowns. The
 Dashboard item shows even when the flag is off. The footer reads "Orpheus Wisdom" and nothing else. Every page is
-`noindex` (meta tag plus the `X-Robots-Tag` header). Code: `src/lib/site/site.ts`, `src/components/site-menu.tsx`,
+`noindex` (meta tag plus the `X-Robots-Tag` header).
+
+**Analytics.** Vercel Web Analytics (`@vercel/analytics`, mounted once in `src/routes/__root.tsx`) collects
+anonymous page views only: the page path with query strings stripped, no cookies, no custom events, no
+emails, tickers or holdings. Why: to see which tools get used. There are no other trackers. Code: `src/lib/site/site.ts`, `src/components/site-menu.tsx`,
 `site-footer.tsx`, `home.tsx`, `src/routes/__root.tsx`.
 
 **The calculator.** You pick tickers and weights, a date range, a starting capital, a contribution and a frequency (weekly

@@ -19,6 +19,10 @@ every page (`attachments/dca-app-spec.md`, "Site and routes"). Dashboard behavio
 `DASHBOARD_ENABLED`, signed out `/dashboard` redirects to `/dashboard/sign-in`. Production serves the dashboard
 as of 2026-10-04 (issue #46; read-only smoke the same day); the flip itself isn't recorded in this repo.
 
+**Analytics (#48):** Vercel Web Analytics counts anonymous page views of `/dashboard` and `/dashboard/sign-in` like
+any other page (path only, query strings stripped, no cookies, no custom events). No email, ticker, holding or
+user id is sent. Why: to see which tools get used.
+
 ## 1. What we are building
 
 A signed-in area. A user signs in and gets two things: the existing DCA calculator (unchanged), and a new
