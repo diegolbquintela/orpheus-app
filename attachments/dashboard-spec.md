@@ -21,7 +21,10 @@ as of 2026-10-04 (issue #46; read-only smoke the same day); the flip itself isn'
 
 **Analytics (#48):** Vercel Web Analytics counts anonymous page views of `/dashboard` and `/dashboard/sign-in` like
 any other page (path only, query strings stripped, no cookies, no custom events). No email, ticker, holding or
-user id is sent. Why: to see which tools get used.
+user id is sent. Why: to see which tools get used. Since #50 every response sends `Referrer-Policy: no-referrer`,
+so no request (the beacon included) carries a page URL or query string such as `?email=` in a `Referer`;
+Better Auth sign-in still works because its `fetch()` POSTs keep the real `Origin` header. Nothing loads from
+grok.com.
 
 ## 1. What we are building
 

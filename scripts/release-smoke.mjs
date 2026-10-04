@@ -13,6 +13,10 @@
  * the calculator at `/calculator`, `/?query` → `/calculator?query`, noindex meta + X-Robots-Tag on every
  * page, and the calculator's VOD.L refusal (GET /api/chart: 400 with the exact message).
  *
+ * Site-wide headers (#50): every response checked (pages, redirects, 404s, `/api/*`) must carry
+ * `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer` (src/lib/site/headers.ts), and every page
+ * the referrer meta and nothing from the old Grok template (`grok.com`, `/__grok/`).
+ *
  * Exit code 0 when every check passes, 1 otherwise. Prints one line per check.
  */
 const [base, mode] = process.argv.slice(2);
@@ -31,6 +35,7 @@ const get = async (p) => {
     status: res.status,
     location: res.headers.get("location") ?? "",
     robots: res.headers.get("x-robots-tag") ?? "",
+    referrer: res.headers.get("referrer-policy") ?? "",
     body: await res.text(),
   };
 };
@@ -47,6 +52,11 @@ const menuOk = (r, want) =>
   JSON.stringify(current(r)) === JSON.stringify(want ? [want] : []);
 const noindex = (r) =>
   /<meta name="robots" content="noindex, nofollow"\/?>/.test(r.body) && /noindex/i.test(r.robots);
+// Site-wide headers (#50), required on every response below.
+const REFERRER_POLICY = "no-referrer";
+const siteHeaders = (r) => /noindex/i.test(r.robots) && r.referrer === REFERRER_POLICY;
+const referrerMeta = (r) => r.body.includes(`<meta name="referrer" content="${REFERRER_POLICY}"`);
+const noGrok = (r) => !/grok\.com|\/__grok\//i.test(r.body);
 const footer = (r) =>
   /<footer[^>]*><p[^>]*data-testid="site-footer"[^>]*>Orpheus Wisdom<\/p><\/footer>/.test(r.body);
 const cards = (r) =>
@@ -59,7 +69,8 @@ const cards = (r) =>
     .join(" ");
 const HOME_CARDS =
   "/calculator|Calculator|compare a lump sum with contributions /dashboard|Dashboard|holdings, value, stored figures";
-const page = (r, want) => r.status === 200 && noindex(r) && menuOk(r, want) && footer(r);
+const page = (r, want) =>
+  r.status === 200 && noindex(r) && referrerMeta(r) && noGrok(r) && menuOk(r, want) && footer(r);
 const VOD_L = "VOD.L lists on LSE. US, EU, and CA listings only.";
 
 const on = mode !== "off";
@@ -155,13 +166,14 @@ for (const [path, ok, want] of checks) {
   const r = await get(path);
   let pass = false;
   try {
-    pass = ok(r);
+    pass = ok(r) && siteHeaders(r);
   } catch {
     pass = false;
   }
   if (!pass) failed++;
   console.log(
-    `${pass ? "PASS" : "FAIL"} GET ${path} -> ${r.status}${r.location ? ` (${r.location})` : ""}; expected ${want}`,
+    `${pass ? "PASS" : "FAIL"} GET ${path} -> ${r.status}${r.location ? ` (${r.location})` : ""}; expected ${want}` +
+      (siteHeaders(r) ? "" : ` (site headers: x-robots-tag="${r.robots}", referrer-policy="${r.referrer}")`),
   );
 }
 console.log(

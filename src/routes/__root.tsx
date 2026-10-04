@@ -1,10 +1,10 @@
 import { Analytics } from "@vercel/analytics/react";
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteMenu } from "@/components/site-menu";
 import { analyticsBeforeSend } from "@/lib/site/analytics";
+import { REFERRER_POLICY } from "@/lib/site/headers";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Orpheus Wisdom";
@@ -25,6 +25,8 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#1e2124" },
       // Keep the app out of search engines (pairs with the X-Robots-Tag route rule in vite.config.ts).
       { name: "robots", content: "noindex, nofollow" },
+      // Paths and query strings never leave in a Referer (pairs with the Referrer-Policy header, #50).
+      { name: "referrer", content: REFERRER_POLICY },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -35,8 +37,6 @@ export const Route = createRootRoute({
         href: "https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;1,400&display=swap",
       },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
     ],
   }),
   component: () => (
@@ -45,7 +45,6 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body>
-        <PreviewHostBridge />
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
             <CurrentSiteMenu />

@@ -14,6 +14,11 @@
  *   the footer reading exactly "Orpheus Wisdom", noindex, no calculator form); /calculator is the calculator
  *   (menu with Calculator current, the form, its listings note, noindex); / with a query string redirects to /calculator with the same query.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
+ *   Site headers (#50): .vercel/output/config.json's first route is `src: "/(.*)"`, `continue: true` with
+ *   exactly X-Robots-Tag + Referrer-Policy: no-referrer (before the filesystem handle, so HTML, /api/*
+ *   and static files all get them); pages carry the referrer meta; no grok.com /
+ *   grok.me / /__grok/ / extensions.js anywhere in the output; /__grok/manifest.* is the unknown-path 404
+ *   and /?install=1&platform=ios is the plain /?query redirect.
  *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,fx,columns,refresh},
  *     /api/dashboard/*, /api/auth/* and /api/cron/daily-refresh: 404 JSON.
  *   Flag on ("true"), signed out:
@@ -56,8 +61,8 @@
  *   node scripts/migrate.mjs && node scripts/check-dashboard-built.mjs --with-database
  */
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const entry = resolve(".vercel/output/functions/__server.func/index.mjs");
@@ -600,6 +605,48 @@ if (!WITH_DB) {
   check(isRedirectTo(back, "/dashboard/sign-in"), `${label}: GET /dashboard after sign-out -> ${back.status}`);
 }
 
+// Site-wide headers and the Grok template removal (#50), from the build output itself.
+{
+  const label = "site headers (#50)";
+  // Mirrors src/lib/site/headers.ts (src/lib/site/headers.test.ts keeps the two in sync).
+  const REFERRER_POLICY = "no-referrer";
+  const SITE_HEADERS = { "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": REFERRER_POLICY };
+  const config = JSON.parse(readFileSync(resolve(".vercel/output/config.json"), "utf8"));
+  const routes = config.routes ?? [];
+  const at = routes.findIndex((r) => r.headers && r.headers["Referrer-Policy"] !== undefined);
+  const rule = routes[at] ?? {};
+  const fsAt = routes.findIndex((r) => r.handle === "filesystem");
+  check(at === 0, `${label}: the site-wide header rule is not the first route (index ${at})`);
+  check(rule.src === "/(.*)" && rule.continue === true, `${label}: rule ${JSON.stringify(rule)}`);
+  check(JSON.stringify(rule.headers) === JSON.stringify(SITE_HEADERS), `${label}: headers ${JSON.stringify(rule.headers)}`);
+  check(fsAt > at, `${label}: the header rule must come before the filesystem handle`);
+  // HTML pages, redirects, 404s, /api/* and static files all match it. (Vercel answers its own /_vercel/*
+  // routes, e.g. the analytics script, before these; the beacon's Referer follows the page's policy.)
+  const src = new RegExp(`^${rule.src ?? "$^"}$`);
+  for (const path of ["/", "/calculator", "/dashboard", "/dashboard/sign-in", "/no-such-page", "/api/chart", "/api/auth/sign-in/email", "/api/dashboard/holdings/1", "/favicon.svg", "/assets/index.js"])
+    check(src.test(path), `${label}: ${path} not covered by ${rule.src}`);
+  // Nothing from the Grok template ships: no grok.com/grok.me URL, no /__grok/ path, no extensions.js.
+  const LEFTOVER = /grok\.com|grok\.me|\/__grok\/|grok-app-builder|grok_device_id/i;
+  const walk = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+  for (const file of walk(resolve(".vercel/output")).filter((f) => /\.(m?js|html|css|json|webmanifest)$/.test(f)))
+    check(!LEFTOVER.test(readFileSync(file, "utf8")), `${label}: Grok template leftover in ${file}`);
+  check(!existsSync(resolve(".vercel/output/static/__grok")), `${label}: static/__grok still shipped`);
+  // Pages carry the referrer meta and no Grok head tags; /__grok/manifest is an unknown path now.
+  const unknown = await call("GET", "/no-such-page-50", "true");
+  for (const [path, flag] of [["/", undefined], ["/calculator", undefined], ["/dashboard/sign-in", "true"], ["/no-such-page-50", "true"]]) {
+    const r = await call("GET", path, flag);
+    check(r.body.includes(`<meta name="referrer" content="${REFERRER_POLICY}"/>`), `${label}: ${path} lacks the referrer meta`);
+    check(!LEFTOVER.test(r.body) && !/rel="manifest"|apple-touch-icon|apple-mobile-web-app|twitter:card|og:title/.test(r.body), `${label}: ${path} still has Grok head tags`);
+  }
+  for (const path of ["/__grok/manifest.webmanifest", "/__grok/manifest.json"]) {
+    const r = await call("GET", path, "true");
+    check(r.status === 404 && r.status === unknown.status, `${label}: GET ${path} -> ${r.status} (want the unknown-path 404)`);
+  }
+  const install = await call("GET", "/?install=1&platform=ios", "true");
+  check(isRedirectTo(install, "/calculator") && /install=1/.test(install.location ?? ""), `${label}: GET /?install=1&platform=ios -> ${install.status} ${install.location} (want the /?query redirect)`);
+}
+
 if (failures.length) {
   console.error(`[check-dashboard-built] ${failures.length} failure(s):\n  ${failures.join("\n  ")}`);
   process.exit(1);
@@ -607,5 +654,5 @@ if (failures.length) {
 console.log(
   WITH_DB
     ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (columns, cost, return, % of portfolio, totals, as-of line, out-of-date note); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
-    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
+    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); site headers (X-Robots-Tag + Referrer-Policy rule covers every path) and no Grok leftovers; API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

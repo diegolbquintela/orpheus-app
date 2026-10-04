@@ -7,10 +7,9 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
-import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
-// @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
+import { SITE_HEADERS } from "./src/lib/site/headers.ts";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -70,25 +69,23 @@ export default defineConfig(({ command, isPreview }) => ({
     pgliteBootstrapPlugin(),
     // Dev-only /__app-env, read by scripts/check-auth-invariant.mjs.
     appEnvPlugin(),
-    // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
-    grokPwaPlugin(),
     tailwindcss(),
     tanstackStart(),
     ...(command === "build" || isPreview
       ? [
           nitro({
             preset: "vercel",
-            // Auto-registers server/middleware/* (the PWA install page +
-            // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-            // false, so removing this silently unwires /?install=1 on deploys.
-            serverDir: "./server",
-            // Keep the app out of search engines: X-Robots-Tag on every response
-            // (pairs with the robots meta tag in src/routes/__root.tsx). Prepended to
-            // .vercel/output/config.json routes; `continue` lets routing go on to
-            // the filesystem and the server function.
+            // Site-wide response headers, prepended to .vercel/output/config.json routes; `continue`
+            // lets routing go on to the filesystem and the server function, so every app response
+            // (HTML, redirects, 404s, /api/*, static assets) carries them. `src/lib/site/headers.ts` is the source
+            // of truth; `src/lib/site/headers.test.ts` and `scripts/check-dashboard-built.mjs` check it.
+            // - X-Robots-Tag keeps the app out of search engines (pairs with the robots meta in
+            //   src/routes/__root.tsx).
+            // - Referrer-Policy (#50, QA N1) keeps paths and query strings out of every Referer,
+            //   same-origin ones included (pairs with the referrer meta in __root.tsx).
             vercel: {
               config: {
-                routes: [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex, nofollow" }, continue: true }],
+                routes: [{ src: "/(.*)", headers: { ...SITE_HEADERS }, continue: true }],
               },
             },
           }),

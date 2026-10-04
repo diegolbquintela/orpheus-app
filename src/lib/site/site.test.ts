@@ -102,6 +102,8 @@ describe("site shell (#46)", () => {
       "src/routes/dashboard_.sign-in.tsx",
     ])
       assert.match(readFileSync(file, "utf8"), /noindex, nofollow/, file);
-    assert.match(readFileSync("vite.config.ts", "utf8"), /"X-Robots-Tag": "noindex, nofollow"/);
+    // The header comes from SITE_HEADERS via the vite route rule (#50; src/lib/site/headers.test.ts).
+    assert.match(readFileSync("src/lib/site/headers.ts", "utf8"), /"X-Robots-Tag": "noindex, nofollow"/);
+    assert.match(readFileSync("vite.config.ts", "utf8"), /headers: \{ \.\.\.SITE_HEADERS \}/);
   });
 });

@@ -5,11 +5,14 @@ import { spawn, spawnSync } from "node:child_process";
 import http from "node:http";
 import { test } from "node:test";
 
-function serve(handler) {
+// The Vercel route rule (vite.config.ts, #50) puts these on every response.
+const SITE_HEADERS = { "x-robots-tag": "noindex, nofollow", "referrer-policy": "no-referrer" };
+function serve(handler, siteHeaders = SITE_HEADERS) {
   return new Promise((resolve) => {
     const methods = [];
     const s = http.createServer((req, res) => {
       methods.push(req.method);
+      for (const [k, v] of Object.entries(siteHeaders)) res.setHeader(k, v);
       handler(req, res);
     });
     s.listen(0, "127.0.0.1", () =>
@@ -41,7 +44,7 @@ const menu = (current) =>
     .join("") +
   `</div></nav>`;
 const shell = (current, main) =>
-  `<html><head><meta name="robots" content="noindex, nofollow"/><title>Orpheus Wisdom</title></head><body>${menu(current)}<main>${main}</main>` +
+  `<html><head><meta name="robots" content="noindex, nofollow"/><meta name="referrer" content="no-referrer"/><title>Orpheus Wisdom</title></head><body>${menu(current)}<main>${main}</main>` +
   `<footer class="x"><p class="x" data-testid="site-footer">Orpheus Wisdom</p></footer></body></html>`;
 const card = (href, title, text) =>
   `<li><a href="${href}" data-testid="home-card" class="x"><div><h2 class="x">${title}</h2></div><p class="x">${text}</p></a></li>`;
@@ -56,7 +59,7 @@ const CALC = shell(
 const NOT_FOUND = shell(null, `<p>Not Found</p>`);
 const html = (res, status, body) =>
   res
-    .writeHead(status, { "content-type": "text/html", "x-robots-tag": "noindex, nofollow" })
+    .writeHead(status, { "content-type": "text/html" })
     .end(body);
 const json = (res, status, body) =>
   res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
@@ -141,7 +144,8 @@ test("home fails with a third card, a missing Dashboard menu item, no noindex he
     [
       "no X-Robots-Tag",
       (req, res) =>
-        req.url === "/" && (res.writeHead(200, { "content-type": "text/html" }).end(HOME), true),
+        req.url === "/" &&
+        (res.removeHeader("x-robots-tag"), res.writeHead(200, { "content-type": "text/html" }).end(HOME), true),
     ],
     ["calculator still on /", (req, res) => req.url === "/" && (html(res, 200, CALC), true)],
   ]) {
@@ -151,6 +155,59 @@ test("home fails with a third card, a missing Dashboard menu item, no noindex he
     assert.equal(r.code, 1, label);
     assert.match(r.out, /FAIL GET \/ -> /, label);
   }
+});
+
+test("every response needs Referrer-Policy: no-referrer and X-Robots-Tag; pages need the referrer meta and no Grok leftovers", async () => {
+  // A weaker policy anywhere (here a redirect and an API answer) fails that check.
+  for (const [label, path, override] of [
+    [
+      "strict-origin-when-cross-origin on the redirect",
+      /FAIL GET \/dashboard -> 307/,
+      (req, res) =>
+        req.url === "/dashboard" &&
+        (res.setHeader("referrer-policy", "strict-origin-when-cross-origin"),
+        res.writeHead(307, { location: "/dashboard/sign-in" }).end(),
+        true),
+    ],
+    [
+      "no Referrer-Policy on /api/*",
+      /FAIL GET \/api\/dashboard\/holdings -> 401/,
+      (req, res) =>
+        req.url === "/api/dashboard/holdings" &&
+        (res.removeHeader("referrer-policy"), json(res, 401, { error: "Unauthorized." }), true),
+    ],
+    [
+      "no referrer meta",
+      /FAIL GET \/ -> 200/,
+      (req, res) => req.url === "/" && (html(res, 200, HOME.replace(/<meta name="referrer"[^>]*>/, "")), true),
+    ],
+    [
+      "Grok extensions script",
+      /FAIL GET \/calculator -> 200/,
+      (req, res) =>
+        req.url === "/calculator" &&
+        (html(res, 200, CALC.replace("</head>", '<script src="https://grok.com/grok-app-builder/extensions.js" defer></script></head>')), true),
+    ],
+    [
+      "Grok manifest link",
+      /FAIL GET \/dashboard\/sign-in -> 200/,
+      (req, res) =>
+        req.url === "/dashboard/sign-in" &&
+        (html(res, 200, shell("Dashboard", "<h1>Sign in</h1>").replace("</head>", '<link rel="manifest" href="/__grok/manifest.webmanifest"/></head>')), true),
+    ],
+  ]) {
+    const { s, base } = await serve(app("preview", override));
+    const r = await run(base, "preview");
+    s.close();
+    assert.equal(r.code, 1, label);
+    assert.match(r.out, path, label);
+  }
+  // Missing everywhere: every check fails.
+  const { s, base } = await serve(app("on"), {});
+  const r = await run(base, "on");
+  s.close();
+  assert.equal(r.code, 1);
+  assert.doesNotMatch(r.out, /^PASS/m);
 });
 
 test("fails when / with a query string isn't redirected, or the VOD.L message changes", async () => {
