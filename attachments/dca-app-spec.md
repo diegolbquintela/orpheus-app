@@ -14,6 +14,25 @@ Sequence after this app, not in scope now:
 - Own checklist before the eight-desk scorecard returns.
 - A boring price and holdings feed (IBKR or Fiscal.ai) before any dashboard.
 
+## Site and routes (#46, approved by Diego 2026-10-04)
+
+The app is one site with three routes. The calculator rules below don't change.
+
+- **`/calculator`**: this calculator, moved off `/` unchanged (same inputs, output, copy and six DCA rules,
+  including the note "US, EU and CA listings, one currency per basket." under the basket).
+- **`/`**: home. One line saying what the desk is ("Orpheus Wisdom is a private desk with two tools.") and
+  exactly two cards: **Calculator**, "compare a lump sum with contributions", opens `/calculator`;
+  **Dashboard**, "holdings, value, stored figures", opens `/dashboard`. No news, no scores, no buy/sell wording.
+  Home does no calculating: no price requests, no calculator code.
+- **`/dashboard`**: the signed-in dashboard (`attachments/dashboard-spec.md`), still gated by `DASHBOARD_ENABLED`.
+- **Menu on every page** (sign-in included): a thin bar that stays at the top on scroll. "Orpheus" on the left
+  links to `/`; "Calculator" and "Dashboard" on the right. No dropdowns. The current page has
+  `aria-current="page"` and a visual state. The Dashboard item shows even when the dashboard flag is off.
+- **Footer on every page:** exactly "Orpheus Wisdom", nothing else. No listings line, no disclaimer.
+- `/` with a query string redirects to `/calculator` with the same query (the calculator reads no URL
+  parameters, so this only keeps old links working).
+- `noindex` meta on every page plus the `X-Robots-Tag: noindex, nofollow` header.
+
 ## What v1 is
 
 Compare two cash plans on the same window, for one name or a weighted basket.
@@ -130,4 +149,4 @@ Do not repeat these.
 
 ## Done when
 
-Diego can open the app, leave every field blank, fill a US, EU, or CA basket, and get the results table and one NLV chart per plan from live prices. A name outside that set is refused with the exchange. The page has no buy, sell or hold output.
+Diego can open the calculator (`/calculator`; `/` before #46), leave every field blank, fill a US, EU, or CA basket, and get the results table and one NLV chart per plan from live prices. A name outside that set is refused with the exchange. The page has no buy, sell or hold output.

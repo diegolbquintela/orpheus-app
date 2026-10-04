@@ -13,6 +13,12 @@ each one has its link inline. When a provider page does not say something, this 
 
 Spec PR: #8. Tickets: see [Tickets](#tickets).
 
+**Update 2026-10-04 (#46, site redesign):** the site has three routes: home `/` (one line, two cards), the
+calculator at `/calculator` and this dashboard at `/dashboard`, with a menu and the footer "Orpheus Wisdom" on
+every page (`attachments/dca-app-spec.md`, "Site and routes"). Dashboard behaviour is unchanged: still gated by
+`DASHBOARD_ENABLED`, signed out `/dashboard` redirects to `/dashboard/sign-in`. Production serves the dashboard
+as of 2026-10-04 (issue #46; read-only smoke the same day); the flip itself isn't recorded in this repo.
+
 ## 1. What we are building
 
 A signed-in area. A user signs in and gets two things: the existing DCA calculator (unchanged), and a new
@@ -56,12 +62,14 @@ Every dashboard ticket merges to `main` behind one flag, so production is never 
 - It is read **on the server only** (no `VITE_` prefix). `VITE_*` values are inlined into the client
   bundle at build time, so they are not a gate. The `/dashboard` route checks the flag in its server-side
   `beforeLoad`/loader and every dashboard server function and API route checks it too. When the flag is not
-  exactly `true`, they all answer **404** (route) or **404 JSON** (API). No nav link, sign-in button or
-  dashboard copy is rendered when the flag is off.
+  exactly `true`, they all answer **404** (route) or **404 JSON** (API). No sign-in button or dashboard copy
+  is rendered when the flag is off. **Exception since #46 (Diego, 2026-10-04):** the site menu's "Dashboard"
+  item and the home card linking to `/dashboard` show on every page whether the flag is on or off; the
+  shell never reads the flag, and flag off the link lands on the ordinary 404.
 - A changed value only applies to **new** deployments
   ([Vercel: Environment variables](https://vercel.com/docs/environment-variables), checked 2026-10-02),
   so flipping it means redeploying.
-- The calculator at `/` does not read the flag and does not change.
+- The calculator (at `/calculator` since #46; it was at `/`) does not read the flag and does not change.
 
 **How QA reaches it on a preview:** open the PR's Vercel preview URL (vercel[bot] posts it on the PR), go to
 `/dashboard`. Because the flag is on for every Preview deployment, no extra step is needed. On production
@@ -671,13 +679,13 @@ or label implies good/bad.
 ## 12. Acceptance criteria (QA checks these on the PR's Vercel preview)
 
 Global (every ticket): **DASH-00** `/dashboard` and every `/api/dashboard/*` route return 404 on production
-until the release go; the calculator at `/` is unchanged (DCA-01..06 still pass); no buy, sell, hold,
+until the release go; the calculator (`/calculator` since #46) is unchanged (DCA-01..06 still pass); no buy, sell, hold,
 "undervalued", "overvalued", rating or target wording anywhere in dashboard copy (extend the DCA-06 scan
 to dashboard files); `noindex` still present on `/dashboard`.
 
 | ID | Criterion |
 |---|---|
-| DASH-01 | Flag off (production): `GET /dashboard` → 404, no dashboard link or sign-in button on `/`. Flag on (preview): `/dashboard` renders. |
+| DASH-01 | Flag off: `GET /dashboard` → 404, no sign-in button or dashboard copy on any page (the site menu's Dashboard item and the home card are the #46 exception). Flag on: `/dashboard` renders. |
 | DASH-02 | With no `DASHBOARD_ENABLED` value at all, the app behaves as flag off (fail closed). |
 | DASH-03 | Preview: database connection status shows "connected"; tables from `0002_dashboard.sql` exist; `npm run build` logs the migration as applied once and "up to date" on a redeploy. |
 | DASH-04 | Signed out: `/dashboard` redirects to sign-in; dashboard API calls return 401. |
