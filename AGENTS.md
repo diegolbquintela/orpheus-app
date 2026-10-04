@@ -559,6 +559,19 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `check-dashboard-built.mjs --with-database` checks the empty/price-pending pie, the "1 holding without a
   price excluded" flag before the first close, and KO 100.0% afterwards.
 
+### Holding delete: one DELETE per click (#38, PR #44)
+
+- Root cause: after a successful DELETE the row released its guard and re-enabled Edit/Delete while the page
+  loader's refetch (`router.invalidate()`) was still running (seconds on Vercel), so the deleted row stayed
+  on screen and clickable; every further click sent DELETE for an id that no longer exists → 404 (the
+  server is right). The route's `ANY` handler is not involved: each request runs one handler (checked
+  against the built server).
+- Fix (`holdings.tsx` `Row.remove()`): the guard is released only on an error; on success the row shows
+  "Deleted" (dimmed, `aria-busy`) with no buttons until the refetch removes it. Test: `metric-compute.test.ts`
+  "QA: holdings delete fires once (#37, #38)".
+- QA N3 in the same PR: the EPS column's portfolio cell shows "EPS growth 1y (weighted)" as a visible
+  sub-label under the value (`PortfolioMetricCell`); `check-dashboard-built --with-database` checks it.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

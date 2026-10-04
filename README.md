@@ -238,7 +238,8 @@ column: the market-value-weighted mean (base currency) over the holdings that ha
 with the share of the portfolio's market value it covers, e.g. `27.6% · 71% covered`. Holdings showing "—"
 (not meaningful, insufficient history or data, not covered) are left out and never counted as zero;
 negative values are included. The EPS column's portfolio cell is the weighted 1-year EPS growth (EPS FY0 ÷
-EPS FY−1 − 1; not meaningful if either is ≤ 0), labelled, because EPS in different currencies can't be
+EPS FY−1 − 1; not meaningful if either is ≤ 0), with a visible "EPS growth 1y (weighted)" sub-label under the
+value so it isn't read as an EPS amount, because EPS in different currencies can't be
 added (D9). Holdings waiting for a price or FX rate carry no weight and are outside the coverage figure;
 the total row then says so ("1 holding without a price excluded" / "N holdings without a price excluded",
 "… or FX rate" when one is waiting for a rate). Coverage is a whole percent that never shows 0% or 100%

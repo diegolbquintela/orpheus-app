@@ -496,7 +496,8 @@ or label implies good/bad.
   (never 100% unless fully covered, never 0% unless none); 0% shows `— · 0% covered`.
 - D9: per-company `eps_g_1y` stored alongside the other metrics (not a picker column): diluted EPS
   FY0 / FY−1 − 1; `n/m` if FY0 EPS is missing or either year ≤ 0; `insufficient_history` if no FY−1;
-  `insufficient_data` if the units differ. Portfolio EPS cell label: "EPS growth 1y (weighted)".
+  `insufficient_data` if the units differ. Portfolio EPS cell label: "EPS growth 1y (weighted)", shown as a
+  visible sub-label under the value (QA N3, #44), not only in the tooltip.
 - Hand check (fixtures, base CAD, USD 1.4243 / EUR 1.6030): KO 997.01, ASML.AS 2,244.20, RY.TO 900.00,
   PHG 854.58, MC.PA 801.50 (not covered); EBIT margin over KO/ASML/PHG = 27.6% · 71% covered; EPS growth
   over KO (23.6%), ASML (28.4%), RY (25.1%) = 26.5% · 71% covered (PHG n/m: FY2024 EPS −0.75).
