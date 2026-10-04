@@ -253,6 +253,14 @@ Slices are neutral greys labelled ticker + %, with a text list next to the chart
 small screens). Holdings without a price or FX rate get no slice and are listed under the chart ("price
 pending"); with no priced holdings it says "No holdings with a price yet."
 
+**Dashboard release prep (#24).** The release checklist (every DASH and DCA check), the exact Production
+environment variables, the database choice and migration steps, the ordered runbook with rollback, and the
+test-account steps are in [`docs/release/dashboard-release.md`](docs/release/dashboard-release.md).
+`node scripts/release-smoke.mjs <url> off|on|preview` is a read-only (GET-only) smoke check for it. The
+table's and the pie's % labels come from one formatter (`formatPortfolioPct`); rounded one by one,
+they may not sum to exactly 100.0. Click-level component tests (`*.dom.test.tsx`, jsdom, e.g. the holdings delete
+guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

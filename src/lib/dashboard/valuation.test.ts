@@ -345,3 +345,23 @@ describe("EL (#43): the total row flags holdings excluded for no price / FX rate
     assert.match(pie, /from "recharts"/);
   });
 });
+
+describe("#24 N1: one % of portfolio formatter for the table and the pie", () => {
+  it("the pie label is the table's label for every row (same function, identical output)", async () => {
+    const { formatPortfolioPct } = await import("./format.ts");
+    assert.equal(piePct, formatPortfolioPct);
+    await seed({ base: "CAD" });
+    const { valuation } = await load();
+    const pie = pieSlices(valuation.rows);
+    for (const s of pie.slices) assert.equal(piePct(s.pct), formatPortfolioPct(valuation.rows.find((r) => r.symbol === s.label)!.weight!));
+    for (const v of [0, 0.04, 0.05, 33.333, 41.75, 99.95, 100]) assert.equal(piePct(v), formatPortfolioPct(v));
+    assert.deepEqual([0.04, 0.05, 41.75, 100].map(formatPortfolioPct), ["0.0%", "0.1%", "41.8%", "100.0%"]);
+    const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
+    assert.match(src, /const weightPct = formatPortfolioPct;/);
+  });
+  it("N2: rounded labels may not sum to exactly 100.0 (three equal holdings: 3 × 33.3%)", () => {
+    const pie = pieSlices(["A", "B", "C"].map((symbol) => ({ symbol, value: 1, status: "ok" })));
+    assert.ok(Math.abs(pie.slices.reduce((t, s) => t + s.pct, 0) - 100) < 1e-9);
+    assert.equal(pie.slices.map((s) => piePct(s.pct)).join(" "), "33.3% 33.3% 33.3%");
+  });
+});

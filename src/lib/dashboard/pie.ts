@@ -8,6 +8,8 @@
  *   slice and are listed under the chart, like the table's totals.
  * - Labels are ticker + %; no colour or wording implies good/bad.
  */
+import { formatPortfolioPct } from "./format.ts";
+
 export const PIE_MAX_SLICES = 10;
 
 export type PieSlice = {
@@ -46,8 +48,8 @@ export function pieSlices(rows: Row[]): PieData {
   };
 }
 
-/** Same formatting as the table's "% of portfolio" column. */
-export const piePct = (pct: number) => `${pct.toFixed(1)}%`;
+/** The table's "% of portfolio" formatter (shared, #24 N1). */
+export const piePct = formatPortfolioPct;
 
 /** Neutral greys (no red/green, no ranking meaning), cycled by slice order. */
 export const PIE_COLOURS = ["#1e2124", "#4a4f55", "#6f757c", "#8e949a", "#aab0b6", "#c4c9ce", "#5c6166", "#7d8389", "#9ca2a8", "#b7bcc1", "#d6d9dc"];
