@@ -162,7 +162,7 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
     );
     assert.equal(row.rows[0].value, (32667300000 / 28262900000 - 1).toPrecision(12));
     assert.equal(row.rows[0].fiscal_year_end, "2025-12-31");
-    assert.equal(out.length, 8, "4 revenue metrics + ROIC (T10) + EPS (T11) + EBIT margin (T12) + gross margin (T13)");
+    assert.equal(out.length, 9, "4 revenue metrics + ROIC (T10) + EPS (T11) + EBIT margin (T12) + gross margin (T13) + EPS growth (T14)");
   });
 
   it("the metric cell renders ok values as a percent and has no rating wording", () => {
@@ -576,5 +576,136 @@ describe("DASH-20: gross margin (1y) matches companyfacts; revenue − cost of r
     assert.match(h, /gross profit ÷ revenue/);
     assert.match(h, /revenue − cost of revenue/);
     assert.doesNotMatch(h, /\b(buy|sell|good|bad|score|rating|strong|weak|healthy)\b/i);
+  });
+});
+
+// ------------------------------------------------------------------ T14 (#22): portfolio aggregates (§9, D9)
+
+import { epsGrowth } from "./metric-compute.server.ts";
+import { portfolioMetrics } from "./portfolio.ts";
+import { formatCoverage, formatPortfolioCell } from "./format.ts";
+import { loadDashboardHoldings } from "./valuation.server.ts";
+import { METRIC_KEYS } from "./metrics.ts";
+
+describe("DASH-22/23: portfolio row = MV-weighted mean over covered holdings, with coverage %; EPS column = weighted 1y EPS growth", () => {
+  /**
+   * Hand-checked portfolio, base CAD, closes 2026-10-01, Bank of Canada rates USD 1.4243 / EUR 1.6030:
+   *   KO       10 × 70 USD  =   700 × 1.4243 =   997.01 CAD
+   *   ASML.AS   2 × 700 EUR =  1400 × 1.6030 =  2244.20 CAD
+   *   RY.TO     5 × 180 CAD =                    900.00 CAD
+   *   PHG      20 × 30 USD  =   600 × 1.4243 =   854.58 CAD
+   *   MC.PA     1 × 500 EUR =   500 × 1.6030 =   801.50 CAD  (not covered: no SEC filings)
+   *   total 5,797.29 CAD
+   */
+  const MV = { KO: 997.01, "ASML.AS": 2244.2, "RY.TO": 900, PHG: 854.58, "MC.PA": 801.5 };
+  const TOTAL = 5797.29;
+  async function portfolioSeed() {
+    await ingest();
+    await pg.exec(`UPDATE holdings SET shares = CASE symbol WHEN 'KO' THEN 10 WHEN 'ASML.AS' THEN 2 WHEN 'RY.TO' THEN 5 WHEN 'PHG' THEN 20 ELSE 1 END;
+      DELETE FROM daily_closes; DELETE FROM fx_rates;
+      INSERT INTO daily_closes (symbol, session_date, close, currency, source) VALUES
+        ('KO', '2026-10-01', 70, 'USD', 'yahoo'), ('ASML.AS', '2026-10-01', 700, 'EUR', 'yahoo'),
+        ('RY.TO', '2026-10-01', 180, 'CAD', 'yahoo'), ('PHG', '2026-10-01', 30, 'USD', 'yahoo'),
+        ('MC.PA', '2026-10-01', 500, 'EUR', 'yahoo');
+      INSERT INTO fx_rates (quote, rate_date, cad_per_unit, source) VALUES
+        ('USD', '2026-10-01', 1.4243, 'BOC'), ('EUR', '2026-10-01', 1.6030, 'BOC');`);
+    return loadDashboardHoldings(db, "u1", { previewRefresh: false, nowMs: NOW });
+  }
+
+  it("valuation weights are the hand values (base CAD)", async () => {
+    const d = await portfolioSeed();
+    for (const r of d.valuation.rows) assert.ok(Math.abs((r.value ?? NaN) - MV[r.symbol as keyof typeof MV]) < 1e-6, r.symbol);
+    assert.ok(Math.abs(d.valuation.total - TOTAL) < 1e-6);
+  });
+
+  it("EBIT margin: KO + ASML + PHG weighted; RY (n/m) and MC.PA (not covered) excluded and counted against coverage", async () => {
+    const p = (await portfolioSeed()).portfolio.ebit_margin_1y;
+    const cov = MV.KO + MV["ASML.AS"] + MV.PHG; // 4,095.79
+    const hand = (MV.KO * (13762 / 47941) + MV["ASML.AS"] * (11301.4 / 32667.3) + MV.PHG * (1424 / 17834)) / cov;
+    assert.ok(Math.abs(p.value! - hand) < 1e-9, `${p.value} vs ${hand}`); // ≈ 0.2760 → 27.6%
+    assert.ok(Math.abs(p.coverage! - cov / TOTAL) < 1e-12); // 70.65% → "71% covered"
+    assert.deepEqual(p.included.sort(), ["ASML.AS", "KO", "PHG"]);
+    assert.equal(formatPortfolioCell("ebit_margin_1y", p).text, `${(hand * 100).toFixed(1)}% · 71% covered`);
+  });
+
+  it("D9 EPS column: weighted 1y EPS growth; KO 3.04/2.46, ASML 24.71/19.24, RY 14.07/11.25; PHG (FY−1 −0.75 ≤ 0) n/m, excluded", async () => {
+    const d = await portfolioSeed();
+    const g = { KO: 3.04 / 2.46 - 1, "ASML.AS": 24.71 / 19.24 - 1, "RY.TO": 14.07 / 11.25 - 1 };
+    for (const [s, v] of Object.entries(g)) assert.ok(close(Number(d.metrics[s].metrics.eps_g_1y.value), v), s);
+    assert.equal(d.metrics.PHG.metrics.eps_g_1y.status, "n/m");
+    const cov = MV.KO + MV["ASML.AS"] + MV["RY.TO"];
+    const hand = (MV.KO * g.KO + MV["ASML.AS"] * g["ASML.AS"] + MV["RY.TO"] * g["RY.TO"]) / cov;
+    const p = d.portfolio.eps_1y;
+    assert.equal(p.source, "eps_g_1y");
+    assert.ok(Math.abs(p.value! - hand) < 1e-9); // ≈ 0.2651 → 26.5%
+    assert.ok(Math.abs(p.coverage! - cov / TOTAL) < 1e-12); // 71.43%
+    const f = formatPortfolioCell("eps_1y", p);
+    assert.equal(f.label, "EPS growth 1y (weighted)");
+    assert.equal(f.text, `${(hand * 100).toFixed(1)}% · 71% covered`);
+  });
+
+  it("every metric T09–T13: value = Σ MV·m / Σ MV over valid holdings, from the stored values; negatives included as they are", async () => {
+    const d = await portfolioSeed();
+    for (const key of METRIC_KEYS) {
+      const src = key === "eps_1y" ? "eps_g_1y" : key;
+      let w = 0, s = 0;
+      for (const [sym, mv] of Object.entries(MV)) {
+        const c = d.metrics[sym].coverage === "covered" ? d.metrics[sym].metrics[src] : undefined;
+        if (c?.status === "ok") {
+          w += mv;
+          s += mv * Number(c.value);
+        }
+      }
+      const p = d.portfolio[key];
+      assert.ok(w === 0 ? p.value === null : Math.abs(p.value! - s / w) < 1e-9, key);
+      assert.ok(Math.abs(p.coverage! - w / TOTAL) < 1e-12, key);
+      assert.ok(!p.included.includes("MC.PA"), `${key}: not covered is excluded`);
+    }
+    // PHG FY2025 revenue 17,834 < FY2024 → negative 1y growth, included (not dropped, not zeroed).
+    assert.ok(Number(d.metrics.PHG.metrics.rev_g_1y.value) < 0);
+    assert.ok(d.portfolio.rev_g_1y.included.includes("PHG"));
+    // RY 10y CAGR is insufficient history → excluded.
+    assert.ok(!d.portfolio.rev_cagr_10y.included.includes("RY.TO"));
+  });
+
+  it("pure rules: renormalised weights; pending price carries no weight; n/m and insufficient data never count as 0; 0% coverage → —", () => {
+    const rows = [
+      { symbol: "A", value: 300 },
+      { symbol: "B", value: 100 },
+      { symbol: "C", value: 600 },
+      { symbol: "P", value: null }, // price pending
+    ];
+    const ok = (v: number) => ({ value: String(v), status: "ok" });
+    const views = {
+      A: { coverage: "covered", metrics: { m: ok(0.1), x: { value: null, status: "n/m" } } },
+      B: { coverage: "covered", metrics: { m: ok(-0.2), x: { value: null, status: "insufficient_data" } } },
+      C: { coverage: "covered", metrics: { m: { value: null, status: "insufficient_history" } } },
+      P: { coverage: "covered", metrics: { m: ok(5) } },
+    };
+    const p = portfolioMetrics(rows, views, ["m", "x"]);
+    assert.ok(close(p.m.value!, (300 * 0.1 + 100 * -0.2) / 400)); // 0.025
+    assert.ok(close(p.m.coverage!, 400 / 1000));
+    assert.deepEqual(p.m.included, ["A", "B"]);
+    assert.deepEqual([p.x.value, p.x.coverage], [null, 0]);
+    assert.equal(formatPortfolioCell("x", p.x).text, "— · 0% covered");
+    assert.equal(formatPortfolioCell("m", portfolioMetrics([{ symbol: "P", value: null }], views, ["m"]).m).text, "—");
+    assert.equal(formatCoverage(0.996), "99% covered");
+    assert.equal(formatCoverage(0.004), "1% covered");
+    assert.equal(formatCoverage(1), "100% covered");
+  });
+
+  it("epsGrowth rules: missing FY−1 → insufficient history; ≤ 0 either year → n/m; unit change → insufficient data", () => {
+    const f = (fy: string, v: number, unit = "USD/shares") => ({ fiscalYearEnd: fy, value: v, unit });
+    assert.equal(epsGrowth("2025-12-31", [f("2025-12-31", 3)]).status, "insufficient_history");
+    assert.equal(epsGrowth("2025-12-31", [f("2025-12-31", 3), f("2024-12-31", 0)]).status, "n/m");
+    assert.equal(epsGrowth("2025-12-31", [f("2025-12-31", -1), f("2024-12-31", 2)]).status, "n/m");
+    assert.equal(epsGrowth("2025-12-31", [f("2024-12-31", 2)]).status, "n/m");
+    assert.equal(epsGrowth("2025-12-31", [f("2025-12-31", 3), f("2024-12-31", 2, "EUR/shares")]).status, "insufficient_data");
+    assert.ok(close(epsGrowth("2025-12-28", [f("2025-12-28", 3), f("2024-12-29", 2)]).value!, 0.5), "52/53-week years match");
+  });
+
+  it("no advice, score or rating wording in the portfolio labels", () => {
+    const text = formatPortfolioCell("eps_1y", { value: 0.1, coverage: 0.5 }).label!;
+    assert.doesNotMatch(text, /\b(buy|sell|good|bad|score|rating|strong|weak|healthy|recommend)\b/i);
   });
 });

@@ -61,6 +61,7 @@ export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(as
     freshness: null,
     metricColumns: [],
     metrics: {},
+    portfolio: {},
   };
   const user = await sessionFromRequestHeaders(getRequest().headers);
   if (!user) return { ...empty, storage: "signed_out" as const };

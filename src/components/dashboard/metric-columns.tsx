@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatEps } from "@/lib/dashboard/format";
+import { formatEps, formatPortfolioCell } from "@/lib/dashboard/format";
 import { METRIC_HELP, METRICS, STATUS_REASON, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
 
 const help = (key: string) => METRIC_HELP[key as MetricKey];
@@ -133,6 +133,40 @@ export function MetricCell({ metricKey, view }: { metricKey: string; view: Metri
   return (
     <span className="text-muted" data-testid="metric-cell" data-key={metricKey} data-status={status} title={[reason, help(metricKey) ?? ""].filter(Boolean).join(". ")}>
       —<span className="ml-1 text-xs">{reason}</span>
+    </span>
+  );
+}
+
+export type PortfolioCellView = { value: number | null; coverage: number | null; source: string; included: string[] };
+
+const PORTFOLIO_HELP =
+  "Portfolio: market-value-weighted mean (base currency) over holdings with a value; weights renormalised over those " +
+  "holdings. Coverage = their share of the portfolio's market value. Not meaningful, insufficient history or data, " +
+  "and not covered holdings are left out (never counted as zero).";
+
+/** Portfolio row cell (T14, spec §9; DASH-22/23). */
+export function PortfolioMetricCell({ metricKey, cell }: { metricKey: string; cell: PortfolioCellView | undefined }) {
+  const { label, text } = formatPortfolioCell(metricKey, cell);
+  const title = [
+    metricKey === "eps_1y"
+      ? "Weighted 1-year EPS growth (EPS FY0 ÷ EPS FY−1 − 1; not meaningful if either is ≤ 0). EPS amounts in different currencies don't add up, so the portfolio row shows growth"
+      : null,
+    PORTFOLIO_HELP,
+    cell?.included.length ? `Included: ${cell.included.join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(". ");
+  return (
+    <span
+      className={cell?.value == null ? "text-muted" : undefined}
+      data-testid="portfolio-metric"
+      data-key={metricKey}
+      data-source={cell?.source ?? ""}
+      data-coverage={cell?.coverage ?? ""}
+      title={title}
+    >
+      {label ? <span className="block text-xs font-normal text-muted" data-testid="portfolio-metric-label">{label}</span> : null}
+      {text}
     </span>
   );
 }

@@ -221,8 +221,8 @@ value is computed from partial inputs), "coverage check pending" or "not compute
 
 **Dashboard EPS (T11).** The "EPS (1y)" column shows the latest fiscal year's diluted earnings per share
 exactly as reported to the SEC, with its reporting currency code (e.g. "3.04 USD", "0.93 EUR"). A company
-without a diluted EPS figure for that year shows "— not meaningful". The portfolio row's EPS cell (weighted
-1-year EPS growth, decision D9) comes with the portfolio totals ticket (T14).
+without a diluted EPS figure for that year shows "— not meaningful". The portfolio row's EPS cell shows the
+weighted 1-year EPS growth instead (decision D9, T14).
 
 **Dashboard EBIT margin (T12).** The "EBIT margin (1y)" column = operating income ÷ revenue for the latest
 fiscal year, both as reported to the SEC (no adjustments), e.g. KO 28.7%. Negative margins are shown as
@@ -232,6 +232,15 @@ negative; zero or negative revenue, or no reported operating income (e.g. banks)
 year as reported to the SEC (e.g. KO 61.6%); when a company reports no gross profit for that year,
 (revenue − cost of revenue) ÷ revenue. Zero or negative revenue, or neither figure reported (e.g. banks),
 shows "— not meaningful".
+
+**Dashboard portfolio row (T14).** The total row under the holdings shows a portfolio value in every metric
+column: the market-value-weighted mean (base currency) over the holdings that have a value for that metric,
+with the share of the portfolio's market value it covers, e.g. `27.6% · 71% covered`. Holdings showing "—"
+(not meaningful, insufficient history or data, not covered) are left out and never counted as zero;
+negative values are included. The EPS column's portfolio cell is the weighted 1-year EPS growth (EPS FY0 ÷
+EPS FY−1 − 1; not meaningful if either is ≤ 0), labelled, because EPS in different currencies can't be
+added (D9). Holdings waiting for a price or FX rate carry no weight. Computed when the page loads, from
+stored values only.
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in

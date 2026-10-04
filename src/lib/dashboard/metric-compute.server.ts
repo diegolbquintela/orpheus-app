@@ -13,6 +13,8 @@
  * T10 (#18) `roic_1y` = NOPAT FY0 / average invested capital (FY0, FY−1), see `roic()`.
  * T11 (#19) `eps_1y` = diluted EPS for FY0 in the reporting currency, see `eps()`.
  * T12 (#20) `ebit_margin_1y` = operating income FY0 / revenue FY0, see `ebitMargin()`.
+ * T14 (#22) `eps_g_1y` = diluted EPS FY0 / FY−1 − 1, stored per company for the portfolio EPS cell (D9);
+ *   not a column of its own, see `epsGrowth()`.
  * T13 (#21) `gross_margin_1y` = gross profit FY0 / revenue FY0, else (revenue − cost of revenue) / revenue, see `grossMargin()`.
  */
 import type { MetricStatus, Queryable } from "./store.server.ts";
@@ -187,6 +189,27 @@ export function eps(fy0: string | null, fact: { value: number; unit: string } | 
   return { key, value: fact.value, status: "ok", fiscalYearEnd: fy0 };
 }
 
+/**
+ * 1-year EPS growth (T14, spec §9 / D9) = diluted EPS FY0 / diluted EPS FY−1 − 1, per company, so the
+ * portfolio row's EPS column can show a weighted growth (per-share amounts in different currencies don't
+ * add up). `n/m` when FY0 has no diluted EPS or either year's EPS is ≤ 0; `insufficient_history` when there
+ * is no FY−1 diluted EPS (same ±45-day year matching as revenue); `insufficient_data` when the two units
+ * differ. Both values are the stored ones (the latest filing per year, so a split restated in the FY0
+ * filing is already applied to FY−1).
+ */
+export function epsGrowth(fy0: string | null, facts: { fiscalYearEnd: string; value: number; unit: string }[]): ComputedMetric {
+  const key = "eps_g_1y";
+  if (!fy0) return { key, value: null, status: "n/m", fiscalYearEnd: null };
+  const cur = facts.find((f) => f.fiscalYearEnd === fy0);
+  if (!cur || !Number.isFinite(cur.value)) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
+  const prevEnd = fiscalYearBack(facts.map((f) => f.fiscalYearEnd), fy0, 1);
+  const prev = prevEnd ? facts.find((f) => f.fiscalYearEnd === prevEnd) : undefined;
+  if (!prev || !Number.isFinite(prev.value)) return { key, value: null, status: "insufficient_history", fiscalYearEnd: fy0 };
+  if (cur.value <= 0 || prev.value <= 0) return { key, value: null, status: "n/m", fiscalYearEnd: fy0 };
+  if (cur.unit !== prev.unit) return { key, value: null, status: "insufficient_data", fiscalYearEnd: fy0 };
+  return { key, value: cur.value / prev.value - 1, status: "ok", fiscalYearEnd: fy0 };
+}
+
 // ------------------------------------------------------------------ EBIT margin (T12)
 
 type UnitFact = { value: number; unit: string };
@@ -233,7 +256,7 @@ export function grossMargin(
 // ------------------------------------------------------------------ storage
 
 /** Metric keys computed so far (T09, T10); T11–T13 add theirs. */
-export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y", "ebit_margin_1y", "gross_margin_1y"] as const;
+export const COMPUTED_METRIC_KEYS = [...REVENUE_METRIC_KEYS, "roic_1y", "eps_1y", "ebit_margin_1y", "gross_margin_1y", "eps_g_1y"] as const;
 
 /** Recompute every implemented metric for one covered symbol from `fundamentals_annual` and store them. */
 export async function computeStoredMetrics(db: Queryable, symbol: string): Promise<ComputedMetric[]> {
@@ -264,7 +287,11 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
   };
   const ebitRow = ebitMargin(fy0, fy0Fact("revenue"), fy0Fact("operating_income"));
   const { basis: _basis, ...grossRow } = grossMargin(fy0, fy0Fact("revenue"), fy0Fact("gross_profit"), fy0Fact("cost_of_revenue"));
-  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow, ebitRow, grossRow].map((m) =>
+  const epsGrowthRow = epsGrowth(
+    fy0,
+    rows.filter((r) => r.concept === "eps_diluted").map((r) => ({ fiscalYearEnd: r.fye, value: Number(r.value), unit: r.unit })),
+  );
+  const out = [...revenueGrowth(revenue, fy0), roicRow, epsRow, ebitRow, grossRow, epsGrowthRow].map((m) =>
     (METRIC_MIN_PARSER[m.key] ?? 1) > parser ? { ...m, value: null, status: "insufficient_data" as const } : m,
   );
   for (const m of out)

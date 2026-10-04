@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { trimDecimal } from "@/lib/dashboard/format";
 import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
-import { MetricCell, MetricColumnsPicker, type MetricViewData } from "./metric-columns";
+import { MetricCell, MetricColumnsPicker, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
 
 /**
  * Holdings table on /dashboard (T04 #12): add, edit (shares, average cost) and delete.
@@ -75,6 +75,8 @@ type Props = {
   /** T08: the user's metric columns (in order) and each symbol's coverage / stored metric values. */
   metricColumns?: string[];
   metrics?: Record<string, MetricViewData>;
+  /** T14: portfolio row per metric (weighted mean + coverage, spec §9). */
+  portfolio?: Record<string, PortfolioCellView>;
   storage: "ok" | "not_configured" | "signed_out";
   /** Re-run the page loader after a change. */
   onChanged: () => Promise<void> | void;
@@ -367,6 +369,7 @@ export function HoldingsSection({
   freshness = null,
   metricColumns = [],
   metrics = {},
+  portfolio = {},
   storage,
   onChanged,
 }: Props) {
@@ -510,7 +513,9 @@ export function HoldingsSection({
                       : weightPct(valuation.rows.reduce((sum, r) => sum + (r.weight ?? 0), 0))}
                   </td>
                   {metricColumns.map((key) => (
-                    <td key={key} />
+                    <td key={key} className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap">
+                      <PortfolioMetricCell metricKey={key} cell={portfolio[key]} />
+                    </td>
                   ))}
                   <td />
                 </tr>
