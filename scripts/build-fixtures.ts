@@ -95,8 +95,13 @@ export const CASES: CaseSpec[] = [
 /** DCA-06: files that produce user-facing text, scanned for buy/sell/hold output. */
 export const COPY_FILES = [
   "src/components/desk.tsx",
+  "src/routes/calculator.tsx",
   "src/routes/index.tsx",
   "src/routes/__root.tsx",
+  "src/components/home.tsx",
+  "src/components/site-menu.tsx",
+  "src/components/site-footer.tsx",
+  "src/lib/site/site.ts",
   "src/lib/dca/results.ts",
   "src/lib/dca/venues.ts",
 ];

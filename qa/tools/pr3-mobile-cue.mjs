@@ -4,7 +4,7 @@ const CFG=qaConfig(import.meta.url);
 const OUT=CFG.out;
 const browser=await chromium.launch();
 const ctx=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true}); const page=await ctx.newPage();
-await page.goto(CFG.baseUrl,{waitUntil:'networkidle'});
+await page.goto(CFG.calculatorUrl,{waitUntil:'networkidle'});
 const type=async(loc,t)=>{await loc.tap(); await page.keyboard.type(String(t));};
 await page.getByRole('button',{name:/Add name/}).tap();
 const rows=page.locator('.basket-row');

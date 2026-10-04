@@ -8,7 +8,11 @@
  * that has no BETTER_AUTH_SECRET or database URL.
  *   Flag off (unset and other non-"true" values):
  *   - GET /dashboard, /dashboard/x, /dashboard/sign-in: 404 HTML identical to the 404 for any
- *     unknown path (timestamps aside), with no "dashboard" anywhere in it.
+ *     unknown path (timestamps aside), with no "dashboard" anywhere in it outside the site menu
+ *     (#46: the menu's Dashboard item shows on every page, flag on or off; no item is current on a 404).
+ *   Site shell (#46), both flag states: / is home (menu with Orpheus current, one h1, exactly two cards,
+ *   the footer reading exactly "Orpheus Wisdom", noindex, no calculator form); /calculator is the calculator
+ *   (menu with Calculator current, the form, its listings note, noindex); / with a query string redirects to /calculator with the same query.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
  *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,fx,columns,refresh},
  *     /api/dashboard/*, /api/auth/* and /api/cron/daily-refresh: 404 JSON.
@@ -126,6 +130,11 @@ async function call(method, path, flag, vercelEnv, { cookie, body: payload, head
 
 // Router state carries per-request timestamps (u:<ms>); nothing else may differ.
 const normalise = (html) => html.replace(/u:\d+/g, "u:0");
+// The site menu (#46) is on every page, the 404 included; its Dashboard item is the only allowed mention.
+const SITE_MENU = /<nav aria-label="Site" data-testid="site-menu"[\s\S]*?<\/nav>/;
+const withoutMenu = (html) => html.replace(SITE_MENU, "");
+const menuCurrent = (html) =>
+  [...(html.match(SITE_MENU)?.[0] ?? "").matchAll(/<a [^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((m) => m[1]);
 const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 // Routes with their own handlers (GET/HEAD when on); everything else under /api/dashboard is the catch-all.
 const GATED_API_PATHS = ["/api/dashboard/status", "/api/dashboard/db"];
@@ -176,7 +185,9 @@ for (const flag of [undefined, "", "false", "TRUE", "1", "true "]) {
       r.status === 404 && /text\/html/.test(r.type),
       `${label}: GET ${path} -> ${r.status} ${r.type}`,
     );
-    check(!/dashboard/i.test(r.body), `${label}: GET ${path} HTML mentions "dashboard"`);
+    check(SITE_MENU.test(r.body), `${label}: GET ${path} 404 lacks the site menu`);
+    check(menuCurrent(r.body).length === 0, `${label}: GET ${path} 404 marks a menu item current: ${menuCurrent(r.body)}`);
+    check(!/dashboard/i.test(withoutMenu(r.body)), `${label}: GET ${path} HTML mentions "dashboard" outside the site menu`);
     check(!/Preview shell/.test(r.body), `${label}: GET ${path} HTML has the placeholder copy`);
     check(
       /<title>Orpheus Wisdom<\/title>/.test(r.body),
@@ -203,6 +214,48 @@ for (const flag of [undefined, "", "false", "TRUE", "1", "true "]) {
         `${label}: ${method} ${path} -> ${r.status} ${r.type} ${r.body.slice(0, 60)}`,
       );
     }
+}
+
+// Site shell (#46): home, calculator, the /?query redirect, menu and footer, flag off and on.
+for (const flag of [undefined, "true"]) {
+  const label = `site, flag ${flag ?? "unset"}`;
+  const NOINDEX = /<meta name="robots" content="noindex, nofollow"\/>/;
+  const FOOTER = /<footer[^>]*><p[^>]*data-testid="site-footer"[^>]*>Orpheus Wisdom<\/p><\/footer>/;
+  const home = await call("GET", "/", flag);
+  check(home.status === 200, `${label}: GET / -> ${home.status}`);
+  check(NOINDEX.test(home.body), `${label}: / lacks noindex`);
+  check(JSON.stringify(menuCurrent(home.body)) === '["Orpheus"]', `${label}: / current menu item ${menuCurrent(home.body)}`);
+  check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
+  const cards = [...home.body.matchAll(/<a href="([^"]+)" data-testid="home-card"[\s\S]*?<h2[^>]*>([^<]*)<\/h2>[\s\S]*?<p[^>]*>([^<]*)<\/p>/g)].map((m) => m.slice(1));
+  check(
+    JSON.stringify(cards) ===
+      JSON.stringify([
+        ["/calculator", "Calculator", "compare a lump sum with contributions"],
+        ["/dashboard", "Dashboard", "holdings, value, stored figures"],
+      ]),
+    `${label}: / cards -> ${JSON.stringify(cards)}`,
+  );
+  check((home.body.match(/data-testid="home-card"/g) ?? []).length === 2, `${label}: / has not exactly two cards`);
+  check(!/<form|Compare plans/.test(home.body), `${label}: / renders calculator UI`);
+  check(FOOTER.test(home.body), `${label}: / footer is not exactly "Orpheus Wisdom"`);
+  const calc = await call("GET", "/calculator", flag);
+  check(calc.status === 200 && /Compare plans/.test(calc.body) && /DCA vs lump sum/.test(calc.body), `${label}: GET /calculator -> ${calc.status}`);
+  check(NOINDEX.test(calc.body), `${label}: /calculator lacks noindex`);
+  check(JSON.stringify(menuCurrent(calc.body)) === '["Calculator"]', `${label}: /calculator current menu item ${menuCurrent(calc.body)}`);
+  check(FOOTER.test(calc.body), `${label}: /calculator footer is not exactly "Orpheus Wisdom"`);
+  check(/>US, EU and CA listings, one currency per basket\.</.test(calc.body), `${label}: /calculator lacks its listings note`);
+  for (const query of ["?ticker=KO", "?ticker=PLTR&start=2020-10-02&end=2026-10-01"]) {
+    const r = await call("GET", `/${query}`, flag);
+    check(
+      r.status >= 300 && r.status < 400 && new URL(r.location ?? "/x", ORIGIN).pathname === "/calculator" && new URL(r.location ?? "/x", ORIGIN).search === query,
+      `${label}: GET /${query} -> ${r.status} ${r.location}`,
+    );
+  }
+  if (flag === "true") {
+    const signIn = await call("GET", "/dashboard/sign-in", flag);
+    check(JSON.stringify(menuCurrent(signIn.body)) === '["Dashboard"]', `${label}: /dashboard/sign-in current menu item ${menuCurrent(signIn.body)}`);
+    check(FOOTER.test(signIn.body), `${label}: /dashboard/sign-in footer is not exactly "Orpheus Wisdom"`);
+  }
 }
 
 const METHODS_NOT_GET = METHODS.filter((m) => m !== "GET" && m !== "HEAD");
@@ -554,5 +607,5 @@ if (failures.length) {
 console.log(
   WITH_DB
     ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (columns, cost, return, % of portfolio, totals, as-of line, out-of-date note); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
-    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
+    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
@@ -29,6 +30,11 @@ import { Route as ApiDashboardHoldingsIdRouteImport } from './routes/api/dashboa
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalculatorRoute = CalculatorRouteImport.update({
+  id: '/calculator',
+  path: '/calculator',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -109,6 +115,7 @@ const ApiDashboardHoldingsIdRoute = ApiDashboardHoldingsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/api/chart': typeof ApiChartRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/api/chart': typeof ApiChartRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
@@ -146,6 +154,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/api/chart': typeof ApiChartRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calculator'
     | '/dashboard'
     | '/api/chart'
     | '/dashboard/sign-in'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/calculator'
     | '/dashboard'
     | '/api/chart'
     | '/dashboard/sign-in'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/calculator'
     | '/dashboard'
     | '/api/chart'
     | '/dashboard_/sign-in'
@@ -221,6 +233,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalculatorRoute: typeof CalculatorRoute
   DashboardRoute: typeof DashboardRoute
   ApiChartRoute: typeof ApiChartRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calculator': {
+      id: '/calculator'
+      path: '/calculator'
+      fullPath: '/calculator'
+      preLoaderRoute: typeof CalculatorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -357,6 +377,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalculatorRoute: CalculatorRoute,
   DashboardRoute: DashboardRoute,
   ApiChartRoute: ApiChartRoute,
   DashboardSignInRoute: DashboardSignInRoute,

@@ -5,7 +5,7 @@ const CFG=qaConfig(import.meta.url);
 if(!CFG.compareUrl){ console.error('sidebyside: pass --compare-url <url> (or QA_COMPARE_URL) for the second host'); process.exit(2); }
 const OUT=CFG.out;
 // 'compare' plays the old-host role (G* in output), 'base' the host under test (V*).
-const HOSTS={compare:CFG.compareUrl,base:CFG.baseUrl};
+const HOSTS={compare:CFG.compareCalculatorUrl,base:CFG.calculatorUrl};
 const CASES={KO:{tickers:['KO'],weights:[100],start:'2023-01-03',end:'2024-12-31',capital:10000,contribution:500,frequency:'monthly'},
   PLTR_TQQQ:{tickers:['PLTR','TQQQ'],weights:[50,50],start:'2020-10-02',end:'2026-10-02',capital:1000,contribution:1000,frequency:'weekly'}};
 const b=await chromium.launch(); const res={};

@@ -1,5 +1,12 @@
 # Dashboard release prep (#24, T16)
 
+> **Status note, 2026-10-04:** production now serves the dashboard. Issue #46 says "Prod has the dashboard ON",
+> and a read-only `node scripts/release-smoke.mjs https://orpheus-app-beta.vercel.app on` on 2026-10-04 passed
+> (`/dashboard` 307 → `/dashboard/sign-in`, `/api/dashboard/status` → `{"dashboard":"enabled"}`, `/api/dashboard/db`
+> 404, per-user APIs and cron 401). When the flip happened, who ran which runbook steps and which database option
+> was used are **not recorded in this repo**; the prep text below is kept as written. EL's #45 decisions are in §5.
+> Since #46 the calculator is at `/calculator` and `/` is the home page; `release-smoke.mjs` checks both.
+
 Status: **prep only.** Nothing here has been run against production except read-only GETs
 (`scripts/release-smoke.mjs … off`). Production keeps `/dashboard` as a 404 until Diego's explicit go
 (spec "Release plan", step 4). Environment variables are set by an owner (the Engineering Lead or Diego),
@@ -30,9 +37,9 @@ flip, `… off` on production before the flip and after a rollback.
 | Check | Expected |
 |---|---|
 | Before the flip: production `/dashboard`, `/dashboard/sign-in` and every `/api/dashboard/*`, `/api/auth/*`, `/api/cron/daily-refresh` | 404 (page: the generic 404, no dashboard copy; API: 404 JSON) for every method |
-| Calculator at `/` | Unchanged; DCA-01..06 pass (table below); `/` has no link to the dashboard |
+| Calculator at `/calculator` (moved from `/` in #46) | Unchanged; DCA-01..06 pass (table below). The site menu's Dashboard item and the home card link to `/dashboard` on every page, flag on or off (#46); flag off they land on the generic 404 |
 | Wording scan over dashboard copy (page, tooltips, labels, errors) | No buy, sell, hold, "undervalued", "overvalued", rating, score or target wording |
-| `noindex` | `<meta name="robots" content="noindex, nofollow">` on `/`, `/dashboard`, `/dashboard/sign-in` |
+| `noindex` | `<meta name="robots" content="noindex, nofollow">` and `X-Robots-Tag: noindex, nofollow` on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` |
 | Rollback behaviour (rehearse on a preview before the flip; see §3 step 9) | Flag not exactly `true` + redeploy → `/dashboard` 404 again, API 404 JSON, calculator untouched, data kept |
 
 ### DCA calculator regression (canonical pack, `qa/CANONICAL-AC-PACK.md`)
@@ -44,7 +51,7 @@ flip, `… off` on production before the flip and after a rollback.
 | DCA-03 | Lump sum on day one | Starting capital is fully deployed on the start date |
 | DCA-04 | Multi-ticker weighted basket | Several tickers with weights; the weights are applied |
 | DCA-05 | US/EU/CA listings only | Others refused (e.g. VOD.L: HTTP 400 with the app's message) |
-| DCA-06 | No buy/sell advice | No buy, sell, hold or recommendation output, however worded (a missing "Not a recommendation" disclaimer is intended, not a fail) |
+| DCA-06 | No buy/sell advice | No buy, sell, hold or recommendation output, however worded (there is no disclaimer line; that is intended, not a fail) |
 
 Offline fixtures for these: `qa/fixtures.json` (see `qa/README.md`).
 
@@ -52,7 +59,7 @@ Offline fixtures for these: `qa/fixtures.json` (see `qa/README.md`).
 
 | ID | Expected |
 |---|---|
-| DASH-01 | Flag off: `GET /dashboard` → 404, no dashboard link or sign-in button on `/`. Flag on: `/dashboard` renders (after sign-in) |
+| DASH-01 | Flag off: `GET /dashboard` → 404, no sign-in button or dashboard copy on any page except the site menu's Dashboard item and the home card (#46). Flag on: `/dashboard` renders (after sign-in) |
 | DASH-02 | No `DASHBOARD_ENABLED` value at all (or anything but exactly `true`, e.g. `TRUE`, ` true`) behaves as flag off |
 
 ### T02 (#10): storage
@@ -286,3 +293,18 @@ lower-cased is **unverified** here, hence `lower()` on both sides.
 - `VITE_AUTH_ENABLED` in Production: set to `true` (recommended), matching Preview (Preview's explicit value is
   unverified from the repo).
 - New `BETTER_AUTH_SECRET` and `CRON_SECRET` for Production (recommended) rather than reusing Preview's.
+
+### Decided by the Engineering Lead (#45)
+
+These settle the open items above. Recorded here as decided; this file doesn't say whether or when each was
+carried out on production (see the status note at the top).
+
+1. **Database: a dedicated Neon production branch**, not the shared `main` branch the previews use (option A).
+   If schema-only branching isn't available on the Free plan, create an empty branch instead and run
+   `npm run db:migrate` against it (§2 "Migrations against production").
+2. **`/api/dashboard/db` and `/api/dashboard/status` stay as coded** (N3): `/db` is 404 for every method on
+   production; `/status` is public and returns only `{"dashboard":"enabled"}` there.
+3. **`VITE_AUTH_ENABLED=true` on Production at the flip.**
+4. **Fresh production secrets** (`BETTER_AUTH_SECRET`, `CRON_SECRET`): generated and set by the EL through the
+   Vercel connector at the flip, never pasted in chat, PRs, logs or the vault, and not reused from Preview.
+5. **Nothing flips without Diego's explicit go.**

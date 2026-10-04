@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import { qaConfig } from "./config.mjs";
 const CFG=qaConfig(import.meta.url);
-const URL=CFG.baseUrl;
+const URL=CFG.calculatorUrl;
 const OUT=CFG.out;
 const fx=JSON.parse(fs.readFileSync(CFG.fixtures,'utf8'));
 const R={};

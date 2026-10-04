@@ -20,10 +20,16 @@ affects the repo.
 
 ## What the app is
 
-Orpheus DCA vs lump-sum calculator: TanStack Start + Vite + React, deployed on Vercel.
-DCA logic lives in `src/lib/dca/*`; the UI is `src/components/desk.tsx`; the price feed is the
-server route `src/routes/api/chart.ts` → `src/lib/dca/yahoo.server.ts`. See `README.md` for the six
-DCA rules.
+Orpheus Wisdom: TanStack Start + Vite + React, deployed on Vercel. One site, three routes (#46):
+
+- `/`: home. One line plus exactly two cards (Calculator, Dashboard). It does no calculating.
+- `/calculator`: the DCA vs lump-sum calculator (moved here from `/` in #46, behaviour unchanged).
+  DCA logic lives in `src/lib/dca/*`; the UI is `src/components/desk.tsx`; the price feed is the
+  server route `src/routes/api/chart.ts` → `src/lib/dca/yahoo.server.ts`. See `README.md` for the six
+  DCA rules.
+- `/dashboard`: the signed-in dashboard, gated by `DASHBOARD_ENABLED` (sections below).
+
+Every page has the site menu and the footer; see "Site shell" below.
 
 ## Commands
 
@@ -71,6 +77,11 @@ These rules exist so no ticket gets missed.
 ## Feature flags: feature work lands behind a flag until a release go
 
 *Active since 2026-10-02, when the dashboard spec was approved.*
+
+> **Status 2026-10-04:** production serves the dashboard (issue #46: "Prod has the dashboard ON"; a read-only
+> `release-smoke.mjs … on` against production on 2026-10-04 passed: `/dashboard` 307 → sign-in, status
+> `{"dashboard":"enabled"}`). The Preview-only wording below is the pre-release history; when and how the flip
+> was done isn't recorded in this repo. Bots still never set or change env vars.
 
 - New user-facing features merge to `main` **behind a flag** and stay hidden on production until Diego
   gives a release go. Each ticket still gets its own PR, preview and QA pass.
@@ -146,13 +157,46 @@ PREVIEW=https://<vercel-bot-preview>.vercel.app
 node qa/tools/run.mjs   --base-url "$PREVIEW"       # baseline fixture cases (reads qa/fixtures.json)
 node qa/tools/full.mjs  --base-url "$PREVIEW"       # full DCA round, desktop + mobile
 node qa/tools/pr3.mjs   --base-url "$PREVIEW"       # results table / charts / mobile cue
-node qa/tools/sidebyside.mjs --base-url "$PREVIEW" --compare-url https://orpheus-app-beta.vercel.app
+node qa/tools/site.mjs  --base-url "$PREVIEW"       # site shell (#46) + $313,000 and VOD.L at /calculator
+node qa/tools/sidebyside.mjs --base-url "$PREVIEW" --compare-url https://orpheus-app-beta.vercel.app --compare-path /calculator
 QA_BASE_URL="$PREVIEW" python3 qa/tools/fetch.py --out /tmp/orpheus-fetch   # raw Yahoo/app/stooq data
 ```
 
-Full list and flags: `qa/tools/README.md`. The `.mjs` tools are linted by `npm run lint` (they are not
+Since #46 the calculator scripts open `--calculator-path` (default `/calculator`; pass `/` for a deployment
+from before the redesign; `sidebyside.mjs` takes `--compare-path` for the second host, default `/`). Full list and flags: `qa/tools/README.md`. The `.mjs` tools are linted by `npm run lint` (they are not
 in `tsconfig`, so `typecheck` skips them); they are not part of `npm test` or CI because they need a
 browser and the network.
+
+### Site shell: menu, home, footer (#46)
+
+- Code: `src/lib/site/site.ts` (pure: `MENU_ITEMS`, `HOME_LINE`, `HOME_CARDS`, `FOOTER_LINE`,
+  `currentSection()`, `homeRedirectHref()`), `src/components/site-menu.tsx`, `site-footer.tsx`, `home.tsx`,
+  wired in `src/routes/__root.tsx` around the `<Outlet />`, so every page (calculator, home, `/dashboard`,
+  `/dashboard/sign-in`, the 404) gets them. Routes: `src/routes/index.tsx` (home) and `calculator.tsx`.
+- **Menu:** a thin ink bar, `position: sticky; top: 0`. "Orpheus" on the left → `/`; "Calculator" and
+  "Dashboard" on the right. No dropdowns. The current page gets `aria-current="page"` and a visual state
+  (full-strength text plus underline, styled from the attribute). `/dashboard/sign-in` counts as Dashboard; a
+  404 has no current item. Plain links (full page loads), so `/dashboard` always goes through its server gate.
+- **The Dashboard item and the home card show even when `DASHBOARD_ENABLED` is off** (Diego, #46). The shell
+  never reads the flag or imports dashboard code (`flag.test.ts`); flag off, the link lands on the plain 404.
+  This replaces the old rule "no nav link when the flag is off" (spec §2, DASH-01 updated).
+- **Home `/`:** `HOME_LINE` plus exactly two cards with the #46 texts verbatim ("compare a lump sum with
+  contributions" → `/calculator`; "holdings, value, stored figures" → `/dashboard`). No fetches, no calculator
+  code in the route (`site.test.ts` checks the imports).
+- **`/?query` → `/calculator?query`** (307, from the home route's `beforeLoad`). The calculator reads no URL
+  parameters today, so this only keeps old links with a query string landing on the calculator. Plain `/` is home.
+- **Footer:** exactly "Orpheus Wisdom", nothing else (#46 brief update, 2026-10-04). No listings line, no
+  disclaimer. The calculator keeps its own note "US, EU and CA listings, one currency per basket." under the
+  basket, as before.
+- noindex: the root `head()` sets `robots: noindex, nofollow` for every page, each page route repeats it, and
+  `vite.config.ts` adds `X-Robots-Tag: noindex, nofollow` to every response.
+- Tests: `src/lib/site/site.test.ts` (menu items, current page per route, the two cards, footer text,
+  redirect, home imports, noindex in every route file), `src/components/site.dom.test.tsx` (jsdom:
+  `aria-current` per route, Dashboard always shown, no dropdowns, sticky, exactly two cards and no fetch,
+  footer text), `check-dashboard-built.mjs` (built server, flag off and on: home, calculator, redirect, menu
+  current item, footer, the flag-off 404 has no dashboard copy outside the menu), `release-smoke.mjs` (every
+  mode) and `qa/tools/site.mjs` (browser: menu fixed on scroll, cards, footer, $313,000 and VOD.L at
+  `/calculator`).
 
 ### Dashboard flag locally (`DASHBOARD_ENABLED`)
 
@@ -168,7 +212,8 @@ curl -s  http://localhost:8080/api/dashboard/status
 
 - Flag off, the server router reads `/dashboard` and anything under it as an unmatched path
   (`rewrite` in `src/router.tsx`, helpers in `src/lib/dashboard/paths.ts`), so the 404 is byte-for-byte
-  the app's ordinary 404: title "Orpheus Wisdom", no dashboard chunk, no dashboard copy (spec §2).
+  the app's ordinary 404: title "Orpheus Wisdom", no dashboard chunk, no dashboard copy (spec §2). The only
+  "Dashboard" on it is the site menu's item, which every page has (#46).
 - New dashboard pages live under `/dashboard`, call `ensureDashboardEnabled()` (`src/lib/dashboard/gate.ts`)
   in `beforeLoad`, and gate `head()` on loader data (`loaderData?.enabled`) so a client-side 404 shows no
   dashboard title either.
@@ -178,7 +223,7 @@ curl -s  http://localhost:8080/api/dashboard/status
   Unknown `/api/dashboard/*` paths hit the catch-all `src/routes/api/dashboard/$.ts` (404 JSON, any method).
 - `src/lib/dashboard/flag.test.ts` and `paths.test.ts` (in `npm test`) cover flag parsing, the API guard
   and 405 helper, the flag-off rewrite, the no-advice scan of dashboard files, and checks that the
-  calculator neither links to nor reads the flag. `npm run check:dashboard-built` checks the built server.
+  calculator neither links to nor reads the flag (the site shell links to `/dashboard` but never reads it, #46). `npm run check:dashboard-built` checks the built server.
 - On a PR preview the flag comes from the Vercel Preview environment. Bots never set it; if
   `/dashboard` is a 404 on a preview, the variable isn't set there yet.
 
@@ -580,6 +625,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   rollback, Diego's test-account steps and removal SQL, open decisions (N3: keep `/api/dashboard/db` 404 on
   production as coded; `/status` public with only `{"dashboard":"enabled"}` there).
 - `scripts/release-smoke.mjs <url> off|on|preview`: GET-only, no credentials; test `scripts/release-smoke.test.mjs`.
+  Since #46 every mode also checks the site shell (menu, home cards, footer, `/calculator`, the `/?query`
+  redirect, noindex meta + `X-Robots-Tag`) and `GET /api/chart?ticker=VOD.L…` → 400 with the exact message.
+- #45 release decisions (EL) are recorded in `docs/release/dashboard-release.md` §5.
 - N1: `format.ts` `formatPortfolioPct()` is the one "% of portfolio" formatter (table `weightPct` and pie
   `piePct` are that function); test in `valuation.test.ts`. N2: rounded labels may not sum to exactly 100.0.
 - Bots never flip production or touch Vercel env; production gets read-only GETs only.

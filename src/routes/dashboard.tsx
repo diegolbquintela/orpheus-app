@@ -9,7 +9,7 @@ import {
 } from "@/lib/dashboard/gate";
 
 // Hidden route: 404 unless DASHBOARD_ENABLED is exactly "true" on the server.
-// Nothing on the calculator links here. Needs a session (T03 #11, DASH-04):
+// The site menu links here on every page (#46); flag off, that link lands on the plain 404. Needs a session (T03 #11, DASH-04):
 // signed out, it redirects to /dashboard/sign-in.
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
@@ -42,7 +42,7 @@ function SignOutButton() {
   const [failed, setFailed] = useState(false);
   return (
     <span className="flex items-center gap-3">
-      {failed ? <span className="text-xs text-card/70">Sign-out failed. Try again.</span> : null}
+      {failed ? <span className="text-xs text-muted">Sign-out failed. Try again.</span> : null}
       <button
         type="button"
         disabled={busy}
@@ -71,18 +71,12 @@ function DashboardShell() {
     Route.useLoaderData();
   const router = useRouter();
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="bg-ink text-card">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <span className="text-sm">Orpheus Wisdom</span>
-          <span className="flex items-center gap-6">
-            <span className="kicker text-card/60">Dashboard</span>
-            <SignOutButton />
-          </span>
-        </div>
-      </header>
+    <div className="bg-paper">
       <main className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8">
-        <h1 className="text-3xl">Dashboard</h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-4">
+          <h1 className="text-3xl">Dashboard</h1>
+          <SignOutButton />
+        </div>
         <p className="mt-2 text-sm text-muted" data-testid="dashboard-user">
           Signed in as {email ?? "your account"}
         </p>
