@@ -491,7 +491,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   Splits: FY0's value is the most recent filing's (a 10-K/A restatement wins); only FY0 is used, so no
   cross-year adjustment. IFRS: `ifrs-full:DilutedEarningsLossPerShare`. The portfolio EPS cell (D9,
   weighted 1y EPS growth) is T14.
-- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips (PHG) 0.93 EUR (IFRS),
+- Tests: `metric-compute.test.ts` DASH-18 block: KO 3.04 USD hand check, Philips (PHG) 0.93 EUR (IFRS; PHIA.AS is not covered),
   RY 14.07 CAD, ASML 24.71 EUR, missing → n/m, basic-only filer, negative EPS, odd unit, 10-K/A
   restatement, display without rounding.
 - #38 (second DELETE on one click) is not folded in: the cause isn't obvious from the client code (the
@@ -507,6 +507,19 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   different units. Negative margins are values. No SIC rule (the spec has none for this metric).
 - Tests: `metric-compute.test.ts` DASH-19 block: KO 13,762 / 47,941 = 28.7%, Philips (PHG) 8.0% (IFRS),
   ASML, RY n/m, negative margin, revenue ≤ 0 / missing, unit mismatch, tooltip.
+
+### Dashboard gross margin (T13 #21)
+
+- Code: `metric-compute.server.ts` `grossMargin()`; `computeStoredMetrics()` writes `gross_margin_1y`
+  (`COMPUTED_METRIC_KEYS` now 8; the catch-up fills companies stored earlier). `gross_profit` and
+  `cost_of_revenue` tags exist since T08: no new tags, no parser bump, no migration. Tooltip in `METRIC_HELP`.
+- Rules (spec §8): FY0 gross profit / FY0 revenue; if there is no FY0 gross-profit fact, (FY0 revenue − FY0
+  cost of revenue) / FY0 revenue (decided per FY0, so all inputs are from the same year). `n/m`: FY0 revenue
+  ≤ 0 or missing, or neither concept for FY0 (banks such as RY). `insufficient_data`: facts in different
+  units. Negative margins are values.
+- Tests: `metric-compute.test.ts` DASH-20 block: KO 29,544 / 47,941 = 61.6%, the fallback (KO with
+  GrossProfit removed → same 61.6% from `CostOfGoodsAndServicesSold`), Philips (PHG) 45.2%, ASML, RY n/m,
+  revenue ≤ 0 / missing, negative, unit mismatch, tooltip.
 
 ## Repo leftovers from the Grok template
 

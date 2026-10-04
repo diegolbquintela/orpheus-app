@@ -21,6 +21,9 @@ export const metricLabel = (k: string) => METRICS.find((m) => m.key === k)?.labe
 
 /** How a metric is computed, shown as the column header's and the cells' tooltip (spec §8). */
 export const METRIC_HELP: Partial<Record<MetricKey, string>> = {
+  gross_margin_1y:
+    "Gross margin (1y) = gross profit ÷ revenue for the latest fiscal year, as reported to the SEC; when no gross profit is reported, " +
+    "(revenue − cost of revenue) ÷ revenue. Not meaningful when revenue is zero or negative or neither is reported (e.g. banks).",
   ebit_margin_1y:
     "EBIT margin (1y) = operating income ÷ revenue for the latest fiscal year, both as reported to the SEC (no adjustments). " +
     "Not meaningful when revenue is zero or negative or no operating income is reported (e.g. banks).",

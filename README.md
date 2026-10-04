@@ -228,6 +228,11 @@ without a diluted EPS figure for that year shows "— not meaningful". The portf
 fiscal year, both as reported to the SEC (no adjustments), e.g. KO 28.7%. Negative margins are shown as
 negative; zero or negative revenue, or no reported operating income (e.g. banks), shows "— not meaningful".
 
+**Dashboard gross margin (T13).** The "Gross margin (1y)" column = gross profit ÷ revenue for the latest fiscal
+year as reported to the SEC (e.g. KO 61.6%); when a company reports no gross profit for that year,
+(revenue − cost of revenue) ÷ revenue. Zero or negative revenue, or neither figure reported (e.g. banks),
+shows "— not meaningful".
+
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in
 [`migrations/0001_auth.sql`](migrations/0001_auth.sql) (a verbatim copy of `migrations/auth/0001_auth.sql`), and

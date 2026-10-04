@@ -396,7 +396,7 @@ describe("DASH-21: a holding without SEC coverage reads “not covered” in eve
     }
     assert.equal(views.KO.coverage, "covered");
     // T09: a covered symbol gets its revenue metrics computed right after the ingest.
-    assert.deepEqual(Object.keys(views.KO.metrics).sort(), ["ebit_margin_1y", "eps_1y", "rev_cagr_10y", "rev_cagr_3y", "rev_cagr_5y", "rev_g_1y", "roic_1y"]);
+    assert.deepEqual(Object.keys(views.KO.metrics).sort(), ["ebit_margin_1y", "eps_1y", "gross_margin_1y", "rev_cagr_10y", "rev_cagr_3y", "rev_cagr_5y", "rev_g_1y", "roic_1y"]);
     assert.deepEqual(views["RY.TO"], { coverage: "pending", metrics: {} });
   });
 
