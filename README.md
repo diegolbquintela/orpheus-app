@@ -257,8 +257,9 @@ pending"); with no priced holdings it says "No holdings with a price yet."
 environment variables, the database choice and migration steps, the ordered runbook with rollback, and the
 test-account steps are in [`docs/release/dashboard-release.md`](docs/release/dashboard-release.md).
 `node scripts/release-smoke.mjs <url> off|on|preview` is a read-only (GET-only) smoke check for it. The
-table's and the pie's % labels come from one formatter (`formatPortfolioPct`); rounded one by one, they may
-not sum to exactly 100.0.
+table's and the pie's % labels come from one formatter (`formatPortfolioPct`); rounded one by one,
+they may not sum to exactly 100.0. Click-level component tests (`*.dom.test.tsx`, jsdom, e.g. the holdings delete
+guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
 
 **Dashboard storage (Neon Postgres).** The dashboard tables (spec §5) are in
 [`migrations/0002_dashboard.sql`](migrations/0002_dashboard.sql); the Better Auth tables in

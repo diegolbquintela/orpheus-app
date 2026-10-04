@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "check:dashboard-built": "node scripts/check-dashboard-built.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/auth.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/dca/simulate.test.ts src/lib/dca/fixtures.test.ts src/lib/dca/results.test.ts src/lib/dashboard/flag.test.ts src/lib/dashboard/paths.test.ts src/lib/dashboard/store.test.ts src/lib/dashboard/holdings.test.ts src/lib/dashboard/daily-close.test.ts src/lib/dashboard/fx.test.ts src/lib/dashboard/dates.test.ts src/lib/dashboard/valuation.test.ts src/lib/dashboard/fundamentals.test.ts src/lib/dashboard/metric-compute.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/auth.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/dca/simulate.test.ts src/lib/dca/fixtures.test.ts src/lib/dca/results.test.ts src/lib/dashboard/flag.test.ts src/lib/dashboard/paths.test.ts src/lib/dashboard/store.test.ts src/lib/dashboard/holdings.test.ts src/lib/dashboard/daily-close.test.ts src/lib/dashboard/fx.test.ts src/lib/dashboard/dates.test.ts src/lib/dashboard/valuation.test.ts src/lib/dashboard/fundamentals.test.ts src/lib/dashboard/metric-compute.test.ts && node scripts/run-dom-tests.mjs",
     "lint": "eslint .",
     "fixtures:build": "node --experimental-strip-types scripts/build-fixtures.ts",
     "fixtures:hand-check": "node scripts/hand-check.mjs",
@@ -84,6 +84,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^22.16.5",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.2.0",
@@ -94,8 +95,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "jsdom": "^26.1.0",
     "playwright": "^1.62.0",
     "prettier": "^3.4.0",
+    "rolldown": "^1.2.12",
     "typescript-eslint": "^8.56.1"
   }
 }

@@ -73,7 +73,7 @@ Offline fixtures for these: `qa/fixtures.json` (see `qa/README.md`).
 
 | ID | Expected |
 |---|---|
-| DASH-07 | Add ticker + shares + average cost; persists after reload; edit and delete work; shares > 0, average cost ≥ 0; duplicate ticker for the same user refused (409). Delete: one click sends exactly one DELETE (200) and the console shows no 404 (#38); the row shows "Deleted" until the page refreshes |
+| DASH-07 | Add ticker + shares + average cost; persists after reload; edit and delete work; shares > 0, average cost ≥ 0; duplicate ticker for the same user refused (409). Delete: one click sends exactly one DELETE (200) and the console shows no 404 (#38); the row shows "Deleted" until the page refreshes (automated: `holdings.dom.test.tsx`) |
 | DASH-08 | Non US/EU/CA ticker refused with the calculator's exact message (`X lists on Y. US, EU, and CA listings only.`; BSE message for BSE, e.g. TCS.BO; VOD.L refused) |
 | DASH-06 | (again) A cannot change B's holdings |
 

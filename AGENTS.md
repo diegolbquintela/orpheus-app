@@ -583,6 +583,11 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - N1: `format.ts` `formatPortfolioPct()` is the one "% of portfolio" formatter (table `weightPct` and pie
   `piePct` are that function); test in `valuation.test.ts`. N2: rounded labels may not sum to exactly 100.0.
 - Bots never flip production or touch Vercel env; production gets read-only GETs only.
+- QA N1 (#45): click-level component tests `src/**/*.dom.test.tsx` run in jsdom via `scripts/run-dom-tests.mjs`
+  (rolldown bundles the TSX into `node_modules/.cache/dom-tests`, then `node --test`); part of `npm test`, so
+  CI runs them. Setup: `src/test/dom-setup.ts`. First test: `holdings.dom.test.tsx` (delete guard: a 200
+  DELETE then more clicks → one request and "Deleted"; a 500 re-enables the buttons; cancel sends nothing).
+  devDependencies: `jsdom`, `@types/jsdom`, `rolldown` (pinned to the version Vite already installs).
 
 ## Repo leftovers from the Grok template
 
