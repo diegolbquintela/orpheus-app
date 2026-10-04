@@ -3,8 +3,8 @@
 // - no request to grok.com / grok.me and no cookie for a Grok domain (the old template's extensions.js);
 // - every document answers X-Robots-Tag: noindex and Referrer-Policy: no-referrer, and has the matching
 //   referrer meta; no manifest / apple-touch-icon link;
-// - no request leaves with a Referer that has a path or query string, the Vercel Analytics beacon
-//   (/_vercel/insights/*) included, and the beacon's page URL has no query string or hash.
+// - no request leaves with one of our page URLs (path or query string) in its Referer, the Vercel
+//   Analytics beacon (/_vercel/insights/*) included, and the beacon's page URL has no query string or hash.
 // The Vercel script skips automated browsers (navigator.webdriver), so this hides that flag for the run.
 // Writes privacy.json to --out. Exit 1 when a check fails.
 import { chromium } from 'playwright';
@@ -41,8 +41,11 @@ const grokReqs = requests.filter((r) => GROK.test(new URL(r.url).hostname)).map(
 check('no request to grok.com / grok.me', grokReqs.length === 0, grokReqs);
 const cookies = (await ctx.cookies()).map((c) => `${c.domain} ${c.name}`);
 check('no Grok-domain cookies', !cookies.some((c) => /grok\./i.test(c)), cookies);
-const leaky = requests.filter((r) => r.referer && (() => { try { const u = new URL(r.referer); return u.pathname !== '/' || u.search || u.hash; } catch { return true; } })());
-check('no Referer with a path or query on any request', leaky.length === 0, leaky.map((r) => `${r.url} <- ${r.referer}`));
+// Only Referers naming one of our pages count; previews also load Vercel's toolbar (vercel.live), whose
+// own frames send their own Referers.
+const origin = new URL(base).origin;
+const leaky = requests.filter((r) => r.referer && (() => { try { const u = new URL(r.referer); return u.origin === origin && (u.pathname !== '/' || u.search || u.hash); } catch { return true; } })());
+check('no request carries one of our page URLs (path or query) in its Referer', leaky.length === 0, leaky.map((r) => `${r.url} <- ${r.referer}`));
 const beacons = requests.filter((r) => /\/_vercel\/insights\/(view|event)/.test(r.url));
 check('analytics beacon sent (page views)', beacons.length > 0, beacons.length);
 check('beacon requests carry no Referer', beacons.every((r) => !r.referer), beacons.map((r) => r.referer));

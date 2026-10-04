@@ -76,8 +76,8 @@ export default defineConfig(({ command, isPreview }) => ({
           nitro({
             preset: "vercel",
             // Site-wide response headers, prepended to .vercel/output/config.json routes; `continue`
-            // lets routing go on to the filesystem and the server function, so every response
-            // (HTML, /api/*, static assets) carries them. `src/lib/site/headers.ts` is the source
+            // lets routing go on to the filesystem and the server function, so every app response
+            // (HTML, redirects, 404s, /api/*, static assets) carries them. `src/lib/site/headers.ts` is the source
             // of truth; `src/lib/site/headers.test.ts` and `scripts/check-dashboard-built.mjs` check it.
             // - X-Robots-Tag keeps the app out of search engines (pairs with the robots meta in
             //   src/routes/__root.tsx).

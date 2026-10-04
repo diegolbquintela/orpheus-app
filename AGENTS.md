@@ -208,8 +208,10 @@ browser and the network.
 
 - `src/lib/site/headers.ts` `SITE_HEADERS` is the one source: `X-Robots-Tag: noindex, nofollow` and
   `Referrer-Policy: no-referrer`. `vite.config.ts` writes them as the first Vercel route rule (`src: "/(.*)"`,
-  `continue: true`, before the filesystem handle), so pages, redirects, 404s, `/api/*`, static files and the
-  analytics beacon all get them. `__root.tsx` adds the matching robots and referrer metas. There's no
+  `continue: true`, before the filesystem handle), so pages, redirects, 404s, `/api/*` and static files all get
+  them. Vercel answers its own `/_vercel/*` paths (the analytics script and beacon) before user routes, so
+  those responses only carry Vercel's `X-Robots-Tag: noindex`; that's fine, because a request's `Referer` follows
+  the policy of the page that sends it. `__root.tsx` adds the matching robots and referrer metas. There's no
   `server/` middleware any more (`serverDir` is unset).
 - **Why `no-referrer` (QA N1 on #49):** the beacon's `Referer` carried the full page URL, query included.
   `strict-origin-when-cross-origin` (the browser default) and `same-origin` keep the full URL on same-origin

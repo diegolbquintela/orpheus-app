@@ -15,8 +15,8 @@
  *   (menu with Calculator current, the form, its listings note, noindex); / with a query string redirects to /calculator with the same query.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
  *   Site headers (#50): .vercel/output/config.json's first route is `src: "/(.*)"`, `continue: true` with
- *   exactly X-Robots-Tag + Referrer-Policy: no-referrer (before the filesystem handle, so HTML, /api/*,
- *   static files and the analytics beacon all get them); pages carry the referrer meta; no grok.com /
+ *   exactly X-Robots-Tag + Referrer-Policy: no-referrer (before the filesystem handle, so HTML, /api/*
+ *   and static files all get them); pages carry the referrer meta; no grok.com /
  *   grok.me / /__grok/ / extensions.js anywhere in the output; /__grok/manifest.* is the unknown-path 404
  *   and /?install=1&platform=ios is the plain /?query redirect.
  *   - Every method on /api/dashboard/{status,db,me,settings,holdings,holdings/1,fx,columns,refresh},
@@ -620,9 +620,10 @@ if (!WITH_DB) {
   check(rule.src === "/(.*)" && rule.continue === true, `${label}: rule ${JSON.stringify(rule)}`);
   check(JSON.stringify(rule.headers) === JSON.stringify(SITE_HEADERS), `${label}: headers ${JSON.stringify(rule.headers)}`);
   check(fsAt > at, `${label}: the header rule must come before the filesystem handle`);
-  // HTML pages, redirects, 404s, /api/*, static files and the analytics beacon all match it.
+  // HTML pages, redirects, 404s, /api/* and static files all match it. (Vercel answers its own /_vercel/*
+  // routes, e.g. the analytics script, before these; the beacon's Referer follows the page's policy.)
   const src = new RegExp(`^${rule.src ?? "$^"}$`);
-  for (const path of ["/", "/calculator", "/dashboard", "/dashboard/sign-in", "/no-such-page", "/api/chart", "/api/auth/sign-in/email", "/api/dashboard/holdings/1", "/favicon.svg", "/assets/index.js", "/_vercel/insights/view"])
+  for (const path of ["/", "/calculator", "/dashboard", "/dashboard/sign-in", "/no-such-page", "/api/chart", "/api/auth/sign-in/email", "/api/dashboard/holdings/1", "/favicon.svg", "/assets/index.js"])
     check(src.test(path), `${label}: ${path} not covered by ${rule.src}`);
   // Nothing from the Grok template ships: no grok.com/grok.me URL, no /__grok/ path, no extensions.js.
   const LEFTOVER = /grok\.com|grok\.me|\/__grok\/|grok-app-builder|grok_device_id/i;
