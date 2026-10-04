@@ -572,6 +572,18 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - QA N3 in the same PR: the EPS column's portfolio cell shows "EPS growth 1y (weighted)" as a visible
   sub-label under the value (`PortfolioMetricCell`); `check-dashboard-built --with-database` checks it.
 
+### Dashboard release prep (#24, prep only)
+
+- `docs/release/dashboard-release.md`: DASH-00..26 + DCA-01..06 checklist by ticket, Production env list
+  (names, purpose, format, who sets, required; never values), DB options (recommended: dedicated Neon
+  production branch, `DATABASE_URL` / `DATABASE_URL_UNPOOLED`), migration commands, cron, ordered runbook with
+  rollback, Diego's test-account steps and removal SQL, open decisions (N3: keep `/api/dashboard/db` 404 on
+  production as coded; `/status` public with only `{"dashboard":"enabled"}` there).
+- `scripts/release-smoke.mjs <url> off|on|preview`: GET-only, no credentials; test `scripts/release-smoke.test.mjs`.
+- N1: `format.ts` `formatPortfolioPct()` is the one "% of portfolio" formatter (table `weightPct` and pie
+  `piePct` are that function); test in `valuation.test.ts`. N2: rounded labels may not sum to exactly 100.0.
+- Bots never flip production or touch Vercel env; production gets read-only GETs only.
+
 ## Repo leftovers from the Grok template
 
 `.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`

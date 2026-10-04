@@ -512,8 +512,9 @@ or label implies good/bad.
 ### Implementation notes (T15, #23)
 
 - Slices from the T07 valuation rows: value / Σ value × 100, i.e. exactly the table's "% of portfolio",
-  shown with the same 1-decimal rounding (rounded labels can sum to 99.9/100.1; the slices themselves sum
-  to 100). Largest first, ties by ticker. More than 10 valued holdings: the 10 largest + "Other" (11
+  shown with the same 1-decimal rounding via one shared formatter (`formatPortfolioPct`, #24 N1). The
+  rounded labels may not sum to exactly 100.0 (e.g. three equal holdings: 33.3% each); the slices themselves
+  sum to 100. Largest first, ties by ticker. More than 10 valued holdings: the 10 largest + "Other" (11
   slices). Holdings without a price or FX rate: no slice, listed under the chart ("price pending" / "FX
   pending"). No priced holding: "No holdings with a price yet."
 - recharts (already used by the DCA chart). Neutral greys only. A ticker + % list beside the chart (under it
@@ -751,6 +752,12 @@ GitHub issues #9–#24 on diegolbquintela/orpheus-app, each labelled `dashboard`
    Vercel Instant Rollback to the previous deployment is the faster fallback; note it also reverts cron
    jobs to that deployment's set ([Vercel: Managing Cron Jobs, "Rollbacks with cron jobs"](https://vercel.com/docs/cron-jobs/manage-cron-jobs), checked 2026-10-02).
 6. After the release, README, this spec (status → "live") and `AGENTS.md` are updated in the T16 PR.
+
+**Release prep (#24, prep PR):** the full checklist, Production env list (names and formats only), database
+options (recommended: a dedicated Neon production branch), migration commands, ordered runbook and test-account
+steps are in [`docs/release/dashboard-release.md`](../docs/release/dashboard-release.md); read-only smoke:
+`scripts/release-smoke.mjs`. N3 recommendation there: keep `/api/dashboard/db` 404 on production (as coded) and
+`/api/dashboard/status` public with only `{"dashboard":"enabled"}` on production.
 
 ## 13. Decisions record
 

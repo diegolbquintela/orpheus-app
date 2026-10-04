@@ -3,6 +3,14 @@ export function trimDecimal(value: string): string {
   return value.includes(".") ? value.replace(/\.?0+$/, "") : value;
 }
 
+/**
+ * "% of portfolio" label, shared by the holdings table (row and total) and the pie (#24 N1): one decimal,
+ * e.g. 41.7 -> "41.7%". Labels are rounded one by one, so a column of them may not sum to exactly 100.0.
+ */
+export function formatPortfolioPct(pct: number): string {
+  return `${pct.toFixed(1)}%`;
+}
+
 /** EPS as reported (at least 2 decimals, never rounded away: 0.105 stays 0.105) + currency code (T11). */
 export function formatEps(v: number, currency: string | null | undefined): string {
   const [int, dec = ""] = String(v).split(".");

@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { trimDecimal } from "@/lib/dashboard/format";
+import { formatPortfolioPct, trimDecimal } from "@/lib/dashboard/format";
 import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
 import { excludedNote } from "@/lib/dashboard/pie";
 import { HoldingsPie } from "./holdings-pie";
@@ -66,7 +66,7 @@ const signedMoney = (n: number) =>
   new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n);
 const signedPct = (n: number) =>
   `${new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n)}%`;
-const weightPct = (n: number) => `${n.toFixed(1)}%`;
+const weightPct = formatPortfolioPct;
 
 type Props = {
   holdings: HoldingView[];
