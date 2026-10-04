@@ -1,8 +1,10 @@
+import { Analytics } from "@vercel/analytics/react";
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteMenu } from "@/components/site-menu";
+import { analyticsBeforeSend } from "@/lib/site/analytics";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Orpheus Wisdom";
@@ -53,6 +55,8 @@ export const Route = createRootRoute({
             <SiteFooter />
           </div>
         </AuthProvider>
+        {/* Vercel Web Analytics (#48): anonymous page views, no cookies, query strings stripped. Mounted only here. */}
+        <Analytics beforeSend={analyticsBeforeSend} />
         <Scripts />
       </body>
     </html>
