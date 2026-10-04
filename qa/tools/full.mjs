@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import { qaConfig } from "./config.mjs";
 const CFG=qaConfig(import.meta.url);
-const URL=CFG.baseUrl;
+const URL=CFG.calculatorUrl;
 const OUT=CFG.out;
 const R={};
 const browser=await chromium.launch();

@@ -63,10 +63,30 @@ describe("dashboard copy and isolation", () => {
   });
 
   it("DASH-01: the calculator does not link to or read the dashboard flag", () => {
-    for (const file of ["src/components/desk.tsx", "src/routes/index.tsx", "src/routes/__root.tsx"]) {
+    for (const file of ["src/components/desk.tsx", "src/routes/calculator.tsx"]) {
       const text = readFileSync(file, "utf8");
       assert.doesNotMatch(text, /\/dashboard|DASHBOARD_ENABLED|lib\/dashboard/, file);
     }
+  });
+
+  it("DASH-01 (#46): the site shell links to /dashboard but never reads the flag or loads dashboard code", () => {
+    // The menu's Dashboard item and the home card show whether the flag is on or off (issue #46);
+    // the route itself stays gated, so flag off the link lands on the plain 404.
+    const shell = [
+      "src/routes/__root.tsx",
+      "src/routes/index.tsx",
+      "src/components/site-menu.tsx",
+      "src/components/site-footer.tsx",
+      "src/components/home.tsx",
+      "src/lib/site/site.ts",
+    ];
+    for (const file of shell)
+      assert.doesNotMatch(readFileSync(file, "utf8"), /DASHBOARD_ENABLED|lib\/dashboard|flag\.server|lib\/auth\/(server|verify)/, file);
+    // The only /dashboard hrefs are the two data entries in site.ts (menu item and home card).
+    const links = readFileSync("src/lib/site/site.ts", "utf8").match(/href: "\/dashboard"/g) ?? [];
+    assert.equal(links.length, 2);
+    for (const file of shell.filter((f) => !f.endsWith("site.ts")))
+      assert.doesNotMatch(readFileSync(file, "utf8"), /["'`]\/dashboard/, file);
   });
 
   it("the flag is never exposed with a VITE_ prefix", () => {

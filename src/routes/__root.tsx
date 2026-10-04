@@ -1,9 +1,17 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteMenu } from "@/components/site-menu";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Orpheus Wisdom";
+
+// The site menu and footer (#46) wrap every page, including /dashboard, sign-in and the 404.
+function CurrentSiteMenu() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return <SiteMenu pathname={pathname} />;
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -37,7 +45,13 @@ export const Route = createRootRoute({
       <body>
         <PreviewHostBridge />
         <AuthProvider>
-          <Outlet />
+          <div className="flex min-h-screen flex-col">
+            <CurrentSiteMenu />
+            <div className="flex-1">
+              <Outlet />
+            </div>
+            <SiteFooter />
+          </div>
         </AuthProvider>
         <Scripts />
       </body>

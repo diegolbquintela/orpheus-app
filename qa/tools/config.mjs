@@ -5,6 +5,9 @@
  *   --out <dir>          or QA_OUT_DIR      where screenshots/JSON go (default: a temp dir, never the repo)
  *   --fixtures <file>    or QA_FIXTURES     fixtures file (default: qa/fixtures.json in this repo)
  *   --compare-url <url>  or QA_COMPARE_URL  second host, only for sidebyside.mjs
+ *   --calculator-path <p> or QA_CALCULATOR_PATH  where the calculator lives on --base-url (default /calculator,
+ *                        since #46; pass / for a deployment from before the site redesign)
+ *   --compare-path <p>   or QA_COMPARE_PATH  calculator path on --compare-url (default /: the frozen Grok copy)
  *
  * CLI flags win over env vars. Both `--flag value` and `--flag=value` work.
  */
@@ -39,7 +42,12 @@ export function qaConfig(scriptUrl, argv = process.argv.slice(2), env = process.
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = resolve(flag(argv, "out") ?? env.QA_OUT_DIR ?? join(tmpdir(), "orpheus-qa", `${script}-${stamp}`));
   const fixtures = resolve(flag(argv, "fixtures") ?? env.QA_FIXTURES ?? join(REPO_ROOT, "qa", "fixtures.json"));
+  const calcPath = flag(argv, "calculator-path") ?? env.QA_CALCULATOR_PATH ?? "/calculator";
+  const comparePath = flag(argv, "compare-path") ?? env.QA_COMPARE_PATH ?? "/";
+  const calculatorUrl = new URL(calcPath, `${baseUrl}/`).href;
+  const compareUrl = compareRaw ? cleanUrl(compareRaw) : null;
+  const compareCalculatorUrl = compareUrl ? new URL(comparePath, `${compareUrl}/`).href : null;
   mkdirSync(out, { recursive: true });
-  console.log(`[${script}] base ${baseUrl}${compareRaw ? ` · compare ${cleanUrl(compareRaw)}` : ""} · out ${out}`);
-  return { script, baseUrl, compareUrl: compareRaw ? cleanUrl(compareRaw) : null, out, fixtures };
+  console.log(`[${script}] base ${baseUrl} · calculator ${calculatorUrl}${compareUrl ? ` · compare ${compareCalculatorUrl}` : ""} · out ${out}`);
+  return { script, baseUrl, calculatorUrl, compareUrl, compareCalculatorUrl, out, fixtures };
 }

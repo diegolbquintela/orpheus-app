@@ -65,13 +65,7 @@ function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="bg-ink text-card">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <span className="text-sm">Orpheus Wisdom</span>
-          <span className="kicker text-card/60">Dashboard</span>
-        </div>
-      </header>
+    <div className="bg-paper">
       <main className="mx-auto w-full max-w-md px-5 py-16 sm:px-8">
         <h1 className="text-3xl">{mode === "sign-in" ? "Sign in" : "Create account"}</h1>
         {!authReady ? (

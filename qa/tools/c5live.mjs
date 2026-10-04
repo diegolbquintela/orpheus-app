@@ -3,7 +3,7 @@ import { qaConfig } from "./config.mjs";
 const CFG=qaConfig(import.meta.url);
 const OUT=CFG.out;
 const b=await chromium.launch(); const page=await (await b.newContext({viewport:{width:1280,height:900}})).newPage();
-await page.goto(CFG.baseUrl,{waitUntil:'networkidle'});
+await page.goto(CFG.calculatorUrl,{waitUntil:'networkidle'});
 const r=page.locator('.basket-row').nth(0).locator('input'); await r.nth(0).fill('AAPL'); await r.nth(1).fill('100');
 const d=page.locator('input[type=date]'); await d.nth(0).fill('2023-01-03'); await d.nth(1).fill('2024-12-31');
 await page.locator('label:has-text("Starting capital") input').fill('50000');

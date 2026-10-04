@@ -169,12 +169,8 @@ export function Desk() {
   }
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="bg-paper">
       <header className="bg-ink text-card">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <span className="text-sm">Orpheus Wisdom</span>
-          <span className="kicker text-card/60">Desk</span>
-        </div>
         <div className="mast-grid mx-auto w-full max-w-6xl px-5 pt-16 pb-20 sm:px-8 sm:pt-24 sm:pb-28">
           <p className="kicker text-card/50">01</p>
           <div className="max-w-3xl">
@@ -349,11 +345,6 @@ export function Desk() {
         ) : null}
       </main>
 
-      <footer className="bg-ink text-card">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-8 sm:px-8">
-          <span className="text-sm">Orpheus Wisdom</span>
-        </div>
-      </footer>
     </div>
   );
 }
