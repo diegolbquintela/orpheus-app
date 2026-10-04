@@ -1,9 +1,21 @@
-# Orpheus: DCA vs lump-sum calculator
+# Orpheus Wisdom: home, DCA calculator and dashboard
 
-This is the Orpheus web app. Right now it is the DCA vs lump-sum calculator. Over time it is meant to
-become the firm's operating front. Only the calculator exists today.
+This is the Orpheus web app (Orpheus Wisdom). Over time it is meant to become the firm's operating front.
+It is one site with three routes (#46):
 
-You pick tickers and weights, a date range, a starting capital, a contribution and a frequency (weekly
+| Route | What |
+|---|---|
+| `/` | Home: one line plus two cards, **Calculator** ("compare a lump sum with contributions") and **Dashboard** ("holdings, value, stored figures"). It does no calculating |
+| `/calculator` | The DCA vs lump-sum calculator (below). It lived at `/` until #46; `/` with a query string redirects here with the same query |
+| `/dashboard` | The signed-in dashboard, behind the `DASHBOARD_ENABLED` flag (see "Dashboard" below) |
+
+Every page has the same menu, a thin bar that stays at the top: "Orpheus" (home) on the left, "Calculator" and
+"Dashboard" on the right, the current page marked (`aria-current="page"` plus an underline), no dropdowns. The
+Dashboard item shows even when the flag is off. The footer reads "Orpheus Wisdom" and nothing else. Every page is
+`noindex` (meta tag plus the `X-Robots-Tag` header). Code: `src/lib/site/site.ts`, `src/components/site-menu.tsx`,
+`site-footer.tsx`, `home.tsx`, `src/routes/__root.tsx`.
+
+**The calculator.** You pick tickers and weights, a date range, a starting capital, a contribution and a frequency (weekly
 or monthly). The app compares two cash plans over the same window:
 
 - **Lump sum**: the starting capital goes in on day one.
@@ -34,7 +46,7 @@ These are the rules the app implements and QA checks (acceptance criteria DCA-01
 6. **No buy/sell advice.** The app never outputs a buy, sell or hold recommendation.
 
 The engine is in `src/lib/dca/` (`simulate.ts`, `calendar.ts`, `raw.ts`). The UI is
-`src/components/desk.tsx`, and the price route is `src/routes/api/chart.ts` → `src/lib/dca/yahoo.server.ts`.
+`src/components/desk.tsx` (route `src/routes/calculator.tsx`), and the price route is `src/routes/api/chart.ts` → `src/lib/dca/yahoo.server.ts`.
 
 ## Run it locally
 
@@ -42,7 +54,7 @@ You need Node 22 (≥ 22.12) and npm.
 
 ```bash
 npm ci
-npm run dev          # http://localhost:8080
+npm run dev          # http://localhost:8080 (home), http://localhost:8080/calculator
 ```
 
 No database or secrets are needed to run the calculator locally. Sign-in is off by default:
@@ -82,7 +94,8 @@ preview or production:
 
 ```bash
 npx playwright install chromium                 # once
-node qa/tools/full.mjs --base-url https://<preview>.vercel.app
+node qa/tools/full.mjs --base-url https://<preview>.vercel.app   # opens /calculator (--calculator-path / for older deploys)
+node qa/tools/site.mjs --base-url https://<preview>.vercel.app   # menu, home cards, footer, $313,000 and VOD.L at /calculator
 python3 qa/tools/fetch.py --base-url https://<preview>.vercel.app --out /tmp/orpheus-fetch
 ```
 
@@ -98,17 +111,20 @@ The app is hosted on Vercel.
 
 ## Dashboard (hidden, behind a flag)
 
-A signed-in dashboard is being built ticket by ticket (spec: `attachments/dashboard-spec.md`). Until
-Diego gives the release go, it stays hidden behind one **server-only** env var, `DASHBOARD_ENABLED`:
+A signed-in dashboard, built ticket by ticket (spec: `attachments/dashboard-spec.md`), gated by one
+**server-only** env var, `DASHBOARD_ENABLED`. As of 2026-10-04 production serves it (issue #46; read-only smoke
+check the same day). The flag and the gate are unchanged:
 
 - Only the exact value `true` turns it on. Unset or any other value means off.
-- Off (production): `/dashboard` and every `/api/dashboard/*` route return a real **404**. The page 404
-  is the same as for any unknown URL (no dashboard title or copy); the API answers JSON for every method.
+- Off: `/dashboard` and every `/api/dashboard/*` route return a real **404**. The page 404
+  is the same as for any unknown URL (no dashboard title or copy apart from the site menu's Dashboard item,
+  which every page has); the API answers JSON for every method.
 - On (Vercel **Preview** environment only, set by an owner): `/dashboard` needs a session (see "Dashboard
   sign-in" below), and `GET /api/dashboard/status` returns `{"dashboard":"enabled"}` plus, off production,
   sign-in diagnostics (`signIn`, `signUpAllowList`; names and states only). Other methods: 405 JSON,
   `Allow: GET, HEAD`.
-- The calculator at `/` doesn't read the flag and doesn't link to the dashboard.
+- The calculator at `/calculator` doesn't read the flag or link to the dashboard. The site menu and the home card
+  link to `/dashboard` whatever the flag says (#46); they never read it.
 
 ```bash
 # Local sign-in uses the in-memory PGLite database and a per-process secret. Use a test address.
