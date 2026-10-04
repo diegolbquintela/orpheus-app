@@ -32,6 +32,9 @@ The app is one site with three routes. The calculator rules below don't change.
 - `/` with a query string redirects to `/calculator` with the same query (the calculator reads no URL
   parameters, so this only keeps old links working).
 - `noindex` meta on every page plus the `X-Robots-Tag: noindex, nofollow` header.
+- **Analytics (#48):** Vercel Web Analytics on every page. It collects anonymous page views only (the path,
+  with query strings and hashes stripped), sets no cookies and sends no custom events, so no tickers,
+  amounts or other inputs. Why: to see which tools get used. No other trackers.
 
 ## What v1 is
 
