@@ -167,7 +167,9 @@ describe("DASH-16: revenue growth and CAGR match a hand calculation from SEC com
 
   it("the metric cell renders ok values as a percent and has no rating wording", () => {
     const cell = readFileSync("src/components/dashboard/metric-columns.tsx", "utf8");
-    assert.match(cell, /\(v \* 100\)\.toFixed\(1\)\}%/);
+    // One decimal %, grouped above 999.9% since #59 (DR6-02): `formatMetricPct` in format.ts.
+    assert.match(cell, /const PERCENT = formatMetricPct;/);
+    assert.match(readFileSync("src/lib/dashboard/format.ts", "utf8"), /formatMetricPct = \(v: number\): string => `\$\{groupDigits\(\(v \* 100\)\.toFixed\(1\)\)\}%`/);
     assert.doesNotMatch(readFileSync("src/lib/dashboard/metric-compute.server.ts", "utf8"), /\b(buy|sell|score|rating|strong|weak)\b/i);
   });
 });
