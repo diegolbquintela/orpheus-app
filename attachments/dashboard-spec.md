@@ -406,6 +406,11 @@ MC.PA) for book figures.
   many chips are kept; the page never does. **QA D1 fix:** the scroll box is `relative`, so the absolutely
   positioned sr-only reason text can't escape it and widen the page (it did with all 9 chips and an off-screen
   `—`: 724 px page at a 400 px viewport).
+- **QA D2 / Chrome pass fixes:** matches are ranked (the label equal to the query, ignoring case and extra
+  spaces, then labels starting with it, then whole-word matches, then the rest; ties in catalog order), and
+  Enter adds the exact label if there is one, else the first match, so `Revenue CAGR 3y` + Enter never adds
+  10y. The search field is no longer disabled while a chip saves (typed keys aren't dropped), a press on an
+  option doesn't take focus from it, and a pick while a save is in flight keeps the typed query.
 - Interim until ticket 5: the T14 `Portfolio` foot row stays (figure `· N% covered`); for the share chip it
   shows the sum of the weights. Ticket 5 turns it into the `Book` row.
 - Holdings `PUT` (EL change carried from #62): omitted `avgCost` keeps the stored cost, `null` clears, a

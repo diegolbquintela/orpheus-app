@@ -568,6 +568,10 @@ four-field row, the tap detail and one total (value only); average cost becomes 
 - Missing figure: `—` alone, reason in `title` + a visually hidden span (DR4-07; supersedes DASH-21's text).
   Keep the table's scroll box (`metric-scroll`) `relative` (QA D1): `sr-only` is `position: absolute`, and an
   unpositioned box lets it escape and widen the whole page.
+- Search ranking / Enter (QA D2): `matchingChips()` ranks exact label > prefix > whole words > substring
+  (catalog order within a rank); Enter takes `exactChip(query)` first, else the first match. The input is never
+  `disabled` while saving (only the option buttons are), option `mousedown` is prevented, and `add()` returns
+  early without clearing the query while a save is in flight.
 - Tests: `metrics-sheet.dom.test.tsx`, `fundamentals.test.ts` (chips API), `store.test.ts`,
   `check-dashboard-built.mjs --with-database`; browser `qa/tools/dashboard-metrics.mjs` (both widths; adds and
   removes Gross margin on the phone pass unless it is already kept; signs out; never Delete).

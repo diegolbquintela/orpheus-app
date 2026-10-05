@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { formatPortfolioPct } from "@/lib/dashboard/format";
-import { METRIC_HELP, SHARE_OF_BOOK, chipLabel, matchingChips, type MetricKey } from "@/lib/dashboard/metrics";
+import { METRIC_HELP, SHARE_OF_BOOK, chipLabel, exactChip, matchingChips, type MetricKey } from "@/lib/dashboard/metrics";
 import { MetricCell, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
 
 /**
@@ -100,13 +100,18 @@ export function MetricsSheet({
     }
   }
   const add = async (key: string) => {
+    // QA (b): while a save is in flight, keep the query (a second click / Enter would otherwise clear it and
+    // add nothing, which reads as "needed two tries").
+    if (saving.current) return;
     setQuery("");
     await apply([...chips, key]);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (matches[0]) void add(matches[0].key);
+      // QA D2: an exact (case-insensitive) label wins; otherwise the best / first match.
+      const pick = exactChip(query, chips) ?? matches[0];
+      if (pick) void add(pick.key);
     } else if (e.key === "Escape") setQuery("");
   };
 
@@ -119,7 +124,7 @@ export function MetricsSheet({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          disabled={busy}
+          aria-busy={busy || undefined}
           autoComplete="off"
           spellCheck={false}
           aria-controls="metric-options"
@@ -134,6 +139,8 @@ export function MetricsSheet({
               <button
                 type="button"
                 disabled={busy}
+                // QA (b): a press on an option doesn't take focus from the search field (it stays there after adding).
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => add(m.key)}
                 className="block w-full px-3 py-2 text-left hover:bg-line disabled:opacity-50"
                 data-testid="metric-option"

@@ -33,11 +33,35 @@ export const chipLabel = (k: string) => CHIPS.find((c) => c.key === k)?.label ??
 /** DR4-03: Revenue growth 1y, ROIC (1y), Share of the book, in that order. */
 export const DEFAULT_CHIPS: ChipKey[] = ["rev_g_1y", "roic_1y", SHARE_OF_BOOK];
 
-/** Search (#57, DR4-04): chips not kept yet whose label contains every word of the query (case-insensitive). */
+/**
+ * Search (#57, DR4-04): chips not kept yet whose label contains every word of the query (case-insensitive),
+ * best match first (QA D2): the label equal to the query (ignoring case and extra spaces), then labels that
+ * start with it, then labels with every word as a whole word, then the rest; ties keep catalog order. So the
+ * full name "Revenue CAGR 3y" puts Revenue CAGR 3y first, never Revenue CAGR 10y, and Enter (which takes the
+ * first match) adds the chip that was typed.
+ */
 export function matchingChips(query: string, kept: readonly string[]) {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const q = query.toLowerCase().trim().replace(/\s+/g, " ");
+  const words = q.split(" ").filter(Boolean);
   if (!words.length) return [];
-  return CHIPS.filter((c) => !kept.includes(c.key) && words.every((w) => c.label.toLowerCase().includes(w)));
+  const rank = (label: string) => {
+    const l = label.toLowerCase();
+    if (l === q) return 0;
+    if (l.startsWith(q)) return 1;
+    const tokens = l.split(/[\s()]+/).filter(Boolean);
+    return words.every((w) => tokens.includes(w)) ? 2 : 3;
+  };
+  return CHIPS.map((c, i) => ({ c, i }))
+    .filter(({ c }) => !kept.includes(c.key) && words.every((w) => c.label.toLowerCase().includes(w)))
+    .map((x) => ({ ...x, r: rank(x.c.label) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map(({ c }) => c);
+}
+
+/** The chip whose label is exactly the query (case-insensitive, spaces collapsed), if it isn't kept yet (QA D2). */
+export function exactChip(query: string, kept: readonly string[]) {
+  const q = query.toLowerCase().trim().replace(/\s+/g, " ");
+  return CHIPS.find((c) => !kept.includes(c.key) && c.label.toLowerCase() === q);
 }
 
 /** How a metric is computed, shown as the column header's and the cells' tooltip (spec §8). */
