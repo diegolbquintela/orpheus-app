@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { formatPortfolioPct, trimDecimal } from "@/lib/dashboard/format";
 import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
 import { excludedNote } from "@/lib/dashboard/pie";
@@ -6,15 +6,14 @@ import { HoldingsPie } from "./holdings-pie";
 import { MetricCell, MetricColumnsPicker, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
 
 /**
- * Holdings table on /dashboard (T04 #12): add, edit (shares, average cost) and delete.
- * Talks to /api/dashboard/holdings; the server validates everything (US/EU/CA listings only,
- * shares > 0, average cost >= 0, one row per ticker). T05 (#13) adds each ticker's last stored close
- * and its session date, or "price pending" until the background job has fetched it. T06 (#14) adds the
- * base-currency setting and each position (shares × last close) plus the total in that base currency,
- * at the FX rate for the close's session date (the rate's date is shown when it's an earlier one).
- * T07 (#15) completes the table: name, market value, cost (D8: same rate as the price), total return
- * (amount in base, % in the listing currency), % of portfolio, the total row, the "Prices as of … close ·
- * FX …" line and the out-of-date note. Everything comes from the server's stored data.
+ * Holdings on /dashboard (T04 #12 → #55): add, edit (shares, average cost) and delete. Talks to
+ * /api/dashboard/holdings; the server validates everything (US/EU/CA listings only, shares > 0, average
+ * cost >= 0, one row per ticker). Since #55 (epic #53, spec §0.2) the holdings list is the page: each row
+ * shows name, shares, value in base currency and share of the book, and a tap opens the detail panel with
+ * the rest of the T05–T07 fields (average cost, last close and session date, cost at the D8 rate, return,
+ * FX line) plus Edit and Delete. Under the list: one total (value only), the T15 pie and, until #57 turns
+ * them into chips, today's metric columns with the T14 portfolio row. Everything comes from the server's
+ * stored data.
  */
 
 export type HoldingView = {
@@ -68,6 +67,10 @@ const signedPct = (n: number) =>
   `${new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n)}%`;
 const weightPct = formatPortfolioPct;
 
+/** Row layout: two lines on a phone (name · value / shares · share), four columns from 640 px. */
+const ROW_COLS = "gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_8rem_11rem_9rem] sm:items-baseline";
+const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto] ${ROW_COLS}`;
+
 type Props = {
   holdings: HoldingView[];
   prices: Record<string, PriceView | undefined>;
@@ -115,27 +118,29 @@ function LastClose({ price }: { price: PriceView | undefined }) {
   );
 }
 
-function PositionValue({ row, base }: { row: ValuedRow | undefined; base: BaseCurrency }) {
+function PositionValue({ row, base, testId = "holding-value", withFx = false }: { row: ValuedRow | undefined; base: BaseCurrency; testId?: string; withFx?: boolean }) {
   if (!row || row.value === null)
     return (
-      <span className="text-muted" data-testid="holding-value" data-status={row?.status ?? "price_pending"}>
+      <span className="text-muted" data-testid={testId} data-status={row?.status ?? "price_pending"}>
         {row?.status === "fx_pending" ? "FX pending" : "—"}
       </span>
     );
   return (
-    <span data-testid="holding-value" data-status="ok" data-fx-fallback={row.fallback ? "true" : "false"}>
+    <span data-testid={testId} data-status="ok" data-fx-fallback={row.fallback ? "true" : "false"}>
       {money(row.value)} {base}
-      {row.rates.map((r) => (
-        <span key={r.quote} className="block text-xs text-muted" data-testid="holding-fx">
-          FX {r.quote} {r.cadPerUnit} · {r.rateDate}
-          {r.rateDate < (row.sessionDate ?? "") ? " (previous rate)" : ""}
-        </span>
-      ))}
+      {withFx
+        ? row.rates.map((r) => (
+            <span key={r.quote} className="block text-xs text-muted" data-testid="holding-fx">
+              FX {r.quote} {r.cadPerUnit} · {r.rateDate}
+              {r.rateDate < (row.sessionDate ?? "") ? " (previous rate)" : ""}
+            </span>
+          ))
+        : null}
     </span>
   );
 }
 
-/** Placeholder for a T07 cell (cost, return, % of portfolio) while the price or FX is pending. */
+/** Placeholder for a T07 field (cost, return, share of the book) while the price or FX is pending. */
 function Pending({ testId }: { testId: string }) {
   return (
     <span className="text-muted" data-testid={testId}>
@@ -144,17 +149,29 @@ function Pending({ testId }: { testId: string }) {
   );
 }
 
+/** One label / value pair in a holding's detail panel. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-line py-2 sm:block sm:border-b-0 sm:py-0">
+      <dt className="kicker text-muted">{label}</dt>
+      <dd className="text-right tabular-nums sm:mt-1 sm:text-left">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * One holding (#55, spec §0.2): the row shows name (the ticker until a name is stored), shares, value in
+ * base currency and share of the book; tapping it opens the detail panel with the rest of the T07 fields
+ * plus Edit and Delete. The panel is always rendered (hidden when closed), so server-rendered pages and the
+ * built-server checks still see every field.
+ */
 function Row({
   holding,
   price,
   valued,
   base,
-  metricColumns,
-  metricView,
   onChanged,
 }: {
-  metricColumns: string[];
-  metricView: MetricViewData | undefined;
   holding: HoldingView;
   price: PriceView | undefined;
   valued: ValuedRow | undefined;
@@ -162,11 +179,14 @@ function Row({
   onChanged: Props["onChanged"];
 }) {
   const ok = valued && valued.value !== null;
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [shares, setShares] = useState(trimDecimal(holding.shares));
   const [avgCost, setAvgCost] = useState(trimDecimal(holding.avgCost));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const detailId = `holding-detail-${holding.id}`;
+  const name = price?.name || holding.symbol;
 
   async function save() {
     setBusy(true);
@@ -201,117 +221,203 @@ function Row({
   }
 
   return (
-    <tr className={`border-t border-line align-top${deleted ? " opacity-50" : ""}`} data-testid="holding-row" data-symbol={holding.symbol} aria-busy={deleted || undefined}>
-      <td className="py-3 pr-4 font-medium">{holding.symbol}</td>
-      <td className="py-3 pr-4 text-muted" data-testid="holding-name">
-        {price?.name ?? "—"}
-      </td>
-      {editing ? (
-        <>
-          <td className="py-2 pr-4">
-            <input
-              aria-label={`Shares of ${holding.symbol}`}
-              value={shares}
-              onChange={(e) => setShares(e.target.value)}
-              inputMode="decimal"
-              className="field w-28 text-base tabular-nums"
-            />
-          </td>
-          <td className="py-2 pr-4">
-            <input
-              aria-label={`Average cost of ${holding.symbol}`}
-              value={avgCost}
-              onChange={(e) => setAvgCost(e.target.value)}
-              inputMode="decimal"
-              className="field w-28 text-base tabular-nums"
-            />
-          </td>
-        </>
-      ) : (
-        <>
-          <td className="py-3 pr-4 tabular-nums">{trimDecimal(holding.shares)}</td>
-          <td className="py-3 pr-4 tabular-nums whitespace-nowrap" data-testid="holding-avg-cost">
-            {trimDecimal(holding.avgCost)}
-            {price?.currency ? ` ${price.currency}` : ""}
-          </td>
-        </>
-      )}
-      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
-        <LastClose price={price} />
-      </td>
-      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
-        <PositionValue row={valued} base={base} />
-      </td>
-      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
-        {ok && valued.cost !== null ? (
-          <span data-testid="holding-cost">
-            {money(valued.cost)} {base}
-          </span>
-        ) : (
-          <Pending testId="holding-cost" />
-        )}
-      </td>
-      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
-        {ok && valued.returnAmount !== null ? (
-          <span data-testid="holding-return">
-            {signedMoney(valued.returnAmount)} {base}
-            <span className="block text-xs text-muted" data-testid="holding-return-pct">
-              {valued.returnPct === null ? "n/m" : signedPct(valued.returnPct)}
+    <li className={`border-t border-line${deleted ? " opacity-50" : ""}`} data-testid="holding-row" data-symbol={holding.symbol} aria-busy={deleted || undefined}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={detailId}
+        className={`${ROW_GRID} w-full py-3 text-left text-sm tabular-nums`}
+        data-testid="holding-row-toggle"
+      >
+        <span className="min-w-0 truncate font-medium sm:order-1" data-testid="holding-name">
+          {name}
+        </span>
+        <span className="text-right whitespace-nowrap sm:order-3">
+          <PositionValue row={valued} base={base} />
+        </span>
+        <span className="text-xs text-muted sm:order-2 sm:text-sm sm:text-ink" data-testid="holding-shares">
+          {trimDecimal(holding.shares)}
+          <span className="sm:hidden"> shares</span>
+        </span>
+        <span className="text-right text-xs text-muted sm:order-4 sm:text-sm sm:text-ink">
+          {ok && valued.weight !== null ? <span data-testid="holding-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-weight" />}
+        </span>
+      </button>
+      <div id={detailId} hidden={!open} className="pb-4 text-sm" data-testid="holding-detail">
+        <dl className="grid gap-x-6 sm:grid-cols-3 sm:gap-y-4 lg:grid-cols-5">
+          <Field label="Ticker">{holding.symbol}</Field>
+          <Field label="Name">
+            <span data-testid="holding-detail-name">{price?.name ?? "—"}</span>
+          </Field>
+          <Field label="Shares">
+            {editing ? (
+              <input
+                aria-label={`Shares of ${holding.symbol}`}
+                value={shares}
+                onChange={(e) => setShares(e.target.value)}
+                inputMode="decimal"
+                className="field w-28 text-base tabular-nums"
+              />
+            ) : (
+              trimDecimal(holding.shares)
+            )}
+          </Field>
+          <Field label="Average cost">
+            {editing ? (
+              <input
+                aria-label={`Average cost of ${holding.symbol}`}
+                value={avgCost}
+                onChange={(e) => setAvgCost(e.target.value)}
+                inputMode="decimal"
+                className="field w-28 text-base tabular-nums"
+              />
+            ) : (
+              <span data-testid="holding-avg-cost">
+                {trimDecimal(holding.avgCost)}
+                {price?.currency ? ` ${price.currency}` : ""}
+              </span>
+            )}
+          </Field>
+          <Field label="Last close">
+            <LastClose price={price} />
+          </Field>
+          <Field label={`Value (${base})`}>
+            <PositionValue row={valued} base={base} testId="holding-detail-value" withFx />
+          </Field>
+          <Field label={`Cost (${base})`}>
+            {ok && valued.cost !== null ? (
+              <span data-testid="holding-cost">
+                {money(valued.cost)} {base}
+              </span>
+            ) : (
+              <Pending testId="holding-cost" />
+            )}
+          </Field>
+          <Field label="Return">
+            {ok && valued.returnAmount !== null ? (
+              <span data-testid="holding-return">
+                {signedMoney(valued.returnAmount)} {base}
+                <span className="block text-xs text-muted" data-testid="holding-return-pct">
+                  {valued.returnPct === null ? "n/m" : signedPct(valued.returnPct)}
+                </span>
+              </span>
+            ) : (
+              <Pending testId="holding-return" />
+            )}
+          </Field>
+          <Field label="Share of the book">
+            {ok && valued.weight !== null ? <span data-testid="holding-detail-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-detail-weight" />}
+          </Field>
+        </dl>
+        <div className="mt-4 text-sm">
+          {editing ? (
+            <>
+              <button type="button" disabled={busy} onClick={save} className="mr-4 underline-offset-4 hover:underline disabled:opacity-50">
+                Save
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setEditing(false);
+                  setShares(trimDecimal(holding.shares));
+                  setAvgCost(trimDecimal(holding.avgCost));
+                  setError(null);
+                }}
+                className="underline-offset-4 hover:underline disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </>
+          ) : deleted ? (
+            <span className="text-xs text-muted" data-testid="holding-deleted">
+              Deleted
             </span>
-          </span>
-        ) : (
-          <Pending testId="holding-return" />
-        )}
-      </td>
-      <td className="py-3 pr-4 tabular-nums whitespace-nowrap">
-        {ok && valued.weight !== null ? <span data-testid="holding-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-weight" />}
-      </td>
-      {metricColumns.map((key) => (
-        <td key={key} className="py-3 pr-4 tabular-nums whitespace-nowrap">
-          <MetricCell metricKey={key} view={metricView} />
-        </td>
-      ))}
-      <td className="py-3 text-right text-sm whitespace-nowrap">
-        {editing ? (
-          <>
-            <button type="button" disabled={busy} onClick={save} className="mr-3 underline-offset-4 hover:underline disabled:opacity-50">
-              Save
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setEditing(false);
-                setShares(trimDecimal(holding.shares));
-                setAvgCost(trimDecimal(holding.avgCost));
-                setError(null);
-              }}
-              className="underline-offset-4 hover:underline disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </>
-        ) : deleted ? (
-          <span className="text-xs text-muted" data-testid="holding-deleted">
-            Deleted
-          </span>
-        ) : (
-          <>
-            <button type="button" disabled={busy} onClick={() => setEditing(true)} className="mr-3 underline-offset-4 hover:underline disabled:opacity-50">
-              Edit
-            </button>
-            <button type="button" disabled={busy} onClick={remove} className="underline-offset-4 hover:underline disabled:opacity-50">
-              Delete
-            </button>
-          </>
-        )}
-        {error ? (
-          <p className="mt-1 max-w-xs text-left text-xs whitespace-normal text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </td>
-    </tr>
+          ) : (
+            <>
+              <button type="button" disabled={busy} onClick={() => setEditing(true)} className="mr-4 underline-offset-4 hover:underline disabled:opacity-50">
+                Edit
+              </button>
+              <button type="button" disabled={busy} onClick={remove} className="underline-offset-4 hover:underline disabled:opacity-50">
+                Delete
+              </button>
+            </>
+          )}
+          {error ? (
+            <p className="mt-1 text-xs text-red-700" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Today's metric columns (T08–T14), kept reachable under the list until ticket 4 (#57) turns them into
+ * chips on a metrics sheet: the picker, one row per holding (name + the user's columns) and the portfolio
+ * row. It scrolls sideways inside its own box, so the page itself never does.
+ */
+function MetricsTable({
+  holdings,
+  prices,
+  metricColumns,
+  metrics,
+  portfolio,
+  onChanged,
+}: {
+  holdings: HoldingView[];
+  prices: Props["prices"];
+  metricColumns: string[];
+  metrics: Record<string, MetricViewData>;
+  portfolio: Record<string, PortfolioCellView>;
+  onChanged: Props["onChanged"];
+}) {
+  return (
+    <section className="mt-12" data-testid="metrics">
+      <h3 className="text-lg">Metrics</h3>
+      <MetricColumnsPicker columns={metricColumns} onChanged={onChanged} />
+      {metricColumns.length ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full border-collapse text-sm tabular-nums">
+            <thead>
+              <tr className="text-left">
+                <th className="kicker pb-2 pr-4 font-normal text-muted">Name</th>
+                {metricColumns.map((key) => (
+                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
+                    {metricLabel(key)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {holdings.map((h) => (
+                <tr key={h.id} className="border-t border-line align-top" data-testid="metric-row" data-symbol={h.symbol}>
+                  <td className="py-3 pr-4 font-medium">{prices[h.symbol]?.name || h.symbol}</td>
+                  {metricColumns.map((key) => (
+                    <td key={key} className="py-3 pr-4 tabular-nums whitespace-nowrap">
+                      <MetricCell metricKey={key} view={metrics[h.symbol]} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-ink">
+                <td className="py-3 pr-4 font-medium">Portfolio</td>
+                {metricColumns.map((key) => (
+                  <td key={key} className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap">
+                    <PortfolioMetricCell metricKey={key} cell={portfolio[key]} />
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -412,21 +518,13 @@ export function HoldingsSection({
       </section>
     );
 
+  const pend = valuation ? valuation.rows.filter((r) => r.value === null) : [];
+  const note = excludedNote(pend.filter((r) => r.status !== "fx_pending").length, pend.filter((r) => r.status === "fx_pending").length);
+
   return (
     <section className="mt-10" data-testid="holdings">
       <h2 className="text-xl">Holdings</h2>
-      <p className="mt-2 max-w-xl text-xs text-muted">
-        US, EU and CA listings only. Average cost is per share, in the listing&apos;s own currency. Last close is
-        the prior completed session&apos;s close, updated once a day. Values are in your base currency at the Bank
-        of Canada daily average rate for that close&apos;s session date (USD and EUR bases cross through CAD; DKK, HUF
-        and CZK: CAD per unit = the Bank of Canada euro rate (CAD per EUR) ÷ the ECB reference rate (units per
-        EUR), same date). When there is no rate that day, the
-        previous one is used and its date is shown. These are daily averages, not 16:00 closes. Cost uses the
-        same rate as the price, so currency moves since you bought aren&apos;t included. Total return % is in the
-        listing&apos;s currency. Holdings without a price or rate yet are left out of the totals and the % of portfolio.
-      </p>
       <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
-      <MetricColumnsPicker columns={metricColumns} onChanged={onChanged} />
       <form className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" onSubmit={add} data-testid="holding-form">
         <label className="flex flex-col gap-2">
           <span className="kicker text-muted">Ticker</span>
@@ -463,96 +561,45 @@ export function HoldingsSection({
       {holdings.length ? <AsOf valuation={valuation} freshness={freshness} base={baseCurrency} /> : null}
       {holdings.length === 0 ? (
         <p className="mt-8 text-sm text-muted" data-testid="holdings-empty">
-          No holdings yet.
+          Add a holding
         </p>
       ) : (
         <>
-        <div className="mt-8 overflow-x-auto">
-          <table className="w-full border-collapse text-sm tabular-nums">
-            <thead>
-              <tr className="text-left">
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Ticker</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Name</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Shares</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Average cost</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Last close</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Market value ({baseCurrency})</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Cost ({baseCurrency})</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Total return</th>
-                <th className="kicker pb-2 pr-4 font-normal text-muted">% of portfolio</th>
-                {metricColumns.map((key) => (
-                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
-                    {metricLabel(key)}
-                  </th>
-                ))}
-                <th className="pb-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map((h) => (
-                <Row
-                  key={`${h.id}:${h.shares}:${h.avgCost}`}
-                  holding={h}
-                  price={prices[h.symbol]}
-                  valued={valuation?.rows.find((r) => r.symbol === h.symbol)}
-                  base={baseCurrency}
-                  metricColumns={metricColumns}
-                  metricView={metrics[h.symbol]}
-                  onChanged={onChanged}
-                />
-              ))}
-            </tbody>
-            {valuation ? (
-              <tfoot>
-                <tr className="border-t-2 border-ink">
-                  <td className="py-3 pr-4 font-medium" colSpan={5}>
-                    Total
-                    {(() => {
-                      const pend = valuation.rows.filter((r) => r.value === null);
-                      const note = excludedNote(pend.filter((r) => r.status !== "fx_pending").length, pend.filter((r) => r.status === "fx_pending").length);
-                      return note ? (
-                        <span className="block text-xs font-normal text-muted" data-testid="holdings-total-excluded-count">
-                          {note}
-                        </span>
-                      ) : null;
-                    })()}
-                  </td>
-                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total" data-base={baseCurrency}>
-                    {money(valuation.total)} {baseCurrency}
-                  </td>
-                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total-cost">
-                    {money(valuation.totalCost)} {baseCurrency}
-                  </td>
-                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total-return">
-                    {signedMoney(valuation.totalReturn)} {baseCurrency}
-                    <span className="block text-xs font-normal text-muted" data-testid="holdings-total-return-pct">
-                      {valuation.totalReturnPct === null ? "n/m" : signedPct(valuation.totalReturnPct)}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap" data-testid="holdings-total-weight">
-                    {valuation.excluded.length === valuation.rows.length
-                      ? "—"
-                      : weightPct(valuation.rows.reduce((sum, r) => sum + (r.weight ?? 0), 0))}
-                  </td>
-                  {metricColumns.map((key) => (
-                    <td key={key} className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap">
-                      <PortfolioMetricCell metricKey={key} cell={portfolio[key]} />
-                    </td>
-                  ))}
-                  <td />
-                </tr>
-                {valuation.excluded.length ? (
-                  <tr>
-                    <td colSpan={10 + metricColumns.length} className="pb-3 text-xs text-muted" data-testid="holdings-excluded">
-                      Not included in the totals (price or FX pending): {valuation.excluded.join(", ")}
-                    </td>
-                  </tr>
+          <div className={`${ROW_COLS} mt-8 hidden pb-2 sm:grid`} aria-hidden="true">
+            <span className="kicker text-muted sm:order-1">Name</span>
+            <span className="kicker text-muted sm:order-2">Shares</span>
+            <span className="kicker text-right text-muted sm:order-3">Value ({baseCurrency})</span>
+            <span className="kicker text-right text-muted sm:order-4">Share of the book</span>
+          </div>
+          <ul className="mt-6 border-b border-line sm:mt-0" data-testid="holdings-list">
+            {holdings.map((h) => (
+              <Row
+                key={`${h.id}:${h.shares}:${h.avgCost}`}
+                holding={h}
+                price={prices[h.symbol]}
+                valued={valuation?.rows.find((r) => r.symbol === h.symbol)}
+                base={baseCurrency}
+                onChanged={onChanged}
+              />
+            ))}
+          </ul>
+          {valuation ? (
+            <p className={`${ROW_GRID} py-3 text-sm font-medium tabular-nums`} data-testid="holdings-total-line">
+              <span className="sm:order-1">
+                Total
+                {note ? (
+                  <span className="block text-xs font-normal text-muted" data-testid="holdings-total-excluded-count">
+                    {note}
+                  </span>
                 ) : null}
-              </tfoot>
-            ) : null}
-          </table>
-        </div>
-        {valuation ? <HoldingsPie rows={valuation.rows} base={baseCurrency} /> : null}
+              </span>
+              <span className="text-right whitespace-nowrap sm:col-start-3" data-testid="holdings-total" data-base={baseCurrency}>
+                {valuation.excluded.length === valuation.rows.length ? "—" : `${money(valuation.total)} ${baseCurrency}`}
+              </span>
+            </p>
+          ) : null}
+          {valuation ? <HoldingsPie rows={valuation.rows} base={baseCurrency} /> : null}
+          <MetricsTable holdings={holdings} prices={prices} metricColumns={metricColumns} metrics={metrics} portfolio={portfolio} onChanged={onChanged} />
         </>
       )}
     </section>

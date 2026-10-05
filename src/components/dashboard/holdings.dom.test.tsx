@@ -43,12 +43,17 @@ async function render() {
 }
 
 const row = () => container.querySelector('[data-testid="holding-row"][data-symbol="KO"]') as HTMLElement;
+// #55: Edit and Delete live in the row's detail panel; a tap on the row opens it.
+const openDetail = async () => {
+  await click(row().querySelector('[data-testid="holding-row-toggle"]')!);
+  assert.equal(row().querySelector('[data-testid="holding-detail"]')!.hasAttribute("hidden"), false);
+};
 const button = (name: string) => [...row().querySelectorAll("button")].find((b) => b.textContent?.trim() === name) as HTMLButtonElement | undefined;
-const click = async (el: Element) => {
+async function click(el: Element) {
   await act(async () => {
     el.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
   });
-};
+}
 const settle = () => act(async () => new Promise((r) => setTimeout(r, 0)));
 
 beforeEach(() => {
@@ -65,6 +70,7 @@ describe("holdings delete guard (click level, mocked fetch)", () => {
   it("a successful DELETE: one request; further clicks on the row send nothing; the row shows 'Deleted'", async () => {
     mockFetch(200);
     await render();
+    await openDetail();
     const del = button("Delete")!;
     await click(del);
     await click(del); // second click on the same element right away
@@ -85,6 +91,7 @@ describe("holdings delete guard (click level, mocked fetch)", () => {
   it("a failed DELETE re-enables the buttons, shows the error, and lets the user retry", async () => {
     mockFetch(500);
     await render();
+    await openDetail();
     await click(button("Delete")!);
     await settle();
     assert.equal(calls.length, 1);
@@ -101,6 +108,7 @@ describe("holdings delete guard (click level, mocked fetch)", () => {
     mockFetch(200);
     dom.window.confirm = () => false;
     await render();
+    await openDetail();
     await click(button("Delete")!);
     await settle();
     assert.equal(calls.length, 0);
