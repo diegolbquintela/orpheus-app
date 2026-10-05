@@ -1,4 +1,4 @@
-import { formatEps, formatPortfolioCell } from "@/lib/dashboard/format";
+import { formatEps, formatMetricPct, formatPortfolioCell } from "@/lib/dashboard/format";
 import { METRIC_HELP, STATUS_REASON, type MetricKey } from "@/lib/dashboard/metrics";
 
 const help = (key: string) => METRIC_HELP[key as MetricKey];
@@ -13,7 +13,7 @@ const help = (key: string) => METRIC_HELP[key as MetricKey];
 export type MetricCellView = { value: string | null; status: string; fiscalYearEnd: string | null; currency?: string | null };
 export type MetricViewData = { coverage: "covered" | "not_covered" | "pending"; metrics: Record<string, MetricCellView> };
 
-const PERCENT = (v: number) => `${(v * 100).toFixed(1)}%`;
+const PERCENT = formatMetricPct;
 
 /** One metric cell: a stored value, or "—" with the reason (spec §8). */
 export function MetricCell({ metricKey, view }: { metricKey: string; view: MetricViewData | undefined }) {

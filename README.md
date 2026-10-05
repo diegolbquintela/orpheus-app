@@ -151,6 +151,11 @@ that have one (a `â€”` is left out, not counted as zero), shown as e.g. `27.6% Â
 holding has a figure; Share of the book reads 100.0%. Also: a non-number average cost gets the number
 message, and the phone's `Avg cost` label is part of the field's accessible name.
 
+**Ticket 6 (#59).** The leave-outs are checked and kept out by tests: no Connect broker, no K/M/B, no
+ownership toggle, no download or export, no instructions. Shares, average cost and last close now show
+thousands separators too (`17,500`, `1,234.5 EUR`), with their decimals unchanged. QA runs the whole redesign
+and site regression in one go with `qa/tools/dashboard-redesign.mjs` at 400, 1024 and 1440 px.
+
 - **The holdings list is the page.** Each row: name, shares, value in base currency, share of the book. Tap
   a row for the rest (cost, last close, return, FX, edit, delete). No helper paragraphs. With no holdings
   the page says one line: `Add a holding`.

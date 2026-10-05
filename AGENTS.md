@@ -60,7 +60,9 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
   through `check:dashboard-built --with-database`.
 - **Landed:** ticket 2 (#55), see "Dashboard holdings list (#55)" below and spec 0.9. Ticket 3 (#56, PR #62):
   "Dashboard add holding / optional cost (#56)" below. Ticket 4 (#57, PR #63, stacked on #62): "Dashboard
-  metrics sheet and chips (#57)" below. Ticket 5 (#58, PR #64, stacked on #63): "Dashboard book (#58)" below.
+  metrics sheet and chips (#57)" below. Ticket 5 (#58, PR #64, stacked on #63): "Dashboard book (#58)" below. Ticket 6 (#59, PR #65, stacked on
+  #64): "Dashboard leave-outs and regression (#59)" below. All six tickets are implemented; the epic closes
+  once they're merged and production QA passes.
 - **Paused / not this epic:** don't touch `chore/remove-grok-leftovers` / PR #52 or issues #50 / #51
   unless handed them.
 
@@ -770,7 +772,7 @@ lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded
   else the highlighted option (ranked best first, so the exact name is also first and highlighted), Escape
   clears; mousedown on an option is prevented and the input is neither `disabled` nor `readOnly` while saving
   (QA (b): focus stays and typed keys aren't dropped; `add()` ignores a pick while a save is in flight).
-- QA tools that sign in (`dashboard-list`, `-add`, `-metrics`, `-book`) go through `qa/tools/session.mjs`
+- QA tools that sign in (`dashboard-list`, `-add`, `-metrics`, `-book`, and `-leaveouts` since #59) go through `qa/tools/session.mjs`
   `eachViewport()`: sign-in, checks, and sign-out in a `finally` (QA N4); a thrown error is a FAIL. Don't
   add a tool that signs in or out by itself (`scripts/qa-tools-session.test.mjs` enforces it).
 - Tests: `book.test.ts`, `book.dom.test.tsx`, `check-dashboard-built.mjs --with-database` (book section);
@@ -778,6 +780,22 @@ lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded
   cells and weights).
 - Release doc: migration 0008 is forward-only; null costs must be cleared before any production rollback
   past #56 (`docs/release/dashboard-release.md`, "Migrations against production").
+
+### Dashboard leave-outs and regression (#59, epic #53 ticket 6)
+
+- Leave-outs (spec §0.3): never add Connect broker / a broker link, K/M/B amounts, an ownership toggle, a
+  download / export / CSV control, or any paragraph beyond the kept data lines (`KEPT_LINES` in
+  `qa/tools/leaveouts-rules.mjs`). If you add a new single data line, add it there.
+- Numbers: show stored NUMERIC strings with `displayDecimal()` (trim + `groupDigits()`, decimals kept), money
+  with the 2-decimal `Intl` formatters in `holdings.tsx`, metric % with `formatMetricPct()`; never
+  `notation: "compact"`. Edit inputs keep raw values (they're parsed back).
+- Tests: `leaveouts.dom.test.tsx` (rules on the rendered page + a source scan), `scripts/qa-leaveouts-rules.test.mjs`,
+  `format.test.ts`. The rules file is shared with the browser tool, so a rule change applies to both.
+- QA: `qa/tools/dashboard-redesign.mjs` is the one-run regression (site-wide checks, then every dashboard tool
+  at 400 / 1024 / 1440 via `QA_VIEWPORTS=phone,wide,desktop`; `--read-only` skips the writing tools, `--empty`
+  adds an account with no holdings via `QA_EMPTY_EMAIL` / `QA_EMPTY_PASSWORD`, `--smoke <mode>` runs
+  `release-smoke.mjs`). It never signs in itself; the tools do, through `session.mjs`. Locally, the
+  `X-Robots-Tag` checks fail by design (the header is a Vercel route rule from `vite.config.ts`).
 
 ### Holding delete: one DELETE per click (#38, PR #44)
 
