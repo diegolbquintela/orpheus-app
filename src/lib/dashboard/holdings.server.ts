@@ -101,6 +101,14 @@ export function parseOptionalCost(raw: unknown): string | null | Invalid {
   return parseQuantity(raw, "avgCost");
 }
 
+/** PUT's average cost (#57): explicit `null` = clear; otherwise a given cost (>= 0, at most 6 decimals). */
+export function parseEditCost(raw: unknown): string | null | Invalid {
+  if (raw === null) return null;
+  if (typeof raw === "string" && !raw.trim())
+    return { field: "avgCost", error: "Average cost must be a number, or null to clear it." };
+  return parseQuantity(raw, "avgCost");
+}
+
 /** Shares: > 0. Average cost: >= 0. Both plain decimals with at most 6 decimal places. */
 export function parseQuantity(raw: unknown, field: "shares" | "avgCost"): string | Invalid {
   const label = field === "shares" ? "Shares" : "Average cost";
@@ -199,8 +207,9 @@ export async function handleHoldingRequest(
   const id = Number(rawId);
   const method = request.method.toUpperCase();
 
-  // PUT carries both fields; a missing, null or blank avgCost clears the cost back to "no cost" (#56).
-  let update: { shares: string; avgCost: string | null } | null = null;
+  // PUT (EL, #57): an omitted avgCost keeps the stored cost; only an explicit null clears it; a number sets
+  // it. A blank string is refused on PUT (the UI sends null for a cleared field).
+  let update: { shares: string; avgCost?: string | null } | null = null;
   if (method === "PUT") {
     const body = await readJson(request);
     if (body instanceof Response) return body;
@@ -209,9 +218,12 @@ export async function handleHoldingRequest(
       return json({ error: "The ticker can't be changed. Delete the holding and add it again.", field: "symbol" }, 400);
     const shares = parseQuantity(body.shares, "shares");
     if (invalid(shares)) return invalidResponse(shares);
-    const avgCost = parseOptionalCost(body.avgCost);
-    if (invalid(avgCost)) return invalidResponse(avgCost);
-    update = { shares, avgCost };
+    if (!("avgCost" in body)) update = { shares };
+    else {
+      const avgCost = parseEditCost(body.avgCost);
+      if (invalid(avgCost)) return invalidResponse(avgCost);
+      update = { shares, avgCost };
+    }
   }
 
   const db = await withDb(deps);

@@ -24,7 +24,7 @@ import {
   type AnnualFact,
   type SecGet,
 } from "./fundamentals.server.ts";
-import { METRIC_KEYS, METRICS } from "./metrics.ts";
+import { CHIPS, DEFAULT_CHIPS, METRIC_KEYS } from "./metrics.ts";
 import { publicSummary } from "./refresh-api.server.ts";
 import type { Queryable } from "./store.server.ts";
 import { loadDashboardHoldings } from "./valuation.server.ts";
@@ -400,7 +400,7 @@ describe("DASH-21: a holding without SEC coverage reads “not covered” in eve
     assert.deepEqual(views["RY.TO"], { coverage: "pending", metrics: {} });
   });
 
-  it("the page data carries coverage per symbol and the cell component renders “—” + “not covered”", async () => {
+  it("the page data carries coverage per symbol and the cell component renders “—” alone, “not covered” as its accessible reason (#57)", async () => {
     await seed(["KO", "MC.PA"]);
     await refreshFundamentals(db, fakeSec().source, { nowMs: NOW });
     await pg.query("INSERT INTO user_metric_columns (user_id, metric_key, position) VALUES ($1, 'roic_1y', 0), ($1, 'rev_g_1y', 1)", [USER]);
@@ -411,7 +411,9 @@ describe("DASH-21: a holding without SEC coverage reads “not covered” in eve
     const cell = readFileSync("src/components/dashboard/metric-columns.tsx", "utf8");
     assert.match(cell, /view\?\.coverage === "not_covered"\s*\?\s*"not_covered"/);
     assert.match(readFileSync("src/lib/dashboard/metrics.ts", "utf8"), /not_covered: "not covered"/);
-    assert.match(cell, /—<span className="ml-1 text-xs">\{reason\}<\/span>/);
+    // #57 (DR4-07, spec §0.5 item 11): the dash stands alone; the reason is screen-reader text and the tooltip.
+    assert.match(cell, /—<span className="sr-only"> \{reason\}<\/span>/);
+    assert.doesNotMatch(cell, /ml-1 text-xs">\{reason\}/);
   });
 
   it("pages read stored data only: no SEC call on the page path", () => {
@@ -424,7 +426,7 @@ describe("DASH-21: a holding without SEC coverage reads “not covered” in eve
 
 // ------------------------------------------------------------------ DASH-15
 
-describe("DASH-15: the metric column picker persists per user (add, remove, reorder)", () => {
+describe("DASH-15 → #57: metric chips persist per user (defaults, add at the end, remove, empty sticks)", () => {
   const USERS: Record<string, { id: string; email: string }> = {
     diego: { id: USER, email: "d@example.com" },
     other: { id: OTHER, email: "o@example.com" },
@@ -445,30 +447,39 @@ describe("DASH-15: the metric column picker persists per user (add, remove, reor
   const put = (columns: unknown, as = "diego") => call({ method: "PUT", as, body: { columns } });
   const get = async (as = "diego") => ((await (await call({ as })).json()) as { columns: string[] }).columns;
 
-  it("starts empty and lists every available metric", async () => {
+  it("#57: a user who never saved chips gets the defaults (DR4-03); every chip is available", async () => {
     await seed([]);
     const res = await call({ as: "diego" });
     assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), { columns: [], available: METRICS });
+    assert.deepEqual(await res.json(), { columns: ["rev_g_1y", "roic_1y", "share_of_book"], saved: false, available: CHIPS });
+    assert.deepEqual(DEFAULT_CHIPS, ["rev_g_1y", "roic_1y", "share_of_book"]);
+    const page = await loadDashboardHoldings(db, USER, { previewRefresh: false, nowMs: NOW });
+    assert.deepEqual(page.metricColumns, DEFAULT_CHIPS);
   });
 
-  it("add, reorder and remove persist across requests and the page load, per user", async () => {
+  it("#57: add at the end, remove, per user, on the page; removing every chip sticks (DR4-04, DR4-05)", async () => {
     await seed([]);
-    assert.equal((await put(["rev_g_1y"])).status, 200);
-    assert.deepEqual(await get(), ["rev_g_1y"]);
-    await put(["rev_g_1y", "roic_1y", "eps_1y"]);
-    assert.deepEqual(await get(), ["rev_g_1y", "roic_1y", "eps_1y"]);
-    await put(["eps_1y", "rev_g_1y", "roic_1y"]);
-    assert.deepEqual(await get(), ["eps_1y", "rev_g_1y", "roic_1y"]);
-    await put(["eps_1y", "roic_1y"]);
-    assert.deepEqual(await get(), ["eps_1y", "roic_1y"]);
-    assert.deepEqual(await get("other"), [], "another user's columns are separate");
-    await put(["gross_margin_1y"], "other");
-    assert.deepEqual(await get(), ["eps_1y", "roic_1y"]);
+    assert.equal((await put([...DEFAULT_CHIPS, "gross_margin_1y"])).status, 200);
+    assert.deepEqual(await get(), ["rev_g_1y", "roic_1y", "share_of_book", "gross_margin_1y"]);
+    await put(["rev_g_1y", "share_of_book", "gross_margin_1y"]);
+    assert.deepEqual(await get(), ["rev_g_1y", "share_of_book", "gross_margin_1y"]);
+    assert.deepEqual(await get("other"), DEFAULT_CHIPS, "another user's chips are separate (still the defaults)");
+    await put(["eps_1y"], "other");
+    assert.deepEqual(await get(), ["rev_g_1y", "share_of_book", "gross_margin_1y"]);
     const page = await loadDashboardHoldings(db, USER, { previewRefresh: false, nowMs: NOW });
-    assert.deepEqual(page.metricColumns, ["eps_1y", "roic_1y"]);
-    await put([]);
-    assert.deepEqual(await get(), []);
+    assert.deepEqual(page.metricColumns, ["rev_g_1y", "share_of_book", "gross_margin_1y"]);
+    const empty = await put([]);
+    assert.deepEqual(await empty.json(), { columns: [], saved: true, available: CHIPS });
+    assert.deepEqual(await get(), [], "an empty list stays empty (no defaults again)");
+    assert.deepEqual((await loadDashboardHoldings(db, USER, { previewRefresh: false, nowMs: NOW })).metricColumns, []);
+  });
+
+  it("#57 (EL 2026-10-04): an account that saved metric columns before chips keeps them", async () => {
+    await seed([]);
+    // Rows written by the old picker (no metric_chips_saved_at).
+    await pg.query("INSERT INTO user_metric_columns (user_id, metric_key, position) VALUES ($1, 'eps_1y', 0), ($1, 'roic_1y', 1)", [USER]);
+    const res = await call({ as: "diego" });
+    assert.deepEqual(((await res.json()) as { columns: string[]; saved: boolean }), { columns: ["eps_1y", "roic_1y"], saved: true, available: CHIPS });
   });
 
   it("400 for unknown or repeated keys or a bad body; nothing changes", async () => {
@@ -476,6 +487,7 @@ describe("DASH-15: the metric column picker persists per user (add, remove, reor
     await put(["roic_1y"]);
     for (const [body, msg] of [
       [{ columns: ["roic_1y", "buy_score"] }, "Unknown metric column: buy_score."],
+      [{ columns: ["roic_1y", "weight"] }, "Unknown metric column: weight."],
       [{ columns: ["roic_1y", "roic_1y"] }, "Each metric column can be added once."],
       [{ columns: "roic_1y" }, "columns must be a list of metric keys."],
       ["not json", "Body must be JSON."],

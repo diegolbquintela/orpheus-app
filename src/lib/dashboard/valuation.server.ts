@@ -17,9 +17,9 @@
 import { lastRun, priceViews, type PriceView } from "./daily-refresh.server.ts";
 import { fxFactor, type RateUsed } from "./fx.server.ts";
 import { metricViews, type MetricView } from "./fundamentals.server.ts";
-import { isMetricKey, METRIC_KEYS, type MetricKey } from "./metrics.ts";
+import { DEFAULT_CHIPS, isChipKey, METRIC_KEYS, type ChipKey } from "./metrics.ts";
 import { portfolioMetrics, type PortfolioCell } from "./portfolio.ts";
-import { getUserSettings, listHoldings, listMetricColumns, type BaseCurrency, type Queryable } from "./store.server.ts";
+import { getMetricChips, getUserSettings, listHoldings, type BaseCurrency, type Queryable } from "./store.server.ts";
 
 /** More than this many calendar days since the last successful daily run: "Prices are out of date". */
 export const STALE_AFTER_DAYS = 4;
@@ -183,8 +183,8 @@ export type DashboardHoldingsData = {
   baseCurrency: BaseCurrency;
   valuation: Valuation;
   freshness: Freshness;
-  /** The user's metric columns in order (T08, DASH-15). */
-  metricColumns: MetricKey[];
+  /** The user's metric chips in order (#57; the defaults when never saved). */
+  metricColumns: ChipKey[];
   /** Coverage and stored metric values per held symbol (T08, DASH-21). */
   metrics: Record<string, MetricView>;
   /** Portfolio row per metric (T14, §9): MV-weighted mean over covered holdings, with coverage. */
@@ -209,7 +209,7 @@ export async function loadDashboardHoldings(
     baseCurrency,
     valuation,
     freshness: await freshness(db, opts.nowMs),
-    metricColumns: (await listMetricColumns(db, userId)).filter(isMetricKey),
+    metricColumns: (await getMetricChips(db, userId, DEFAULT_CHIPS)).chips.filter(isChipKey),
     metrics,
     portfolio: portfolioMetrics(valuation.rows, metrics, METRIC_KEYS),
   };

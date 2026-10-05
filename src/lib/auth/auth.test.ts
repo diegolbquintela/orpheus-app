@@ -105,10 +105,10 @@ const userCount = async (email: string) =>
     .rows[0].n;
 
 describe("auth migrations", () => {
-  it("0001_auth.sql is applied with 0002 to 0008; a re-run is a no-op", async () => {
+  it("0001_auth.sql is applied with 0002 to 0009; a re-run is a no-op", async () => {
     // (scripts/migration-plan.test.mjs checks it stays a verbatim copy of migrations/auth/.)
     const names = (await pg.query<{ name: string }>("SELECT name FROM _migrations ORDER BY name")).rows.map((r) => r.name);
-    assert.deepEqual(names, ["0001_auth.sql", "0002_dashboard.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql"]);
+    assert.deepEqual(names, ["0001_auth.sql", "0002_dashboard.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql", "0009_metric_chips_saved.sql"]);
     await pg.exec(readFileSync("migrations/0001_auth.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0003_user_settings_fk.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0004_daily_close.sql", "utf8"));
@@ -116,6 +116,7 @@ describe("auth migrations", () => {
     await pg.exec(readFileSync("migrations/0006_instrument_sic.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0007_fundamentals_parser_version.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0008_holdings_avg_cost_nullable.sql", "utf8"));
+    await pg.exec(readFileSync("migrations/0009_metric_chips_saved.sql", "utf8"));
     const fks = await pg.query(
       "SELECT 1 FROM pg_constraint WHERE conname = 'user_settings_user_id_fkey'",
     );
@@ -129,7 +130,7 @@ describe("auth migrations", () => {
     await old.query("INSERT INTO _migrations (name) VALUES ('0002_dashboard.sql')");
     await old.exec("INSERT INTO user_settings (user_id) VALUES ('orphan-test-row')");
     await old.exec("INSERT INTO holdings (user_id, symbol, shares, avg_cost) VALUES ('orphan-test-row', 'KO', 1, 1)");
-    assert.deepEqual(await applyMigrations(old), ["0001_auth.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql"]);
+    assert.deepEqual(await applyMigrations(old), ["0001_auth.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql", "0009_metric_chips_saved.sql"]);
     assert.equal((await old.query("SELECT 1 FROM user_settings")).rows.length, 0, "orphan test row removed");
     assert.equal((await old.query("SELECT 1 FROM holdings")).rows.length, 0, "orphan holding removed (0004)");
     await assert.rejects(

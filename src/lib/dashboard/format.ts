@@ -37,3 +37,6 @@ export function formatPortfolioCell(
   const value = cell.value === null ? "—" : `${(cell.value * 100).toFixed(1)}%`;
   return { label, text: `${value} · ${formatCoverage(cell.coverage)}` };
 }
+
+/** The request body's average cost: blank input is "no cost" (null), never 0 (#56). */
+export const costForRequest = (input: string): string | null => (input.trim() ? input.trim() : null);

@@ -107,8 +107,33 @@ describe("per-user data access", () => {
     const noCost = await store.addHolding(db, "alice", { symbol: "MSFT", shares: 1, avgCost: null });
     assert.equal(noCost.avgCost, null);
     assert.equal(await store.deleteHolding(db, "alice", noCost.id), true);
+    // #57: avgCost omitted keeps the stored cost; null clears it.
+    await store.updateHolding(db, "alice", ko.id, { shares: 12, avgCost: "61.5" });
+    const keep = await store.updateHolding(db, "alice", ko.id, { shares: 13 });
+    assert.deepEqual([Number(keep?.shares), Number(keep?.avgCost)], [13, 61.5]);
+    assert.equal((await store.updateHolding(db, "alice", ko.id, { shares: 13, avgCost: null }))?.avgCost, null);
+    assert.equal((await store.updateHolding(db, "alice", ko.id, { shares: 14 }))?.avgCost, null);
     assert.equal(await store.deleteHolding(db, "alice", ko.id), true);
     assert.deepEqual((await store.listHoldings(db, "alice")).map((h) => h.symbol), ["RY.TO"]);
+  });
+
+  it("#57: chips default until saved; a saved empty list sticks; old rows count as saved", async () => {
+    const D = ["rev_g_1y", "roic_1y", "share_of_book"];
+    await store.setMetricColumns(db, "bob", []);
+    await store.setMetricColumns(db, "alice", []);
+    await db.query("UPDATE user_settings SET metric_chips_saved_at = NULL");
+    assert.deepEqual(await store.getMetricChips(db, "alice", D), { chips: D, saved: false });
+    assert.deepEqual(await store.setMetricChips(db, "alice", ["eps_1y", "share_of_book"]), ["eps_1y", "share_of_book"]);
+    assert.deepEqual(await store.getMetricChips(db, "alice", D), { chips: ["eps_1y", "share_of_book"], saved: true });
+    await store.setMetricChips(db, "alice", []);
+    assert.deepEqual(await store.getMetricChips(db, "alice", D), { chips: [], saved: true });
+    // Bob saved columns with the old picker (rows, no timestamp): they are his chips.
+    await store.setMetricColumns(db, "bob", ["roic_1y"]);
+    assert.deepEqual(await store.getMetricChips(db, "bob", D), { chips: ["roic_1y"], saved: true });
+    await store.setMetricColumns(db, "bob", []);
+    assert.deepEqual(await store.getMetricChips(db, "bob", D), { chips: D, saved: false });
+    await store.setMetricChips(db, "alice", ["eps_1y"]);
+    await store.setMetricColumns(db, "alice", []);
   });
 
   it("metric columns keep order, replace atomically, and are per user", async () => {
