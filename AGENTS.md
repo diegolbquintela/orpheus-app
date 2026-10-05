@@ -54,6 +54,11 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
   (`*.dom.test.tsx`) cover what the DOM can show: the four row fields, tap-to-detail, the one-line empty
   state, no helper paragraph, chips add / remove / defaults, `—` cells, the one total, the leave-outs
   absent. New test files go into the `test` script in `package.json`.
+- **EL decisions (2026-10-04):** one total, value only (no total cost / return on the page); accounts with
+  saved columns keep them as chips, defaults only for users with nothing saved; the 1024 px breakpoint and the
+  empty-state text `Add a holding`; the ticket 3 / 4 migrations are fine if nullable and idempotent and run
+  through `check:dashboard-built --with-database`.
+- **Landed:** ticket 2 (#55), see "Dashboard holdings list (#55)" below and spec 0.9.
 - **Paused / not this epic:** don't touch `chore/remove-grok-leftovers` / PR #52 or issues #50 / #51
   unless handed them.
 
@@ -395,6 +400,20 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 - `holdings.user_id` → `"user"(id)` on delete cascade (migration `0004_daily_close.sql`, T05), so deleting
   a test user removes their holdings too. 0004 first deletes holdings whose user no longer exists.
 
+### Dashboard holdings list (#55, epic #53 ticket 2)
+
+- `src/components/dashboard/holdings.tsx`: `Row` is an `<li>` with a toggle button (four fields: `holding-name`,
+  `holding-shares`, `holding-value`, `holding-weight`) and a detail panel (`holding-detail`, `hidden` while
+  closed but always rendered, so SSR HTML and `check-dashboard-built` still see `holding-avg-cost`,
+  `holding-close`, `holding-cost`, `holding-return(-pct)`, `holding-fx`, `holding-detail-value`,
+  `holding-detail-weight`). Edit / Delete live in the panel; `remove()` and its #38 guard are unchanged (the
+  source checks in `metric-compute.test.ts` still pin them).
+- Under the list: one total (`holdings-total`, value only, `—` when nothing is valued) with the excluded-count
+  line, the T15 pie (ticket 5 makes it a donut), and an interim `MetricsTable` (`data-testid="metrics"`: picker,
+  `metric-th` / `metric-row` / `metric-cell`, the T14 `Portfolio` row) until ticket 4's chips.
+- No helper paragraph; empty state `Add a holding`. Tests: `holdings-list.dom.test.tsx`,
+  `holdings.dom.test.tsx`; browser check `qa/tools/dashboard-list.mjs` (needs `QA_EMAIL` / `QA_PASSWORD`).
+
 ### Dashboard daily closes (T05 #13)
 
 - Code: `src/lib/dashboard/close-provider.ts` (the `DailyCloseProvider` interface from spec A.4, plus an
@@ -467,8 +486,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 
 ### Dashboard holdings valuation (T07 #15)
 
-*Epic #53: the math below stays; the presentation (nine columns, total row) is replaced by spec section 0
-(four-field row, tap detail, one total; average cost optional from ticket 3).*
+*Epic #53: the math below stays; the presentation (nine columns, total row) was replaced in #55 by the
+four-field row, the tap detail and one total (value only); average cost becomes optional in ticket 3.*
 
 - Code: `src/lib/dashboard/valuation.server.ts`: `valueHoldings()` (moved here from `fx.server.ts`; uses
   `fxFactor()` from `fx.server.ts`), `freshness()` and `loadDashboardHoldings()`, which the `/dashboard`

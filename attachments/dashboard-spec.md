@@ -166,18 +166,21 @@ table** (no instructions under or above the list). As of `main` 46840be only the
    is dropped: a new chip goes at the end.
 4. **Chip storage and defaults.** Chips are saved per user through the existing column storage
    (`user_metric_columns`, `/api/dashboard/columns`). A user with nothing saved gets the three defaults; an
-   account that already saved metric columns keeps them as its chips. Removing every chip must stick
+   account that already saved metric columns keeps them as its chips (**decided, EL 2026-10-04**). Removing every chip must stick
    (ticket 4 picks the mechanism; if it needs a schema change, that's a new migration, never an edit).
 5. **Detail on tap** = the holding's T07 fields (listed in 0.2) plus Edit and Delete, in a panel that opens
    under the row (or as a sheet) at both widths.
 6. **Row name** = `instruments.name`; the ticker until a name is stored. The ticker itself shows in the detail.
 7. **Blank cost** is stored as no cost (`NULL`), distinct from 0; ticket 3 needs a new migration (the next
-   number) that makes `holdings.avg_cost` nullable, keeping `CHECK (avg_cost >= 0)` for given values. Blank
+   number) that makes `holdings.avg_cost` nullable, keeping `CHECK (avg_cost >= 0)` for given values (EL
+   2026-10-04: fine if nullable and idempotent, and tested with `check:dashboard-built --with-database`; the
+   same applies to any ticket 4 migration). Blank
    cost and return show as empty, not as a dash (the dash rule is for metric figures).
 8. **Second sheet** = a two-way `Holdings` | `Metrics` switch below 1024 px; side by side (list left,
-   metrics right) at 1024 px and up.
+   metrics right) at 1024 px and up. The 1024 px breakpoint is **decided (EL 2026-10-04)**.
 9. **"One total"** = the total value only. The total-cost and total-return cells of today's total row leave
-   the page (per-holding cost and return stay in the detail).
+   the page (per-holding cost and return stay in the detail, blank until a cost is entered). **Decided (EL
+   2026-10-04)**; landed with ticket 2 (#55), see 0.9.
 10. **Donut** = today's pie slices rendered with an inner radius. The "price pending" / "FX pending" lists
     under the chart go (those holdings show `—` in the list and are counted in the excluded line under the
     total); with no priced holding the donut is absent and the total shows `—`.
@@ -194,6 +197,7 @@ table** (no instructions under or above the list). As of `main` 46840be only the
     `pieSlices()` and becomes the donut.
 15. **Edit** in the detail changes shares and average cost (cost can be cleared to blank); the ticker still
     can't be edited.
+16. **Empty-state text** is exactly `Add a holding` (**decided, EL 2026-10-04**).
 
 ### 0.6 Tickets
 
@@ -306,6 +310,35 @@ MC.PA) for book figures.
 | DASH-24 | Superseded | DR5-02 (donut, same slices; pending lists dropped). |
 | DASH-25 | Kept | Restated in DR2-06. |
 | DASH-26 | Superseded | DR6-06 (no new production flip; one full regression run). |
+
+### 0.9 Landed
+
+**Ticket 2 (#55, PR #61): holdings list as the page.** `src/components/dashboard/holdings.tsx`:
+
+- The nine-column T07 table is gone. The list is a `<ul data-testid="holdings-list">`; each row is a button
+  (`holding-row-toggle`, `aria-expanded` / `aria-controls`) with exactly four fields: name (`holding-name`:
+  `instruments.name`, the ticker until one is stored), shares (`holding-shares`), value in base currency
+  (`holding-value`, full digits, no FX line) and share of the book (`holding-weight`). Phone: two lines
+  (name · value / shares · share); from 640 px: four columns with a small header row.
+- Tap → the detail panel (`holding-detail`, always server-rendered, `hidden` while closed): ticker, name,
+  shares, average cost, last close + session date, value with the FX line, cost, return (amount and %), share
+  of the book, Edit (shares and average cost become inputs) and Delete with the #38 guard unchanged.
+- Empty state: one line `Add a holding` (`holdings-empty`); no list, total, chart or metrics.
+- The T06/T07 explanatory paragraph is removed; the "Not included in the totals (price or FX pending): …"
+  line is gone (the excluded-count line under the total stays).
+- **One total (value only) under the list** (`holdings-total-line` / `holdings-total`), pulled forward from
+  ticket 5 so the page isn't left without a total once the table went (EL decision 9). It shows `—` when no
+  holding has a value. Ticket 5 still owns DR5-01 (re-check) and the rest of the book.
+- **Interim, until ticket 4 (#57):** today's metric columns stay reachable in a `Metrics` section under the
+  pie (`data-testid="metrics"`): the T08 picker, one row per holding (name + the user's columns, the cells as
+  today) and the T14 `Portfolio` row. It scrolls sideways inside its own box, so the page never does. The
+  T15 pie is unchanged until ticket 5. The add form is unchanged until ticket 3.
+- Wide screen (≥ 1024 px) uses the same single column (max-width 6xl) with the four-column rows; the
+  metrics-on-the-right layout is ticket 4.
+- Tests: `holdings-list.dom.test.tsx` (row fields, tap opens / closes the detail, Edit inputs, empty state,
+  no helper paragraph, one total, metrics reachable), `holdings.dom.test.tsx` (the #38 guard, now via the
+  detail), `check-dashboard-built.mjs --with-database` (row + detail fields, `Add a holding`, no total
+  cost / return), `qa/tools/dashboard-list.mjs` (browser, both widths).
 
 ## 1. What we are building
 

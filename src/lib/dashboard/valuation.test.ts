@@ -336,9 +336,9 @@ describe("EL (#43): the total row flags holdings excluded for no price / FX rate
     assert.equal(excludedNote(0, 1), "1 holding without a price or FX rate excluded");
     assert.doesNotMatch(String(excludedNote(2, 1)), /\b(buy|sell|good|bad|score|rating|recommend)\b/i);
   });
-  it("the holdings table renders it in the total row only when N > 0, and the pie below the table", () => {
+  it("the holdings list renders it on the total line only when N > 0, and the pie below the list (#55)", () => {
     const src = readFileSync("src/components/dashboard/holdings.tsx", "utf8");
-    assert.match(src, /return note \? \(\s*<span[^>]*data-testid="holdings-total-excluded-count"/);
+    assert.match(src, /\{note \? \(\s*<span[^>]*data-testid="holdings-total-excluded-count"/);
     assert.match(src, /<HoldingsPie rows=\{valuation\.rows\} base=\{baseCurrency\} \/>/);
     const pie = readFileSync("src/components/dashboard/holdings-pie.tsx", "utf8");
     assert.match(pie, /role="img" aria-label=\{`Pie chart of % of portfolio: \$\{summary\}`\}/);

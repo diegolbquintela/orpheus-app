@@ -123,8 +123,13 @@ check the same day).
 
 The dashboard is being redesigned phone first (about 400 px), then wide screen. The target, the source of
 truth for tickets 2–6, is **section 0 of [`attachments/dashboard-spec.md`](attachments/dashboard-spec.md)**;
-QA's acceptance IDs are DR0–DR6 there and in [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md). Until those
-tickets merge, the page still works as described in the T04–T15 paragraphs below.
+QA's acceptance IDs are DR0–DR6 there and in [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md).
+
+**Landed so far: ticket 2 (#55).** `/dashboard` is now the holdings list: each row shows name, shares, value
+in your base currency and share of the book; tap a row for average cost, last close, cost, return, the FX
+rate, Edit and Delete. With no holdings it says `Add a holding`. The explanatory paragraph is gone. Under the
+list: one total (value only), the pie, and for now the metric columns with their portfolio row (they become
+chips in ticket 4). The other T04–T15 paragraphs below still describe the data; their table layout is gone.
 
 - **The holdings list is the page.** Each row: name, shares, value in base currency, share of the book. Tap
   a row for the rest (cost, last close, return, FX, edit, delete). No helper paragraphs. With no holdings

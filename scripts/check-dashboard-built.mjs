@@ -44,8 +44,9 @@
  * Canada USD/EUR rates are stored (by the add's background backfill or the refresh; fxErrors 0, fxInserted 0
  * on the second run); GET /api/dashboard/fx returns them for KO's session date; switching the setting to CAD / EUR / USD re-expresses the total
  * (data-base, and CAD total = USD total × the USD rate used). T07: the out-of-date note before any run, then
- * every column header, KO's name, average cost, cost (D8: same rate), total return and %, 100.0% of
- * portfolio, the total row, and "Prices as of <KO session> close · FX …" in USD and CAD. T08: PUT
+ * (#55: the list row's name, shares, value and share of the book, the hidden detail panel) KO's stored
+ * name, average cost, cost (D8: same rate), return and %, 100.0% share of the book, the one total (no
+ * total cost or return), and "Prices as of <KO session> close · FX …" in USD and CAD. T08: PUT
  * /api/dashboard/columns adds, reorders and removes metric columns (400 for an unknown key), GET and the
  * page show the saved order (metric-th), and KO's metric cells render. Run it without SEC_CONTACT_EMAIL
  * (the normal case): then the refresh reports fundamentalsSkipped and KO's cells read "coverage check
@@ -404,7 +405,9 @@ if (!WITH_DB) {
   check(/<title>Dashboard · Orpheus Wisdom<\/title>/.test(page.body), `${label}: GET /dashboard title`);
   check(/<meta name="robots" content="noindex, nofollow"\/>/.test(page.body), `${label}: GET /dashboard noindex`);
   check(/data-testid="holding-form"/.test(page.body), `${label}: GET /dashboard lacks the holdings form`);
-  check(/No holdings yet\./.test(page.body), `${label}: GET /dashboard lacks "No holdings yet."`);
+  // #55: the empty state is one line, "Add a holding", with no list, total, chart or helper paragraph.
+  check(/data-testid="holdings-empty"[^>]*>Add a holding</.test(page.body), `${label}: GET /dashboard lacks the "Add a holding" empty state`);
+  check(!/data-testid="holdings-(list|total-line|pie)"/.test(page.body) && !/Average cost is per share/.test(page.body), `${label}: empty /dashboard shows a list, total, chart or the old helper paragraph`);
   check(/Signed in as (<!-- -->)?qa-allowed@example\.com/.test(page.body), `${label}: GET /dashboard lacks "Signed in as"`);
   check(/Database: connected · 11\/11 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 11/11 tables"`);
   check(!/data-testid="preview-refresh"/.test(page.body), `${label}: refresh button shown without VERCEL_ENV=preview`);
@@ -492,7 +495,7 @@ if (!WITH_DB) {
   check(closeCell && closeAgain && closeAgain[0] === closeCell[0], `${label}: reload changed KO's close (${closeCell?.[0]} -> ${closeAgain?.[0]})`);
   // FX and base currency (T06). The base is USD (set above), so KO's value needs no rate.
   const totalOf = (html) => {
-    const m = /data-testid="holdings-total" data-base="([A-Z]{3})">(.*?)(<span|<\/td>)/.exec(html);
+    const m = /data-testid="holdings-total" data-base="([A-Z]{3})">(.*?)(<span|<\/td>|<\/span>)/.exec(html);
     return m ? { base: m[1], text: m[2].replace(/<!-- -->/g, ""), n: Number(m[2].replace(/<!-- -->|,/g, "").split(" ")[0]) } : null;
   };
   const usdTotal = totalOf(reload.body);
@@ -527,20 +530,25 @@ if (!WITH_DB) {
   };
   const fmt = (n, sign) => new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, ...(sign ? { signDisplay: "exceptZero" } : {}) }).format(n);
   const usdPage = reload.body;
-  for (const th of ["Ticker", "Name", "Shares", "Average cost", "Last close", "Market value (USD)", "Cost (USD)", "Total return", "% of portfolio"])
-    check(usdPage.replace(/<!-- -->/g, "").includes(`>${th}</th>`), `${label}: holdings table lacks the "${th}" column`);
+  // #55: the list row shows name, shares, value and share of the book; the rest is in the (server-rendered,
+  // hidden) detail panel opened by a tap. The old T07 table headers are gone.
+  for (const id of ["holding-row-toggle", "holding-name", "holding-shares", "holding-value", "holding-weight", "holding-detail"])
+    check(new RegExp(`data-testid="${id}"`).test(usdPage), `${label}: /dashboard KO row lacks ${id}`);
+  check(!/>Cost \(USD\)<\/th>|>Total return<\/th>|>% of portfolio<\/th>/.test(usdPage.replace(/<!-- -->/g, "")), `${label}: the old holdings table is still rendered`);
+  check(/data-testid="holding-shares"[^>]*>12(<!-- -->)?<span[^>]*> shares<\/span>/.test(usdPage), `${label}: KO row shares -> ${textOf(usdPage, "holding-shares")}`);
   const koName = textOf(usdPage, "holding-name");
-  check(koName && koName !== "—", `${label}: KO name -> ${koName}`);
+  check(koName && koName !== "KO" && koName !== "—", `${label}: KO name (stored company name) -> ${koName}`);
   check(textOf(usdPage, "holding-avg-cost") === "50 USD", `${label}: KO average cost -> ${textOf(usdPage, "holding-avg-cost")}`);
   check(textOf(usdPage, "holding-cost") === "600.00 USD", `${label}: KO cost -> ${textOf(usdPage, "holding-cost")}`);
   const koClose = closeCell ? Number(closeCell[2].split(" ")[0]) : NaN;
   check(textOf(usdPage, "holding-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: KO total return -> ${textOf(usdPage, "holding-return")} (close ${koClose})`);
   check(textOf(usdPage, "holding-return-pct") === `${fmt(((koClose - 50) / 50) * 100, true)}%`, `${label}: KO return % -> ${textOf(usdPage, "holding-return-pct")}`);
-  check(textOf(usdPage, "holding-weight") === "100.0%" && textOf(usdPage, "holdings-total-weight") === "100.0%", `${label}: % of portfolio -> ${textOf(usdPage, "holding-weight")} / ${textOf(usdPage, "holdings-total-weight")}`);
+  check(textOf(usdPage, "holding-weight") === "100.0%" && textOf(usdPage, "holding-detail-weight") === "100.0%", `${label}: share of the book -> ${textOf(usdPage, "holding-weight")} / ${textOf(usdPage, "holding-detail-weight")}`);
   // T15 (#23): one slice, KO 100.0%, same as the table's % of portfolio; no exclusion note.
   check(/data-testid="holdings-pie" data-slices="1"/.test(usdPage) && textOf(usdPage, "pie-slice-pct") === "100.0%" && /data-testid="pie-slice" data-label="KO"/.test(usdPage), `${label}: pie -> ${textOf(usdPage, "pie-slice-pct")}`);
   check(!/data-testid="holdings-total-excluded-count"/.test(usdPage) && !/data-testid="pie-price-pending"/.test(usdPage), `${label}: exclusion note shown with every holding priced`);
-  check(textOf(usdPage, "holdings-total-cost") === "600.00 USD" && textOf(usdPage, "holdings-total-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: total cost/return -> ${textOf(usdPage, "holdings-total-cost")} / ${textOf(usdPage, "holdings-total-return")}`);
+  // #55 (EL 2026-10-04): one total, value only; no total cost or total return on the page.
+  check(!/data-testid="holdings-total-(cost|return|weight)"/.test(usdPage), `${label}: total cost / return / weight still rendered`);
   check(textOf(usdPage, "as-of") === `Prices as of ${closeCell?.[1]} close · FX not needed (all in USD)`, `${label}: USD as-of -> ${textOf(usdPage, "as-of")}`);
   check(!/data-testid="stale-note"/.test(usdPage), `${label}: out-of-date note shown right after a successful run`);
   check(textOf(pages.CAD, "as-of") === `Prices as of ${closeCell?.[1]} close · FX ${usdRate?.rateDate}`, `${label}: CAD as-of -> ${textOf(pages.CAD, "as-of")}`);
@@ -606,6 +614,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (columns, cost, return, % of portfolio, totals, as-of line, out-of-date note); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );
