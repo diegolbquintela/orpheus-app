@@ -12,11 +12,50 @@ affects the repo.
 - The harness (this `AGENTS.md`), the spec docs (`attachments/dca-app-spec.md` for the calculator;
   `attachments/dashboard-spec.md` for the signed-in dashboard, **approved by Diego 2026-10-02 for
   all decisions D1–D13**: D8, D9 and D12 were approved as recommended, and Amendment A
-  (section 14) is decided as D13: $0, Yahoo primary, Neon cache, Alpha Vantage free fallback) and `README.md` are the source of truth for this
+  (section 14) is decided as D13: $0, Yahoo primary, Neon cache, Alpha Vantage free fallback; its **section 0**
+  is the source of truth for the epic #53 redesign, see below) and `README.md` are the source of truth for this
   app.
 - Every feature PR updates `README.md`, the relevant spec and this harness **in the same PR**, or says
   in the PR body, for each of the three, why it did not change.
 - QA fails a PR that skips this.
+
+## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
+
+*Harness for tickets 1–6 of epic #53 (#54 harness + specs, #55 holdings list, #56 add holding, #57 metrics
+sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via the Chief of Staff,
+2026-10-04.*
+
+- **Source of truth:** `attachments/dashboard-spec.md` **section 0** (the architect's brief verbatim, the
+  page, the leave-out list, what stays unchanged, interpretations, the ticket table, acceptance DR0–DR6 and
+  the map of old DASH IDs). It wins over the older dashboard sections of the spec and over the T07 / T14 /
+  T15 notes below where they differ; the data math in those notes doesn't change. The brief calls the file
+  `docs/dashboard-spec.md`; it stays at `attachments/` (code and docs link there).
+- **Order:** harness first (this section), then the specs (spec section 0, `README.md`,
+  `qa/CANONICAL-AC-PACK.md`), all in ticket 1's PR; then tickets 2–6, one PR each, in order, each off the
+  latest `main` after the previous one merges. Ticket 1 changes no app code.
+- **Rules (#53):** no hires. Don't change the visual style (same dark desk: colours, fonts, tokens). Don't
+  hide the dashboard: it stays released, and nobody touches `DASHBOARD_ENABLED`, the flag code or any env
+  var. Small tickets; a draft PR is the proof of start; QA on the preview before merge, then on production.
+- **Phone first:** build and check at about 400 px first (QA: 400 × 860), then wide screen (1024 px and up;
+  QA: 1440 × 900). Below 1024 px one column with a `Holdings` | `Metrics` switch; at 1024 px and up the
+  metrics sheet sits on the right.
+- **Leave out (never add, and ticket 6 removes what's left):** Connect broker, K/M/B abbreviated amounts,
+  an ownership toggle, download / export, instructions under (or above) the table. No helper paragraphs.
+- **Keep:** the signed-out matrix (`release-smoke.mjs`, `check:dashboard-built`), the calculator and its
+  $313,000 regression, noindex, the analytics rules (and the referrer rule on `main` when #50 lands), no
+  buy / sell / hold / rating / target wording and no disclaimer, stored data only on page loads (DASH-14),
+  writes through `fetch()` only (never a plain HTML form post). A schema change (ticket 3's optional cost)
+  is a new numbered migration, never an edit to a shipped one.
+- **Missing figures** are `—` alone (reason only in the tooltip / accessible name). **Blank cost and
+  return** are empty, not a dash.
+- **Every ticket 2–6 PR body** lists the DR IDs it implements, the old DASH IDs it supersedes (spec 0.8),
+  any new interpretation (added to spec 0.5 in the same PR), and the preview alias for its final SHA.
+- **Tests:** jsdom has no layout, so widths are QA's job on the preview; component tests
+  (`*.dom.test.tsx`) cover what the DOM can show: the four row fields, tap-to-detail, the one-line empty
+  state, no helper paragraph, chips add / remove / defaults, `—` cells, the one total, the leave-outs
+  absent. New test files go into the `test` script in `package.json`.
+- **Paused / not this epic:** don't touch `chore/remove-grok-leftovers` / PR #52 or issues #50 / #51
+  unless handed them.
 
 ## What the app is
 
@@ -428,6 +467,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 
 ### Dashboard holdings valuation (T07 #15)
 
+*Epic #53: the math below stays; the presentation (nine columns, total row) is replaced by spec section 0
+(four-field row, tap detail, one total; average cost optional from ticket 3).*
+
 - Code: `src/lib/dashboard/valuation.server.ts`: `valueHoldings()` (moved here from `fx.server.ts`; uses
   `fxFactor()` from `fx.server.ts`), `freshness()` and `loadDashboardHoldings()`, which the `/dashboard`
   loader (`gate.ts` `getDashboardHoldings`) calls. `priceViews()` now also returns `instruments.name`.
@@ -460,6 +502,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `check:dashboard-built --with-database` checks the rendered columns and values.
 
 ### Dashboard fundamentals and metric columns (T08 #16)
+
+*Epic #53: the eight metric columns become searchable chips on the metrics sheet (ticket 4; defaults Revenue
+growth 1y, ROIC (1y), Share of the book; no reorder), and a missing figure shows `—` alone.*
 
 - Code: `src/lib/dashboard/fundamentals.server.ts` (the one `FundamentalsSource` adapter:
   `createSecFundamentalsSource()`, `annualFactsFromCompanyFacts()`, the `CONCEPTS` tag map, name matching,
@@ -587,6 +632,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 
 ### Dashboard portfolio aggregates (T14 #22)
 
+*Epic #53: the math below stays; the figures move to the metrics sheet's `Book` row (ticket 5), 0% coverage
+shows `—`.*
+
 - Code: `src/lib/dashboard/portfolio.ts` `portfolioMetrics()` (pure; called by `loadDashboardHoldings()`
   → `portfolio`, computed at read time from the stored valuation and `metric_values`; no new table, no
   migration). UI: `PortfolioMetricCell` in `metric-columns.tsx`, rendered in the holdings `<tfoot>` total
@@ -608,6 +656,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   holdings outside both the weights and coverage; no FY−1 diluted EPS → `insufficient_history`.
 
 ### Dashboard pie chart (T15 #23) and the excluded-holdings flag
+
+*Epic #53: `pieSlices()` stays; the pie becomes a donut under the one total and the pending lists under it go
+(ticket 5). The excluded-holdings line stays under the total.*
 
 - Code: `src/lib/dashboard/pie.ts` `pieSlices()` (pure, from `valuation.rows`: value / total × 100, the same
   numbers as the table's % column, labelled with the same `toFixed(1)`), `PIE_MAX_SLICES = 10` (10 largest +
