@@ -341,6 +341,35 @@ describe("DASH-07: add, edit, delete", () => {
     assert.deepEqual(parseEditCost("  "), { field: "avgCost", error: "Average cost must be a number, or null to clear it." });
   });
 
+  it("QA N2 (#58): a non-number avgCost (true, {}, [], 1/0) gets the number message on POST and PUT, never 'is required'", async () => {
+    const NUM = { error: "Average cost must be a number with at most 6 decimals.", field: "avgCost" };
+    for (const bad of [true, false, {}, [], [5]]) {
+      assert.deepEqual(parseOptionalCost(bad), NUM, `parseOptionalCost(${JSON.stringify(bad)})`);
+      assert.deepEqual(parseEditCost(bad), NUM, `parseEditCost(${JSON.stringify(bad)})`);
+      assert.deepEqual(parseQuantity(bad, "avgCost"), NUM);
+    }
+    assert.deepEqual(parseQuantity(Number.POSITIVE_INFINITY, "avgCost"), NUM);
+    assert.deepEqual(parseQuantity(Number.NaN, "avgCost"), NUM);
+    assert.deepEqual(parseQuantity(true, "shares"), { error: "Shares must be a number with at most 6 decimals.", field: "shares" });
+    // Missing / blank still read as before: POST no cost, parseQuantity "is required".
+    assert.deepEqual(parseQuantity("", "avgCost"), { field: "avgCost", error: "Average cost is required." });
+    for (const bad of [true, {}, []]) {
+      const r = await add({ symbol: "ASML.AS", shares: "2", avgCost: bad });
+      assert.equal(r.status, 400);
+      assert.deepEqual(await r.json(), NUM);
+    }
+    const res = await add({ symbol: "ASML.AS", shares: "2", avgCost: "600" });
+    const id = ((await res.json()) as { holding: { id: number } }).holding.id;
+    for (const bad of [true, {}, []]) {
+      const r = await item(id, { method: "PUT", body: { shares: "2", avgCost: bad } });
+      assert.equal(r.status, 400);
+      assert.deepEqual(await r.json(), NUM);
+    }
+    const cost = (await pg.query<{ avg_cost: string | null }>("SELECT avg_cost::text AS avg_cost FROM holdings WHERE id = $1", [id])).rows[0].avg_cost;
+    assert.equal(cost, "600.000000", "a refused PUT leaves the cost as it was");
+    assert.equal((await item(id, { method: "DELETE" })).status, 200);
+  });
+
   it("deletes a holding; deleting again is 404", async () => {
     const ry = ((await (await list()).json()) as { holdings: { id: number; symbol: string }[] }).holdings.find(
       (h) => h.symbol === "RY.TO",

@@ -49,7 +49,10 @@
  * total cost or return), and "Prices as of <KO session> close · FX …" in USD and CAD. T08 → #57: the
  * default chips for a new user, PUT /api/dashboard/columns adds a chip at the end and removes chips (400 for
  * an unknown key, an empty list sticks), the page shows the kept chips and headers only (metric-th), the
- * sheet switch and search, and KO's metric cells render (a missing one as the dash alone). Run it without SEC_CONTACT_EMAIL
+ * sheet switch and search, and KO's metric cells render (a missing one as the dash alone). #58 (book): no
+ * donut, pending list or empty sentence before KO has a close (total "—"), then a one-slice donut; the
+ * metrics foot is the `Book` row (share of the book 100.0%, a chip nobody has a figure for "—" alone, never
+ * "0% covered"). Run it without SEC_CONTACT_EMAIL
  * (the normal case): then the refresh reports fundamentalsSkipped and KO's cells read "coverage check
  * pending"; no SEC request is made by this script.
  * Adding a holding and the refresh call the live price feed and the live Bank of Canada Valet API, so
@@ -409,7 +412,7 @@ if (!WITH_DB) {
   // #56 (DR3-01): Ticker, Shares, Average cost marked optional, Add; no placeholder sentences.
   const form = /<form[^>]*data-testid="holding-form"[^>]*>(.*?)<\/form>/s.exec(page.body)?.[1] ?? "";
   check(
-    (form.match(/<input/g) ?? []).length === 3 && /aria-label="Average cost \(optional\)"/.test(form) && /Average cost \(optional\)</.test(form) &&
+    (form.match(/<input/g) ?? []).length === 3 && !/aria-label="Average cost/.test(form) && /Avg cost<span class="sr-only"> \(optional\)<\/span>/.test(form) && /Average cost \(optional\)</.test(form) &&
       [...form.matchAll(/placeholder="([^"]*)"/g)].map((m) => m[1]).join("|") === "optional" && />Add<\/button>/.test(form),
     `${label}: add form is not Ticker / Shares / Average cost (optional) / Add with only the "optional" placeholder`,
   );
@@ -461,13 +464,23 @@ if (!WITH_DB) {
   check(zero.status === 400 && /Shares must be greater than 0\./.test(zero.body), `${label}: shares 0 -> ${zero.status} ${zero.body}`);
   const neg = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "1", avgCost: "-1" } });
   check(neg.status === 400 && /Average cost must be 0 or more\./.test(neg.body), `${label}: avg cost -1 -> ${neg.status} ${neg.body}`);
+  // QA N2 (#58): a non-number avgCost gets the number message (not "is required"), on POST and PUT.
+  const NUM_MSG = /"error":"Average cost must be a number with at most 6 decimals\.","field":"avgCost"/;
+  for (const bad of [true, {}]) {
+    const r = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "1", avgCost: bad } });
+    check(r.status === 400 && NUM_MSG.test(r.body), `${label}: POST avgCost ${JSON.stringify(bad)} -> ${r.status} ${r.body}`);
+    const u = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "10", avgCost: bad } });
+    check(u.status === 400 && NUM_MSG.test(u.body), `${label}: PUT avgCost ${JSON.stringify(bad)} -> ${u.status} ${u.body}`);
+  }
   const edit = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "50" } });
   check(edit.status === 200 && /"shares":"12(\.0+)?"/.test(edit.body), `${label}: PUT KO -> ${edit.status} ${edit.body.slice(0, 120)}`);
   const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
   check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
   check(/data-testid="holding-close"/.test(withKo.body), `${label}: /dashboard lacks the KO last-close cell`);
-  // T15 (#23): KO has no close yet → no slice, listed as price pending; the total row flags the exclusion.
-  check(/data-testid="holdings-pie-empty"/.test(withKo.body) && /data-testid="pie-price-pending"[^>]*>price pending: (<!-- -->)?KO</.test(withKo.body), `${label}: pie before any close lacks the empty state / price-pending list`);
+  // #58 (book): KO has no close yet → no donut at all (no empty sentence, no pending list), the one total is
+  // "—" and the total line flags the exclusion.
+  check(!/data-testid="holdings-pie"/.test(withKo.body) && !/pie-price-pending|holdings-pie-empty|No holdings with a price yet/.test(withKo.body), `${label}: donut / pending list / empty sentence shown before any close`);
+  check(/data-testid="holdings-total"[^>]*>—</.test(withKo.body), `${label}: total before any close isn't "—"`);
   check(/data-testid="holdings-total-excluded-count"[^>]*>1 holding without a price excluded</.test(withKo.body), `${label}: total row lacks "1 holding without a price excluded"`);
   // T07: no daily run has finished yet on this fresh database, so the out-of-date note shows.
   check(/data-testid="stale-note"[^>]*>Prices are out of date\.(<!-- -->)? (<!-- -->)?No daily refresh has completed yet\./.test(withKo.body), `${label}: /dashboard before any run lacks the out-of-date note`);
@@ -554,8 +567,8 @@ if (!WITH_DB) {
   check(textOf(usdPage, "holding-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: KO total return -> ${textOf(usdPage, "holding-return")} (close ${koClose})`);
   check(textOf(usdPage, "holding-return-pct") === `${fmt(((koClose - 50) / 50) * 100, true)}%`, `${label}: KO return % -> ${textOf(usdPage, "holding-return-pct")}`);
   check(textOf(usdPage, "holding-weight") === "100.0%" && textOf(usdPage, "holding-detail-weight") === "100.0%", `${label}: share of the book -> ${textOf(usdPage, "holding-weight")} / ${textOf(usdPage, "holding-detail-weight")}`);
-  // T15 (#23): one slice, KO 100.0%, same as the table's % of portfolio; no exclusion note.
-  check(/data-testid="holdings-pie" data-slices="1"/.test(usdPage) && textOf(usdPage, "pie-slice-pct") === "100.0%" && /data-testid="pie-slice" data-label="KO"/.test(usdPage), `${label}: pie -> ${textOf(usdPage, "pie-slice-pct")}`);
+  // T15 (#23) / #58: the donut has one slice, KO 100.0%, same as the row's share of the book; no exclusion note.
+  check(/data-testid="holdings-pie" data-shape="donut" data-slices="1"/.test(usdPage) && textOf(usdPage, "pie-slice-pct") === "100.0%" && /data-testid="pie-slice" data-label="KO"/.test(usdPage), `${label}: pie -> ${textOf(usdPage, "pie-slice-pct")}`);
   check(!/data-testid="holdings-total-excluded-count"/.test(usdPage) && !/data-testid="pie-price-pending"/.test(usdPage), `${label}: exclusion note shown with every holding priced`);
   // #55 (EL 2026-10-04): one total, value only; no total cost or total return on the page.
   check(!/data-testid="holdings-total-(cost|return|weight)"/.test(usdPage), `${label}: total cost / return / weight still rendered`);
@@ -582,7 +595,7 @@ if (!WITH_DB) {
   check(!/data-testid="holding-return-pct"/.test(noCostPage) && !/NaN|n\/m/.test(noCostPage.replace(/<script.*?<\/script>/gs, "")), `${label}: no cost, return % / NaN / n/m rendered`);
   check(textOf(noCostPage, "holding-weight") === "100.0%" && textOf(noCostPage, "holding-detail-weight") === "100.0%", `${label}: no cost, share of the book -> ${textOf(noCostPage, "holding-weight")}`);
   check(JSON.stringify(totalOf(noCostPage)) === JSON.stringify(backToUsd), `${label}: no cost, total -> ${JSON.stringify(totalOf(noCostPage))} (want ${JSON.stringify(backToUsd)})`);
-  check(/data-testid="holdings-pie" data-slices="1"/.test(noCostPage) && textOf(noCostPage, "pie-slice-pct") === "100.0%", `${label}: no cost, pie -> ${textOf(noCostPage, "pie-slice-pct")}`);
+  check(/data-testid="holdings-pie" data-shape="donut" data-slices="1"/.test(noCostPage) && textOf(noCostPage, "pie-slice-pct") === "100.0%", `${label}: no cost, pie -> ${textOf(noCostPage, "pie-slice-pct")}`);
   const refill = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "50" } });
   check(refill.status === 200 && /"avgCost":"50(\.0+)?"/.test(refill.body), `${label}: PUT KO avgCost 50 again -> ${refill.status} ${refill.body.slice(0, 160)}`);
   const refilled = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
@@ -624,6 +637,7 @@ if (!WITH_DB) {
   check(/data-testid="sheet-switch"/.test(defPage) && /data-testid="metric-search"/.test(defPage) && /aria-label="Remove Share of the book"/.test(defPage), `${label}: /dashboard lacks the sheet switch, the metric search or a chip's remove control`);
   check(!/data-testid="metric-picker"|data-testid="metric-add-select"|aria-label="Move /.test(defPage), `${label}: the old column picker is still rendered`);
   check(/data-testid="metric-cell" data-key="share_of_book" data-status="ok">100\.0%</.test(defPage), `${label}: KO Share of the book chip cell is not 100.0%`);
+  check(/data-testid="portfolio-metric" data-key="share_of_book"><span data-testid="portfolio-metric-value">100\.0%</.test(defPage), `${label}: Book row share of the book is not 100.0% (DR5-05)`);
   for (const [cols, want] of [
     [[...DEFAULTS, "gross_margin_1y"], [...DEFAULTS, "gross_margin_1y"]],
     [["rev_g_1y", "share_of_book", "gross_margin_1y"], ["rev_g_1y", "share_of_book", "gross_margin_1y"]],
@@ -646,6 +660,11 @@ if (!WITH_DB) {
   // QA N3 (#44): the EPS column's portfolio cell carries a visible sub-label (not only the tooltip).
   check(/data-testid="portfolio-metric" data-key="eps_1y"[^>]*>(?:(?!<\/td>).)*data-testid="portfolio-metric-label"[^>]*>EPS growth 1y \(weighted\)</s.test(colPage), `${label}: EPS portfolio cell lacks the visible "EPS growth 1y (weighted)" sub-label`);
   check(!/data-testid="portfolio-metric" data-key="roic_1y"[^>]*>(?:(?!<\/td>).)*portfolio-metric-label/s.test(colPage), `${label}: non-EPS portfolio cell has an EPS sub-label`);
+  // #58 (DR5-03/04): the foot is the `Book` row (no "Portfolio" label); a chip nobody has a figure for shows
+  // "—" alone (0% coverage no longer reads "— · 0% covered").
+  check(/data-testid="book-row"><td[^>]*>Book<\/td>/.test(colPage) && !/<td[^>]*>Portfolio<\/td>/.test(colPage), `${label}: metrics foot is not the Book row`);
+  check(process.env.SEC_CONTACT_EMAIL || /data-testid="portfolio-metric" data-key="roic_1y"[^>]*><span data-testid="portfolio-metric-value">—<\/span><\/span>/.test(colPage), `${label}: ROIC book figure with nothing covered is not "—" alone`);
+  check(!/(^|[^0-9])0% covered/.test(colPage), `${label}: "0% covered" still shown`);
   const none = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: [] } });
   const nonePage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
   check(none.status === 200 && JSON.stringify(await colsOf()) === "[]" && chipsOn(nonePage).length === 0 && !/data-testid="metric-th"/.test(nonePage), `${label}: removing every chip does not stick -> ${none.status} ${JSON.stringify(await colsOf())}`);
@@ -671,6 +690,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

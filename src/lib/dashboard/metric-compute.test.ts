@@ -696,7 +696,7 @@ describe("DASH-22/23: portfolio row = MV-weighted mean over covered holdings, wi
     assert.ok(close(p.m.coverage!, 400 / 1000));
     assert.deepEqual(p.m.included, ["A", "B"]);
     assert.deepEqual([p.x.value, p.x.coverage], [null, 0]);
-    assert.equal(formatPortfolioCell("x", p.x).text, "— · 0% covered");
+    assert.equal(formatPortfolioCell("x", p.x).text, "—", "0% coverage shows the dash alone (spec §0.5 item 11, #58)");
     assert.equal(formatPortfolioCell("m", portfolioMetrics([{ symbol: "P", value: null }], views, ["m"]).m).text, "—");
     assert.equal(formatCoverage(0.996), "99% covered");
     assert.equal(formatCoverage(0.004), "1% covered");
@@ -727,6 +727,6 @@ describe("QA N3 (#44): the EPS column's portfolio cell has a visible 'EPS growth
   });
   it("PortfolioMetricCell renders the label as visible text under the value, not only in the title", () => {
     const src = readFileSync("src/components/dashboard/metric-columns.tsx", "utf8");
-    assert.match(src, /<span data-testid="portfolio-metric-value">\{text\}<\/span>\s*\{label \? \(\s*<span className="block text-xs[^"]*" data-testid="portfolio-metric-label">\s*\{label\}/);
+    assert.match(src, /<span data-testid="portfolio-metric-value">\{bookFigure\(text\)\}<\/span>\s*\{label \? \(\s*<span className="block text-xs[^"]*" data-testid="portfolio-metric-label">\s*\{label\}/);
   });
 });

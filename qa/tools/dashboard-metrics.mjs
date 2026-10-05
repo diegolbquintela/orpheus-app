@@ -15,6 +15,7 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import { qaConfig } from "./config.mjs";
+import { eachViewport } from "./session.mjs";
 const CFG = qaConfig(import.meta.url);
 const { QA_EMAIL: email, QA_PASSWORD: password } = process.env;
 if (!email || !password) {
@@ -33,12 +34,8 @@ const skip = (name, detail) => {
 const chipKeys = (page) => page.getByTestId("metric-chip").evaluateAll((els) => els.map((e) => e.dataset.key));
 const noScroll = async (page, w) => (await page.evaluate(() => document.documentElement.scrollWidth)) <= w;
 const browser = await chromium.launch();
-for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, true], ["desktop", { width: 1440, height: 900 }, false]]) {
-  const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
-  const page = await ctx.newPage();
-  page.setDefaultTimeout(30000);
-  const login = await page.request.post(`${CFG.baseUrl}/api/auth/sign-in/email`, { data: { email, password }, headers: { origin: CFG.baseUrl } });
-  check(`[${vp}] sign-in`, login.ok(), login.status());
+try {
+await eachViewport({ browser, baseUrl: CFG.baseUrl, email, password, check }, async ({ vp, viewport, mobile, page }) => {
   await page.goto(`${CFG.baseUrl}/dashboard`, { waitUntil: "networkidle" });
   const rows = await page.getByTestId("holding-row").count();
   const sheet = page.getByTestId("metrics");
@@ -107,11 +104,10 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
       }
     }
   }
-  const out = await page.request.post(`${CFG.baseUrl}/api/auth/sign-out`, { data: {}, headers: { origin: CFG.baseUrl } });
-  check(`[${vp}] sign-out`, out.ok(), out.status());
-  await ctx.close();
+});
+} finally {
+  await browser.close();
 }
-await browser.close();
 fs.writeFileSync(`${CFG.out}/dashboard-metrics.json`, JSON.stringify(R, null, 2));
 const failed = R.checks.filter((c) => !c.ok).length;
 const skipped = R.checks.filter((c) => c.skipped).length;

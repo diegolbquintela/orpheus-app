@@ -387,7 +387,9 @@ describe("EL (#43): the total row flags holdings excluded for no price / FX rate
     assert.match(src, /\{note \? \(\s*<span[^>]*data-testid="holdings-total-excluded-count"/);
     assert.match(src, /<HoldingsPie rows=\{valuation\.rows\} base=\{baseCurrency\} \/>/);
     const pie = readFileSync("src/components/dashboard/holdings-pie.tsx", "utf8");
-    assert.match(pie, /role="img" aria-label=\{`Pie chart of % of portfolio: \$\{summary\}`\}/);
+    assert.match(pie, /role="img" aria-label=\{`Donut chart of share of the book: \$\{summary\}`\}/);
+    assert.match(pie, /innerRadius="58%"/, "a ring, not a full pie (#58)");
+    assert.doesNotMatch(pie, /pie-price-pending|pie-fx-pending|No holdings with a price yet/, "pending lists and the empty sentence went (#58)");
     assert.match(pie, /from "recharts"/);
   });
 });

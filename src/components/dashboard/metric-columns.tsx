@@ -45,11 +45,25 @@ export function MetricCell({ metricKey, view }: { metricKey: string; view: Metri
 export type PortfolioCellView = { value: number | null; coverage: number | null; source: string; included: string[] };
 
 const PORTFOLIO_HELP =
-  "Portfolio: market-value-weighted mean (base currency) over holdings with a value; weights renormalised over those " +
-  "holdings. Coverage = their share of the portfolio's market value. Not meaningful, insufficient history or data, " +
+  "Book: market-value-weighted mean (base currency) over holdings with a figure; weights renormalised over those " +
+  "holdings. Coverage = their share of the book's market value. Not meaningful, insufficient history or data, " +
   "and not covered holdings are left out (never counted as zero).";
 
 /** Portfolio row cell (T14, spec §9; DASH-22/23). */
+/**
+ * The Book figure "19.1% · 84% covered" wraps only between the figure and its coverage (#58), never inside
+ * either part; the text content stays exactly the formatted string.
+ */
+function bookFigure(text: string) {
+  const i = text.indexOf(" · ");
+  if (i < 0) return text;
+  return (
+    <>
+      <span className="whitespace-nowrap">{text.slice(0, i)} ·</span> <span className="whitespace-nowrap">{text.slice(i + 3)}</span>
+    </>
+  );
+}
+
 export function PortfolioMetricCell({ metricKey, cell }: { metricKey: string; cell: PortfolioCellView | undefined }) {
   const { label, text } = formatPortfolioCell(metricKey, cell);
   const title = [
@@ -70,7 +84,7 @@ export function PortfolioMetricCell({ metricKey, cell }: { metricKey: string; ce
       data-coverage={cell?.coverage ?? ""}
       title={title}
     >
-      <span data-testid="portfolio-metric-value">{text}</span>
+      <span data-testid="portfolio-metric-value">{bookFigure(text)}</span>
       {label ? (
         <span className="block text-xs font-normal text-muted" data-testid="portfolio-metric-label">
           {label}

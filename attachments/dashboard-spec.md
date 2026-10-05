@@ -192,8 +192,10 @@ table** (no instructions under or above the list). As of `main` 46840be only the
 17. **Compact add form (ticket 3, EL scope 2026-10-04):** one tight row at every width (Ticker, Shares,
    Average cost, Add on one line, about 62 px tall at 400 px), not a collapsed control, so it doesn't push the
    list down and needs no extra tap. Below 1024 px the cost label reads `Avg cost` with the placeholder
-   `optional` (the full `Average cost (optional)` doesn't fit a quarter of a phone row); its accessible name
-   is always `Average cost (optional)`, and from 1024 px the label reads `Average cost (optional)`. The old
+   `optional` (the full `Average cost (optional)` doesn't fit a quarter of a phone row), and from 1024 px the
+   label reads `Average cost (optional)`. **QA N3 (#58):** the accessible name comes from the visible label so
+   it always contains it: `Avg cost (optional)` below 1024 px (` (optional)` visually hidden),
+   `Average cost (optional)` from 1024 px (no `aria-label` overriding it). The old
    ticker placeholder (`e.g. KO, RY.TO, ASML.AS`) is dropped (DR3-01: no placeholder sentences).
 8. **Second sheet** = a two-way `Holdings` | `Metrics` switch below 1024 px; side by side (list left,
    metrics right) at 1024 px and up. The 1024 px breakpoint is **decided (EL 2026-10-04)**.
@@ -204,7 +206,17 @@ table** (no instructions under or above the list). As of `main` 46840be only the
     under the chart go (those holdings show `—` in the list and are counted in the excluded line under the
     total); with no priced holding the donut is absent and the total shows `—`.
 11. **Dash everywhere**: metric cells and book figures show `—` alone; the book's `· N% covered` suffix stays
-    on a figure, and 0% coverage shows `—` (was `— · 0% covered`).
+    on a figure, and 0% coverage shows `—` (was `— · 0% covered`). Landed in ticket 5 (#58).
+18. **Book row details (ticket 5, #58):** the coverage suffix stays as T14 shows it (`27.6% · 71% covered`,
+    whole %, never rounded to 0% / 100% unless exact), on every % chip and the EPS chip; the figure and its
+    coverage wrap as two parts on a narrow sheet, never inside a part. The `Share of the book` chip shows the
+    sum of the valued weights (`100.0%`) with no coverage suffix (it always covers every valued holding).
+    The donut's caption is `Share of the book (<base>)` (was `% of portfolio (<base>)`, item 2's rename). With
+    no valued holding there is no donut and no sentence in its place (the total shows `—`).
+19. **Non-number cost (QA N2, #58):** an `avgCost` of the wrong JSON type (`true`, `{}`, `[]`, a non-finite
+    number) gets `Average cost must be a number with at most 6 decimals.` on `POST` and `PUT` (it used to get
+    `Average cost is required.`); missing / `null` / blank keep their #56 / #57 meaning. `shares` of the wrong
+    type gets its number message the same way.
 12. **Kept controls not named in the brief:** base-currency select, as-of line, out-of-date note, sign-out,
     preview-only refresh button and database status line. They are data or controls, not helper paragraphs.
 13. **Leave-outs that don't exist** (Connect broker, K/M/B, ownership toggle, download) are "must stay
@@ -412,6 +424,34 @@ MC.PA) for book figures.
   defaults, add, `[]` sticks, old rows kept), `holdings.test.ts` / `store.test.ts` (omitted / null / number /
   blank on `PUT`), `check-dashboard-built.mjs --with-database` (0009 re-run, chips, `PUT` cost rules),
   `qa/tools/dashboard-metrics.mjs` (browser, both widths, never Delete).
+
+**Ticket 5 (#58, PR #64): book.** Stacked on PR #63 (base `feat/dashboard-redesign-metrics`).
+
+- **One total** under the list (value only, decision 9; unchanged from #55): `holdings-total`, `—` when no
+  holding has a value, the excluded line under it. No portfolio total cost or return (N4).
+- **Donut** (`holdings-pie.tsx`, `data-shape="donut"`): the same `pieSlices()` as the T15 pie, drawn as a
+  ring (inner radius 58%), largest first, ties by ticker, the 10 largest + `Other` past ten names, neutral
+  greys; caption `Share of the book (<base>)`; the ticker + % legend is the text alternative
+  (`aria-label` "Donut chart of share of the book: …"). The "price pending" / "FX pending" lists and the
+  "No holdings with a price yet." sentence are gone; nothing valued → no donut.
+- **Book row** (the metrics sheet's foot, `data-testid="book-row"`, label `Book`; was the interim
+  `Portfolio` row): per kept chip, T14's `portfolioMetrics()` (unchanged): Σ MVᵢ·mᵢ / Σ MVᵢ over the holdings
+  that have a figure, i.e. dashes left out and the weights renormalised, never counted as zero;
+  `x.x% · N% covered`; `—` alone when no holding has a figure (`formatPortfolioCell`, item 11); the EPS chip
+  is the weighted 1y EPS growth labelled `EPS growth 1y (weighted)`; `Share of the book` = 100.0%. Adding or
+  removing a chip adds or removes its figure. Item 18 has the display choices.
+- **QA notes folded in:** N2 (item 19: non-number `avgCost` → the number message on `POST` / `PUT`); N3
+  (item 17: the cost field's accessible name contains the visible label at every width); N4 (every
+  signed-in `qa/tools` browser tool signs out on every exit path via `qa/tools/session.mjs`); release doc:
+  0008 is forward-only, null costs cleared before any production rollback past it.
+- Tests: `book.test.ts` (weighting: dashes excluded and renormalised, negatives, pending outside, all missing
+  → `—`, EPS growth; donut: largest first, ties, Other past ten, exactly ten / eleven, none valued),
+  `book.dom.test.tsx` (one total, donut, Other, nothing valued, Book row figures / order / `—` / share /
+  EPS label / chip removal, the wrap), `metric-compute.test.ts` / `valuation.test.ts` (0% → `—`, donut
+  source), `holdings.test.ts` (N2), `holdings-add.dom.test.tsx` (N3), `scripts/qa-tools-session.test.mjs`
+  (N4), `check-dashboard-built.mjs --with-database` (no donut before a close, total `—`, one-slice donut,
+  Book row, share 100.0%, `—` alone at 0% coverage, N2 on POST / PUT, N3 label); browser
+  `qa/tools/dashboard-book.mjs` (read-only, both widths) and `dashboard-add.mjs` (N3 name check).
 
 ## 1. What we are building
 
@@ -902,7 +942,7 @@ or label implies good/bad.
 - Computed at read time (`portfolio.ts`) from the stored valuation (T07) and `metric_values`; no new
   table. "Valid" = covered company + stored status `ok`. Price/FX-pending holdings are outside both the
   weights and the coverage denominator (they have no market value). Coverage is shown as a whole percent
-  (never 100% unless fully covered, never 0% unless none); 0% shows `— · 0% covered`.
+  (never 100% unless fully covered, never 0% unless none); 0% shows `—` alone since #58 (was `— · 0% covered`).
 - D9: per-company `eps_g_1y` stored alongside the other metrics (not a picker column): diluted EPS
   FY0 / FY−1 − 1; `n/m` if FY0 EPS is missing or either year ≤ 0; `insufficient_history` if no FY−1;
   `insufficient_data` if the units differ. Portfolio EPS cell label: "EPS growth 1y (weighted)", shown as a

@@ -7,8 +7,10 @@ import { MetricCell, PortfolioMetricCell, type MetricViewData, type PortfolioCel
  * The metrics sheet (epic #53 ticket 4, #57; spec §0.2 "Metrics sheet", DR4). A search field offers the
  * chips whose label matches and that aren't kept yet; choosing one adds it at the end. Each chip removes
  * itself with its own `×` ("Remove <label>"). One row per holding (list order): the name, then a figure for
- * each kept chip only, in chip order; a missing figure is `—` alone. The foot row is today's T14 portfolio
- * row for the kept chips (ticket 5, #58, turns it into the `Book` row). Chips are saved per user with
+ * each kept chip only, in chip order; a missing figure is `—` alone. The foot is the `Book` row (ticket 5,
+ * #58; spec §0.2 "Book", §9): per kept chip the market-value-weighted figure over the holdings that have one
+ * (dashes left out, weights renormalised; `· N% covered`), `—` when none has one; the share chip's figure is
+ * the sum of the valued weights (100.0%). Chips are saved per user with
  * PUT /api/dashboard/columns; reorder is gone (spec §0.5 item 3).
  */
 
@@ -195,8 +197,8 @@ export function MetricsSheet({
           </tbody>
           {chips.length ? (
             <tfoot>
-              <tr className="border-t-2 border-ink">
-                <td className="py-3 pr-3 font-medium">Portfolio</td>
+              <tr className="border-t-2 border-ink" data-testid="book-row">
+                <td className="py-3 pr-3 font-medium">Book</td>
                 {chips.map((key) => (
                   <td key={key} className="py-3 pl-3 text-right align-top font-medium">
                     {key === SHARE_OF_BOOK ? <ShareBookCell rows={rows} /> : <PortfolioMetricCell metricKey={key} cell={portfolio[key]} />}

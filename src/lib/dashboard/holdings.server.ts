@@ -112,6 +112,9 @@ export function parseEditCost(raw: unknown): string | null | Invalid {
 /** Shares: > 0. Average cost: >= 0. Both plain decimals with at most 6 decimal places. */
 export function parseQuantity(raw: unknown, field: "shares" | "avgCost"): string | Invalid {
   const label = field === "shares" ? "Shares" : "Average cost";
+  // QA N2 (#58): a value of the wrong type (true, {}, [], NaN, Infinity) gets the number message, not "is required".
+  if (raw !== undefined && raw !== null && typeof raw !== "string" && !(typeof raw === "number" && Number.isFinite(raw)))
+    return { field, error: `${label} must be a number with at most 6 decimals.` };
   const text = typeof raw === "number" && Number.isFinite(raw) ? String(raw) : typeof raw === "string" ? raw.trim() : "";
   if (!text) return { field, error: `${label} is required.` };
   if (/^-/.test(text) && Number.isFinite(Number(text)))

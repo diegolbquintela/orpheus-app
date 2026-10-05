@@ -115,8 +115,18 @@ describe("add holding, optional cost (#56, DR3)", () => {
     const inputs = [...form.querySelectorAll("input")];
     assert.equal(inputs.length, 3);
     assert.deepEqual([...form.querySelectorAll(".kicker")].map((k) => text(k)).slice(0, 2), ["Ticker", "Shares"]);
-    assert.equal($('[data-testid="holding-form-cost"]')!.getAttribute("aria-label"), "Average cost (optional)");
-    assert.match(text($('[data-testid="holding-form-cost-label"]')), /Average cost \(optional\)/);
+    // QA N3 (#58): no aria-label overriding the visible label; the <label> names the field, so the name always
+    // contains what is shown: "Avg cost (optional)" below 1024 px (sr-only suffix), "Average cost (optional)" from 1024 px.
+    const cost = $('[data-testid="holding-form-cost"]')!;
+    assert.equal(cost.getAttribute("aria-label"), null);
+    assert.equal(cost.closest("label"), $('[data-testid="holding-form-cost-label"]')!.closest("label"));
+    const short = $('[data-testid="holding-form-cost-label-short"]')!;
+    assert.ok(short.classList.contains("lg:hidden"));
+    assert.equal(text(short), "Avg cost (optional)");
+    assert.equal(text(short.querySelector(".sr-only")), "(optional)");
+    const long = $('[data-testid="holding-form-cost-label"] .lg\\:inline')!;
+    assert.ok(long.classList.contains("hidden"));
+    assert.equal(text(long), "Average cost (optional)");
     assert.deepEqual(inputs.map((i) => i.getAttribute("placeholder")), [null, null, "optional"]);
     assert.equal(text(form.querySelector("button[type=submit]")), "Add");
     assert.equal(form.querySelectorAll("p").length, 0, "no help text");
