@@ -168,6 +168,11 @@ table** (no instructions under or above the list). As of `main` 46840be only the
    (`user_metric_columns`, `/api/dashboard/columns`). A user with nothing saved gets the three defaults; an
    account that already saved metric columns keeps them as its chips (**decided, EL 2026-10-04**). Removing every chip must stick
    (ticket 4 picks the mechanism; if it needs a schema change, that's a new migration, never an edit).
+   **Landed in ticket 4 (#57):** `migrations/0009_metric_chips_saved.sql` adds the nullable
+   `user_settings.metric_chips_saved_at` (`ADD COLUMN IF NOT EXISTS`, a no-op on re-run). `NULL` and no
+   `user_metric_columns` rows = never saved → the defaults; any saved row, or a set timestamp, = saved, so an
+   empty list sticks. A list emptied before 0009 (no rows, no timestamp) can't be told apart from "never
+   saved" and gets the defaults.
 5. **Detail on tap** = the holding's T07 fields (listed in 0.2) plus Edit and Delete, in a panel that opens
    under the row (or as a sheet) at both widths.
 6. **Row name** = `instruments.name`; the ticker until a name is stored. The ticker itself shows in the detail.
@@ -178,7 +183,10 @@ table** (no instructions under or above the list). As of `main` 46840be only the
    cost and return show as empty, not as a dash (the dash rule is for metric figures). **Landed in ticket 3
    (#56):** `migrations/0008_holdings_avg_cost_nullable.sql` (`ALTER COLUMN avg_cost DROP NOT NULL`, a no-op
    on re-run); existing rows are not converted (a stored 0 stays a real cost of 0). The API takes a missing,
-   `null` or blank `avgCost` on `POST` and `PUT` as no cost; a `PUT` with a blank cost clears it. Portfolio
+   `null` or blank `avgCost` on `POST` as no cost. **Changed in ticket 4 (#57, EL 2026-10-04):** on `PUT`
+   (edit) an omitted `avgCost` leaves the stored cost unchanged, only an explicit `null` clears it, a number
+   sets it, and a blank string is refused (400, field `avgCost`); the page always sends an explicit value
+   (`null` when the field is blank). Portfolio
    cost / return aggregates (not shown on the page, item 9) sum only holdings that have a cost and are `null`
    when none has one; value, weight, the total and the pie count every valued holding.
 17. **Compact add form (ticket 3, EL scope 2026-10-04):** one tight row at every width (Ticker, Shares,
@@ -374,6 +382,36 @@ MC.PA) for book figures.
   `store.test.ts` / `valuation.test.ts` (parse, NULL storage, 0008 re-run, aggregates),
   `check-dashboard-built.mjs --with-database` (form, POST without cost, blank then filled then cleared),
   `qa/tools/dashboard-add.mjs` (browser, both widths, never Delete).
+- `PUT` semantics changed in ticket 4 (see below): blank no longer clears on edit; `null` does.
+
+**Ticket 4 (#57, PR #63): metrics sheet and chips.** Stacked on PR #62 (base `feat/dashboard-redesign-add`).
+
+- The interim `Metrics` section under the pie (the T08 picker and table from #55) is replaced by the
+  metrics sheet (`src/components/dashboard/metrics-sheet.tsx`, `data-testid="metrics"`).
+- Layout: below 1024 px, with holdings, a `Holdings` | `Metrics` switch (`sheet-switch`, `aria-pressed`)
+  shows one sheet at a time; the hidden sheet stays in the page (`hidden`), so switching back shows the list
+  unchanged. From 1024 px a two-column grid (list 3 : metrics 2), both visible, the switch hidden. No holdings:
+  no switch and no sheet (DR2-05). Same style; no theme change. The list's number columns from 640 px are
+  narrower (5 / 9 / 6 rem) so names keep room beside the sheet.
+- Chips (`metrics.ts` `CHIPS`): the eight metric columns plus `Share of the book` (`share_of_book`, the
+  row's weight). Defaults `Revenue growth 1y`, `ROIC (1y)`, `Share of the book`. Search (`metric-search`,
+  label `Add a metric`) lists matches only once something is typed (every word of the query in the label,
+  kept chips left out); a click or Enter adds the first match at the end. Each chip's `×` removes it. One
+  `PUT /api/dashboard/columns` per change (guarded per click burst); it accepts chip keys.
+- Storage: `user_metric_columns` + `user_settings.metric_chips_saved_at` (0009, interpretation 4). Accounts
+  that already saved columns keep them (EL). `GET /api/dashboard/columns` returns `{columns, saved,
+  available}` with the defaults when never saved.
+- Rows: name + the kept chips' figures in chip order; a missing figure is `—` alone (the reason is in the
+  cell's `title` and a visually hidden span, not visible). The table scrolls sideways inside its own box when
+  many chips are kept; the page never does.
+- Interim until ticket 5: the T14 `Portfolio` foot row stays (figure `· N% covered`); for the share chip it
+  shows the sum of the weights. Ticket 5 turns it into the `Book` row.
+- Holdings `PUT` (EL change carried from #62): omitted `avgCost` keeps the stored cost, `null` clears, a
+  number sets, `""` → 400 (`parseEditCost`; `store.updateHolding` keeps `avg_cost` when no cost is given).
+- Tests: `metrics-sheet.dom.test.tsx` (DR4-01..07, the PUT guard), `fundamentals.test.ts` (chips API:
+  defaults, add, `[]` sticks, old rows kept), `holdings.test.ts` / `store.test.ts` (omitted / null / number /
+  blank on `PUT`), `check-dashboard-built.mjs --with-database` (0009 re-run, chips, `PUT` cost rules),
+  `qa/tools/dashboard-metrics.mjs` (browser, both widths, never Delete).
 
 ## 1. What we are building
 
@@ -568,7 +606,7 @@ Per-user tables:
 
 | Table | Columns | Keys |
 |---|---|---|
-| `user_settings` | `user_id`, `base_currency` (`CAD` \| `USD` \| `EUR`, default `CAD`), `updated_at` | PK `user_id` → `"user"(id)` on delete cascade |
+| `user_settings` | `user_id`, `base_currency` (`CAD` \| `USD` \| `EUR`, default `CAD`), `metric_chips_saved_at` (NULL = chips never saved; since 0009, epic #53 ticket 4), `updated_at` | PK `user_id` → `"user"(id)` on delete cascade |
 | `holdings` | `id`, `user_id`, `symbol` (feed symbol, e.g. `RY.TO`, `ASML.AS`, `KO`), `shares` numeric(20,6) > 0, `avg_cost` numeric(20,6) ≥ 0 or NULL = no cost (in the listing currency; nullable since 0008, epic #53 ticket 3), `created_at`, `updated_at` | PK `id`; unique (`user_id`, `symbol`); index `user_id` |
 | `user_metric_columns` | `user_id`, `metric_key`, `position` | PK (`user_id`, `metric_key`) |
 

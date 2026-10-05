@@ -59,7 +59,8 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
   empty-state text `Add a holding`; the ticket 3 / 4 migrations are fine if nullable and idempotent and run
   through `check:dashboard-built --with-database`.
 - **Landed:** ticket 2 (#55), see "Dashboard holdings list (#55)" below and spec 0.9. Ticket 3 (#56, PR #62):
-  "Dashboard add holding / optional cost (#56)" below.
+  "Dashboard add holding / optional cost (#56)" below. Ticket 4 (#57, PR #63, stacked on #62): "Dashboard
+  metrics sheet and chips (#57)" below.
 - **Paused / not this epic:** don't touch `chore/remove-grok-leftovers` / PR #52 or issues #50 / #51
   unless handed them.
 
@@ -387,7 +388,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   /api/dashboard/holdings/<id>` (`Allow: GET, HEAD, PUT, DELETE`). Gate from `session.server.ts` (404 flag
   off, 405, 401, 403 for a client-named other user id). A holding id that isn't the session user's (or
   isn't numeric) answers **404 "Holding not found."**, never 403, so ids don't leak. No database: 503.
-- Rules: shares > 0, avg cost ≥ 0 or blank (no cost, stored `NULL` since #56), ≤ 6 decimals; duplicate ticker 409 "<SYM> is already in your
+- Rules: shares > 0, avg cost ≥ 0 or blank (no cost, stored `NULL` since #56), ≤ 6 decimals. **`PUT`
+  (edit, EL change in #57):** an omitted `avgCost` leaves the stored cost unchanged, only an explicit `null`
+  clears it, a number sets it, a blank string is a 400; the UI always sends an explicit value; duplicate ticker 409 "<SYM> is already in your
   holdings." (checked before any feed call); `PUT` takes `{shares, avgCost}` only and refuses `symbol`;
   cap 200 per user. Ticker check only on `POST`: one Yahoo chart-metadata request; non-US/EU/CA gets
   `listingError()`'s exact text (400), unknown symbol 404, feed down 503. Page loads never call a feed and
@@ -410,8 +413,8 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   `holding-detail-weight`). Edit / Delete live in the panel; `remove()` and its #38 guard are unchanged (the
   source checks in `metric-compute.test.ts` still pin them).
 - Under the list: one total (`holdings-total`, value only, `—` when nothing is valued) with the excluded-count
-  line, the T15 pie (ticket 5 makes it a donut), and an interim `MetricsTable` (`data-testid="metrics"`: picker,
-  `metric-th` / `metric-row` / `metric-cell`, the T14 `Portfolio` row) until ticket 4's chips.
+  line and the T15 pie (ticket 5 makes it a donut). The interim `MetricsTable` from #55 was replaced by the
+  metrics sheet in ticket 4 (#57).
 - No helper paragraph; empty state `Add a holding`. Tests: `holdings-list.dom.test.tsx`,
   `holdings.dom.test.tsx`; browser check `qa/tools/dashboard-list.mjs` (needs `QA_EMAIL` / `QA_PASSWORD`;
   skips the row checks with zero holdings and signs out at the end, QA N3).
@@ -426,8 +429,9 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   placeholders or help text (DR3-01).
 - **No cost is `NULL`, never 0.** `migrations/0008_holdings_avg_cost_nullable.sql` (idempotent `DROP NOT
   NULL`, CHECK kept, no data converted). `parseOptionalCost()` maps missing / `null` / blank to `null` on
-  `POST` and `PUT` (so Edit can clear it); the client sends `costForRequest(input)`. `Holding.avgCost` and
-  `HoldingView.avgCost` are `string | null`.
+  `POST`. On `PUT` (since #57) `parseEditCost()`: omitted → keep the stored cost, `null` → clear, number →
+  set, blank → 400. The client sends `costForRequest(input)` (in `format.ts`; blank → `null`), so Edit can
+  still clear it. `Holding.avgCost` and `HoldingView.avgCost` are `string | null`.
 - `valueHoldings()`: no cost → `cost` / `returnAmount` / `returnPct` `null`; value, weight, total and pie as
   usual; `totalCost` / `totalReturn` over costed holdings only, `null` when none (never shown: one total,
   value only). A cost of 0 is a real cost (return % `n/m`).
@@ -544,6 +548,28 @@ four-field row, the tap detail and one total (value only); average cost becomes 
   DASH-25 (as-of dates incl. the 2026-09-30 BoC holiday, the 4/5-day boundary, partial/running/failed).
   `check:dashboard-built --with-database` checks the rendered columns and values.
 
+### Dashboard metrics sheet and chips (#57, epic #53 ticket 4)
+
+- `src/components/dashboard/metrics-sheet.tsx` (`MetricsSheet`, `data-testid="metrics"`) replaces the #55
+  picker and table. Testids: `metric-search` (label `Add a metric`), `metric-options` / `metric-option`
+  (only while the query is non-empty; Enter adds the first match), `metric-chips` / `metric-chip` /
+  `metric-chip-remove` (`aria-label="Remove <label>"`), `metric-th` / `metric-row` / `metric-cell`, the
+  interim `Portfolio` foot (`portfolio-metric-*`, ticket 5 makes it the `Book` row). One `PUT` per click burst.
+- `holdings.tsx` `HoldingsSection`: with holdings, below 1024 px a `Holdings` | `Metrics` switch
+  (`sheet-switch`, `sheet-switch-holdings` / `-metrics`, `aria-pressed`, `lg:hidden`); the hidden sheet is
+  `hidden lg:block`. From `lg` a grid `minmax(0,3fr) minmax(0,2fr)` (`holdings-sheet` left, `metrics` right).
+  No holdings: no switch, no sheet.
+- Catalog (`metrics.ts`): `CHIPS` = the 8 metric keys + `share_of_book` (the row weight); `DEFAULT_CHIPS`
+  `rev_g_1y`, `roic_1y`, `share_of_book`; `matchingChips()` (every query word in the label, kept chips out).
+- Storage: `user_metric_columns` (now chip keys) + `user_settings.metric_chips_saved_at` from
+  `migrations/0009_metric_chips_saved.sql` (nullable, `ADD COLUMN IF NOT EXISTS`). `getMetricChips()`:
+  rows or a timestamp = saved (an empty list sticks; accounts with old saved columns keep them, EL); else the
+  defaults. `GET /api/dashboard/columns` → `{columns, saved, available}`; `PUT {columns}` takes chip keys.
+- Missing figure: `—` alone, reason in `title` + a visually hidden span (DR4-07; supersedes DASH-21's text).
+- Tests: `metrics-sheet.dom.test.tsx`, `fundamentals.test.ts` (chips API), `store.test.ts`,
+  `check-dashboard-built.mjs --with-database`; browser `qa/tools/dashboard-metrics.mjs` (both widths; adds and
+  removes Gross margin on the phone pass unless it is already kept; signs out; never Delete).
+
 ### Dashboard fundamentals and metric columns (T08 #16)
 
 *Epic #53: the eight metric columns become searchable chips on the metrics sheet (ticket 4; defaults Revenue
@@ -553,7 +579,7 @@ growth 1y, ROIC (1y), Share of the book; no reorder), and a missing figure shows
   `createSecFundamentalsSource()`, `annualFactsFromCompanyFacts()`, the `CONCEPTS` tag map, name matching,
   `refreshFundamentals()` (the job), `metricViews()` (page read)); `metrics.ts` (the 8 metric keys and
   labels, status reasons); `columns-api.server.ts` + `src/routes/api/dashboard/columns.ts`
-  (`GET`/`HEAD`/`PUT`); UI `src/components/dashboard/metric-columns.tsx` (picker + `MetricCell`), wired
+  (`GET`/`HEAD`/`PUT`); UI `src/components/dashboard/metric-columns.tsx` (`MetricCell`; the picker went in #57, see `metrics-sheet.tsx`), wired
   in `holdings.tsx`. Migration `0005_fundamentals.sql` adds `instruments.fundamentals_checked_at` and
   `fundamentals_error` (still 11 tables).
 - SEC rules: User-Agent `OrpheusWisdom/1.0 (orpheus-app dashboard; <SEC_CONTACT_EMAIL>)`. The address is an

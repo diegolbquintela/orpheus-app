@@ -173,9 +173,9 @@ export function MetricsSheet({
         <table className="w-full border-collapse text-sm tabular-nums">
           <thead>
             <tr className="text-left">
-              <th className="kicker pb-2 pr-4 font-normal text-muted">Name</th>
+              <th className="kicker pb-2 pr-3 font-normal text-muted">Name</th>
               {chips.map((key) => (
-                <th key={key} className="kicker pb-2 pr-4 text-right font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
+                <th key={key} className="kicker pb-2 pl-3 text-right align-bottom font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
                   {chipLabel(key)}
                 </th>
               ))}
@@ -184,9 +184,9 @@ export function MetricsSheet({
           <tbody>
             {holdings.map((h) => (
               <tr key={h.id} className="border-t border-line align-top" data-testid="metric-row" data-symbol={h.symbol}>
-                <td className="py-3 pr-4 font-medium">{names[h.symbol] ?? h.symbol}</td>
+                <td className="min-w-[6rem] py-3 pr-3 font-medium">{names[h.symbol] ?? h.symbol}</td>
                 {chips.map((key) => (
-                  <td key={key} className="py-3 pr-4 text-right whitespace-nowrap">
+                  <td key={key} className="py-3 pl-3 text-right whitespace-nowrap">
                     {key === SHARE_OF_BOOK ? <ShareCell row={rows.find((r) => r.symbol === h.symbol)} /> : <MetricCell metricKey={key} view={metrics[h.symbol]} />}
                   </td>
                 ))}
@@ -196,9 +196,9 @@ export function MetricsSheet({
           {chips.length ? (
             <tfoot>
               <tr className="border-t-2 border-ink">
-                <td className="py-3 pr-4 font-medium">Portfolio</td>
+                <td className="py-3 pr-3 font-medium">Portfolio</td>
                 {chips.map((key) => (
-                  <td key={key} className="py-3 pr-4 text-right font-medium whitespace-nowrap">
+                  <td key={key} className="py-3 pl-3 text-right align-top font-medium">
                     {key === SHARE_OF_BOOK ? <ShareBookCell rows={rows} /> : <PortfolioMetricCell metricKey={key} cell={portfolio[key]} />}
                   </td>
                 ))}

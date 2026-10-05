@@ -68,8 +68,11 @@ const signedPct = (n: number) =>
   `${new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n)}%`;
 const weightPct = formatPortfolioPct;
 
-/** Row layout: two lines on a phone (name · value / shares · share), four columns from 640 px. */
-const ROW_COLS = "gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_8rem_11rem_9rem] sm:items-baseline";
+/**
+ * Row layout: two lines on a phone (name · value / shares · share), four columns from 640 px. The number
+ * columns are narrow (#57) so the name keeps room when the metrics sheet sits beside the list at 1024 px.
+ */
+const ROW_COLS = "gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_5rem_9rem_6rem] sm:items-baseline";
 const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto] ${ROW_COLS}`;
 
 type Props = {
