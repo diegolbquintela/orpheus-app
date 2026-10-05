@@ -499,6 +499,9 @@ EL 2026-10-04, like #63 / #64).
   `-book` at phone 400, wide 1024 and desktop 1440 (`QA_VIEWPORTS`, `session.mjs`), optionally an empty
   account and `release-smoke.mjs`. The delete guard stays pinned by `holdings.dom.test.tsx` (QA never clicks
   Delete); flag off by `check:dashboard-built`.
+- **Check hardening:** `check-dashboard-built --with-database` now reads the page right after adding KO, before
+  the listing checks that call the live price feed; KO's background close could land first and fail the
+  "before any close" book checks (3 of 6 local runs). 3 of 3 pass after the move.
 - **Epic status:** with this PR all six tickets are implemented. The epic is complete when #63, #64 and this PR
   have merged and QA has re-run `dashboard-redesign.mjs` on production.
 

@@ -448,6 +448,17 @@ if (!WITH_DB) {
   const ko = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "ko", shares: "10.5", avgCost: "52.25" } });
   check(ko.status === 201 && /"symbol":"KO"/.test(ko.body), `${label}: POST KO -> ${ko.status} ${ko.body.slice(0, 120)}`);
   const koId = ko.status === 201 ? JSON.parse(ko.body).holding.id : 0;
+  // #59: read the page right after the POST, before the listing checks below. Each of those asks the live price
+  // feed, which gave KO's background close backfill time to land first and made the "before any close" checks
+  // flaky (seen 3 of 6 runs locally on 2026-10-04).
+  const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
+  check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
+  check(/data-testid="holding-close"/.test(withKo.body), `${label}: /dashboard lacks the KO last-close cell`);
+  // #58 (book): KO has no close yet → no donut at all (no empty sentence, no pending list), the one total is
+  // "—" and the total line flags the exclusion.
+  check(!/data-testid="holdings-pie"/.test(withKo.body) && !/pie-price-pending|holdings-pie-empty|No holdings with a price yet/.test(withKo.body), `${label}: donut / pending list / empty sentence shown before any close`);
+  check(/data-testid="holdings-total"[^>]*>—</.test(withKo.body), `${label}: total before any close isn't "—"`);
+  check(/data-testid="holdings-total-excluded-count"[^>]*>1 holding without a price excluded</.test(withKo.body), `${label}: total row lacks "1 holding without a price excluded"`);
   for (const [symbol, message] of [
     ["VOD.L", "VOD.L lists on LSE. US, EU, and CA listings only."],
     ["TCS.BO", "TCS.BO lists on BSE. BSE and other non US/EU/CA venues are not supported."],
@@ -466,14 +477,6 @@ if (!WITH_DB) {
   check(neg.status === 400 && /Average cost must be 0 or more\./.test(neg.body), `${label}: avg cost -1 -> ${neg.status} ${neg.body}`);
   const edit = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "50" } });
   check(edit.status === 200 && /"shares":"12(\.0+)?"/.test(edit.body), `${label}: PUT KO -> ${edit.status} ${edit.body.slice(0, 120)}`);
-  const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
-  check(/data-symbol="KO"/.test(withKo.body), `${label}: /dashboard lacks the KO row after a reload`);
-  check(/data-testid="holding-close"/.test(withKo.body), `${label}: /dashboard lacks the KO last-close cell`);
-  // #58 (book): KO has no close yet → no donut at all (no empty sentence, no pending list), the one total is
-  // "—" and the total line flags the exclusion.
-  check(!/data-testid="holdings-pie"/.test(withKo.body) && !/pie-price-pending|holdings-pie-empty|No holdings with a price yet/.test(withKo.body), `${label}: donut / pending list / empty sentence shown before any close`);
-  check(/data-testid="holdings-total"[^>]*>—</.test(withKo.body), `${label}: total before any close isn't "—"`);
-  check(/data-testid="holdings-total-excluded-count"[^>]*>1 holding without a price excluded</.test(withKo.body), `${label}: total row lacks "1 holding without a price excluded"`);
   // T07: no daily run has finished yet on this fresh database, so the out-of-date note shows.
   check(/data-testid="stale-note"[^>]*>Prices are out of date\.(<!-- -->)? (<!-- -->)?No daily refresh has completed yet\./.test(withKo.body), `${label}: /dashboard before any run lacks the out-of-date note`);
 
