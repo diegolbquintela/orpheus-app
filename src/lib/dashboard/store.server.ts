@@ -78,7 +78,8 @@ export interface Holding {
   id: number;
   symbol: string;
   shares: Decimal;
-  avgCost: Decimal;
+  /** Per share in the listing currency; null = no cost entered (#56, migration 0008). */
+  avgCost: Decimal | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,7 +88,7 @@ type HoldingRow = {
   id: number | string;
   symbol: string;
   shares: string;
-  avg_cost: string;
+  avg_cost: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -98,7 +99,7 @@ const toHolding = (r: HoldingRow): Holding => ({
   id: Number(r.id),
   symbol: r.symbol,
   shares: String(r.shares),
-  avgCost: String(r.avg_cost),
+  avgCost: r.avg_cost === null || r.avg_cost === undefined ? null : String(r.avg_cost),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -128,18 +129,21 @@ export class DuplicateHoldingError extends Error {
   }
 }
 
-/** Insert a holding. Shares must be > 0 and average cost >= 0 (also enforced by the schema). */
+/**
+ * Insert a holding. Shares must be > 0 and average cost >= 0 or null (no cost, #56); also enforced by the
+ * schema.
+ */
 export async function addHolding(
   db: Queryable,
   userId: string,
-  input: { symbol: string; shares: Decimal | number; avgCost: Decimal | number },
+  input: { symbol: string; shares: Decimal | number; avgCost: Decimal | number | null },
 ): Promise<Holding> {
   assertQuantities(input.shares, input.avgCost);
   const rows = await db.query<HoldingRow>(
     `INSERT INTO holdings (user_id, symbol, shares, avg_cost) VALUES ($1, $2, $3, $4)
      ON CONFLICT (user_id, symbol) DO NOTHING
      RETURNING ${HOLDING_COLUMNS}`,
-    [userId, input.symbol, String(input.shares), String(input.avgCost)],
+    [userId, input.symbol, String(input.shares), costParam(input.avgCost)],
   );
   if (!rows[0]) throw new DuplicateHoldingError(input.symbol);
   return toHolding(rows[0]);
@@ -150,14 +154,14 @@ export async function updateHolding(
   db: Queryable,
   userId: string,
   id: number,
-  input: { shares: Decimal | number; avgCost: Decimal | number },
+  input: { shares: Decimal | number; avgCost: Decimal | number | null },
 ): Promise<Holding | null> {
   assertQuantities(input.shares, input.avgCost);
   const rows = await db.query<HoldingRow>(
     `UPDATE holdings SET shares = $3, avg_cost = $4, updated_at = now()
      WHERE id = $1 AND user_id = $2
      RETURNING ${HOLDING_COLUMNS}`,
-    [id, userId, String(input.shares), String(input.avgCost)],
+    [id, userId, String(input.shares), costParam(input.avgCost)],
   );
   return rows[0] ? toHolding(rows[0]) : null;
 }
@@ -171,10 +175,13 @@ export async function deleteHolding(db: Queryable, userId: string, id: number): 
   return rows.length > 0;
 }
 
-function assertQuantities(shares: Decimal | number, avgCost: Decimal | number) {
+const costParam = (avgCost: Decimal | number | null) => (avgCost === null ? null : String(avgCost));
+
+function assertQuantities(shares: Decimal | number, avgCost: Decimal | number | null) {
   const s = Number(shares);
-  const c = Number(avgCost);
   if (!Number.isFinite(s) || s <= 0) throw new RangeError("Shares must be greater than 0.");
+  if (avgCost === null) return;
+  const c = Number(avgCost);
   if (!Number.isFinite(c) || c < 0) throw new RangeError("Average cost must be 0 or more.");
 }
 

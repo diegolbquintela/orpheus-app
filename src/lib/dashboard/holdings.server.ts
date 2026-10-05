@@ -90,6 +90,17 @@ export function normaliseSymbol(raw: unknown): string | Invalid {
   return symbol;
 }
 
+/**
+ * Average cost is optional (epic #53 ticket 3, #56): missing, `null` or blank (`""`, spaces) means "no
+ * cost" and returns `null`, which is stored as NULL (never as 0). A given cost goes through
+ * `parseQuantity` (>= 0, at most 6 decimals).
+ */
+export function parseOptionalCost(raw: unknown): string | null | Invalid {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === "string" && !raw.trim()) return null;
+  return parseQuantity(raw, "avgCost");
+}
+
 /** Shares: > 0. Average cost: >= 0. Both plain decimals with at most 6 decimal places. */
 export function parseQuantity(raw: unknown, field: "shares" | "avgCost"): string | Invalid {
   const label = field === "shares" ? "Shares" : "Average cost";
@@ -143,7 +154,7 @@ export async function handleHoldingsRequest(request: Request, deps: HoldingsDeps
   if (invalid(symbol)) return invalidResponse(symbol);
   const shares = parseQuantity(body.shares, "shares");
   if (invalid(shares)) return invalidResponse(shares);
-  const avgCost = parseQuantity(body.avgCost, "avgCost");
+  const avgCost = parseOptionalCost(body.avgCost);
   if (invalid(avgCost)) return invalidResponse(avgCost);
 
   const db = await withDb(deps);
@@ -188,7 +199,8 @@ export async function handleHoldingRequest(
   const id = Number(rawId);
   const method = request.method.toUpperCase();
 
-  let update: { shares: string; avgCost: string } | null = null;
+  // PUT carries both fields; a missing, null or blank avgCost clears the cost back to "no cost" (#56).
+  let update: { shares: string; avgCost: string | null } | null = null;
   if (method === "PUT") {
     const body = await readJson(request);
     if (body instanceof Response) return body;
@@ -197,7 +209,7 @@ export async function handleHoldingRequest(
       return json({ error: "The ticker can't be changed. Delete the holding and add it again.", field: "symbol" }, 400);
     const shares = parseQuantity(body.shares, "shares");
     if (invalid(shares)) return invalidResponse(shares);
-    const avgCost = parseQuantity(body.avgCost, "avgCost");
+    const avgCost = parseOptionalCost(body.avgCost);
     if (invalid(avgCost)) return invalidResponse(avgCost);
     update = { shares, avgCost };
   }

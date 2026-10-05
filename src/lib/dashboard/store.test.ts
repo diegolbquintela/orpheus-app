@@ -101,6 +101,12 @@ describe("per-user data access", () => {
     const updated = await store.updateHolding(db, "alice", ko.id, { shares: 12, avgCost: "61.5" });
     assert.equal(Number(updated?.shares), 12);
     assert.equal(Number(updated?.avgCost), 61.5);
+    // #56: no cost is NULL (not 0), and can be set and cleared.
+    const cleared = await store.updateHolding(db, "alice", ko.id, { shares: 12, avgCost: null });
+    assert.equal(cleared?.avgCost, null);
+    const noCost = await store.addHolding(db, "alice", { symbol: "MSFT", shares: 1, avgCost: null });
+    assert.equal(noCost.avgCost, null);
+    assert.equal(await store.deleteHolding(db, "alice", noCost.id), true);
     assert.equal(await store.deleteHolding(db, "alice", ko.id), true);
     assert.deepEqual((await store.listHoldings(db, "alice")).map((h) => h.symbol), ["RY.TO"]);
   });

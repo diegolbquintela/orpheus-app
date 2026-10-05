@@ -131,6 +131,12 @@ rate, Edit and Delete. With no holdings it says `Add a holding`. The explanatory
 list: one total (value only), the pie, and for now the metric columns with their portfolio row (they become
 chips in ticket 4). The other T04–T15 paragraphs below still describe the data; their table layout is gone.
 
+**Ticket 3 (#56).** Adding a holding takes a ticker and shares; average cost is optional. The add form is one
+compact row (Ticker, Shares, Avg cost marked optional, Add). A blank cost saves as "no cost" (stored as
+`NULL`, not 0): the holding's average cost, cost and return stay blank until you enter a cost with Edit,
+and Edit can clear it again. Its value and share of the book count as usual. The listing check is unchanged
+(US, EU and Canada only). Schema: `migrations/0008_holdings_avg_cost_nullable.sql`.
+
 - **The holdings list is the page.** Each row: name, shares, value in base currency, share of the book. Tap
   a row for the rest (cost, last close, return, FX, edit, delete). No helper paragraphs. With no holdings
   the page says one line: `Add a holding`.
@@ -187,7 +193,7 @@ currency (T06 and T07, below).
   `GET`/`PUT`/`DELETE /api/dashboard/holdings/<id>` reads, edits (`{shares, avgCost}` only) or deletes one.
   Same gate as the other per-user APIs: 404 flag off, 405 wrong method (with `Allow`), 401 signed out,
   403 if the request names another user id. Another user's holding id answers 404 "Holding not found.".
-- Validation: shares > 0, average cost ≥ 0 (per share, in the listing's own currency), up to 6 decimals.
+- Validation: shares > 0, average cost ≥ 0 (per share, in the listing's own currency) or blank for no cost (#56), up to 6 decimals.
   One row per ticker per user: a second `KO` gets 409 "KO is already in your holdings.". The ticker can't
   be edited (delete and add again). At most 200 holdings per user.
 - Listing check on add only: the server makes one Yahoo chart-metadata request for the ticker and refuses

@@ -405,6 +405,13 @@ if (!WITH_DB) {
   check(/<title>Dashboard · Orpheus Wisdom<\/title>/.test(page.body), `${label}: GET /dashboard title`);
   check(/<meta name="robots" content="noindex, nofollow"\/>/.test(page.body), `${label}: GET /dashboard noindex`);
   check(/data-testid="holding-form"/.test(page.body), `${label}: GET /dashboard lacks the holdings form`);
+  // #56 (DR3-01): Ticker, Shares, Average cost marked optional, Add; no placeholder sentences.
+  const form = /<form[^>]*data-testid="holding-form"[^>]*>(.*?)<\/form>/s.exec(page.body)?.[1] ?? "";
+  check(
+    (form.match(/<input/g) ?? []).length === 3 && /aria-label="Average cost \(optional\)"/.test(form) && /Average cost \(optional\)</.test(form) &&
+      [...form.matchAll(/placeholder="([^"]*)"/g)].map((m) => m[1]).join("|") === "optional" && />Add<\/button>/.test(form),
+    `${label}: add form is not Ticker / Shares / Average cost (optional) / Add with only the "optional" placeholder`,
+  );
   // #55: the empty state is one line, "Add a holding", with no list, total, chart or helper paragraph.
   check(/data-testid="holdings-empty"[^>]*>Add a holding</.test(page.body), `${label}: GET /dashboard lacks the "Add a holding" empty state`);
   check(!/data-testid="holdings-(list|total-line|pie)"/.test(page.body) && !/Average cost is per share/.test(page.body), `${label}: empty /dashboard shows a list, total, chart or the old helper paragraph`);
@@ -536,6 +543,8 @@ if (!WITH_DB) {
     check(new RegExp(`data-testid="${id}"`).test(usdPage), `${label}: /dashboard KO row lacks ${id}`);
   check(!/>Cost \(USD\)<\/th>|>Total return<\/th>|>% of portfolio<\/th>/.test(usdPage.replace(/<!-- -->/g, "")), `${label}: the old holdings table is still rendered`);
   check(/data-testid="holding-shares"[^>]*>12(<!-- -->)?<span[^>]*> shares<\/span>/.test(usdPage), `${label}: KO row shares -> ${textOf(usdPage, "holding-shares")}`);
+  // QA N1: the header row is aria-hidden, so each row number carries its own visually hidden label.
+  check(/data-testid="holding-shares"[^>]*>12(<!-- -->)?<span class="sm:sr-only"> shares<\/span>/.test(usdPage) && /data-testid="holding-value-label"> value </.test(usdPage) && /data-testid="holding-weight-label"> share of book </.test(usdPage), `${label}: KO row numbers lack their accessible labels`);
   const koName = textOf(usdPage, "holding-name");
   check(koName && koName !== "KO" && koName !== "—", `${label}: KO name (stored company name) -> ${koName}`);
   check(textOf(usdPage, "holding-avg-cost") === "50 USD", `${label}: KO average cost -> ${textOf(usdPage, "holding-avg-cost")}`);
@@ -553,6 +562,32 @@ if (!WITH_DB) {
   check(!/data-testid="stale-note"/.test(usdPage), `${label}: out-of-date note shown right after a successful run`);
   check(textOf(pages.CAD, "as-of") === `Prices as of ${closeCell?.[1]} close · FX ${usdRate?.rateDate}`, `${label}: CAD as-of -> ${textOf(pages.CAD, "as-of")}`);
   check(textOf(pages.CAD, "holding-cost") === `${fmt(600 * Number(usdRate?.cadPerUnit))} CAD`, `${label}: KO cost in CAD -> ${textOf(pages.CAD, "holding-cost")} (rate ${usdRate?.cadPerUnit})`);
+  // #56 (DR3-02..04): a blank cost is stored as no cost (null) and the detail's average cost, cost and
+  // return render blank, while value, share of the book, the total and the pie still count the holding.
+  // Entering a cost again fills them. A POST without a cost (missing, or "") saves with avgCost null.
+  const isBlank = (html, id) => new RegExp(`data-testid="${id}" data-blank="true"></span>`).test(html);
+  const clear = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "" } });
+  check(clear.status === 200 && /"avgCost":null/.test(clear.body), `${label}: PUT KO avgCost "" -> ${clear.status} ${clear.body.slice(0, 160)}`);
+  const noCostPage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
+  for (const id of ["holding-avg-cost", "holding-cost", "holding-return"])
+    check(isBlank(noCostPage, id) && textOf(noCostPage, id) === "", `${label}: no cost, ${id} -> ${JSON.stringify(textOf(noCostPage, id))} (want blank)`);
+  check(!/data-testid="holding-return-pct"/.test(noCostPage) && !/NaN|n\/m/.test(noCostPage.replace(/<script.*?<\/script>/gs, "")), `${label}: no cost, return % / NaN / n/m rendered`);
+  check(textOf(noCostPage, "holding-weight") === "100.0%" && textOf(noCostPage, "holding-detail-weight") === "100.0%", `${label}: no cost, share of the book -> ${textOf(noCostPage, "holding-weight")}`);
+  check(JSON.stringify(totalOf(noCostPage)) === JSON.stringify(backToUsd), `${label}: no cost, total -> ${JSON.stringify(totalOf(noCostPage))} (want ${JSON.stringify(backToUsd)})`);
+  check(/data-testid="holdings-pie" data-slices="1"/.test(noCostPage) && textOf(noCostPage, "pie-slice-pct") === "100.0%", `${label}: no cost, pie -> ${textOf(noCostPage, "pie-slice-pct")}`);
+  const refill = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "50" } });
+  check(refill.status === 200 && /"avgCost":"50(\.0+)?"/.test(refill.body), `${label}: PUT KO avgCost 50 again -> ${refill.status} ${refill.body.slice(0, 160)}`);
+  const refilled = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
+  check(textOf(refilled, "holding-avg-cost") === "50 USD" && textOf(refilled, "holding-cost") === "600.00 USD" && textOf(refilled, "holding-return") === `${fmt(12 * koClose - 600, true)} USD`, `${label}: cost entered again -> ${textOf(refilled, "holding-avg-cost")} / ${textOf(refilled, "holding-cost")} / ${textOf(refilled, "holding-return")}`);
+  for (const body of [{ symbol: "RY.TO", shares: "3" }, { symbol: "RY.TO", shares: "3", avgCost: "" }]) {
+    const r = await call("POST", H, "true", undefined, { cookie: token, body });
+    check(r.status === 201 && /"symbol":"RY.TO"/.test(r.body) && /"avgCost":null/.test(r.body), `${label}: POST ${JSON.stringify(body)} -> ${r.status} ${r.body.slice(0, 160)}`);
+    const id = r.status === 201 ? JSON.parse(r.body).holding.id : 0;
+    const got = await call("GET", `${H}/${id}`, "true", undefined, { cookie: token });
+    check(got.status === 200 && /"avgCost":null/.test(got.body), `${label}: RY.TO without cost after reload -> ${got.status} ${got.body.slice(0, 160)}`);
+    const d = await call("DELETE", `${H}/${id}`, "true", undefined, { cookie: token });
+    check(d.status === 200, `${label}: DELETE RY.TO -> ${d.status}`);
+  }
   for (const [method, body] of [["GET"], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE"]]) {
     const r = await call(method, `${H}/${koId}`, "true", undefined, { cookie: otherToken, body });
     check(r.status === 404, `${label}: other user ${method} first user's holding -> ${r.status}`);
@@ -614,6 +649,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

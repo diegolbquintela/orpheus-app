@@ -49,9 +49,13 @@ export type Valuation = {
   rows: ValuedHolding[];
   /** Σ market value (total position), base currency. */
   total: number;
-  totalCost: number;
-  totalReturn: number;
-  /** totalReturn / totalCost × 100; null when the total cost is 0. */
+  /**
+   * Σ cost and Σ return over the valued holdings that have a cost (#56: a holding with no cost is left out
+   * of both, not counted as 0); null when no valued holding has a cost.
+   */
+  totalCost: number | null;
+  totalReturn: number | null;
+  /** totalReturn / totalCost × 100; null when the total cost is 0 or null. */
   totalReturnPct: number | null;
   /** Symbols left out of the totals (price or FX pending). */
   excluded: string[];
@@ -61,7 +65,8 @@ export type Valuation = {
   fxAsOf: string | null;
 };
 
-type HoldingInput = { symbol: string; shares: string; avgCost?: string };
+/** `avgCost` null or missing = no cost (#56): cost and return stay null; value and weight don't change. */
+type HoldingInput = { symbol: string; shares: string; avgCost?: string | null };
 type PriceInput = { close: string | null; currency: string | null; sessionDate: string | null } | undefined;
 
 const maxDate = (a: string | null, b: string | null) => (a === null ? b : b === null ? a : a > b ? a : b);
@@ -88,7 +93,8 @@ export async function valueHoldings(
     status,
   });
   let total = 0;
-  let totalCost = 0;
+  let totalCost: number | null = null;
+  let totalReturn: number | null = null;
   let pricesAsOf: string | null = null;
   let fxAsOf: string | null = null;
   for (const h of holdings) {
@@ -106,11 +112,14 @@ export async function valueHoldings(
     }
     const shares = Number(h.shares);
     const close = Number(p.close);
-    const avg = h.avgCost === undefined ? null : Number(h.avgCost);
+    const avg = h.avgCost === undefined || h.avgCost === null ? null : Number(h.avgCost);
     const value = shares * close * fx.factor;
     const cost = avg === null ? null : shares * avg * fx.factor;
     total += value;
-    if (cost !== null) totalCost += cost;
+    if (cost !== null) {
+      totalCost = (totalCost ?? 0) + cost;
+      totalReturn = (totalReturn ?? 0) + (value - cost);
+    }
     pricesAsOf = maxDate(pricesAsOf, p.sessionDate);
     for (const r of fx.rates) fxAsOf = maxDate(fxAsOf, r.rateDate);
     rows.push({
@@ -127,14 +136,13 @@ export async function valueHoldings(
     });
   }
   for (const r of rows) if (r.value !== null) r.weight = total > 0 ? (r.value / total) * 100 : null;
-  const totalReturn = total - totalCost;
   return {
     base,
     rows,
     total,
     totalCost,
     totalReturn,
-    totalReturnPct: totalCost > 0 ? (totalReturn / totalCost) * 100 : null,
+    totalReturnPct: totalCost !== null && totalReturn !== null && totalCost > 0 ? (totalReturn / totalCost) * 100 : null,
     excluded,
     pricesAsOf,
     fxAsOf,

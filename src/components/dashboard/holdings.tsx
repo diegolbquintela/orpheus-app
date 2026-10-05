@@ -20,7 +20,8 @@ export type HoldingView = {
   id: number;
   symbol: string;
   shares: string;
-  avgCost: string;
+  /** null = no cost entered (#56): average cost, cost and return render blank. */
+  avgCost: string | null;
 };
 
 export type PriceView = {
@@ -51,8 +52,8 @@ export type ValuationView = {
   base: BaseCurrency;
   rows: ValuedRow[];
   total: number;
-  totalCost: number;
-  totalReturn: number;
+  totalCost: number | null;
+  totalReturn: number | null;
   totalReturnPct: number | null;
   excluded: string[];
   pricesAsOf: string | null;
@@ -140,6 +141,17 @@ function PositionValue({ row, base, testId = "holding-value", withFx = false }: 
   );
 }
 
+/**
+ * #56: a holding with no average cost shows its average cost, cost and return as empty (not `0`, `n/m` or
+ * `—`; spec §0.2 "Add"), until a cost is entered.
+ */
+function Blank({ testId }: { testId: string }) {
+  return <span data-testid={testId} data-blank="true" />;
+}
+
+/** The request body's average cost: blank input is "no cost" (null), never 0 (#56). */
+export const costForRequest = (input: string): string | null => (input.trim() ? input.trim() : null);
+
 /** Placeholder for a T07 field (cost, return, share of the book) while the price or FX is pending. */
 function Pending({ testId }: { testId: string }) {
   return (
@@ -182,20 +194,34 @@ function Row({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [shares, setShares] = useState(trimDecimal(holding.shares));
-  const [avgCost, setAvgCost] = useState(trimDecimal(holding.avgCost));
+  const savedCost = holding.avgCost === null ? "" : trimDecimal(holding.avgCost);
+  const noCost = holding.avgCost === null;
+  const [avgCost, setAvgCost] = useState(savedCost);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const detailId = `holding-detail-${holding.id}`;
   const name = price?.name || holding.symbol;
 
+  // QA N6: one PUT per Save, like the #44 delete guard: a second click before React re-renders the disabled
+  // button is ignored. Released on an error (so the user can retry) and once the page's refetch is back.
+  const saving = useRef(false);
   async function save() {
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError(null);
-    const err = await send(`/api/dashboard/holdings/${holding.id}`, "PUT", { shares, avgCost });
+    const err = await send(`/api/dashboard/holdings/${holding.id}`, "PUT", { shares, avgCost: costForRequest(avgCost) });
     setBusy(false);
-    if (err) return setError(err);
+    if (err) {
+      saving.current = false;
+      return setError(err);
+    }
     setEditing(false);
-    await onChanged();
+    try {
+      await onChanged();
+    } finally {
+      saving.current = false;
+    }
   }
 
   // One DELETE per row, ever: a second click before React re-renders the disabled button is ignored, and
@@ -233,14 +259,18 @@ function Row({
         <span className="min-w-0 truncate font-medium sm:order-1" data-testid="holding-name">
           {name}
         </span>
+        {/* QA N1: the header row is aria-hidden, so each number carries its own (visually hidden) label. */}
         <span className="text-right whitespace-nowrap sm:order-3">
+          <span className="sr-only" data-testid="holding-value-label"> value </span>
           <PositionValue row={valued} base={base} />
+          <span className="sr-only"> </span>
         </span>
         <span className="text-xs text-muted sm:order-2 sm:text-sm sm:text-ink" data-testid="holding-shares">
           {trimDecimal(holding.shares)}
-          <span className="sm:hidden"> shares</span>
+          <span className="sm:sr-only"> shares</span>
         </span>
         <span className="text-right text-xs text-muted sm:order-4 sm:text-sm sm:text-ink">
+          <span className="sr-only" data-testid="holding-weight-label"> share of book </span>
           {ok && valued.weight !== null ? <span data-testid="holding-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-weight" />}
         </span>
       </button>
@@ -273,10 +303,14 @@ function Row({
                 className="field w-28 text-base tabular-nums"
               />
             ) : (
-              <span data-testid="holding-avg-cost">
-                {trimDecimal(holding.avgCost)}
-                {price?.currency ? ` ${price.currency}` : ""}
-              </span>
+              noCost ? (
+                <Blank testId="holding-avg-cost" />
+              ) : (
+                <span data-testid="holding-avg-cost">
+                  {savedCost}
+                  {price?.currency ? ` ${price.currency}` : ""}
+                </span>
+              )
             )}
           </Field>
           <Field label="Last close">
@@ -286,7 +320,9 @@ function Row({
             <PositionValue row={valued} base={base} testId="holding-detail-value" withFx />
           </Field>
           <Field label={`Cost (${base})`}>
-            {ok && valued.cost !== null ? (
+            {noCost ? (
+              <Blank testId="holding-cost" />
+            ) : ok && valued.cost !== null ? (
               <span data-testid="holding-cost">
                 {money(valued.cost)} {base}
               </span>
@@ -295,7 +331,9 @@ function Row({
             )}
           </Field>
           <Field label="Return">
-            {ok && valued.returnAmount !== null ? (
+            {noCost ? (
+              <Blank testId="holding-return" />
+            ) : ok && valued.returnAmount !== null ? (
               <span data-testid="holding-return">
                 {signedMoney(valued.returnAmount)} {base}
                 <span className="block text-xs text-muted" data-testid="holding-return-pct">
@@ -322,7 +360,7 @@ function Row({
                 onClick={() => {
                   setEditing(false);
                   setShares(trimDecimal(holding.shares));
-                  setAvgCost(trimDecimal(holding.avgCost));
+                  setAvgCost(savedCost);
                   setError(null);
                 }}
                 className="underline-offset-4 hover:underline disabled:opacity-50"
@@ -501,7 +539,7 @@ export function HoldingsSection({
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const err = await send("/api/dashboard/holdings", "POST", { symbol, shares, avgCost });
+    const err = await send("/api/dashboard/holdings", "POST", { symbol, shares, avgCost: costForRequest(avgCost) });
     setBusy(false);
     if (err) return setError(err);
     setSymbol("");
@@ -525,30 +563,52 @@ export function HoldingsSection({
     <section className="mt-10" data-testid="holdings">
       <h2 className="text-xl">Holdings</h2>
       <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
-      <form className="mt-6 grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end" onSubmit={add} data-testid="holding-form">
-        <label className="flex flex-col gap-2">
+      {/* #56: one tight row at every width (no stacked fields on a phone), wider from 1024 px. */}
+      <form
+        className="mt-6 grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:gap-4"
+        onSubmit={add}
+        data-testid="holding-form"
+      >
+        <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
           <span className="kicker text-muted">Ticker</span>
           <input
             value={symbol}
             onChange={(e) => setSymbol(e.target.value)}
             spellCheck={false}
             autoCapitalize="characters"
-            placeholder="e.g. KO, RY.TO, ASML.AS"
             className="field text-base"
+            data-testid="holding-form-symbol"
           />
         </label>
-        <label className="flex flex-col gap-2">
+        <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
           <span className="kicker text-muted">Shares</span>
-          <input value={shares} onChange={(e) => setShares(e.target.value)} inputMode="decimal" className="field text-base tabular-nums" />
+          <input
+            value={shares}
+            onChange={(e) => setShares(e.target.value)}
+            inputMode="decimal"
+            className="field text-base tabular-nums"
+            data-testid="holding-form-shares"
+          />
         </label>
-        <label className="flex flex-col gap-2">
-          <span className="kicker text-muted">Average cost</span>
-          <input value={avgCost} onChange={(e) => setAvgCost(e.target.value)} inputMode="decimal" className="field text-base tabular-nums" />
+        <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
+          <span className="kicker text-muted" data-testid="holding-form-cost-label">
+            <span className="lg:hidden">Avg cost</span>
+            <span className="hidden lg:inline">Average cost (optional)</span>
+          </span>
+          <input
+            value={avgCost}
+            onChange={(e) => setAvgCost(e.target.value)}
+            inputMode="decimal"
+            aria-label="Average cost (optional)"
+            placeholder="optional"
+            className="field text-base tabular-nums placeholder:text-muted"
+            data-testid="holding-form-cost"
+          />
         </label>
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex h-12 items-center justify-center bg-ink px-6 text-sm text-card disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center bg-ink px-4 text-sm text-card disabled:opacity-50 lg:h-12 lg:px-6"
         >
           {busy ? "Adding…" : "Add"}
         </button>

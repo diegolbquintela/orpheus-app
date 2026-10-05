@@ -88,6 +88,25 @@ describe("holdings list (#55, DR2)", () => {
     assert.equal($('[data-testid="holding-cost"]', toggle), null, "cost is in the detail only");
   });
 
+  it("QA N1: each row number has its own accessible label (the header row is aria-hidden)", async () => {
+    await render();
+    for (const symbol of ["KO", "RY.TO", "ASML.AS"]) {
+      const toggle = $('[data-testid="holding-row-toggle"]', rowOf(symbol))!;
+      // Labels sit beside the figures (not inside the testid spans), visually hidden from 640 px.
+      assert.equal(text($('[data-testid="holding-value-label"]', toggle)), "value");
+      assert.ok($('[data-testid="holding-value-label"]', toggle)!.classList.contains("sr-only"));
+      assert.equal(text($('[data-testid="holding-weight-label"]', toggle)), "share of book");
+      assert.ok($('[data-testid="holding-weight-label"]', toggle)!.classList.contains("sr-only"));
+      const shares = $('[data-testid="holding-shares"] span', toggle)!;
+      assert.equal(text(shares), "shares");
+      assert.ok(shares.classList.contains("sm:sr-only"), "visible on a phone, visually hidden (still read) from 640 px");
+      assert.equal(toggle.children.length, 4);
+    }
+    const header = $('[aria-hidden="true"]', $('[data-testid="holdings"]')!);
+    assert.ok(header && /Share of the book/.test(text(header)), "the visual header row stays aria-hidden");
+    assert.match(text($('[data-testid="holding-row-toggle"]', rowOf("KO"))), /^Coca-Cola Co value 997\.01 CAD 10 shares share of book 30\.8%$/);
+  });
+
   it("DR2-03: a tap opens the detail with the old fields plus Edit/Delete; a second tap closes it", async () => {
     await render();
     const ko = rowOf("KO");
