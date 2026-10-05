@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { act, type ComponentProps } from "react";
 import type { Root } from "react-dom/client";
-import { matchingChips } from "@/lib/dashboard/metrics";
+import { exactChip, matchingChips } from "@/lib/dashboard/metrics";
 import { HoldingsSection } from "./holdings";
 
 // react-dom after the jsdom globals (see holdings-add.dom.test.tsx), so text inputs use the "input" event.
@@ -264,6 +264,92 @@ describe("metrics sheet and chips (#57, DR4)", () => {
     assert.ok(srOnly.length > 0, "the fixture has missing figures with screen-reader text");
     assert.ok(srOnly.every((s) => box.contains(s)), "every sr-only reason sits inside the scroll box");
     assert.equal(box.querySelector("table")?.closest('[data-testid="metric-scroll"]'), box);
+  });
+
+  it("QA D2: Enter on a full chip name adds exactly that chip (3y vs 10y), case-insensitive; else the best match", async () => {
+    const enter = (el: Element) => act(async () => void el.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    const cases: [string, string][] = [
+      ["Revenue CAGR 3y", "rev_cagr_3y"],
+      ["revenue cagr 10Y", "rev_cagr_10y"],
+      ["  REVENUE   CAGR 5y ", "rev_cagr_5y"],
+      ["Gross margin (1y)", "gross_margin_1y"],
+      ["EPS (1y)", "eps_1y"],
+      ["cagr 10", "rev_cagr_10y"], // no exact label: the only match
+      ["cagr", "rev_cagr_3y"], // no exact label: the first in catalog order
+    ];
+    for (const [q, want] of cases) {
+      puts = [];
+      await render(PAGE(["rev_g_1y"]));
+      const search = $('[data-testid="metric-search"]')!;
+      await type(search, q);
+      await enter(search);
+      assert.deepEqual(puts, [{ columns: ["rev_g_1y", want] }], `Enter on ${JSON.stringify(q)}`);
+      await act(async () => root.unmount());
+      container.remove();
+    }
+    await render(PAGE(DEFAULTS)); // for afterEach
+    // The ranking itself: the exact label first, then labels that start with the query, then catalog order.
+    assert.deepEqual(matchingChips("Revenue CAGR 3y", []).map((c) => c.key), ["rev_cagr_3y"]);
+    assert.deepEqual(matchingChips("revenue cagr 10y", []).map((c) => c.key), ["rev_cagr_10y"]);
+    assert.deepEqual(matchingChips("1y", []).map((c) => c.key)[0], "rev_g_1y");
+    assert.equal(exactChip("revenue cagr 3Y", [])?.key, "rev_cagr_3y");
+    assert.equal(exactChip("Revenue CAGR 3y", ["rev_cagr_3y"]), undefined, "a kept chip is never re-added");
+    assert.equal(exactChip("Revenue CAGR", []), undefined);
+  });
+
+  it("QA (b): an option press keeps focus in the search; a click during a save keeps the query; the field stays enabled", async () => {
+    release = () => {};
+    await render(PAGE(["rev_g_1y"]));
+    const search = $('[data-testid="metric-search"]')! as HTMLInputElement;
+    search.focus();
+    await type(search, "gross");
+    const opt = $('[data-testid="metric-option"]')!;
+    const down = new dom.window.MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    await act(async () => void opt.dispatchEvent(down));
+    assert.equal(down.defaultPrevented, true, "mousedown on an option is prevented (focus stays)");
+    await click(opt);
+    assert.equal(puts.length, 1);
+    assert.equal(search.disabled, false, "the search stays enabled while saving (typed keys aren't dropped)");
+    assert.equal(dom.window.document.activeElement, search);
+    // A second pick while the first save is in flight: no PUT, and the typed query is kept.
+    await type(search, "ebit");
+    await act(async () => void search.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    assert.equal(puts.length, 1);
+    assert.equal(search.value, "ebit");
+    await act(async () => release?.());
+  });
+
+  it("#58 + QA D2: in the combobox an exact name is listed first and highlighted, Enter adds it; arrows still pick others", async () => {
+    const key = (el: Element, k: string) =>
+      act(async () => void el.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })));
+    release = () => {}; // hold the save open to look at the field while saving
+    await render(PAGE(["rev_g_1y"]));
+    const search = $('[data-testid="metric-search"]')! as HTMLInputElement;
+    search.focus();
+    await type(search, "revenue cagr 3Y");
+    let opts = $$('[data-testid="metric-option"]');
+    assert.equal(opts[0].dataset.key, "rev_cagr_3y");
+    assert.equal(opts[0].getAttribute("aria-selected"), "true");
+    assert.equal(search.getAttribute("aria-activedescendant"), opts[0].id);
+    await key(search, "Enter");
+    assert.deepEqual(puts.at(-1), { columns: ["rev_g_1y", "rev_cagr_3y"] }, "Enter on the full name adds 3y, not 10y");
+    assert.equal(search.readOnly, false, "the field takes keys while saving (QA (b))");
+    assert.equal(search.disabled, false);
+    assert.equal(dom.window.document.activeElement, search);
+    await act(async () => release?.());
+    release = null;
+    await act(async () => root.unmount());
+    container.remove();
+    // No exact name: the highlight decides (first = best match; End moves it to 10y).
+    puts = [];
+    await render(PAGE(["rev_g_1y"]));
+    const s2 = $('[data-testid="metric-search"]')! as HTMLInputElement;
+    await type(s2, "revenue cagr");
+    opts = $$('[data-testid="metric-option"]');
+    assert.deepEqual(opts.map((o) => o.dataset.key), ["rev_cagr_3y", "rev_cagr_5y", "rev_cagr_10y"]);
+    await key(s2, "End");
+    await key(s2, "Enter");
+    assert.deepEqual(puts, [{ columns: ["rev_g_1y", "rev_cagr_10y"] }]);
   });
 
   it("one PUT per click burst on a chip (guard like Save / Delete)", async () => {

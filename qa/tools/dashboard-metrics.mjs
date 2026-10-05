@@ -11,6 +11,8 @@
 //    reads exactly "—" (no visible reason text).
 //  - D1 (#63 QA): with ALL chips kept (saved, checked, then the account's own list restored, per viewport) and a
 //    missing figure, the page's scrollWidth stays at the viewport width (the table scrolls in its own box).
+//  - D2 (#63 QA): typing the full name "Revenue CAGR 3y" and Enter adds Revenue CAGR 3y, not 10y; focus stays in
+//    the search field (same save / restore as D1).
 // Writes: two chip saves on the phone pass (add Gross margin, remove it), leaving the chip list as it was
 // (an account still on the defaults becomes "saved" with the same three chips). Never clicks Delete. Signs out
 // at the end. Writes dashboard-metrics.json and screenshots to --out. Exit 1 on a fail.
@@ -115,6 +117,19 @@ await eachViewport({ browser, baseUrl: CFG.baseUrl, email, password, check }, as
     const own = cols.columns;
     const all = cols.available.map((c) => c.key);
     try {
+      // QA D2: the full name "Revenue CAGR 3y" + Enter adds Revenue CAGR 3y (not 10y); focus stays in the field.
+      const base = own.filter((k) => k !== "rev_cagr_3y" && k !== "rev_cagr_10y");
+      await page.request.put(`${CFG.baseUrl}/api/dashboard/columns`, { data: { columns: base }, headers: H });
+      await page.reload({ waitUntil: "networkidle" });
+      if (mobile) await page.getByTestId("sheet-switch-metrics").click();
+      const search = page.getByTestId("metric-search");
+      await search.fill("");
+      await search.pressSequentially("Revenue CAGR 3y");
+      await Promise.all([page.waitForResponse((r) => r.url().endsWith("/api/dashboard/columns") && r.request().method() === "PUT"), search.press("Enter")]);
+      await page.waitForFunction(() => document.querySelector('[data-testid="metric-chip"][data-key="rev_cagr_3y"]'), null, { timeout: 20000 }).catch(() => {});
+      const afterEnter = await chipKeys(page);
+      check(`[${vp}] D2 "Revenue CAGR 3y" + Enter adds Revenue CAGR 3y (not 10y)`, JSON.stringify(afterEnter) === JSON.stringify([...base, "rev_cagr_3y"]), afterEnter);
+      check(`[${vp}] D2 focus stays in the search after adding`, await search.evaluate((el) => el === document.activeElement));
       const put = await page.request.put(`${CFG.baseUrl}/api/dashboard/columns`, { data: { columns: all }, headers: H });
       check(`[${vp}] D1 save all ${all.length} chips`, put.ok(), put.status());
       await page.reload({ waitUntil: "networkidle" });

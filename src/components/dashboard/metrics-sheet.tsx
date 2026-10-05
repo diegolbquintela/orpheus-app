@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { formatPortfolioPct } from "@/lib/dashboard/format";
-import { METRIC_HELP, SHARE_OF_BOOK, chipLabel, matchingChips, type MetricKey } from "@/lib/dashboard/metrics";
+import { METRIC_HELP, SHARE_OF_BOOK, chipLabel, exactChip, matchingChips, type MetricKey } from "@/lib/dashboard/metrics";
 import { MetricCell, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
 
 /**
@@ -107,6 +107,9 @@ export function MetricsSheet({
     }
   }
   const add = async (key: string) => {
+    // QA (b): while a save is in flight, keep the query (a second click / Enter would otherwise clear it and
+    // add nothing, which reads as "needed two tries").
+    if (saving.current) return;
     setQuery("");
     setActive(0);
     input.current?.focus();
@@ -127,7 +130,10 @@ export function MetricsSheet({
       setActive(matches.length - 1);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (!busy && current >= 0) void add(matches[current].key);
+      // QA D2: a label equal to the query (case-insensitive) wins; otherwise the highlighted option (the
+      // first / best match unless the arrows moved it).
+      const pick = exactChip(query, chips) ?? (current >= 0 ? matches[current] : undefined);
+      if (!busy && pick) void add(pick.key);
     } else if (e.key === "Escape") {
       setQuery("");
       setActive(0);
@@ -152,7 +158,6 @@ export function MetricsSheet({
             setActive(0);
           }}
           onKeyDown={onKeyDown}
-          readOnly={busy}
           autoComplete="off"
           spellCheck={false}
           aria-controls="metric-options"

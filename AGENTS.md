@@ -572,6 +572,10 @@ four-field row, the tap detail and one total (value only); average cost becomes 
 - Missing figure: `—` alone, reason in `title` + a visually hidden span (DR4-07; supersedes DASH-21's text).
   Keep the table's scroll box (`metric-scroll`) `relative` (QA D1): `sr-only` is `position: absolute`, and an
   unpositioned box lets it escape and widen the whole page.
+- Search ranking / Enter (QA D2): `matchingChips()` ranks exact label > prefix > whole words > substring
+  (catalog order within a rank); Enter takes `exactChip(query)` first, else the first match. The input is never
+  `disabled` while saving (only the option buttons are), option `mousedown` is prevented, and `add()` returns
+  early without clearing the query while a save is in flight.
 - Tests: `metrics-sheet.dom.test.tsx`, `fundamentals.test.ts` (chips API), `store.test.ts`,
   `check-dashboard-built.mjs --with-database`; browser `qa/tools/dashboard-metrics.mjs` (both widths; adds and
   removes Gross margin on the phone pass unless it is already kept; signs out; never Delete).
@@ -762,8 +766,10 @@ lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded
   between figure and coverage. Share chip: sum of the valued weights (100.0%), no suffix.
 - Metric search (#58): `metric-search` is a `role="combobox"` input over the `role="listbox"`
   `metric-options` (`metric-option` = `role="option"` `<li>`, `aria-selected`, no button inside); arrows /
-  Home / End move `aria-activedescendant`, Enter adds the highlighted option, Escape clears; mousedown on an
-  option is prevented and the input is `readOnly` (not `disabled`) while saving, so focus stays in it.
+  Home / End move `aria-activedescendant`, Enter adds the label equal to the query if any (QA D2, `exactChip`),
+  else the highlighted option (ranked best first, so the exact name is also first and highlighted), Escape
+  clears; mousedown on an option is prevented and the input is neither `disabled` nor `readOnly` while saving
+  (QA (b): focus stays and typed keys aren't dropped; `add()` ignores a pick while a save is in flight).
 - QA tools that sign in (`dashboard-list`, `-add`, `-metrics`, `-book`) go through `qa/tools/session.mjs`
   `eachViewport()`: sign-in, checks, and sign-out in a `finally` (QA N4); a thrown error is a FAIL. Don't
   add a tool that signs in or out by itself (`scripts/qa-tools-session.test.mjs` enforces it).

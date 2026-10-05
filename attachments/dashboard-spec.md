@@ -418,6 +418,11 @@ MC.PA) for book figures.
   many chips are kept; the page never does. **QA D1 fix:** the scroll box is `relative`, so the absolutely
   positioned sr-only reason text can't escape it and widen the page (it did with all 9 chips and an off-screen
   `—`: 724 px page at a 400 px viewport).
+- **QA D2 / Chrome pass fixes:** matches are ranked (the label equal to the query, ignoring case and extra
+  spaces, then labels starting with it, then whole-word matches, then the rest; ties in catalog order), and
+  Enter adds the exact label if there is one, else the first match, so `Revenue CAGR 3y` + Enter never adds
+  10y. The search field is no longer disabled while a chip saves (typed keys aren't dropped), a press on an
+  option doesn't take focus from it, and a pick while a save is in flight keeps the typed query.
 - Interim until ticket 5: the T14 `Portfolio` foot row stays (figure `· N% covered`); for the share chip it
   shows the sum of the weights. Ticket 5 turns it into the `Book` row.
 - Holdings `PUT` (EL change carried from #62): omitted `avgCost` keeps the stored cost, `null` clears, a
@@ -449,9 +454,11 @@ MC.PA) for book figures.
 - **Metric search as a combobox (EL, #58):** the `Add a metric` input is `role="combobox"`
   (`aria-autocomplete="list"`, `aria-expanded`, `aria-controls="metric-options"`, `aria-activedescendant`)
   over a `role="listbox"` of `role="option"` items (`aria-selected`); ↓ / ↑ move the highlight (wrapping),
-  Home / End jump, Enter adds the highlighted option (the first by default), Escape clears; focus stays in
-  the input after adding (options don't take focus; the input is read-only, not disabled, while saving).
-- Carries #63's QA D1 fix (merged from `feat/dashboard-redesign-metrics`).
+  Home / End jump, Enter adds the option whose label equals the query (QA D2, exact-match wins), else the
+  highlighted one (the first, best-ranked, by default), Escape clears; focus stays in the input after adding
+  (options don't take focus; the input is neither disabled nor read-only while saving, so typed keys aren't
+  dropped, and a pick during a save is ignored with the query kept).
+- Carries #63's QA D1 and D2 / (b) fixes (merged from `feat/dashboard-redesign-metrics`).
 - Tests: `book.test.ts` (weighting: dashes excluded and renormalised, negatives, pending outside, all missing
   → `—`, EPS growth; donut: largest first, ties, Other past ten, exactly ten / eleven, none valued),
   `book.dom.test.tsx` (one total, donut, Other, nothing valued, Book row figures / order / `—` / share /
