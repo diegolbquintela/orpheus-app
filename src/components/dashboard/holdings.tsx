@@ -585,7 +585,7 @@ export function HoldingsSection({
           </ul>
           {valuation ? (
             <p className={`${ROW_GRID} py-3 text-sm font-medium tabular-nums`} data-testid="holdings-total-line">
-              <span className="sm:order-1">
+              <span className="sm:col-start-1">
                 Total
                 {note ? (
                   <span className="block text-xs font-normal text-muted" data-testid="holdings-total-excluded-count">
