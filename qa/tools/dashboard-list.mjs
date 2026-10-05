@@ -67,7 +67,7 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   await rows.first().getByTestId("holding-row-toggle").click();
   check(`[${vp}] second tap closes it`, !(await detail.isVisible()));
   check(`[${vp}] one total`, (await page.getByTestId("holdings-total").count()) === 1 && (await page.getByTestId("holdings-total-cost").count()) === 0);
-  check(`[${vp}] metrics still reachable`, (await page.getByTestId("metric-picker").count()) === 1);
+  check(`[${vp}] metrics sheet on the page (#57)`, (await page.getByTestId("metric-search").count()) === 1);
   await signOut(page, vp);
   await ctx.close();
 }

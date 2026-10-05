@@ -1,9 +1,9 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
-import { formatPortfolioPct, trimDecimal } from "@/lib/dashboard/format";
-import { METRIC_HELP, metricLabel, type MetricKey } from "@/lib/dashboard/metrics";
+import { costForRequest, formatPortfolioPct, trimDecimal } from "@/lib/dashboard/format";
 import { excludedNote } from "@/lib/dashboard/pie";
 import { HoldingsPie } from "./holdings-pie";
-import { MetricCell, MetricColumnsPicker, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
+import { type MetricViewData, type PortfolioCellView } from "./metric-columns";
+import { MetricsSheet } from "./metrics-sheet";
 
 /**
  * Holdings on /dashboard (T04 #12 → #55): add, edit (shares, average cost) and delete. Talks to
@@ -68,8 +68,11 @@ const signedPct = (n: number) =>
   `${new Intl.NumberFormat("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(n)}%`;
 const weightPct = formatPortfolioPct;
 
-/** Row layout: two lines on a phone (name · value / shares · share), four columns from 640 px. */
-const ROW_COLS = "gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_8rem_11rem_9rem] sm:items-baseline";
+/**
+ * Row layout: two lines on a phone (name · value / shares · share), four columns from 640 px. The number
+ * columns are narrow (#57) so the name keeps room when the metrics sheet sits beside the list at 1024 px.
+ */
+const ROW_COLS = "gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_5rem_9rem_6rem] sm:items-baseline";
 const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto] ${ROW_COLS}`;
 
 type Props = {
@@ -148,9 +151,6 @@ function PositionValue({ row, base, testId = "holding-value", withFx = false }: 
 function Blank({ testId }: { testId: string }) {
   return <span data-testid={testId} data-blank="true" />;
 }
-
-/** The request body's average cost: blank input is "no cost" (null), never 0 (#56). */
-export const costForRequest = (input: string): string | null => (input.trim() ? input.trim() : null);
 
 /** Placeholder for a T07 field (cost, return, share of the book) while the price or FX is pending. */
 function Pending({ testId }: { testId: string }) {
@@ -393,72 +393,6 @@ function Row({
   );
 }
 
-/**
- * Today's metric columns (T08–T14), kept reachable under the list until ticket 4 (#57) turns them into
- * chips on a metrics sheet: the picker, one row per holding (name + the user's columns) and the portfolio
- * row. It scrolls sideways inside its own box, so the page itself never does.
- */
-function MetricsTable({
-  holdings,
-  prices,
-  metricColumns,
-  metrics,
-  portfolio,
-  onChanged,
-}: {
-  holdings: HoldingView[];
-  prices: Props["prices"];
-  metricColumns: string[];
-  metrics: Record<string, MetricViewData>;
-  portfolio: Record<string, PortfolioCellView>;
-  onChanged: Props["onChanged"];
-}) {
-  return (
-    <section className="mt-12" data-testid="metrics">
-      <h3 className="text-lg">Metrics</h3>
-      <MetricColumnsPicker columns={metricColumns} onChanged={onChanged} />
-      {metricColumns.length ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full border-collapse text-sm tabular-nums">
-            <thead>
-              <tr className="text-left">
-                <th className="kicker pb-2 pr-4 font-normal text-muted">Name</th>
-                {metricColumns.map((key) => (
-                  <th key={key} className="kicker pb-2 pr-4 font-normal text-muted" data-testid="metric-th" data-key={key} title={METRIC_HELP[key as MetricKey]}>
-                    {metricLabel(key)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map((h) => (
-                <tr key={h.id} className="border-t border-line align-top" data-testid="metric-row" data-symbol={h.symbol}>
-                  <td className="py-3 pr-4 font-medium">{prices[h.symbol]?.name || h.symbol}</td>
-                  {metricColumns.map((key) => (
-                    <td key={key} className="py-3 pr-4 tabular-nums whitespace-nowrap">
-                      <MetricCell metricKey={key} view={metrics[h.symbol]} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-ink">
-                <td className="py-3 pr-4 font-medium">Portfolio</td>
-                {metricColumns.map((key) => (
-                  <td key={key} className="py-3 pr-4 font-medium tabular-nums whitespace-nowrap">
-                    <PortfolioMetricCell metricKey={key} cell={portfolio[key]} />
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 /** Base currency setting (T06): saved with PUT /api/dashboard/settings, then the page reloads its data. */
 export function BaseCurrencySetting({ value, onChanged }: { value: BaseCurrency; onChanged: Props["onChanged"] }) {
   const [busy, setBusy] = useState(false);
@@ -534,6 +468,7 @@ export function HoldingsSection({
   const [avgCost, setAvgCost] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sheet, setSheet] = useState<"holdings" | "metrics">("holdings");
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -559,109 +494,149 @@ export function HoldingsSection({
   const pend = valuation ? valuation.rows.filter((r) => r.value === null) : [];
   const note = excludedNote(pend.filter((r) => r.status !== "fx_pending").length, pend.filter((r) => r.status === "fx_pending").length);
 
+  const hasRows = holdings.length > 0;
+  const names = Object.fromEntries(holdings.map((h) => [h.symbol, prices[h.symbol]?.name || h.symbol]));
+
   return (
     <section className="mt-10" data-testid="holdings">
-      <h2 className="text-xl">Holdings</h2>
-      <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
-      {/* #56: one tight row at every width (no stacked fields on a phone), wider from 1024 px. */}
-      <form
-        className="mt-6 grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:gap-4"
-        onSubmit={add}
-        data-testid="holding-form"
-      >
-        <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
-          <span className="kicker text-muted">Ticker</span>
-          <input
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            spellCheck={false}
-            autoCapitalize="characters"
-            className="field text-base"
-            data-testid="holding-form-symbol"
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
-          <span className="kicker text-muted">Shares</span>
-          <input
-            value={shares}
-            onChange={(e) => setShares(e.target.value)}
-            inputMode="decimal"
-            className="field text-base tabular-nums"
-            data-testid="holding-form-shares"
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
-          <span className="kicker text-muted" data-testid="holding-form-cost-label">
-            <span className="lg:hidden">Avg cost</span>
-            <span className="hidden lg:inline">Average cost (optional)</span>
-          </span>
-          <input
-            value={avgCost}
-            onChange={(e) => setAvgCost(e.target.value)}
-            inputMode="decimal"
-            aria-label="Average cost (optional)"
-            placeholder="optional"
-            className="field text-base tabular-nums placeholder:text-muted"
-            data-testid="holding-form-cost"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex h-11 items-center justify-center bg-ink px-4 text-sm text-card disabled:opacity-50 lg:h-12 lg:px-6"
-        >
-          {busy ? "Adding…" : "Add"}
-        </button>
-      </form>
-      {error ? (
-        <p className="mt-3 text-sm text-red-700" role="alert" data-testid="holding-error">
-          {error}
-        </p>
+      {/* #57 (spec §0.5 item 8): below 1024 px the metrics are a second sheet behind this switch; from 1024 px
+          the sheet sits on the right of the list and the switch is hidden. */}
+      {hasRows ? (
+        <div className="flex border-b border-line lg:hidden" role="group" aria-label="Sheet" data-testid="sheet-switch">
+          {(["holdings", "metrics"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSheet(key)}
+              aria-pressed={sheet === key}
+              className={`-mb-px flex-1 border-b-2 py-3 text-base ${sheet === key ? "border-ink text-ink" : "border-transparent text-muted"}`}
+              data-testid={`sheet-switch-${key}`}
+            >
+              {key === "holdings" ? "Holdings" : "Metrics"}
+            </button>
+          ))}
+        </div>
       ) : null}
-      {holdings.length ? <AsOf valuation={valuation} freshness={freshness} base={baseCurrency} /> : null}
-      {holdings.length === 0 ? (
-        <p className="mt-8 text-sm text-muted" data-testid="holdings-empty">
-          Add a holding
-        </p>
-      ) : (
-        <>
-          <div className={`${ROW_COLS} mt-8 hidden pb-2 sm:grid`} aria-hidden="true">
-            <span className="kicker text-muted sm:order-1">Name</span>
-            <span className="kicker text-muted sm:order-2">Shares</span>
-            <span className="kicker text-right text-muted sm:order-3">Value ({baseCurrency})</span>
-            <span className="kicker text-right text-muted sm:order-4">Share of the book</span>
-          </div>
-          <ul className="mt-6 border-b border-line sm:mt-0" data-testid="holdings-list">
-            {holdings.map((h) => (
-              <Row
-                key={`${h.id}:${h.shares}:${h.avgCost}`}
-                holding={h}
-                price={prices[h.symbol]}
-                valued={valuation?.rows.find((r) => r.symbol === h.symbol)}
-                base={baseCurrency}
-                onChanged={onChanged}
+      <div className={hasRows ? "lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12" : undefined}>
+        <div className={sheet === "metrics" && hasRows ? "hidden lg:block" : undefined} data-testid="holdings-sheet">
+          <h2 className={`text-xl${hasRows ? " hidden lg:block" : ""}`}>Holdings</h2>
+          <BaseCurrencySetting value={baseCurrency} onChanged={onChanged} />
+          {/* #56: one tight row at every width (no stacked fields on a phone), wider from 1024 px. */}
+          <form
+            className="mt-6 grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:gap-4"
+            onSubmit={add}
+            data-testid="holding-form"
+          >
+            <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
+              <span className="kicker text-muted">Ticker</span>
+              <input
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
+                spellCheck={false}
+                autoCapitalize="characters"
+                className="field text-base"
+                data-testid="holding-form-symbol"
               />
-            ))}
-          </ul>
-          {valuation ? (
-            <p className={`${ROW_GRID} py-3 text-sm font-medium tabular-nums`} data-testid="holdings-total-line">
-              <span className="sm:col-start-1">
-                Total
-                {note ? (
-                  <span className="block text-xs font-normal text-muted" data-testid="holdings-total-excluded-count">
-                    {note}
-                  </span>
-                ) : null}
+            </label>
+            <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
+              <span className="kicker text-muted">Shares</span>
+              <input
+                value={shares}
+                onChange={(e) => setShares(e.target.value)}
+                inputMode="decimal"
+                className="field text-base tabular-nums"
+                data-testid="holding-form-shares"
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
+              <span className="kicker text-muted" data-testid="holding-form-cost-label">
+                <span className="lg:hidden">Avg cost</span>
+                <span className="hidden lg:inline">Average cost (optional)</span>
               </span>
-              <span className="text-right whitespace-nowrap sm:col-start-3" data-testid="holdings-total" data-base={baseCurrency}>
-                {valuation.excluded.length === valuation.rows.length ? "—" : `${money(valuation.total)} ${baseCurrency}`}
-              </span>
+              <input
+                value={avgCost}
+                onChange={(e) => setAvgCost(e.target.value)}
+                inputMode="decimal"
+                aria-label="Average cost (optional)"
+                placeholder="optional"
+                className="field text-base tabular-nums placeholder:text-muted"
+                data-testid="holding-form-cost"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy}
+              className="inline-flex h-11 items-center justify-center bg-ink px-4 text-sm text-card disabled:opacity-50 lg:h-12 lg:px-6"
+            >
+              {busy ? "Adding…" : "Add"}
+            </button>
+          </form>
+          {error ? (
+            <p className="mt-3 text-sm text-red-700" role="alert" data-testid="holding-error">
+              {error}
             </p>
           ) : null}
-          {valuation ? <HoldingsPie rows={valuation.rows} base={baseCurrency} /> : null}
-          <MetricsTable holdings={holdings} prices={prices} metricColumns={metricColumns} metrics={metrics} portfolio={portfolio} onChanged={onChanged} />
-        </>
-      )}
+          {holdings.length ? <AsOf valuation={valuation} freshness={freshness} base={baseCurrency} /> : null}
+          {holdings.length === 0 ? (
+            <p className="mt-8 text-sm text-muted" data-testid="holdings-empty">
+              Add a holding
+            </p>
+          ) : (
+            <>
+              <div className={`${ROW_COLS} mt-8 hidden pb-2 sm:grid`} aria-hidden="true">
+                <span className="kicker text-muted sm:order-1">Name</span>
+                <span className="kicker text-muted sm:order-2">Shares</span>
+                <span className="kicker text-right text-muted sm:order-3">Value ({baseCurrency})</span>
+                <span className="kicker text-right text-muted sm:order-4">Share of the book</span>
+              </div>
+              <ul className="mt-6 border-b border-line sm:mt-0" data-testid="holdings-list">
+                {holdings.map((h) => (
+                  <Row
+                    key={`${h.id}:${h.shares}:${h.avgCost}`}
+                    holding={h}
+                    price={prices[h.symbol]}
+                    valued={valuation?.rows.find((r) => r.symbol === h.symbol)}
+                    base={baseCurrency}
+                    onChanged={onChanged}
+                  />
+                ))}
+              </ul>
+              {valuation ? (
+                <p className={`${ROW_GRID} py-3 text-sm font-medium tabular-nums`} data-testid="holdings-total-line">
+                  <span className="sm:col-start-1">
+                    Total
+                    {note ? (
+                      <span className="block text-xs font-normal text-muted" data-testid="holdings-total-excluded-count">
+                        {note}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-right whitespace-nowrap sm:col-start-3" data-testid="holdings-total" data-base={baseCurrency}>
+                    {valuation.excluded.length === valuation.rows.length ? "—" : `${money(valuation.total)} ${baseCurrency}`}
+                  </span>
+                </p>
+              ) : null}
+              {valuation ? <HoldingsPie rows={valuation.rows} base={baseCurrency} /> : null}
+            </>
+          )}
+        </div>
+        {hasRows ? (
+          <div className={sheet === "holdings" ? "mt-6 hidden lg:mt-0 lg:block" : "mt-6 lg:mt-0"} data-testid="metrics">
+            <h2 className="hidden text-xl lg:block">Metrics</h2>
+            <div className="lg:mt-6">
+              <MetricsSheet
+                holdings={holdings}
+                names={names}
+                rows={valuation?.rows ?? []}
+                chips={metricColumns}
+                metrics={metrics}
+                portfolio={portfolio}
+                onChanged={onChanged}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

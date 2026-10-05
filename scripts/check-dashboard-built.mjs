@@ -46,9 +46,10 @@
  * (data-base, and CAD total = USD total × the USD rate used). T07: the out-of-date note before any run, then
  * (#55: the list row's name, shares, value and share of the book, the hidden detail panel) KO's stored
  * name, average cost, cost (D8: same rate), return and %, 100.0% share of the book, the one total (no
- * total cost or return), and "Prices as of <KO session> close · FX …" in USD and CAD. T08: PUT
- * /api/dashboard/columns adds, reorders and removes metric columns (400 for an unknown key), GET and the
- * page show the saved order (metric-th), and KO's metric cells render. Run it without SEC_CONTACT_EMAIL
+ * total cost or return), and "Prices as of <KO session> close · FX …" in USD and CAD. T08 → #57: the
+ * default chips for a new user, PUT /api/dashboard/columns adds a chip at the end and removes chips (400 for
+ * an unknown key, an empty list sticks), the page shows the kept chips and headers only (metric-th), the
+ * sheet switch and search, and KO's metric cells render (a missing one as the dash alone). Run it without SEC_CONTACT_EMAIL
  * (the normal case): then the refresh reports fundamentalsSkipped and KO's cells read "coverage check
  * pending"; no SEC request is made by this script.
  * Adding a holding and the refresh call the live price feed and the live Bank of Canada Valet API, so
@@ -566,8 +567,15 @@ if (!WITH_DB) {
   // return render blank, while value, share of the book, the total and the pie still count the holding.
   // Entering a cost again fills them. A POST without a cost (missing, or "") saves with avgCost null.
   const isBlank = (html, id) => new RegExp(`data-testid="${id}" data-blank="true"></span>`).test(html);
-  const clear = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "" } });
-  check(clear.status === 200 && /"avgCost":null/.test(clear.body), `${label}: PUT KO avgCost "" -> ${clear.status} ${clear.body.slice(0, 160)}`);
+  // #57 (EL): on PUT an omitted avgCost keeps the stored cost, only an explicit null clears it, "" is a 400.
+  const keepCost = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12" } });
+  check(keepCost.status === 200 && /"avgCost":"50(\.0+)?"/.test(keepCost.body), `${label}: PUT KO without avgCost keeps 50 -> ${keepCost.status} ${keepCost.body.slice(0, 160)}`);
+  const blankCost = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "" } });
+  check(blankCost.status === 400 && /"field":"avgCost"/.test(blankCost.body), `${label}: PUT KO avgCost "" -> ${blankCost.status} ${blankCost.body.slice(0, 160)}`);
+  const clear = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: null } });
+  check(clear.status === 200 && /"avgCost":null/.test(clear.body), `${label}: PUT KO avgCost null -> ${clear.status} ${clear.body.slice(0, 160)}`);
+  const stillBlank = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12" } });
+  check(stillBlank.status === 200 && /"avgCost":null/.test(stillBlank.body), `${label}: PUT KO without avgCost keeps no cost -> ${stillBlank.body.slice(0, 160)}`);
   const noCostPage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
   for (const id of ["holding-avg-cost", "holding-cost", "holding-return"])
     check(isBlank(noCostPage, id) && textOf(noCostPage, id) === "", `${label}: no cost, ${id} -> ${JSON.stringify(textOf(noCostPage, id))} (want blank)`);
@@ -599,34 +607,50 @@ if (!WITH_DB) {
   // Metric columns (T08, DASH-15) and the metric cells (DASH-21 wording comes from the same component).
   if (!process.env.SEC_CONTACT_EMAIL)
     check(r1.fundamentalsSkipped === true && r1.fundamentalsChecked === 0, `${label}: refresh without SEC_CONTACT_EMAIL -> ${run1.body}`);
+  // Metric chips (#57, DR4; T08's columns API). A user who never saved chips gets the defaults; adding puts a
+  // chip at the end; a chip removes itself; an empty list sticks; per user; the page shows the kept chips only.
   const COLS = "/api/dashboard/columns";
+  const DEFAULTS = ["rev_g_1y", "roic_1y", "share_of_book"];
   const colsOf = async (tok = token) => {
     const r = await call("GET", COLS, "true", undefined, { cookie: tok });
     return r.status === 200 ? JSON.parse(r.body).columns : `status ${r.status}`;
   };
-  check(JSON.stringify(await colsOf()) === "[]", `${label}: default metric columns -> ${JSON.stringify(await colsOf())}`);
+  const firstGet = await call("GET", COLS, "true", undefined, { cookie: token });
+  const first = firstGet.status === 200 ? JSON.parse(firstGet.body) : {};
+  check(JSON.stringify(first.columns) === JSON.stringify(DEFAULTS) && first.saved === false && first.available?.length === 9, `${label}: default chips -> ${firstGet.body.slice(0, 200)}`);
+  const defPage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
+  const chipsOn = (html) => [...html.matchAll(/data-testid="metric-chip" data-key="([a-z0-9_]+)"/g)].map((m) => m[1]);
+  check(JSON.stringify(chipsOn(defPage)) === JSON.stringify(DEFAULTS), `${label}: default chips on /dashboard -> ${JSON.stringify(chipsOn(defPage))}`);
+  check(/data-testid="sheet-switch"/.test(defPage) && /data-testid="metric-search"/.test(defPage) && /aria-label="Remove Share of the book"/.test(defPage), `${label}: /dashboard lacks the sheet switch, the metric search or a chip's remove control`);
+  check(!/data-testid="metric-picker"|data-testid="metric-add-select"|aria-label="Move /.test(defPage), `${label}: the old column picker is still rendered`);
+  check(/data-testid="metric-cell" data-key="share_of_book" data-status="ok">100\.0%</.test(defPage), `${label}: KO Share of the book chip cell is not 100.0%`);
+  // QA D1 (#63): the table's scroll box is positioned (`relative`), so sr-only text in "—" cells stays inside it.
+  check(/<div class="relative [^"]*overflow-x-auto" data-testid="metric-scroll">/.test(defPage), `${label}: metrics scroll box is not positioned (QA D1)`);
   for (const [cols, want] of [
-    [["rev_g_1y"], ["rev_g_1y"]],
-    [["rev_g_1y", "roic_1y", "eps_1y"], ["rev_g_1y", "roic_1y", "eps_1y"]],
-    [["eps_1y", "rev_g_1y", "roic_1y"], ["eps_1y", "rev_g_1y", "roic_1y"]],
+    [[...DEFAULTS, "gross_margin_1y"], [...DEFAULTS, "gross_margin_1y"]],
+    [["rev_g_1y", "share_of_book", "gross_margin_1y"], ["rev_g_1y", "share_of_book", "gross_margin_1y"]],
     [["eps_1y", "roic_1y"], ["eps_1y", "roic_1y"]],
   ]) {
     const r = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: cols } });
-    check(r.status === 200 && JSON.stringify(await colsOf()) === JSON.stringify(want), `${label}: PUT columns ${cols} -> ${r.status} ${r.body.slice(0, 120)}`);
+    check(r.status === 200 && JSON.stringify(await colsOf()) === JSON.stringify(want), `${label}: PUT chips ${cols} -> ${r.status} ${r.body.slice(0, 120)}`);
   }
   const badCol = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: ["nope"] } });
   check(badCol.status === 400 && badCol.body === JSON.stringify({ error: "Unknown metric column: nope." }), `${label}: PUT unknown column -> ${badCol.status} ${badCol.body}`);
-  check(JSON.stringify(await colsOf(otherToken)) === "[]", `${label}: other user's columns -> ${JSON.stringify(await colsOf(otherToken))}`);
+  check(JSON.stringify(await colsOf(otherToken)) === JSON.stringify(DEFAULTS), `${label}: other user's chips -> ${JSON.stringify(await colsOf(otherToken))}`);
   const colPage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
   const ths = [...colPage.matchAll(/data-testid="metric-th" data-key="([a-z0-9_]+)"/g)].map((m) => m[1]);
-  check(JSON.stringify(ths) === JSON.stringify(["eps_1y", "roic_1y"]), `${label}: metric headers on /dashboard -> ${JSON.stringify(ths)}`);
+  check(JSON.stringify(ths) === JSON.stringify(["eps_1y", "roic_1y"]) && JSON.stringify(chipsOn(colPage)) === JSON.stringify(["eps_1y", "roic_1y"]), `${label}: metric headers / chips on /dashboard -> ${JSON.stringify(ths)}`);
   const cells = [...colPage.matchAll(/data-testid="metric-cell" data-key="([a-z0-9_]+)" data-status="([a-z_/]+)"/g)].map((m) => `${m[1]}:${m[2]}`);
   const wantStatus = process.env.SEC_CONTACT_EMAIL ? /^(eps_1y|roic_1y):(not_computed|ok|n\/m|insufficient_history)$/ : /^(eps_1y|roic_1y):pending$/;
   check(cells.length === 2 && cells.every((c) => wantStatus.test(c)), `${label}: KO metric cells -> ${JSON.stringify(cells)}`);
-  check(/data-testid="metric-picker"/.test(colPage), `${label}: /dashboard lacks the metric picker`);
+  // DR4-07: a missing figure is the dash alone; the reason is screen-reader text (and the tooltip).
+  check(!process.env.SEC_CONTACT_EMAIL ? /data-testid="metric-cell" data-key="eps_1y" data-status="pending" title="[^"]*">—<span class="sr-only"> (<!-- -->)?coverage check pending<\/span><\/span>/.test(colPage) : true, `${label}: pending metric cell is not the dash alone`);
   // QA N3 (#44): the EPS column's portfolio cell carries a visible sub-label (not only the tooltip).
   check(/data-testid="portfolio-metric" data-key="eps_1y"[^>]*>(?:(?!<\/td>).)*data-testid="portfolio-metric-label"[^>]*>EPS growth 1y \(weighted\)</s.test(colPage), `${label}: EPS portfolio cell lacks the visible "EPS growth 1y (weighted)" sub-label`);
   check(!/data-testid="portfolio-metric" data-key="roic_1y"[^>]*>(?:(?!<\/td>).)*portfolio-metric-label/s.test(colPage), `${label}: non-EPS portfolio cell has an EPS sub-label`);
+  const none = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: [] } });
+  const nonePage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
+  check(none.status === 200 && JSON.stringify(await colsOf()) === "[]" && chipsOn(nonePage).length === 0 && !/data-testid="metric-th"/.test(nonePage), `${label}: removing every chip does not stick -> ${none.status} ${JSON.stringify(await colsOf())}`);
   const del = await call("DELETE", `${H}/${koId}`, "true", undefined, { cookie: token });
   check(del.status === 200 && del.body === '{"deleted":true}', `${label}: DELETE KO -> ${del.status} ${del.body}`);
   const gone = await call("GET", H, "true", undefined, { cookie: token });
@@ -649,6 +673,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again); metric columns (add, reorder, remove, 400, per user, headers and cells on the page); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

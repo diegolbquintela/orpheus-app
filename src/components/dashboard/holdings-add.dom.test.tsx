@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { act, type ComponentProps } from "react";
 import type { Root } from "react-dom/client";
-import { costForRequest, HoldingsSection } from "./holdings";
+import { costForRequest } from "@/lib/dashboard/format";
+import { HoldingsSection } from "./holdings";
 
 // react-dom is loaded after the jsdom globals exist (a static import would be evaluated before the bundled
 // dom-setup), so React sees a DOM and handles text inputs through the "input" event like a browser.

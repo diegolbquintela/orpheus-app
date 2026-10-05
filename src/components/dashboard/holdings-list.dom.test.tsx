@@ -180,10 +180,10 @@ describe("holdings list (#55, DR2)", () => {
     for (let i = 1; i < order.length; i++) assert.ok(order[i - 1].compareDocumentPosition(order[i]) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it("today's metric columns stay reachable under the list until #57 (picker, one row per holding, portfolio row)", async () => {
+  it("#57: the metrics sheet follows the list (its own sheet); no metric cells in the list rows", async () => {
     await render();
     const metrics = $('[data-testid="metrics"]')!;
-    assert.ok($('[data-testid="metric-picker"]', metrics));
+    assert.ok($('[data-testid="metric-search"]', metrics));
     assert.deepEqual($$('[data-testid="metric-th"]', metrics).map((th) => th.dataset.key), ["rev_g_1y", "roic_1y"]);
     assert.deepEqual($$('[data-testid="metric-row"]', metrics).map((r) => r.dataset.symbol), ["KO", "RY.TO", "ASML.AS"]);
     assert.equal($$('[data-testid="portfolio-metric"]', metrics).length, 2);

@@ -128,7 +128,7 @@ QA's acceptance IDs are DR0–DR6 there and in [`qa/CANONICAL-AC-PACK.md`](qa/CA
 **Landed so far: ticket 2 (#55).** `/dashboard` is now the holdings list: each row shows name, shares, value
 in your base currency and share of the book; tap a row for average cost, last close, cost, return, the FX
 rate, Edit and Delete. With no holdings it says `Add a holding`. The explanatory paragraph is gone. Under the
-list: one total (value only), the pie, and for now the metric columns with their portfolio row (they become
+list: one total (value only), the pie, and at first the metric columns with their portfolio row (they became
 chips in ticket 4). The other T04–T15 paragraphs below still describe the data; their table layout is gone.
 
 **Ticket 3 (#56).** Adding a holding takes a ticker and shares; average cost is optional. The add form is one
@@ -136,6 +136,13 @@ compact row (Ticker, Shares, Avg cost marked optional, Add). A blank cost saves 
 `NULL`, not 0): the holding's average cost, cost and return stay blank until you enter a cost with Edit,
 and Edit can clear it again. Its value and share of the book count as usual. The listing check is unchanged
 (US, EU and Canada only). Schema: `migrations/0008_holdings_avg_cost_nullable.sql`.
+
+**Ticket 4 (#57).** The metric columns are now chips on a metrics sheet. On a phone a `Holdings` | `Metrics`
+switch shows one sheet at a time; from 1024 px the metrics sit to the right of the list. Type in `Add a
+metric` to find a metric and add it as a chip; each chip's `×` removes it. New users start with Revenue
+growth 1y, ROIC (1y) and Share of the book; accounts that had saved columns keep them; removing every chip
+sticks. A missing figure shows `—`. Schema: `migrations/0009_metric_chips_saved.sql`. API: editing a holding
+without an `avgCost` field keeps its cost; send `null` to clear it.
 
 - **The holdings list is the page.** Each row: name, shares, value in base currency, share of the book. Tap
   a row for the rest (cost, last close, return, FX, edit, delete). No helper paragraphs. With no holdings
@@ -257,7 +264,7 @@ preview button / new-holding backfill) and stored in `fundamentals_annual`; page
   contact. Without it no SEC request is made and the dashboard shows "coverage check pending".
 - Coverage: US tickers directly; Canadian/European listings only when the same company files with the SEC
   under the same ticker (e.g. RY.TO, ASML.AS, SHOP.TO). Others show "— not covered" in every metric cell.
-- "Metric columns" lets each user add, remove and reorder columns (saved per user; chips on a metrics sheet in #53, no reorder). The values are
+- Metrics are chips on the metrics sheet (#57): each user adds them by search and removes them with ×, saved per user (no reorder; it was a reorderable column picker before #57). The values are
   computed in later tickets (T09–T13); until then covered rows show "— not computed yet".
 
 **Dashboard revenue growth (T09).** The "Revenue growth 1y" and "Revenue CAGR 3y / 5y / 10y" columns are

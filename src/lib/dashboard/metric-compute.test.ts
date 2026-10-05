@@ -266,7 +266,7 @@ describe("DASH-17: ROIC (1y) per spec §8", () => {
     const h = METRIC_HELP.roic_1y!;
     for (const part of ["NOPAT", "average invested capital", "0–50%", "25%", "Leases excluded", "banks and insurers"]) assert.ok(h.includes(part), part);
     assert.doesNotMatch(h, /\b(buy|sell|good|bad|score|rating|strong|weak)\b/i);
-    assert.match(readFileSync("src/components/dashboard/holdings.tsx", "utf8"), /title=\{METRIC_HELP\[key as MetricKey\]\}/);
+    assert.match(readFileSync("src/components/dashboard/metrics-sheet.tsx", "utf8"), /title=\{METRIC_HELP\[key as MetricKey\]\}/);
   });
 });
 

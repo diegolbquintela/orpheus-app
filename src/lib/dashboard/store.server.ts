@@ -149,19 +149,23 @@ export async function addHolding(
   return toHolding(rows[0]);
 }
 
-/** Update shares and average cost of one of the user's holdings; null when it is not theirs. */
+/**
+ * Update shares and average cost of one of the user's holdings; null when it is not theirs. `avgCost`
+ * undefined (omitted) keeps the stored cost; null clears it (EL, #57); a value sets it.
+ */
 export async function updateHolding(
   db: Queryable,
   userId: string,
   id: number,
-  input: { shares: Decimal | number; avgCost: Decimal | number | null },
+  input: { shares: Decimal | number; avgCost?: Decimal | number | null },
 ): Promise<Holding | null> {
-  assertQuantities(input.shares, input.avgCost);
+  const keep = input.avgCost === undefined;
+  assertQuantities(input.shares, keep ? null : (input.avgCost as Decimal | number | null));
   const rows = await db.query<HoldingRow>(
-    `UPDATE holdings SET shares = $3, avg_cost = $4, updated_at = now()
+    `UPDATE holdings SET shares = $3, avg_cost = CASE WHEN $5::boolean THEN avg_cost ELSE $4::numeric END, updated_at = now()
      WHERE id = $1 AND user_id = $2
      RETURNING ${HOLDING_COLUMNS}`,
-    [id, userId, String(input.shares), costParam(input.avgCost)],
+    [id, userId, String(input.shares), keep ? null : costParam(input.avgCost as Decimal | number | null), keep],
   );
   return rows[0] ? toHolding(rows[0]) : null;
 }
@@ -209,6 +213,32 @@ export async function setMetricColumns(db: Queryable, userId: string, keys: stri
     [userId, unique],
   );
   return unique;
+}
+
+/**
+ * Metric chips (#57): the saved list (`user_metric_columns`), or `defaults` when the user never saved one.
+ * "Never saved" = no rows and `user_settings.metric_chips_saved_at` NULL (migration 0009); an account with
+ * rows from before #57 keeps them, and a saved empty list stays empty.
+ */
+export async function getMetricChips(db: Queryable, userId: string, defaults: readonly string[]): Promise<{ chips: string[]; saved: boolean }> {
+  const rows = await listMetricColumns(db, userId);
+  if (rows.length) return { chips: rows, saved: true };
+  const s = await db.query<{ saved: boolean }>(
+    "SELECT metric_chips_saved_at IS NOT NULL AS saved FROM user_settings WHERE user_id = $1",
+    [userId],
+  );
+  return s[0]?.saved ? { chips: [], saved: true } : { chips: [...defaults], saved: false };
+}
+
+/** Save the user's chips in order and mark them as saved, so an empty list sticks (#57). */
+export async function setMetricChips(db: Queryable, userId: string, keys: string[]): Promise<string[]> {
+  const saved = await setMetricColumns(db, userId, keys);
+  await db.query(
+    `INSERT INTO user_settings (user_id, metric_chips_saved_at) VALUES ($1, now())
+     ON CONFLICT (user_id) DO UPDATE SET metric_chips_saved_at = now()`,
+    [userId],
+  );
+  return saved;
 }
 
 // ------------------------------------------------------------------ shared: instruments
