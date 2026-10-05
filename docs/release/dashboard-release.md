@@ -185,7 +185,7 @@ and the add-holding backfill.
 
 - All files in `migrations/` are idempotent (`IF NOT EXISTS`, guarded `DO $$` blocks, `DROP … IF EXISTS`
   then `ADD`) and recorded in `_migrations`; each file runs in one transaction. Current set: `0001_auth.sql`
-  … `0007_fundamentals_parser_version.sql` (11 tables, as `/api/dashboard/db` reports).
+  … `0008_holdings_avg_cost_nullable.sql` (11 tables, as `/api/dashboard/db` reports).
 - The production **build** runs `npm run db:migrate` but skips it while `DASHBOARD_ENABLED` is not `true`
   (log: `[migrate] skipped: VERCEL_ENV=production and dashboard flag off`). With the flag on, the build
   migrates before the deployment goes live; a failed migration fails the build, so the deployment isn't
@@ -195,7 +195,7 @@ and the add-holding backfill.
   history:
   ```bash
   read -rs DATABASE_URL_UNPOOLED && export DATABASE_URL_UNPOOLED   # paste the production direct URL
-  npm ci && npm run db:migrate                                     # logs "[migrate] using DATABASE_URL_UNPOOLED", applies 0001…0007
+  npm ci && npm run db:migrate                                     # logs "[migrate] using DATABASE_URL_UNPOOLED", applies 0001…0008
   npm run db:migrate                                               # second run: nothing pending
   unset DATABASE_URL_UNPOOLED
   ```

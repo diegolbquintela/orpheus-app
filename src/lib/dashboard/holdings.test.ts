@@ -13,6 +13,7 @@ import {
   handleHoldingsRequest,
   MAX_HOLDINGS,
   normaliseSymbol,
+  parseOptionalCost,
   parseQuantity,
   type HoldingsDeps,
 } from "./holdings.server.ts";
@@ -126,6 +127,25 @@ describe("validation helpers", () => {
     assert.deepEqual(parseQuantity("", "avgCost"), { field: "avgCost", error: "Average cost is required." });
     assert.equal(trimDecimal("10.500000"), "10.5");
     assert.equal(trimDecimal("3.000000"), "3");
+  });
+
+  it("#56: average cost is optional; missing, null or blank is no cost (null), never 0", () => {
+    assert.equal(parseOptionalCost(undefined), null);
+    assert.equal(parseOptionalCost(null), null);
+    assert.equal(parseOptionalCost(""), null);
+    assert.equal(parseOptionalCost("   "), null);
+    assert.equal(parseOptionalCost("0"), "0");
+    assert.equal(parseOptionalCost(0), "0");
+    assert.equal(parseOptionalCost(" 52.25 "), "52.25");
+    assert.deepEqual(parseOptionalCost("-1"), { field: "avgCost", error: "Average cost must be 0 or more." });
+    assert.deepEqual(parseOptionalCost("1.1234567"), {
+      field: "avgCost",
+      error: "Average cost must be a number with at most 6 decimals.",
+    });
+    assert.deepEqual(parseOptionalCost("abc"), {
+      field: "avgCost",
+      error: "Average cost must be a number with at most 6 decimals.",
+    });
   });
 });
 
@@ -259,6 +279,30 @@ describe("DASH-07: add, edit, delete", () => {
     const rename = await item(koId, { method: "PUT", body: { symbol: "PEP", shares: "1", avgCost: "1" } });
     assert.equal(rename.status, 400);
     assert.equal(((await rename.json()) as { field: string }).field, "symbol");
+  });
+
+  it("#56: a blank cost saves as no cost (201, avgCost null); Edit fills it and clears it again", async () => {
+    // Missing, null and "" all save as no cost (one at a time: ASML.AS is added, checked and deleted).
+    let asmlId = 0;
+    for (const body of [{ symbol: "ASML.AS", shares: "2" }, { symbol: "ASML.AS", shares: "2", avgCost: null }, { symbol: "ASML.AS", shares: "2", avgCost: "" }]) {
+      const res = await add(body);
+      assert.equal(res.status, 201, JSON.stringify(body));
+      const { holding } = (await res.json()) as { holding: { id: number; avgCost: string | null } };
+      assert.equal(holding.avgCost, null);
+      const stored = await pg.query<{ avg_cost: string | null }>("SELECT avg_cost FROM holdings WHERE id = $1", [holding.id]);
+      assert.equal(stored.rows[0].avg_cost, null, "stored as NULL, not 0");
+      asmlId = holding.id;
+      if (body !== undefined && "avgCost" in body && body.avgCost === "") break;
+      assert.equal((await item(holding.id, { method: "DELETE" })).status, 200);
+    }
+    const fill = await item(asmlId, { method: "PUT", body: { shares: "2", avgCost: "600" } });
+    assert.equal(trimDecimal(((await fill.json()) as { holding: { avgCost: string } }).holding.avgCost), "600");
+    const clear = await item(asmlId, { method: "PUT", body: { shares: "2", avgCost: "" } });
+    assert.equal(clear.status, 200);
+    assert.equal(((await clear.json()) as { holding: { avgCost: string | null } }).holding.avgCost, null);
+    const neg = await item(asmlId, { method: "PUT", body: { shares: "2", avgCost: "-1" } });
+    assert.deepEqual(await neg.json(), { error: "Average cost must be 0 or more.", field: "avgCost" });
+    assert.equal((await item(asmlId, { method: "DELETE" })).status, 200);
   });
 
   it("deletes a holding; deleting again is 404", async () => {

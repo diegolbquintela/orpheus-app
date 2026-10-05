@@ -102,8 +102,8 @@ describe("DASH-13: every column and the totals (hand check: USD, EUR and CAD hol
     }
     // Totals: 4,141.21 / 3,778.18 / +363.03 (+9.61 %).
     assert.ok(close(v.total, 4141.21));
-    assert.ok(close(v.totalCost, 3778.18));
-    assert.ok(close(v.totalReturn, 363.03));
+    assert.ok(close(v.totalCost!, 3778.18));
+    assert.ok(close(v.totalReturn!, 363.03));
     assert.ok(close(v.totalReturnPct!, (363.03 / 3778.18) * 100));
     // % of portfolio: 24.07 / 54.19 / 21.73, summing to 100.
     assert.ok(close(by.KO.weight!, (997.01 / 4141.21) * 100));
@@ -134,7 +134,7 @@ describe("DASH-13: every column and the totals (hand check: USD, EUR and CAD hol
     assert.equal(ko.value, 700);
     assert.equal(ko.cost, 600);
     assert.ok(close(usd.total, 4141.21 / 1.4243));
-    assert.ok(close(usd.totalCost, 3778.18 / 1.4243));
+    assert.ok(close(usd.totalCost!, 3778.18 / 1.4243));
     await pg.query("UPDATE user_settings SET base_currency = 'EUR'");
     const eur = (await load()).valuation;
     assert.equal(eur.rows.find((r) => r.symbol === "ASML.AS")!.value, 1400);
@@ -164,7 +164,7 @@ describe("DASH-13: every column and the totals (hand check: USD, EUR and CAD hol
     }
     assert.deepEqual(v.excluded, ["NEW", "VOLV-B.ST"]);
     assert.ok(close(v.total, 4141.21));
-    assert.ok(close(v.totalCost, 3778.18));
+    assert.ok(close(v.totalCost!, 3778.18));
     assert.ok(close(v.rows.reduce((s, r) => s + (r.weight ?? 0), 0), 100));
   });
 
@@ -174,14 +174,60 @@ describe("DASH-13: every column and the totals (hand check: USD, EUR and CAD hol
     const v = (await load()).valuation;
     assert.ok(v.rows.every((r) => r.returnPct === null && r.cost === 0));
     assert.equal(v.totalReturnPct, null);
-    assert.ok(close(v.totalReturn, v.total));
+    assert.ok(close(v.totalReturn!, v.total));
   });
 
-  it("no holdings: zero totals, no dates", async () => {
+  it("no holdings: zero total, no cost totals (#56: nothing has a cost), no dates", async () => {
     const v = await valueHoldings(db, [], {}, "CAD");
     assert.deepEqual(v, {
-      base: "CAD", rows: [], total: 0, totalCost: 0, totalReturn: 0, totalReturnPct: null, excluded: [], pricesAsOf: null, fxAsOf: null,
+      base: "CAD", rows: [], total: 0, totalCost: null, totalReturn: null, totalReturnPct: null, excluded: [], pricesAsOf: null, fxAsOf: null,
     });
+  });
+});
+
+describe("#56 (epic #53 ticket 3): a holding with no average cost (NULL)", () => {
+  it("migration 0008 lets avg_cost be NULL and keeps CHECK (avg_cost >= 0) for given values", async () => {
+    await seed();
+    await pg.exec("UPDATE holdings SET avg_cost = NULL WHERE symbol = 'KO'");
+    await assert.rejects(pg.exec("UPDATE holdings SET avg_cost = -1 WHERE symbol = 'RY.TO'"));
+    // Re-running the file is a no-op (previews share one Neon branch).
+    await pg.exec(readFileSync("migrations/0008_holdings_avg_cost_nullable.sql", "utf8"));
+    const rows = (await pg.query<{ symbol: string; avg_cost: string | null }>(
+      "SELECT symbol, avg_cost::text AS avg_cost FROM holdings ORDER BY symbol",
+    )).rows;
+    assert.deepEqual(rows.map((r) => [r.symbol, r.avg_cost]), [["ASML.AS", "600.000000"], ["KO", null], ["RY.TO", "200.000000"]]);
+  });
+
+  it("cost and return stay null; value, weight and the total still count it; cost totals leave it out", async () => {
+    await seed();
+    await pg.exec("UPDATE holdings SET avg_cost = NULL WHERE symbol = 'KO'");
+    const d = await load();
+    assert.equal(d.holdings.find((h) => h.symbol === "KO")!.avgCost, null);
+    const v = d.valuation;
+    const ko = v.rows.find((r) => r.symbol === "KO")!;
+    assert.equal(ko.status, "ok");
+    assert.ok(close(ko.value!, 997.01));
+    assert.equal(ko.cost, null);
+    assert.equal(ko.returnAmount, null);
+    assert.equal(ko.returnPct, null);
+    assert.ok(close(ko.weight!, (997.01 / 4141.21) * 100));
+    assert.ok(close(v.total, 4141.21));
+    // ASML + RY only: cost 1,923.60 + 1,000.00; return 320.60 − 100.00.
+    assert.ok(close(v.totalCost!, 2923.6));
+    assert.ok(close(v.totalReturn!, 220.6));
+    assert.ok(close(v.totalReturnPct!, (220.6 / 2923.6) * 100));
+    for (const n of [v.total, v.totalCost!, v.totalReturn!, ...v.rows.map((r) => r.weight!)]) assert.ok(Number.isFinite(n));
+  });
+
+  it("no holding with a cost: cost totals null (blank), the total value unchanged", async () => {
+    await seed();
+    await pg.exec("UPDATE holdings SET avg_cost = NULL");
+    const v = (await load()).valuation;
+    assert.ok(v.rows.every((r) => r.cost === null && r.returnAmount === null && r.returnPct === null && r.weight !== null));
+    assert.ok(close(v.total, 4141.21));
+    assert.equal(v.totalCost, null);
+    assert.equal(v.totalReturn, null);
+    assert.equal(v.totalReturnPct, null);
   });
 });
 
