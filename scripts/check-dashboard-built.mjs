@@ -638,6 +638,8 @@ if (!WITH_DB) {
   check(!/data-testid="metric-picker"|data-testid="metric-add-select"|aria-label="Move /.test(defPage), `${label}: the old column picker is still rendered`);
   check(/data-testid="metric-cell" data-key="share_of_book" data-status="ok">100\.0%</.test(defPage), `${label}: KO Share of the book chip cell is not 100.0%`);
   check(/data-testid="portfolio-metric" data-key="share_of_book"><span data-testid="portfolio-metric-value">100\.0%</.test(defPage), `${label}: Book row share of the book is not 100.0% (DR5-05)`);
+  // QA D1 (#63): the table's scroll box is positioned (`relative`), so sr-only text in "—" cells stays inside it.
+  check(/<div class="relative [^"]*overflow-x-auto" data-testid="metric-scroll">/.test(defPage), `${label}: metrics scroll box is not positioned (QA D1)`);
   for (const [cols, want] of [
     [[...DEFAULTS, "gross_margin_1y"], [...DEFAULTS, "gross_margin_1y"]],
     [["rev_g_1y", "share_of_book", "gross_margin_1y"], ["rev_g_1y", "share_of_book", "gross_margin_1y"]],

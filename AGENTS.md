@@ -570,6 +570,8 @@ four-field row, the tap detail and one total (value only); average cost becomes 
   rows or a timestamp = saved (an empty list sticks; accounts with old saved columns keep them, EL); else the
   defaults. `GET /api/dashboard/columns` → `{columns, saved, available}`; `PUT {columns}` takes chip keys.
 - Missing figure: `—` alone, reason in `title` + a visually hidden span (DR4-07; supersedes DASH-21's text).
+  Keep the table's scroll box (`metric-scroll`) `relative` (QA D1): `sr-only` is `position: absolute`, and an
+  unpositioned box lets it escape and widen the whole page.
 - Tests: `metrics-sheet.dom.test.tsx`, `fundamentals.test.ts` (chips API), `store.test.ts`,
   `check-dashboard-built.mjs --with-database`; browser `qa/tools/dashboard-metrics.mjs` (both widths; adds and
   removes Gross margin on the phone pass unless it is already kept; signs out; never Delete).

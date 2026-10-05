@@ -171,7 +171,9 @@ export function MetricsSheet({
           {error}
         </p>
       ) : null}
-      <div className="mt-4 overflow-x-auto">
+      {/* `relative` (QA D1): the scroll box must be the containing block of the absolutely positioned sr-only
+          reason text in "—" cells, or that text escapes the box and the whole page scrolls sideways. */}
+      <div className="relative mt-4 overflow-x-auto" data-testid="metric-scroll">
         <table className="w-full border-collapse text-sm tabular-nums">
           <thead>
             <tr className="text-left">
