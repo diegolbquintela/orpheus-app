@@ -25,17 +25,17 @@ export function formatCoverage(c: number): string {
 }
 
 /**
- * Portfolio row cell (T14, spec §9): "12.4% · 78% covered"; the EPS column shows weighted 1y EPS growth,
- * labelled (D9). 0% coverage: "— · 0% covered". Nothing valued: "—".
+ * Book row cell (T14, spec §9; the `Book` row of the metrics sheet since #58): "12.4% · 78% covered"; the EPS
+ * chip shows weighted 1y EPS growth, labelled (D9). 0% coverage (no holding has a figure) and nothing valued:
+ * "—" alone (spec §0.5 item 11; was "— · 0% covered" before #58).
  */
 export function formatPortfolioCell(
   metricKey: string,
   cell: { value: number | null; coverage: number | null } | undefined,
 ): { label: string | null; text: string } {
   const label = metricKey === "eps_1y" ? "EPS growth 1y (weighted)" : null;
-  if (!cell || cell.coverage === null) return { label, text: "—" };
-  const value = cell.value === null ? "—" : `${(cell.value * 100).toFixed(1)}%`;
-  return { label, text: `${value} · ${formatCoverage(cell.coverage)}` };
+  if (!cell || cell.coverage === null || cell.value === null) return { label, text: "—" };
+  return { label, text: `${(cell.value * 100).toFixed(1)}% · ${formatCoverage(cell.coverage)}` };
 }
 
 /** The request body's average cost: blank input is "no cost" (null), never 0 (#56). */

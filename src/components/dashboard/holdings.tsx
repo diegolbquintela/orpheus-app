@@ -549,15 +549,18 @@ export function HoldingsSection({
               />
             </label>
             <label className="flex min-w-0 flex-col gap-1 lg:gap-2">
+              {/* QA N3 (#58): the accessible name comes from this label, so it always contains the visible text:
+                  "Avg cost (optional)" below 1024 px, "Average cost (optional)" from 1024 px. */}
               <span className="kicker text-muted" data-testid="holding-form-cost-label">
-                <span className="lg:hidden">Avg cost</span>
+                <span className="lg:hidden" data-testid="holding-form-cost-label-short">
+                  Avg cost<span className="sr-only"> (optional)</span>
+                </span>
                 <span className="hidden lg:inline">Average cost (optional)</span>
               </span>
               <input
                 value={avgCost}
                 onChange={(e) => setAvgCost(e.target.value)}
                 inputMode="decimal"
-                aria-label="Average cost (optional)"
                 placeholder="optional"
                 className="field text-base tabular-nums placeholder:text-muted"
                 data-testid="holding-form-cost"

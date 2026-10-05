@@ -60,7 +60,7 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
   through `check:dashboard-built --with-database`.
 - **Landed:** ticket 2 (#55), see "Dashboard holdings list (#55)" below and spec 0.9. Ticket 3 (#56, PR #62):
   "Dashboard add holding / optional cost (#56)" below. Ticket 4 (#57, PR #63, stacked on #62): "Dashboard
-  metrics sheet and chips (#57)" below.
+  metrics sheet and chips (#57)" below. Ticket 5 (#58, PR #64, stacked on #63): "Dashboard book (#58)" below.
 - **Paused / not this epic:** don't touch `chore/remove-grok-leftovers` / PR #52 or issues #50 / #51
   unless handed them.
 
@@ -425,8 +425,12 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
 ### Dashboard add holding / optional cost (#56, epic #53 ticket 3)
 
 - Add form: one compact row at every width (`holding-form-symbol`, `-shares`, `-cost`; cost placeholder
-  `optional`, accessible name `Average cost (optional)`; visible label `Avg cost` below 1024 px). No other
-  placeholders or help text (DR3-01).
+  `optional`; visible label `Avg cost` below 1024 px). No other placeholders or help text (DR3-01). QA N3
+  (#58): no `aria-label` on the cost input; the `<label>` names it, so the name contains what is shown:
+  `Avg cost (optional)` below 1024 px (the suffix is `sr-only`), `Average cost (optional)` from 1024 px.
+- QA N2 (#58): `parseQuantity()` answers a wrong-type value (`true`, `{}`, `[]`, NaN / Infinity) with
+  "<Label> must be a number with at most 6 decimals." (was "is required"), so `avgCost` gets the number
+  message on `POST` and `PUT`.
 - **No cost is `NULL`, never 0.** `migrations/0008_holdings_avg_cost_nullable.sql` (idempotent `DROP NOT
   NULL`, CHECK kept, no data converted). `parseOptionalCost()` maps missing / `null` / blank to `null` on
   `POST`. On `PUT` (since #57) `parseEditCost()`: omitted → keep the stored cost, `null` → clear, number →
@@ -717,7 +721,8 @@ shows `—`.*
 - Rules (spec §9): value = Σ MVᵢ·mᵢ / Σ MVᵢ over valued holdings whose company is covered and whose stored
   status is `ok`; coverage = that Σ MV / Σ MV of all valued holdings. Everything else (n/m, insufficient
   history/data, not covered, pending, not computed) is excluded and counts against coverage; negatives are
-  included. Price/FX-pending holdings are outside both sums. 0% coverage → `— · 0% covered`; nothing valued → `—`.
+  included. Price/FX-pending holdings are outside both sums. 0% coverage → `—` alone (since #58; was
+  `— · 0% covered`); nothing valued → `—`.
   Coverage is a whole percent, never rounded to 100% (or 0%) unless exact.
 - D9: new stored per-company metric `eps_g_1y` (`epsGrowth()` in `metric-compute.server.ts`; not a picker
   column) = diluted EPS FY0 / FY−1 − 1; n/m if FY0 EPS missing or either ≤ 0; insufficient history if no
@@ -732,8 +737,8 @@ shows `—`.*
 
 ### Dashboard pie chart (T15 #23) and the excluded-holdings flag
 
-*Epic #53: `pieSlices()` stays; the pie becomes a donut under the one total and the pending lists under it go
-(ticket 5). The excluded-holdings line stays under the total.*
+*Epic #53: `pieSlices()` stays; since ticket 5 (#58) the pie is a donut under the one total, the pending
+lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded-holdings line stays.*
 
 - Code: `src/lib/dashboard/pie.ts` `pieSlices()` (pure, from `valuation.rows`: value / total × 100, the same
   numbers as the table's % column, labelled with the same `toFixed(1)`), `PIE_MAX_SLICES = 10` (10 largest +
@@ -748,6 +753,31 @@ shows `—`.*
   sum 100.0; price pending; > 10 → Other; ties; empty / FX pending; greys) and the excluded-flag block;
   `check-dashboard-built.mjs --with-database` checks the empty/price-pending pie, the "1 holding without a
   price excluded" flag before the first close, and KO 100.0% afterwards.
+
+### Dashboard book (#58, epic #53 ticket 5)
+
+- One total (`holdings-total`, value only, `—` when nothing is valued) + excluded line, unchanged from #55.
+- Donut: `holdings-pie.tsx` renders `pieSlices()` with `innerRadius="58%"` (`data-shape="donut"`, caption
+  `Share of the book (<base>)`, `aria-label` "Donut chart of share of the book: …"); 10 largest + `Other`,
+  largest first, ties by ticker; returns `null` with no valued holding (no sentence). No pending lists.
+- Book row: the metrics sheet's `<tfoot>` row (`book-row`, label `Book`). Per chip `PortfolioMetricCell`
+  with `portfolio[key]` from `portfolioMetrics()` (math unchanged: dashes excluded, weights renormalised);
+  `formatPortfolioCell()` gives `x.x% · N% covered` or `—` alone (0% coverage too); `bookFigure()` wraps only
+  between figure and coverage. Share chip: sum of the valued weights (100.0%), no suffix.
+- Metric search (#58): `metric-search` is a `role="combobox"` input over the `role="listbox"`
+  `metric-options` (`metric-option` = `role="option"` `<li>`, `aria-selected`, no button inside); arrows /
+  Home / End move `aria-activedescendant`, Enter adds the label equal to the query if any (QA D2, `exactChip`),
+  else the highlighted option (ranked best first, so the exact name is also first and highlighted), Escape
+  clears; mousedown on an option is prevented and the input is neither `disabled` nor `readOnly` while saving
+  (QA (b): focus stays and typed keys aren't dropped; `add()` ignores a pick while a save is in flight).
+- QA tools that sign in (`dashboard-list`, `-add`, `-metrics`, `-book`) go through `qa/tools/session.mjs`
+  `eachViewport()`: sign-in, checks, and sign-out in a `finally` (QA N4); a thrown error is a FAIL. Don't
+  add a tool that signs in or out by itself (`scripts/qa-tools-session.test.mjs` enforces it).
+- Tests: `book.test.ts`, `book.dom.test.tsx`, `check-dashboard-built.mjs --with-database` (book section);
+  browser `qa/tools/dashboard-book.mjs` (read-only; re-derives the % chips' book figures from the visible
+  cells and weights).
+- Release doc: migration 0008 is forward-only; null costs must be cleared before any production rollback
+  past #56 (`docs/release/dashboard-release.md`, "Migrations against production").
 
 ### Holding delete: one DELETE per click (#38, PR #44)
 

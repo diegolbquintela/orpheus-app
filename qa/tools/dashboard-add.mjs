@@ -12,6 +12,7 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import { qaConfig } from "./config.mjs";
+import { eachViewport } from "./session.mjs";
 const CFG = qaConfig(import.meta.url);
 const { QA_EMAIL: email, QA_PASSWORD: password } = process.env;
 const SYMBOL = (process.env.QA_ADD_SYMBOL || "MSFT").trim().toUpperCase();
@@ -26,12 +27,8 @@ const check = (name, ok, detail) => {
 };
 const BLANK_IDS = ["holding-avg-cost", "holding-cost", "holding-return"];
 const browser = await chromium.launch();
-for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, true], ["desktop", { width: 1440, height: 900 }, false]]) {
-  const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
-  const page = await ctx.newPage();
-  page.setDefaultTimeout(30000);
-  const login = await page.request.post(`${CFG.baseUrl}/api/auth/sign-in/email`, { data: { email, password }, headers: { origin: CFG.baseUrl } });
-  check(`[${vp}] sign-in`, login.ok(), login.status());
+try {
+await eachViewport({ browser, baseUrl: CFG.baseUrl, email, password, check }, async ({ vp, viewport, mobile, page }) => {
   await page.goto(`${CFG.baseUrl}/dashboard`, { waitUntil: "networkidle" });
 
   // DR3-01 + compact on a phone.
@@ -44,13 +41,26 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
       inputs: inputs.length,
       oneLine: tops.every((t) => t === tops[0]) && Math.abs(Math.round(btn.getBoundingClientRect().bottom) - Math.round(inputs[0].getBoundingClientRect().bottom)) <= 2,
       height: Math.round(f.getBoundingClientRect().height),
-      costName: inputs[2]?.getAttribute("aria-label"),
+      costAriaLabel: inputs[2]?.getAttribute("aria-label"),
+      costVisible: (() => {
+        const l = inputs[2]?.closest("label")?.querySelector('[data-testid="holding-form-cost-label"]');
+        if (!l) return null;
+        const c = l.cloneNode(true);
+        // Keep only what is rendered at this width (display:none spans dropped), then drop sr-only text.
+        [...l.querySelectorAll("span")].forEach((s, i) => { if (getComputedStyle(s).display === "none") c.querySelectorAll("span")[i].dataset.drop = "1"; });
+        c.querySelectorAll('[data-drop="1"], .sr-only').forEach((s) => s.remove());
+        return c.textContent.replace(/\s+/g, " ").trim();
+      })(),
       placeholders: inputs.map((i) => i.getAttribute("placeholder")),
       button: btn?.textContent?.trim(),
       paragraphs: f.querySelectorAll("p").length,
     };
   });
-  check(`[${vp}] form = Ticker, Shares, Average cost (optional), Add; no help text`, shape.inputs === 3 && shape.costName === "Average cost (optional)" && shape.button === "Add" && shape.paragraphs === 0 && shape.placeholders.join("|") === "||optional", shape);
+  // QA N3 (#58): the cost field's accessible name contains its visible label at every width.
+  const costName = mobile ? "Avg cost (optional)" : "Average cost (optional)";
+  const named = await page.getByTestId("holding-form").getByRole("textbox", { name: costName, exact: true }).count();
+  check(`[${vp}] cost field name "${costName}" contains the visible label`, named === 1 && shape.costAriaLabel === null && costName.startsWith(shape.costVisible ?? "\u0000"), { named, visible: shape.costVisible });
+  check(`[${vp}] form = Ticker, Shares, Average cost (optional), Add; no help text`, shape.inputs === 3 && shape.button === "Add" && shape.paragraphs === 0 && shape.placeholders.join("|") === "||optional", shape);
   check(`[${vp}] form is one row, under 100 px tall`, shape.oneLine && shape.height < 100, shape);
   check(`[${vp}] no horizontal page scroll`, (await page.evaluate(() => document.documentElement.scrollWidth)) <= viewport.width);
 
@@ -60,8 +70,7 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   const held = ((await api.json()).holdings ?? []).find((h) => h.symbol === SYMBOL);
   if (held && held.avgCost !== null) {
     check(`[${vp}] ${SYMBOL} is free to use`, false, "already held with a cost; set QA_ADD_SYMBOL to a ticker the account doesn't hold");
-    await ctx.close();
-    continue;
+    return; // eachViewport signs out (QA N4)
   }
   if (!held) {
     await page.getByTestId("holding-form-symbol").fill(SYMBOL);
@@ -78,8 +87,7 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   }
   check(`[${vp}] ${SYMBOL} row on the page`, (await row().count()) === 1);
   if (!(await row().count())) {
-    await ctx.close();
-    continue;
+    return; // eachViewport signs out (QA N4)
   }
   await page.screenshot({ path: `${CFG.out}/dashboard-add-${vp}.png`, fullPage: false });
   const detail = row().getByTestId("holding-detail");
@@ -130,11 +138,10 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   const b2 = await blanks();
   check(`[${vp}] cleared: average cost, cost and return blank again`, Object.values(b2).every((t) => t.trim() === ""), b2);
   check(`[${vp}] no horizontal page scroll with the detail open`, (await page.evaluate(() => document.documentElement.scrollWidth)) <= viewport.width);
-  const out = await page.request.post(`${CFG.baseUrl}/api/auth/sign-out`, { data: {}, headers: { origin: CFG.baseUrl } });
-  check(`[${vp}] sign-out`, out.ok(), out.status());
-  await ctx.close();
+});
+} finally {
+  await browser.close();
 }
-await browser.close();
 fs.writeFileSync(`${CFG.out}/dashboard-add.json`, JSON.stringify(R, null, 2));
 const failed = R.checks.filter((c) => !c.ok).length;
 console.log(`${failed ? "FAIL" : "PASS"}: ${R.checks.length - failed}/${R.checks.length} · out ${CFG.out} · ${SYMBOL} left in the account with no cost (not deleted)`);

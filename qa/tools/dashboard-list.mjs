@@ -10,6 +10,7 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import { qaConfig } from "./config.mjs";
+import { eachViewport } from "./session.mjs";
 const CFG = qaConfig(import.meta.url);
 const { QA_EMAIL: email, QA_PASSWORD: password } = process.env;
 if (!email || !password) {
@@ -25,25 +26,16 @@ const skip = (name, detail) => {
   R.checks.push({ name, ok: true, skipped: true, detail });
   console.log(`SKIP ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
-const signOut = async (page, vp) => {
-  const out = await page.request.post(`${CFG.baseUrl}/api/auth/sign-out`, { data: {}, headers: { origin: CFG.baseUrl } });
-  check(`[${vp}] sign-out`, out.ok(), out.status());
-};
 const browser = await chromium.launch();
-for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, true], ["desktop", { width: 1440, height: 900 }, false]]) {
-  const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
-  const page = await ctx.newPage();
-  const login = await page.request.post(`${CFG.baseUrl}/api/auth/sign-in/email`, { data: { email, password }, headers: { origin: CFG.baseUrl } });
-  check(`[${vp}] sign-in`, login.ok(), login.status());
+try {
+await eachViewport({ browser, baseUrl: CFG.baseUrl, email, password, check }, async ({ vp, viewport, page }) => {
   await page.goto(`${CFG.baseUrl}/dashboard`, { waitUntil: "networkidle" });
   const rows = page.getByTestId("holding-row");
   const n = await rows.count();
   if (!n) {
     skip(`[${vp}] row checks (the account has no holdings; add one first)`, n);
     check(`[${vp}] empty state is one line "Add a holding"`, (await page.getByTestId("holdings-empty").innerText()).trim() === "Add a holding");
-    await signOut(page, vp);
-    await ctx.close();
-    continue;
+    return;
   }
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
   check(`[${vp}] no horizontal page scroll`, scrollW <= viewport.width, scrollW);
@@ -68,10 +60,10 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   check(`[${vp}] second tap closes it`, !(await detail.isVisible()));
   check(`[${vp}] one total`, (await page.getByTestId("holdings-total").count()) === 1 && (await page.getByTestId("holdings-total-cost").count()) === 0);
   check(`[${vp}] metrics sheet on the page (#57)`, (await page.getByTestId("metric-search").count()) === 1);
-  await signOut(page, vp);
-  await ctx.close();
+});
+} finally {
+  await browser.close();
 }
-await browser.close();
 fs.writeFileSync(`${CFG.out}/dashboard-list.json`, JSON.stringify(R, null, 2));
 const failed = R.checks.filter((c) => !c.ok).length;
 const skipped = R.checks.filter((c) => c.skipped).length;

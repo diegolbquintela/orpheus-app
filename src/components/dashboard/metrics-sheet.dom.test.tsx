@@ -163,6 +163,59 @@ describe("metrics sheet and chips (#57, DR4)", () => {
     assert.deepEqual(matchingChips("  ", []), []);
   });
 
+  it("#58: the search is a combobox: listbox options, arrows move, Enter adds the highlighted one, focus stays", async () => {
+    await render(PAGE(DEFAULTS));
+    const search = $('[data-testid="metric-search"]')! as HTMLInputElement;
+    const key = (k: string) => act(async () => void search.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })));
+    assert.equal(search.getAttribute("role"), "combobox");
+    assert.equal(search.getAttribute("aria-autocomplete"), "list");
+    assert.equal(search.getAttribute("aria-expanded"), "false");
+    assert.equal(search.getAttribute("aria-activedescendant"), null);
+    assert.equal(search.getAttribute("aria-controls"), "metric-options");
+    search.focus();
+    await type(search, "revenue");
+    const list = $('[data-testid="metric-options"]')!;
+    assert.equal(list.getAttribute("role"), "listbox");
+    assert.equal(list.id, "metric-options");
+    assert.equal(search.getAttribute("aria-expanded"), "true");
+    const opts = () => $$('[role="option"]', list);
+    const selected = () => opts().filter((o) => o.getAttribute("aria-selected") === "true").map((o) => o.dataset.key);
+    assert.deepEqual(opts().map((o) => o.dataset.key), ["rev_cagr_3y", "rev_cagr_5y", "rev_cagr_10y"]);
+    assert.equal(opts().filter((o) => o.querySelector("button")).length, 0, "no buttons inside options");
+    assert.deepEqual(selected(), ["rev_cagr_3y"], "the first option is highlighted");
+    assert.equal(search.getAttribute("aria-activedescendant"), opts()[0].id);
+    await key("ArrowDown");
+    await key("ArrowDown");
+    assert.deepEqual(selected(), ["rev_cagr_10y"]);
+    assert.equal(search.getAttribute("aria-activedescendant"), opts()[2].id);
+    await key("ArrowDown");
+    assert.deepEqual(selected(), ["rev_cagr_3y"], "wraps to the first");
+    await key("ArrowUp");
+    assert.deepEqual(selected(), ["rev_cagr_10y"], "wraps to the last");
+    await key("ArrowUp");
+    assert.deepEqual(selected(), ["rev_cagr_5y"]);
+    assert.equal(dom.window.document.activeElement, search, "arrows keep focus in the input");
+    await key("Enter");
+    assert.deepEqual(puts, [{ columns: [...DEFAULTS, "rev_cagr_5y"] }], "Enter adds the highlighted option");
+    assert.equal(search.value, "");
+    assert.equal(dom.window.document.activeElement, search, "focus stays in the input after adding");
+    assert.equal($('[data-testid="metric-options"]'), null);
+    // A mouse press on an option doesn't take focus (mousedown is prevented); a click adds it.
+    await type(search, "gross");
+    const opt = $('[data-testid="metric-option"]')!;
+    const down = new dom.window.MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    await act(async () => void opt.dispatchEvent(down));
+    assert.equal(down.defaultPrevented, true);
+    await click(opt);
+    assert.deepEqual(puts[1], { columns: [...DEFAULTS, "gross_margin_1y"] });
+    assert.equal(dom.window.document.activeElement, search);
+    // Escape clears the query and closes the list.
+    await type(search, "eps");
+    await key("Escape");
+    assert.equal(search.value, "");
+    assert.equal($('[data-testid="metric-options"]'), null);
+  });
+
   it("DR4-05: a chip removes itself; removing the last one PUTs an empty list", async () => {
     await render(PAGE(DEFAULTS));
     await click($('[aria-label="Remove ROIC (1y)"]')!);
@@ -264,6 +317,39 @@ describe("metrics sheet and chips (#57, DR4)", () => {
     assert.equal(puts.length, 1);
     assert.equal(search.value, "ebit");
     await act(async () => release?.());
+  });
+
+  it("#58 + QA D2: in the combobox an exact name is listed first and highlighted, Enter adds it; arrows still pick others", async () => {
+    const key = (el: Element, k: string) =>
+      act(async () => void el.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })));
+    release = () => {}; // keep the save pending to look at the field while saving
+    await render(PAGE(["rev_g_1y"]));
+    const search = $('[data-testid="metric-search"]')! as HTMLInputElement;
+    search.focus();
+    await type(search, "revenue cagr 3Y");
+    let opts = $$('[data-testid="metric-option"]');
+    assert.equal(opts[0].dataset.key, "rev_cagr_3y");
+    assert.equal(opts[0].getAttribute("aria-selected"), "true");
+    assert.equal(search.getAttribute("aria-activedescendant"), opts[0].id);
+    await key(search, "Enter");
+    assert.deepEqual(puts.at(-1), { columns: ["rev_g_1y", "rev_cagr_3y"] }, "Enter on the full name adds 3y, not 10y");
+    assert.equal(search.readOnly, false, "the field takes keys while saving (QA (b))");
+    assert.equal(search.disabled, false);
+    assert.equal(dom.window.document.activeElement, search);
+    await act(async () => release?.());
+    release = null;
+    await act(async () => root.unmount());
+    container.remove();
+    // No exact name: the highlight decides (first = best match; End moves it to 10y).
+    puts = [];
+    await render(PAGE(["rev_g_1y"]));
+    const s2 = $('[data-testid="metric-search"]')! as HTMLInputElement;
+    await type(s2, "revenue cagr");
+    opts = $$('[data-testid="metric-option"]');
+    assert.deepEqual(opts.map((o) => o.dataset.key), ["rev_cagr_3y", "rev_cagr_5y", "rev_cagr_10y"]);
+    await key(s2, "End");
+    await key(s2, "Enter");
+    assert.deepEqual(puts, [{ columns: ["rev_g_1y", "rev_cagr_10y"] }]);
   });
 
   it("one PUT per click burst on a chip (guard like Save / Delete)", async () => {

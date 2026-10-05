@@ -186,6 +186,11 @@ and the add-holding backfill.
 - All files in `migrations/` are idempotent (`IF NOT EXISTS`, guarded `DO $$` blocks, `DROP … IF EXISTS`
   then `ADD`) and recorded in `_migrations`; each file runs in one transaction. Current set: `0001_auth.sql`
   … `0009_metric_chips_saved.sql` (11 tables, as `/api/dashboard/db` reports).
+- **`0008_holdings_avg_cost_nullable.sql` is forward-only** (there is no down migration): once it has run,
+  holdings may have a NULL (blank) average cost, which code from before #56 can't read or show. Before any
+  production rollback to a deployment older than 0008, the null costs must be cleared first (each holding
+  with `avg_cost IS NULL` given a cost or removed by its owner), and `NOT NULL` is never re-added while such
+  rows exist. 0009 is additive (a nullable column older code ignores) and needs nothing.
 - The production **build** runs `npm run db:migrate` but skips it while `DASHBOARD_ENABLED` is not `true`
   (log: `[migrate] skipped: VERCEL_ENV=production and dashboard flag off`). With the flag on, the build
   migrates before the deployment goes live; a failed migration fails the build, so the deployment isn't
@@ -239,7 +244,8 @@ explicit go** relayed by the Chief of Staff.
 9. **Rollback (any FAIL that can't wait for a fix).** Set `DASHBOARD_ENABLED` to anything but `true` (or remove
    it) for Production and redeploy → `/dashboard` 404, API 404 JSON, calculator untouched; data stays in the
    database. Verify with `release-smoke.mjs … off`. Faster fallback: Vercel Instant Rollback to the deployment
-   noted in step 1 (also reverts the cron set). Rehearse this on a preview before step 6 (Preview-scoped
+   noted in step 1 (also reverts the cron set). Rolling back past #56 (migration 0008): clear the null costs
+   first (see "Migrations against production"). Rehearse this on a preview before step 6 (Preview-scoped
    branch override or a preview deployment with the flag off).
 10. **After the release:** README, spec status → "live" and AGENTS.md updated in the T16 PR (not in this
     prep PR).

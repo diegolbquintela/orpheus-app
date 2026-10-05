@@ -144,6 +144,13 @@ growth 1y, ROIC (1y) and Share of the book; accounts that had saved columns keep
 sticks. A missing figure shows `—`. Schema: `migrations/0009_metric_chips_saved.sql`. API: editing a holding
 without an `avgCost` field keeps its cost; send `null` to clear it.
 
+**Ticket 5 (#58).** The book: one total under the list (total value only), a donut of the same shares of
+the book (largest first; past ten names the rest is one `Other` slice) replacing the pie, and a `Book` row
+at the foot of the metrics sheet with each kept chip's figure weighted by market value over the holdings
+that have one (a `—` is left out, not counted as zero), shown as e.g. `27.6% · 71% covered`; `—` when no
+holding has a figure; Share of the book reads 100.0%. Also: a non-number average cost gets the number
+message, and the phone's `Avg cost` label is part of the field's accessible name.
+
 - **The holdings list is the page.** Each row: name, shares, value in base currency, share of the book. Tap
   a row for the rest (cost, last close, return, FX, edit, delete). No helper paragraphs. With no holdings
   the page says one line: `Add a holding`.
@@ -313,8 +320,8 @@ the page loads, from stored values only.
 (market value in your base currency, the same figures as the table's "% of portfolio" column), largest
 first; with more than 10 holdings the 10 largest keep their slice and the rest are grouped into "Other".
 Slices are neutral greys labelled ticker + %, with a text list next to the chart (stacked under it on
-small screens). Holdings without a price or FX rate get no slice and are listed under the chart ("price
-pending"); with no priced holdings it says "No holdings with a price yet."
+small screens). Holdings without a price or FX rate get no slice (since #58 they are only counted in the
+excluded line under the total, and with no priced holding there is no chart). Since #58 it is a donut.
 
 **Dashboard release prep (#24).** The release checklist (every DASH and DCA check), the exact Production
 environment variables, the database choice and migration steps, the ordered runbook with rollback, and the
