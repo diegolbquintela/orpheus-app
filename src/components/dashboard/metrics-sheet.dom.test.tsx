@@ -322,7 +322,7 @@ describe("metrics sheet and chips (#57, DR4)", () => {
   it("#58 + QA D2: in the combobox an exact name is listed first and highlighted, Enter adds it; arrows still pick others", async () => {
     const key = (el: Element, k: string) =>
       act(async () => void el.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })));
-    release = () => {}; // hold the save open to look at the field while saving
+    release = () => {}; // keep the save pending to look at the field while saving
     await render(PAGE(["rev_g_1y"]));
     const search = $('[data-testid="metric-search"]')! as HTMLInputElement;
     search.focus();
