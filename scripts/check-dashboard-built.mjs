@@ -464,14 +464,6 @@ if (!WITH_DB) {
   check(zero.status === 400 && /Shares must be greater than 0\./.test(zero.body), `${label}: shares 0 -> ${zero.status} ${zero.body}`);
   const neg = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "1", avgCost: "-1" } });
   check(neg.status === 400 && /Average cost must be 0 or more\./.test(neg.body), `${label}: avg cost -1 -> ${neg.status} ${neg.body}`);
-  // QA N2 (#58): a non-number avgCost gets the number message (not "is required"), on POST and PUT.
-  const NUM_MSG = /"error":"Average cost must be a number with at most 6 decimals\.","field":"avgCost"/;
-  for (const bad of [true, {}]) {
-    const r = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "1", avgCost: bad } });
-    check(r.status === 400 && NUM_MSG.test(r.body), `${label}: POST avgCost ${JSON.stringify(bad)} -> ${r.status} ${r.body}`);
-    const u = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "10", avgCost: bad } });
-    check(u.status === 400 && NUM_MSG.test(u.body), `${label}: PUT avgCost ${JSON.stringify(bad)} -> ${u.status} ${u.body}`);
-  }
   const edit = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "12", avgCost: "50" } });
   check(edit.status === 200 && /"shares":"12(\.0+)?"/.test(edit.body), `${label}: PUT KO -> ${edit.status} ${edit.body.slice(0, 120)}`);
   const withKo = await call("GET", "/dashboard", "true", undefined, { cookie: token });
@@ -484,6 +476,16 @@ if (!WITH_DB) {
   check(/data-testid="holdings-total-excluded-count"[^>]*>1 holding without a price excluded</.test(withKo.body), `${label}: total row lacks "1 holding without a price excluded"`);
   // T07: no daily run has finished yet on this fresh database, so the out-of-date note shows.
   check(/data-testid="stale-note"[^>]*>Prices are out of date\.(<!-- -->)? (<!-- -->)?No daily refresh has completed yet\./.test(withKo.body), `${label}: /dashboard before any run lacks the out-of-date note`);
+
+  // QA N2 (#58): a non-number avgCost gets the number message (not "is required"), on POST and PUT. Kept after
+  // the "before any close" page checks so its extra requests don't give KO's background backfill time to land first.
+  const NUM_MSG = /"error":"Average cost must be a number with at most 6 decimals\.","field":"avgCost"/;
+  for (const bad of [true, {}]) {
+    const r = await call("POST", H, "true", undefined, { cookie: token, body: { symbol: "RY.TO", shares: "1", avgCost: bad } });
+    check(r.status === 400 && NUM_MSG.test(r.body), `${label}: POST avgCost ${JSON.stringify(bad)} -> ${r.status} ${r.body}`);
+    const u = await call("PUT", `${H}/${koId}`, "true", undefined, { cookie: token, body: { shares: "10", avgCost: bad } });
+    check(u.status === 400 && NUM_MSG.test(u.body), `${label}: PUT avgCost ${JSON.stringify(bad)} -> ${u.status} ${u.body}`);
+  }
 
   // Daily close job (T05). The button shows only on previews; production never.
   const previewPage = await call("GET", "/dashboard", "true", "preview", { cookie: token });

@@ -446,6 +446,12 @@ MC.PA) for book figures.
   (item 17: the cost field's accessible name contains the visible label at every width); N4 (every
   signed-in `qa/tools` browser tool signs out on every exit path via `qa/tools/session.mjs`); release doc:
   0008 is forward-only, null costs cleared before any production rollback past it.
+- **Metric search as a combobox (EL, #58):** the `Add a metric` input is `role="combobox"`
+  (`aria-autocomplete="list"`, `aria-expanded`, `aria-controls="metric-options"`, `aria-activedescendant`)
+  over a `role="listbox"` of `role="option"` items (`aria-selected`); ↓ / ↑ move the highlight (wrapping),
+  Home / End jump, Enter adds the highlighted option (the first by default), Escape clears; focus stays in
+  the input after adding (options don't take focus; the input is read-only, not disabled, while saving).
+- Carries #63's QA D1 fix (merged from `feat/dashboard-redesign-metrics`).
 - Tests: `book.test.ts` (weighting: dashes excluded and renormalised, negatives, pending outside, all missing
   → `—`, EPS growth; donut: largest first, ties, Other past ten, exactly ten / eleven, none valued),
   `book.dom.test.tsx` (one total, donut, Other, nothing valued, Book row figures / order / `—` / share /

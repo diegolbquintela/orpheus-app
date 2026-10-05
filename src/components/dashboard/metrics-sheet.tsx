@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { formatPortfolioPct } from "@/lib/dashboard/format";
 import { METRIC_HELP, SHARE_OF_BOOK, chipLabel, matchingChips, type MetricKey } from "@/lib/dashboard/metrics";
 import { MetricCell, PortfolioMetricCell, type MetricViewData, type PortfolioCellView } from "./metric-columns";
@@ -78,11 +78,16 @@ export function MetricsSheet({
   onChanged: () => Promise<void> | void;
 }) {
   const [query, setQuery] = useState("");
+  // Combobox (#58): the highlighted option (aria-activedescendant); focus never leaves the input.
+  const [active, setActive] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+  const optionId = `${useId()}-metric-option`;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One PUT at a time (same guard as the Save / Delete buttons): a second click before React re-renders is ignored.
   const saving = useRef(false);
   const matches = matchingChips(query, chips);
+  const current = matches.length ? Math.min(active, matches.length - 1) : -1;
 
   async function apply(next: string[]) {
     if (saving.current) return;
@@ -103,13 +108,30 @@ export function MetricsSheet({
   }
   const add = async (key: string) => {
     setQuery("");
+    setActive(0);
+    input.current?.focus();
     await apply([...chips, key]);
+    input.current?.focus();
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (!matches.length) return;
       e.preventDefault();
-      if (matches[0]) void add(matches[0].key);
-    } else if (e.key === "Escape") setQuery("");
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActive((current + step + matches.length) % matches.length);
+    } else if (e.key === "Home" && matches.length) {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === "End" && matches.length) {
+      e.preventDefault();
+      setActive(matches.length - 1);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (!busy && current >= 0) void add(matches[current].key);
+    } else if (e.key === "Escape") {
+      setQuery("");
+      setActive(0);
+    }
   };
 
   return (
@@ -117,11 +139,20 @@ export function MetricsSheet({
       <label className="block">
         <span className="kicker text-muted">Add a metric</span>
         <input
-          type="search"
+          ref={input}
+          type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={matches.length > 0}
+          aria-activedescendant={current >= 0 ? `${optionId}-${matches[current].key}` : undefined}
+          aria-busy={busy || undefined}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
           onKeyDown={onKeyDown}
-          disabled={busy}
+          readOnly={busy}
           autoComplete="off"
           spellCheck={false}
           aria-controls="metric-options"
@@ -130,19 +161,23 @@ export function MetricsSheet({
         />
       </label>
       {matches.length ? (
-        <ul id="metric-options" className="mt-1 border border-line" data-testid="metric-options">
-          {matches.map((m) => (
-            <li key={m.key}>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => add(m.key)}
-                className="block w-full px-3 py-2 text-left hover:bg-line disabled:opacity-50"
-                data-testid="metric-option"
-                data-key={m.key}
-              >
-                {m.label}
-              </button>
+        <ul id="metric-options" role="listbox" aria-label="Metrics" className="mt-1 border border-line" data-testid="metric-options">
+          {matches.map((m, i) => (
+            <li
+              key={m.key}
+              id={`${optionId}-${m.key}`}
+              role="option"
+              aria-selected={i === current}
+              aria-disabled={busy || undefined}
+              // Keep focus in the input: the option takes the click, never the focus.
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => !busy && add(m.key)}
+              className={`block w-full cursor-pointer px-3 py-2 text-left${i === current ? " bg-line" : ""}${busy ? " opacity-50" : ""}`}
+              data-testid="metric-option"
+              data-key={m.key}
+            >
+              {m.label}
             </li>
           ))}
         </ul>

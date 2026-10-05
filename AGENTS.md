@@ -760,6 +760,10 @@ lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded
   with `portfolio[key]` from `portfolioMetrics()` (math unchanged: dashes excluded, weights renormalised);
   `formatPortfolioCell()` gives `x.x% · N% covered` or `—` alone (0% coverage too); `bookFigure()` wraps only
   between figure and coverage. Share chip: sum of the valued weights (100.0%), no suffix.
+- Metric search (#58): `metric-search` is a `role="combobox"` input over the `role="listbox"`
+  `metric-options` (`metric-option` = `role="option"` `<li>`, `aria-selected`, no button inside); arrows /
+  Home / End move `aria-activedescendant`, Enter adds the highlighted option, Escape clears; mousedown on an
+  option is prevented and the input is `readOnly` (not `disabled`) while saving, so focus stays in it.
 - QA tools that sign in (`dashboard-list`, `-add`, `-metrics`, `-book`) go through `qa/tools/session.mjs`
   `eachViewport()`: sign-in, checks, and sign-out in a `finally` (QA N4); a thrown error is a FAIL. Don't
   add a tool that signs in or out by itself (`scripts/qa-tools-session.test.mjs` enforces it).
