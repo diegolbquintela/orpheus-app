@@ -403,7 +403,9 @@ MC.PA) for book figures.
   available}` with the defaults when never saved.
 - Rows: name + the kept chips' figures in chip order; a missing figure is `—` alone (the reason is in the
   cell's `title` and a visually hidden span, not visible). The table scrolls sideways inside its own box when
-  many chips are kept; the page never does.
+  many chips are kept; the page never does. **QA D1 fix:** the scroll box is `relative`, so the absolutely
+  positioned sr-only reason text can't escape it and widen the page (it did with all 9 chips and an off-screen
+  `—`: 724 px page at a 400 px viewport).
 - Interim until ticket 5: the T14 `Portfolio` foot row stays (figure `· N% covered`); for the share chip it
   shows the sum of the weights. Ticket 5 turns it into the `Book` row.
 - Holdings `PUT` (EL change carried from #62): omitted `avgCost` keeps the stored cost, `null` clears, a

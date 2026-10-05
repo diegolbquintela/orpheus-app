@@ -201,6 +201,18 @@ describe("metrics sheet and chips (#57, DR4)", () => {
     assert.doesNotMatch(visible($('[data-testid="metrics"]')!), /not covered|not meaningful|pending|not computed/);
   });
 
+  it("QA D1: the table's scroll box is positioned, so the sr-only text of '—' cells can't widen the page", async () => {
+    const all = ["rev_g_1y", "rev_cagr_3y", "rev_cagr_5y", "rev_cagr_10y", "roic_1y", "eps_1y", "ebit_margin_1y", "gross_margin_1y", "share_of_book"];
+    await render(PAGE(all));
+    const box = $('[data-testid="metric-scroll"]')!;
+    assert.ok(box.classList.contains("overflow-x-auto"), "the table scrolls inside its own box");
+    assert.ok(box.classList.contains("relative"), "the box is the containing block of absolutely positioned descendants");
+    const srOnly = $$('[data-testid="metric-cell"] .sr-only');
+    assert.ok(srOnly.length > 0, "the fixture has missing figures with screen-reader text");
+    assert.ok(srOnly.every((s) => box.contains(s)), "every sr-only reason sits inside the scroll box");
+    assert.equal(box.querySelector("table")?.closest('[data-testid="metric-scroll"]'), box);
+  });
+
   it("one PUT per click burst on a chip (guard like Save / Delete)", async () => {
     release = () => {};
     await render(PAGE(DEFAULTS));

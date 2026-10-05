@@ -624,6 +624,8 @@ if (!WITH_DB) {
   check(/data-testid="sheet-switch"/.test(defPage) && /data-testid="metric-search"/.test(defPage) && /aria-label="Remove Share of the book"/.test(defPage), `${label}: /dashboard lacks the sheet switch, the metric search or a chip's remove control`);
   check(!/data-testid="metric-picker"|data-testid="metric-add-select"|aria-label="Move /.test(defPage), `${label}: the old column picker is still rendered`);
   check(/data-testid="metric-cell" data-key="share_of_book" data-status="ok">100\.0%</.test(defPage), `${label}: KO Share of the book chip cell is not 100.0%`);
+  // QA D1 (#63): the table's scroll box is positioned (`relative`), so sr-only text in "—" cells stays inside it.
+  check(/<div class="relative [^"]*overflow-x-auto" data-testid="metric-scroll">/.test(defPage), `${label}: metrics scroll box is not positioned (QA D1)`);
   for (const [cols, want] of [
     [[...DEFAULTS, "gross_margin_1y"], [...DEFAULTS, "gross_margin_1y"]],
     [["rev_g_1y", "share_of_book", "gross_margin_1y"], ["rev_g_1y", "share_of_book", "gross_margin_1y"]],

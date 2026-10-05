@@ -9,6 +9,8 @@
 //    already keeps Gross margin (1y).
 //  - DR4-06/07: each metrics row has a name plus one cell per kept chip, in chip order; every missing figure
 //    reads exactly "—" (no visible reason text).
+//  - D1 (#63 QA): with ALL chips kept (saved, checked, then the account's own list restored, per viewport) and a
+//    missing figure, the page's scrollWidth stays at the viewport width (the table scrolls in its own box).
 // Writes: two chip saves on the phone pass (add Gross margin, remove it), leaving the chip list as it was
 // (an account still on the defaults becomes "saved" with the same three chips). Never clicks Delete. Signs out
 // at the end. Writes dashboard-metrics.json and screenshots to --out. Exit 1 on a fail.
@@ -105,6 +107,34 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
         await page.reload({ waitUntil: "networkidle" });
         check(`[${vp}] its own × removes it (and its column), surviving a reload`, JSON.stringify(await chipKeys(page)) === JSON.stringify(chips) && (await page.locator('[data-testid="metric-th"][data-key="gross_margin_1y"]').count()) === 0);
       }
+    }
+  }
+  // QA D1 (#63): with every chip kept and a missing figure in an off-screen column, the table scrolls inside
+  // its own box and the PAGE never scrolls sideways (the sr-only reason text in "—" cells must not escape the
+  // box). Saves all chips, checks, then restores the account's own list (in a finally).
+  if (rows) {
+    const H = { origin: CFG.baseUrl, "content-type": "application/json" };
+    const cols = await (await page.request.get(`${CFG.baseUrl}/api/dashboard/columns`)).json();
+    const own = cols.columns;
+    const all = cols.available.map((c) => c.key);
+    try {
+      const put = await page.request.put(`${CFG.baseUrl}/api/dashboard/columns`, { data: { columns: all }, headers: H });
+      check(`[${vp}] D1 save all ${all.length} chips`, put.ok(), put.status());
+      await page.reload({ waitUntil: "networkidle" });
+      if (mobile) await page.getByTestId("sheet-switch-metrics").click();
+      const missing = await page.locator('[data-testid="metric-cell"]:not([data-status="ok"])').count();
+      const box = await page.getByTestId("metric-row").first().evaluate((tr) => {
+        const b = tr.closest(".overflow-x-auto");
+        return b ? { scroll: b.scrollWidth, client: b.clientWidth, position: getComputedStyle(b).position } : null;
+      });
+      check(`[${vp}] D1 setup: a missing figure and a table wider than its box`, missing > 0 && box && box.scroll > box.client, { missing, box });
+      const page_ = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, width: window.innerWidth, client: document.documentElement.clientWidth }));
+      check(`[${vp}] D1 all chips: page scrollWidth = viewport (no sideways page scroll)`, page_.scrollWidth <= page_.client && page_.client <= viewport.width, page_);
+      check(`[${vp}] D1 the table's scroll box is positioned`, box?.position && box.position !== "static", box?.position);
+      await page.screenshot({ path: `${CFG.out}/metrics-${vp}-allchips.png`, fullPage: true });
+    } finally {
+      const back = await page.request.put(`${CFG.baseUrl}/api/dashboard/columns`, { data: { columns: own }, headers: H });
+      check(`[${vp}] D1 the account's own chips restored`, back.ok() && JSON.stringify((await back.json()).columns) === JSON.stringify(own), own);
     }
   }
   const out = await page.request.post(`${CFG.baseUrl}/api/auth/sign-out`, { data: {}, headers: { origin: CFG.baseUrl } });
