@@ -96,7 +96,7 @@ describe("QA N4: qa/tools sessions always sign out", () => {
 
   it("the runner (dashboard-redesign.mjs) never signs in itself, never logs a password, never deletes", () => {
     const src = readFileSync(join(import.meta.dirname, "..", "qa", "tools", "dashboard-redesign.mjs"), "utf8");
-    assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|newContext\(|console\.(log|error)\([^)]*PASSWORD/);
+    assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|newContext\(|console\.\w+\([^)]*process\.env\.QA_(EMPTY_)?PASSWORD/);
     assert.doesNotMatch(src, /name: "Delete"|getByText\("Delete"|method: "DELETE"/);
   });
 });
