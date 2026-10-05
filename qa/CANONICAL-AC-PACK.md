@@ -103,3 +103,8 @@ instructions under the table.
 | DR6-04 | BLOCK | No download: no download / export / CSV button or link. |
 | DR6-05 | BLOCK | No instructions under (or above) the list; DR2-04 still holds. Tests in `npm test` keep DR6-01..05 true. |
 | DR6-06 | BLOCK | Regression: DR0, DR2..DR5 and every kept DASH ID pass in one run on the preview at both widths, then on production after the merge; `README.md`, `AGENTS.md` and this spec match the shipped page. |
+
+How to run DR6 (#59): `QA_EMAIL=… QA_PASSWORD=… node qa/tools/dashboard-redesign.mjs --base-url <preview> --out <dir> --smoke preview`
+(add `--empty` with `QA_EMPTY_EMAIL` / `QA_EMPTY_PASSWORD` for an account with no holdings; `--read-only` on
+production skips the add / chip-save tools). It runs at 400, 1024 and 1440 px; DR6-02 also covers shares,
+average cost and last close (spec 0.5 item 20).

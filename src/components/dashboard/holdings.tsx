@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
-import { costForRequest, formatPortfolioPct, trimDecimal } from "@/lib/dashboard/format";
+import { costForRequest, displayDecimal, formatPortfolioPct, trimDecimal } from "@/lib/dashboard/format";
 import { excludedNote } from "@/lib/dashboard/pie";
 import { HoldingsPie } from "./holdings-pie";
 import { type MetricViewData, type PortfolioCellView } from "./metric-columns";
@@ -116,7 +116,7 @@ function LastClose({ price }: { price: PriceView | undefined }) {
     );
   return (
     <span data-testid="holding-close" data-session-date={price.sessionDate ?? ""}>
-      {trimDecimal(price.close)} {price.currency}
+      {displayDecimal(price.close)} {price.currency}
       <span className="ml-2 text-xs text-muted">{price.sessionDate} close</span>
     </span>
   );
@@ -266,7 +266,7 @@ function Row({
           <span className="sr-only"> </span>
         </span>
         <span className="text-xs text-muted sm:order-2 sm:text-sm sm:text-ink" data-testid="holding-shares">
-          {trimDecimal(holding.shares)}
+          {displayDecimal(holding.shares)}
           <span className="sm:sr-only"> shares</span>
         </span>
         <span className="text-right text-xs text-muted sm:order-4 sm:text-sm sm:text-ink">
@@ -290,7 +290,7 @@ function Row({
                 className="field w-28 text-base tabular-nums"
               />
             ) : (
-              trimDecimal(holding.shares)
+              displayDecimal(holding.shares)
             )}
           </Field>
           <Field label="Average cost">
@@ -307,7 +307,7 @@ function Row({
                 <Blank testId="holding-avg-cost" />
               ) : (
                 <span data-testid="holding-avg-cost">
-                  {savedCost}
+                  {displayDecimal(savedCost)}
                   {price?.currency ? ` ${price.currency}` : ""}
                 </span>
               )

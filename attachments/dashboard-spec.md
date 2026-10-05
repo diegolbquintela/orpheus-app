@@ -229,6 +229,19 @@ table** (no instructions under or above the list). As of `main` 46840be only the
 15. **Edit** in the detail changes shares and average cost (cost can be cleared to blank); the ticker still
     can't be edited.
 16. **Empty-state text** is exactly `Add a holding` (**decided, EL 2026-10-04**).
+20. **"Every amount shows full digits with thousands separators" (DR6-02, ticket 6 #59)** covers every number
+    on the dashboard, not only the base-currency values that already had them: shares, average cost and last
+    close (listing currency) now get thousands separators with their stored decimals kept (no rounding:
+    `17500` → `17,500`, `1234.5 EUR` → `1,234.5 EUR`), and so do EPS and metric percentages above 999.9%.
+    Edit fields keep the raw number. Dates and years are not amounts.
+21. **"Instructions under the table" (DR6-05)** = any paragraph on `/dashboard` other than the kept single data
+    lines of 0.2 (signed in as, the as-of line, the out-of-date note, the total with its excluded line, the
+    preview database line, errors, `Add a holding`, and on previews only the refresh panel's lines:
+    `Last run: <YYYY-MM-DD> (UTC) · <running | ok | partial | failed>`, `No run yet.`, and the notes after its
+    button is pressed: `Refresh <ok | partial | failed>: N ticker(s), N new close(s)[, N error(s)].`,
+    `A refresh is already running. Try again in a minute.`, `Refresh failed (<HTTP status>).`); the shared rule
+    list is `qa/tools/leaveouts-rules.mjs` (`KEPT_LINES`, each line matched whole). **QA D1 (#65):** the
+    preview lines were missing at first, so `dashboard-leaveouts` failed on every preview.
 
 ### 0.6 Tickets
 
@@ -467,6 +480,39 @@ MC.PA) for book figures.
   (N4), `check-dashboard-built.mjs --with-database` (no donut before a close, total `—`, one-slice donut,
   Book row, share 100.0%, `—` alone at 0% coverage, N2 on POST / PUT, N3 label); browser
   `qa/tools/dashboard-book.mjs` (read-only, both widths) and `dashboard-add.mjs` (N3 name check).
+
+**Ticket 6 (#59, PR #65): leave-outs and regression.** Started stacked on PR #64 (EL 2026-10-04); based on
+`main` since #64 merged (main e82a632, merged into this branch normally).
+
+- **Leave-outs:** of the five, only the instructions ever existed, and ticket 2 removed them. Checked on the
+  page at 400 / 1024 / 1440 px (list, detail open, Edit, metrics sheet, empty account): no Connect broker or
+  broker link, no ownership toggle (no switch / checkbox; the only pressed buttons are `Holdings` /
+  `Metrics`), no download / export / CSV control or link, no paragraph beyond the kept data lines.
+- **K/M/B (DR6-02), the one thing still off:** amounts were never abbreviated, but shares, average cost and
+  last close showed without thousands separators (`17500`, `1234.5 EUR`). They now use `groupDigits()` /
+  `displayDecimal()` (`format.ts`; stored decimals kept, interpretation 20), as do EPS and metric
+  percentages above 999.9% (`formatMetricPct`). Edit inputs keep the raw value.
+- **Tests that keep DR6-01..05 true (`npm test`):** `leaveouts.dom.test.tsx` (the real `HoldingsSection` with a
+  seven-figure position, the list, two details open, Edit, the metrics sheet and the empty account, checked
+  with the shared rules; plus a source scan for compact notation, `download`, CSV / blob links, broker and
+  ownership copy), `scripts/qa-leaveouts-rules.test.mjs` (each rule catches its leave-out; the kept lines
+  pass), `format.test.ts` (separators, decimals untouched).
+- **Regression (DR6-06):** `qa/tools/dashboard-redesign.mjs` runs the site-wide checks (`/`, `/calculator`,
+  `/dashboard/sign-in` 200 + noindex header and meta + footer; signed-out `/dashboard` 307; flag status; one
+  Analytics script, page views without query, no other tracker host; Referrer-Policy recorded) and then
+  `site.mjs` ($313,000, VOD.L, menu, home), `dashboard-leaveouts`, `-list`, `-add`, `-metrics` (D1, D2),
+  `-book` at phone 400, wide 1024 and desktop 1440 (`QA_VIEWPORTS`, `session.mjs`), optionally an empty
+  account and `release-smoke.mjs`. The delete guard stays pinned by `holdings.dom.test.tsx` (QA never clicks
+  Delete); flag off by `check:dashboard-built`.
+- **Check hardening:** `check-dashboard-built --with-database` now reads the page right after adding KO, before
+  the listing checks that call the live price feed; KO's background close could land first and fail the
+  "before any close" book checks (3 of 6 local runs). 3 of 3 pass after the move.
+- **QA fixes (#65 QA, 2026-10-04):** D1, the leave-out rules now accept the preview refresh panel's lines
+  (item 21), with a jsdom test rendering the panel; D2, `dashboard-book.mjs` recomputes book figures from the
+  page's unrounded data (`qa/tools/book-math.mjs`, unit-tested with a low-coverage case) instead of the rounded
+  weights; `dashboard-redesign.mjs --empty` implies `--read-only`. The product itself didn't change.
+- **Epic status:** with this PR all six tickets are implemented. The epic is complete when #63, #64 and this PR
+  have merged and QA has re-run `dashboard-redesign.mjs` on production.
 
 ## 1. What we are building
 

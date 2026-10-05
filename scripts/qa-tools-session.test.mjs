@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { VIEWPORTS, eachViewport } from "../qa/tools/session.mjs";
+import { ALL_VIEWPORTS, VIEWPORTS, eachViewport, viewportsFrom } from "../qa/tools/session.mjs";
 
 function fakeBrowser(log, { loginOk = true } = {}) {
   return {
@@ -72,8 +72,8 @@ describe("QA N4: qa/tools sessions always sign out", () => {
 
   it("every qa/tools script that signs in uses eachViewport, with no sign-out or context of its own", () => {
     const dir = join(import.meta.dirname, "..", "qa", "tools");
-    const tools = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && readFileSync(join(dir, f), "utf8").includes("QA_PASSWORD"));
-    assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs"]);
+    const tools = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "dashboard-redesign.mjs" /* spawns the tools; own test below */ && readFileSync(join(dir, f), "utf8").includes("QA_PASSWORD"));
+    assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs"]);
     for (const f of tools) {
       const src = readFileSync(join(dir, f), "utf8");
       assert.match(src, /import \{ eachViewport \} from "\.\/session\.mjs";/, f);
@@ -81,5 +81,22 @@ describe("QA N4: qa/tools sessions always sign out", () => {
       assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|newContext\(|ctx\.close\(/, `${f} must leave sign-in / sign-out to eachViewport`);
       assert.match(src, /\} finally \{\n\s*await browser\.close\(\);/, `${f} closes the browser in a finally`);
     }
+  });
+
+  it("#59: QA_VIEWPORTS picks phone / wide (1024) / desktop; the default stays phone + desktop", async () => {
+    assert.equal(viewportsFrom(undefined), VIEWPORTS);
+    assert.equal(viewportsFrom(" "), VIEWPORTS);
+    assert.deepEqual(viewportsFrom("desktop,phone,wide").map(([vp, v]) => `${vp}:${v.width}`), ["phone:400", "wide:1024", "desktop:1440"]);
+    assert.deepEqual(ALL_VIEWPORTS.map(([, v, mobile]) => [v.width, mobile]), [[400, true], [1024, false], [1440, false]]);
+    assert.throws(() => viewportsFrom("phone,tablet"), /unknown viewport\(s\) tablet/);
+    const log = [];
+    await eachViewport({ browser: fakeBrowser(log), baseUrl: "http://x", email: "e", password: "p", check: () => {}, viewports: ALL_VIEWPORTS }, async () => {});
+    assert.deepEqual(log.filter((l) => l.includes("sign-out")), ["400 POST /api/auth/sign-out", "1024 POST /api/auth/sign-out", "1440 POST /api/auth/sign-out"]);
+  });
+
+  it("the runner (dashboard-redesign.mjs) never signs in itself, never logs a password, never deletes", () => {
+    const src = readFileSync(join(import.meta.dirname, "..", "qa", "tools", "dashboard-redesign.mjs"), "utf8");
+    assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|newContext\(|console\.\w+\([^)]*process\.env\.QA_(EMPTY_)?PASSWORD/);
+    assert.doesNotMatch(src, /name: "Delete"|getByText\("Delete"|method: "DELETE"/);
   });
 });
