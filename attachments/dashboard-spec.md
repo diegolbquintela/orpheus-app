@@ -175,7 +175,18 @@ table** (no instructions under or above the list). As of `main` 46840be only the
    number) that makes `holdings.avg_cost` nullable, keeping `CHECK (avg_cost >= 0)` for given values (EL
    2026-10-04: fine if nullable and idempotent, and tested with `check:dashboard-built --with-database`; the
    same applies to any ticket 4 migration). Blank
-   cost and return show as empty, not as a dash (the dash rule is for metric figures).
+   cost and return show as empty, not as a dash (the dash rule is for metric figures). **Landed in ticket 3
+   (#56):** `migrations/0008_holdings_avg_cost_nullable.sql` (`ALTER COLUMN avg_cost DROP NOT NULL`, a no-op
+   on re-run); existing rows are not converted (a stored 0 stays a real cost of 0). The API takes a missing,
+   `null` or blank `avgCost` on `POST` and `PUT` as no cost; a `PUT` with a blank cost clears it. Portfolio
+   cost / return aggregates (not shown on the page, item 9) sum only holdings that have a cost and are `null`
+   when none has one; value, weight, the total and the pie count every valued holding.
+17. **Compact add form (ticket 3, EL scope 2026-10-04):** one tight row at every width (Ticker, Shares,
+   Average cost, Add on one line, about 62 px tall at 400 px), not a collapsed control, so it doesn't push the
+   list down and needs no extra tap. Below 1024 px the cost label reads `Avg cost` with the placeholder
+   `optional` (the full `Average cost (optional)` doesn't fit a quarter of a phone row); its accessible name
+   is always `Average cost (optional)`, and from 1024 px the label reads `Average cost (optional)`. The old
+   ticker placeholder (`e.g. KO, RY.TO, ASML.AS`) is dropped (DR3-01: no placeholder sentences).
 8. **Second sheet** = a two-way `Holdings` | `Metrics` switch below 1024 px; side by side (list left,
    metrics right) at 1024 px and up. The 1024 px breakpoint is **decided (EL 2026-10-04)**.
 9. **"One total"** = the total value only. The total-cost and total-return cells of today's total row leave
@@ -332,13 +343,37 @@ MC.PA) for book figures.
 - **Interim, until ticket 4 (#57):** today's metric columns stay reachable in a `Metrics` section under the
   pie (`data-testid="metrics"`): the T08 picker, one row per holding (name + the user's columns, the cells as
   today) and the T14 `Portfolio` row. It scrolls sideways inside its own box, so the page never does. The
-  T15 pie is unchanged until ticket 5. The add form is unchanged until ticket 3.
+  T15 pie is unchanged until ticket 5. The add form was unchanged until ticket 3.
 - Wide screen (≥ 1024 px) uses the same single column (max-width 6xl) with the four-column rows; the
   metrics-on-the-right layout is ticket 4.
 - Tests: `holdings-list.dom.test.tsx` (row fields, tap opens / closes the detail, Edit inputs, empty state,
   no helper paragraph, one total, metrics reachable), `holdings.dom.test.tsx` (the #38 guard, now via the
   detail), `check-dashboard-built.mjs --with-database` (row + detail fields, `Add a holding`, no total
   cost / return), `qa/tools/dashboard-list.mjs` (browser, both widths).
+
+**Ticket 3 (#56, PR #62): add holding, optional average cost.**
+
+- Add form: one compact row (interpretation 17): Ticker, Shares, Average cost (placeholder `optional`,
+  accessible name `Average cost (optional)`), Add. A blank cost is sent as `null`.
+- Schema: `migrations/0008_holdings_avg_cost_nullable.sql` makes `holdings.avg_cost` nullable (idempotent,
+  `CHECK (avg_cost >= 0)` kept; no existing value converted). API (`holdings.server.ts`
+  `parseOptionalCost`): missing, `null` or blank `avgCost` → stored `NULL` on `POST` (201, `avgCost: null`)
+  and `PUT` (clears it); a given cost is still ≥ 0 with ≤ 6 decimals. Listing check, duplicate 409 and the
+  200 cap unchanged.
+- Valuation (`valueHoldings`): no cost → `cost`, `returnAmount`, `returnPct` `null`; value and weight as
+  any holding. `totalCost` / `totalReturn` sum costed holdings only and are `null` when none has a cost (not
+  on the page, item 9).
+- Detail: with no cost, `holding-avg-cost`, `holding-cost` and `holding-return` render empty
+  (`data-blank="true"`), no return %. Edit starts blank and can fill or clear the cost.
+- QA notes folded in: **N6** Edit → Save sends one `PUT` per click burst (a ref guard like #44's delete);
+  **N1** each row number has a visually hidden label from 640 px (`shares`, `value`, `share of book`; the
+  header row stays `aria-hidden`); **N3** `qa/tools/dashboard-list.mjs` skips the row checks on an account
+  with no holdings and signs out at the end. N4 unchanged: no portfolio total cost or return.
+- Tests: `holdings-add.dom.test.tsx` (form shape, blank cost POSTs `null`, blank detail fields, a later
+  cost shows, clearing, the Save guard), the N1 test in `holdings-list.dom.test.tsx`, `holdings.test.ts` /
+  `store.test.ts` / `valuation.test.ts` (parse, NULL storage, 0008 re-run, aggregates),
+  `check-dashboard-built.mjs --with-database` (form, POST without cost, blank then filled then cleared),
+  `qa/tools/dashboard-add.mjs` (browser, both widths, never Delete).
 
 ## 1. What we are building
 
@@ -534,7 +569,7 @@ Per-user tables:
 | Table | Columns | Keys |
 |---|---|---|
 | `user_settings` | `user_id`, `base_currency` (`CAD` \| `USD` \| `EUR`, default `CAD`), `updated_at` | PK `user_id` → `"user"(id)` on delete cascade |
-| `holdings` | `id`, `user_id`, `symbol` (feed symbol, e.g. `RY.TO`, `ASML.AS`, `KO`), `shares` numeric(20,6) > 0, `avg_cost` numeric(20,6) ≥ 0 (in the listing currency), `created_at`, `updated_at` | PK `id`; unique (`user_id`, `symbol`); index `user_id` |
+| `holdings` | `id`, `user_id`, `symbol` (feed symbol, e.g. `RY.TO`, `ASML.AS`, `KO`), `shares` numeric(20,6) > 0, `avg_cost` numeric(20,6) ≥ 0 or NULL = no cost (in the listing currency; nullable since 0008, epic #53 ticket 3), `created_at`, `updated_at` | PK `id`; unique (`user_id`, `symbol`); index `user_id` |
 | `user_metric_columns` | `user_id`, `metric_key`, `position` | PK (`user_id`, `metric_key`) |
 
 Shared market-data tables (written only by the daily job):
@@ -566,7 +601,7 @@ Implementation notes (T04, #12):
   calculator's existing feed module) and applies `listingError()` from `src/lib/dca/venues.ts`, so DASH-08
   messages are the calculator's exact text. This is a one-off validation on `POST`, not a page load and not
   a price; nothing from it is stored. T04 doesn't write `instruments` (left to T05's daily job).
-- The ticker isn't editable: `PUT` changes `shares` and `avg_cost` only; to change a ticker, delete and add.
+- The ticker isn't editable: `PUT` changes `shares` and `avg_cost` only (a blank / `null` cost clears it, #56); to change a ticker, delete and add.
 - Duplicate (`user_id`, `symbol`) is refused with 409 "<SYM> is already in your holdings." before the feed
   call. Cap: 200 holdings per user.
 - Isolation: another user's holding id answers 404 "Holding not found." (not 403, so ids don't leak); a

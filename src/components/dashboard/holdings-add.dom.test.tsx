@@ -194,4 +194,40 @@ describe("add holding, optional cost (#56, DR3)", () => {
     blank($('[data-testid="holding-cost"]', after));
     blank($('[data-testid="holding-return"]', after));
   });
+
+  it("QA N6: a double click on Save sends one PUT (guard like #44); a failed PUT lets the user retry", async () => {
+    let status = 200;
+    let release: () => void = () => {};
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null });
+      await new Promise<void>((r) => (release = r)); // the PUT is slow: both clicks land before it returns
+      return new Response(JSON.stringify(status === 200 ? { holding: { id: 1 } } : { error: "Server error." }), { status });
+    }) as typeof fetch;
+    await render(page(null));
+    const ko = rowOf("KO");
+    await click($('[data-testid="holding-row-toggle"]', ko)!);
+    await click(button(ko, "Edit"));
+    await type($('input[aria-label="Average cost of KO"]', ko)!, "60");
+    const save = button(ko, "Save");
+    // Two clicks in one tick, before React re-renders the disabled button.
+    await act(async () => {
+      save.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      save.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    });
+    await click(save);
+    await act(async () => release());
+    assert.equal(calls.filter((c) => c.method === "PUT").length, 1, "one PUT for a double click");
+    assert.equal(changed, 1);
+    // A failure releases the guard: the error shows and Save works again.
+    calls = [];
+    status = 500;
+    await click(button(ko, "Edit"));
+    await click(button(ko, "Save"));
+    await act(async () => release());
+    assert.equal(text($('[role="alert"]', ko)), "Server error.");
+    status = 200;
+    await click(button(ko, "Save"));
+    await act(async () => release());
+    assert.equal(calls.filter((c) => c.method === "PUT").length, 2, "retry after an error sends again");
+  });
 });

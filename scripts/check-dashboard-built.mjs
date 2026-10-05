@@ -543,6 +543,8 @@ if (!WITH_DB) {
     check(new RegExp(`data-testid="${id}"`).test(usdPage), `${label}: /dashboard KO row lacks ${id}`);
   check(!/>Cost \(USD\)<\/th>|>Total return<\/th>|>% of portfolio<\/th>/.test(usdPage.replace(/<!-- -->/g, "")), `${label}: the old holdings table is still rendered`);
   check(/data-testid="holding-shares"[^>]*>12(<!-- -->)?<span[^>]*> shares<\/span>/.test(usdPage), `${label}: KO row shares -> ${textOf(usdPage, "holding-shares")}`);
+  // QA N1: the header row is aria-hidden, so each row number carries its own visually hidden label.
+  check(/data-testid="holding-shares"[^>]*>12(<!-- -->)?<span class="sm:sr-only"> shares<\/span>/.test(usdPage) && /data-testid="holding-value-label"> value </.test(usdPage) && /data-testid="holding-weight-label"> share of book </.test(usdPage), `${label}: KO row numbers lack their accessible labels`);
   const koName = textOf(usdPage, "holding-name");
   check(koName && koName !== "KO" && koName !== "—", `${label}: KO name (stored company name) -> ${koName}`);
   check(textOf(usdPage, "holding-avg-cost") === "50 USD", `${label}: KO average cost -> ${textOf(usdPage, "holding-avg-cost")}`);

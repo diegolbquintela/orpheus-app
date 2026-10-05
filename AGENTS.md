@@ -58,7 +58,8 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
   saved columns keep them as chips, defaults only for users with nothing saved; the 1024 px breakpoint and the
   empty-state text `Add a holding`; the ticket 3 / 4 migrations are fine if nullable and idempotent and run
   through `check:dashboard-built --with-database`.
-- **Landed:** ticket 2 (#55), see "Dashboard holdings list (#55)" below and spec 0.9.
+- **Landed:** ticket 2 (#55), see "Dashboard holdings list (#55)" below and spec 0.9. Ticket 3 (#56, PR #62):
+  "Dashboard add holding / optional cost (#56)" below.
 - **Paused / not this epic:** don't touch `chore/remove-grok-leftovers` / PR #52 or issues #50 / #51
   unless handed them.
 
@@ -386,7 +387,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   /api/dashboard/holdings/<id>` (`Allow: GET, HEAD, PUT, DELETE`). Gate from `session.server.ts` (404 flag
   off, 405, 401, 403 for a client-named other user id). A holding id that isn't the session user's (or
   isn't numeric) answers **404 "Holding not found."**, never 403, so ids don't leak. No database: 503.
-- Rules: shares > 0, avg cost ≥ 0, ≤ 6 decimals; duplicate ticker 409 "<SYM> is already in your
+- Rules: shares > 0, avg cost ≥ 0 or blank (no cost, stored `NULL` since #56), ≤ 6 decimals; duplicate ticker 409 "<SYM> is already in your
   holdings." (checked before any feed call); `PUT` takes `{shares, avgCost}` only and refuses `symbol`;
   cap 200 per user. Ticker check only on `POST`: one Yahoo chart-metadata request; non-US/EU/CA gets
   `listingError()`'s exact text (400), unknown symbol 404, feed down 503. Page loads never call a feed and
@@ -412,7 +413,30 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   line, the T15 pie (ticket 5 makes it a donut), and an interim `MetricsTable` (`data-testid="metrics"`: picker,
   `metric-th` / `metric-row` / `metric-cell`, the T14 `Portfolio` row) until ticket 4's chips.
 - No helper paragraph; empty state `Add a holding`. Tests: `holdings-list.dom.test.tsx`,
-  `holdings.dom.test.tsx`; browser check `qa/tools/dashboard-list.mjs` (needs `QA_EMAIL` / `QA_PASSWORD`).
+  `holdings.dom.test.tsx`; browser check `qa/tools/dashboard-list.mjs` (needs `QA_EMAIL` / `QA_PASSWORD`;
+  skips the row checks with zero holdings and signs out at the end, QA N3).
+- QA N1: each row number carries a visually hidden label (`holding-value-label` " value ", the shares
+  span `sm:sr-only` " shares", `holding-weight-label` " share of book "), because the header row is
+  `aria-hidden`. Keep the labels outside the `holding-*` testid spans so their text stays the bare figure.
+
+### Dashboard add holding / optional cost (#56, epic #53 ticket 3)
+
+- Add form: one compact row at every width (`holding-form-symbol`, `-shares`, `-cost`; cost placeholder
+  `optional`, accessible name `Average cost (optional)`; visible label `Avg cost` below 1024 px). No other
+  placeholders or help text (DR3-01).
+- **No cost is `NULL`, never 0.** `migrations/0008_holdings_avg_cost_nullable.sql` (idempotent `DROP NOT
+  NULL`, CHECK kept, no data converted). `parseOptionalCost()` maps missing / `null` / blank to `null` on
+  `POST` and `PUT` (so Edit can clear it); the client sends `costForRequest(input)`. `Holding.avgCost` and
+  `HoldingView.avgCost` are `string | null`.
+- `valueHoldings()`: no cost → `cost` / `returnAmount` / `returnPct` `null`; value, weight, total and pie as
+  usual; `totalCost` / `totalReturn` over costed holdings only, `null` when none (never shown: one total,
+  value only). A cost of 0 is a real cost (return % `n/m`).
+- Detail: blank avg cost, cost and return render `<span data-blank="true">` (empty, not `—`/`0`/`n/m`).
+- Edit → Save has a ref guard (QA N6): one `PUT` per click burst, released on error or after the refetch.
+- Tests: `holdings-add.dom.test.tsx`, `holdings.test.ts`, `store.test.ts`, `valuation.test.ts`,
+  `auth.test.ts` (migration list), `check-dashboard-built.mjs --with-database`; browser
+  `qa/tools/dashboard-add.mjs` (adds `QA_ADD_SYMBOL`, default MSFT, with a blank cost, fills and clears it;
+  refuses a symbol held with a cost; never Delete).
 
 ### Dashboard daily closes (T05 #13)
 

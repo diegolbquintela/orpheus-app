@@ -4,7 +4,9 @@
 // shows exactly name, shares, value in base currency and share of the book (DR2-02), a tap opens the detail
 // with the old fields + Edit/Delete and a second tap closes it (DR2-03; nothing is edited or deleted), no
 // helper paragraph (DR2-04), the old T07 table is gone (DR2-07), one total and the metrics still reachable.
-// Read-only apart from the sign-in. Writes dashboard-list.json and screenshots to --out. Exit 1 on a fail.
+// An account with no holdings SKIPs the row checks (QA N3: not a FAIL). Signs out at the end of each
+// viewport. Read-only apart from the sign-in / sign-out. Writes dashboard-list.json and screenshots to --out.
+// Exit 1 on a fail (skips don't fail the run).
 import { chromium } from "playwright";
 import fs from "fs";
 import { qaConfig } from "./config.mjs";
@@ -19,6 +21,14 @@ const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
+const skip = (name, detail) => {
+  R.checks.push({ name, ok: true, skipped: true, detail });
+  console.log(`SKIP ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
+};
+const signOut = async (page, vp) => {
+  const out = await page.request.post(`${CFG.baseUrl}/api/auth/sign-out`, { data: {}, headers: { origin: CFG.baseUrl } });
+  check(`[${vp}] sign-out`, out.ok(), out.status());
+};
 const browser = await chromium.launch();
 for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, true], ["desktop", { width: 1440, height: 900 }, false]]) {
   const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
@@ -28,8 +38,13 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   await page.goto(`${CFG.baseUrl}/dashboard`, { waitUntil: "networkidle" });
   const rows = page.getByTestId("holding-row");
   const n = await rows.count();
-  check(`[${vp}] at least one holding row`, n > 0, n);
-  if (!n) continue;
+  if (!n) {
+    skip(`[${vp}] row checks (the account has no holdings; add one first)`, n);
+    check(`[${vp}] empty state is one line "Add a holding"`, (await page.getByTestId("holdings-empty").innerText()).trim() === "Add a holding");
+    await signOut(page, vp);
+    await ctx.close();
+    continue;
+  }
   const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
   check(`[${vp}] no horizontal page scroll`, scrollW <= viewport.width, scrollW);
   const toggle = rows.first().getByTestId("holding-row-toggle");
@@ -53,10 +68,12 @@ for (const [vp, viewport, mobile] of [["phone", { width: 400, height: 860 }, tru
   check(`[${vp}] second tap closes it`, !(await detail.isVisible()));
   check(`[${vp}] one total`, (await page.getByTestId("holdings-total").count()) === 1 && (await page.getByTestId("holdings-total-cost").count()) === 0);
   check(`[${vp}] metrics still reachable`, (await page.getByTestId("metric-picker").count()) === 1);
+  await signOut(page, vp);
   await ctx.close();
 }
 await browser.close();
 fs.writeFileSync(`${CFG.out}/dashboard-list.json`, JSON.stringify(R, null, 2));
 const failed = R.checks.filter((c) => !c.ok).length;
-console.log(`${failed ? "FAIL" : "PASS"}: ${R.checks.length - failed}/${R.checks.length} · out ${CFG.out}`);
+const skipped = R.checks.filter((c) => c.skipped).length;
+console.log(`${failed ? "FAIL" : "PASS"}: ${R.checks.length - failed - skipped}/${R.checks.length - skipped}${skipped ? ` (${skipped} skipped)` : ""} · out ${CFG.out}`);
 process.exit(failed ? 1 : 0);

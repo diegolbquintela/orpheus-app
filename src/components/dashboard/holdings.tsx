@@ -202,14 +202,26 @@ function Row({
   const detailId = `holding-detail-${holding.id}`;
   const name = price?.name || holding.symbol;
 
+  // QA N6: one PUT per Save, like the #44 delete guard: a second click before React re-renders the disabled
+  // button is ignored. Released on an error (so the user can retry) and once the page's refetch is back.
+  const saving = useRef(false);
   async function save() {
+    if (saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError(null);
     const err = await send(`/api/dashboard/holdings/${holding.id}`, "PUT", { shares, avgCost: costForRequest(avgCost) });
     setBusy(false);
-    if (err) return setError(err);
+    if (err) {
+      saving.current = false;
+      return setError(err);
+    }
     setEditing(false);
-    await onChanged();
+    try {
+      await onChanged();
+    } finally {
+      saving.current = false;
+    }
   }
 
   // One DELETE per row, ever: a second click before React re-renders the disabled button is ignored, and
@@ -247,14 +259,18 @@ function Row({
         <span className="min-w-0 truncate font-medium sm:order-1" data-testid="holding-name">
           {name}
         </span>
+        {/* QA N1: the header row is aria-hidden, so each number carries its own (visually hidden) label. */}
         <span className="text-right whitespace-nowrap sm:order-3">
+          <span className="sr-only" data-testid="holding-value-label"> value </span>
           <PositionValue row={valued} base={base} />
+          <span className="sr-only"> </span>
         </span>
         <span className="text-xs text-muted sm:order-2 sm:text-sm sm:text-ink" data-testid="holding-shares">
           {trimDecimal(holding.shares)}
-          <span className="sm:hidden"> shares</span>
+          <span className="sm:sr-only"> shares</span>
         </span>
         <span className="text-right text-xs text-muted sm:order-4 sm:text-sm sm:text-ink">
+          <span className="sr-only" data-testid="holding-weight-label"> share of book </span>
           {ok && valued.weight !== null ? <span data-testid="holding-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-weight" />}
         </span>
       </button>
