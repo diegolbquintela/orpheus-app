@@ -13,6 +13,14 @@ export const KEPT_LINES = [
   /^\d+ holdings? without a price excluded$/,
   /^Database: .{0,60}$/,
   /^Add a holding$/,
+  // Preview only (the refresh panel, `PreviewRefresh` in holdings.tsx; never on production): the last run line,
+  // with every status `refresh_runs.status` can hold (running while a run is in flight, then ok / partial /
+  // failed), or "No run yet." with no run; and the deterministic notes after a click on the button.
+  /^Last run: \d{4}-\d{2}-\d{2} \(UTC\) · (running|ok|partial|failed)$/,
+  /^No run yet\.$/,
+  /^Refresh (ok|partial|failed): \d+ ticker\(s\), \d+ new close\(s\)(, \d+ error\(s\))?\.$/,
+  /^A refresh is already running\. Try again in a minute\.$/,
+  /^Refresh failed \(\d{3}\)\.$/,
 ];
 
 const BROKER = /\bbroker|plaid|snaptrade|wealthsimple|questrade|connect (an? )?(account|brokerage)/i;

@@ -9,15 +9,17 @@
 //    is valued.
 //  - DR5-03/04/05: the metrics sheet's foot is the `Book` row with one figure per kept chip, in chip order;
 //    each figure is "—" alone or "x.x% · N% covered" (never "0% covered"); the EPS chip carries
-//    "EPS growth 1y (weighted)"; Share of the book reads 100.0% (± 0.1). For the % chips the figure is
-//    re-derived from the visible row cells and row weights (dashes left out, weights renormalised; rounding
-//    tolerance 0.15 points, coverage ± 1 point).
+//    "EPS growth 1y (weighted)"; Share of the book reads 100.0% (± 0.1). Every other chip's figure (EPS:
+//    weighted EPS growth) is recomputed by book-math.mjs from the page's unrounded data (row values in base
+//    currency, stored metric values; never the rounded weights on screen) and compared at display precision
+//    (QA D2, #65); the rows showing a figure must be the holdings counted in it.
 // No writes: never adds, edits, saves chips or clicks Delete. Signs out at the end. Writes
 // dashboard-book.json and screenshots to --out. Exit 1 on a fail.
 import { chromium } from "playwright";
 import fs from "fs";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+import { bookText, expectedBookFigure, matchesAtDisplayPrecision } from "./book-math.mjs";
 const CFG = qaConfig(import.meta.url);
 const { QA_EMAIL: email, QA_PASSWORD: password } = process.env;
 if (!email || !password) {
@@ -88,6 +90,14 @@ await eachViewport({ browser, baseUrl: CFG.baseUrl, email, password, check }, as
       const cells = await foot.locator('[data-testid="portfolio-metric"]').evaluateAll((els) =>
         els.map((e) => ({ key: e.dataset.key, text: e.querySelector('[data-testid="portfolio-metric-value"]').textContent.trim(), label: e.querySelector('[data-testid="portfolio-metric-label"]')?.textContent.trim() ?? null })),
       );
+      // The page's own unrounded data (the /dashboard loader data it renders from; same session, read-only).
+      const raw = await page.evaluate(() => {
+        const match = window.__TSR_ROUTER__?.state?.matches?.find((m) => m.routeId === "/dashboard");
+        const d = match?.loaderData;
+        return d ? { rows: d.valuation.rows.map((r) => ({ symbol: r.symbol, value: r.value })), metrics: d.metrics } : null;
+      });
+      check(`[${vp}] raw page data readable (row values, stored metric values)`, raw !== null);
+      if (!raw) return;
       check(`[${vp}] DR5-03 one book figure per kept chip, in chip order`, JSON.stringify(cells.map((c) => c.key)) === JSON.stringify(chips), cells.map((c) => c.key));
       for (const c of cells) {
         if (c.key === "share_of_book") {
@@ -95,26 +105,25 @@ await eachViewport({ browser, baseUrl: CFG.baseUrl, email, password, check }, as
           check(`[${vp}] DR5-05 Share of the book = sum of the weights`, valued.length ? v !== null && Math.abs(v - 100) <= 0.1 : c.text === "—", c.text);
           continue;
         }
-        const m = /^(-?\d+\.\d)% · (\d+)% covered$/.exec(c.text);
+        const m = /^(-?\d{1,3}(?:,\d{3})*\.\d)% · (\d+)% covered$/.exec(c.text);
         check(`[${vp}] DR5-04 ${c.key}: "—" alone or "x.x% · N% covered" (never 0% covered)`, c.text === "—" || (m && m[2] !== "0"), c.text);
-        if (c.key === "eps_1y") {
-          check(`[${vp}] DR5-03 EPS book figure labelled`, c.label === "EPS growth 1y (weighted)", c.label);
-          continue;
-        }
-        // Re-derive from the visible row cells (rounded) and row weights.
-        const figs = await page.locator(`[data-testid="metric-row"]`).evaluateAll((trs, key) =>
-          trs.map((tr) => {
-            const cell = tr.querySelector(`[data-testid="metric-cell"][data-key="${key}"]`);
-            return { symbol: tr.dataset.symbol, ok: cell?.dataset.status === "ok", text: cell?.textContent.trim() };
-          }), c.key);
-        const used = figs.filter((f) => f.ok && pct(f.text) !== null && valued.some((r) => r.symbol === f.symbol));
-        const wsum = used.reduce((s, f) => s + valued.find((r) => r.symbol === f.symbol).w, 0);
-        if (!used.length) check(`[${vp}] DR5-04 ${c.key}: nobody has a figure → "—"`, c.text === "—", c.text);
-        else if (wsum > 0 && m) {
-          const want = used.reduce((s, f) => s + valued.find((r) => r.symbol === f.symbol).w * pct(f.text), 0) / wsum;
-          const cov = (wsum / valued.reduce((s, r) => s + r.w, 0)) * 100;
-          check(`[${vp}] DR5-03/04 ${c.key}: weighted over holdings with a figure (dashes left out)`, Math.abs(Number(m[1]) - want) <= 0.15 && Math.abs(Number(m[2]) - cov) <= 1.01, { shown: c.text, want: want.toFixed(2), coverage: cov.toFixed(1) });
-        }
+        if (c.key === "eps_1y") check(`[${vp}] DR5-03 EPS book figure labelled`, c.label === "EPS growth 1y (weighted)", c.label);
+        // QA D2 (#65): recompute from the unrounded data the page renders from (row values in base currency and
+        // the stored metric values), not from the rounded weights / cells on screen, and compare at display
+        // precision. The visible cells must agree with the raw data on who has a figure (dashes left out).
+        const exp = expectedBookFigure(raw.rows, raw.metrics, c.key);
+        check(`[${vp}] DR5-03/04 ${c.key}: weighted over holdings with a figure (dashes left out)`, matchesAtDisplayPrecision(c.text, exp), {
+          shown: c.text,
+          want: bookText(exp),
+          value: exp.value === null ? null : (exp.value * 100).toFixed(4),
+          coverage: exp.coverage === null ? null : (exp.coverage * 100).toFixed(2),
+        });
+        if (c.key === "eps_1y") continue; // its book figure is EPS growth, which has no row cell
+        const shownWith = await page.locator(`[data-testid="metric-row"]`).evaluateAll((trs, key) =>
+          trs.filter((tr) => tr.querySelector(`[data-testid="metric-cell"][data-key="${key}"]`)?.dataset.status === "ok").map((tr) => tr.dataset.symbol), c.key);
+        const valuedSymbols = new Set(valued.map((r) => r.symbol));
+        const visible = shownWith.filter((s) => valuedSymbols.has(s)).sort();
+        check(`[${vp}] DR5-04 ${c.key}: the rows with a figure on screen = the holdings in the book figure`, JSON.stringify(visible) === JSON.stringify([...exp.included].sort()), { visible, included: exp.included });
       }
     }
     check(`[${vp}] no horizontal scroll (metrics)`, (await page.evaluate(() => document.documentElement.scrollWidth)) <= viewport.width);

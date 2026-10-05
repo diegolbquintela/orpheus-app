@@ -11,7 +11,7 @@ import { afterEach, describe, it } from "node:test";
 import { act, type ComponentProps } from "react";
 import type { Root } from "react-dom/client";
 import { leaveOutFindings, type LeaveOutSnapshot } from "../../../qa/tools/leaveouts-rules.mjs";
-import { HoldingsSection } from "./holdings";
+import { HoldingsSection, PreviewRefresh } from "./holdings";
 
 const { createRoot } = await import("react-dom/client");
 
@@ -136,6 +136,43 @@ describe("leave-outs (#59, DR6-01..05)", () => {
     await render(PAGE(false));
     assert.equal(squash($('[data-testid="holdings-empty"]')!.textContent), "Add a holding");
     none("empty");
+  });
+
+  it("QA D1 (#65): the preview refresh panel's lines are kept lines (every run status, no run, the notes)", async () => {
+    const statuses = ["running", "ok", "partial", "failed"];
+    for (const lastRun of [null, ...statuses.map((status) => ({ runDate: "2026-10-04", status, finishedAt: null }))]) {
+      container = dom.window.document.createElement("main");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root.render(<PreviewRefresh lastRun={lastRun} onChanged={async () => {}} />));
+      assert.equal(squash($('[data-testid="preview-refresh-last"]')!.textContent), lastRun ? `Last run: 2026-10-04 (UTC) · ${lastRun.status}` : "No run yet.");
+      none(`refresh panel, ${lastRun?.status ?? "no run"}`);
+      await act(async () => root.unmount());
+      container.remove();
+    }
+    // The note after the button is pressed: each deterministic response the panel can print.
+    const replies: [number, object, string][] = [
+      [200, { status: "ok", symbols: 13, inserted: 2 }, "Refresh ok: 13 ticker(s), 2 new close(s)."],
+      [200, { status: "partial", symbols: 13, inserted: 1, errors: 2 }, "Refresh partial: 13 ticker(s), 1 new close(s), 2 error(s)."],
+      [200, { status: "locked" }, "A refresh is already running. Try again in a minute."],
+      [500, {}, "Refresh failed (500)."],
+    ];
+    for (const [status, body, note] of replies) {
+      container = dom.window.document.createElement("main");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      globalThis.fetch = (async () => new Response(JSON.stringify(body), { status })) as typeof fetch;
+      await act(async () => root.render(<PreviewRefresh lastRun={{ runDate: "2026-10-04", status: "ok", finishedAt: null }} onChanged={async () => {}} />));
+      await click(container.querySelector("button")!);
+      assert.equal(squash($('[data-testid="preview-refresh-note"]')!.textContent), note);
+      none(`refresh note ${note}`);
+      await act(async () => root.unmount());
+      container.remove();
+    }
+    // Tight: other text in the same place is still flagged.
+    const flagged = leaveOutFindings({ text: "", paragraphs: [{ text: "Last run: 2026-10-04 (UTC) · ok. Press the button to refresh.", alert: false }, { text: "No run yet. Tap Run to start one.", alert: false }] });
+    assert.equal(flagged["DR6-05 no instructions (kept lines only)"].length, 2);
+    await render(PAGE(false)); // for afterEach
   });
 
   it("no compact notation, download attribute, broker or ownership code in the dashboard sources", () => {

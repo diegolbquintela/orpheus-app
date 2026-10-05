@@ -2,7 +2,8 @@
 // at phone 400 × 860, wide 1024 × 800 and desktop 1440 × 900.
 //
 //   QA_EMAIL=… QA_PASSWORD=… node qa/tools/dashboard-redesign.mjs --base-url <url> --out <dir> [--smoke preview|on]
-//     [--read-only] [--empty]   (env QA_EMPTY_EMAIL / QA_EMPTY_PASSWORD: an account with no holdings, for --empty)
+//     [--read-only] [--empty]   (env QA_EMPTY_EMAIL / QA_EMPTY_PASSWORD: an account with no holdings, for --empty;
+//     --empty implies --read-only, so nothing writes during an empty-account run)
 //
 // 1. Site (HTTP + one signed-out browser, no sign-in here): `/`, `/calculator`, `/dashboard/sign-in` 200 with
 //    `X-Robots-Tag: noindex, nofollow` and the robots meta; signed-out `/dashboard` → 307 to the sign-in page;
@@ -14,7 +15,7 @@
 //    dashboard-leaveouts (DR6-01..05, DR0-07), dashboard-list (DR2: rows, detail, Edit / Delete shown, never
 //    clicked), dashboard-add (DR3: blank cost, Edit fills / clears; writes one holding, QA_ADD_SYMBOL),
 //    dashboard-metrics (DR4 + D1 page width + D2 exact name; chip saves restored), dashboard-book (DR5: one
-//    total, donut, Other, Book row). --read-only skips the two that write (add, metrics).
+//    total, donut, Other, Book row). --read-only skips the two that write (add, metrics); --empty implies it.
 // 3. --smoke <mode>: `node scripts/release-smoke.mjs <base> <mode>` (the signed-out matrix, DR0-03).
 // The delete guard (one DELETE per click, #38) is pinned by npm test (holdings.dom.test.tsx); no QA tool ever
 // clicks Delete. Credentials come from env only and are handed to the child tools, never logged; every
@@ -33,6 +34,9 @@ const argv = process.argv.slice(2);
 const has = (f) => argv.includes(`--${f}`);
 const smokeAt = argv.indexOf("--smoke");
 const smoke = smokeAt >= 0 ? argv[smokeAt + 1] : null;
+// --empty implies --read-only (#65): the add tool would put a holding back on an account before (or after) the
+// empty-account checks, and the chip saves aren't needed for them. Nothing in an --empty run writes.
+const readOnly = has("read-only") || has("empty");
 const base = CFG.baseUrl;
 const R = { base, startedAt: new Date().toISOString(), site: [], tools: [] };
 const check = (name, ok, detail) => {
@@ -136,8 +140,9 @@ if (!signedIn) {
 } else {
   await tool("dashboard-leaveouts");
   await tool("dashboard-list");
-  if (!has("read-only")) await tool("dashboard-add");
-  if (!has("read-only")) await tool("dashboard-metrics");
+  if (!readOnly) await tool("dashboard-add");
+  if (!readOnly) await tool("dashboard-metrics");
+  if (readOnly) console.log(`\nSKIP dashboard-add, dashboard-metrics: read-only run${has("empty") ? " (--empty implies --read-only)" : ""}`);
   await tool("dashboard-book");
 }
 if (has("empty") && process.env.QA_EMPTY_EMAIL && process.env.QA_EMPTY_PASSWORD) {
