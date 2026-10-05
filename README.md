@@ -113,11 +113,36 @@ The app is hosted on Vercel.
   https://island-pearl-eagle-hill.grok.me stays published as a frozen old copy until the Chief of Staff
   confirms its retirement with Diego. It is not production and does not get updates.
 
-## Dashboard (hidden, behind a flag)
+## Dashboard (released, behind a flag)
 
 A signed-in dashboard, built ticket by ticket (spec: `attachments/dashboard-spec.md`), gated by one
 **server-only** env var, `DASHBOARD_ENABLED`. As of 2026-10-04 production serves it (issue #46; read-only smoke
-check the same day). The flag and the gate are unchanged:
+check the same day).
+
+### Redesign: mobile first (epic #53, tickets #54–#59)
+
+The dashboard is being redesigned phone first (about 400 px), then wide screen. The target, the source of
+truth for tickets 2–6, is **section 0 of [`attachments/dashboard-spec.md`](attachments/dashboard-spec.md)**;
+QA's acceptance IDs are DR0–DR6 there and in [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md). Until those
+tickets merge, the page still works as described in the T04–T15 paragraphs below.
+
+- **The holdings list is the page.** Each row: name, shares, value in base currency, share of the book. Tap
+  a row for the rest (cost, last close, return, FX, edit, delete). No helper paragraphs. With no holdings
+  the page says one line: `Add a holding`.
+- **Add:** ticker and shares; average cost is optional and a blank cost saves. Cost and return stay blank
+  until a cost is entered. Listing check unchanged: US, EU and Canada only.
+- **Metrics:** a second sheet on a phone (`Holdings` | `Metrics`), on the right on wide screens. A search
+  field adds a chip; each chip removes itself; rows show only the kept chips. Default chips: Revenue growth
+  1y, ROIC (1y), Share of the book. A missing figure is `—`, not a sentence.
+- **Book:** one total under the list; a donut of the same weights, largest first, `Other` past ten names;
+  weighted figures for the kept chips, with dashes left out, not counted as zero.
+- **Left out:** Connect broker, K/M/B amounts, an ownership toggle, download, instructions under the table.
+- **Unchanged:** the dark style, the dashboard stays released (`DASHBOARD_ENABLED` and env vars untouched),
+  the signed-out behaviour, the calculator ($313,000 regression), noindex, the analytics (and referrer)
+  rules, no buy/sell wording. The data math (closes, FX, SEC metrics, weighting) doesn't change.
+
+### Current dashboard: flag, sign-in and data (gate unchanged)
+
 
 - Only the exact value `true` turns it on. Unset or any other value means off.
 - Off: `/dashboard` and every `/api/dashboard/*` route return a real **404**. The page 404
@@ -202,7 +227,7 @@ session date, and never fetches or changes a stored close again (spec §6, §11,
   isn't a real calendar date (e.g. 2026-02-31) is 400.
 - Per D8, cost (T07) will use the same current rate as value, so the FX effect since purchase isn't shown.
 
-**Dashboard holdings valuation (T07).** The holdings table shows ticker, name, shares, average cost and
+**Dashboard holdings valuation (T07; layout replaced by #53).** The holdings table shows ticker, name, shares, average cost and
 last close (listing currency, with the session date), market value and cost (base currency), total return
 (amount in base, % in the listing currency) and % of portfolio, plus a total row (total position, total
 cost, total return, 100.0%).
@@ -221,7 +246,7 @@ preview button / new-holding backfill) and stored in `fundamentals_annual`; page
   contact. Without it no SEC request is made and the dashboard shows "coverage check pending".
 - Coverage: US tickers directly; Canadian/European listings only when the same company files with the SEC
   under the same ticker (e.g. RY.TO, ASML.AS, SHOP.TO). Others show "— not covered" in every metric cell.
-- "Metric columns" lets each user add, remove and reorder columns (saved per user). The values are
+- "Metric columns" lets each user add, remove and reorder columns (saved per user; chips on a metrics sheet in #53, no reorder). The values are
   computed in later tickets (T09–T13); until then covered rows show "— not computed yet".
 
 **Dashboard revenue growth (T09).** The "Revenue growth 1y" and "Revenue CAGR 3y / 5y / 10y" columns are
@@ -253,7 +278,7 @@ year as reported to the SEC (e.g. KO 61.6%); when a company reports no gross pro
 (revenue − cost of revenue) ÷ revenue. Zero or negative revenue, or neither figure reported (e.g. banks),
 shows "— not meaningful".
 
-**Dashboard portfolio row (T14).** The total row under the holdings shows a portfolio value in every metric
+**Dashboard portfolio row (T14; moves to the metrics sheet's Book row in #53).** The total row under the holdings shows a portfolio value in every metric
 column: the market-value-weighted mean (base currency) over the holdings that have a value for that metric,
 with the share of the portfolio's market value it covers, e.g. `27.6% · 71% covered`. Holdings showing "—"
 (not meaningful, insufficient history or data, not covered) are left out and never counted as zero;
@@ -266,7 +291,7 @@ the total row then says so ("1 holding without a price excluded" / "N holdings w
 unless exact. A company without a prior-year EPS shows insufficient history for EPS growth. Computed when
 the page loads, from stored values only.
 
-**Dashboard pie chart (T15).** Below the holdings table, a pie chart shows each holding's % of portfolio
+**Dashboard pie chart (T15; becomes a donut in #53).** Below the holdings table, a pie chart shows each holding's % of portfolio
 (market value in your base currency, the same figures as the table's "% of portfolio" column), largest
 first; with more than 10 holdings the 10 largest keep their slice and the rest are grouped into "Other".
 Slices are neutral greys labelled ticker + %, with a text list next to the chart (stacked under it on

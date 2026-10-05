@@ -13,6 +13,11 @@ each one has its link inline. When a provider page does not say something, this 
 
 Spec PR: #8. Tickets: see [Tickets](#tickets).
 
+**Redesign 2026-10-04 (epic #53, mobile first):** [section 0](#0-redesign-mobile-first-epic-53-source-of-truth-for-tickets-26)
+is the source of truth for the dashboard's page, add form, metrics and book in tickets 2–6 (#55–#59). It
+wins over sections 1, 9 and 12 where they differ (the old acceptance IDs are mapped in 0.8). The data math
+below (prices, FX, fundamentals, metric formulas, weighting) is unchanged.
+
 **Update 2026-10-04 (#46, site redesign):** the site has three routes: home `/` (one line, two cards), the
 calculator at `/calculator` and this dashboard at `/dashboard`, with a menu and the footer "Orpheus Wisdom" on
 every page (`attachments/dca-app-spec.md`, "Site and routes"). Dashboard behaviour is unchanged: still gated by
@@ -23,7 +28,288 @@ as of 2026-10-04 (issue #46; read-only smoke the same day); the flip itself isn'
 any other page (path only, query strings stripped, no cookies, no custom events). No email, ticker, holding or
 user id is sent. Why: to see which tools get used.
 
+## 0. Redesign: mobile first (epic #53). Source of truth for tickets 2–6
+
+**This section is the source of truth for tickets 2–6 of epic #53** (#55 holdings list, #56 add holding,
+#57 metrics sheet and chips, #58 book, #59 leave-outs and regression). Where it differs from sections 1–12
+below, this section wins; the older sections stay as the record of how the data is computed (prices, FX,
+fundamentals, metric formulas, weighting), and that math does not change. Approved by Diego (via Chief of
+Staff) on 2026-10-04 as epic #53; ticket 1 (#54) wrote this section, `AGENTS.md`, `README.md` and the
+dashboard part of `qa/CANONICAL-AC-PACK.md`. No app code changed in ticket 1.
+
+### 0.1 The brief (verbatim from the architect, #53)
+
+> Mobile first, then web.
+> Phone: holdings list is the page. Metrics are a second sheet, not a table beside the list. Wide screen: that sheet sits on the right.
+> Holdings row: name, shares, value in base currency, share of the book. Tap a row for the rest. No helper paragraphs. Empty state is one line: add a holding.
+> Add: ticker and shares only. Average cost is optional. Blank cost still saves. Cost and return stay blank until a cost is entered. Listing check unchanged: US, EU, and Canada only.
+> Metrics: a search field adds a chip. A chip removes itself. The row shows only kept chips. Default chips: revenue growth 1 year, ROIC 1 year, share of the book. A missing figure is a dash, not a sentence.
+> Book: one total under the list. Donut of the same weights, largest first, Other past ten names. Weighted figures for the selected chips. A dash is left out, not counted as zero.
+> Leave out: Connect broker, K/M/B, ownership toggle, download, instructions under the table.
+
+Rules from #53: no hires; the visual style doesn't change (same dark desk); the dashboard stays released
+(`DASHBOARD_ENABLED` and every env var untouched); harness first, then specs, then the work; small tickets,
+one draft PR each as proof of start; QA on the preview before merge, then on production after merge.
+
+### 0.2 What the page is
+
+Widths: **phone first, about 400 px** (QA uses 400 × 860), then **wide screen, 1024 px and up** (QA uses
+1440 × 900). Below 1024 px the page is one column; at 1024 px and up the list and the metrics sheet sit side
+by side.
+
+**Holdings list (the page).** Signed in, `/dashboard` opens on the list of holdings, one row per holding,
+ordered by ticker as today.
+
+- A row shows exactly four things: **name** (the stored company name; the ticker until a name is stored),
+  **shares**, **value in base currency** (full amount with thousands separators and two decimals plus the
+  code, e.g. `997.01 CAD`) and **share of the book** (one decimal, e.g. `24.1%`). Nothing else in the row.
+  A holding without a price or FX rate yet shows `—` for value and share.
+- **Tap (or click) a row for the rest:** a detail panel for that holding with ticker, name, shares, average
+  cost (listing currency, or blank), last close with its session date (listing currency), value and cost
+  (base), return (amount in base, % in listing currency), share of the book, the FX rate line (with
+  "previous rate" when it fell back) and the **Edit** (shares, average cost) and **Delete** controls. Tapping
+  the row again, or the panel's close control, returns to the list. Delete keeps the #38 guard (one DELETE
+  per click).
+- **No helper paragraphs:** the explanatory paragraph that sits above today's table ("US, EU and CA
+  listings only. Average cost is per share…") goes, and no other block of explanatory prose replaces it.
+  Single data lines stay: the as-of line ("Prices as of … close · FX …"), the out-of-date note, error
+  messages, the excluded-holdings line under the total and, on previews only, the refresh button and the
+  database status line.
+- **Empty state:** with no holdings the list area shows one line, `Add a holding`, and nothing else (no
+  headers, no total, no donut).
+- The base-currency select (CAD default, USD, EUR; DASH-12) stays, as one compact control at the top of
+  the list.
+
+**Add.** One form above the list: **Ticker**, **Shares**, **Average cost (optional)**, **Add**. No
+placeholder sentences or help text.
+
+- Ticker and shares are required (shares > 0, up to 6 decimals). Average cost may be left blank; when given
+  it must be ≥ 0 with up to 6 decimals. **A blank cost saves.**
+- Blank cost is stored as "no cost" (not as 0). Until a cost is entered, the holding's **cost and return
+  stay blank** (empty, not `0`, not `n/m`). Its value, share of the book, metrics and its weight in the book
+  are computed as for any other holding. Entering a cost later (Edit) fills cost and return; clearing it
+  blanks them again. A cost of 0 is still a real cost (return % `n/m`, as today).
+- **Listing check unchanged:** US, EU and Canada only, with the calculator's exact `listingError()`
+  messages (DASH-08); duplicate ticker 409; 200 holdings per user.
+
+**Metrics sheet.** On a phone the metrics are a **second sheet**, reached with a two-way switch at the top
+of the page (`Holdings` | `Metrics`); they're never a table beside the list. At 1024 px and up the sheet
+**sits on the right** of the list and the switch isn't needed.
+
+- The sheet has a **search field** and a row of **chips**. Typing in the search field offers the metrics
+  whose label matches and that aren't already chips; choosing one **adds a chip** at the end.
+- Each chip has its own remove control (`×`, accessible name "Remove <label>"): **a chip removes itself**,
+  and its figures leave every row and the book.
+- The sheet has one row per holding (same order as the list): the holding's name, then a figure **for each
+  kept chip only**, in chip order.
+- **Default chips:** `Revenue growth 1y`, `ROIC (1y)`, `Share of the book`.
+- Searchable chips: the eight existing metrics (Revenue growth 1y, Revenue CAGR 3y / 5y / 10y, ROIC (1y),
+  EPS (1y), EBIT margin (1y), Gross margin (1y)) plus `Share of the book`.
+- Chips are saved per user, like today's metric columns.
+- **A missing figure is a dash, not a sentence:** a figure that is not meaningful, not covered,
+  insufficient history or data, coverage check pending or not computed yet shows exactly `—`. The reason may
+  stay in the tooltip / accessible name; it is never visible text beside the dash.
+
+**Book.**
+
+- **One total under the list:** the total value in base currency (Σ value of the valued holdings, as
+  today's `holdings-total`). When holdings are left out for no price or FX rate, the one-line note "1 holding
+  without a price excluded" / "N holdings without a price excluded" stays under it.
+- **A donut of the same weights** under the total: the same slices as today's pie (`pieSlices()`: share of
+  the book per holding), **largest first**, ties by ticker, **Other past ten names** (10 largest + Other),
+  neutral greys, labels ticker + % from the same formatter as the rows, with the ticker + % list as the text
+  alternative.
+- **Weighted figures for the selected chips:** a `Book` row at the foot of the metrics sheet shows, for each
+  kept chip, the market-value-weighted figure from section 9 (T14, unchanged), e.g. `27.6% · 71% covered`;
+  the EPS chip's book figure is the weighted 1-year EPS growth, labelled `EPS growth 1y (weighted)` (D9).
+  Adding or removing a chip adds or removes its book figure.
+- **A dash is left out, not counted as zero:** holdings showing `—` for a chip are excluded from that chip's
+  weighted figure and count against its coverage; nothing covered shows `—`.
+
+### 0.3 Leave out
+
+Not on the dashboard, at any width: **Connect broker** (no broker link or button of any kind), **K/M/B**
+(no abbreviated amounts: every amount shows full digits with thousands separators, never `1.2M`),
+**ownership toggle**, **download** (no download or export button or link), **instructions under the
+table** (no instructions under or above the list). As of `main` 46840be only the instructions exist
+(the helper paragraph above the table); ticket 2 removes it and ticket 6 adds tests that keep all five out.
+
+### 0.4 Unchanged
+
+- The **dark visual style** (same desk: colours, fonts, spacing tokens; no new theme, no new colours beyond
+  the neutral greys already used).
+- The dashboard **stays released**: production serves `/dashboard`; `DASHBOARD_ENABLED`, the flag code and
+  every env var are untouched by every ticket.
+- The **signed-out matrix**: `/dashboard` → 307 to `/dashboard/sign-in`, sign-in page 200, per-user APIs
+  401 JSON, other methods 405 JSON (`scripts/release-smoke.mjs`, `check:dashboard-built`).
+- The **calculator** at `/calculator` (DCA-01..06, the **$313,000** regression in `qa/tools/site.mjs`,
+  VOD.L 400 with the exact message).
+- **noindex** (meta and `X-Robots-Tag`) on every page.
+- The **referrer and analytics rules on `main`**: Vercel Web Analytics page views only, query strings
+  stripped, no custom events, no other trackers; whatever `Referrer-Policy` rule `main` carries when the
+  ticket lands (#50 adds `no-referrer`). Writes keep using `fetch()`, never a plain HTML form post.
+- **No buy/sell wording:** no buy, sell, hold, rating, target, "undervalued" / "overvalued" or
+  recommendation copy anywhere; no "Not a recommendation" disclaimer either (its absence is intended).
+- The data rules: stored closes and rates only on page loads (DASH-14), D8 cost FX, section 9 weighting,
+  the metric formulas (section 8), the as-of line and out-of-date note (DASH-25).
+
+### 0.5 Interpretations (where the brief is ambiguous, the simplest reading)
+
+1. **Spec location.** The brief names `docs/dashboard-spec.md`; the spec has always lived at
+   `attachments/dashboard-spec.md`, and code comments, `README.md`, `AGENTS.md` and QA logs link there. It
+   is updated in place; no move.
+2. **Share of the book** = the holding's value ÷ the total value of valued holdings, in base currency:
+   today's "% of portfolio" (`formatPortfolioPct`), renamed. As a **chip** it shows the same figure per row
+   in the metrics sheet; its book figure is the sum of the valued weights (100.0%).
+3. **Existing metric columns become chips.** The eight metric columns are the chip catalog, plus Share of
+   the book. The D9 EPS growth stays the EPS chip's book figure, not a chip of its own. Reordering (DASH-15)
+   is dropped: a new chip goes at the end.
+4. **Chip storage and defaults.** Chips are saved per user through the existing column storage
+   (`user_metric_columns`, `/api/dashboard/columns`). A user with nothing saved gets the three defaults; an
+   account that already saved metric columns keeps them as its chips. Removing every chip must stick
+   (ticket 4 picks the mechanism; if it needs a schema change, that's a new migration, never an edit).
+5. **Detail on tap** = the holding's T07 fields (listed in 0.2) plus Edit and Delete, in a panel that opens
+   under the row (or as a sheet) at both widths.
+6. **Row name** = `instruments.name`; the ticker until a name is stored. The ticker itself shows in the detail.
+7. **Blank cost** is stored as no cost (`NULL`), distinct from 0; ticket 3 needs a new migration (the next
+   number) that makes `holdings.avg_cost` nullable, keeping `CHECK (avg_cost >= 0)` for given values. Blank
+   cost and return show as empty, not as a dash (the dash rule is for metric figures).
+8. **Second sheet** = a two-way `Holdings` | `Metrics` switch below 1024 px; side by side (list left,
+   metrics right) at 1024 px and up.
+9. **"One total"** = the total value only. The total-cost and total-return cells of today's total row leave
+   the page (per-holding cost and return stay in the detail).
+10. **Donut** = today's pie slices rendered with an inner radius. The "price pending" / "FX pending" lists
+    under the chart go (those holdings show `—` in the list and are counted in the excluded line under the
+    total); with no priced holding the donut is absent and the total shows `—`.
+11. **Dash everywhere**: metric cells and book figures show `—` alone; the book's `· N% covered` suffix stays
+    on a figure, and 0% coverage shows `—` (was `— · 0% covered`).
+12. **Kept controls not named in the brief:** base-currency select, as-of line, out-of-date note, sign-out,
+    preview-only refresh button and database status line. They are data or controls, not helper paragraphs.
+13. **Leave-outs that don't exist** (Connect broker, K/M/B, ownership toggle, download) are "must stay
+    absent"; ticket 6 adds tests for them. K/M/B applies to the dashboard; the calculator's chart axis
+    (`compactMoney`) is part of the unchanged calculator.
+14. **T07 / T14 / T15 mapping.** T07 (valuation, D8, as-of, out-of-date) keeps its math; its columns move to
+    the row (four fields) and the detail, and its total row shrinks to one total. T14 (weighted aggregates,
+    coverage, D9) keeps its math and moves to the `Book` row of the metrics sheet. T15 (pie) keeps
+    `pieSlices()` and becomes the donut.
+15. **Edit** in the detail changes shares and average cost (cost can be cleared to blank); the ticker still
+    can't be edited.
+
+### 0.6 Tickets
+
+| Ticket | Issue | Scope | Acceptance |
+|---|---|---|---|
+| 1 | #54 | Harness + specs: `AGENTS.md`, this section, `README.md`, `qa/CANONICAL-AC-PACK.md`. No app code | This PR's docs; DR0 unchanged |
+| 2 | #55 | Holdings list as the page (phone first): four-field rows, tap for detail, one-line empty state, helper paragraph removed | DR0, DR2-01..07 |
+| 3 | #56 | Add holding: ticker + shares, optional cost, blank cost saves, cost/return blank, listing check unchanged (needs the nullable-cost migration) | DR0, DR3-01..06 |
+| 4 | #57 | Metrics sheet and chips: second sheet / right side, search adds chips, chips remove themselves, defaults, dashes | DR0, DR4-01..07 |
+| 5 | #58 | Book: one total, donut, weighted figures for kept chips, dashes excluded | DR0, DR5-01..05 |
+| 6 | #59 | Remove the leave-outs, regression and docs pass | DR0, DR6-01..06 |
+
+Each ticket: one PR off the latest `main`, draft first, CI green, QA on the preview at 400 px and 1440 px,
+Engineering Lead merges, QA re-checks production.
+
+### 0.7 Acceptance (QA, on the preview, then production; phone 400 × 860 and desktop 1440 × 900)
+
+Seed account for value checks: KO, ASML.AS and RY.TO in CAD (the DASH-13 hand check: total 4,141.21 CAD,
+weights 24.1 / 54.2 / 21.7) on a preview after a refresh run; the DASH-22 set (KO, ASML.AS, RY.TO, PHG,
+MC.PA) for book figures.
+
+**DR0: every ticket 2–6, both widths**
+
+| ID | Pass when |
+|---|---|
+| DR0-01 | Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
+| DR0-02 | Dashboard released: production `/dashboard` signed out → 307 to `/dashboard/sign-in`; `/api/dashboard/status` → 200 `{"dashboard":"enabled"}`. The PR diff touches no env var, `DASHBOARD_ENABLED`, `flag.server.ts` or `vercel.json` env. |
+| DR0-03 | Signed-out matrix unchanged: `node scripts/release-smoke.mjs <preview> preview` and `<production> on` pass every check. |
+| DR0-04 | Calculator unchanged: `qa/tools/site.mjs` passes ($313,000 for PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly; VOD.L 400 with the exact message); DCA-01..06 pass. |
+| DR0-05 | noindex: `robots` meta `noindex, nofollow` and `X-Robots-Tag: noindex, nofollow` on `/dashboard` and `/dashboard/sign-in`. |
+| DR0-06 | Referrer and analytics as on `main`: one Analytics mount, page-view URLs without query or hash, no custom events, no other tracker requests; the `Referrer-Policy` header / meta equal `main`'s. |
+| DR0-07 | No buy, sell, hold, rating, target, "undervalued" / "overvalued" or recommendation wording on `/dashboard` (signed in, both widths, with and without holdings); no "Not a recommendation" disclaimer (absence is intended, not a fail). |
+
+**Ticket 2 (#55): holdings list**
+
+| ID | Pass when |
+|---|---|
+| DR2-01 | At 400 px the holdings list is the page: after the heading and the add form come the list rows; no metrics table beside or inside the list; no horizontal page scroll (`document.documentElement.scrollWidth` ≤ 400). |
+| DR2-02 | Each row shows exactly name, shares, value in base currency (full digits, two decimals, code) and share of the book (one decimal %); seed account: weights 24.1 / 54.2 / 21.7 and values match DASH-13. A price-pending row shows `—` for value and share. |
+| DR2-03 | Tapping a row opens its detail with ticker, name, shares, average cost, last close + session date, value, cost, return (amount and %), share of the book and the FX line; closing returns to the list. Edit and Delete work from the detail (DASH-07 rules; one DELETE per click). |
+| DR2-04 | No helper paragraphs: the "US, EU and CA listings only. Average cost is per share…" paragraph is gone and no other explanatory paragraph is on the page; the as-of line, the out-of-date note and errors are single lines. |
+| DR2-05 | Empty state: an account with no holdings shows exactly one line, `Add a holding`, in the list area, and no headers, total or chart. |
+| DR2-06 | Base currency select still re-expresses every value and the total (DASH-12) and the setting persists; the as-of line and out-of-date note behave as DASH-25. |
+| DR2-07 | At 1440 px the same rows and detail work; the nine-column T07 table is gone. |
+
+**Ticket 3 (#56): add holding**
+
+| ID | Pass when |
+|---|---|
+| DR3-01 | The add form has exactly Ticker, Shares, Average cost marked optional, and Add; no help text or placeholder sentences. |
+| DR3-02 | Ticker + shares with cost blank saves (API `POST` without `avgCost`, or with `null` / `""`, → 201 with no cost); the row appears and survives a reload. |
+| DR3-03 | With no cost, the detail's cost and return are blank (not `0`, `n/m` or `—`); value and share of the book still show and the holding counts in the total and the donut. |
+| DR3-04 | Entering a cost via Edit fills cost and return (values as DASH-13 / D8); clearing it blanks them again; cost 0 is accepted (return % `n/m`). |
+| DR3-05 | Listing check unchanged: `VOD.L` → "VOD.L lists on LSE. US, EU, and CA listings only."; `TCS.BO` → the BSE message; KO, RY.TO, ASML.AS accepted; a second KO → 409. |
+| DR3-06 | Validation: shares ≤ 0 or more than 6 decimals refused; a given cost < 0 or more than 6 decimals refused; other users' holdings unreachable (DASH-06). |
+
+**Ticket 4 (#57): metrics sheet and chips**
+
+| ID | Pass when |
+|---|---|
+| DR4-01 | At 400 px the metrics are a second sheet behind the `Holdings` / `Metrics` switch, never beside the list; switching back shows the list unchanged; no horizontal page scroll. |
+| DR4-02 | At 1440 px the metrics sheet sits to the right of the list, both visible without switching. |
+| DR4-03 | A user with no saved chips sees exactly `Revenue growth 1y`, `ROIC (1y)`, `Share of the book`, in that order. |
+| DR4-04 | The search field: typing "gross" offers Gross margin (1y) (and no chip already kept); choosing it adds the chip at the end; it survives a reload. |
+| DR4-05 | Each chip's own `×` removes it and its figures from every row (and the book once ticket 5 lands); the change survives a reload, including removing every chip. |
+| DR4-06 | Each metrics row shows the holding's name and figures for the kept chips only, in chip order; values equal DASH-16..20 (e.g. KO revenue growth 1y 1.9%, ROIC 17.4%, EPS 3.04 USD, EBIT margin 28.7%, gross margin 61.6%). |
+| DR4-07 | A missing figure (RY ROIC, a not-covered name such as MC.PA, a pending check) shows exactly `—`, with no visible reason text next to it. |
+
+**Ticket 5 (#58): book**
+
+| ID | Pass when |
+|---|---|
+| DR5-01 | Exactly one total under the list: the total value in base currency (seed account 4,141.21 CAD); no total cost or total return row; the excluded line shows only when a holding has no price or FX rate. |
+| DR5-02 | A donut (ring with a hole) of the rows' share of the book: same labels as the rows, largest first, ties by ticker; with 11+ valued holdings the 10 largest plus `Other`; neutral greys; the ticker + % list is present as text. |
+| DR5-03 | The metrics sheet's `Book` row shows, for each kept chip, the weighted figure from section 9: DASH-22 set EBIT margin `27.6% · 71% covered`; the EPS chip shows `26.5%` labelled `EPS growth 1y (weighted)`; adding or removing a chip adds or removes its book figure. |
+| DR5-04 | Dashes are left out: a holding with `—` for a chip is excluded from that chip's figure (not counted as 0) and counts against coverage; a chip nobody has a figure for shows `—`. |
+| DR5-05 | The `Share of the book` chip's book figure is the sum of the valued weights (100.0% ± rounding). |
+
+**Ticket 6 (#59): leave-outs and regression**
+
+| ID | Pass when |
+|---|---|
+| DR6-01 | No "Connect broker" and no broker link or button anywhere on `/dashboard`, both widths. |
+| DR6-02 | No K/M/B: every amount on `/dashboard` shows full digits with thousands separators (no `K`, `M` or `B` suffix on any amount). |
+| DR6-03 | No ownership toggle (no switch or toggle about ownership or % owned). |
+| DR6-04 | No download: no download / export / CSV button or link. |
+| DR6-05 | No instructions under (or above) the list; DR2-04 still holds. Tests in `npm test` keep DR6-01..05 true. |
+| DR6-06 | Regression: DR0, DR2..DR5 and every kept DASH ID pass in one run on the preview at both widths, then on production after the merge; `README.md`, `AGENTS.md` and this spec match the shipped page. |
+
+### 0.8 Old DASH IDs: kept or superseded
+
+| Old ID | Status | Now |
+|---|---|---|
+| DASH-00 | Superseded | The dashboard is released; DR0-02 (production serves it) replaces "404 until the release go". The calculator and wording parts live on in DR0-04 / DR0-07, noindex in DR0-05. |
+| DASH-01, 02 | Kept | Flag code unchanged; checked by `flag.test.ts` and `check:dashboard-built` in CI. QA doesn't flip the flag. |
+| DASH-03 | Kept | Preview database status line stays. |
+| DASH-04 | Kept | Part of DR0-03 (signed-out matrix). |
+| DASH-05, 06 | Kept | Unchanged (DR3-06 re-checks isolation for the cost change). |
+| DASH-07 | Superseded | DR3-01..06 (cost optional) and DR2-03 (edit / delete in the detail). |
+| DASH-08 | Kept | Restated as DR3-05. |
+| DASH-09, 10, 11 | Kept | Unchanged. |
+| DASH-12 | Kept | Restated as DR2-06. |
+| DASH-13 | Superseded | DR2-02 / DR2-03 (columns move to the row and the detail) and DR5-01 (one total); the hand-check numbers stay. |
+| DASH-14 | Kept | Unchanged. |
+| DASH-15 | Superseded | DR4-03..05 (chips; reorder dropped). |
+| DASH-16..20 | Kept | The values; their display follows DR4-06 / DR4-07. |
+| DASH-21 | Superseded (display) | Coverage rule kept; the cell shows `—` alone (DR4-07) instead of "— not covered". |
+| DASH-22 | Kept, moved | DR5-03 / DR5-04 (the `Book` row). |
+| DASH-23 | Kept, moved | DR5-03 (EPS chip book figure). |
+| DASH-24 | Superseded | DR5-02 (donut, same slices; pending lists dropped). |
+| DASH-25 | Kept | Restated in DR2-06. |
+| DASH-26 | Superseded | DR6-06 (no new production flip; one full regression run). |
+
 ## 1. What we are building
+
+*Original v1 scope (2026-10-02). The page layout in items 1–3 is replaced by [section 0](#0-redesign-mobile-first-epic-53-source-of-truth-for-tickets-26) (epic #53): holdings list as the page, metrics as chips on a second sheet, one total and a donut.*
 
 A signed-in area. A user signs in and gets two things: the existing DCA calculator (unchanged), and a new
 **Dashboard**.
@@ -496,11 +782,16 @@ and `not_covered` ("not covered") cells show `—` with the reason on hover/tap.
 - Holdings with no price (no close yet) are excluded from weights and from the pie, and listed as
   "price pending".
 
+*Epic #53: the weighting below is unchanged; the figures move to the metrics sheet's `Book` row and the pie becomes a donut with the same slices (section 0.2).*
+
 **Pie chart:** one slice per holding by % of portfolio (base-currency market value), largest first; if
 there are more than 10 holdings, the rest are grouped into "Other". Labels show ticker and %. No colour
 or label implies good/bad.
 
 ### Implementation notes (T14, #22)
+
+*Epic #53: math unchanged; shown in the `Book` row of the metrics sheet; 0% coverage shows `—` (section 0.5, items 11 and 14).*
+
 
 - Computed at read time (`portfolio.ts`) from the stored valuation (T07) and `metric_values`; no new
   table. "Valid" = covered company + stored status `ok`. Price/FX-pending holdings are outside both the
@@ -522,6 +813,9 @@ or label implies good/bad.
   covering them. Nothing is shown when N = 0.
 
 ### Implementation notes (T15, #23)
+
+*Epic #53: `pieSlices()` unchanged, rendered as a donut under the one total; the pending lists under the chart go (section 0.5, items 10 and 14).*
+
 
 - Slices from the T07 valuation rows: value / Σ value × 100, i.e. exactly the table's "% of portfolio",
   shown with the same 1-decimal rounding via one shared formatter (`formatPortfolioPct`, #24 N1). The
@@ -662,6 +956,9 @@ or label implies good/bad.
 
 ### Implementation notes (T07, #15)
 
+*Epic #53: valuation math, D8, as-of line and out-of-date note unchanged; the columns move to the four-field row and the tap detail, the total row becomes one total, and average cost becomes optional (section 0.2, 0.5 items 7, 9 and 14).*
+
+
 - **Columns:** ticker, name (`instruments.name`, filled by the backfill/daily job from the provider; "—"
   until then), shares, average cost and last close + session date (listing currency, code shown), market
   value and cost (base), total return (amount in base; % in the listing currency per §10), % of portfolio.
@@ -681,6 +978,8 @@ or label implies good/bad.
   `ProviderError.kind` maps refused / not found / unavailable to 400 / 404 / 503, same messages as before.
 
 ## 12. Acceptance criteria (QA checks these on the PR's Vercel preview)
+
+*Epic #53: for tickets 2–6 the acceptance is [section 0.7](#07-acceptance-qa-on-the-preview-then-production-phone-400--860-and-desktop-1440--900) (DR0–DR6); section 0.8 says which IDs below are kept and which are superseded.*
 
 Global (every ticket): **DASH-00** `/dashboard` and every `/api/dashboard/*` route return 404 on production
 until the release go; the calculator (`/calculator` since #46) is unchanged (DCA-01..06 still pass); no buy, sell, hold,
@@ -717,6 +1016,8 @@ to dashboard files); `noindex` still present on `/dashboard`.
 | DASH-26 | Release check (flag on, full pass): DASH-00..25 all pass in one run on the release candidate, then on production right after the flip. |
 
 ## Tickets
+
+*v1 tickets T01–T16 below. The redesign tickets (#54–#59) are in [section 0.6](#06-tickets).*
 
 Each ticket is one PR, one Vercel preview, one QA pass, merged behind `DASHBOARD_ENABLED`. All carry the
 label `dashboard`. The spec was approved on 2026-10-02, and all decisions D1–D13 are decided, so `blocked: spec approval` is
