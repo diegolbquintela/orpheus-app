@@ -127,12 +127,20 @@ const tool = (name, env = {}, sub = name) =>
   });
 
 await tool("site");
-await tool("dashboard-leaveouts");
-await tool("dashboard-list");
-if (!has("read-only")) await tool("dashboard-add");
-if (!has("read-only")) await tool("dashboard-metrics");
-await tool("dashboard-book");
-if (has("empty")) {
+// Without test-account credentials in env the signed-in tools are SKIPPED (reported, not failed): the run then
+// covers the site-wide and signed-out parts only.
+const signedIn = Boolean(process.env.QA_EMAIL && process.env.QA_PASSWORD);
+if (!signedIn) {
+  console.log("\nSKIP signed-in dashboard tools: QA_EMAIL / QA_PASSWORD not set in env");
+  R.tools.push({ label: "signed-in dashboard tools", code: 0, skipped: true, summary: "SKIPPED (no QA_EMAIL / QA_PASSWORD in env)", fails: [] });
+} else {
+  await tool("dashboard-leaveouts");
+  await tool("dashboard-list");
+  if (!has("read-only")) await tool("dashboard-add");
+  if (!has("read-only")) await tool("dashboard-metrics");
+  await tool("dashboard-book");
+}
+if (has("empty") && process.env.QA_EMPTY_EMAIL && process.env.QA_EMPTY_PASSWORD) {
   const empty = { QA_EMAIL: process.env.QA_EMPTY_EMAIL ?? "", QA_PASSWORD: process.env.QA_EMPTY_PASSWORD ?? "", label: "empty account" };
   await tool("dashboard-leaveouts", empty, "empty-leaveouts");
   await tool("dashboard-list", empty, "empty-list");
@@ -144,7 +152,7 @@ const siteFails = R.site.filter((c) => !c.ok).length;
 const toolFails = R.tools.filter((t) => t.code !== 0);
 console.log(`\n==== summary (${base})`);
 console.log(`${siteFails ? "FAIL" : "PASS"} site-wide: ${R.site.filter((c) => c.ok && !c.info).length}/${R.site.filter((c) => !c.info).length}`);
-for (const t of R.tools) console.log(`${t.code === 0 ? "PASS" : "FAIL"} ${t.label}: ${t.summary}`);
+for (const t of R.tools) console.log(`${t.skipped ? "SKIP" : t.code === 0 ? "PASS" : "FAIL"} ${t.label}: ${t.summary}`);
 console.log("NOTE delete guard: npm test (holdings.dom.test.tsx); never clicked here. Flag off: npm run check:dashboard-built.");
 fs.writeFileSync(join(CFG.out, "dashboard-redesign.json"), JSON.stringify(R, null, 2));
 const failed = siteFails + toolFails.length;
