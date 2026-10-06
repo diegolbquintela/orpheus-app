@@ -25,9 +25,9 @@ or monthly). The app compares two cash plans over the same window:
 - **Lump sum**: the starting capital goes in on day one.
 - **DCA**: the contribution goes in as new cash on each scheduled date.
 
-It shows invested amount, end value, money-weighted return (XIRR), total return, CAGR, max drop and
-shares per name, plus one value chart per plan. Prices come from Yahoo's daily chart data through a
-same-origin server route.
+It shows, for each plan, invested amount, end value, money-weighted return (XIRR), total return, CAGR, max drop,
+value at the drop and return to the drop, as label-value rows, plus one chart of the DCA portfolio value (#70).
+Prices come from Yahoo's daily chart data through a same-origin server route.
 
 - Production: https://orpheus-app-beta.vercel.app
 - Spec: [`attachments/dca-app-spec.md`](attachments/dca-app-spec.md)
@@ -113,9 +113,7 @@ The app is hosted on Vercel.
   https://island-pearl-eagle-hill.grok.me stays published as a frozen old copy until the Chief of Staff
   confirms its retirement with Diego. It is not production and does not get updates.
 
-## Dashboard (released, behind a flag)
-
-### Site style: dark, mobile first (epic #66, tickets #67–#73)
+## Site style: dark, mobile first (epic #66, tickets #67–#73)
 
 Re-scoped 2026-10-05 21:26 ET (Diego via CoS and EL): **dark mode wins.** A white style was proposed the same
 evening and dropped; nothing white gets merged. The #53 dark style stands and is extended: a charcoal shell on
@@ -131,6 +129,18 @@ Wisdom". Home, the calculator, sign-in and the 404 sit on a charcoal page with o
 otherwise unchanged until its own ticket (the calculator, sign-in and home cards keep their white panels for
 now). On `/dashboard` only the bar and footer changed. QA: `qa/tools/site-shell.mjs` at 360, 400, 1024 and
 1440 px.
+
+**Landed: the calculator page (#70).** `/calculator` has no white panel left: a Botticelli band (*The Birth of
+Venus*, public domain; source and licence in [`public/hero/calculator-SOURCE.md`](public/hero/calculator-SOURCE.md))
+with `01` and "Dollar-cost average calculator." lower left on a soft wash; underline-only fields with their own
+class; the listings note as one line under the form; one chart with one series (the DCA portfolio value: green
+line, soft green fill, the last value in a green pill); the results as label-value rows (each metric's label as a
+caption, then `Lump sum` and `DCA`, two columns while each is at least 150 px wide); captions `Dividends
+reinvested.` plus the run-specific lines. Phone rules below 1024 px (fields stack, short band), the wide layout
+(form left, results right) from 1024 px. The calculator logic is unchanged ($313,000). QA:
+`qa/tools/calculator-page.mjs` at 360, 400, 1024 and 1440 px.
+
+## Dashboard (released, behind a flag)
 
 A signed-in dashboard, built ticket by ticket (spec: `attachments/dashboard-spec.md`), gated by one
 **server-only** env var, `DASHBOARD_ENABLED`. As of 2026-10-04 production serves it (issue #46; read-only smoke

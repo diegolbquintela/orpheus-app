@@ -1,4 +1,4 @@
-// Calculator page (epic #66, #70; spec attachments/site-style-spec.md §7 / §7a, ST4-01..17, plus ST0 / ST6 as
+// Calculator page (epic #66, #70; spec attachments/site-style-spec.md §7 / §7a, ST4-01..16, plus ST0 / ST6 as
 // they apply) in a real browser at 360 × 780, 400 × 860 (phone rules: below 1024 px), 1024 × 800 and 1440 × 900
 // (wide layout: from 1024 px). Read-only, signed out; the only network writes are the calculator's own
 // GET /api/chart requests for the $313,000 regression case.
@@ -6,21 +6,21 @@
 // Before a run, per width:
 //   ST4-01 Botticelli band under the bar: alt names the painting; <picture> with AVIF + WebP sources and a JPEG
 //          <img>, srcset + sizes, width / height on the img and every source; served from the app; every hero
-//          file ≤ 300 KB and the file served at 1440 px, 2x (DPR 2) ≤ 300 KB (ST4-16)
-//   ST4-15 layout shift: a PerformanceObserver ('layout-shift', buffered) from before the first paint until 1.5 s
+//          file ≤ 300 KB and the file served at 1440 px, 2x (DPR 2) ≤ 300 KB
+//   ST4-01 layout shift: a PerformanceObserver ('layout-shift', buffered) from before the first paint until 1.5 s
 //          after load, the hero files held back 1 s, cold and warm: the hero causes none (band, image and wash
 //          anchor never move); the page total is reported (the shell's web-font swap; spec Q16) and must be < 0.001
 //   ST4-02 `01` and the exact h1 lower left in plain type (site font, weight 400, no caps, no letter-spacing,
 //          no text effects; h1 ≤ 32 px on a phone, ≤ 48 px wide); chalk on the wash ≥ 4.5:1 at the worst pixel
 //          (the wash screenshotted with the text made transparent, the lightest pixel measured)
-//   ST4-13 (new, EL A4) the wash box contains the bounding boxes of `01` and the title (element + text rects)
+//   ST4-15 (new, EL A4) the wash box contains the bounding boxes of `01` and the title (element + text rects)
 //   ST4-14 (new, EL A3) the wash (with its soft shadow) and the text do not overlap Venus: her region comes from
 //          the crop's figure box (data-figure-*), the object-fit / object-position maths and the img box; a
 //          screenshot with both boxes outlined is saved (hero-<width>.png)
 //   ST4-11 phone: the band ≤ 200 px tall, Venus at least 90% inside it
 //   ST4-03 every field (tickers, weights, start, end, starting capital, contribution, frequency): calculator
 //          class, no box border, no fill, no radius, 1 px rule (#8b9298) underline, visible label, a 2 px chalk
-//          focus ring; ST4-17 the primary button: chalk fill, night text, no radius, chalk focus ring
+//          focus ring; ST4-16 the primary button: chalk fill, night text, no radius, chalk focus ring
 //   ST4-04 the listings note: exact text, 13 px, dim, one line (no wrap, not clipped) directly under the form
 //   ST4-07 / ST6-02 no instruction text (intro, swipe hint, scale note, field hints); ST6-01 one image, no CSS
 //          background-image on the page
@@ -254,7 +254,7 @@ async function heroChecks(browser, page, tag, mobile) {
   check(`${tag} ST4-02 plain type (site font, 400, no caps / spacing / effects, chalk)`, plain(g.numeral) && plain(g.h1), { numeral: g.numeral, h1: g.h1 });
   check(`${tag} ST4-02 title ≤ ${mobile ? 32 : 48} px; 01 small (12 px)`, g.h1.size <= (mobile ? 32 : 48) && g.numeral.size === 12, [g.h1.size, g.numeral.size]);
   check(`${tag} ST4-02 lower left: wash in the left half, ≤ 32 px from the band's bottom`, g.wash.left < g.hero.width / 2 && g.wash.right < g.hero.width * 0.6 && g.hero.bottom - g.wash.bottom <= 32 && g.hero.bottom - g.wash.bottom >= 0, { wash: g.wash, heroBottom: g.hero.bottom });
-  check(`${tag} ST4-13 the wash contains the 01 and title boxes`, g.textRects.every((r) => inside(r, g.wash)), { wash: g.wash, texts: g.textRects.length });
+  check(`${tag} ST4-15 the wash contains the 01 and title boxes`, g.textRects.every((r) => inside(r, g.wash)), { wash: g.wash, texts: g.textRects.length });
   const hit = overlap(g.washOuter, g.venus) + g.textRects.reduce((s, r) => s + overlap(r, g.venus), 0);
   check(`${tag} ST4-14 01 / title / wash (incl. ${g.shadowExtent} px shadow) clear of Venus`, hit === 0, { washOuterRight: Math.round(g.washOuter.right), venusLeft: Math.round(g.venus.left), venus: g.venus });
   if (mobile) {
@@ -343,7 +343,7 @@ async function formChecks(page, tag, mobile, viewport) {
   const controls = rings.filter((r) => r.tag !== "BUTTON" || r.type === "submit");
   check(`${tag} ST4-03 visible focus ring (2 px solid chalk) on the fields and the button`, controls.length >= 8 && controls.every((r) => r.outline === `solid 2px ${CHALK}`), controls.map((r) => `${r.tag} ${r.outline}`));
   await page.evaluate(() => document.activeElement?.blur());
-  check(`${tag} ST4-17 primary button: chalk fill, night text, no radius`, f.button.bg === CHALK && f.button.color === NIGHT && f.button.radius === "0px" && f.button.text === "Compare plans", f.button);
+  check(`${tag} ST4-16 primary button: chalk fill, night text, no radius`, f.button.bg === CHALK && f.button.color === NIGHT && f.button.radius === "0px" && f.button.text === "Compare plans", f.button);
   check(`${tag} ST4-04 listings note: exact text, 13 px, dim`, f.note.text === NOTE && f.note.size === "13px" && f.note.color === DIM, f.note);
   check(`${tag} ST4-04 listings note on one line, not clipped (${Math.round(f.note.textWidth)} px of ${Math.round(f.note.parent.width)} px)`, f.note.lines === 1 && f.note.textWidth <= f.note.parent.width + 0.5, { lines: f.note.lines, textWidth: f.note.textWidth, column: f.note.parent.width });
   check(`${tag} ST4-04 directly under the form, no other note there`, f.note.prev && (f.note.next === null || f.note.next === ""), { prev: f.note.prev, next: f.note.next });
@@ -439,7 +439,7 @@ async function resultChecks(page, tag, mobile) {
 
 const browser = await chromium.launch();
 try {
-  // ST4-16: every hero file ≤ 300 KB; and the file a 1440 px, 2x screen is served.
+  // ST4-01: every hero file ≤ 300 KB; and the file a 1440 px, 2x screen is served.
   {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
     await page.goto(`${base}/calculator`, { waitUntil: "networkidle" });
@@ -456,9 +456,9 @@ try {
       sizes[new URL(u).pathname] = { status: res.status(), bytes: (await res.body()).length, type: res.headers()["content-type"] };
     }
     const big = Object.entries(sizes).filter(([, s]) => s.status !== 200 || s.bytes > MAX_BYTES);
-    check(`ST4-16 every hero file 200 and ≤ 300 KB (${Object.keys(sizes).length} files)`, big.length === 0, big.length ? big : Object.fromEntries(Object.entries(sizes).map(([k, s]) => [k.replace("/hero/", ""), Math.round(s.bytes / 1024)])));
+    check(`ST4-01 every hero file 200 and ≤ 300 KB (${Object.keys(sizes).length} files)`, big.length === 0, big.length ? big : Object.fromEntries(Object.entries(sizes).map(([k, s]) => [k.replace("/hero/", ""), Math.round(s.bytes / 1024)])));
     const cur = sizes[new URL(files.current).pathname];
-    check(`ST4-16 the file served at 1440 px, 2x ≤ 300 KB`, cur && cur.bytes <= MAX_BYTES && /venus-wide-/.test(files.current), { file: new URL(files.current).pathname, kb: cur && Math.round(cur.bytes / 1024), type: cur?.type });
+    check(`ST4-01 the file served at 1440 px, 2x ≤ 300 KB`, cur && cur.bytes <= MAX_BYTES && /venus-wide-/.test(files.current), { file: new URL(files.current).pathname, kb: cur && Math.round(cur.bytes / 1024), type: cur?.type });
     R.heroFiles = sizes;
     await page.close();
   }
@@ -466,7 +466,7 @@ try {
   for (const [vp, viewport, mobile] of VIEWPORTS) {
     const tag = `[${vp}]`;
     const scale = mobile ? 2 : 1;
-    // ST4-15: CLS with a PerformanceObserver from before the first paint until 1.5 s after load, the hero files
+    // ST4-01 (layout shift 0): CLS with a PerformanceObserver from before the first paint until 1.5 s after load, the hero files
     // held back 1 s. Cold (first visit) and warm (reload: the web font cached). Pass: CLS = 0 warm; cold, no
     // element in the hero or the page moves or resizes (the band keeps its size); the only shift allowed cold is
     // the shell-wide web-font swap (Google Fonts, display=swap; text glyphs re-rendered in place), reported.
@@ -513,8 +513,8 @@ try {
       const warm = await measure();
       // Shifts caused by the hero: any source inside it other than its own text glyphs re-rendering in place.
       const heroMoves = [...cold.shifts, ...warm.shifts].flatMap((x) => x.sources).filter((src) => src.inHero && src.node !== "#text");
-      check(`${tag} ST4-15 the hero causes no layout shift (band, image and wash anchor fixed while the image loads; cold and warm)`, cold.heroBoxesStill && warm.heroBoxesStill && heroMoves.length === 0 && cold.loaded && warm.loaded, { cold: cold.heroBoxesStill, warm: warm.heroBoxesStill, heroMoves });
-      check(`${tag} ST4-15 page CLS on load < 0.001 (cold ${cold.cls}, warm ${warm.cls}; exact 0 needs Q16: the shell's web-font swap)`, cold.cls < 0.001 && warm.cls < 0.001, { cold: cold.cls, warm: warm.cls });
+      check(`${tag} ST4-01 the hero causes no layout shift (band, image and wash anchor fixed while the image loads; cold and warm)`, cold.heroBoxesStill && warm.heroBoxesStill && heroMoves.length === 0 && cold.loaded && warm.loaded, { cold: cold.heroBoxesStill, warm: warm.heroBoxesStill, heroMoves });
+      check(`${tag} ST4-01 page CLS on load < 0.001 (cold ${cold.cls}, warm ${warm.cls}; exact 0 needs Q16: the shell's web-font swap)`, cold.cls < 0.001 && warm.cls < 0.001, { cold: cold.cls, warm: warm.cls });
       R.cls ??= {};
       R.cls[vp] = { cold: cold.cls, warm: warm.cls, coldShifts: cold.shifts, fontsAtDomReady: cold.fontsAtDomReady };
       console.log(`INFO ${tag} CLS cold ${cold.cls} (web-font swap only: ${JSON.stringify(cold.shifts.flatMap((x) => x.sources.map((s) => `${s.node} "${s.text}"`)))}) · warm ${warm.cls}`);
