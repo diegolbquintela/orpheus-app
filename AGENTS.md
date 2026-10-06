@@ -49,6 +49,14 @@ affects the repo.
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.
 - **Copy:** use the exact strings in spec §4.
+- **Landed: #68 dark shell (PR #75).** Tokens `night` / `chalk` / `dim` / `rule` / `hair` / `green` / `alert`
+  (Tailwind `bg-night`, `text-chalk`, …). `shellBodyClass(pathname)` in `src/lib/site/site.ts` sets the
+  charcoal page on `<body>` everywhere except exact `/dashboard`. `SiteMenu` / `SiteFooter` are the only bar
+  and footer (don't add per-page variants). Pages still on white panels pin `text-ink` on the panel (`desk.tsx`,
+  `dashboard_.sign-in.tsx`, the home cards): when #70 / #69 / #73 convert a page, drop that panel's
+  `bg-paper text-ink` and style the content on charcoal with the new tokens. Never touch the dashboard's own
+  wrapper. QA: `qa/tools/site-shell.mjs` (`--compare-url` = a base-branch build on the same data, for the
+  content-unchanged pixel diff).
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 

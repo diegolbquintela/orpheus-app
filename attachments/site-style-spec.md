@@ -347,3 +347,28 @@ assumed white.
 - **Q15. Basket rows on a phone (new).** "The fields stack, one under another." Default: literally, so each
   basket row's ticker sits above its weight (with the row's remove button beside the ticker). Or keep ticker and
   weight side by side on one line?
+
+## 13. Landed
+
+- **#68, dark shell (PR #75, stacked on #74; 2026-10-05).** New tokens `night` / `chalk` / `dim` / `rule` /
+  `hair` / `green` / `alert` in `src/styles.css` next to the old ones (no existing value changed). `SiteMenu`:
+  charcoal bar with a `hair` bottom line, `Orpheus` in chalk on the left, `Calculator` / `Dashboard` in dim on the
+  right, the current page chalk + underline (keyed on `aria-current`), a chalk focus ring, no hover rule; one
+  markup on every page. `SiteFooter`: charcoal band, `Orpheus Wisdom` in dim. `__root.tsx` puts `bg-night
+  text-chalk` on `<body>` for every page except `/dashboard` (`shellPage()` / `shellBodyClass()` in
+  `src/lib/site/site.ts`; exact path, so `/dashboard/sign-in` and the 404 are dark; Q13 default). The content
+  that sits in its own white panel today (the calculator below its header band, the sign-in form, the home
+  cards) pins `text-ink` on that panel so it renders exactly as on `main` until #70 / #73 / #69 convert it.
+  Defaults used (EL hasn't answered): Q6, Q8 and Q10 are recorded but not exercised yet (no button, error or
+  field on a dark surface in #68); Q13 as written.
+  - Looks off until the page's own ticket (by design, not restyled here): the calculator's charcoal header
+    band now runs straight into the bar and page (#70 replaces it with the Botticelli hero); on short pages a
+    charcoal gap sits between the white panel and the footer (sign-in, the calculator before a result; #73,
+    #70); home shows the #46 line in chalk over the page with the two white cards (#69); the 404 is the
+    router's bare `Not Found` at the top left, now chalk on charcoal (unchanged content; no ticket owns it yet).
+  - Checks: `src/components/site.dom.test.tsx` (menu on every route: current item, classes, one markup;
+    footer), `src/lib/site/site.test.ts` (`shellPage`, token values, AA ratios), `qa/tools/site-shell.mjs`
+    (ST0 / ST1 at 360 / 400 / 1024 / 1440; signed in for `/dashboard` with `QA_EMAIL` / `QA_PASSWORD`;
+    `--compare-url` pixel-diffs the content panels against a build of the base branch on the same data, which
+    is how ST0-05 "dashboard content unchanged" was shown locally).
+
