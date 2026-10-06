@@ -82,15 +82,103 @@
     font-variant-numeric: slashed-zero tabular-nums;
     appearance: none;
   }
-  .mast-grid {
-    display: grid;
-    gap: 1.5rem;
+  /* Calculator (#70, spec §7 / §7a, Q10): its own classes on the dark page. The shared .field / .kicker /
+     .section above stay exactly as they are (the dashboard renders with them). Phone rules below 1024 px,
+     the wide layout from 1024 px. */
+  /* :focus-within too: a date field's calendar button takes its own Tab stop, where the input loses :focus. */
+  .calc :focus-visible,
+  .calc-field:focus,
+  .calc-field:focus-within {
+    outline: 2px solid var(--color-chalk);
+    outline-offset: 2px;
   }
-  .basket-row {
+  .calc-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  .calc-field {
+    height: 2.75rem;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--color-chalk);
+    font-size: 1rem;
+    font-variant-numeric: slashed-zero tabular-nums;
+    appearance: none;
+  }
+  .calc-field:focus-visible {
+    border-bottom-color: var(--color-chalk);
+  }
+  .calc-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6.5rem 2.75rem;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+    grid-template-areas: "ticker remove" "weight weight";
     align-items: end;
-    gap: 1.25rem;
+    column-gap: 1rem;
+    row-gap: 1.25rem;
+  }
+  .calc-row > .calc-ticker {
+    grid-area: ticker;
+  }
+  .calc-row > .calc-weight {
+    grid-area: weight;
+  }
+  .calc-row > .calc-remove {
+    grid-area: remove;
+  }
+  .calc-button {
+    display: inline-flex;
+    height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    background: var(--color-chalk);
+    padding: 0 1.5rem;
+    color: var(--color-night);
+    font-size: 0.875rem;
+  }
+  .calc-button:disabled {
+    background: var(--color-dim);
+  }
+  .calc-note {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-dim);
+    white-space: nowrap;
+  }
+  .calc-caption {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-dim);
+  }
+  .calc-pairs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    column-gap: 1rem;
+    row-gap: 0.25rem;
+  }
+  .calc-wash {
+    background: rgb(30 33 36 / 0.88);
+    box-shadow: 0 0 12px 4px rgb(30 33 36 / 0.5);
+  }
+  .calc-pill {
+    display: inline-flex;
+    height: 1.375rem;
+    align-items: center;
+    border-radius: 0.6875rem;
+    background: var(--color-green);
+    padding: 0 0.5rem;
+    color: var(--color-night);
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   @media (min-width: 64rem) {
     .section {
@@ -98,9 +186,9 @@
       column-gap: 3rem;
       padding: 5rem 0;
     }
-    .mast-grid {
-      grid-template-columns: 14rem minmax(0, 1fr);
-      column-gap: 3rem;
+    .calc-row {
+      grid-template-columns: minmax(0, 1fr) 6.5rem 2.75rem;
+      grid-template-areas: "ticker weight remove";
     }
   }
   @media (prefers-reduced-motion: reduce) {

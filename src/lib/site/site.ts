@@ -30,6 +30,12 @@ export const FOOTER_LINE = "Orpheus Wisdom";
 export const CALCULATOR_NOTE = "US, EU and CA listings, one currency per basket.";
 
 /**
+ * The dividends rule (DCA-01), as a short caption under the calculator's results (#70, spec Q2: it would not
+ * fit on the listings line at 360 px).
+ */
+export const DIVIDENDS_CAPTION = "Dividends reinvested.";
+
+/**
  * The page behind the shell (epic #66, #68): "dark" = charcoal page with off-white base type, on every page
  * (home, calculator, sign-in, the 404) except the dashboard itself, where only the shared bar and footer change
  * and the page around its content stays as on main ("dashboard", spec Q13). Exact path: `/dashboard/sign-in`
@@ -42,9 +48,12 @@ export function shellPage(pathname: string): ShellPage {
   return path === "/dashboard" ? "dashboard" : "dark";
 }
 
-/** The `<body>` classes for a page: charcoal + off-white on dark pages, none (main's white body) on the dashboard. */
+/**
+ * The `<body>` classes for a page: charcoal + off-white on dark pages, plus `color-scheme: dark` (#70, EL item 6)
+ * so native date pickers and select popups open dark; none (main's white body) on the dashboard.
+ */
 export function shellBodyClass(pathname: string): string | undefined {
-  return shellPage(pathname) === "dark" ? "bg-night text-chalk" : undefined;
+  return shellPage(pathname) === "dark" ? "bg-night text-chalk scheme-dark" : undefined;
 }
 
 /** Which menu item is the current page for a pathname (null: none, e.g. a 404). */

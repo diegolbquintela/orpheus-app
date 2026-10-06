@@ -83,7 +83,8 @@ for (const vp of ['desktop', 'mobile']) {
   const fill = async ({ rows, start, end, capital, contribution, frequency }) => {
     await page.goto(`${base}/calculator`, { waitUntil: 'networkidle' });
     for (let i = 1; i < rows.length; i++) await page.getByRole('button', { name: /Add name/ }).click();
-    for (let i = 0; i < rows.length; i++) { const r = page.locator('.basket-row').nth(i).locator('input'); await r.nth(0).fill(rows[i][0]); await r.nth(1).fill(String(rows[i][1])); }
+    // #70: basket rows carry data-testid="basket-row" (before #70: the .basket-row class).
+    for (let i = 0; i < rows.length; i++) { const r = page.locator('[data-testid="basket-row"], .basket-row').nth(i).locator('input'); await r.nth(0).fill(rows[i][0]); await r.nth(1).fill(String(rows[i][1])); }
     const d = page.locator('input[type=date]'); await d.nth(0).fill(start); await d.nth(1).fill(end);
     await page.locator('label:has-text("Starting capital") input').fill(String(capital));
     await page.locator('label:has-text("Contribution") input').fill(String(contribution));
@@ -92,9 +93,15 @@ for (const vp of ['desktop', 'mobile']) {
   };
   await fill({ rows: [['PLTR', 50], ['TQQQ', 50]], start: '2020-10-02', end: '2026-10-01', capital: 1000, contribution: 1000, frequency: 'weekly' });
   await page.waitForSelector('h2:has-text("Result")', { timeout: 90000 }); await page.waitForTimeout(1000);
-  const invested = await page.locator('tr', { has: page.locator('th', { hasText: 'Total invested' }) }).first().locator('td').allTextContents();
-  R.regression = { invested, summary: await page.getByTestId('result-summary').innerText() };
-  check('/calculator: PLTR/TQQQ weekly DCA total invested $313,000', invested.some((t) => t.trim() === '$313,000'), invested);
+  // #70 (ST4-13: only how the value is found changes): label-value rows, `[data-key=invested]` with one `dd` per
+  // plan; before #70, the results table's "Total invested" row.
+  const rowsNow = page.locator('[data-testid="result-metric"][data-key="invested"] dd');
+  const invested = (await rowsNow.count())
+    ? await rowsNow.allTextContents()
+    : await page.locator('tr', { has: page.locator('th', { hasText: 'Total invested' }) }).first().locator('td').allTextContents();
+  const dcaInvested = (await rowsNow.count()) ? await page.locator('[data-testid="result-metric"][data-key="invested"] [data-plan="dca"] dd').innerText() : null;
+  R.regression = { invested, dcaInvested };
+  check('/calculator: PLTR/TQQQ weekly DCA total invested $313,000', invested.some((t) => t.trim() === '$313,000') && (dcaInvested === null || dcaInvested.trim() === '$313,000'), R.regression);
   await page.locator('section[aria-live]').screenshot({ path: `${OUT}/calculator-result.png` });
   api.length = 0;
   await fill({ rows: [['VOD.L', 100]], start: '2023-01-03', end: '2024-12-31', capital: 10000, contribution: 500, frequency: 'monthly' });
