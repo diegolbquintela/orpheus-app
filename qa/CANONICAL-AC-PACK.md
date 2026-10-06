@@ -81,7 +81,7 @@ every page.
 
 | AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
 |----|------|------------------------------|
-| ST4-01 | BLOCK | The page title (`h1`) is exactly `Dollar-cost average calculator.`; the dark header band and `DCA vs lump sum` are gone; no instruction text (Q2 for the method sentence). |
+| ST4-01 | BLOCK | The page title (`h1`) is exactly `Dollar-cost average calculator.`; the dark header band and `DCA vs lump sum` are gone; no instruction text: the intro paragraph goes, except (default reading, Q2) the one method line `Dividends are reinvested and splits are handled.` under the title, which DCA-01 needs stated. |
 | ST4-02 | BLOCK | Order: the form (basket, window, amounts, frequency, submit), then the result table, then the chart. |
 | ST4-03 | BLOCK | The listings note `US, EU and CA listings, one currency per basket.` is one line (no wrap at 400 px) directly under the form. |
 | ST4-04 | BLOCK | Phone (400): one column. Wide (from 1024): two columns (reading, Q3: the form on the left, the result table and chart on the right). No horizontal page scroll at any width (the table may scroll inside its own box). |

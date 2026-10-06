@@ -61,7 +61,8 @@ them.
 
 Superseded copy: the home line `Orpheus Wisdom is a private desk with two tools.` and the two home cards
 (`compare a lump sum with contributions`, `holdings, value, stored figures`) go in #69; the calculator header
-`DCA vs lump sum` and its intro paragraph go in #70 (see Q2 for the method sentence); the sign-up note
+`DCA vs lump sum` and its intro paragraph go in #70 (Q2: by default the one line `Dividends are reinvested and splits are
+handled.` stays, for DCA-01); the sign-up note
 `Accounts are invite-only. …` goes in #73.
 
 ## 4. Tokens and components (white)
@@ -165,7 +166,7 @@ Each row is checked on the PR preview at all three widths, then on production af
 
 | ID | Pass when |
 |---|---|
-| ST4-01 | The page title (`h1`) is exactly `Dollar-cost average calculator.`; the dark header band and `DCA vs lump sum` are gone; no instruction text (Q2 for the method sentence). |
+| ST4-01 | The page title (`h1`) is exactly `Dollar-cost average calculator.`; the dark header band and `DCA vs lump sum` are gone; no instruction text: the intro paragraph goes, except (default reading, Q2) the one method line `Dividends are reinvested and splits are handled.` under the title, which DCA-01 needs stated. |
 | ST4-02 | Order: the form (basket, window, amounts, frequency, submit), then the result table, then the chart. |
 | ST4-03 | The listings note `US, EU and CA listings, one currency per basket.` is one line (no wrap at 400 px) directly under the form. |
 | ST4-04 | Phone (400): one column. Wide (from 1024): two columns (reading, Q3: the form on the left, the result table and chart on the right). No horizontal page scroll at any width (the table may scroll inside its own box). |
@@ -225,3 +226,29 @@ Each row is checked on the PR preview at all three widths, then on production af
    ST5b (sign-in) rather than renumbering, so ST6 stays the last row.
 6. **Per-page theme:** "converted" is per route; the bar and footer pick their theme from the route, never from
    the user (no theme toggle; that would be a new control).
+
+## 9. Questions for EL (#67)
+
+Each has a default (the simplest reading above); the tickets follow the default unless EL says otherwise.
+
+- **Q0. Spec location.** A new `attachments/site-style-spec.md`, with superseded markers in `dashboard-spec.md`
+  and `dca-app-spec.md`? (Default: yes.)
+- **Q1. #68 vs #69 on Tuesday.** #68 ships the white pieces unused in production and home flips with #69, so prod
+  never shows the white bar over the old dark-hover home cards. OK, or should #68 and #69 be one PR? (Default:
+  separate PRs, #68 converts nothing.)
+- **Q2. Calculator method line.** "No extra instructions" vs DCA-01 ("dividends reinvested, stated or visible").
+  Default: drop `Pick tickers and weights, a date range, and amounts.` and the lump-sum / DCA sentences, keep the
+  one line `Dividends are reinvested and splits are handled.` under the title. Or drop it all?
+- **Q3. Calculator "wide is two".** Default: from 1024 px, the form on the left and the result table plus chart
+  on the right; phone stacks form, table, chart. Or two columns inside the form only?
+- **Q4. Sign-in.** "Email, password and a create-account link. Nothing else." Default: keep the `Sign in`
+  heading and the submit button (needed to submit), link text `Create an account` (today `New here? Create an
+  account`), the invite-only note goes; error lines only after a failed attempt. OK?
+- **Q5. Hero credit.** The painting is public domain; default: no visible credit (footer stays `Orpheus Wisdom`
+  only), the `alt` names the work, the source and licence live in the repo. OK?
+- **Q6. Buttons.** Default: surfaces go white, primary buttons keep the ink fill with white text. Or outlined /
+  white buttons too?
+- **Q7. "A row lightens on hover"** on a white page. Default: a very light grey wash (`#f5f5f5`) behind the row,
+  replacing today's ink inversion. Or another treatment?
+- **Q8. Error colour.** `#ff4136` fails AA on white (3.5:1); default `#c62828` (5.6:1) from #70. OK?
+
