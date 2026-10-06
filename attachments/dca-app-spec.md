@@ -16,18 +16,17 @@ Sequence after this app, not in scope now:
 
 ## Site and routes (#46, approved by Diego 2026-10-04)
 
-**Look superseded 2026-10-05 by epic #66** (`attachments/site-style-spec.md`, white, mobile first): the home
-line and the two cards below are replaced by the Jordaens hero and `02 Platforms` (#69); the calculator page
-gets the title `Dollar-cost average calculator.` and the form-then-results layout (#70); home and the calculator
-get the new white bar and footer (same items and copy) as each converts, while `/dashboard` keeps today's menu
-and footer (#71 on hold). The routes, the redirect, noindex, analytics and every calculator
-rule here stay as they are.
+**Look updated by epic #66 (dark, 2026-10-05; `attachments/site-style-spec.md`):** the bar and footer keep their
+items and copy and go charcoal on every page (#68); the calculator gets the Botticelli hero, the title
+`Dollar-cost average calculator.`, underline fields, one green chart line and label-value results, with an
+approved phone layout (#70); home gets the Jordaens hero, `Investment driven by research.` and the Platforms
+lines (#69). The routes, the redirect, noindex, analytics and every calculator rule here stay as they are.
 
 The app is one site with three routes. The calculator rules below don't change.
 
 - **`/calculator`**: this calculator, moved off `/` unchanged (same inputs, output, copy and six DCA rules,
   including the note "US, EU and CA listings, one currency per basket." under the basket).
-- **`/`**: home (*superseded by #66 / #69: hero + `02 Platforms`, site-style spec §3*). One line saying what the desk is ("Orpheus Wisdom is a private desk with two tools.") and
+- **`/`**: home. One line saying what the desk is ("Orpheus Wisdom is a private desk with two tools.") and
   exactly two cards: **Calculator**, "compare a lump sum with contributions", opens `/calculator`;
   **Dashboard**, "holdings, value, stored figures", opens `/dashboard`. No news, no scores, no buy/sell wording.
   Home does no calculating: no price requests, no calculator code.
