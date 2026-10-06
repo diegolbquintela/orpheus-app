@@ -21,47 +21,50 @@ Exact expected numbers need fixtures (tickers, dates, amounts) from the owner. U
 ## Site style: white, mobile first (epic #66)
 
 Source of truth: [`attachments/site-style-spec.md`](../attachments/site-style-spec.md) (approved 2026-10-05,
-Diego via CoS and EL; the row text below is copied from its section 6). **White replaces the #53 dark style**:
-DR0-01 is superseded per page by ST0 from that page's conversion day.
+Diego via CoS and EL; schedule and bar decision revised 21:04 ET; the row text below is copied from its section
+6). **White replaces the #53 dark style on home, the calculator and sign-in**: DR0-01 is superseded by ST0 for
+those pages from their conversion day. **The dashboard (#71) is on hold:** the live `/dashboard` stays exactly
+as it is (released, visible, dark, its menu and footer untouched; ST0-05 in every ticket), and its ST5a rows are
+deferred.
 
-**Per-page QA (EL decision):** one page a day. Each ticket's QA checks only its own rows (plus ST0, ST1 and ST2
-for the page it converts) and a no-regression pass on the pages not converted yet (they must look exactly like
-`main` before the ticket: dark bar, same computed colours; DR0-01 still applies to them). #72 runs every row on
-every page.
+**Per-page QA:** each ticket's QA checks only its own rows and a no-regression pass on the pages not converted
+(they must match `main` before the ticket). #72 runs ST6 on the three shipped pages; the dashboard gets its own
+regression when its new brief lands.
 
 | Day | Ticket | Rows | No-regression pass on |
 |---|---|---|---|
 | Tue Oct 6 | #67 (docs) | ST0-04 | n/a |
-| Tue Oct 6 | #68 shell pieces | unit / dom tests of the themed bar and footer; no page converted | every page unchanged from `main` |
-| Tue Oct 6 | #69 home | ST0, ST1, ST2, ST3 on `/` | `/calculator`, `/dashboard`, `/dashboard/sign-in` (dark) |
-| Wed Oct 7 | #70 calculator | ST0, ST1, ST4 on `/calculator` | `/` (white, ST3), `/dashboard`, sign-in (dark) |
-| Thu Oct 8 | #71 dashboard | ST0, ST1, ST2, ST5a on `/dashboard` | `/`, `/calculator` (white), sign-in (dark) |
-| Fri Oct 9 | #73 sign-in | ST0, ST1, ST5b on `/dashboard/sign-in` | `/`, `/calculator`, `/dashboard` (white) |
-| Fri Oct 9 | #72 leave-outs + regression | ST6 and every row above, every page | everything |
+| Tue Oct 6 | #68 shell pieces | unit / dom tests of the white bar and footer; ST0-05; no page converted | every page unchanged from `main` |
+| Tue Oct 6 | #69 home | ST0, ST1, ST2, ST3 on `/`; ST0-05 | `/calculator`, `/dashboard/sign-in`, `/dashboard` (unchanged) |
+| Wed Oct 7 | #70 calculator | ST0, ST1, ST4 on `/calculator`; ST0-05 | `/` (ST3), `/dashboard/sign-in`, `/dashboard` (unchanged) |
+| On hold | #71 dashboard | ST5a deferred | n/a |
+| Sun Oct 11 | #73 sign-in | ST0, ST1, ST5b on `/dashboard/sign-in`; ST0-05 | `/`, `/calculator` (white), `/dashboard` (unchanged) |
+| Sun Oct 11 | #72 leave-outs + regression | ST6 and every row above except ST5a, on `/`, `/calculator`, `/dashboard/sign-in`; ST0-05 | `/dashboard` (unchanged) |
 
-### ST0: white tokens and the superseding decision (every converted page; ticket that converts it)
+### ST0: white tokens, the superseding decision, the untouched dashboard (every ticket)
 
 | AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
 |----|------|------------------------------|
 | ST0-01 | BLOCK | The page background, bar, footer and every band / panel / card behind content compute to `rgb(255, 255, 255)`; no element wider than a control has a dark background (luminance < 0.5) on a converted page. |
 | ST0-02 | BLOCK | Text uses the tokens: body text `#1e2124`, secondary `#636363`, error `#c62828`, borders `#e3e3e3`, focus ring `#2b5945`, hover wash `--color-wash`; no colour outside the token list (plus the chart's DCA series colour and the dashboard donut's neutral greys) and the font is Schibsted Grotesk. |
-| ST0-03 | BLOCK | Pages not converted yet are unchanged from `main` (dark bar, dark bands, same colours): no half-converted page in production. |
-| ST0-04 | BLOCK | The spec, AGENTS.md and README record that white replaces the #53 dark style; DR0-01 is marked superseded per page. (Docs, #67.) |
+| ST0-03 | BLOCK | Pages not converted yet (sign-in until #73, a 404) are unchanged from `main` (dark bar, same computed colours): no half-converted page in production. |
+| ST0-04 | BLOCK | The spec, AGENTS.md and README record that white replaces the #53 dark style on the converted pages, the schedule, the on-hold dashboard and the bar decision; DR0-01 is marked superseded for converted pages only. (Docs, #67.) |
+| ST0-05 | BLOCK | The live `/dashboard` is untouched (every ticket): released and visible (DR0-02), its menu (`SiteMenu`, dark) and footer (`SiteFooter`) render exactly as on `main` (same markup, classes and computed colours at 400 / 1024 / 1440), `theme-color` `#1e2124`; signed-out `/dashboard` still 307s to sign-in; no change in the diff to `src/routes/dashboard.tsx`, `src/components/dashboard/*`, `site-menu.tsx`, `site-footer.tsx` or an existing token value. |
 
-### ST1: the bar and the footer (#68 pieces; checked on each page on its conversion day)
-
-| AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
-|----|------|------------------------------|
-| ST1-01 | BLOCK | One thin bar (height ≤ 48 px) at the top, sticky on scroll: `Orpheus` on the left (→ `/`), `Calculator` and `Dashboard` on the right (→ `/calculator`, `/dashboard`), in that order, no other items, no dropdowns; at 400 px all three fit on one line with no horizontal page scroll. |
-| ST1-02 | BLOCK | The current page's item has `aria-current="page"` and a visible mark (underline and full-strength text); exactly one item is marked on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` (Dashboard); none on a 404. |
-| ST1-03 | BLOCK | The bar renders in the page's theme: white with ink text and a 1 px line on converted pages; the existing dark bar on unconverted pages. Same items and marker either way. |
-| ST1-04 | BLOCK | The footer's only text is exactly `Orpheus Wisdom`, on every page; same theme rule. |
-
-### ST2: hover (converted pages with rows)
+### ST1: the white bar and footer (#68 pieces; on home, the calculator and sign-in, each from its conversion day)
 
 | AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
 |----|------|------------------------------|
-| ST2-01 | BLOCK | Hovering a clickable row (home Platforms rows; dashboard holding rows) gives it the light wash background; it is never inverted to ink; the text keeps ≥ 4.5:1 contrast on the wash. |
+| ST1-01 | BLOCK | On a converted page, one thin white bar (height ≤ 48 px) at the top, sticky on scroll: `Orpheus` on the left (→ `/`), `Calculator` and `Dashboard` on the right (→ `/calculator`, `/dashboard`), in that order, no other items, no dropdowns; at 400 px all three fit on one line with no horizontal page scroll. |
+| ST1-02 | BLOCK | The current page's item has `aria-current="page"` and a visible mark (underline and full-strength text): exactly one item marked, `Orpheus` on `/`, `Calculator` on `/calculator`, `Dashboard` on `/dashboard/sign-in` (from #73). |
+| ST1-03 | BLOCK | The white bar and footer appear only on converted pages (`/`, `/calculator`, then `/dashboard/sign-in`); `/dashboard` and unconverted pages keep today's menu and footer (ST0-05). Navigation works both ways: from the white bar to `/calculator` and `/dashboard`, and from the dashboard's existing menu to `/` and `/calculator`. |
+| ST1-04 | BLOCK | The white footer's only text is exactly `Orpheus Wisdom` (today's footer keeps the same text on the other pages). |
+
+### ST2: hover (converted pages with rows: home)
+
+| AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
+|----|------|------------------------------|
+| ST2-01 | BLOCK | Hovering a clickable row (the home Platforms rows) gives it the light wash background; it is never inverted to ink; the text keeps ≥ 4.5:1 contrast on the wash. |
 | ST2-02 | BLOCK | `Open` underlines on hover and on keyboard focus (`:focus-visible` also shows the focus ring). |
 | ST2-03 | BLOCK | Nothing is available only on hover (touch at 400 px reaches everything). |
 
@@ -87,31 +90,33 @@ every page.
 | ST4-04 | BLOCK | Phone (400): one column. Wide (from 1024): two columns (reading, Q3: the form on the left, the result table and chart on the right). No horizontal page scroll at any width (the table may scroll inside its own box). |
 | ST4-05 | BLOCK | Calculator unchanged in behaviour: `qa/tools/site.mjs` passes ($313,000; VOD.L 400 with the exact message); DCA-01..06 pass; the calculator logic files are untouched in the diff. |
 
-### ST5a: dashboard `/dashboard` (#71, Thu Oct 8; dashboard only)
+### ST5a: dashboard `/dashboard` (#71): ON HOLD, deferred
+
+Not checked in this epic (#71 on hold; rows rewritten from the new brief). Until then ST0-05 applies.
 
 | AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
 |----|------|------------------------------|
-| ST5a-01 | BLOCK | The dashboard uses the white shell and bar (ST0, ST1); no painting or image behind any number. |
-| ST5a-02 | BLOCK | Every #53 state renders white with AA contrast: empty (`Add a holding`), the list, a detail open (Edit, Delete), the add form and its errors, the `Holdings` / `Metrics` switch (400), the metrics sheet beside the list (1024, 1440), chips, the search combobox and its options, `—` cells, the one total and excluded line, the donut (neutral greys, each slice ≥ 3:1 against white or separated by a white gap) and the `Book` row, the as-of / out-of-date lines, the preview refresh panel. |
-| ST5a-03 | BLOCK | DR2–DR6 still pass (the redesign behaviour is unchanged); `qa/tools/dashboard-redesign.mjs` passes. The dashboard stays released (DR0-02). |
+| ST5a-01 | DEFERRED | *(deferred)* The dashboard uses the white shell and bar (ST0, ST1); no painting or image behind any number. |
+| ST5a-02 | DEFERRED | *(deferred)* Every #53 state renders white with AA contrast: empty (`Add a holding`), the list, a detail open (Edit, Delete), the add form and its errors, the `Holdings` / `Metrics` switch (400), the metrics sheet beside the list (1024, 1440), chips, the search combobox and its options, `—` cells, the one total and excluded line, the donut (neutral greys, each slice ≥ 3:1 against white or separated by a white gap) and the `Book` row, the as-of / out-of-date lines, the preview refresh panel. |
+| ST5a-03 | DEFERRED | *(deferred)* DR2–DR6 still pass (the redesign behaviour is unchanged); `qa/tools/dashboard-redesign.mjs` passes. The dashboard stays released (DR0-02). |
 
-### ST5b: sign-in `/dashboard/sign-in` (#73, Fri Oct 9)
+### ST5b: sign-in `/dashboard/sign-in` (#73, Sun Oct 11)
 
 | AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
 |----|------|------------------------------|
-| ST5b-01 | BLOCK | White shell and bar (ST0, ST1; `Dashboard` marked). |
+| ST5b-01 | BLOCK | White shell, bar and footer (ST0, ST1; `Dashboard` marked) on `/dashboard/sign-in` only, in both modes (sign in, create account); `/dashboard` itself unchanged (ST0-05). |
 | ST5b-02 | BLOCK | The form shows exactly: `Email`, `Password`, the submit button and the `Create an account` link (plus an error line only after a failed attempt); nothing else: no explanatory note (the invite-only paragraph goes) (Q4 on the heading). Create-account mode mirrors it: `Email`, `Password`, the submit button and a `Sign in` link. |
 | ST5b-03 | BLOCK | The auth logic is unchanged: sign-in, sign-up (allow-list), the redirect to `/dashboard`, the signed-out matrix (`release-smoke.mjs`). |
 
-### ST6: leave-outs and regression (#72, Fri Oct 9, after #73)
+### ST6: leave-outs and regression (#72, Sun Oct 11, after #73; shipped pages only: home, calculator, sign-in)
 
 | AC | Tier | Pass when (on the preview / live page, at 400, 1024 and 1440) |
 |----|------|------------------------------|
-| ST6-01 | BLOCK | No painting or artwork anywhere except the home hero (no `img`, CSS `background-image` or `picture` with artwork on `/calculator`, `/dashboard`, `/dashboard/sign-in`). |
-| ST6-02 | BLOCK | No instruction text on any page: home has only the hero and Platforms; the calculator only its title, form, note and results; the dashboard only the #53 kept lines (`qa/tools/leaveouts-rules.mjs`); sign-in only ST5b-02. |
-| ST6-03 | BLOCK | WCAG 2.2 AA contrast on every page at every width: normal text ≥ 4.5:1, large text ≥ 3:1, controls' boundaries and the focus ring ≥ 3:1, including hover and disabled-but-readable states (an axe-core run reports no `color-contrast` violation). |
-| ST6-04 | BLOCK | No dark remnant: every page passes ST0-01; no page is half converted. |
-| ST6-05 | BLOCK | Full regression on the preview, then production, at 400 / 1024 / 1440: every ST row, DR0 (with DR0-01 superseded by ST0), DR2–DR6, DCA-01..06 ($313,000), noindex meta + `X-Robots-Tag`, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. |
+| ST6-01 | BLOCK | No painting or artwork except the home hero (no `img`, CSS `background-image` or `picture` with artwork on `/calculator` or `/dashboard/sign-in`). |
+| ST6-02 | BLOCK | No instruction text on the shipped pages: home has only the hero and Platforms; the calculator only its title, form, note, method line (Q2) and results; sign-in only ST5b-02. |
+| ST6-03 | BLOCK | WCAG 2.2 AA contrast on home, the calculator and sign-in at every width: normal text ≥ 4.5:1, large text ≥ 3:1, controls' boundaries and the focus ring ≥ 3:1, including hover and disabled-but-readable states (an axe-core run reports no `color-contrast` violation). |
+| ST6-04 | BLOCK | No dark remnant on the shipped pages (each passes ST0-01); no page is half converted; `/dashboard` passes ST0-05 (untouched). |
+| ST6-05 | BLOCK | Regression of the shipped pages on the preview, then production, at 400 / 1024 / 1440: every ST row except the deferred ST5a, DCA-01..06 ($313,000), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs` (signed-out matrix, sign-in); `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. The dashboard's own regression (DR rows, `dashboard-redesign.mjs`) waits for its new brief; here only ST0-05 checks it is untouched. |
 
 ## Dashboard: mobile-first redesign (epic #53)
 
@@ -135,7 +140,7 @@ instructions under the table.
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
-| DR0-01 | BLOCK | **Superseded per page by ST0 (epic #66, white) from that page's conversion day; still BLOCK for pages not converted yet.** Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
+| DR0-01 | BLOCK | **Superseded by ST0 (epic #66, white) for home, the calculator and sign-in from their conversion day; still BLOCK for `/dashboard` (not restyled while #71 is on hold).** Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
 | DR0-02 | BLOCK | Dashboard released: production `/dashboard` signed out → 307 to `/dashboard/sign-in`; `/api/dashboard/status` → 200 `{"dashboard":"enabled"}`. The PR diff touches no env var, `DASHBOARD_ENABLED`, `flag.server.ts` or `vercel.json` env. |
 | DR0-03 | BLOCK | Signed-out matrix unchanged: `node scripts/release-smoke.mjs <preview> preview` and `<production> on` pass every check. |
 | DR0-04 | BLOCK | Calculator unchanged: `qa/tools/site.mjs` passes ($313,000 for PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly; VOD.L 400 with the exact message); DCA-01..06 pass. |

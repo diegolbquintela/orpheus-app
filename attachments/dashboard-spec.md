@@ -14,9 +14,10 @@ each one has its link inline. When a provider page does not say something, this 
 Spec PR: #8. Tickets: see [Tickets](#tickets).
 
 **Site style 2026-10-05 (epic #66, white, mobile first):** `attachments/site-style-spec.md` is the source of truth
-for the look of every page (ST0–ST6). **White replaces the dark style** of the #53 brief (superseding decision,
-site-style spec §1); the dark-style lines below are marked superseded, not deleted. The data rules in this file
-don't change.
+for the look of the pages it converts (home, calculator, sign-in; ST0–ST6). **White replaces the dark style** of
+the #53 brief on those pages (superseding decision, site-style spec §1). **The dashboard's own restyle (#71) is
+on hold** for a new brief: `/dashboard` stays exactly as it is, and the dark-style lines below still hold for it.
+The data rules in this file don't change.
 
 **Redesign 2026-10-04 (epic #53, mobile first):** [section 0](#0-redesign-mobile-first-epic-53-source-of-truth-for-tickets-26)
 is the source of truth for the dashboard's page, add form, metrics and book in tickets 2–6 (#55–#59). It
@@ -52,7 +53,7 @@ dashboard part of `qa/CANONICAL-AC-PACK.md`. No app code changed in ticket 1.
 > Book: one total under the list. Donut of the same weights, largest first, Other past ten names. Weighted figures for the selected chips. A dash is left out, not counted as zero.
 > Leave out: Connect broker, K/M/B, ownership toggle, download, instructions under the table.
 
-Rules from #53: no hires; the visual style doesn't change (same dark desk; **Superseded 2026-10-05 by epic #66 (white replaces the dark style; `attachments/site-style-spec.md` §1), page by page from its conversion day.**); the dashboard stays released
+Rules from #53: no hires; the visual style doesn't change (same dark desk; **Epic #66 (2026-10-05, `attachments/site-style-spec.md` §1): white replaces this for home, the calculator and sign-in only; the live `/dashboard` keeps the dark style untouched while #71 is on hold.**); the dashboard stays released
 (`DASHBOARD_ENABLED` and every env var untouched); harness first, then specs, then the work; small tickets,
 one draft PR each as proof of start; QA on the preview before merge, then on production after merge.
 
@@ -141,9 +142,8 @@ table** (no instructions under or above the list). As of `main` 46840be only the
 
 ### 0.4 Unchanged
 
-- ~~The **dark visual style** (same desk: colours, fonts, spacing tokens; no new theme, no new colours beyond
-  the neutral greys already used).~~ **Superseded 2026-10-05 by epic #66 (white replaces the dark style; `attachments/site-style-spec.md` §1), page by page from its conversion day.** Until a page's own ticket converts it, that page keeps the dark
-  style unchanged.
+- The **dark visual style** (same desk: colours, fonts, spacing tokens; no new theme, no new colours beyond
+  the neutral greys already used). **Epic #66 (2026-10-05, `attachments/site-style-spec.md` §1): white replaces this for home, the calculator and sign-in only; the live `/dashboard` keeps the dark style untouched while #71 is on hold.**
 - The dashboard **stays released**: production serves `/dashboard`; `DASHBOARD_ENABLED`, the flag code and
   every env var are untouched by every ticket.
 - The **signed-out matrix**: `/dashboard` → 307 to `/dashboard/sign-in`, sign-in page 200, per-user APIs
@@ -273,7 +273,7 @@ MC.PA) for book figures.
 
 | ID | Pass when |
 |---|---|
-| DR0-01 | **Superseded 2026-10-05 by epic #66 (white replaces the dark style; `attachments/site-style-spec.md` §1), page by page from its conversion day.** For a page not converted yet: dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
+| DR0-01 | **Epic #66 (2026-10-05, `attachments/site-style-spec.md` §1): white replaces this for home, the calculator and sign-in only; the live `/dashboard` keeps the dark style untouched while #71 is on hold.** Still applies to `/dashboard`: dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
 | DR0-02 | Dashboard released: production `/dashboard` signed out → 307 to `/dashboard/sign-in`; `/api/dashboard/status` → 200 `{"dashboard":"enabled"}`. The PR diff touches no env var, `DASHBOARD_ENABLED`, `flag.server.ts` or `vercel.json` env. |
 | DR0-03 | Signed-out matrix unchanged: `node scripts/release-smoke.mjs <preview> preview` and `<production> on` pass every check. |
 | DR0-04 | Calculator unchanged: `qa/tools/site.mjs` passes ($313,000 for PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly; VOD.L 400 with the exact message); DCA-01..06 pass. |

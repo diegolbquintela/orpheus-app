@@ -18,8 +18,9 @@ Sequence after this app, not in scope now:
 
 **Look superseded 2026-10-05 by epic #66** (`attachments/site-style-spec.md`, white, mobile first): the home
 line and the two cards below are replaced by the Jordaens hero and `02 Platforms` (#69); the calculator page
-gets the title `Dollar-cost average calculator.` and the form-then-results layout (#70); the bar and footer keep
-their items and copy but take each page's theme. The routes, the redirect, noindex, analytics and every calculator
+gets the title `Dollar-cost average calculator.` and the form-then-results layout (#70); home and the calculator
+get the new white bar and footer (same items and copy) as each converts, while `/dashboard` keeps today's menu
+and footer (#71 on hold). The routes, the redirect, noindex, analytics and every calculator
 rule here stay as they are.
 
 The app is one site with three routes. The calculator rules below don't change.
