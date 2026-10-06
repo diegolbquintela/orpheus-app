@@ -69,7 +69,8 @@ affects the repo.
   from `shellHtmlClass()` on `<html>` and `shellBodyClass()` on `<body>` (`scheme-dark`) on every dark page, and
   `html.scheme-dark select, option` gives every select charcoal + chalk (a transparent select opens a white list
   in Chrome). The hero title has a font-independent box (`.calc-title`, one text node) and `--font-sans` a
-  size-adjusted local fallback (`Schibsted Grotesk Fallback`), so the Google Fonts swap shifts nothing in the hero
+  size-adjusted local fallback (`Schibsted Grotesk Fallback`, `unicode-range` = the web font's subsets only, so
+  `→` / `↳` keep their old system glyphs), so the Google Fonts swap shifts nothing in the hero
   (ST4-01 counts every layout shift; keep both until #72 self-hosts the font, PLANNED). A value with ` · date`
   renders the date on its own muted line (`result-rows.tsx`, text unchanged). Basket rows carry `data-testid="basket-row"`;
   results `[data-testid=result-metric][data-key=…] [data-plan=lump|dca] dd` (`qa/tools/site.mjs` reads the
