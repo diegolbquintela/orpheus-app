@@ -5,6 +5,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteMenu } from "@/components/site-menu";
 import { analyticsBeforeSend } from "@/lib/site/analytics";
+import { shellBodyClass } from "@/lib/site/site";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Orpheus Wisdom";
@@ -13,6 +14,34 @@ const APP_NAME = "Orpheus Wisdom";
 function CurrentSiteMenu() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   return <SiteMenu pathname={pathname} />;
+}
+
+// Dark shell (epic #66, #68): a charcoal page with off-white base type on every page except /dashboard, where
+// only the bar and footer change and the page around the content stays as on main (spec Q13).
+function RootDocument() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return (
+    <html lang="en" className="antialiased" suppressHydrationWarning>
+      <head>
+        <HeadContent />
+      </head>
+      <body className={shellBodyClass(pathname)}>
+        <PreviewHostBridge />
+        <AuthProvider>
+          <div className="flex min-h-screen flex-col">
+            <CurrentSiteMenu />
+            <div className="flex-1">
+              <Outlet />
+            </div>
+            <SiteFooter />
+          </div>
+        </AuthProvider>
+        {/* Vercel Web Analytics (#48): anonymous page views, no cookies, query strings stripped. Mounted only here. */}
+        <Analytics beforeSend={analyticsBeforeSend} />
+        <Scripts />
+      </body>
+    </html>
+  );
 }
 
 export const Route = createRootRoute({
@@ -39,26 +68,5 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
     ],
   }),
-  component: () => (
-    <html lang="en" className="antialiased" suppressHydrationWarning>
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <PreviewHostBridge />
-        <AuthProvider>
-          <div className="flex min-h-screen flex-col">
-            <CurrentSiteMenu />
-            <div className="flex-1">
-              <Outlet />
-            </div>
-            <SiteFooter />
-          </div>
-        </AuthProvider>
-        {/* Vercel Web Analytics (#48): anonymous page views, no cookies, query strings stripped. Mounted only here. */}
-        <Analytics beforeSend={analyticsBeforeSend} />
-        <Scripts />
-      </body>
-    </html>
-  ),
+  component: RootDocument,
 });

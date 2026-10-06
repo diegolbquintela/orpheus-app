@@ -29,6 +29,24 @@ export const FOOTER_LINE = "Orpheus Wisdom";
 /** The calculator's listings note under the basket, unchanged from before the move (#46). */
 export const CALCULATOR_NOTE = "US, EU and CA listings, one currency per basket.";
 
+/**
+ * The page behind the shell (epic #66, #68): "dark" = charcoal page with off-white base type, on every page
+ * (home, calculator, sign-in, the 404) except the dashboard itself, where only the shared bar and footer change
+ * and the page around its content stays as on main ("dashboard", spec Q13). Exact path: `/dashboard/sign-in`
+ * and anything else under `/dashboard/` are dark; only `/dashboard` (with or without a trailing slash) is not.
+ */
+export type ShellPage = "dark" | "dashboard";
+
+export function shellPage(pathname: string): ShellPage {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return path === "/dashboard" ? "dashboard" : "dark";
+}
+
+/** The `<body>` classes for a page: charcoal + off-white on dark pages, none (main's white body) on the dashboard. */
+export function shellBodyClass(pathname: string): string | undefined {
+  return shellPage(pathname) === "dark" ? "bg-night text-chalk" : undefined;
+}
+
 /** Which menu item is the current page for a pathname (null: none, e.g. a 404). */
 export function currentSection(pathname: string): SiteSection | null {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;

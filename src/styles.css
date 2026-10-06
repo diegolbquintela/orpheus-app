@@ -13,6 +13,16 @@
   --color-danger: #ff4136;
   --color-dca: #2b5945;
   --color-focus: #2b5945;
+  /* Dark site style (epic #66, #68; spec attachments/site-style-spec.md §5). New tokens next to the old ones:
+     no existing value above changes, because the dashboard content renders with them. Contrast on night:
+     chalk 14.2:1, dim 7.2:1, rule 5.1:1 (field underlines), green 7.2:1, alert 7.3:1; hair is decorative only. */
+  --color-night: #1e2124;
+  --color-chalk: #f2f0eb;
+  --color-dim: #a8aeb4;
+  --color-rule: #8b9298;
+  --color-hair: #3a3f44;
+  --color-green: #5cc08a;
+  --color-alert: #ff8f87;
   --radius-control: 0;
   --radius-panel: 0;
 }

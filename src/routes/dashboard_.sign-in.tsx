@@ -65,7 +65,7 @@ function SignInPage() {
   }
 
   return (
-    <div className="bg-paper">
+    <div className="bg-paper text-ink">
       <main className="mx-auto w-full max-w-md px-5 py-16 sm:px-8">
         <h1 className="text-3xl">{mode === "sign-in" ? "Sign in" : "Create account"}</h1>
         {!authReady ? (

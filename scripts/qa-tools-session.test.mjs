@@ -73,7 +73,7 @@ describe("QA N4: qa/tools sessions always sign out", () => {
   it("every qa/tools script that signs in uses eachViewport, with no sign-out or context of its own", () => {
     const dir = join(import.meta.dirname, "..", "qa", "tools");
     const tools = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "dashboard-redesign.mjs" /* spawns the tools; own test below */ && readFileSync(join(dir, f), "utf8").includes("QA_PASSWORD"));
-    assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs"]);
+    assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "site-shell.mjs"]);
     for (const f of tools) {
       const src = readFileSync(join(dir, f), "utf8");
       assert.match(src, /import \{ eachViewport \} from "\.\/session\.mjs";/, f);
