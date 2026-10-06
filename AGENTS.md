@@ -64,15 +64,21 @@ affects the repo.
   `src/lib/site/hero.ts` (crops, widths, Venus's figure box per crop: change the crop and you must change the box);
   files and licence in `public/hero/` (`calculator-SOURCE.md`; every file ≤ 300 KB). Calculator-only classes in
   `src/styles.css` (`.calc`, `.calc-field`, `.calc-label`, `.calc-row`, `.calc-button`, `.calc-note`,
-  `.calc-caption`, `.calc-pairs`, `.calc-wash`, `.calc-pill`; sizes in spec §7); the shared `.field` / `.kicker` /
+  `.calc-caption`, `.calc-pairs`, `.calc-title`, `.calc-wash`, `.calc-pill`; sizes in spec §7); the shared `.field` / `.kicker` /
   `.section` are untouched, and the unused `.mast-grid` / `.basket-row` were removed. `color-scheme: dark` comes
-  from `shellBodyClass()` (`scheme-dark`) on every dark page. Basket rows carry `data-testid="basket-row"`;
+  from `shellHtmlClass()` on `<html>` and `shellBodyClass()` on `<body>` (`scheme-dark`) on every dark page, and
+  `html.scheme-dark select, option` gives every select charcoal + chalk (a transparent select opens a white list
+  in Chrome). The hero title has a font-independent box (`.calc-title`, one text node) and `--font-sans` a
+  size-adjusted local fallback (`Schibsted Grotesk Fallback`), so the Google Fonts swap shifts nothing in the hero
+  (ST4-01 counts every layout shift; keep both until #72 self-hosts the font, PLANNED). A value with ` · date`
+  renders the date on its own muted line (`result-rows.tsx`, text unchanged). Basket rows carry `data-testid="basket-row"`;
   results `[data-testid=result-metric][data-key=…] [data-plan=lump|dca] dd` (`qa/tools/site.mjs` reads the
   `$313,000` there). Don't import from `src/lib/dca/*` anything new that changes logic; presentation helpers
   (`METRIC_ROWS`, `planName`, `money`) are read-only. QA: `qa/tools/calculator-page.mjs` (ST4 at 360 / 400 /
   1024 / 1440, before and after the regression run; screenshots incl. `hero-<w>.png` with Venus and the wash
   outlined). The pre-#70 tools that read the old tables (`pr3*.mjs`, `sidebyside.mjs`, `full.mjs`, `run.mjs`,
-  `c5live.mjs`) are historical and don't apply to the new page.
+  `c5live.mjs`) are historical and don't apply to the new page. ST0-05's `/dashboard` compare runs signed in
+  against the base PR's preview (`site-shell.mjs --compare-url`), never production (no QA sign-in there).
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 

@@ -135,8 +135,12 @@ Venus*, public domain; source and licence in [`public/hero/calculator-SOURCE.md`
 with `01` and "Dollar-cost average calculator." lower left on a soft wash; underline-only fields with their own
 class; the listings note as one line under the form; one chart with one series (the DCA portfolio value: green
 line, soft green fill, the last value in a green pill); the results as label-value rows (each metric's label as a
-caption, then `Lump sum` and `DCA`, two columns while each is at least 150 px wide); captions `Dividends
-reinvested.` plus the run-specific lines. Phone rules below 1024 px (fields stack, short band), the wide layout
+caption, then `Lump sum` and `DCA`, two columns while each is at least 150 px wide; a date in a value, as in
+`Max drop`, on its own muted line); captions `Dividends reinvested.`, the method sentence ("Prices are raw daily
+closes. …") and the run-specific lines. Dark pages set `color-scheme: dark` on `<html>`, and selects carry the
+dark colours, so native lists and date pickers open dark. The hero text has a fixed-size box and the web font a
+size-adjusted local fallback, so nothing in the hero moves when the font loads (self-hosted fonts are planned
+in #72). Phone rules below 1024 px (fields stack, short band), the wide layout
 (form left, results right) from 1024 px. The calculator logic is unchanged ($313,000). QA:
 `qa/tools/calculator-page.mjs` at 360, 400, 1024 and 1440 px.
 

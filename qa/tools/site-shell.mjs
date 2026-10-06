@@ -16,8 +16,9 @@
 //          effective background (4.5:1, 3:1 for large text), and the bar's focus ring (≥ 3:1)
 //   plus noindex meta + X-Robots-Tag, one Vercel Analytics script; a screenshot per page and width.
 //
-// --compare-url <url> (optional; a build of the base branch on the SAME data, e.g. two local servers on one
-// database, or production with the same QA account for ST0-05): the content panels that must not change (the
+// --compare-url <url> (optional; a build of the base branch on the SAME data: locally two servers on one
+// database, or for ST0-05 the BASE PR's preview signed in with the same QA account (QA_EMAIL / QA_PASSWORD);
+// never production, which has no QA sign-in; spec ST0-05, EL N7): the content panels that must not change (the
 // sign-in white panel and the home cards until #73 / #69 and, signed in, the whole /dashboard content; the
 // calculator converted in #70) are screenshotted on both hosts and must be
 // pixel-identical (canvas diff; the top / bottom device-pixel rows, where a fractional edge blends with the page background,
