@@ -13,8 +13,9 @@ affects the repo.
   `attachments/dashboard-spec.md` for the signed-in dashboard, **approved by Diego 2026-10-02 for
   all decisions D1–D13**: D8, D9 and D12 were approved as recommended, and Amendment A
   (section 14) is decided as D13: $0, Yahoo primary, Neon cache, Alpha Vantage free fallback; its **section 0**
-  is the source of truth for the epic #53 redesign, see below) and `README.md` are the source of truth for this
-  app.
+  is the source of truth for the epic #53 redesign, see below; `attachments/site-style-spec.md` for the site style,
+  epic #66: the dark shell, the calculator, home and sign-in pages) and `README.md` are the source of truth for
+  this app.
 - Every feature PR updates `README.md`, the relevant spec and this harness **in the same PR**, or says
   in the PR body, for each of the three, why it did not change.
 - QA fails a PR that skips this.
@@ -42,9 +43,9 @@ affects the repo.
   Add new dark tokens next to the old ones (spec §5).
 - **Calculator (#70):** Botticelli hero with `01` + `Dollar-cost average calculator.`, underline-only fields with
   their own class, listings note one line under the form, one green chart line + fill + last-value pill, Lump sum
-  and DCA as label-value rows (no table). Phone layout (spec §7a, checked at 360 and 400): fields stack, chart
-  full width, the two result columns side by side if they fit, short painting band. Logic files untouched;
-  `$313,000` unchanged.
+  and DCA as label-value rows (no table). Phone rules below 1024 px (spec §7a, checked at 360 and 400): fields
+  stack, chart full width, the two result columns side by side while each is ≥ 150 px, short painting band; the
+  wide layout (form left, results right) from 1024 px. Logic files untouched; `$313,000` unchanged.
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.
@@ -57,6 +58,28 @@ affects the repo.
   `bg-paper text-ink` and style the content on charcoal with the new tokens. Never touch the dashboard's own
   wrapper. QA: `qa/tools/site-shell.mjs` (`--compare-url` = a base-branch build on the same data, for the
   content-unchanged pixel diff).
+
+- **Landed: #70 calculator (PR #76).** `src/components/desk.tsx` (form, layout) with
+  `src/components/calculator/` (`hero.tsx`, `dca-chart.tsx`, `result-rows.tsx`); hero data in
+  `src/lib/site/hero.ts` (crops, widths, Venus's figure box per crop: change the crop and you must change the box);
+  files and licence in `public/hero/` (`calculator-SOURCE.md`; every file ≤ 300 KB). Calculator-only classes in
+  `src/styles.css` (`.calc`, `.calc-field`, `.calc-label`, `.calc-row`, `.calc-button`, `.calc-note`,
+  `.calc-caption`, `.calc-pairs`, `.calc-title`, `.calc-wash`, `.calc-pill`; sizes in spec §7); the shared `.field` / `.kicker` /
+  `.section` are untouched, and the unused `.mast-grid` / `.basket-row` were removed. `color-scheme: dark` comes
+  from `shellHtmlClass()` on `<html>` and `shellBodyClass()` on `<body>` (`scheme-dark`) on every dark page, and
+  `html.scheme-dark select, option` gives every select charcoal + chalk (a transparent select opens a white list
+  in Chrome). The hero title has a font-independent box (`.calc-title`, one text node) and `--font-sans` a
+  size-adjusted local fallback (`Schibsted Grotesk Fallback`, `unicode-range` = the web font's subsets only, so
+  `→` / `↳` keep their old system glyphs), so the Google Fonts swap shifts nothing in the hero
+  (ST4-01 counts every layout shift; keep both until #72 self-hosts the font, PLANNED). A value with ` · date`
+  renders the date on its own muted line (`result-rows.tsx`, text unchanged). Basket rows carry `data-testid="basket-row"`;
+  results `[data-testid=result-metric][data-key=…] [data-plan=lump|dca] dd` (`qa/tools/site.mjs` reads the
+  `$313,000` there). Don't import from `src/lib/dca/*` anything new that changes logic; presentation helpers
+  (`METRIC_ROWS`, `planName`, `money`) are read-only. QA: `qa/tools/calculator-page.mjs` (ST4 at 360 / 400 /
+  1024 / 1440, before and after the regression run; screenshots incl. `hero-<w>.png` with Venus and the wash
+  outlined). The pre-#70 tools that read the old tables (`pr3*.mjs`, `sidebyside.mjs`, `full.mjs`, `run.mjs`,
+  `c5live.mjs`) are historical and don't apply to the new page. ST0-05's `/dashboard` compare runs signed in
+  against the base PR's preview (`site-shell.mjs --compare-url`), never production (no QA sign-in there).
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 

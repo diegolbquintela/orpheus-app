@@ -3,8 +3,30 @@
 /* QA run logs, fixtures and tools are not app source: keep their class-like strings out of the CSS. */
 @source not "../qa";
 
+/* Size-adjusted local fallback for the web font (#70, QA round 1, D1; spec §7, ST4-01). Until Schibsted Grotesk
+   arrives from Google Fonts (display=swap), text renders in a local Arial-metric face scaled to Schibsted's
+   average glyph width (size-adjust) with Schibsted's own vertical metrics (ascent 2000, descent 528, line gap 0
+   on 2048 units, divided by the size adjust). Line boxes, baselines and text widths then barely change at the
+   swap, so nothing moves by the 3 px a layout shift needs. Liberation Sans and Arimo share Arial's metrics.
+   #72 self-hosts the font (planned) and can drop this. */
+@font-face {
+  font-family: "Schibsted Grotesk Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
+  size-adjust: 105.24%;
+  ascent-override: 92.8%;
+  descent-override: 24.5%;
+  line-gap-override: 0%;
+  /* Only the characters the web font covers (Google's latin + latin-ext subsets): anything else (→, ↳, …) still
+     falls through to the system fonts below, exactly as before, so no glyph outside the web font changes. */
+  unicode-range:
+    U+0000-00FF, U+0100-02BA, U+02BB-02BC, U+02BD-02C5, U+02C6, U+02C7-02CC, U+02CE-02D7, U+02DA, U+02DC,
+    U+02DD-02FF, U+0131, U+0152-0153, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2000-206F, U+20A0-20AB, U+20AC, U+20AD-20C4, U+2113, U+2122, U+2191, U+2193, U+2212, U+2215, U+2C60-2C7F,
+    U+A720-A7FF, U+FEFF, U+FFFD;
+}
+
 @theme {
-  --font-sans: "Schibsted Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --color-paper: #ffffff;
   --color-ink: #1e2124;
   --color-muted: #636363;
@@ -46,6 +68,15 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+  /* Dark pages (shellPage "dark"; class on <html> and <body>): native controls follow the dark scheme, and a
+     select and its options carry charcoal and chalk explicitly, so the list Chrome opens is dark and readable
+     (#70 QA round 1, D2; spec §6). /dashboard keeps the light scheme around its white content. */
+  html.scheme-dark select,
+  html.scheme-dark option,
+  html.scheme-dark optgroup {
+    background-color: var(--color-night);
+    color: var(--color-chalk);
+  }
   :focus-visible {
     outline: 2px solid var(--color-focus);
     outline-offset: 2px;
@@ -82,15 +113,115 @@
     font-variant-numeric: slashed-zero tabular-nums;
     appearance: none;
   }
-  .mast-grid {
-    display: grid;
-    gap: 1.5rem;
+  /* Calculator (#70, spec §7 / §7a, Q10): its own classes on the dark page. The shared .field / .kicker /
+     .section above stay exactly as they are (the dashboard renders with them). Phone rules below 1024 px,
+     the wide layout from 1024 px. */
+  /* :focus-within too: a date field's calendar button takes its own Tab stop, where the input loses :focus. */
+  .calc :focus-visible,
+  .calc-field:focus,
+  .calc-field:focus-within {
+    outline: 2px solid var(--color-chalk);
+    outline-offset: 2px;
   }
-  .basket-row {
+  .calc-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  .calc-field {
+    height: 2.75rem;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--color-chalk);
+    font-size: 1rem;
+    font-variant-numeric: slashed-zero tabular-nums;
+    appearance: none;
+  }
+  .calc-field:focus-visible {
+    border-bottom-color: var(--color-chalk);
+  }
+  .calc-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6.5rem 2.75rem;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+    grid-template-areas: "ticker remove" "weight weight";
     align-items: end;
-    gap: 1.25rem;
+    column-gap: 1rem;
+    row-gap: 1.25rem;
+  }
+  .calc-row > .calc-ticker {
+    grid-area: ticker;
+  }
+  .calc-row > .calc-weight {
+    grid-area: weight;
+  }
+  .calc-row > .calc-remove {
+    grid-area: remove;
+  }
+  .calc-button {
+    display: inline-flex;
+    height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    background: var(--color-chalk);
+    padding: 0 1.5rem;
+    color: var(--color-night);
+    font-size: 0.875rem;
+  }
+  .calc-button:disabled {
+    background: var(--color-dim);
+  }
+  .calc-note {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-dim);
+    white-space: nowrap;
+  }
+  .calc-caption {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-dim);
+  }
+  .calc-pairs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    column-gap: 1rem;
+    row-gap: 0.25rem;
+  }
+  /* Hero title (QA round 1, D1 / N4): fixed width and height in em, independent of which font renders, and one
+     text node (its start never moves). Phone: 18 px, 5.5em wide (the longest word, "calculator.", is 5.24em in
+     Schibsted, 4.71em in the fallback; "Dollar-cost" 5.16em, so it never breaks at its hyphen), three lines of
+     1.1 (two words never fit: 8.8em and up). From 1024 px: 9.5em wide ("Dollar-cost average" is 9.08em in
+     both), two lines. */
+  .calc-title {
+    width: 5.5em;
+    height: 3.3em;
+    font-size: 1.125rem;
+    font-weight: 400;
+    line-height: 1.1;
+  }
+  .calc-wash {
+    background: rgb(30 33 36 / 0.88);
+    box-shadow: 0 0 12px 4px rgb(30 33 36 / 0.5);
+  }
+  .calc-pill {
+    display: inline-flex;
+    height: 1.375rem;
+    align-items: center;
+    border-radius: 0.6875rem;
+    background: var(--color-green);
+    padding: 0 0.5rem;
+    color: var(--color-night);
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   @media (min-width: 64rem) {
     .section {
@@ -98,9 +229,19 @@
       column-gap: 3rem;
       padding: 5rem 0;
     }
-    .mast-grid {
-      grid-template-columns: 14rem minmax(0, 1fr);
-      column-gap: 3rem;
+    .calc-title {
+      width: 9.5em;
+      height: 2.2em;
+      font-size: 2.5rem;
+    }
+    .calc-row {
+      grid-template-columns: minmax(0, 1fr) 6.5rem 2.75rem;
+      grid-template-areas: "ticker weight remove";
+    }
+  }
+  @media (min-width: 80rem) {
+    .calc-title {
+      font-size: 2.75rem;
     }
   }
   @media (prefers-reduced-motion: reduce) {

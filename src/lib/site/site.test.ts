@@ -11,6 +11,7 @@ import {
   homeRedirectHref,
   MENU_ITEMS,
   shellBodyClass,
+  shellHtmlClass,
   shellPage,
 } from "./site.ts";
 
@@ -51,12 +52,9 @@ describe("site shell (#46)", () => {
     assert.equal(FOOTER_LINE, "Orpheus Wisdom");
   });
 
-  it("the calculator keeps its listings note under the form, as before the move", () => {
+  it("the calculator keeps its listings note (wording unchanged), rendered from CALCULATOR_NOTE under the form (#70)", () => {
     assert.equal(CALCULATOR_NOTE, "US, EU and CA listings, one currency per basket.");
-    assert.match(
-      readFileSync("src/components/desk.tsx", "utf8"),
-      />US, EU and CA listings, one currency per basket\.</,
-    );
+    assert.match(readFileSync("src/components/desk.tsx", "utf8"), /<\/form>\s*<p className="calc-note[^"]*"[^>]*>\s*\{CALCULATOR_NOTE\}/);
   });
 
   it("redirect: / with a query string → /calculator with the same query; plain / stays", () => {
@@ -113,8 +111,13 @@ describe("dark shell page (#68, spec §6 / Q13)", () => {
     for (const p of ["/", "/calculator", "/calculator/", "/dashboard/sign-in", "/dashboard/sign-in/", "/__not-found", "/nope", "/dashboardx"])
       assert.equal(shellPage(p), "dark", p);
     for (const p of ["/dashboard", "/dashboard/", "/dashboard//"]) assert.equal(shellPage(p), "dashboard", p);
-    assert.equal(shellBodyClass("/calculator"), "bg-night text-chalk");
+    assert.equal(shellBodyClass("/calculator"), "bg-night text-chalk scheme-dark");
     assert.equal(shellBodyClass("/dashboard"), undefined, "/dashboard keeps main's white body around its content");
+    // D2 (QA round 1): color-scheme dark on <html> too, not only on <body>.
+    assert.equal(shellHtmlClass("/calculator"), "antialiased scheme-dark");
+    assert.equal(shellHtmlClass("/"), "antialiased scheme-dark");
+    assert.equal(shellHtmlClass("/dashboard/sign-in"), "antialiased scheme-dark");
+    assert.equal(shellHtmlClass("/dashboard"), "antialiased");
   });
 
   it("dark tokens added next to the old ones; no existing token value changed (the dashboard renders with them)", () => {
@@ -147,3 +150,22 @@ describe("dark shell page (#68, spec §6 / Q13)", () => {
   });
 });
 
+
+describe("calculator hero files (#70, ST4-01 / ST4-16)", () => {
+  it("every file named in a srcset exists in public/, with the crop's aspect ratio, ≤ 300 KB; source recorded", async () => {
+    const { HERO_CROPS, heroFile } = await import("./hero.ts");
+    const { statSync, existsSync } = await import("node:fs");
+    for (const crop of Object.values(HERO_CROPS))
+      for (const ext of ["avif", "webp", "jpg"] as const)
+        for (const w of crop.widths[ext]) {
+          const path = `public${heroFile(crop.name, w, ext)}`;
+          assert.ok(existsSync(path), path);
+          assert.ok(statSync(path).size <= 300 * 1024, `${path} ${statSync(path).size}`);
+        }
+    assert.ok(HERO_CROPS.wide.widths.avif.includes(2880), "1440 px at 2x is served from a ≤ 300 KB AVIF");
+    const source = readFileSync("public/hero/calculator-SOURCE.md", "utf8");
+    assert.match(source, /Sandro Botticelli/);
+    assert.match(source, /Public domain/i);
+    assert.match(source, /commons\.wikimedia\.org\/wiki\/File:Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited\.jpg/);
+  });
+});

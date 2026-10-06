@@ -5,7 +5,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteMenu } from "@/components/site-menu";
 import { analyticsBeforeSend } from "@/lib/site/analytics";
-import { shellBodyClass } from "@/lib/site/site";
+import { shellBodyClass, shellHtmlClass } from "@/lib/site/site";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Orpheus Wisdom";
@@ -21,7 +21,7 @@ function CurrentSiteMenu() {
 function RootDocument() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   return (
-    <html lang="en" className="antialiased" suppressHydrationWarning>
+    <html lang="en" className={shellHtmlClass(pathname)} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

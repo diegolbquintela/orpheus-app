@@ -244,7 +244,7 @@ for (const flag of [undefined, "true"]) {
   check(!/<form|Compare plans/.test(home.body), `${label}: / renders calculator UI`);
   check(FOOTER.test(home.body), `${label}: / footer is not exactly "Orpheus Wisdom"`);
   const calc = await call("GET", "/calculator", flag);
-  check(calc.status === 200 && /Compare plans/.test(calc.body) && /DCA vs lump sum/.test(calc.body), `${label}: GET /calculator -> ${calc.status}`);
+  check(calc.status === 200 && /Compare plans/.test(calc.body) && /Dollar-cost average calculator\./.test(calc.body), `${label}: GET /calculator -> ${calc.status}`);
   check(NOINDEX.test(calc.body), `${label}: /calculator lacks noindex`);
   check(JSON.stringify(menuCurrent(calc.body)) === '["Calculator"]', `${label}: /calculator current menu item ${menuCurrent(calc.body)}`);
   check(FOOTER.test(calc.body), `${label}: /calculator footer is not exactly "Orpheus Wisdom"`);

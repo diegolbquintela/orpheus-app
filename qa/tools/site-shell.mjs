@@ -16,9 +16,11 @@
 //          effective background (4.5:1, 3:1 for large text), and the bar's focus ring (≥ 3:1)
 //   plus noindex meta + X-Robots-Tag, one Vercel Analytics script; a screenshot per page and width.
 //
-// --compare-url <url> (optional; a build of the base branch on the SAME data, e.g. two local servers on one
-// database): the content panels that must not change in #68 (the calculator and sign-in white panels, the
-// home cards and, signed in, the whole /dashboard content) are screenshotted on both hosts and must be
+// --compare-url <url> (optional; a build of the base branch on the SAME data: locally two servers on one
+// database, or for ST0-05 the BASE PR's preview signed in with the same QA account (QA_EMAIL / QA_PASSWORD);
+// never production, which has no QA sign-in; spec ST0-05, EL N7): the content panels that must not change (the
+// sign-in white panel and the home cards until #73 / #69 and, signed in, the whole /dashboard content; the
+// calculator converted in #70) are screenshotted on both hosts and must be
 // pixel-identical (canvas diff; the top / bottom device-pixel rows, where a fractional edge blends with the page background,
 // and ≤ 0.01% anti-aliasing noise aside).
 //
@@ -56,7 +58,7 @@ const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/
 const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", '[data-testid="home-card"] >> xpath=ancestor::ul[1]'],
-  ["/calculator", "Calculator", "dark", "body .flex-1 > .bg-paper"],
+  ["/calculator", "Calculator", "dark", null], // converted by #70 (qa/tools/calculator-page.mjs); no white panel left
   ["/dashboard/sign-in", "Dashboard", "dark", "body .flex-1 > .bg-paper"],
   ["/no-such-page", null, "dark", null],
 ];

@@ -14,6 +14,9 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-05, evening | A **white** site style was proposed for epic #66 (PR #74 first drafts, with a same-day schedule revision at 21:04 ET). |
 | **2026-10-05 21:26 ET** | **White is dropped; dark wins** (Diego via CoS and EL). Nothing white gets merged. **The #53 dark style stands and is extended** to a charcoal page with off-white type on every page this epic ships, under a dark shell on every page. EL's earlier answers to the white-draft questions are void wherever they assume white. The white drafts survive only in the PR #74 history (commits `1aa2192`..`a9d8cca`). |
 | 2026-10-05, after 21:26 ET | Diego approved the calculator's **phone layout** (via EL): fields stack, chart full width, Lump sum and DCA in two columns if they fit, short painting band (section 7a); it replaces "Phone is one column". |
+| 2026-10-05, ≈ 22:00 ET | EL accepted **every section 12 default** (Q0, Q2, Q4, Q5, Q6, Q8, Q10, Q11, Q12, Q13, Q14, Q15) and the green `#5cc08a`. Q12 with a caveat: the per-name table, the summary line and the swipe hint go unless a DCA rule or acceptance row needs those figures shown (none does; #70 checked `attachments/dca-app-spec.md` and the QA pack). |
+| 2026-10-05, ≈ 22:05 ET | EL amendments folded into #70: **A1 / A9** (ST4-10: short `Lump sum` / `DCA` row labels, the metric labels word for word as full-width captions, two columns while each is ≥ 150 px), **A2** (ST4-08: rows full width, remove control beside the ticker), **A3** (new ST4-14: the hero text clear of Venus), **A4** (new ST4-15: the wash contains the hero text), **A11** (ST4-04: the note 13 px dim, one line at 360 without changing its wording), exact sizes (section 7), a primary-button row (ST4-16), the 300 KB limit at 2x and CLS by PerformanceObserver (ST4-01), phone below 1024 px / wide from 1024 px (section 7a), the bar on one line at 360 (ST1-01), `color-scheme: dark` (section 6), the `/dashboard` screenshot compare against production (ST0-05; superseded at ≈ 23:00 ET by N7: against the base PR's preview, signed in). |
+| 2026-10-05, ≈ 23:00 ET | **QA round 1 on #70 (PR #76 at `2d4ee7c`) failed; EL's fixes and decisions:** D1 (CLS on phones 0.0036 / 0.0028 from the web-font swap resizing the wash; the QA tool had skipped shifts Playwright's phone emulation tags `hadRecentInput`): font-independent wash and title sizes, a size-adjusted local fallback, every shift counted (ST4-01; Q16 decided: #72 self-hosts the fonts, PLANNED). D2 (the Frequency list opened white with chalk text): charcoal select and options, `color-scheme: dark` on `<html>` (section 6, ST4-03). D3 (the `Max drop` value wrapped under its label at 360 / 400): one-line rows, the date on its own muted line (ST4-10). **N1:** keep the fixed method sentence word for word as one muted caption (Q12). **N4:** the wash hugs the text lower left, ≤ 50% of the band at 360 / 400 (ST4-15). **N7:** ST0-05 compares `/dashboard` signed in against the base PR's preview with the QA accounts, never production (it has no QA sign-in). |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -48,14 +51,15 @@ prod check.
   - Results: Lump sum and DCA as label-value rows. No boxes, no spreadsheet table.
   - Logic untouched; the $313,000 regression unchanged. Phone is one column.
 
+- **Home `/` (#69):** in the dark shell. The Jordaens hero, the line 'Investment driven by research.' and the
+  Platforms lines all stay.
+- **Sign-in (#73):** dark. Email, password and a 'Create an account' link only.
+
 **Phone layout for the calculator (Diego via EL, 2026-10-05, after the dark brief; replaces "Phone is one
 column"):** on a phone the fields stack, one under another; the chart is full width; Lump sum and DCA sit in two
 columns if they fit, and stack only if they don't (check at 360 and 400); the painting is a short band;
 otherwise the same: dark page, Botticelli hero, borderless underlines, green line, green pill. The wide page
 stays as briefed. Section 7a.
-- **Home `/` (#69):** in the dark shell. The Jordaens hero, the line 'Investment driven by research.' and the
-  Platforms lines all stay.
-- **Sign-in (#73):** dark. Email, password and a 'Create an account' link only.
 
 ## 3. Schedule (one PR at a time)
 
@@ -142,6 +146,13 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   them; their content keeps its current look and must stay AA-readable on the new page background (e.g. the
   home line inherits chalk; the home cards and the sign-in form keep their own white panels until their day).
 - **`theme-color` meta:** `#1e2124` (already the value in `__root.tsx`).
+- **`color-scheme: dark`** on the dark pages (EL, 2026-10-05; landed in #70 on the shell: `scheme-dark` on
+  `<html>` via `shellHtmlClass()` and on `<body>` via `shellBodyClass()`, QA round 1 D2), so native date pickers
+  and select popups open dark. A select and its options also carry charcoal `#1e2124` and chalk explicitly
+  (`html.scheme-dark select, option, optgroup` in `src/styles.css`): Chrome draws the opened list from the
+  select's and options' own colours, and a transparent select opened white with chalk text (1.14:1). Every
+  select and date input on a dark page gets this through the shell. Not on `/dashboard` (its content stays as on
+  `main`, Q13).
 
 ## 7. Calculator (#70, tonight)
 
@@ -182,20 +193,42 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
 - **Logic untouched:** no change to `src/lib/dca/*` or `src/routes/api/chart.ts`; `qa/tools/site.mjs` keeps
   `$313,000` and may only change how it finds the value (label-value rows instead of a table row).
 - **No extra instructions:** the intro paragraph (`Pick tickers and weights, …`), the swipe hint and the chart
-  scale note go.
+  scale note go (and the two field hints, `Used only by the lump-sum plan.` and `New cash on each DCA date.`).
+- **Exact sizes (EL, 2026-10-05; as built in #70):**
+
+  | Part | Size |
+  |---|---|
+  | Hero `01` | 12 px, weight 400, chalk, no letter-spacing; a fixed 12 px line on a phone (line-height 1), 14.4 px from 1024 (1.2) |
+  | Hero title (QA round 1, D1 / N4) | 18 px on a phone in a fixed 5.5em × 3.3em box (three lines: `Dollar-cost` / `average` / `calculator.`); 40 px at 1024, 44 px from 1280 (≤ 48 at 1440) in a fixed 9.5em × 2.2em box (two lines); line-height 1.1; weight 400; chalk; one text node. The box doesn't depend on the font, so the web-font swap moves nothing |
+  | Hero wash | night at 88% behind `01` and the title, hugging them: 6 px top / bottom and 12 px side padding on a phone (87.4 px tall: 49% of the 180 px band at 360, 44% of 200 at 400), 16 / 20 px wide; lower left; a soft edge (`box-shadow 0 0 12px 4px` night at 50%); radius 0 |
+  | Font fallback (QA round 1, D1) | `Schibsted Grotesk Fallback`: local Arial / Liberation Sans / Arimo with `size-adjust: 105.24%`, `ascent-override: 92.8%`, `descent-override: 24.5%`, `line-gap-override: 0%` (Schibsted's 2000 / 528 / 0 on 2048 units over the size adjust), second in `--font-sans`, limited by `unicode-range` to the web font's latin + latin-ext subsets (so glyphs outside it, such as the home cards' `→`, render exactly as before; ST0-05); until #72 self-hosts the font |
+  | Phone band | `min(50vw, 200px)` tall (180 at 360, 200 at 400 and up to 1023); wide band at the crop's aspect ratio (250 at 1024, 351 at 1440), ≤ 460 px |
+  | Field | 44 px tall, no box border, no fill, radius 0, 16 px text; the underline 1 px solid rule `#8b9298` (chalk while focused); the select and its options charcoal with chalk text (D2) |
+  | Focus ring | 2 px solid chalk, offset 2 px, on every field (a date field's calendar button too), button and link |
+  | Field label | 12 px, letter-spacing 0.14em, upper case, dim |
+  | Primary button (Q6) | 48 px tall, 24 px side padding, 14 px text, chalk `#f2f0eb` fill, night `#1e2124` text (14.2:1), radius 0; while reading prices: dim fill, night text (7.2:1) |
+  | Listings note (A11) | 13 px, line-height 1.4, dim (the "muted" colour on dark), one line, `nowrap` (302 px wide at 360, inside the 320 px column) |
+  | Chart | 224 px tall; line 2 px green `#5cc08a`; fill green at 16% opacity (`#283a34` over night); grid hair; axis ticks 12 px dim |
+  | Last-value pill | 22 px tall, radius 11 px, 8 px side padding, 12 px weight 500, night text on green (7.2:1), the results' money format |
+  | Results | caption (metric label) 13 px dim, full width; row label (`Lump sum`, `DCA`) 14 px dim; value 13 px on a phone, 14 px wide, chalk, `nowrap`, on the label's line; a date in a value (`Max drop`) on its own 12 px dim line under the figure, right-aligned in the value cell (D3); two columns while each is ≥ 150 px (`repeat(auto-fit, minmax(150px, 1fr))`, 16 px gap) |
+  | Captions under the results | 13 px dim: `Dividends reinvested.` (DCA-01, Q2), then the fixed method sentence word for word (`Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.`; EL N1, Q12), then only the run-specific lines (Q12) |
+  | Error line (Q8) | 14 px `#ff8f87` (7.3:1), under the listings note |
 
 ## 7a. Calculator on a phone (approved by Diego via EL, 2026-10-05; replaces "Phone is one column")
 
-Phone = below 640 px wide; QA checks at 360 and 400.
+Phone = below 1024 px wide (EL, 2026-10-05): the phone rules apply below 1024 px and the wide layout (form left,
+results right) from 1024 px. QA checks the phone rules at 360 and 400 and the wide layout at 1024 and 1440.
 
-- **Fields stack**, one under another, each full width (Q15: a basket row's ticker sits above its weight). The
-  listings note is still one line under the form.
+- **Fields stack**, one under another; the field rows span the full width (A2; Q15: a basket row's ticker sits
+  above its weight, with the row's remove control beside the ticker). The listings note is still one line under
+  the form.
 - **The chart is full width** (the full content column, same left and right edges as the fields; the y-axis
   labels inside it, the pill not clipped).
-- **Lump sum and DCA sit in two columns if they fit, and stack only if they don't.** "Fit" = every value stays
-  whole on one line, nothing is clipped or overflows, and there is no horizontal scroll (labels may wrap). If
-  they don't fit, Lump sum stacks above DCA. Checked at 360 and 400. (A CSS grid that falls back by itself, e.g.
-  `repeat(auto-fit, minmax(…, 1fr))`, is the simple build.)
+- **Lump sum and DCA sit in two columns if they fit, and stack only if they don't** (EL A1 / A9). Each metric's
+  label (`METRIC_ROWS`, word for word, e.g. `Money-weighted return (XIRR, per year)`) is a full-width caption;
+  under it the short row labels `Lump sum` and `DCA`, each with its value. Two columns while each column is at
+  least 150 px wide, otherwise stacked (Lump sum above DCA): `repeat(auto-fit, minmax(150px, 1fr))`. Every value
+  stays whole on one line, nothing is clipped, no horizontal scroll. Expected: two columns at 360 and at 400.
 - **The painting is a short band** (≤ 200 px tall at 360 and 400), with `01` and the title still lower left on
   the wash and Venus visible.
 - **Otherwise the same as wide:** dark page, Botticelli hero, borderless underlines, green line, green fill and
@@ -249,13 +282,13 @@ has no hover rule.
 | ST0-02 | Shipped pages use only the section 5 tokens; the green `#5cc08a` appears only on the chart line, the chart fill and the last-value pill; the font is Schibsted Grotesk. |
 | ST0-03 | Every text / token pair on a shipped page meets AA on dark (section 5 table: text ≥ 4.5:1, large text and non-text UI such as underlines, focus ring, chart line and pill ≥ 3:1); an axe-core run reports no `color-contrast` violation. |
 | ST0-04 | Docs: the decision log records that white was proposed on 2026-10-05 and dropped at 21:26 ET, and that the #53 dark style stands and is extended; no doc says white supersedes dark. (#67) |
-| ST0-05 | `/dashboard` content is untouched: only the bar and footer differ from `main`; holdings, chips, book, their styles and data render as before; released and visible; signed-out `/dashboard` still 307s to sign-in; no diff in `src/routes/dashboard.tsx`, `src/components/dashboard/*`, existing token values or `.field` / `.kicker` / `.section`; `qa/tools/dashboard-redesign.mjs --read-only` still passes. |
+| ST0-05 | `/dashboard` content is untouched: only the bar and footer differ from `main`; holdings, chips, book, their styles and data render as before; released and visible; signed-out `/dashboard` still 307s to sign-in; no diff in `src/routes/dashboard.tsx`, `src/components/dashboard/*`, existing token values or `.field` / `.kicker` / `.section`; `qa/tools/dashboard-redesign.mjs --read-only` still passes. "Only the bar and footer differ" is checked by a screenshot compare of the main content (the dashboard's `bg-paper` wrapper, bar and footer hidden) **signed in** against the **base PR's preview** (the PR this one is stacked on; `main`'s preview for a PR on `main`) with the same QA account (`QA_EMAIL` / `QA_PASSWORD`): `qa/tools/site-shell.mjs --base-url <this preview> --compare-url <base PR preview>`, pixel-identical. Never against production: production has no sign-in for QA (EL N7, QA round 1 on #70). |
 
 **ST1: bar and footer on every page (#68)**
 
 | ID | Pass when |
 |---|---|
-| ST1-01 | On every page (`/`, `/calculator`, `/dashboard`, `/dashboard/sign-in`, a 404) one thin charcoal bar (height ≤ 48 px), sticky on scroll: `Orpheus` left (→ `/`), `Calculator` and `Dashboard` right (→ `/calculator`, `/dashboard`), in that order, no other items, no dropdowns; at 400 px all three fit on one line with no horizontal page scroll. |
+| ST1-01 | On every page (`/`, `/calculator`, `/dashboard`, `/dashboard/sign-in`, a 404) one thin charcoal bar (height ≤ 48 px), sticky on scroll: `Orpheus` left (→ `/`), `Calculator` and `Dashboard` right (→ `/calculator`, `/dashboard`), in that order, no other items, no dropdowns; at 360 and 400 px all three fit on one line with no horizontal page scroll. |
 | ST1-02 | The current page's item has `aria-current="page"` and a visible mark (chalk and underline; the others dim): exactly one item on `/` (Orpheus), `/calculator`, `/dashboard` and `/dashboard/sign-in` (Dashboard); none on a 404. |
 | ST1-03 | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
 | ST1-04 | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
@@ -273,19 +306,22 @@ has no hover rule.
 
 | ID | Pass when |
 |---|---|
-| ST4-01 | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG, ≤ 300 KB at 1440), served from the app, explicit `width` and `height`, layout shift 0. |
-| ST4-02 | `01` (small) and the `h1` `Dollar-cost average calculator.` sit lower left on the soft wash, in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone); chalk on the wash ≥ 4.5:1 at the worst pixel. |
-| ST4-03 | The fields (tickers with weights, start, end, starting capital, contribution, weekly or monthly) are borderless with a thin underline only (no box border, fill or radius; underline ≥ 3:1), with visible labels and a visible focus ring. |
-| ST4-04 | `US, EU and CA listings, one currency per basket.` is one line (no wrap at 360 or 400 px) directly under the form; no other note there (Q2). |
-| ST4-05 | One chart with one series (the DCA portfolio value): a green line, a soft green fill and the last value in a small green pill (night text on green, same money format as the results); no second chart and no chart note. |
+| ST4-01 | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG; the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift (EL, QA round 1 on #70): measured with a `PerformanceObserver` (`layout-shift`, buffered) on load, **every entry counted** (no `hadRecentInput` exclusion), on cold loads with the cache disabled, several runs per width at 360, 400, 1024 and 1440: CLS from the hero (entries with a source inside the band) = 0, and the page total < 0.001 on every run. A strict page total of 0 is PLANNED for #72 (self-hosted fonts, Q16). |
+| ST4-02 | `01` (small) and the `h1` `Dollar-cost average calculator.` sit lower left on the soft wash, in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; `01` 12 px; sizes in section 7); chalk on the wash ≥ 4.5:1 at the worst pixel. |
+| ST4-03 | The fields (tickers with weights, start, end, starting capital, contribution, weekly or monthly) are borderless with a thin underline only (no box border, fill or radius; a 1 px rule `#8b9298` underline, 5.1:1), with visible labels and a visible focus ring (2 px solid chalk, offset 2 px). The select and its `<option>`s carry charcoal `#1e2124` with chalk text (≥ 4.5:1; the page's own colour, so still no visible fill), so the list Chrome opens is dark and readable; `color-scheme: dark` on `<html>` (and `<body>`), so date pickers are dark too (QA round 1, D2). |
+| ST4-04 | `US, EU and CA listings, one currency per basket.` (wording unchanged) is one line at 13 px in dim (no wrap at 360 or 400 px, nothing clipped) directly under the form; no other note there (Q2, A11). |
+| ST4-05 | One chart with one series (the DCA portfolio value): a green line (2 px), a soft green fill (green at 16%) and the last value in a small green pill (22 px tall, night text on green, same money format as the results); no second chart and no chart note. |
 | ST4-06 | Results are `Lump sum` and `DCA` as label-value rows with the existing metric labels; no boxes, no borders around them, no `<table>` (Q12); the regression case shows DCA `Total invested` `$313,000`. |
 | ST4-07 | No instruction text: the intro paragraph, the swipe hint and the chart scale note are gone (Q2, Q12). |
-| ST4-08 | Phone (360 and 400): the fields stack, one under another, each full width (a basket row's ticker above its weight, Q15); the listings note is still one line under the form. |
+| ST4-08 | Phone (360 and 400; phone rules below 1024 px): the fields stack, one under another; the field rows span the full width, a basket row's ticker above its weight with the remove control beside the ticker (Q15, A2); the listings note is still one line under the form. |
 | ST4-09 | Phone (360 and 400): the chart is full width (the content column's full width, same edges as the fields), with the green line, the soft fill and the pill unclipped. |
-| ST4-10 | Phone (360 and 400): Lump sum and DCA sit in two columns when they fit (every value whole on one line, nothing clipped, no horizontal scroll; labels may wrap) and stack (Lump sum above DCA) only when they don't. |
+| ST4-10 | Results rows (EL A1 / A9): each metric's label, word for word (`Money-weighted return (XIRR, per year)`, `CAGR on total invested, as if all invested day one`, …), is a full-width caption; under it the short row labels `Lump sum` and `DCA` with their values, in two columns while each column is ≥ 150 px wide and stacked (Lump sum above DCA) otherwise; every value whole, nothing clipped, no horizontal scroll. Expected and checked: two columns at 360 and 400. Each label-value row's main line is a single line at 360 and 400 (and wide): the value's figure on the label's line, never wrapped under it (row height checked); a value with a date (`Max drop`, `−79.9% · 2022-12-28`) shows the date on its own muted 12 px line under the figure, inside the value cell, wording unchanged (QA round 1, D3). |
 | ST4-11 | Phone (360 and 400): the painting is a short band (≤ 200 px tall), with `01` and the title lower left on the wash and Venus visible. |
 | ST4-12 | Phone otherwise the same as wide: dark page, Botticelli hero, borderless underlines, green line, fill and pill, label-value results (ST4-01..07 hold at 360 and 400); the wide page (1024, 1440) as briefed; no horizontal page scroll at 360, 400, 1024 or 1440. |
 | ST4-13 | Logic untouched: `qa/tools/site.mjs` passes (`$313,000`; VOD.L 400 with the exact message; it may only change how it finds the value); DCA-01..06 pass; no diff in `src/lib/dca/*` or `src/routes/api/chart.ts`. |
+| ST4-14 | (EL A3) At 360, 400, 1024 and 1440 the `01` / title block and its wash (with its soft edge) don't overlap Venus; her region is defined by the crop and `object-position` (the figure box per crop in `src/lib/site/hero.ts`); checked by geometry and by a screenshot with both boxes outlined. |
+| ST4-15 | (EL A4) The wash box fully contains the bounding boxes of `01` and the title (element and text-line rects), checked by bounding rect plus screenshot, at 360, 400, 1024 and 1440. (EL N4, QA round 1) The wash hugs the text, anchored lower left (≤ 12 px of padding a side on a phone, ≤ 24 px wide), and takes at most 50% of the band's height at 360 and 400. |
+| ST4-16 | (Q6) The primary button `Compare plans` is a chalk fill with night text (14.2:1), radius 0, the section 7 size, a chalk focus ring; while reading prices a dim fill with night text (7.2:1); not green. |
 
 **ST5a: dashboard content (#71): ON HOLD, deferred**
 
@@ -339,6 +375,11 @@ assumed white.
   per-name table, the `result-summary` line and the swipe hint go; the method paragraph keeps only its
   run-specific single lines (`Weights summed to … and were scaled to 100.`, `N contribution dates had no later
   session.`) as captions, and the fixed `Prices are raw daily closes. …` sentence goes. Or keep any of these?
+  **Decided (EL, QA round 1 on #70, N1):** the per-name table, the summary line and the swipe hint go; the fixed
+  method sentence stays, word for word, as one muted caption under the results next to `Dividends reinvested.`
+  (`Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution
+  date with no session goes in at the next session's close.`). It is method text, not an instruction (ST4-07 /
+  ST6-02 don't apply to it); the run-specific lines follow it.
 - **Q13. `/dashboard` page background (new).** The dashboard content sits in its own white wrapper. Default: on
   `/dashboard` #68 changes the bar and footer only, and the page background around the content stays as on
   `main` (white), so nothing but the shell changes. Or should the area outside the content go charcoal too?
@@ -347,6 +388,18 @@ assumed white.
 - **Q15. Basket rows on a phone (new).** "The fields stack, one under another." Default: literally, so each
   basket row's ticker sits above its weight (with the row's remove button beside the ticker). Or keep ticker and
   weight side by side on one line?
+
+- **Q16. Web-font swap and CLS (new, from #70).** The shell loads Schibsted Grotesk from Google Fonts with
+  `display=swap` (since #46). On load the fallback text is re-rendered in the web font, which moves text glyphs
+  and the right-aligned bar links by a few px: measured CLS 0.0005 at 1024 and ≈ 0.00002 at 1440 (0 on phones),
+  cold and warm. The hero itself causes no shift (its band is sized by CSS). Default: accept the font swap (QA
+  checks the hero causes 0 and the page stays < 0.001). Exact 0 needs a shell change on every page (self-hosted
+  font with a preload and `font-display: optional`, or metric-matched fallback overrides). Which?
+  **Decided (EL, QA round 1 on #70):** QA then measured 0.0036 at 360 and 0.0028 at 400 with every shift counted
+  (the swap resized the wash and moved it 24 px). #70 makes the hero font-independent (fixed title box) and adds
+  a size-adjusted local fallback (section 7), so the hero causes 0 and the page stays < 0.001 (ST4-01).
+  **PLANNED for #72:** self-host Schibsted Grotesk to reach a strict page CLS of 0 and drop the Google Fonts
+  outside host (`fonts.googleapis.com` / `fonts.gstatic.com`). Not done in #70.
 
 ## 13. Landed
 
@@ -371,4 +424,29 @@ assumed white.
     (ST0 / ST1 at 360 / 400 / 1024 / 1440; signed in for `/dashboard` with `QA_EMAIL` / `QA_PASSWORD`;
     `--compare-url` pixel-diffs the content panels against a build of the base branch on the same data, which
     is how ST0-05 "dashboard content unchanged" was shown locally).
-
+- **#70, calculator (PR #76, stacked on #75; 2026-10-05).** Built to sections 7 / 7a with EL's accepted defaults
+  and amendments A1 / A9, A2, A3, A4, A11 (decision log). The page has no white panel: the Botticelli band
+  (`public/hero/`, source and licence in `public/hero/calculator-SOURCE.md`: Wikimedia Commons, Google Art
+  Project "edited" file, public domain, PD-Art / PD-old-100-expired, checked 2026-10-05), two crops (phone 2:1
+  below 1024 px, wide ≈ 4.1:1 from 1024 px), AVIF / WebP / JPEG `srcset`s with `width` / `height`, the band sized
+  by CSS; `01` and the title in the wash lower left; the calculator's own classes (`.calc-*`, sizes in section 7);
+  the listings note one line under the form (A11: 302 px of the 320 px column at 360, wording unchanged); one
+  chart, one series; label-value results per A1 / A9 (two columns at 360 and 400); captions `Dividends
+  reinvested.` (Q2: it doesn't fit on the listings line at 360 px, so it is the short caption under the results;
+  DCA-01) plus the run-specific lines; error `#ff8f87`; `color-scheme: dark` on the dark shell. Removed: the
+  intro paragraph, the per-name table, the `result-summary` line, the plan table with its swipe hint, dots and
+  fade, the lump-sum chart, the scale note, the fixed `Prices are raw daily closes…` sentence and the two field
+  hints. **Q12 outcome:** no DCA rule (DCA-01..06) or acceptance row requires the per-name figures, the summary
+  line or the swipe hint (`attachments/dca-app-spec.md` "Output" describes the old presentation that this brief
+  replaces, not a rule); they go. Logic files untouched; `$313,000` unchanged.
+  - Checks: `src/components/calculator/calculator.dom.test.tsx`, `src/lib/site/site.test.ts` (hero files,
+    `scheme-dark`), `qa/tools/calculator-page.mjs` (ST4-01..16 at 360 / 400 / 1024 / 1440, ST0-01..03 on the page,
+    Q8, before and after the regression run), `qa/tools/site.mjs` (`$313,000` from the label-value rows).
+  - **QA round 1 (2026-10-05, ≈ 23:00 ET; EL's decisions in the decision log).** D1: the hero title in a fixed
+    em box (one text node, 18 px × three lines on a phone, 40 / 44 px × two lines wide) and a hugging wash, plus
+    the size-adjusted `Schibsted Grotesk Fallback`; `calculator-page.mjs` counts every layout shift on cold,
+    cache-disabled loads (three per width). D2: `color-scheme: dark` on `<html>` (`shellHtmlClass()`), charcoal
+    and chalk on selects and options through the shell. D3: `Max drop`'s date on its own muted line in the value
+    cell (out of flow, so the figure always fits beside the label; the ` · ` stays in the text). N1: the method
+    sentence back as a caption (Q12). N4: wash 87.4 px (49% of the band at 360, 44% at 400). N7: ST0-05 against
+    the base PR's preview, signed in. Q16 decided; #72 (self-hosted fonts) PLANNED.
