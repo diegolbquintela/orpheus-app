@@ -18,6 +18,97 @@ Report to: Engineering Lead. Live URL: https://orpheus-app-beta.vercel.app. Fixt
 
 Exact expected numbers need fixtures (tickers, dates, amounts) from the owner. Until those exist, numeric checks are BLOCKED rather than guessed.
 
+## Site style: dark, mobile first (epic #66)
+
+Source of truth: [`attachments/site-style-spec.md`](../attachments/site-style-spec.md) (dark brief, re-scoped by
+Diego via CoS and EL, 2026-10-05 21:26 ET; the row text below is copied from its section 11). **A white style was
+proposed on 2026-10-05 and dropped at 21:26 ET; dark wins and nothing white gets merged.** The #53 dark style
+stands and is extended. Widths: phone 400 × 860, 1024 × 800, 1440 × 900, plus 360 × 780 for the calculator's
+phone rows (ST4-08..12). ST2 (hover) is retired; ST5a (dashboard content) is deferred while #71 is on hold.
+
+**Per-ticket QA:** each ticket's own rows plus a no-regression pass on everything else (the dashboard content
+always: ST0-05).
+
+| Day | Ticket | Rows | No-regression pass on |
+|---|---|---|---|
+| Mon Oct 5 | #67 (docs) | ST0-04 | n/a |
+| Mon Oct 5 | #68 dark shell | ST1 on every page; ST0-05 | page content everywhere unchanged (calculator, home, sign-in, dashboard) and still AA-readable |
+| Mon Oct 5 | #70 calculator | ST0-01..03, ST4 on `/calculator`; ST0-05 | `/`, `/dashboard/sign-in`, `/dashboard` |
+| Sat Oct 10 | #69 home | ST0-01..03, ST3 on `/`; ST0-05 | `/calculator` (ST4), sign-in, `/dashboard` |
+| Sun Oct 11 | #73 sign-in | ST0-01..03, ST5b on `/dashboard/sign-in`; ST0-05 | `/`, `/calculator`, `/dashboard` |
+| Sun Oct 11 | #72 leave-outs + regression | ST6 and every row above except ST5a, shipped pages | `/dashboard` (ST0-05) |
+| On hold | #71 dashboard | ST5a deferred | n/a |
+
+### ST0: tokens and the decision
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST0-01 | BLOCK | On every shipped page the page, bar and footer backgrounds compute to `#1e2124` and body text to `#f2f0eb`; no white surface remains on a shipped page (only the hero image itself is light). |
+| ST0-02 | BLOCK | Shipped pages use only the section 5 tokens; the green `#5cc08a` appears only on the chart line, the chart fill and the last-value pill; the font is Schibsted Grotesk. |
+| ST0-03 | BLOCK | Every text / token pair on a shipped page meets AA on dark (section 5 table: text ≥ 4.5:1, large text and non-text UI such as underlines, focus ring, chart line and pill ≥ 3:1); an axe-core run reports no `color-contrast` violation. |
+| ST0-04 | BLOCK | Docs: the decision log records that white was proposed on 2026-10-05 and dropped at 21:26 ET, and that the #53 dark style stands and is extended; no doc says white supersedes dark. (#67) |
+| ST0-05 | BLOCK | `/dashboard` content is untouched: only the bar and footer differ from `main`; holdings, chips, book, their styles and data render as before; released and visible; signed-out `/dashboard` still 307s to sign-in; no diff in `src/routes/dashboard.tsx`, `src/components/dashboard/*`, existing token values or `.field` / `.kicker` / `.section`; `qa/tools/dashboard-redesign.mjs --read-only` still passes. |
+
+### ST1: bar and footer on every page (#68)
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST1-01 | BLOCK | On every page (`/`, `/calculator`, `/dashboard`, `/dashboard/sign-in`, a 404) one thin charcoal bar (height ≤ 48 px), sticky on scroll: `Orpheus` left (→ `/`), `Calculator` and `Dashboard` right (→ `/calculator`, `/dashboard`), in that order, no other items, no dropdowns; at 400 px all three fit on one line with no horizontal page scroll. |
+| ST1-02 | BLOCK | The current page's item has `aria-current="page"` and a visible mark (chalk and underline; the others dim): exactly one item on `/` (Orpheus), `/calculator`, `/dashboard` and `/dashboard/sign-in` (Dashboard); none on a 404. |
+| ST1-03 | BLOCK | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
+| ST1-04 | BLOCK | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
+
+### ST3: home `/` (#69, Sat Oct 10)
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST3-01 | BLOCK | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it; source and licence recorded in the repo; optimised, served from the app, explicit `width` and `height`, layout shift 0. |
+| ST3-02 | BLOCK | `01` and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type; at 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash. |
+| ST3-03 | BLOCK | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer. |
+| ST3-04 | BLOCK | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`. |
+
+### ST4: calculator `/calculator` (#70, Mon Oct 5)
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST4-01 | BLOCK | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG, ≤ 300 KB at 1440), served from the app, explicit `width` and `height`, layout shift 0. |
+| ST4-02 | BLOCK | `01` (small) and the `h1` `Dollar-cost average calculator.` sit lower left on the soft wash, in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone); chalk on the wash ≥ 4.5:1 at the worst pixel. |
+| ST4-03 | BLOCK | The fields (tickers with weights, start, end, starting capital, contribution, weekly or monthly) are borderless with a thin underline only (no box border, fill or radius; underline ≥ 3:1), with visible labels and a visible focus ring. |
+| ST4-04 | BLOCK | `US, EU and CA listings, one currency per basket.` is one line (no wrap at 360 or 400 px) directly under the form; no other note there (Q2). |
+| ST4-05 | BLOCK | One chart with one series (the DCA portfolio value): a green line, a soft green fill and the last value in a small green pill (night text on green, same money format as the results); no second chart and no chart note. |
+| ST4-06 | BLOCK | Results are `Lump sum` and `DCA` as label-value rows with the existing metric labels; no boxes, no borders around them, no `<table>` (Q12); the regression case shows DCA `Total invested` `$313,000`. |
+| ST4-07 | BLOCK | No instruction text: the intro paragraph, the swipe hint and the chart scale note are gone (Q2, Q12). |
+| ST4-08 | BLOCK | Phone (360 and 400): the fields stack, one under another, each full width (a basket row's ticker above its weight, Q15); the listings note is still one line under the form. |
+| ST4-09 | BLOCK | Phone (360 and 400): the chart is full width (the content column's full width, same edges as the fields), with the green line, the soft fill and the pill unclipped. |
+| ST4-10 | BLOCK | Phone (360 and 400): Lump sum and DCA sit in two columns when they fit (every value whole on one line, nothing clipped, no horizontal scroll; labels may wrap) and stack (Lump sum above DCA) only when they don't. |
+| ST4-11 | BLOCK | Phone (360 and 400): the painting is a short band (≤ 200 px tall), with `01` and the title lower left on the wash and Venus visible. |
+| ST4-12 | BLOCK | Phone otherwise the same as wide: dark page, Botticelli hero, borderless underlines, green line, fill and pill, label-value results (ST4-01..07 hold at 360 and 400); the wide page (1024, 1440) as briefed; no horizontal page scroll at 360, 400, 1024 or 1440. |
+| ST4-13 | BLOCK | Logic untouched: `qa/tools/site.mjs` passes (`$313,000`; VOD.L 400 with the exact message; it may only change how it finds the value); DCA-01..06 pass; no diff in `src/lib/dca/*` or `src/routes/api/chart.ts`. |
+
+### ST5a: dashboard content (#71): ON HOLD, deferred
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST5a-01 | DEFERRED | *(deferred)* Rewritten from the dashboard's new brief when it lands (via CoS). Not checked in this epic; until then ST0-05 applies. |
+
+### ST5b: sign-in `/dashboard/sign-in` (#73, Sun Oct 11)
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST5b-01 | BLOCK | Dark: charcoal page, chalk type, underline fields (as ST4-03) using sign-in-only classes; `.field` and `.kicker` unchanged. |
+| ST5b-02 | BLOCK | The page shows exactly `Email`, `Password`, the submit button and the `Create an account` link, plus the heading (Q4) and an error line only after a failed attempt; the invite-only note is gone. Create-account mode mirrors it with a `Sign in` link. |
+| ST5b-03 | BLOCK | The auth logic is unchanged: sign-in, sign-up (allow-list), the redirect to `/dashboard`, the signed-out matrix in `scripts/release-smoke.mjs`. |
+
+### ST6: leave-outs, contrast and regression (#72, Sun Oct 11, shipped pages)
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| ST6-01 | BLOCK | No painting except the Jordaens on home and the Botticelli on the calculator (no artwork `img`, `picture` or CSS `background-image` on sign-in or elsewhere). |
+| ST6-02 | BLOCK | No instruction text on the shipped pages: home only hero and Platforms; the calculator only hero, form, note, chart and results (Q2, Q12); sign-in only ST5b-02. |
+| ST6-03 | BLOCK | AA on dark on every shipped page at every width, including focus, error and disabled-but-readable states (ST0-03). |
+| ST6-04 | BLOCK | The shell holds everywhere: ST1 passes on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` and a 404; ST0-05 passes. |
+| ST6-05 | BLOCK | Regression on the preview, then production, at 400 / 1024 / 1440: every ST row except ST5a, DCA-01..06 (`$313,000`), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. The dashboard's full regression waits for its new brief. |
+
 ## Dashboard: mobile-first redesign (epic #53)
 
 Source: epic #53 (architect's brief and acceptance, approved by Diego via Chief of Staff, 2026-10-04), written out
@@ -40,7 +131,7 @@ instructions under the table.
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
-| DR0-01 | BLOCK | Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
+| DR0-01 | BLOCK | (From #68, epic #66: the menu and footer follow ST1 below; the dashboard content part of this row still holds.) Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
 | DR0-02 | BLOCK | Dashboard released: production `/dashboard` signed out → 307 to `/dashboard/sign-in`; `/api/dashboard/status` → 200 `{"dashboard":"enabled"}`. The PR diff touches no env var, `DASHBOARD_ENABLED`, `flag.server.ts` or `vercel.json` env. |
 | DR0-03 | BLOCK | Signed-out matrix unchanged: `node scripts/release-smoke.mjs <preview> preview` and `<production> on` pass every check. |
 | DR0-04 | BLOCK | Calculator unchanged: `qa/tools/site.mjs` passes ($313,000 for PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly; VOD.L 400 with the exact message); DCA-01..06 pass. |

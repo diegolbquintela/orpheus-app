@@ -13,6 +13,11 @@ each one has its link inline. When a provider page does not say something, this 
 
 Spec PR: #8. Tickets: see [Tickets](#tickets).
 
+**Site style 2026-10-05 (epic #66, dark):** `attachments/site-style-spec.md`. The dark style below stands and is
+extended (a white style was proposed and dropped at 21:26 ET). From #68 only the shared bar and footer change on
+`/dashboard`; the dashboard content, its styles and data are untouched, and its own restyle (#71) is on hold for
+a new brief.
+
 **Redesign 2026-10-04 (epic #53, mobile first):** [section 0](#0-redesign-mobile-first-epic-53-source-of-truth-for-tickets-26)
 is the source of truth for the dashboard's page, add form, metrics and book in tickets 2–6 (#55–#59). It
 wins over sections 1, 9 and 12 where they differ (the old acceptance IDs are mapped in 0.8). The data math
@@ -267,7 +272,7 @@ MC.PA) for book figures.
 
 | ID | Pass when |
 |---|---|
-| DR0-01 | Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
+| DR0-01 | (From #68, epic #66: the menu and footer follow site-style ST1; the rest of this row still holds.) Dark style unchanged: page, menu, footer and controls use the same colours and fonts as production before the ticket (computed background / text colours match; no light theme, no new accent colour). |
 | DR0-02 | Dashboard released: production `/dashboard` signed out → 307 to `/dashboard/sign-in`; `/api/dashboard/status` → 200 `{"dashboard":"enabled"}`. The PR diff touches no env var, `DASHBOARD_ENABLED`, `flag.server.ts` or `vercel.json` env. |
 | DR0-03 | Signed-out matrix unchanged: `node scripts/release-smoke.mjs <preview> preview` and `<production> on` pass every check. |
 | DR0-04 | Calculator unchanged: `qa/tools/site.mjs` passes ($313,000 for PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly; VOD.L 400 with the exact message); DCA-01..06 pass. |

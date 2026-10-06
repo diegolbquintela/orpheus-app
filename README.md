@@ -115,6 +115,16 @@ The app is hosted on Vercel.
 
 ## Dashboard (released, behind a flag)
 
+### Site style: dark, mobile first (epic #66, tickets #67–#73)
+
+Re-scoped 2026-10-05 21:26 ET (Diego via CoS and EL): **dark mode wins.** A white style was proposed the same
+evening and dropped; nothing white gets merged. The #53 dark style stands and is extended: a charcoal shell on
+every page (#68, tonight), the calculator with a Botticelli hero, underline fields, one green chart line and
+label-value results, phone layout included (#70, tonight), home with the Jordaens hero (#69, Sat Oct 10),
+sign-in (#73) and the regression pass on the shipped pages (#72) on Sun Oct 11. The dashboard's content is on
+hold (#71); on `/dashboard` only the shared bar and footer change. Spec and ST rows:
+[`attachments/site-style-spec.md`](attachments/site-style-spec.md); QA: [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md).
+
 A signed-in dashboard, built ticket by ticket (spec: `attachments/dashboard-spec.md`), gated by one
 **server-only** env var, `DASHBOARD_ENABLED`. As of 2026-10-04 production serves it (issue #46; read-only smoke
 check the same day).
@@ -167,7 +177,7 @@ and site regression in one go with `qa/tools/dashboard-redesign.mjs` at 400, 102
 - **Book:** one total under the list; a donut of the same weights, largest first, `Other` past ten names;
   weighted figures for the kept chips, with dashes left out, not counted as zero.
 - **Left out:** Connect broker, K/M/B amounts, an ownership toggle, download, instructions under the table.
-- **Unchanged:** the dark style, the dashboard stays released (`DASHBOARD_ENABLED` and env vars untouched),
+- **Unchanged:** the dark style (epic #66 keeps and extends it), the dashboard stays released (`DASHBOARD_ENABLED` and env vars untouched),
   the signed-out behaviour, the calculator ($313,000 regression), noindex, the analytics (and referrer)
   rules, no buy/sell wording. The data math (closes, FX, SEC metrics, weighting) doesn't change.
 

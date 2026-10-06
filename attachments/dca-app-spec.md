@@ -16,6 +16,12 @@ Sequence after this app, not in scope now:
 
 ## Site and routes (#46, approved by Diego 2026-10-04)
 
+**Look updated by epic #66 (dark, 2026-10-05; `attachments/site-style-spec.md`):** the bar and footer keep their
+items and copy and go charcoal on every page (#68); the calculator gets the Botticelli hero, the title
+`Dollar-cost average calculator.`, underline fields, one green chart line and label-value results, with an
+approved phone layout (#70); home gets the Jordaens hero, `Investment driven by research.` and the Platforms
+lines (#69). The routes, the redirect, noindex, analytics and every calculator rule here stay as they are.
+
 The app is one site with three routes. The calculator rules below don't change.
 
 - **`/calculator`**: this calculator, moved off `/` unchanged (same inputs, output, copy and six DCA rules,

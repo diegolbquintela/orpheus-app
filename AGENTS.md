@@ -19,6 +19,37 @@ affects the repo.
   in the PR body, for each of the three, why it did not change.
 - QA fails a PR that skips this.
 
+## Site style: dark, mobile first (epic #66). Read this before any styling work
+
+*Harness for #67 (harness + specs), #68 (dark shell, every page), #70 (calculator), #69 (home), #73 (sign-in),
+#72 (leave-outs and regression); #71 (dashboard content) is ON HOLD. Brief re-scoped by Diego via CoS and EL,
+2026-10-05 21:26 ET.*
+
+- **Source of truth:** `attachments/site-style-spec.md` (the dark brief verbatim, decision log, schedule, exact
+  copy, tokens with measured contrast, shell / calculator / phone / home / sign-in rules, ST rows, questions).
+  Harness first, then the spec, then the work; the spec beats chat. If they disagree, stop and ask EL.
+- **Decision:** a white style was proposed on 2026-10-05 and **dropped at 21:26 ET; dark wins.** Nothing white
+  gets merged. The #53 dark style stands and is extended (charcoal page, bar and footer, off-white type). Don't
+  reintroduce white surfaces on shipped pages.
+- **Loop:** one PR at a time: draft PR off the latest `main` ("Closes #N. Part of #66."), EL answers, QA on the
+  preview, merge, prod check.
+- **Schedule:** Mon Oct 5 (tonight): #67, then #68, then #70. Sat Oct 10: #69 home. Sun Oct 11: #73 sign-in, then
+  #72 on the shipped pages only. #71 dashboard: on hold (ST5a deferred).
+- **Shell (#68) on every page:** restyle the one `SiteMenu` and one `SiteFooter` (charcoal, `Orpheus` left,
+  `Calculator` and `Dashboard` right, current page marked; footer `Orpheus Wisdom`). **On `/dashboard` only the
+  bar and footer may change:** don't touch `src/routes/dashboard.tsx`, `src/components/dashboard/*`, existing
+  token values or the shared `.field` / `.kicker` / `.section` classes; the dashboard stays released and visible.
+  Add new dark tokens next to the old ones (spec §5).
+- **Calculator (#70):** Botticelli hero with `01` + `Dollar-cost average calculator.`, underline-only fields with
+  their own class, listings note one line under the form, one green chart line + fill + last-value pill, Lump sum
+  and DCA as label-value rows (no table). Phone layout (spec §7a, checked at 360 and 400): fields stack, chart
+  full width, the two result columns side by side if they fit, short painting band. Logic files untouched;
+  `$313,000` unchanged.
+- **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
+  and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
+  two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.
+- **Copy:** use the exact strings in spec §4.
+
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 
 *Harness for tickets 1–6 of epic #53 (#54 harness + specs, #55 holdings list, #56 add holding, #57 metrics
@@ -33,7 +64,8 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
 - **Order:** harness first (this section), then the specs (spec section 0, `README.md`,
   `qa/CANONICAL-AC-PACK.md`), all in ticket 1's PR; then tickets 2–6, one PR each, in order, each off the
   latest `main` after the previous one merges. Ticket 1 changes no app code.
-- **Rules (#53):** no hires. Don't change the visual style (same dark desk: colours, fonts, tokens). Don't
+- **Rules (#53):** no hires. Don't change the visual style (same dark desk: colours, fonts, tokens; epic #66
+  keeps and extends it, and from #68 only the shared bar and footer change on `/dashboard`). Don't
   hide the dashboard: it stays released, and nobody touches `DASHBOARD_ENABLED`, the flag code or any env
   var. Small tickets; a draft PR is the proof of start; QA on the preview before merge, then on production.
 - **Phone first:** build and check at about 400 px first (QA: 400 × 860), then wide screen (1024 px and up;
