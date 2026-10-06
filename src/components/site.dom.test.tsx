@@ -129,3 +129,53 @@ describe("footer", () => {
     assert.equal(footer.querySelectorAll("a, button").length, 0);
   });
 });
+
+// Dark shell (epic #66, #68; spec ST1): one charcoal bar and one charcoal footer, the same markup on every
+// route (including /dashboard, sign-in and the 404), off-white / dim type, current page off-white + underlined.
+describe("dark shell (#68, ST1)", () => {
+  const ROUTES = [
+    ["/", "Orpheus"],
+    ["/calculator", "Calculator"],
+    ["/dashboard", "Dashboard"],
+    ["/dashboard/", "Dashboard"],
+    ["/dashboard/sign-in", "Dashboard"],
+    ["/__not-found", null],
+    ["/no-such-page", null],
+  ] as const;
+
+  for (const [path, want] of ROUTES)
+    it(`${path}: charcoal bar, ${want ?? "no item"} marked (aria-current + off-white underline), others dim`, async () => {
+      const el = await render(<SiteMenu pathname={path} />);
+      const nav = el.querySelector("nav")!;
+      for (const c of ["bg-night", "text-chalk", "border-hair", "sticky", "top-0"]) assert.match(nav.className, new RegExp(`(^| )${c}( |$)`), c);
+      assert.doesNotMatch(nav.className, /bg-paper|bg-white|bg-card/);
+      assert.deepEqual(current(el), want ? [want] : []);
+      for (const a of nav.querySelectorAll("a")) {
+        // The visible mark is keyed on aria-current, so it can't drift from it.
+        assert.match(a.className, /aria-\[current=page\]:text-chalk/);
+        assert.match(a.className, /aria-\[current=page\]:underline/);
+        assert.match(a.className, /focus-visible:outline-chalk/);
+        assert.doesNotMatch(a.className, /hover:/, "no hover rule (ST2 retired)");
+      }
+      const right = [...nav.querySelectorAll("ul a")];
+      for (const a of right) assert.match(a.className, /(^| )text-dim( |$)/);
+      assert.match(nav.querySelector(":scope > div > a")!.className, /(^| )text-chalk( |$)/);
+    });
+
+  it("the same markup on every route except the aria-current attribute (one shared component)", async () => {
+    const strip = (html: string) => html.replace(/ aria-current="page"/g, "");
+    const htmls: string[] = [];
+    for (const [path] of ROUTES) htmls.push(strip((await render(<SiteMenu pathname={path} />)).innerHTML));
+    assert.equal(new Set(htmls).size, 1);
+  });
+
+  it("footer: charcoal band, only 'Orpheus Wisdom' in dim type", async () => {
+    const el = await render(<SiteFooter />);
+    const footer = el.querySelector("footer")!;
+    assert.match(footer.className, /(^| )bg-night( |$)/);
+    assert.match(footer.className, /(^| )border-hair( |$)/);
+    assert.match(footer.querySelector("p")!.className, /(^| )text-dim( |$)/);
+    assert.equal(footer.textContent, "Orpheus Wisdom");
+  });
+});
+

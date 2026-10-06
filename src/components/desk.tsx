@@ -169,7 +169,7 @@ export function Desk() {
   }
 
   return (
-    <div className="bg-paper">
+    <div className="bg-paper text-ink">
       <header className="bg-ink text-card">
         <div className="mast-grid mx-auto w-full max-w-6xl px-5 pt-16 pb-20 sm:px-8 sm:pt-24 sm:pb-28">
           <p className="kicker text-card/50">01</p>

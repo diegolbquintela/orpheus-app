@@ -125,6 +125,13 @@ sign-in (#73) and the regression pass on the shipped pages (#72) on Sun Oct 11. 
 hold (#71); on `/dashboard` only the shared bar and footer change. Spec and ST rows:
 [`attachments/site-style-spec.md`](attachments/site-style-spec.md); QA: [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md).
 
+**Landed: the dark shell (#68).** Every page now has the charcoal bar (Orpheus on the left, Calculator and
+Dashboard on the right, the current page off-white and underlined) and a charcoal footer reading "Orpheus
+Wisdom". Home, the calculator, sign-in and the 404 sit on a charcoal page with off-white type; their content is
+otherwise unchanged until its own ticket (the calculator, sign-in and home cards keep their white panels for
+now). On `/dashboard` only the bar and footer changed. QA: `qa/tools/site-shell.mjs` at 360, 400, 1024 and
+1440 px.
+
 A signed-in dashboard, built ticket by ticket (spec: `attachments/dashboard-spec.md`), gated by one
 **server-only** env var, `DASHBOARD_ENABLED`. As of 2026-10-04 production serves it (issue #46; read-only smoke
 check the same day).

@@ -10,6 +10,8 @@ import {
   HOME_LINE,
   homeRedirectHref,
   MENU_ITEMS,
+  shellBodyClass,
+  shellPage,
 } from "./site.ts";
 
 describe("site shell (#46)", () => {
@@ -105,3 +107,43 @@ describe("site shell (#46)", () => {
     assert.match(readFileSync("vite.config.ts", "utf8"), /"X-Robots-Tag": "noindex, nofollow"/);
   });
 });
+
+describe("dark shell page (#68, spec §6 / Q13)", () => {
+  it("charcoal page on every page except /dashboard itself (exact path; sign-in and 404 are dark)", () => {
+    for (const p of ["/", "/calculator", "/calculator/", "/dashboard/sign-in", "/dashboard/sign-in/", "/__not-found", "/nope", "/dashboardx"])
+      assert.equal(shellPage(p), "dark", p);
+    for (const p of ["/dashboard", "/dashboard/", "/dashboard//"]) assert.equal(shellPage(p), "dashboard", p);
+    assert.equal(shellBodyClass("/calculator"), "bg-night text-chalk");
+    assert.equal(shellBodyClass("/dashboard"), undefined, "/dashboard keeps main's white body around its content");
+  });
+
+  it("dark tokens added next to the old ones; no existing token value changed (the dashboard renders with them)", () => {
+    const css = readFileSync("src/styles.css", "utf8");
+    for (const [k, v] of [
+      ["paper", "#ffffff"], ["ink", "#1e2124"], ["muted", "#636363"], ["line", "#e3e3e3"], ["card", "#ffffff"],
+      ["danger", "#ff4136"], ["dca", "#2b5945"], ["focus", "#2b5945"],
+      ["night", "#1e2124"], ["chalk", "#f2f0eb"], ["dim", "#a8aeb4"], ["rule", "#8b9298"], ["hair", "#3a3f44"], ["green", "#5cc08a"], ["alert", "#ff8f87"],
+    ])
+      assert.match(css, new RegExp(`--color-${k}: ${v};`), k);
+  });
+
+  it("AA on charcoal for every text / token pair the shell uses (spec §5 ratios)", () => {
+    const lum = (hex: string) => {
+      const c = [0, 2, 4].map((i) => parseInt(hex.slice(1 + i, 3 + i), 16) / 255).map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const night = "#1e2124";
+    assert.ok(ratio("#f2f0eb", night) >= 14.1, "chalk");
+    assert.ok(ratio("#a8aeb4", night) >= 7.1, "dim");
+    assert.ok(ratio("#8b9298", night) >= 3, "rule (non-text)");
+    assert.ok(ratio("#5cc08a", night) >= 3, "green (non-text)");
+    assert.ok(ratio(night, "#5cc08a") >= 4.5, "night on the green pill");
+    assert.ok(ratio("#ff8f87", night) >= 4.5, "alert");
+    assert.ok(ratio("#2b5945", night) < 3, "the old focus green fails on charcoal, hence the chalk focus ring in the bar");
+  });
+});
+

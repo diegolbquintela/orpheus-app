@@ -9,7 +9,7 @@ export function Home() {
       </h1>
       <ul className="mt-12 grid gap-px border border-line bg-line sm:mt-16 sm:grid-cols-2">
         {HOME_CARDS.map((card) => (
-          <li key={card.href} className="bg-paper">
+          <li key={card.href} className="bg-paper text-ink">
             <a
               href={card.href}
               data-testid="home-card"
