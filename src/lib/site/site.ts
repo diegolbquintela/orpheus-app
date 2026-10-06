@@ -34,6 +34,9 @@ export const CALCULATOR_NOTE = "US, EU and CA listings, one currency per basket.
  * fit on the listings line at 360 px).
  */
 export const DIVIDENDS_CAPTION = "Dividends reinvested.";
+/** The fixed method sentence, word for word, one muted caption under the results (EL, QA round 1, N1; spec Q12). */
+export const METHOD_CAPTION =
+  "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.";
 
 /**
  * The page behind the shell (epic #66, #68): "dark" = charcoal page with off-white base type, on every page
@@ -46,6 +49,16 @@ export type ShellPage = "dark" | "dashboard";
 export function shellPage(pathname: string): ShellPage {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   return path === "/dashboard" ? "dashboard" : "dark";
+}
+
+/**
+ * The `<html>` classes for a page: `color-scheme: dark` on the root element of dark pages (#70 QA round 1, D2),
+ * so the document, its scrollbars and every native control (date pickers, select lists) use the dark scheme;
+ * `html.scheme-dark select, option` in styles.css also gives selects charcoal and chalk. The dashboard keeps
+ * main's light scheme.
+ */
+export function shellHtmlClass(pathname: string): string {
+  return shellPage(pathname) === "dark" ? "antialiased scheme-dark" : "antialiased";
 }
 
 /**

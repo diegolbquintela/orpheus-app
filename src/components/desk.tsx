@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Minus } from "lucide-react";
 import { runDesk, scaleWeights } from "@/lib/dca/simulate";
-import { CALCULATOR_NOTE, DIVIDENDS_CAPTION } from "@/lib/site/site";
+import { CALCULATOR_NOTE, DIVIDENDS_CAPTION, METHOD_CAPTION } from "@/lib/site/site";
 import { CalculatorHero } from "./calculator/hero";
 import { DcaChart } from "./calculator/dca-chart";
 import { ResultRows } from "./calculator/result-rows";
@@ -40,10 +40,11 @@ async function loadChart(ticker: string, start: string, end: string): Promise<Ch
 
 /**
  * The captions under the results (spec Q2, Q12): the dividends rule (DCA-01; it does not fit on the listings
- * line at 360 px), then only the run-specific lines. The fixed "Prices are raw daily closes…" sentence goes.
+ * line at 360 px), the fixed method sentence word for word (EL, QA round 1, N1: method text, not an
+ * instruction), then only the run-specific lines.
  */
 function captions(ready: Ready): string[] {
-  const lines = [DIVIDENDS_CAPTION];
+  const lines = [DIVIDENDS_CAPTION, METHOD_CAPTION];
   if (ready.scaled) lines.push(`Weights summed to ${ready.weightSum.toFixed(1)} and were scaled to 100.`);
   if (ready.run.missedContributions > 0) {
     const count = ready.run.missedContributions;

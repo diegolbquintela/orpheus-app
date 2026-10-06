@@ -3,8 +3,23 @@
 /* QA run logs, fixtures and tools are not app source: keep their class-like strings out of the CSS. */
 @source not "../qa";
 
+/* Size-adjusted local fallback for the web font (#70, QA round 1, D1; spec §7, ST4-01). Until Schibsted Grotesk
+   arrives from Google Fonts (display=swap), text renders in a local Arial-metric face scaled to Schibsted's
+   average glyph width (size-adjust) with Schibsted's own vertical metrics (ascent 2000, descent 528, line gap 0
+   on 2048 units, divided by the size adjust). Line boxes, baselines and text widths then barely change at the
+   swap, so nothing moves by the 3 px a layout shift needs. Liberation Sans and Arimo share Arial's metrics.
+   #72 self-hosts the font (planned) and can drop this. */
+@font-face {
+  font-family: "Schibsted Grotesk Fallback";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
+  size-adjust: 105.24%;
+  ascent-override: 92.8%;
+  descent-override: 24.5%;
+  line-gap-override: 0%;
+}
+
 @theme {
-  --font-sans: "Schibsted Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --color-paper: #ffffff;
   --color-ink: #1e2124;
   --color-muted: #636363;
@@ -45,6 +60,15 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+  /* Dark pages (shellPage "dark"; class on <html> and <body>): native controls follow the dark scheme, and a
+     select and its options carry charcoal and chalk explicitly, so the list Chrome opens is dark and readable
+     (#70 QA round 1, D2; spec §6). /dashboard keeps the light scheme around its white content. */
+  html.scheme-dark select,
+  html.scheme-dark option,
+  html.scheme-dark optgroup {
+    background-color: var(--color-night);
+    color: var(--color-chalk);
   }
   :focus-visible {
     outline: 2px solid var(--color-focus);
@@ -163,6 +187,18 @@
     column-gap: 1rem;
     row-gap: 0.25rem;
   }
+  /* Hero title (QA round 1, D1 / N4): fixed width and height in em, independent of which font renders, and one
+     text node (its start never moves). Phone: 18 px, 5.5em wide (the longest word, "calculator.", is 5.24em in
+     Schibsted, 4.71em in the fallback; "Dollar-cost" 5.16em, so it never breaks at its hyphen), three lines of
+     1.1 (two words never fit: 8.8em and up). From 1024 px: 9.5em wide ("Dollar-cost average" is 9.08em in
+     both), two lines. */
+  .calc-title {
+    width: 5.5em;
+    height: 3.3em;
+    font-size: 1.125rem;
+    font-weight: 400;
+    line-height: 1.1;
+  }
   .calc-wash {
     background: rgb(30 33 36 / 0.88);
     box-shadow: 0 0 12px 4px rgb(30 33 36 / 0.5);
@@ -186,9 +222,19 @@
       column-gap: 3rem;
       padding: 5rem 0;
     }
+    .calc-title {
+      width: 9.5em;
+      height: 2.2em;
+      font-size: 2.5rem;
+    }
     .calc-row {
       grid-template-columns: minmax(0, 1fr) 6.5rem 2.75rem;
       grid-template-areas: "ticker weight remove";
+    }
+  }
+  @media (min-width: 80rem) {
+    .calc-title {
+      font-size: 2.75rem;
     }
   }
   @media (prefers-reduced-motion: reduce) {

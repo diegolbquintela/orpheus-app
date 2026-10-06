@@ -12,7 +12,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { money } from "@/lib/dca/format";
 import { METRIC_ROWS } from "@/lib/dca/results";
 import type { DeskRun, PlanStats } from "@/lib/dca/types";
-import { CALCULATOR_NOTE } from "@/lib/site/site";
+import { CALCULATOR_NOTE, METHOD_CAPTION } from "@/lib/site/site";
 import { Desk } from "../desk";
 import { DcaChart } from "./dca-chart";
 import { ResultRows } from "./result-rows";
@@ -116,7 +116,20 @@ describe("calculator results (#70, ST4-06, ST4-10)", () => {
     }
     const invested = metrics[0].querySelector('[data-plan="dca"] dd')!;
     assert.equal(invested.textContent, "$313,000");
-    assert.ok(invested.classList.contains("whitespace-nowrap"));
+    assert.ok(invested.querySelector('[data-part="main"]')!.classList.contains("whitespace-nowrap"));
+  });
+
+  it("Max drop: the figure on the label's line, the date on its own muted line, wording unchanged (QA r1, D3)", async () => {
+    const el = await render(<ResultRows run={RUN} currency="USD" />);
+    const dd = el.querySelector('[data-key="drop"] [data-plan="lump"] dd')!;
+    const drop = METRIC_ROWS.find((m) => m.key === "drop")!;
+    assert.equal(dd.textContent, drop.value(RUN.lump, "USD"), "the separator stays in the text");
+    assert.match(dd.querySelector('[data-part="main"]')!.textContent!, /%$/);
+    const date = dd.querySelector('[data-part="date"]')!;
+    assert.equal(date.textContent, "2022-12-28");
+    assert.ok(["absolute", "text-xs", "text-dim", "whitespace-nowrap"].every((c) => date.classList.contains(c)));
+    assert.ok(dd.classList.contains("relative") && dd.classList.contains("pb-4"), "room for the date line");
+    assert.ok(dd.querySelector(".sr-only"));
   });
 
   it("no table, no boxes: no <table>, no border or background classes on the rows", async () => {
@@ -183,6 +196,34 @@ describe("calculator page (#70, ST4-01..04, ST4-07)", () => {
     assert.equal(el.querySelector('[data-testid="hero-wash"] p')!.textContent, "01");
     assert.equal(el.querySelectorAll("h1").length, 1);
     assert.equal(el.querySelector("h1")!.textContent, "Dollar-cost average calculator.");
+  });
+
+  it("hero title and wash: font-independent sizes (QA r1, D1 / N4)", async () => {
+    const el = await render(<Desk />);
+    const h1 = el.querySelector("h1")!;
+    assert.ok(h1.classList.contains("calc-title"));
+    assert.equal(h1.childNodes.length, 1, "one text node: its start never moves when the font swaps");
+    const t = rule(".calc-title");
+    assert.match(t, /width: 5\.5em;/);
+    assert.match(t, /height: 3\.3em;/);
+    assert.match(t, /line-height: 1\.1;/);
+    assert.match(t, /font-size: 1\.125rem;/);
+  });
+
+  it("a size-adjusted local fallback for the web font (QA r1, D1)", () => {
+    assert.match(css, /font-family: "Schibsted Grotesk Fallback";/);
+    assert.match(css, /size-adjust: 105\.24%;/);
+    assert.match(css, /ascent-override: 92\.8%;/);
+    assert.match(css, /--font-sans:\s*"Schibsted Grotesk", "Schibsted Grotesk Fallback"/);
+  });
+
+  it("selects and options on dark pages: charcoal and chalk (QA r1, D2)", () => {
+    assert.match(css, /html\.scheme-dark select,\s*html\.scheme-dark option,\s*html\.scheme-dark optgroup \{\s*background-color: var\(--color-night\);\s*color: var\(--color-chalk\);/);
+  });
+
+  it("captions: Dividends reinvested., then the method sentence word for word (EL N1)", () => {
+    assert.equal(METHOD_CAPTION, "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.");
+    assert.match(readFileSync(join(process.cwd(), "src/components/desk.tsx"), "utf8"), /const lines = \[DIVIDENDS_CAPTION, METHOD_CAPTION\];/);
   });
 
   it("no instruction text (intro, swipe hint, scale note, field hints)", async () => {

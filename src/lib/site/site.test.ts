@@ -11,6 +11,7 @@ import {
   homeRedirectHref,
   MENU_ITEMS,
   shellBodyClass,
+  shellHtmlClass,
   shellPage,
 } from "./site.ts";
 
@@ -112,6 +113,11 @@ describe("dark shell page (#68, spec §6 / Q13)", () => {
     for (const p of ["/dashboard", "/dashboard/", "/dashboard//"]) assert.equal(shellPage(p), "dashboard", p);
     assert.equal(shellBodyClass("/calculator"), "bg-night text-chalk scheme-dark");
     assert.equal(shellBodyClass("/dashboard"), undefined, "/dashboard keeps main's white body around its content");
+    // D2 (QA round 1): color-scheme dark on <html> too, not only on <body>.
+    assert.equal(shellHtmlClass("/calculator"), "antialiased scheme-dark");
+    assert.equal(shellHtmlClass("/"), "antialiased scheme-dark");
+    assert.equal(shellHtmlClass("/dashboard/sign-in"), "antialiased scheme-dark");
+    assert.equal(shellHtmlClass("/dashboard"), "antialiased");
   });
 
   it("dark tokens added next to the old ones; no existing token value changed (the dashboard renders with them)", () => {

@@ -7,13 +7,18 @@
 //   ST4-01 Botticelli band under the bar: alt names the painting; <picture> with AVIF + WebP sources and a JPEG
 //          <img>, srcset + sizes, width / height on the img and every source; served from the app; every hero
 //          file ≤ 300 KB and the file served at 1440 px, 2x (DPR 2) ≤ 300 KB
-//   ST4-01 layout shift: a PerformanceObserver ('layout-shift', buffered) from before the first paint until 1.5 s
-//          after load, the hero files held back 1 s, cold and warm: the hero causes none (band, image and wash
-//          anchor never move); the page total is reported (the shell's web-font swap; spec Q16) and must be < 0.001
+//   ST4-01 layout shift (QA round 1, D1): a PerformanceObserver ('layout-shift', buffered) from before the first
+//          paint until 2 s after load, counting EVERY entry (no hadRecentInput exclusion: Playwright's isMobile /
+//          hasTouch emulation tags load-time shifts as recent input). Cold loads only: a fresh context each time
+//          with the cache disabled (CDP), CLS_RUNS (default 3) times per width, the last one with the hero files
+//          held back 1 s. Pass: CLS from the hero = 0 (no entry with a source inside the band; band, image and
+//          wash still) and the page total < 0.001 on every run. A strict page 0 is #72 (self-hosted fonts; Q16)
 //   ST4-02 `01` and the exact h1 lower left in plain type (site font, weight 400, no caps, no letter-spacing,
 //          no text effects; h1 ≤ 32 px on a phone, ≤ 48 px wide); chalk on the wash ≥ 4.5:1 at the worst pixel
 //          (the wash screenshotted with the text made transparent, the lightest pixel measured)
 //   ST4-15 (new, EL A4) the wash box contains the bounding boxes of `01` and the title (element + text rects)
+//   ST4-15 (N4, QA round 1) the wash hugs the text (≤ 12 px of padding a side on a phone, ≤ 24 px wide),
+//          anchored lower left, and is at most 50% of the band's height at 360 and 400
 //   ST4-14 (new, EL A3) the wash (with its soft shadow) and the text do not overlap Venus: her region comes from
 //          the crop's figure box (data-figure-*), the object-fit / object-position maths and the img box; a
 //          screenshot with both boxes outlined is saved (hero-<width>.png)
@@ -22,6 +27,8 @@
 //          class, no box border, no fill, no radius, 1 px rule (#8b9298) underline, visible label, a 2 px chalk
 //          focus ring; ST4-16 the primary button: chalk fill, night text, no radius, chalk focus ring
 //   ST4-04 the listings note: exact text, 13 px, dim, one line (no wrap, not clipped) directly under the form
+//   ST0-01 / ST4-03 (D2, QA round 1) color-scheme dark on <html> and <body>; the select and every <option>:
+//          charcoal background, chalk text, ≥ 4.5:1 (the list Chrome opens uses them); date inputs dark scheme
 //   ST4-07 / ST6-02 no instruction text (intro, swipe hint, scale note, field hints); ST6-01 one image, no CSS
 //          background-image on the page
 //   ST4-08 phone: the fields stack, full width, the ticker above its weight with the remove control beside it
@@ -31,10 +38,13 @@
 //   ST4-05 one chart, one series (one area, no line series), green line, 16% green fill, the last value in a
 //          22 px green pill (night text) equal to the DCA "NLV at end" value, unclipped
 //   ST4-06 eight metrics, captions word for word, `Lump sum` / `DCA` label-value rows, no <table>, no boxes or
-//          borders; DCA Total invested $313,000; captions: "Dividends reinvested." and no fixed method sentence
+//          borders; DCA Total invested $313,000; captions: "Dividends reinvested.", then the fixed method sentence
+//          word for word (EL N1), then only run-specific lines
 //   ST4-09 phone: the chart spans the content column (same edges as the form)
 //   ST4-10 two columns while each column is ≥ 150 px, else stacked (Lump sum above DCA); every value on one
-//          line inside its column (expected: two columns at 360 and 400)
+//          line inside its column (expected: two columns at 360 and 400); (D3, QA round 1) every label-value
+//          row's main line is one line: the value's figure on the label's line, never wrapped under it (a date
+//          sits on its own muted line inside the value cell)
 //   ST4-12 wide: form left, results right; no horizontal scroll at any width
 // Screenshots: calculator-<w>.png (before), calculator-<w>-result.png (after), hero-<w>.png (boxes outlined).
 //   node qa/tools/calculator-page.mjs --base-url <url> --out <dir>
@@ -78,6 +88,8 @@ const LABELS = [
 ];
 const CASE = { rows: [["PLTR", 50], ["TQQQ", 50]], start: "2020-10-02", end: "2026-10-01", capital: 1000, contribution: 1000, frequency: "weekly" };
 const MAX_BYTES = 300 * 1024;
+const RUNS = Number(process.env.CLS_RUNS ?? 3); // cold loads per width for ST4-01
+const METHOD = "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.";
 const lum = ([r, g, b]) => {
   const f = (x) => ((x /= 255) <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
@@ -217,6 +229,7 @@ async function heroGeometry(page) {
       washOuter: { left: wr.left - ext, top: wr.top - ext, right: wr.right + ext, bottom: wr.bottom + ext },
       shadowExtent: ext,
       textRects,
+      textBoxes: [...wash.querySelectorAll("p, h1")].map((el) => box(el.getBoundingClientRect())),
       numeral: { text: numeral.textContent, ...style(numeral) },
       h1: { text: h1.textContent, count: document.querySelectorAll("h1").length, ...style(h1) },
       sources: [...hero.querySelectorAll("picture source")].map((s) => ({ type: s.type, media: s.media, srcset: s.srcset, sizes: s.sizes, width: s.getAttribute("width"), height: s.getAttribute("height") })),
@@ -255,6 +268,17 @@ async function heroChecks(browser, page, tag, mobile) {
   check(`${tag} ST4-02 title ≤ ${mobile ? 32 : 48} px; 01 small (12 px)`, g.h1.size <= (mobile ? 32 : 48) && g.numeral.size === 12, [g.h1.size, g.numeral.size]);
   check(`${tag} ST4-02 lower left: wash in the left half, ≤ 32 px from the band's bottom`, g.wash.left < g.hero.width / 2 && g.wash.right < g.hero.width * 0.6 && g.hero.bottom - g.wash.bottom <= 32 && g.hero.bottom - g.wash.bottom >= 0, { wash: g.wash, heroBottom: g.hero.bottom });
   check(`${tag} ST4-15 the wash contains the 01 and title boxes`, g.textRects.every((r) => inside(r, g.wash)), { wash: g.wash, texts: g.textRects.length });
+  // N4: the wash hugs the text (padding per side from the union of the 01 and title element boxes), lower left.
+  const u = g.textBoxes.reduce((a, b) => ({ left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom) }));
+  const pad = [u.top - g.wash.top, g.wash.right - u.right, g.wash.bottom - u.bottom, u.left - g.wash.left].map((v) => Math.round(v * 10) / 10);
+  const maxPad = mobile ? 12 : 24;
+  check(`${tag} ST4-15 (N4) the wash hugs the text: padding ≤ ${maxPad} px a side (top, right, bottom, left)`, pad.every((v) => v >= 0 && v <= maxPad), { padding: pad });
+  if (mobile) {
+    const share = g.wash.height / g.hero.height;
+    check(`${tag} ST4-15 (N4) wash ≤ 50% of the band height (${Math.round(g.wash.height * 10) / 10} of ${g.hero.height} px)`, share <= 0.5, { wash: g.wash.height, band: g.hero.height, share: Math.round(share * 1000) / 1000 });
+    R.n4 ??= {};
+    R.n4[page.viewportSize().width] = { wash: g.wash.height, band: g.hero.height, share };
+  }
   const hit = overlap(g.washOuter, g.venus) + g.textRects.reduce((s, r) => s + overlap(r, g.venus), 0);
   check(`${tag} ST4-14 01 / title / wash (incl. ${g.shadowExtent} px shadow) clear of Venus`, hit === 0, { washOuterRight: Math.round(g.washOuter.right), venusLeft: Math.round(g.venus.left), venus: g.venus });
   if (mobile) {
@@ -324,7 +348,26 @@ async function formChecks(page, tag, mobile, viewport) {
   });
   const want = ["calc-field"];
   check(`${tag} ST4-03 seven fields, each with the calculator field class (not .field)`, f.fields.length === 7 && f.fields.every((x) => want.every((c) => x.cls.split(" ").includes(c)) && !x.cls.split(" ").includes("field")), f.fields.map((x) => x.cls));
-  check(`${tag} ST4-03 borderless: no box border, no fill, no radius; 1 px rule underline`, f.fields.every((x) => x.border === "0px 0px 0px" && x.bg === "rgba(0, 0, 0, 0)" && x.radius === "0px" && x.under === `1px solid ${RULE}`), f.fields.map((x) => [x.border, x.under, x.bg, x.radius]));
+  // No fill: transparent; the select carries the page's own charcoal (D2), the same colour as the page behind it.
+  check(`${tag} ST4-03 borderless: no box border, no fill (select: the page's charcoal), no radius; 1 px rule underline`, f.fields.every((x) => x.border === "0px 0px 0px" && (x.bg === "rgba(0, 0, 0, 0)" || (x.type === "select-one" && x.bg === NIGHT)) && x.radius === "0px" && x.under === `1px solid ${RULE}`), f.fields.map((x) => [x.border, x.under, x.bg, x.radius]));
+  // D2: the select and its options are charcoal with chalk text (≥ 4.5:1), so the list Chrome opens is dark;
+  // color-scheme dark on <html> (and <body>); the date inputs use the dark scheme (dark pickers).
+  const sel = await page.evaluate(() => {
+    const s = document.querySelector("[data-testid=calculator-form] select");
+    const cs = (e) => { const c = getComputedStyle(e); return { bg: c.backgroundColor, color: c.color, scheme: c.colorScheme }; };
+    return {
+      html: getComputedStyle(document.documentElement).colorScheme,
+      body: getComputedStyle(document.body).colorScheme,
+      select: cs(s),
+      options: [...s.options].map((o) => ({ text: o.textContent, ...cs(o) })),
+      dates: [...document.querySelectorAll("input[type=date]")].map((d) => cs(d).scheme),
+    };
+  });
+  const readable = (x) => rgb(x.bg).length === 3 && !/rgba\(.*, 0\)$/.test(x.bg) && ratio(rgb(x.color), rgb(x.bg)) >= 4.5;
+  check(`${tag} D2 color-scheme dark on <html> and <body>`, sel.html === "dark" && sel.body === "dark", { html: sel.html, body: sel.body });
+  check(`${tag} D2 select: charcoal background, chalk text (${ratio(rgb(sel.select.color), rgb(sel.select.bg))}:1)`, sel.select.bg === NIGHT && sel.select.color === CHALK && readable(sel.select), sel.select);
+  check(`${tag} D2 every <option>: charcoal background, chalk text, ≥ 4.5:1 (${sel.options.length} options)`, sel.options.length >= 2 && sel.options.every((o) => o.bg === NIGHT && o.color === CHALK && readable(o)), sel.options);
+  check(`${tag} D2 date inputs use the dark scheme (dark pickers)`, sel.dates.length === 2 && sel.dates.every((d) => d === "dark"), sel.dates);
   check(`${tag} ST4-03 underline ≥ 3:1 on charcoal`, ratio(rgb(RULE), rgb(NIGHT)) >= 3, ratio(rgb(RULE), rgb(NIGHT)));
   check(`${tag} ST4-03 visible labels`, f.fields.every((x) => x.labelVisible) && JSON.stringify(f.fields.map((x) => x.label)) === JSON.stringify(["Ticker", "Weight", "Start", "End", "Starting capital", "Contribution", "Frequency"]), f.fields.map((x) => [x.label, x.labelVisible]));
   // Focus ring: Tab from the bar's last item into the form; every field and the button show a 2 px chalk ring.
@@ -378,7 +421,14 @@ async function resultChecks(page, tag, mobile) {
     const ps = pill && getComputedStyle(pill);
     const metrics = [...result.querySelectorAll("[data-testid=result-metric]")].map((m) => {
       const dl = m.querySelector("dl");
-      const cols = [...dl.children].map((c) => ({ plan: c.dataset.plan, dt: c.querySelector("dt").textContent, dd: c.querySelector("dd").textContent, box: box(c), ddBox: box(c.querySelector("dd")), ddLines: new Set([...(() => { const r = document.createRange(); r.selectNodeContents(c.querySelector("dd")); return r.getClientRects(); })()].map((x) => Math.round(x.top))).size }));
+      const lines = (el) => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
+      const cols = [...dl.children].map((c) => {
+        const dt = c.querySelector("dt");
+        const dd = c.querySelector("dd");
+        const main = dd.querySelector("[data-part=main]") ?? dd;
+        const date = dd.querySelector("[data-part=date]");
+        return { plan: c.dataset.plan, dt: dt.textContent, dd: dd.textContent, box: box(c), ddBox: box(main), dtBox: box(dt), mainBox: box(main), mainLines: lines(main), dateBox: date && box(date), dateColor: date && getComputedStyle(date).color, ddLines: lines(main) };
+      });
       const ms = getComputedStyle(m);
       const ds = getComputedStyle(dl);
       return { key: m.dataset.key, caption: m.querySelector("p").textContent, captionBox: box(m.querySelector("p")), dl: box(dl), gap: parseFloat(ds.columnGap), cols, borders: [ms.borderTopWidth, ms.borderBottomWidth, ds.borderTopWidth, ds.borderBottomWidth, ...[...dl.children].map((c) => getComputedStyle(c).borderTopWidth)], bgs: [ms.backgroundColor, ds.backgroundColor, ...[...dl.children].map((c) => getComputedStyle(c).backgroundColor)] };
@@ -412,7 +462,7 @@ async function resultChecks(page, tag, mobile) {
   check(`${tag} ST4-06 no boxes, no borders`, r.metrics.every((m) => m.borders.every((b) => b === "0px") && m.bgs.every((b) => b === "rgba(0, 0, 0, 0)")), r.metrics[0]);
   const invested = r.metrics.find((m) => m.key === "invested")?.cols.find((c) => c.plan === "dca")?.dd;
   check(`${tag} ST4-06 / DCA-01..06 regression: DCA Total invested $313,000`, invested === "$313,000", invested);
-  check(`${tag} Q2 / Q12 captions: "Dividends reinvested." and only run-specific lines`, r.captions[0] === "Dividends reinvested." && !r.captions.some((c) => /raw daily closes/.test(c)), r.captions);
+  check(`${tag} Q2 / Q12 (N1) captions: "Dividends reinvested.", the method sentence word for word, then only run-specific lines`, r.captions[0] === "Dividends reinvested." && r.captions[1] === METHOD && r.captions.length === 2, r.captions);
   // ST4-10: two columns while each column is ≥ 150 px, else stacked; values on one line inside their column.
   const layout = r.metrics.map((m) => {
     const [a, b] = m.cols;
@@ -425,6 +475,20 @@ async function resultChecks(page, tag, mobile) {
   check(`${tag} ST4-10 two columns when each ≥ 150 px, else stacked (Lump sum above DCA)`, layout.every((l) => l.two === l.fits && l.stackedOrder), layout.map((l) => `${l.key}:${l.two ? "2col" : "stack"}`));
   if (mobile) check(`${tag} ST4-10 expected: two columns at this width (EL A1)`, layout.every((l) => l.two), layout.map((l) => l.two));
   check(`${tag} ST4-10 every value whole on one line, inside its column`, layout.every((l) => l.whole), layout.filter((l) => !l.whole));
+  // D3: each label-value row's main line is a single line: the figure on the label's line (bottoms aligned, right
+  // of the label), one line high (≤ 24 px); a date only on its own muted line under the figure, inside the cell.
+  const rows = r.metrics.flatMap((m) => m.cols.map((c) => ({ key: m.key, plan: c.plan, ...c })));
+  const rowBad = rows.filter((c) => {
+    const sameLine = Math.abs(c.mainBox.bottom - c.dtBox.bottom) <= 3 && c.mainBox.left >= c.dtBox.right;
+    const oneLine = c.mainLines === 1 && c.mainBox.height <= 24 && c.dtBox.height <= 24;
+    const date = !c.dateBox || (c.dateBox.top >= c.mainBox.bottom - 1 && c.dateBox.right <= c.box.right + 0.5 && c.dateBox.left >= c.box.left - 0.5 && c.dateBox.bottom <= c.box.bottom + 0.5 && c.dateColor === DIM);
+    return !(sameLine && oneLine && date);
+  });
+  check(`${tag} D3 every label-value row's main line is one line, no value wrapped under its label (${rows.length} rows)`, rowBad.length === 0, rowBad.length ? rowBad.map((c) => ({ key: c.key, plan: c.plan, dt: c.dtBox, main: c.mainBox, date: c.dateBox, cell: c.box })) : rows.filter((c) => c.dateBox).map((c) => `${c.key}/${c.plan}: label ${Math.round(c.dtBox.height)} px, figure ${Math.round(c.mainBox.height)} px on one line, date own line`));
+  R.rows ??= {};
+  R.rows[tag] = rows.map((c) => ({ key: c.key, plan: c.plan, label: c.dtBox.height, main: c.mainBox.height, cell: c.box.height, date: !!c.dateBox }));
+  const drop = rows.filter((c) => c.key === "drop");
+  check(`${tag} D3 Max drop: figure on the label's line, the date on its own muted line`, drop.length === 2 && drop.every((c) => c.dateBox && /^\d{4}-\d{2}-\d{2}$/.test(c.dd.split(" · ")[1] ?? "")), drop.map((c) => c.dd));
   check(`${tag} ST4-10 metric captions full width`, layout.every((l) => l.captionFull), layout.filter((l) => !l.captionFull).map((l) => l.key));
   check(`${tag} ST4-12 no horizontal page scroll (after a run)`, r.scroll[0] <= r.scroll[1], r.scroll);
   if (mobile) {
@@ -466,59 +530,60 @@ try {
   for (const [vp, viewport, mobile] of VIEWPORTS) {
     const tag = `[${vp}]`;
     const scale = mobile ? 2 : 1;
-    // ST4-01 (layout shift 0): CLS with a PerformanceObserver from before the first paint until 1.5 s after load, the hero files
-    // held back 1 s. Cold (first visit) and warm (reload: the web font cached). Pass: CLS = 0 warm; cold, no
-    // element in the hero or the page moves or resizes (the band keeps its size); the only shift allowed cold is
-    // the shell-wide web-font swap (Google Fonts, display=swap; text glyphs re-rendered in place), reported.
+    // ST4-01 (D1, QA round 1): CLS on cold loads, EVERY layout-shift entry counted (no hadRecentInput exclusion),
+    // a fresh context with the cache disabled each time, RUNS times; the last run holds the hero files back 1 s.
+    // From the hero: entries with any source inside the band. Pass: hero 0 and page total < 0.001 on every run.
     {
-      const page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
-      await page.route("**/hero/**", async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
-      await page.addInitScript(() => {
-        window.__cls = 0;
-        window.__shifts = [];
-        new PerformanceObserver((list) => {
-          for (const e of list.getEntries()) {
-            if (e.hadRecentInput) continue;
-            window.__cls += e.value;
-            window.__shifts.push({
-              value: e.value,
-              at: Math.round(e.startTime),
-              sources: (e.sources ?? []).map((s) => ({
-                node: s.node ? (s.node.nodeType === 3 ? "#text" : s.node.nodeName) : null,
-                inHero: !!s.node?.parentElement?.closest?.("[data-testid=calculator-hero]") || !!s.node?.closest?.("[data-testid=calculator-hero]"),
-                text: (s.node?.textContent ?? "").slice(0, 30),
-                from: s.previousRect && [s.previousRect.x, s.previousRect.y, s.previousRect.width, s.previousRect.height].map(Math.round),
-                to: s.currentRect && [s.currentRect.x, s.currentRect.y, s.currentRect.width, s.currentRect.height].map(Math.round),
-              })),
-            });
-          }
-        }).observe({ type: "layout-shift", buffered: true });
-        document.addEventListener("DOMContentLoaded", () => {
-          const h = document.querySelector("[data-testid=calculator-hero]");
-          window.__boxes = h && [h, h.querySelector("img"), h.querySelector("[data-testid=hero-wash]")].map((e, i) => { const r = e.getBoundingClientRect(); return (i < 2 ? [r.x, r.y, r.width, r.height] : [r.x, r.bottom]).map((v) => Math.round(v * 10) / 10).join(","); });
-          window.__fonts = document.fonts.status;
+      const runs = [];
+      for (let i = 0; i < RUNS; i++) {
+        const slow = i === RUNS - 1;
+        const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
+        const page = await ctx.newPage();
+        const cdp = await ctx.newCDPSession(page);
+        await cdp.send("Network.enable");
+        await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+        if (slow) await page.route("**/hero/**", async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
+        await page.addInitScript(() => {
+          window.__shifts = [];
+          new PerformanceObserver((list) => {
+            for (const e of list.getEntries()) {
+              const sources = (e.sources ?? []).map((s) => {
+                const el = s.node ? (s.node.nodeType === 1 ? s.node : s.node.parentElement) : null;
+                return {
+                  node: s.node ? (s.node.nodeType === 3 ? "#text" : s.node.nodeName || "(anonymous)") : null,
+                  inHero: !!el?.closest?.("[data-testid=calculator-hero]"),
+                  text: (s.node?.textContent ?? "").slice(0, 30),
+                  from: s.previousRect && [s.previousRect.x, s.previousRect.y, s.previousRect.width, s.previousRect.height].map(Math.round),
+                  to: s.currentRect && [s.currentRect.x, s.currentRect.y, s.currentRect.width, s.currentRect.height].map(Math.round),
+                };
+              });
+              window.__shifts.push({ value: e.value, at: Math.round(e.startTime), hadRecentInput: e.hadRecentInput, hero: sources.some((x) => x.inHero), sources });
+            }
+          }).observe({ type: "layout-shift", buffered: true });
+          document.addEventListener("DOMContentLoaded", () => {
+            const h = document.querySelector("[data-testid=calculator-hero]");
+            window.__boxes = h && [h, h.querySelector("img"), h.querySelector("[data-testid=hero-wash]")].map((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10).join(","); });
+            window.__fonts = document.fonts.status;
+          });
         });
-      });
-      const measure = async () => {
-        await page.waitForTimeout(1500);
-        return page.evaluate(() => {
+        await page.goto(`${base}/calculator`, { waitUntil: "load" });
+        await page.waitForTimeout(2000);
+        const m = await page.evaluate(() => {
           const h = document.querySelector("[data-testid=calculator-hero]");
-          const late = [h, h.querySelector("img"), h.querySelector("[data-testid=hero-wash]")].map((e, i) => { const r = e.getBoundingClientRect(); return (i < 2 ? [r.x, r.y, r.width, r.height] : [r.x, r.bottom]).map((v) => Math.round(v * 10) / 10).join(","); });
-          return { cls: window.__cls, shifts: window.__shifts, fontsAtDomReady: window.__fonts, heroBoxesStill: JSON.stringify(late) === JSON.stringify(window.__boxes), loaded: h.querySelector("img").complete };
+          const late = [h, h.querySelector("img"), h.querySelector("[data-testid=hero-wash]")].map((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v * 10) / 10).join(","); });
+          return { shifts: window.__shifts, fontsAtDomReady: window.__fonts, still: JSON.stringify(late) === JSON.stringify(window.__boxes), loaded: h.querySelector("img").complete, fontsNow: document.fonts.status };
         });
-      };
-      await page.goto(`${base}/calculator`, { waitUntil: "load" });
-      const cold = await measure();
-      await page.reload({ waitUntil: "load" });
-      const warm = await measure();
-      // Shifts caused by the hero: any source inside it other than its own text glyphs re-rendering in place.
-      const heroMoves = [...cold.shifts, ...warm.shifts].flatMap((x) => x.sources).filter((src) => src.inHero && src.node !== "#text");
-      check(`${tag} ST4-01 the hero causes no layout shift (band, image and wash anchor fixed while the image loads; cold and warm)`, cold.heroBoxesStill && warm.heroBoxesStill && heroMoves.length === 0 && cold.loaded && warm.loaded, { cold: cold.heroBoxesStill, warm: warm.heroBoxesStill, heroMoves });
-      check(`${tag} ST4-01 page CLS on load < 0.001 (cold ${cold.cls}, warm ${warm.cls}; exact 0 needs Q16: the shell's web-font swap)`, cold.cls < 0.001 && warm.cls < 0.001, { cold: cold.cls, warm: warm.cls });
+        const total = m.shifts.reduce((a, e) => a + e.value, 0);
+        const hero = m.shifts.filter((e) => e.hero).reduce((a, e) => a + e.value, 0);
+        runs.push({ run: i + 1, slowHero: slow, total, hero, still: m.still, loaded: m.loaded, fontsAtDomReady: m.fontsAtDomReady, fontsNow: m.fontsNow, shifts: m.shifts });
+        await ctx.close();
+      }
+      const r5 = (v) => Math.round(v * 1e5) / 1e5;
+      check(`${tag} ST4-01 CLS from the hero = 0 on ${RUNS} cold loads (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
+      check(`${tag} ST4-01 page CLS < 0.001 on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total < 0.001), runs.map((x) => r5(x.total)));
       R.cls ??= {};
-      R.cls[vp] = { cold: cold.cls, warm: warm.cls, coldShifts: cold.shifts, fontsAtDomReady: cold.fontsAtDomReady };
-      console.log(`INFO ${tag} CLS cold ${cold.cls} (web-font swap only: ${JSON.stringify(cold.shifts.flatMap((x) => x.sources.map((s) => `${s.node} "${s.text}"`)))}) · warm ${warm.cls}`);
-      await page.close();
+      R.cls[vp] = { width: viewport.width, hero: runs.map((x) => x.hero), total: runs.map((x) => x.total), runs };
+      console.log(`INFO ${tag} CLS cold × ${RUNS} (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);
     }
     const page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
     page.setDefaultTimeout(30000);
@@ -527,8 +592,8 @@ try {
     try {
       const res = await page.goto(`${base}/calculator`, { waitUntil: "networkidle" });
       check(`${tag} /calculator 200`, res?.status() === 200, res?.status());
-      const body = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color, getComputedStyle(document.body).colorScheme]);
-      check(`${tag} ST0-01 charcoal page, chalk type; color-scheme dark (native popups dark)`, body[0] === NIGHT && body[1] === CHALK && body[2] === "dark", body);
+      const body = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color, getComputedStyle(document.body).colorScheme, getComputedStyle(document.documentElement).colorScheme]);
+      check(`${tag} ST0-01 charcoal page, chalk type; color-scheme dark on <html> and <body> (native popups dark)`, body[0] === NIGHT && body[1] === CHALK && body[2] === "dark" && body[3] === "dark", body);
       await heroChecks(browser, page, tag, mobile);
       const before = join(CFG.out, `calculator-${viewport.width}.png`);
       await page.screenshot({ path: before, fullPage: true });
