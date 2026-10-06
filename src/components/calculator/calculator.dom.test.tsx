@@ -214,6 +214,9 @@ describe("calculator page (#70, ST4-01..04, ST4-07)", () => {
     assert.match(css, /font-family: "Schibsted Grotesk Fallback";/);
     assert.match(css, /size-adjust: 105\.24%;/);
     assert.match(css, /ascent-override: 92\.8%;/);
+    // Only the web font's own subsets: glyphs outside it (→ on the home cards, ↳) render as before (ST0-05).
+    assert.match(css, /unicode-range:\s*U\+0000-00FF,/);
+    assert.doesNotMatch(css.slice(css.indexOf("Schibsted Grotesk Fallback"), css.indexOf("@theme")), /U\+2190-|U\+2192|U\+21B3/);
     assert.match(css, /--font-sans:\s*"Schibsted Grotesk", "Schibsted Grotesk Fallback"/);
   });
 

@@ -9,7 +9,7 @@
 //          file ≤ 300 KB and the file served at 1440 px, 2x (DPR 2) ≤ 300 KB
 //   ST4-01 layout shift (QA round 1, D1): a PerformanceObserver ('layout-shift', buffered) from before the first
 //          paint until 2 s after load, counting EVERY entry (no hadRecentInput exclusion: Playwright's isMobile /
-//          hasTouch emulation tags load-time shifts as recent input). Cold loads only: a fresh context each time
+//          hasTouch emulation tags load-time shifts as recent input). Cold loads only: a fresh browser each time
 //          with the cache disabled (CDP), CLS_RUNS (default 3) times per width, the last one with the hero files
 //          held back 1 s. Pass: CLS from the hero = 0 (no entry with a source inside the band; band, image and
 //          wash still) and the page total < 0.001 on every run. A strict page 0 is #72 (self-hosted fonts; Q16)
@@ -531,13 +531,15 @@ try {
     const tag = `[${vp}]`;
     const scale = mobile ? 2 : 1;
     // ST4-01 (D1, QA round 1): CLS on cold loads, EVERY layout-shift entry counted (no hadRecentInput exclusion),
-    // a fresh context with the cache disabled each time, RUNS times; the last run holds the hero files back 1 s.
+    // a fresh browser with the cache disabled each time, RUNS times; the last run holds the hero files back 1 s.
     // From the hero: entries with any source inside the band. Pass: hero 0 and page total < 0.001 on every run.
     {
       const runs = [];
       for (let i = 0; i < RUNS; i++) {
         const slow = i === RUNS - 1;
-        const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
+        // A fresh browser per run: nothing (HTTP cache, in-memory web-font cache) survives from an earlier load.
+        const fresh = await chromium.launch();
+        const ctx = await fresh.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
         const page = await ctx.newPage();
         const cdp = await ctx.newCDPSession(page);
         await cdp.send("Network.enable");
@@ -576,7 +578,7 @@ try {
         const total = m.shifts.reduce((a, e) => a + e.value, 0);
         const hero = m.shifts.filter((e) => e.hero).reduce((a, e) => a + e.value, 0);
         runs.push({ run: i + 1, slowHero: slow, total, hero, still: m.still, loaded: m.loaded, fontsAtDomReady: m.fontsAtDomReady, fontsNow: m.fontsNow, shifts: m.shifts });
-        await ctx.close();
+        await fresh.close();
       }
       const r5 = (v) => Math.round(v * 1e5) / 1e5;
       check(`${tag} ST4-01 CLS from the hero = 0 on ${RUNS} cold loads (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
