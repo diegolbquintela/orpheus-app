@@ -23,6 +23,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-11, ≈ 09:14 ET | **#80 saved searches (Diego via CoS; EL kickoff):** a `Saved searches` button at the top of the calculator form, above the basket's Ticker, closed by default; open, a short list, newest first, each line `tickers · dates · DCA amount` (the search's own contribution in the results' money format, e.g. `$1,000`; the issue's `$100` is the example) with a `Load` that fills every field; the last 5 only, the oldest drops. Saved automatically by a successful calculation (no second save button); a refresh fills the last search and keeps the list; calculating keeps the search in the fields. **Storage (Diego, locked):** no login, never the account (#73 parked); this browser only, `localStorage` (two keys, section 7b); another device sees nothing; clearing the browser's site data clears both. ST4-19..ST4-24 added. |
 | 2026-10-11, ≈ 09:29 ET | **EL answers on #80 (PR #81 at `0b0512b`; docs-only commit, no code change):** **Q18 accepted:** a refresh restoring a multi-name basket may shift the form below the hero, page CLS under 0.1 is fine (hero CLS stays 0); the form is not hidden until the restore and the restore is not tap-only; a refresh still fills the last search (ST4-22). **Q19:** each line shows that search's own contribution (the issue's `$100` was an example); no `weekly` / `monthly` on the line (ST4-20). **Q20:** the button is always visible, closed by default; the empty list reads `No saved searches yet.`; the button is not hidden until a search exists (ST4-19, ST4-20). |
 | 2026-10-11, ≈ 10:09 ET | **#73 kickoff (Diego via CoS; EL):** sign-in dark in the shared shell: email, password and a `Create an account` link only; sign-in logic unchanged; its own field / label classes (Q10); charcoal page, chalk type, underline fields, AA contrast, `color-scheme: dark`. Section 9 is the build spec; ST5b-04 / -05 added. Simplest reading of the code against Q4 (noted in the PR): the heading and submit stay (`Sign in`; `Create account` in create-account mode, as today); the link keeps today's in-place mode switch (a `button`, so no auth or route change) with the text `Create an account` / `Sign in`; the deployment-state line `Sign-in is not configured on this deployment.` stays (it replaces the form only when auth is off; `check-dashboard-built` reads it). |
+| 2026-10-11, ≈ 10:38 ET | **#72 kickoff (Diego via CoS; EL):** leave-outs and regression on the shipped pages (home, calculator, sign-in, the shell and the dark 404); #71 stays on hold (ST0-05 still checked). In scope: ST6-01..05; **Q16 done here:** Schibsted Grotesk self-hosted (the Google Fonts dependency dropped), so the page CLS is a strict 0 at 360 / 400 / 1024 / 1440 with every shift counted (ST3-01 / ST4-01 tightened from < 0.001); the `tnum` spaced punctuation (`research .`, `business :`) fixed on the dark pages; the bar links made ≥ 44 px tap targets (QA N1 on #73) without growing the bar; a minimal dark 404. Dated schedule wording dropped (section 3 is an order, not days). ST6-06..09 added; `qa/tools/site-style-regression.mjs` runs the regression. |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -67,16 +68,17 @@ columns if they fit, and stack only if they don't (check at 360 and 400); the pa
 otherwise the same: dark page, Botticelli hero, borderless underlines, green line, green pill. The wide page
 stays as briefed. Section 7a.
 
-## 3. Schedule (one PR at a time)
+## 3. Order (one PR at a time)
 
-| Day | Ticket | What ships |
-|---|---|---|
-| Mon Oct 5 (tonight) | #67 | This spec and the harness (PR #74, rewritten to dark; docs only) |
-| Mon Oct 5 (tonight) | #68 | Dark shell on every page: bar, footer, page and base type (on `/dashboard`: bar and footer only) |
-| Mon Oct 5 (tonight) | #70 | Calculator: Botticelli hero, underline form, green chart, label-value results |
-| Sat Oct 10 | #69 | Home in the dark shell: Jordaens hero, `Investment driven by research.`, Platforms lines |
-| Sun Oct 11 | #73, then #72 | Sign-in, dark; then leave-outs, contrast and regression on the shipped pages |
-| On hold | #71 | Dashboard content: waits for a new brief via CoS |
+| # | Ticket | What ships | State |
+|---|---|---|---|
+| 1 | #67 | This spec and the harness (PR #74, rewritten to dark; docs only) | landed |
+| 2 | #68 | Dark shell on every page: bar, footer, page and base type (on `/dashboard`: bar and footer only) | landed |
+| 3 | #70 | Calculator: Botticelli hero, underline form, green chart, label-value results (then #78 polish, #80 saved searches) | landed |
+| 4 | #69 | Home in the dark shell: Jordaens hero, `Investment driven by research.`, Platforms lines | landed |
+| 5 | #73 | Sign-in, dark | landed |
+| 6 | #72 | Leave-outs, contrast and regression on the shipped pages; self-hosted font (Q16), `tnum` punctuation, bar tap targets, dark 404 | this PR |
+| — | #71 | Dashboard content: on hold, waits for a new brief via CoS | on hold |
 
 ## 4. Exact copy (verbatim; tests and QA compare these strings)
 
@@ -97,6 +99,7 @@ stays as briefed. Section 7a.
 | Calculator saved searches (#80) | button `Saved searches`; each line `<TICKERS> · <start> – <end> · DCA <amount>` (tickers joined by `, `, dates `YYYY-MM-DD`, the amount in the results' money format), then `Load`; empty: `No saved searches yet.` |
 | Calculator field checks (#78; under the field) | ticker: `Add a ticker.`, `<T> is already in the basket.`, the price feed's refusal naming the ticker (e.g. `VOD.L lists on LSE. US, EU, and CA listings only.`; prefixed `<T>: ` when the feed's text doesn't name it), `<T> trades in <CUR>; this basket is in <CUR>. One currency per basket.`; weight: `Enter a weight above 0.`; start / end: `Add a start date.`, `Add an end date.`, `End must be after the start.` (under End); starting capital / contribution: `Enter a number above 0.`; frequency: `Choose weekly or monthly.` |
 | Sign-in link | `Create an account` |
+| 404 (#72; the only text in `<main>`) | `Page not found.` |
 
 The Platforms lines are the ones in the approved home brief, unchanged (Q11: `main` itself still shows the #46
 home, one line `Orpheus Wisdom is a private desk with two tools.` and two cards; #69 replaces it).
@@ -145,6 +148,19 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   `Calculator` and `Dashboard` right, no dropdowns; the current page `aria-current="page"` in chalk with an
   underline, the others in dim; plain links (full page loads), so `/dashboard` keeps its server gate. Same
   component and items on every page, including `/dashboard`, `/dashboard/sign-in` and a 404.
+  **Tap targets (#72, QA N1 on #73):** each bar link is a 44 px tall hit area (the bar's full inner height;
+  text and underline where they were), so the bar stays 45 px (44 + the 1 px `hair` rule) and ≤ 48 px (ST1-01).
+- **Font (#72, Q16):** Schibsted Grotesk self-hosted from `public/fonts/schibsted-grotesk/` (the Google Fonts
+  files, unmodified: upright and italic, latin and latin-ext, variable weight; SIL OFL 1.1, source and licence in
+  `public/fonts/schibsted-grotesk/SOURCE.md` and `OFL.txt`), declared in `src/styles.css` with the same
+  `unicode-range`s as before and `font-display: optional`; the upright latin file is preloaded from `__root.tsx`.
+  Either the web font renders from the first paint or the size-adjusted fallback stays for that page view: never a
+  swap, so the page CLS is a strict 0. The same face serves every page (the dashboard included, unchanged glyphs).
+- **Figures and punctuation (#72):** `tnum` (whose Schibsted lookup also widens `# % , . : ;`) is off on the
+  dark pages, so prose punctuation sits normally (`research.`, `business:`); figures are proportional there.
+  `zero` (slashed zero) stays. `/dashboard` keeps `main`'s `tnum` body setting (its content is on hold; ST0-05).
+- **404 (#72):** dark like every page; the only content is the `h1` `Page not found.` (20 px chalk, weight 400) in
+  the content column, answered with status 404 (the dashboard-off paths render the same page).
 - **Footer:** today's single `SiteFooter`, restyled charcoal; the only text is `Orpheus Wisdom` (dim), on every
   page.
 - **Page and base type:** charcoal page and chalk base text on every page except `/dashboard`.
@@ -164,7 +180,7 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   select and date input on a dark page gets this through the shell. Not on `/dashboard` (its content stays as on
   `main`, Q13).
 
-## 7. Calculator (#70, tonight)
+## 7. Calculator (#70)
 
 - **Page:** charcoal under the shell; no white surface left on `/calculator` (the header band, the
   `bg-paper` wrappers, the sticky table cells and the right-edge fade all go dark or go away).
@@ -227,7 +243,7 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   | Hero `01` | 12 px, weight 400, chalk, no letter-spacing; a fixed 12 px line on a phone (line-height 1), 14.4 px from 1024 (1.2) |
   | Hero title (QA round 1, D1 / N4) | 18 px on a phone in a fixed 5.5em × 3.3em box (three lines: `Dollar-cost` / `average` / `calculator.`); 40 px at 1024, 44 px from 1280 (≤ 48 at 1440) in a fixed 9.5em × 2.2em box (two lines); line-height 1.1; weight 400; chalk; one text node. The box doesn't depend on the font, so the web-font swap moves nothing |
   | Hero wash | night at 88% behind `01` and the title, hugging them: 6 px top / bottom and 12 px side padding on a phone (87.4 px tall: 49% of the 180 px band at 360, 44% of 200 at 400), 16 / 20 px wide; lower left; a soft edge (`box-shadow 0 0 12px 4px` night at 50%); radius 0 |
-  | Font fallback (QA round 1, D1) | `Schibsted Grotesk Fallback`: local Arial / Liberation Sans / Arimo with `size-adjust: 105.24%`, `ascent-override: 92.8%`, `descent-override: 24.5%`, `line-gap-override: 0%` (Schibsted's 2000 / 528 / 0 on 2048 units over the size adjust), second in `--font-sans`, limited by `unicode-range` to the web font's latin + latin-ext subsets (so glyphs outside it, such as the home cards' `→`, render exactly as before; ST0-05); until #72 self-hosts the font |
+  | Font fallback (QA round 1, D1) | `Schibsted Grotesk Fallback`: local Arial / Liberation Sans / Arimo with `size-adjust: 105.24%`, `ascent-override: 92.8%`, `descent-override: 24.5%`, `line-gap-override: 0%` (Schibsted's 2000 / 528 / 0 on 2048 units over the size adjust), second in `--font-sans`, limited by `unicode-range` to the web font's latin + latin-ext subsets (so glyphs outside it, such as the home cards' `→`, render exactly as before; ST0-05); kept by #72 as the face shown when the self-hosted font misses its `optional` window |
   | Phone band | `min(50vw, 200px)` tall (180 at 360, 200 at 400 and up to 1023); wide band at the crop's aspect ratio (250 at 1024, 351 at 1440), ≤ 460 px |
   | Field | 44 px tall, no box border, no fill, radius 0, 16 px text; the underline 1 px solid rule `#8b9298` (chalk while focused); the select and its options charcoal with chalk text (D2) |
   | Focus ring | 2 px solid chalk, offset 2 px, on every field (a date field's calendar button too), button and link |
@@ -236,7 +252,7 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   | Listings note (A11) | 13 px, line-height 1.4, dim (the "muted" colour on dark), one line, `nowrap` (302 px wide at 360, inside the 320 px column) |
   | Chart | 224 px tall; line 2 px green `#5cc08a`; fill green at 16% opacity (`#283a34` over night); grid hair; axis ticks 12 px dim |
   | Last-value pill | 22 px tall, radius 11 px, 8 px side padding, 12 px weight 500, night text on green (7.2:1), the results' money format |
-  | Results (#78) | plan heading (`Lump sum`, `DCA`) 14 px chalk, weight 500, with a 1 px `hair` rule under it; four lines per plan: label 13 px dim, value 16 px chalk, `nowrap`, tabular figures; on a phone the label sits above its value (a 152 px column at 360 can't hold `Total invested` beside `$313,000`), from 1024 px label left and value right on one row; two columns while each is ≥ 150 px (`repeat(auto-fit, minmax(150px, 1fr))`, 16 px gap; 48 px wide) |
+  | Results (#78) | plan heading (`Lump sum`, `DCA`) 14 px chalk, weight 500, with a 1 px `hair` rule under it; four lines per plan: label 13 px dim, value 16 px chalk, `nowrap`, proportional figures with normal punctuation (#72, ST6-07); on a phone the label sits above its value (a 152 px column at 360 can't hold `Total invested` beside `$313,000`), from 1024 px label left and value right on one row; two columns while each is ≥ 150 px (`repeat(auto-fit, minmax(150px, 1fr))`, 16 px gap; 48 px wide) |
   | Captions under the results | 13 px dim: `Dividends reinvested.` (DCA-01, Q2), then the fixed method sentence word for word (`Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.`; EL N1, Q12), then only the run-specific lines (Q12) |
   | Field check (#78) | 13 px `#ff8f87` (7.3:1), line-height 1.4, directly under its field (6 px gap); the field's underline turns `#ff8f87` while it is marked |
   | Error line (Q8) | 14 px `#ff8f87` (7.3:1), under the listings note; only for errors that belong to no field |
@@ -295,7 +311,7 @@ column, the window fields in one row, the results below the form) from 1024 px. 
   the hero never moves (ST4-22). Accepted (EL, Q18): page CLS from the restore under 0.1; the form is not
   hidden until the restore and the restore is not tap-only.
 
-## 8. Home (#69, Sat Oct 10)
+## 8. Home (#69)
 
 - In the dark shell, charcoal page. The Jordaens band under the bar (Jacob Jordaens, *Triumph of Frederick
   Henry, Prince of Orange*, 1652, Oranjezaal, Huis ten Bosch). `01` and the `h1` `Investment driven by research.`
@@ -327,7 +343,7 @@ column, the window fields in one row, the results below the form) from 1024 px. 
   | `02` + `Platforms` | `02` 12 px dim (the calculator's section label); `Platforms` 24 px chalk, weight 400 |
   | Platforms line | a `hair` rule above each line; the name 20 px chalk; the description 14 px dim (line-height 1.5); `Open` 14 px chalk with a 1 px `rule` underline, a chalk focus ring; on a phone the name and `Open` share the first row and the description sits under them; from 1024 one row: name (12rem), description, `Open` |
 
-## 9. Sign-in (#73, Sun Oct 11)
+## 9. Sign-in (#73)
 
 - `/dashboard/sign-in` is its own route (`src/routes/dashboard_.sign-in.tsx`, not nested in `/dashboard`), so
   #73 changes that file only (plus sign-in-only classes, Q10). Dark: charcoal page, chalk type, underline fields.
@@ -389,11 +405,11 @@ has no hover rule.
 | ST1-03 | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
 | ST1-04 | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
 
-**ST3: home `/` (#69, Sat Oct 10)**
+**ST3: home `/` (#69)**
 
 | ID | Pass when |
 |---|---|
-| ST3-01 | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total < 0.001 on every run (strict 0 PLANNED for #72). |
+| ST3-01 | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total = 0 (strict, since #72's self-hosted font) on every run. |
 | ST3-02 | `01` (small) and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; sizes in section 8); chalk on the wash ≥ 4.5:1 at the worst pixel. At 360, 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash (with its soft edge). Protected: the prince and the four white chariot horses (with the dark head behind the leftmost); the brown horse on the far right is outside the box and may be partly cropped on phones (EL, 2026-10-10): their region is the figure box per crop in `src/lib/site/home-hero.ts` through the crop and `object-position`, checked by geometry and by a screenshot with both boxes outlined. |
 | ST3-03 | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer (no #46 line, no cards). |
 | ST3-04 | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`; `noindex` meta and `X-Robots-Tag: noindex, nofollow` unchanged. |
@@ -401,11 +417,11 @@ has no hover rule.
 | ST3-06 | Phone (360 and 400; phone rules below 1024 px): the phone crop in its band, `min(66.667vw, 480px)`: 240 px at 360, 267 px at 400 (Q17; the ≤ 200 px cap is calculator-only), the title three lines, the Platforms lines one column (name and `Open` on a row, the description under them), every text whole, no horizontal page scroll; the bar's three items on one line (ST1-01). Wide (1024, 1440): the wide crop, each Platforms line one row. |
 | ST3-07 | AA on dark for every text on `/` (`01`, title, `02`, `Platforms`, names, descriptions, `Open`; the focus ring ≥ 3:1); an axe-core run reports no `color-contrast` violation; `color-scheme: dark` on `<html>` and `<body>`. |
 
-**ST4: calculator `/calculator` (#70, Mon Oct 5)**
+**ST4: calculator `/calculator` (#70)**
 
 | ID | Pass when |
 |---|---|
-| ST4-01 | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG; the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift (EL, QA round 1 on #70): measured with a `PerformanceObserver` (`layout-shift`, buffered) on load, **every entry counted** (no `hadRecentInput` exclusion), on cold loads with the cache disabled, several runs per width at 360, 400, 1024 and 1440: CLS from the hero (entries with a source inside the band) = 0, and the page total < 0.001 on every run. A strict page total of 0 is PLANNED for #72 (self-hosted fonts, Q16). |
+| ST4-01 | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG; the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift (EL, QA round 1 on #70): measured with a `PerformanceObserver` (`layout-shift`, buffered) on load, **every entry counted** (no `hadRecentInput` exclusion), on cold loads with the cache disabled, several runs per width at 360, 400, 1024 and 1440: CLS from the hero (entries with a source inside the band) = 0, and the page total = 0 (strict) on every run (#72: self-hosted font, Q16). |
 | ST4-02 | `01` (small) and the `h1` `Dollar-cost average calculator.` sit lower left on the soft wash, in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; `01` 12 px; sizes in section 7); chalk on the wash ≥ 4.5:1 at the worst pixel. |
 | ST4-03 | The fields (tickers with weights, start, end, starting capital, contribution, weekly or monthly) are borderless with a thin underline only (no box border, fill or radius; a 1 px rule `#8b9298` underline, 5.1:1), with visible labels and a visible focus ring (2 px solid chalk, offset 2 px). The select and its `<option>`s carry charcoal `#1e2124` with chalk text (≥ 4.5:1; the page's own colour, so still no visible fill), so the list Chrome opens is dark and readable; `color-scheme: dark` on `<html>` (and `<body>`), so date pickers are dark too (QA round 1, D2). |
 | ST4-04 | `US, EU and CA listings, one currency per basket.` (wording unchanged) is one line at 13 px in dim (no wrap at 360 or 400 px, nothing clipped) directly under the form; no other note there (Q2, A11). |
@@ -436,7 +452,7 @@ has no hover rule.
 |---|---|
 | ST5a-01 | *(deferred)* Rewritten from the dashboard's new brief when it lands (via CoS). Not checked in this epic; until then ST0-05 applies. |
 
-**ST5b: sign-in `/dashboard/sign-in` (#73, Sun Oct 11)**
+**ST5b: sign-in `/dashboard/sign-in` (#73)**
 
 | ID | Pass when |
 |---|---|
@@ -446,15 +462,19 @@ has no hover rule.
 | ST5b-04 | AA on dark at 360, 400, 1024 and 1440: every visible text ≥ 4.5:1 (labels `dim` 7.2:1, submit night on chalk 14.2:1, the error `#ff8f87` 7.3:1); the field underline (`rule`, 5.1:1) and the chalk focus ring ≥ 3:1; `color-scheme: dark` on `<html>` and `<body>`; an autofilled field stays charcoal with chalk text. |
 | ST5b-05 | Layout and page rules at 360, 400, 1024 and 1440: no horizontal scroll; fields, submit and link ≥ 44 px tall, the fields the column's full width; title `Sign in · Orpheus Wisdom`, noindex meta and `X-Robots-Tag` unchanged; the shell holds (ST1); no painting or CSS background image. |
 
-**ST6: leave-outs, contrast and regression (#72, Sun Oct 11, shipped pages)**
+**ST6: leave-outs, contrast and regression (#72, shipped pages)**
 
 | ID | Pass when |
 |---|---|
 | ST6-01 | No painting except the Jordaens on home and the Botticelli on the calculator (no artwork `img`, `picture` or CSS `background-image` on sign-in or elsewhere). |
-| ST6-02 | No instruction text on the shipped pages: home only hero and Platforms; the calculator only hero, form, note, chart and results (Q2, Q12); sign-in only ST5b-02. |
-| ST6-03 | AA on dark on every shipped page at every width, including focus, error and disabled-but-readable states (ST0-03). |
+| ST6-02 | No instruction text on the shipped pages: home only hero and Platforms; the calculator only hero, form, note, chart and results (Q2, Q12); sign-in only ST5b-02; the 404 only `Page not found.` |
+| ST6-03 | AA on dark on every shipped page (and the 404) at every width, including focus, error and disabled-but-readable states (ST0-03). |
 | ST6-04 | The shell holds everywhere: ST1 passes on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` and a 404; ST0-05 passes. |
-| ST6-05 | Regression on the preview, then production, at 400 / 1024 / 1440: every ST row except ST5a, DCA-01..06 (`$313,000`), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. The dashboard's full regression waits for its new brief. |
+| ST6-05 | Regression on the preview, then production, at 400 / 1024 / 1440: every ST row except ST5a, DCA-01..06 (`$313,000`), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. Runner: `qa/tools/site-style-regression.mjs` (runs every shipped-page tool and the ST6 checks; `--compare-url` for ST0-05 signed in). The dashboard's full regression waits for its new brief. |
+| ST6-06 | Self-hosted font (Q16): no request to `fonts.googleapis.com` / `fonts.gstatic.com` on any page; Schibsted Grotesk served from the app (`/fonts/schibsted-grotesk/`, licence and source in the repo), the upright latin file preloaded, `font-display: optional`; the page CLS is a strict 0 on `/`, `/calculator`, `/dashboard/sign-in` and a 404 at 360, 400, 1024 and 1440 on cold loads, every shift counted. |
+| ST6-07 | Punctuation: on the dark pages no text runs with `tnum` (the body sets `zero` only; no `tabular-nums` in the dark pages' classes), so `.` `,` `:` `;` take their normal widths (`research.`, `business:` with no gap); `/dashboard` keeps `main`'s setting. |
+| ST6-08 | Bar tap targets (QA N1 on #73): `Orpheus`, `Calculator` and `Dashboard` each ≥ 44 px tall (and ≥ 44 px wide) on every page at 360, 400, 1024 and 1440, the bar still ≤ 48 px (45 px), the text, underline and current mark where they were. |
+| ST6-09 | The 404 is dark (charcoal, chalk, the shell's bar with no current item and footer), status 404, and shows only the `h1` `Page not found.` in the content column; the dashboard-off paths serve the same page. |
 
 ## 12. Questions for EL (#67, dark defaults)
 
@@ -507,8 +527,9 @@ assumed white.
   **Decided (EL, QA round 1 on #70):** QA then measured 0.0036 at 360 and 0.0028 at 400 with every shift counted
   (the swap resized the wash and moved it 24 px). #70 makes the hero font-independent (fixed title box) and adds
   a size-adjusted local fallback (section 7), so the hero causes 0 and the page stays < 0.001 (ST4-01).
-  **PLANNED for #72:** self-host Schibsted Grotesk to reach a strict page CLS of 0 and drop the Google Fonts
-  outside host (`fonts.googleapis.com` / `fonts.gstatic.com`). Not done in #70.
+  **Done in #72:** Schibsted Grotesk is self-hosted (section 6, Font), preloaded and `font-display: optional`,
+  with the size-adjusted fallback kept; no request goes to `fonts.googleapis.com` / `fonts.gstatic.com`, and the
+  page CLS is a strict 0 (ST3-01, ST4-01, ST6-06).
 
 - **Q17. Home band on a phone (new, from #69).** Section 8 gives home the calculator's image rules but no phone
   height; the calculator's "short band, ≤ 200 px" is section 7a, approved for the calculator only. Default (as
@@ -630,3 +651,11 @@ assumed white.
   uses the sign-in-only classes in `src/styles.css` (`.signin*`); the auth calls, mode switch, redirect and
   `Sign-in is not configured` state are unchanged. QA: `qa/tools/signin-page.mjs` (ST5b-01..05 at 360 / 400 /
   1024 / 1440; one failed sign-in with a made-up address for the error line; never signs up).
+- **#72, leave-outs and regression (2026-10-11).** Built to the #72 kickoff (decision log; ST6-01..09): the font is
+  self-hosted (`public/fonts/schibsted-grotesk/`, Google Fonts' files verbatim, SIL OFL 1.1; `@font-face` in
+  `src/styles.css` with `font-display: optional`, a preload in `__root.tsx`; the Google Fonts links are gone), so
+  the page CLS is a strict 0 (ST3-01 / ST4-01 / ST6-06); `tnum` is off on the dark pages (`body.scheme-dark`), and
+  the calculator's `tabular-nums` went with it (ST6-07); the bar links are 44 px tall hit areas in the unchanged
+  45 px bar (ST6-08); the 404 shows `Page not found.` (`src/components/not-found.tsx`, ST6-09); the calculator band is
+  `w-full` so it spans the page above ≈ 1886 px (owned by #72 since EL's #69 answers). QA:
+  `qa/tools/site-style-regression.mjs`.

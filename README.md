@@ -118,9 +118,9 @@ The app is hosted on Vercel.
 
 Re-scoped 2026-10-05 21:26 ET (Diego via CoS and EL): **dark mode wins.** A white style was proposed the same
 evening and dropped; nothing white gets merged. The #53 dark style stands and is extended: a charcoal shell on
-every page (#68, tonight), the calculator with a Botticelli hero, underline fields, one green chart line and
-label-value results, phone layout included (#70, tonight), home with the Jordaens hero (#69, Sat Oct 10),
-sign-in (#73) and the regression pass on the shipped pages (#72) on Sun Oct 11. The dashboard's content is on
+every page (#68), the calculator with a Botticelli hero, underline fields, one green chart line and
+label-value results, phone layout included (#70), home with the Jordaens hero (#69), sign-in (#73) and the
+regression pass on the shipped pages (#72). The dashboard's content is on
 hold (#71); on `/dashboard` only the shared bar and footer change. Spec and ST rows:
 [`attachments/site-style-spec.md`](attachments/site-style-spec.md); QA: [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md).
 

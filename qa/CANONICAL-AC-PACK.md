@@ -33,17 +33,17 @@ phone rows (ST4-08..12, ST4-17, ST4-19..24) and ST4-14 / -15, and home's ST3-01,
 **Per-ticket QA:** each ticket's own rows plus a no-regression pass on everything else (the dashboard content
 always: ST0-05).
 
-| Day | Ticket | Rows | No-regression pass on |
+| # | Ticket | Rows | No-regression pass on |
 |---|---|---|---|
-| Mon Oct 5 | #67 (docs) | ST0-04 | n/a |
-| Mon Oct 5 | #68 dark shell | ST1 on every page; ST0-05 | page content everywhere unchanged (calculator, home, sign-in, dashboard) and still AA-readable |
-| Mon Oct 5 | #70 calculator | ST0-01..03, ST4 on `/calculator`; ST0-05 | `/`, `/dashboard/sign-in`, `/dashboard` |
-| Sat Oct 10 | #69 home | ST0-01..03, ST3 on `/`; ST0-05 | `/calculator` (ST4), sign-in, `/dashboard` |
-| Sun Oct 11 | #78 calculator polish | ST0-01..03, ST4 on `/calculator` (ST4-06, -10, -12, -13 amended; ST4-17 field checks, ST4-18 wide layout new); ST0-05 | `/` (ST3), sign-in, `/dashboard` |
-| Sun Oct 11 | #80 saved searches | ST0-01..03, ST4 on `/calculator` (ST4-19..24 new: button always visible and closed by default, list of 5 + Load, auto-save, refresh restore (multi-name restore page CLS < 0.1, EL Q18), no auth / `localStorage` only, isolation + clear-site-data) ; ST0-05 | `/` (ST3), sign-in, `/dashboard` |
-| Sun Oct 11 | #73 sign-in | ST0-01..03, ST5b-01..05 on `/dashboard/sign-in` (ST5b-04 AA / color-scheme / autofill and ST5b-05 layout / noindex new; `qa/tools/signin-page.mjs`); ST0-05 | `/`, `/calculator`, `/dashboard` |
-| Sun Oct 11 | #72 leave-outs + regression | ST6 and every row above except ST5a, shipped pages | `/dashboard` (ST0-05) |
-| On hold | #71 dashboard | ST5a deferred | n/a |
+| 1 | #67 (docs) | ST0-04 | n/a |
+| 2 | #68 dark shell | ST1 on every page; ST0-05 | page content everywhere unchanged (calculator, home, sign-in, dashboard) and still AA-readable |
+| 3 | #70 calculator | ST0-01..03, ST4 on `/calculator`; ST0-05 | `/`, `/dashboard/sign-in`, `/dashboard` |
+| 4 | #69 home | ST0-01..03, ST3 on `/`; ST0-05 | `/calculator` (ST4), sign-in, `/dashboard` |
+| 3a | #78 calculator polish | ST0-01..03, ST4 on `/calculator` (ST4-06, -10, -12, -13 amended; ST4-17 field checks, ST4-18 wide layout new); ST0-05 | `/` (ST3), sign-in, `/dashboard` |
+| 3b | #80 saved searches | ST0-01..03, ST4 on `/calculator` (ST4-19..24 new: button always visible and closed by default, list of 5 + Load, auto-save, refresh restore (multi-name restore page CLS < 0.1, EL Q18), no auth / `localStorage` only, isolation + clear-site-data) ; ST0-05 | `/` (ST3), sign-in, `/dashboard` |
+| 5 | #73 sign-in | ST0-01..03, ST5b-01..05 on `/dashboard/sign-in` (ST5b-04 AA / color-scheme / autofill and ST5b-05 layout / noindex new; `qa/tools/signin-page.mjs`); ST0-05 | `/`, `/calculator`, `/dashboard` |
+| 6 | #72 leave-outs + regression | ST6-01..09 (ST6-06 font / strict CLS, -07 punctuation, -08 bar tap targets, -09 dark 404 new; ST3-01 / ST4-01 CLS now strict 0) and every row above except ST5a, shipped pages; `qa/tools/site-style-regression.mjs` | `/dashboard` (ST0-05) |
+| — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
 
@@ -64,11 +64,11 @@ always: ST0-05).
 | ST1-03 | BLOCK | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
 | ST1-04 | BLOCK | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
 
-### ST3: home `/` (#69, Sat Oct 10)
+### ST3: home `/` (#69)
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
-| ST3-01 | BLOCK | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total < 0.001 on every run (strict 0 PLANNED for #72). |
+| ST3-01 | BLOCK | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total = 0 (strict, since #72's self-hosted font) on every run. |
 | ST3-02 | BLOCK | `01` (small) and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; sizes in section 8); chalk on the wash ≥ 4.5:1 at the worst pixel. At 360, 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash (with its soft edge). Protected: the prince and the four white chariot horses (with the dark head behind the leftmost); the brown horse on the far right is outside the box and may be partly cropped on phones (EL, 2026-10-10): their region is the figure box per crop in `src/lib/site/home-hero.ts` through the crop and `object-position`, checked by geometry and by a screenshot with both boxes outlined. |
 | ST3-03 | BLOCK | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer (no #46 line, no cards). |
 | ST3-04 | BLOCK | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`; `noindex` meta and `X-Robots-Tag: noindex, nofollow` unchanged. |
@@ -76,11 +76,11 @@ always: ST0-05).
 | ST3-06 | BLOCK | Phone (360 and 400; phone rules below 1024 px): the phone crop in its band, `min(66.667vw, 480px)`: 240 px at 360, 267 px at 400 (Q17; the ≤ 200 px cap is calculator-only), the title three lines, the Platforms lines one column (name and `Open` on a row, the description under them), every text whole, no horizontal page scroll; the bar's three items on one line (ST1-01). Wide (1024, 1440): the wide crop, each Platforms line one row. |
 | ST3-07 | BLOCK | AA on dark for every text on `/` (`01`, title, `02`, `Platforms`, names, descriptions, `Open`; the focus ring ≥ 3:1); an axe-core run reports no `color-contrast` violation; `color-scheme: dark` on `<html>` and `<body>`. |
 
-### ST4: calculator `/calculator` (#70, Mon Oct 5)
+### ST4: calculator `/calculator` (#70)
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
-| ST4-01 | BLOCK | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG; the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift (EL, QA round 1 on #70): measured with a `PerformanceObserver` (`layout-shift`, buffered) on load, **every entry counted** (no `hadRecentInput` exclusion), on cold loads with the cache disabled, several runs per width at 360, 400, 1024 and 1440: CLS from the hero (entries with a source inside the band) = 0, and the page total < 0.001 on every run. A strict page total of 0 is PLANNED for #72 (self-hosted fonts, Q16). |
+| ST4-01 | BLOCK | Charcoal page in the dark shell; under the bar the Botticelli band (*The Birth of Venus*), `alt` naming it; source and licence recorded in the repo; optimised (`srcset`, AVIF or WebP + JPEG; the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift (EL, QA round 1 on #70): measured with a `PerformanceObserver` (`layout-shift`, buffered) on load, **every entry counted** (no `hadRecentInput` exclusion), on cold loads with the cache disabled, several runs per width at 360, 400, 1024 and 1440: CLS from the hero (entries with a source inside the band) = 0, and the page total = 0 (strict) on every run (#72: self-hosted font, Q16). |
 | ST4-02 | BLOCK | `01` (small) and the `h1` `Dollar-cost average calculator.` sit lower left on the soft wash, in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; `01` 12 px; sizes in section 7); chalk on the wash ≥ 4.5:1 at the worst pixel. |
 | ST4-03 | BLOCK | The fields (tickers with weights, start, end, starting capital, contribution, weekly or monthly) are borderless with a thin underline only (no box border, fill or radius; a 1 px rule `#8b9298` underline, 5.1:1), with visible labels and a visible focus ring (2 px solid chalk, offset 2 px). The select and its `<option>`s carry charcoal `#1e2124` with chalk text (≥ 4.5:1; the page's own colour, so still no visible fill), so the list Chrome opens is dark and readable; `color-scheme: dark` on `<html>` (and `<body>`), so date pickers are dark too (QA round 1, D2). |
 | ST4-04 | BLOCK | `US, EU and CA listings, one currency per basket.` (wording unchanged) is one line at 13 px in dim (no wrap at 360 or 400 px, nothing clipped) directly under the form; no other note there (Q2, A11). |
@@ -111,7 +111,7 @@ always: ST0-05).
 |----|------|------------------------------|
 | ST5a-01 | DEFERRED | *(deferred)* Rewritten from the dashboard's new brief when it lands (via CoS). Not checked in this epic; until then ST0-05 applies. |
 
-### ST5b: sign-in `/dashboard/sign-in` (#73, Sun Oct 11)
+### ST5b: sign-in `/dashboard/sign-in` (#73)
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
@@ -121,15 +121,19 @@ always: ST0-05).
 | ST5b-04 | BLOCK | AA on dark at 360, 400, 1024 and 1440: every visible text ≥ 4.5:1 (labels `dim` 7.2:1, submit night on chalk 14.2:1, the error `#ff8f87` 7.3:1); the field underline (`rule`, 5.1:1) and the chalk focus ring ≥ 3:1; `color-scheme: dark` on `<html>` and `<body>`; an autofilled field stays charcoal with chalk text. |
 | ST5b-05 | BLOCK | Layout and page rules at 360, 400, 1024 and 1440: no horizontal scroll; fields, submit and link ≥ 44 px tall, the fields the column's full width; title `Sign in · Orpheus Wisdom`, noindex meta and `X-Robots-Tag` unchanged; the shell holds (ST1); no painting or CSS background image. |
 
-### ST6: leave-outs, contrast and regression (#72, Sun Oct 11, shipped pages)
+### ST6: leave-outs, contrast and regression (#72, shipped pages)
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
 | ST6-01 | BLOCK | No painting except the Jordaens on home and the Botticelli on the calculator (no artwork `img`, `picture` or CSS `background-image` on sign-in or elsewhere). |
-| ST6-02 | BLOCK | No instruction text on the shipped pages: home only hero and Platforms; the calculator only hero, form, note, chart and results (Q2, Q12); sign-in only ST5b-02. |
-| ST6-03 | BLOCK | AA on dark on every shipped page at every width, including focus, error and disabled-but-readable states (ST0-03). |
+| ST6-02 | BLOCK | No instruction text on the shipped pages: home only hero and Platforms; the calculator only hero, form, note, chart and results (Q2, Q12); sign-in only ST5b-02; the 404 only `Page not found.` |
+| ST6-03 | BLOCK | AA on dark on every shipped page (and the 404) at every width, including focus, error and disabled-but-readable states (ST0-03). |
 | ST6-04 | BLOCK | The shell holds everywhere: ST1 passes on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` and a 404; ST0-05 passes. |
-| ST6-05 | BLOCK | Regression on the preview, then production, at 400 / 1024 / 1440: every ST row except ST5a, DCA-01..06 (`$313,000`), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. The dashboard's full regression waits for its new brief. |
+| ST6-05 | BLOCK | Regression on the preview, then production, at 400 / 1024 / 1440: every ST row except ST5a, DCA-01..06 (`$313,000`), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. Runner: `qa/tools/site-style-regression.mjs` (runs every shipped-page tool and the ST6 checks; `--compare-url` for ST0-05 signed in). The dashboard's full regression waits for its new brief. |
+| ST6-06 | BLOCK | Self-hosted font (Q16): no request to `fonts.googleapis.com` / `fonts.gstatic.com` on any page; Schibsted Grotesk served from the app (`/fonts/schibsted-grotesk/`, licence and source in the repo), the upright latin file preloaded, `font-display: optional`; the page CLS is a strict 0 on `/`, `/calculator`, `/dashboard/sign-in` and a 404 at 360, 400, 1024 and 1440 on cold loads, every shift counted. |
+| ST6-07 | BLOCK | Punctuation: on the dark pages no text runs with `tnum` (the body sets `zero` only; no `tabular-nums` in the dark pages' classes), so `.` `,` `:` `;` take their normal widths (`research.`, `business:` with no gap); `/dashboard` keeps `main`'s setting. |
+| ST6-08 | BLOCK | Bar tap targets (QA N1 on #73): `Orpheus`, `Calculator` and `Dashboard` each ≥ 44 px tall (and ≥ 44 px wide) on every page at 360, 400, 1024 and 1440, the bar still ≤ 48 px (45 px), the text, underline and current mark where they were. |
+| ST6-09 | BLOCK | The 404 is dark (charcoal, chalk, the shell's bar with no current item and footer), status 404, and shows only the `h1` `Page not found.` in the content column; the dashboard-off paths serve the same page. |
 
 ## Dashboard: mobile-first redesign (epic #53)
 
