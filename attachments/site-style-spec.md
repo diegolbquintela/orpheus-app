@@ -22,6 +22,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-11, ≈ 08:22 ET | **#78 calculator polish (Diego via CoS; EL):** results show exactly four lines per plan, `Final value`, `Total invested`, `Return (%)`, `CAGR (%)` (mapped from the end value, the amount invested, the total return and the existing CAGR; money-weighted return, max drop, value at the drop and return to the drop leave the display; no calculation change; `$313,000` stays). Field checks before the calculation, each message under its field, the other fields kept. **A:** starting capital and contribution must be numbers **above 0** (the engine, `simulate.ts`, refuses 0 and stays untouched), so the issue's "zero or more" reads "above zero"; text, negatives and blanks are refused. **1:** the venue and currency checks run after the prices are read and before the calculation (the listing and currency come from the price feed), under the bad ticker, naming it; blank and duplicate tickers are checked before any request. **2:** the labels word for word as above. **3:** wide (≥ 1024 px) Start, End, Starting capital, Contribution and Frequency in one row with the button under it, the results below the form at full width (replaces "form left, results right"); the basket stays stacked ticker / weight / remove rows. **4:** start must be before end (equal dates refused). ST4-06, -08, -10, -12, -13 amended; ST4-17 (field checks) and ST4-18 (wide layout) added. |
 | 2026-10-11, ≈ 09:14 ET | **#80 saved searches (Diego via CoS; EL kickoff):** a `Saved searches` button at the top of the calculator form, above the basket's Ticker, closed by default; open, a short list, newest first, each line `tickers · dates · DCA amount` (the search's own contribution in the results' money format, e.g. `$1,000`; the issue's `$100` is the example) with a `Load` that fills every field; the last 5 only, the oldest drops. Saved automatically by a successful calculation (no second save button); a refresh fills the last search and keeps the list; calculating keeps the search in the fields. **Storage (Diego, locked):** no login, never the account (#73 parked); this browser only, `localStorage` (two keys, section 7b); another device sees nothing; clearing the browser's site data clears both. ST4-19..ST4-24 added. |
 | 2026-10-11, ≈ 09:29 ET | **EL answers on #80 (PR #81 at `0b0512b`; docs-only commit, no code change):** **Q18 accepted:** a refresh restoring a multi-name basket may shift the form below the hero, page CLS under 0.1 is fine (hero CLS stays 0); the form is not hidden until the restore and the restore is not tap-only; a refresh still fills the last search (ST4-22). **Q19:** each line shows that search's own contribution (the issue's `$100` was an example); no `weekly` / `monthly` on the line (ST4-20). **Q20:** the button is always visible, closed by default; the empty list reads `No saved searches yet.`; the button is not hidden until a search exists (ST4-19, ST4-20). |
+| 2026-10-11, ≈ 10:09 ET | **#73 kickoff (Diego via CoS; EL):** sign-in dark in the shared shell: email, password and a `Create an account` link only; sign-in logic unchanged; its own field / label classes (Q10); charcoal page, chalk type, underline fields, AA contrast, `color-scheme: dark`. Section 9 is the build spec; ST5b-04 / -05 added. Simplest reading of the code against Q4 (noted in the PR): the heading and submit stay (`Sign in`; `Create account` in create-account mode, as today); the link keeps today's in-place mode switch (a `button`, so no auth or route change) with the text `Create an account` / `Sign in`; the deployment-state line `Sign-in is not configured on this deployment.` stays (it replaces the form only when auth is off; `check-dashboard-built` reads it). |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -151,7 +152,7 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   its data, its `bg-paper` wrapper) is untouched and stays visible; no file under `src/routes/dashboard.tsx` or
   `src/components/dashboard/` changes, and no existing token or shared class changes (Q13 on the page
   background around the content).
-- **Pages whose content converts later** (home until #69, sign-in until #73): #68 changes only the shell around
+- **Pages whose content converts later** (home until #69, sign-in until #73, both converted): #68 changes only the shell around
   them; their content keeps its current look and must stay AA-readable on the new page background (e.g. the
   home line inherits chalk; the home cards and the sign-in form keep their own white panels until their day).
 - **`theme-color` meta:** `#1e2124` (already the value in `__root.tsx`).
@@ -333,6 +334,22 @@ column, the window fields in one row, the results below the form) from 1024 px. 
 - Shows exactly `Email`, `Password`, the submit button and the `Create an account` link (Q4: plus the heading;
   an error line only after a failed attempt). Create-account mode mirrors it with a `Sign in` link. The
   invite-only note goes. The auth logic is unchanged.
+- **Build (#73 kickoff, 2026-10-11):**
+
+  | Part | Rule |
+  |---|---|
+  | Page | no white panel (`bg-paper text-ink` goes): the shell's charcoal `night` and chalk base type; one column, `max-w-md`, full width less the page padding on a phone; `color-scheme: dark` from the shell (`scheme-dark` on `<html>` and `<body>`) |
+  | Heading (`h1`) | `Sign in` (`Create account` in create-account mode, as today); chalk, the site font, weight 400, ≤ 32 px, no caps |
+  | Labels | `Email`, `Password`, visible, 12 px upper-case `dim` (7.2:1) |
+  | Fields | underline only: no box, no fill, no radius, 1 px `rule` underline (5.1:1 against charcoal, ≥ 3:1 for a UI part), chalk text, 44 px tall; focused: chalk underline and a 2 px chalk ring; a browser-autofilled field stays charcoal with chalk text (no light autofill fill) |
+  | Submit | chalk fill, night text (Q6, 14.2:1), 48 px tall, no radius; `Please wait…` on a `dim` fill while busy |
+  | Link | `Create an account` (`Sign in` in create-account mode), 14 px chalk, underlined, a 2 px chalk focus ring, ≥ 44 px tap height; it switches the mode in place as today (a `button`, no route) |
+  | Error | after a failed attempt only, `role="alert"`, `alert` `#ff8f87` (Q8, 7.3:1), 13 px |
+  | Auth off | the existing line `Sign-in is not configured on this deployment.` in `dim` replaces the form (deployment state, not an instruction; unchanged text) |
+
+  Classes (sign-in only, Q10): `.signin`, `.signin-title`, `.signin-label`, `.signin-field`, `.signin-button`,
+  `.signin-switch`, `.signin-error`, `.signin-note`. The shared `.field` / `.kicker` / `.section` and the
+  `.calc-*` / `.home-*` classes don't change. No painting, no other copy.
 
 ## 10. What the code has today (for #70)
 
@@ -426,6 +443,8 @@ has no hover rule.
 | ST5b-01 | Dark: charcoal page, chalk type, underline fields (as ST4-03) using sign-in-only classes; `.field` and `.kicker` unchanged. |
 | ST5b-02 | The page shows exactly `Email`, `Password`, the submit button and the `Create an account` link, plus the heading (Q4) and an error line only after a failed attempt; the invite-only note is gone. Create-account mode mirrors it with a `Sign in` link. |
 | ST5b-03 | The auth logic is unchanged: sign-in, sign-up (allow-list), the redirect to `/dashboard`, the signed-out matrix in `scripts/release-smoke.mjs`. |
+| ST5b-04 | AA on dark at 360, 400, 1024 and 1440: every visible text ≥ 4.5:1 (labels `dim` 7.2:1, submit night on chalk 14.2:1, the error `#ff8f87` 7.3:1); the field underline (`rule`, 5.1:1) and the chalk focus ring ≥ 3:1; `color-scheme: dark` on `<html>` and `<body>`; an autofilled field stays charcoal with chalk text. |
+| ST5b-05 | Layout and page rules at 360, 400, 1024 and 1440: no horizontal scroll; fields, submit and link ≥ 44 px tall, the fields the column's full width; title `Sign in · Orpheus Wisdom`, noindex meta and `X-Robots-Tag` unchanged; the shell holds (ST1); no painting or CSS background image. |
 
 **ST6: leave-outs, contrast and regression (#72, Sun Oct 11, shipped pages)**
 
@@ -607,3 +626,7 @@ assumed white.
     store what was typed: the search is kept as typed (the newest typing replaces the older line), so `Load` and a
     refresh refill `1,000` / `ko`; the line shows tickers upper-cased. Regression in `saved-searches.test.ts` and
     `saved-searches.mjs`.
+- **#73, sign-in (2026-10-11).** Built to section 9: `src/routes/dashboard_.sign-in.tsx` drops its white panel and
+  uses the sign-in-only classes in `src/styles.css` (`.signin*`); the auth calls, mode switch, redirect and
+  `Sign-in is not configured` state are unchanged. QA: `qa/tools/signin-page.mjs` (ST5b-01..05 at 360 / 400 /
+  1024 / 1440; one failed sign-in with a made-up address for the error line; never signs up).
