@@ -8,7 +8,7 @@
 //   ST3-01 layout shift as ST4-01: PerformanceObserver ('layout-shift', buffered), EVERY entry counted, a fresh
 //          browser with the cache disabled per run, CLS_RUNS (default 3) cold loads per width, the last with the
 //          hero files held back 1 s. Pass: CLS from the hero = 0 (band, image and wash still) and the page total
-//          < 0.001 on every run (strict 0 is #72)
+//          = 0 on every run (strict since #72's self-hosted font)
 //   ST3-02 `01` and the exact h1 lower left in plain type (site font, 400, no caps / spacing / effects, chalk;
 //          ≤ 32 px on a phone, ≤ 48 px wide); chalk on the wash ≥ 4.5:1 at the worst pixel; the wash (with its
 //          soft shadow) and the text clear of the prince and the horses: their region from the crop's figure box
@@ -432,7 +432,7 @@ try {
       }
       const r5 = (v) => Math.round(v * 1e5) / 1e5;
       check(`${tag} ST3-01 CLS from the hero = 0 on ${RUNS} cold loads (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
-      check(`${tag} ST3-01 page CLS < 0.001 on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total < 0.001), runs.map((x) => r5(x.total)));
+      check(`${tag} ST3-01 page CLS = 0 (strict, #72) on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => r5(x.total)));
       R.cls ??= {};
       R.cls[vp] = { width: viewport.width, hero: runs.map((x) => x.hero), total: runs.map((x) => x.total), runs };
       console.log(`INFO ${tag} CLS cold × ${RUNS} (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);

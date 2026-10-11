@@ -34,8 +34,8 @@ affects the repo.
   reintroduce white surfaces on shipped pages.
 - **Loop:** one PR at a time: draft PR off the latest `main` ("Closes #N. Part of #66."), EL answers, QA on the
   preview, merge, prod check.
-- **Schedule:** Mon Oct 5 (tonight): #67, then #68, then #70. Sat Oct 10: #69 home. Sun Oct 11: #73 sign-in, then
-  #72 on the shipped pages only. #71 dashboard: on hold (ST5a deferred).
+- **Order:** #67, #68, #70 (then #78, #80), #69, #73 landed; #72 (leave-outs, regression, self-hosted font,
+  punctuation, bar tap targets, dark 404) is the last shipped-pages ticket. #71 dashboard: on hold (ST5a deferred).
 - **Shell (#68) on every page:** restyle the one `SiteMenu` and one `SiteFooter` (charcoal, `Orpheus` left,
   `Calculator` and `Dashboard` right, current page marked; footer `Orpheus Wisdom`). **On `/dashboard` only the
   bar and footer may change:** don't touch `src/routes/dashboard.tsx`, `src/components/dashboard/*`, existing
@@ -57,6 +57,14 @@ affects the repo.
   `src/routes/dashboard_.sign-in.tsx` and `src/styles.css` change; the auth calls, the mode switch, the redirect,
   the `Sign-in is not configured on this deployment.` state and everything under `src/lib/auth/*` stay as they
   are. QA: `qa/tools/signin-page.mjs`.
+- **#72 (spec §6, ST6-01..09):** the font is self-hosted (`public/fonts/schibsted-grotesk/`, Google Fonts' files
+  verbatim, SIL OFL 1.1, `SOURCE.md` + `OFL.txt`; `@font-face` in `src/styles.css`, `font-display: optional`, the
+  upright latin file preloaded in `__root.tsx`); never add a Google Fonts link back, and keep the size-adjusted
+  fallback (it is what shows when the font misses its window, so the page CLS stays a strict 0). `tnum` is off on
+  dark pages (`body.scheme-dark`: it widens `# % , . : ;` in Schibsted); don't add `tabular-nums` to dark-page
+  classes. `/dashboard` keeps `main`'s body `tnum` (ST0-05). Bar links are 44 px tall hit areas inside the 45 px
+  bar. The 404 is `src/components/not-found.tsx` (`Page not found.`), the root route's `notFoundComponent`.
+  QA runner: `qa/tools/site-style-regression.mjs` (every shipped-page tool + the ST6 checks).
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.
@@ -81,8 +89,8 @@ affects the repo.
   `html.scheme-dark select, option` gives every select charcoal + chalk (a transparent select opens a white list
   in Chrome). The hero title has a font-independent box (`.calc-title`, one text node) and `--font-sans` a
   size-adjusted local fallback (`Schibsted Grotesk Fallback`, `unicode-range` = the web font's subsets only, so
-  `→` / `↳` keep their old system glyphs), so the Google Fonts swap shifts nothing in the hero
-  (ST4-01 counts every layout shift; keep both until #72 self-hosts the font, PLANNED). A value with ` · date`
+  `→` / `↳` keep their old system glyphs), so a font that arrives late shifts nothing in the hero
+  (ST4-01 counts every layout shift; keep both: since #72 the font is self-hosted with `font-display: optional` and the page CLS is a strict 0). A value with ` · date`
   rendered the date on its own muted line (#70; gone with #78's four lines). Basket rows carry `data-testid="basket-row"`;
   results (since #78) `[data-testid=result-plan][data-plan=lump|dca] [data-testid=result-line][data-key=…] dd`
   (`qa/tools/site.mjs` reads the `$313,000` there). Don't import from `src/lib/dca/*` anything new that changes logic; presentation helpers
@@ -103,7 +111,7 @@ affects the repo.
   are gone: the Platforms lines are `[data-testid=platform-line][data-href=…]` with `[data-testid=platform-open]`.
   QA: `qa/tools/home-page.mjs` (ST3-01..07 + ST0-01..03 at 360 / 400 / 1024 / 1440; screenshots incl.
   `hero-<w>.png` with the figure and the wash outlined). Q17 closed (EL): the home phone band stays
-  `min(66.667vw, 480px)` (240 px at 360, 267 px at 400); #72 owns the `tnum` punctuation and the calculator's
+  `min(66.667vw, 480px)` (240 px at 360, 267 px at 400); #72 fixed the `tnum` punctuation and the calculator's
   `w-full` above ≈ 1886 px.
 - **Landed: #78 calculator polish.** Results: `src/components/calculator/result-rows.tsx` renders
   `[data-testid=results]` with one `[data-testid=result-plan][data-plan=lump|dca]` per plan and exactly four

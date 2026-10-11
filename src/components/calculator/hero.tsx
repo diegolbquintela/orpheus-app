@@ -15,12 +15,13 @@ const TYPES = [
  * left in a soft wash (night at 88%), in plain type. The wash and title box have font-independent sizes
  * (`.calc-title`: 18 px × 1.1, 5.5em wide and three lines on a phone; 40 / 44 px, 9.5em wide and two lines from
  * 1024 px; the title one text node), so the Google Fonts swap moves nothing (QA round 1, D1). The wash hugs
- * the text: 87 px of a 180 px (360) or 200 px (400) band (N4).
+ * the text: 87 px of a 180 px (360) or 200 px (400) band (N4). `w-full` (#72): above ≈ 1886 px the 460 px cap
+ * would otherwise narrow the band through its aspect ratio; it spans the page at every width.
  */
 export function CalculatorHero() {
   return (
     <header
-      className="relative h-[min(50vw,200px)] overflow-hidden bg-night lg:h-auto lg:max-h-[460px] lg:aspect-[3264/796]"
+      className="relative h-[min(50vw,200px)] w-full overflow-hidden bg-night lg:h-auto lg:max-h-[460px] lg:aspect-[3264/796]"
       data-testid="calculator-hero"
     >
       <picture>

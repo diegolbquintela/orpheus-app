@@ -3,6 +3,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteFooter } from "@/components/site-footer";
+import { NotFound } from "@/components/not-found";
 import { SiteMenu } from "@/components/site-menu";
 import { analyticsBeforeSend } from "@/lib/site/analytics";
 import { shellBodyClass, shellHtmlClass } from "@/lib/site/site";
@@ -57,11 +58,14 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Self-hosted Schibsted Grotesk (#72, Q16, ST6-06): the upright latin file is the one every page uses
+      // first; preloaded so it is ready inside font-display: optional's window (see src/styles.css).
       {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400;0,500;1,400&display=swap",
+        rel: "preload",
+        href: "/fonts/schibsted-grotesk/schibsted-grotesk-latin.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
@@ -69,4 +73,6 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootDocument,
+  // The dark 404 (#72, ST6-09): unknown paths and the dashboard-off paths.
+  notFoundComponent: NotFound,
 });

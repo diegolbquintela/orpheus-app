@@ -11,8 +11,10 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
 export function SiteMenu({ pathname }: { pathname: string }) {
   const current = currentSection(pathname);
   const [home, ...right] = MENU_ITEMS;
+  // Each link is a 44 px tall hit area (the bar's inner height; #72, QA N1 on #73, ST6-08): the text, its underline
+  // and the current mark stay where they were, and the bar stays 45 px (44 + the 1 px rule).
   const link =
-    "underline-offset-[6px] decoration-1 focus-visible:outline-chalk aria-[current=page]:text-chalk aria-[current=page]:underline";
+    "inline-flex h-11 min-w-11 items-center underline-offset-[6px] decoration-1 focus-visible:outline-chalk aria-[current=page]:text-chalk aria-[current=page]:underline";
   return (
     <nav
       aria-label="Site"
