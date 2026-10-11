@@ -152,6 +152,12 @@ every width; then `02` Platforms with two lines, Calculator and Dashboard, each 
 and the two cards are gone. Phone rules below 1024 px (a 3:2 crop of the painting), the wide crop from 1024 px.
 `/?query` still redirects to `/calculator?query`. QA: `qa/tools/home-page.mjs` at 360, 400, 1024 and 1440 px.
 
+**Landed: sign-in (#73).** `/dashboard/sign-in` has no white panel left: the heading, `Email` and `Password`
+as underline-only fields, a chalk `Sign in` button and a `Create an account` link (it switches to create-account
+mode in place, with a `Sign in` link back), on the charcoal page with its own classes (`.signin*`; the dashboard's
+`.field` and `.kicker` are unchanged). The invite-only note is gone; errors show in `#ff8f87`; autofilled fields
+stay dark. The sign-in logic is unchanged. QA: `qa/tools/signin-page.mjs` at 360, 400, 1024 and 1440 px.
+
 **Landed: calculator polish (#78).** The results are two columns, Lump sum and DCA, with exactly four lines each:
 Final value, Total invested, Return (%) and CAGR (%) (display only; the calculation is unchanged). The form
 checks each field before reading prices and shows the message under the bad field without clearing anything:

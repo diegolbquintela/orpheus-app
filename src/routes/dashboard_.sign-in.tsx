@@ -64,70 +64,61 @@ function SignInPage() {
     }
   }
 
+  // Dark in the shared shell (#73, spec §9, ST5b): no white panel, sign-in-only classes (Q10; never the
+  // dashboard's shared .field / .kicker). The auth calls, the mode switch and the redirect above are unchanged.
   return (
-    <div className="bg-paper text-ink">
-      <main className="mx-auto w-full max-w-md px-5 py-16 sm:px-8">
-        <h1 className="text-3xl">{mode === "sign-in" ? "Sign in" : "Create account"}</h1>
-        {!authReady ? (
-          <p className="mt-6 text-sm" data-testid="sign-in-unavailable">
-            Sign-in is not configured on this deployment.
-          </p>
-        ) : (
-          <form className="mt-8 flex flex-col gap-5" onSubmit={submit} data-testid="sign-in-form">
-            <label className="flex flex-col gap-2">
-              <span className="kicker text-muted">Email</span>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="field text-base"
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="kicker text-muted">Password</span>
-              <input
-                type="password"
-                required
-                minLength={8}
-                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="field text-base"
-              />
-            </label>
-            {error ? (
-              <p className="text-sm text-red-700" role="alert" data-testid="sign-in-error">
-                {error}
-              </p>
-            ) : null}
-            <button
-              type="submit"
-              disabled={busy}
-              className="inline-flex h-12 items-center justify-center self-start bg-ink px-6 text-sm text-card disabled:opacity-50"
-            >
-              {busy ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
-            </button>
-            <button
-              type="button"
-              className="self-start text-sm underline-offset-4 hover:underline"
-              onClick={() => {
-                setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-                setError(null);
-              }}
-            >
-              {mode === "sign-in" ? "New here? Create an account" : "Have an account? Sign in"}
-            </button>
-            {mode === "sign-up" ? (
-              <p className="text-xs text-muted">
-                Accounts are invite-only. Use the email address you were invited with; passwords
-                need at least 8 characters. There is no password reset by email yet.
-              </p>
-            ) : null}
-          </form>
-        )}
-      </main>
-    </div>
+    <main className="signin mx-auto w-full max-w-md px-5 py-16 sm:px-8">
+      <h1 className="signin-title">{mode === "sign-in" ? "Sign in" : "Create account"}</h1>
+      {!authReady ? (
+        <p className="signin-note mt-6" data-testid="sign-in-unavailable">
+          Sign-in is not configured on this deployment.
+        </p>
+      ) : (
+        <form className="mt-8 flex flex-col gap-6" onSubmit={submit} data-testid="sign-in-form">
+          <label className="flex flex-col gap-2">
+            <span className="signin-label">Email</span>
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="signin-field"
+            />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="signin-label">Password</span>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="signin-field"
+            />
+          </label>
+          {error ? (
+            <p className="signin-error" role="alert" data-testid="sign-in-error">
+              {error}
+            </p>
+          ) : null}
+          <button type="submit" disabled={busy} className="signin-button self-start">
+            {busy ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
+          </button>
+          <button
+            type="button"
+            className="signin-switch self-start"
+            data-testid="sign-in-switch"
+            onClick={() => {
+              setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+              setError(null);
+            }}
+          >
+            {mode === "sign-in" ? "Create an account" : "Sign in"}
+          </button>
+        </form>
+      )}
+    </main>
   );
 }

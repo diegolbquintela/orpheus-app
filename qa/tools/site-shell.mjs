@@ -19,8 +19,7 @@
 // --compare-url <url> (optional; a build of the base branch on the SAME data: locally two servers on one
 // database, or for ST0-05 the BASE PR's preview signed in with the same QA account (QA_EMAIL / QA_PASSWORD);
 // never production, which has no QA sign-in; spec ST0-05, EL N7): the content panels that must not change (the
-// sign-in white panel until #73 and, signed in, the whole /dashboard content; the calculator converted in #70,
-// home in #69) are screenshotted on both hosts and must be
+// signed-in /dashboard content; the calculator converted in #70, home in #69, sign-in in #73) are screenshotted on both hosts and must be
 // pixel-identical (canvas diff; the top / bottom device-pixel rows, where a fractional edge blends with the page background,
 // and ≤ 0.01% anti-aliasing noise aside).
 //
@@ -59,7 +58,7 @@ const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
   ["/calculator", "Calculator", "dark", null], // converted by #70 (qa/tools/calculator-page.mjs); no white panel left
-  ["/dashboard/sign-in", "Dashboard", "dark", "body .flex-1 > .bg-paper"],
+  ["/dashboard/sign-in", "Dashboard", "dark", null], // converted by #73 (qa/tools/signin-page.mjs); no white panel left
   ["/no-such-page", null, "dark", null],
 ];
 const navHtml = new Map();

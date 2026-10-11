@@ -203,3 +203,82 @@ describe("home hero files (#69, ST3-01)", () => {
     assert.match(source, /commons\.wikimedia\.org\/wiki\/File:The_Triumph_of_Frederik_Hendrik,_by_Jacob_Jordaens_\(I\)\.jpg/);
   });
 });
+
+describe("sign-in page (#73, spec §9, ST5b)", () => {
+  const route = readFileSync("src/routes/dashboard_.sign-in.tsx", "utf8");
+  const css = readFileSync("src/styles.css", "utf8");
+  const block = (sel: string) => {
+    const m = new RegExp(`\\n  ${sel.replace(".", "\\.")} \\{([^}]*)\\}`).exec(css);
+    assert.ok(m, sel);
+    return m[1].trim().split(/\s*\n\s*/);
+  };
+
+  it("dark, sign-in-only classes (Q10): no white panel, no shared .field / .kicker", () => {
+    assert.doesNotMatch(route, /className="[^"]*(?<![\w-])(bg-paper|text-ink|text-muted|kicker|field)(?![\w-])/);
+    for (const c of [
+      "signin",
+      "signin-title",
+      "signin-label",
+      "signin-field",
+      "signin-button",
+      "signin-switch",
+      "signin-error",
+      "signin-note",
+    ]) {
+      assert.match(route, new RegExp(`className="[^"]*\\b${c}\\b`), c);
+      assert.match(css, new RegExp(`\\.${c}[ :{,]`), c);
+    }
+  });
+
+  it("the shared .field and .kicker are exactly as on main (the dashboard renders with them)", () => {
+    assert.deepEqual(block(".kicker"), [
+      "font-size: 0.75rem;",
+      "line-height: 1.2;",
+      "letter-spacing: 0.14em;",
+      "text-transform: uppercase;",
+      "font-variant-numeric: slashed-zero;",
+    ]);
+    assert.deepEqual(block(".field"), [
+      "height: 2.75rem;",
+      "width: 100%;",
+      "border: 0;",
+      "border-bottom: 1px solid var(--color-ink);",
+      "border-radius: 0;",
+      "background: transparent;",
+      "padding: 0;",
+      "color: var(--color-ink);",
+      "font-variant-numeric: slashed-zero tabular-nums;",
+      "appearance: none;",
+    ]);
+  });
+
+  it("exact copy (Q4): heading, Email, Password, submit, the Create an account / Sign in switch; no invite-only note", () => {
+    for (const s of [
+      '"Sign in"',
+      '"Create account"',
+      ">Email<",
+      ">Password<",
+      '"Create an account"',
+      "Sign-in is not configured on this deployment.",
+    ])
+      assert.ok(route.includes(s), s);
+    assert.doesNotMatch(route, /New here|Have an account|invite-only|password reset/i);
+  });
+
+  it("auth logic unchanged (ST5b-03): the same calls, gate and redirect", () => {
+    for (const s of [
+      "await ensureDashboardEnabled();",
+      "const viewer = await getDashboardViewer();",
+      'if (viewer.user) throw redirect({ to: "/dashboard" });',
+      'await import("@/lib/auth/client")',
+      "authClient.signIn.email({ email: trimmed, password })",
+      "authClient.signUp.email({",
+      'name: trimmed.split("@")[0] || trimmed,',
+      'window.location.href = "/dashboard";',
+      "minLength={8}",
+      'autoComplete={mode === "sign-in" ? "current-password" : "new-password"}',
+      'setMode(mode === "sign-in" ? "sign-up" : "sign-in");',
+    ])
+      assert.ok(route.includes(s), s);
+  });
+});

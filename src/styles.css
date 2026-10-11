@@ -257,6 +257,83 @@
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
+  /* Sign-in (#73, spec §9, ST5b; Q10): its own classes on the dark page. The shared .field / .kicker / .section
+     and the .calc-* / .home-* classes stay exactly as they are. */
+  .signin :focus-visible {
+    outline: 2px solid var(--color-chalk);
+    outline-offset: 2px;
+  }
+  .signin-title {
+    font-size: 1.875rem;
+    line-height: 1.2;
+    font-weight: 400;
+    color: var(--color-chalk);
+  }
+  .signin-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  .signin-field {
+    height: 2.75rem;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--color-chalk);
+    font-size: 1rem;
+    appearance: none;
+  }
+  .signin-field:focus-visible {
+    border-bottom-color: var(--color-chalk);
+  }
+  /* A browser-autofilled field keeps the charcoal page and chalk text (no light autofill fill). */
+  .signin-field:-webkit-autofill,
+  .signin-field:-webkit-autofill:hover,
+  .signin-field:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-chalk);
+    caret-color: var(--color-chalk);
+    box-shadow: 0 0 0 1000px var(--color-night) inset;
+    transition: background-color 600000s 0s;
+  }
+  .signin-button {
+    display: inline-flex;
+    height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    background: var(--color-chalk);
+    padding: 0 1.5rem;
+    color: var(--color-night);
+    font-size: 0.875rem;
+  }
+  .signin-button:disabled {
+    background: var(--color-dim);
+  }
+  .signin-switch {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--color-chalk);
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule);
+    text-underline-offset: 0.25em;
+  }
+  .signin-error {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-alert);
+  }
+  .signin-note {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-dim);
+  }
   /* Field checks (#78, spec §7 sizes; ST4-17): the message under its field, the underline in the alert colour. */
   .calc-error {
     display: block;
