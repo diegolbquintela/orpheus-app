@@ -25,10 +25,11 @@
 //   PF-17 equity-cover copy (the two rates, Rate used); PF-18 formula A (ROIC 8 → 4% → Rent 300,000; withdrawal 5
 //         wins; a typed 4 is 4%; 0 → —; the percent check); PF-19 the override (placeholder = calculated, typed
 //         wins, a bad one falls back (Q9), cleared → calculated, totals; no rate → — (Q10)); ROIC > 100 valid (Q11); PF-20 rates restored from orpheus.finance.equity.v1, layout
-//   PF-21 currency copy (Household currency USD above Income, ten codes; a line's Currency, FX rate — on a household
+//   PF-21 currency copy (Household currency CAD by default (Q13) above Income, ten codes; a line's Currency, FX rate — on a household
 //         line); PF-22 conversion (Condo 2,000 BRL at 0.2 → 400: Fixed 1,650 / 19,800, Total 1,750 / 21,000, 22.9%,
 //         % of income 3.6% / 14.7% / 15.6%); PF-23 equity on the household amount (120,000; 495,000 / 30,000 /
-//         525,000; override 100,000 → 475,000); PF-24 no valid rate → `Enter a number above 0.` and 0; household = the
+//         525,000; override 100,000 → 475,000); PF-24 no valid rate → `Enter a number above 0.` and — in every household
+//         figure and total containing the line (Q14), its own Monthly / Yearly as typed; household = the
 //         line's currency → × 1; PF-25 orpheus.finance.currency.v1 restored, layout, focus, AA, CLS with a foreign line
 //   PF-10 is the other tools' job (site-style-regression.mjs runs them all, site.mjs the $313,000).
 // Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-equity-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png,
@@ -58,6 +59,8 @@ const INCOME_KEY = "orpheus.finance.income.v1";
 const EQUITY_KEY = "orpheus.finance.equity.v1";
 const CURRENCY_KEY = "orpheus.finance.currency.v1";
 const CODES = ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
+// A line's Currency choices under the default household CAD (Q13): CAD first, then the other nine in list order.
+const CODES_CAD = ["CAD", "USD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
 const PERSON_COLUMNS = ["Name", "Wages (yearly)", "Bonus rating (%)", "Average tax (%)", "Net (yearly)", "Count wages", "Count bonus", "Share (%)"];
 const TABLE_COLUMNS = ["Income", "Biweekly", "Monthly", "Yearly"];
 const NIGHT = "rgb(30, 33, 36)";
@@ -227,7 +230,7 @@ const STORED_INCOME = JSON.stringify({
   ],
 });
 const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
-const STORED_CURRENCY = JSON.stringify({ household: "CAD" });
+const STORED_CURRENCY = JSON.stringify({ household: "USD" });
 const STORED = JSON.stringify({
   fixed: [
     { id: "q1", name: "Rent", amount: "1,000", per: "month", equity: "300,000", account: "Chequing" },
@@ -567,16 +570,18 @@ try {
         fx: await txt(fc.getByTestId("pf-fx-none")),
         inputs: await fc.getByTestId("pf-fx").count(),
       };
-      check(`${tag} PF-21 Household currency USD (visible label, ten codes) above Income; a line's Currency (household first) and FX rate —`, JSON.stringify(c21) === JSON.stringify({ household: "USD", codes: CODES, label: { t: "Household currency", vis: true }, above: true, line: ["USD", "Currency, Fixed 3", CODES], fx: "—", inputs: 0 }), c21);
+      check(`${tag} PF-21 Household currency CAD by default (Q13; visible label, ten codes) above Income; a line's Currency (CAD first) and FX rate —`, JSON.stringify(c21) === JSON.stringify({ household: "CAD", codes: CODES, label: { t: "Household currency", vis: true }, above: true, line: ["CAD", "Currency, Fixed 3", CODES_CAD], fx: "—", inputs: 0 }), c21);
       await fc.getByTestId("pf-currency").selectOption("BRL");
       const fx = fc.getByTestId("pf-fx");
-      const noRate24 = { err: await txt(fc.getByTestId("pf-error")), invalid: await fx.getAttribute("aria-invalid"), label: await fx.getAttribute("aria-label"), color: await fc.getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), fixed: await totals(page, "fixed"), holder: await fc.getByTestId("pf-equity").getAttribute("placeholder") };
+      const dash24 = async () => ({ fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all"), rent: [await txt(line(page, "fixed", 0).getByTestId("pf-share")), await txt(line(page, "fixed", 0).getByTestId("pf-income"))], condo: [await val(fc.getByTestId("pf-monthly")), await val(fc.getByTestId("pf-yearly")), await txt(fc.getByTestId("pf-share")), await txt(fc.getByTestId("pf-income")), await fc.getByTestId("pf-equity").getAttribute("placeholder")] });
+      const want24 = { fixed: ["—", "—", "—", "—", "—"], variable: ["—", "0.9%", "100", "1,200", "30,000"], all: ["—", "—", "—", "—", "—"], rent: ["—", "8.9%"], condo: ["2,000", "24,000", "—", "—", "—"] };
+      const noRate24 = { err: await txt(fc.getByTestId("pf-error")), invalid: await fx.getAttribute("aria-invalid"), label: await fx.getAttribute("aria-label"), color: await fc.getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), ...(await dash24()) };
       const bads = [];
       for (const bad of ["abc", "-1", "0"]) {
         await fx.fill(bad);
-        bads.push([bad, await txt(fc.getByTestId("pf-error")), (await totals(page, "fixed"))[2]]);
+        bads.push([bad, await txt(fc.getByTestId("pf-error")), JSON.stringify(await dash24()) === JSON.stringify(want24)]);
       }
-      check(`${tag} PF-24 Q14: a BRL line with no rate (empty, abc, -1, 0): \`Enter a number above 0.\` (alert, aria-invalid) and it counts as 0 (Fixed 1,250; equity 0)`, JSON.stringify(noRate24) === JSON.stringify({ err: "Enter a number above 0.", invalid: "true", label: "FX rate, Fixed 3", color: ALERT, fixed: ["92.6%", "11.2%", "1,250", "15,000", "375,000"], holder: "0" }) && bads.every(([, e, m]) => e === "Enter a number above 0." && m === "1,250"), { noRate24, bads });
+      check(`${tag} PF-24 Q14 (decided): a BRL line with no rate (empty, abc, -1, 0): \`Enter a number above 0.\` (alert, aria-invalid); it contributes — (Fixed and Total —: monthly, yearly, % of expenses, % of income, equity; every % of expenses —); its own Monthly / Yearly stay 2,000 / 24,000; Variable 100 / 1,200 / 30,000 and Rent's 8.9% of income still show`, JSON.stringify(noRate24) === JSON.stringify({ err: "Enter a number above 0.", invalid: "true", label: "FX rate, Fixed 3", color: ALERT, ...want24 }) && bads.every(([, e, ok]) => e === "Enter a number above 0." && ok), { noRate24, bads });
       await fx.fill("0.2");
       const conv22 = {
         errors: await fc.getByTestId("pf-error").count(),
@@ -611,16 +616,16 @@ try {
       R.shots.push(shotX);
       // Storage: the line's currency / rate; the household key only once changed.
       const before = await page.evaluate((k) => [Object.keys(localStorage).includes(k[0]), JSON.parse(localStorage.getItem(k[1])).fixed[2]], [CURRENCY_KEY, KEY]);
-      await hhSel.selectOption("CAD");
+      await hhSel.selectOption("USD");
       const cadKey = await page.evaluate((k) => localStorage.getItem(k), CURRENCY_KEY);
       await page.reload({ waitUntil: "networkidle" });
       await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
       const fc2 = line(page, "fixed", 2);
       const back25 = { household: await page.getByTestId("pf-household").inputValue(), cur: await fc2.getByTestId("pf-currency").inputValue(), rate: await val(fc2.getByTestId("pf-fx")), all: (await totals(page, "all")).slice(2, 4) };
-      check(`${tag} PF-25 storage: Condo {currency BRL, rate 0.2} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"CAD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "0.2" && cadKey === '{"household":"CAD"}' && JSON.stringify(back25) === JSON.stringify({ household: "CAD", cur: "BRL", rate: "0.2", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
+      check(`${tag} PF-25 storage: Condo {currency BRL, rate 0.2} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"USD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "0.2" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "0.2", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
       await page.getByTestId("pf-household").selectOption("BRL");
       const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).fixed[2].rate, KEY) };
-      await page.getByTestId("pf-household").selectOption("USD");
+      await page.getByTestId("pf-household").selectOption("CAD");
       check(`${tag} PF-24 household BRL makes Condo a household line: FX rate —, × 1 (Fixed 3,250 / 39,000), the rate kept stored`, JSON.stringify(asHome) === JSON.stringify({ fx: "—", cur: "BRL", fixed: ["3,250", "39,000"], rate: "0.2" }), asHome);
       check(`${tag} PF-07 no /api request; no page error`, api.length === 0 && errors.length === 0, { api, errors });
     } catch (e) {
@@ -640,7 +645,7 @@ try {
       await p2.locator("[data-testid=pf-area][data-ready=true]").waitFor();
       const n = await p2.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
       const hh = await p2.getByTestId("pf-household").inputValue();
-      check(`${tag} PF-07 / PF-25 ${what}: the empty page, Household currency USD, no error`, n === 0 && hh === "USD" && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
+      check(`${tag} PF-07 / PF-25 ${what}: the empty page, Household currency CAD (Q13), no error`, n === 0 && hh === "CAD" && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
       await c2.close();
     }
 
@@ -649,7 +654,7 @@ try {
       const runs = [];
       for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(browser, viewport, mobile, stored));
       const worst = Math.max(...runs.map((r) => r.total));
-      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (4 lines incl. a BRL one, 2 people, rates, household CAD)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 6 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
+      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (4 lines incl. a BRL one, 2 people, rates, household USD)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 6 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
     }
   }
 } finally {

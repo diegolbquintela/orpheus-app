@@ -469,10 +469,10 @@ describe("equity cover (#86, option A)", () => {
     assert.equal((q(rent, "pf-equity") as HTMLInputElement).placeholder, "300,000");
   });
 
-  it("currency copy: Household currency USD above Income; a line's Currency and FX rate — (PF-21)", async () => {
+  it("currency copy: Household currency CAD (Q13) above Income; a line's Currency and FX rate — (PF-21)", async () => {
     const el = await render();
     const household = q(el, "pf-household") as HTMLSelectElement;
-    assert.equal(household.value, "USD");
+    assert.equal(household.value, "CAD");
     assert.deepEqual(
       [...household.options].map((o) => o.textContent),
       ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"],
@@ -491,7 +491,11 @@ describe("equity cover (#86, option A)", () => {
     await click(q(el, "pf-add-fixed"));
     const [line] = lines(el, "fixed");
     const currency = q(line, "pf-currency") as HTMLSelectElement;
-    assert.equal(currency.value, "USD");
+    assert.equal(currency.value, "CAD");
+    assert.deepEqual(
+      [...currency.options].map((o) => o.textContent),
+      ["CAD", "USD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"],
+    );
     assert.equal(currency.getAttribute("aria-label"), "Currency, Fixed 1");
     assert.equal(text(line, "pf-fx-none"), "—");
     assert.equal(line.querySelector('[data-testid="pf-fx"]'), null);
@@ -502,7 +506,7 @@ describe("equity cover (#86, option A)", () => {
     );
   });
 
-  it("the section 14 example: conversion into the household currency, equity, no rate → 0, storage (PF-22..25)", async () => {
+  it("the section 14 example: conversion into the household currency, equity, no rate → —, storage (PF-22..25)", async () => {
     const el = await render();
     for (const g of ["fixed", "fixed", "fixed", "variable"]) await click(q(el, `pf-add-${g}`));
     const [rent, phone, condo] = lines(el, "fixed");
@@ -513,7 +517,7 @@ describe("equity cover (#86, option A)", () => {
     await type(q(condo, "pf-monthly"), "2,000");
     await type(q(gifts, "pf-yearly"), "1,200");
     await type(q(condo, "pf-currency"), "BRL");
-    // No rate yet (Q14): the check, and the line counts as 0.
+    // No rate yet (Q14, decided): the check, and the line contributes — to every household figure.
     const fx = q(condo, "pf-fx") as HTMLInputElement;
     assert.equal(fx.getAttribute("aria-label"), "FX rate, Fixed 3");
     assert.equal(fx.getAttribute("aria-invalid"), "true");
@@ -523,15 +527,37 @@ describe("equity cover (#86, option A)", () => {
     );
     const totals = (row: string) =>
       ["pf-total-monthly", "pf-total-yearly"].map((f) => text(q(el, `pf-total-${row}`), f));
-    assert.deepEqual(totals("fixed"), ["1,250", "15,000"]);
+    const dashes = () => ({
+      fixed: totals("fixed"),
+      variable: totals("variable"),
+      all: totals("all"),
+      shares: [text(rent, "pf-share"), text(condo, "pf-share"), text(condo, "pf-income")],
+      condo: [
+        (q(condo, "pf-monthly") as HTMLInputElement).value,
+        (q(condo, "pf-yearly") as HTMLInputElement).value,
+      ],
+    });
+    const want = {
+      fixed: ["—", "—"],
+      variable: ["100", "1,200"],
+      all: ["—", "—"],
+      shares: ["—", "—", "—"],
+      condo: ["2,000", "24,000"],
+    };
+    assert.deepEqual(dashes(), want);
     for (const bad of ["abc", "-1", "0"]) {
       await type(fx, bad);
       assert.equal(fx.getAttribute("aria-invalid"), "true", bad);
-      assert.deepEqual(totals("fixed"), ["1,250", "15,000"], bad);
+      assert.deepEqual(dashes(), want, bad);
     }
+    await type(q(el, "pf-roic"), "8");
+    assert.equal((q(condo, "pf-equity") as HTMLInputElement).placeholder, "—");
+    assert.equal(text(q(el, "pf-total-fixed"), "pf-total-equity"), "—");
+    assert.equal(text(q(el, "pf-total-variable"), "pf-total-equity"), "30,000");
+    await type(q(el, "pf-roic"), "");
     await type(fx, "0.2");
     assert.equal(fx.getAttribute("aria-invalid"), null);
-    // The line keeps its own currency; every figure is in USD.
+    // The line keeps its own currency; every figure is in CAD.
     assert.equal((q(condo, "pf-monthly") as HTMLInputElement).value, "2,000");
     assert.equal((q(condo, "pf-yearly") as HTMLInputElement).value, "24,000");
     assert.deepEqual(totals("fixed"), ["1,650", "19,800"]);
@@ -556,14 +582,14 @@ describe("equity cover (#86, option A)", () => {
     );
     const stored = JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!);
     assert.deepEqual([stored.fixed[2].currency, stored.fixed[2].rate], ["BRL", "0.2"]);
-    await type(q(el, "pf-household"), "CAD");
+    await type(q(el, "pf-household"), "USD");
     assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(CURRENCY_KEY)!), {
-      household: "CAD",
+      household: "USD",
     });
     await act(async () => root!.unmount());
     container!.remove();
     const again = await render();
-    assert.equal((q(again, "pf-household") as HTMLSelectElement).value, "CAD");
+    assert.equal((q(again, "pf-household") as HTMLSelectElement).value, "USD");
     const condo2 = lines(again, "fixed")[2];
     assert.equal((q(condo2, "pf-currency") as HTMLSelectElement).value, "BRL");
     assert.equal((q(condo2, "pf-fx") as HTMLInputElement).value, "0.2");
@@ -577,7 +603,7 @@ describe("equity cover (#86, option A)", () => {
     assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[2].rate, "0.2");
   });
 
-  it("a v1.3 stored line restores as a household line; a malformed currency key reads as USD (PF-25)", async () => {
+  it("a v1.3 stored line restores as a household line; a malformed currency key reads as CAD (PF-25)", async () => {
     dom.window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -588,9 +614,9 @@ describe("equity cover (#86, option A)", () => {
     );
     dom.window.localStorage.setItem(CURRENCY_KEY, '{"household":"XYZ"}');
     const el = await render();
-    assert.equal((q(el, "pf-household") as HTMLSelectElement).value, "USD");
+    assert.equal((q(el, "pf-household") as HTMLSelectElement).value, "CAD");
     const [rent] = lines(el, "fixed");
-    assert.equal((q(rent, "pf-currency") as HTMLSelectElement).value, "USD");
+    assert.equal((q(rent, "pf-currency") as HTMLSelectElement).value, "CAD");
     assert.equal(text(rent, "pf-fx-none"), "—");
     assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "1,000");
   });

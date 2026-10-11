@@ -15,6 +15,7 @@ import {
   calculatedEquity,
   type Expenses,
   factorOf,
+  fieldText,
   formatAmount,
   formatShare,
   grandTotals,
@@ -64,12 +65,12 @@ const example = (): Expenses => ({
 });
 
 describe("household currency (#87, PF-21, PF-25)", () => {
-  it("has the ten codes in order, default USD, the household code first in a line's choices", () => {
+  it("has the ten codes in order, default CAD (Q13), the household code first in a line's choices", () => {
     assert.deepEqual(
       [...CURRENCIES],
       ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"],
     );
-    assert.deepEqual(DEFAULT_CURRENCY, { household: "USD" });
+    assert.deepEqual(DEFAULT_CURRENCY, { household: "CAD" });
     assert.deepEqual(currencyChoices("BRL"), [
       "BRL",
       "USD",
@@ -84,19 +85,19 @@ describe("household currency (#87, PF-21, PF-25)", () => {
     ]);
   });
 
-  it("round-trips its own key; missing, malformed or unknown reads as USD (never throws)", () => {
+  it("round-trips its own key; missing, malformed or unknown reads as CAD (never throws; Q13)", () => {
     const m = new Memory();
-    assert.deepEqual(readHousehold(m), { household: "USD" });
-    writeHousehold(m, { household: "CAD" });
-    assert.equal(m.map.get(CURRENCY_KEY), '{"household":"CAD"}');
     assert.deepEqual(readHousehold(m), { household: "CAD" });
+    writeHousehold(m, { household: "USD" });
+    assert.equal(m.map.get(CURRENCY_KEY), '{"household":"USD"}');
+    assert.deepEqual(readHousehold(m), { household: "USD" });
     for (const bad of ["{", "null", '"USD"', '{"household":"XYZ"}', '{"household":7}'])
       assert.deepEqual(
         readHousehold({ getItem: () => bad, setItem() {} }),
-        { household: "USD" },
+        { household: "CAD" },
         bad,
       );
-    assert.deepEqual(asHousehold([]), { household: "USD" });
+    assert.deepEqual(asHousehold([]), { household: "CAD" });
     const throwing = {
       getItem(): string {
         throw new Error("blocked");
@@ -105,7 +106,7 @@ describe("household currency (#87, PF-21, PF-25)", () => {
         throw new Error("blocked");
       },
     };
-    assert.deepEqual(readHousehold(throwing), { household: "USD" });
+    assert.deepEqual(readHousehold(throwing), { household: "CAD" });
     writeHousehold(throwing, { household: "EUR" });
     assert.ok(![STORAGE_KEY, INCOME_KEY, EQUITY_KEY].includes(CURRENCY_KEY));
   });
@@ -119,13 +120,16 @@ describe("foreign-currency line (#87, PF-22..25)", () => {
       assert.equal(parseRate(bad), null, bad);
   });
 
-  it("household line factor 1; foreign line × its rate (Q12), 0 without a valid rate", () => {
+  it("household line factor 1; foreign line × its rate (Q12), null (—) without a valid rate (Q14)", () => {
     assert.equal(factorOf(line()), 1);
-    assert.equal(factorOf(line({ currency: "USD", rate: "abc" })), 1);
-    assert.equal(isForeign(line({ currency: "USD" })), false);
+    assert.equal(factorOf(line({ currency: "CAD", rate: "abc" })), 1);
+    assert.equal(isForeign(line({ currency: "CAD" })), false);
+    assert.equal(isForeign(line({ currency: "USD" })), true, "CAD is the default household (Q13)");
     assert.equal(factorOf(line({ currency: "BRL", rate: "0.2" })), 0.2);
-    for (const rate of ["", "0", "abc", "-1"])
-      assert.equal(factorOf(line({ currency: "BRL", rate })), 0, rate);
+    for (const rate of ["", "0", "abc", "-1"]) {
+      assert.equal(factorOf(line({ currency: "BRL", rate })), null, rate);
+      assert.equal(householdMonthlyOf(line({ currency: "BRL", rate })), null, rate);
+    }
     // The household currency becomes the line's: × 1, the rate ignored (kept stored).
     assert.equal(factorOf(line({ currency: "BRL", rate: "0.2" }), "BRL"), 1);
     assert.equal(householdMonthlyOf(line({ amount: "2,000", currency: "BRL", rate: "0.2" })), 400);
@@ -153,11 +157,25 @@ describe("foreign-currency line (#87, PF-22..25)", () => {
     assert.equal(totalsOf(e.fixed, 4).equity, 475000);
   });
 
-  it("a foreign line without a valid rate counts as 0 (Q14), equity 0", () => {
+  it("a foreign line without a valid rate contributes — to every household figure and total (Q14, decided)", () => {
     const e = example();
     e.fixed[2] = { ...e.fixed[2], rate: "" };
-    assert.deepEqual([totalsOf(e.fixed).monthly, grandTotals(e).yearly], [1250, 16200]);
-    assert.equal(calculatedEquity(e.fixed[2], 4), 0);
+    const fixed = totalsOf(e.fixed, 4);
+    const variable = totalsOf(e.variable, 4);
+    const grand = grandTotals(e, 4);
+    assert.deepEqual(fixed, { monthly: null, yearly: null, equity: null });
+    assert.deepEqual(variable, { monthly: 100, yearly: 1200, equity: 30000 });
+    assert.deepEqual(grand, { monthly: null, yearly: null, equity: null });
+    assert.equal(calculatedEquity(e.fixed[2], 4), null);
+    assert.equal(formatShare(householdMonthlyOf(e.fixed[2]), 11200), "—");
+    // Every share of a — total is —; a household line's % of income still shows.
+    assert.equal(formatShare(householdMonthlyOf(e.fixed[0]), grand.monthly), "—");
+    assert.equal(formatShare(householdMonthlyOf(e.fixed[0]), 11200), "8.9%");
+    // A valid override is household and counts as typed (the Q10 pattern).
+    e.fixed[2] = { ...e.fixed[2], equity: "100,000" };
+    assert.equal(totalsOf(e.fixed, 4).equity, 475000);
+    // Its own Monthly / Yearly still read the typed amount.
+    assert.equal(fieldText(e.fixed[2], "year"), "24,000");
   });
 
   it("v1.1–v1.3 lines restore as household lines; currency / rate round-trip; unknown code reads as household", () => {

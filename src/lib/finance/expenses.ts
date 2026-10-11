@@ -5,7 +5,8 @@
  * (#86, spec section 13): the yearly amount ÷ (rate ÷ 100), and a typed value overrides it (Q3). Foreign currency
  * (#87, section 14): a line may be in another currency with a typed `FX rate` (household units per 1 unit of the
  * line's currency, Q12); every total, percentage and `Equity to cover` uses the household amount (amount × rate);
- * a foreign line without a valid rate counts as 0 (Q14). `Monthly` / `Yearly` fields stay in the line's currency.
+ * a foreign line without a valid rate contributes `—` (null) to every household figure and to any total containing it
+ * (Q14, decided; the Q10 pattern). `Monthly` / `Yearly` fields stay in the line's currency.
  */
 
 import { type CurrencyCode, DEFAULT_HOUSEHOLD, isCurrency } from "./currency.ts";
@@ -90,19 +91,27 @@ export function parseRate(text: string): number | null {
   return value !== null && value > 0 ? value : null;
 }
 
-/** What one unit of the line's amount is worth in the household currency: 1, its valid rate, or 0 (Q14). */
-export const factorOf = (line: Line, household: CurrencyCode = DEFAULT_HOUSEHOLD): number =>
-  isForeign(line, household) ? (parseRate(line.rate) ?? 0) : 1;
+/**
+ * What one unit of the line's amount is worth in the household currency: 1, its valid rate, or null (`—`) for a
+ * foreign line without a valid rate (Q14, decided).
+ */
+export const factorOf = (line: Line, household: CurrencyCode = DEFAULT_HOUSEHOLD): number | null =>
+  isForeign(line, household) ? parseRate(line.rate) : 1;
 
-/** The line's monthly / yearly amount in the household currency (#87): what every total and percentage uses. */
+const times = (a: number, b: number | null): number | null => (b === null ? null : a * b);
+
+/**
+ * The line's monthly / yearly amount in the household currency (#87): what every total and percentage uses; null
+ * (`—`) for a foreign line without a valid rate (Q14).
+ */
 export const householdMonthlyOf = (
   line: Line,
   household: CurrencyCode = DEFAULT_HOUSEHOLD,
-): number => monthlyOf(line) * factorOf(line, household);
+): number | null => times(monthlyOf(line), factorOf(line, household));
 export const householdYearlyOf = (
   line: Line,
   household: CurrencyCode = DEFAULT_HOUSEHOLD,
-): number => yearlyOf(line) * factorOf(line, household);
+): number | null => times(yearlyOf(line), factorOf(line, household));
 
 const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
@@ -112,9 +121,9 @@ export function formatAmount(value: number): string {
   return text === "-0" ? "0" : text;
 }
 
-/** One decimal and `%`, or `—` while the whole is 0. */
-export function formatShare(part: number, whole: number): string {
-  if (!(whole > 0)) return NOT_COMPUTED;
+/** One decimal and `%`, or `—` while the whole is 0 or either side is `—` (null; #87, Q14). */
+export function formatShare(part: number | null, whole: number | null): string {
+  if (part === null || whole === null || !(whole > 0)) return NOT_COMPUTED;
   return `${((part / whole) * 100).toFixed(1)}%`;
 }
 
@@ -131,7 +140,8 @@ export const hasOverride = (line: Line): boolean =>
 
 /**
  * The calculated `Equity to cover` (#86, option A): the line's yearly amount (in the household currency, #87) ÷
- * (rate ÷ 100), or null with no rate (null, 0 or less). `rate` is the rate used, a percent (4 for 4%).
+ * (rate ÷ 100), or null with no rate (null, 0 or less) or no household amount (a foreign line without a valid FX
+ * rate, Q14). `rate` is the rate used, a percent (4 for 4%).
  */
 export function calculatedEquity(
   line: Line,
@@ -139,7 +149,8 @@ export function calculatedEquity(
   household: CurrencyCode = DEFAULT_HOUSEHOLD,
 ): number | null {
   if (rate === null || !(rate > 0)) return null;
-  return (householdYearlyOf(line, household) * 100) / rate;
+  const yearly = householdYearlyOf(line, household);
+  return yearly === null ? null : (yearly * 100) / rate;
 }
 
 /**
@@ -153,11 +164,12 @@ export const equityOf = (
 ): number | null =>
   hasOverride(line) ? amountOrZero(line.equity) : calculatedEquity(line, rate, household);
 
-/** Equity to cover in a total: null (`—`) when any line contributes `—` (Q10). */
-const addEquity = (a: number | null, b: number | null): number | null =>
+/** A total: null (`—`) when any line contributes `—` (Q10 for Equity to cover; #87 Q14 for every household figure). */
+const add = (a: number | null, b: number | null): number | null =>
   a === null || b === null ? null : a + b;
 
-export type Totals = { monthly: number; yearly: number; equity: number | null };
+/** Household totals; null (`—`) when a line contributes `—` (Q10, Q14). */
+export type Totals = { monthly: number | null; yearly: number | null; equity: number | null };
 
 /** Totals in the household currency (#87: each line × its factor). */
 export function totalsOf(
@@ -167,9 +179,9 @@ export function totalsOf(
 ): Totals {
   return lines.reduce(
     (t, line) => ({
-      monthly: t.monthly + householdMonthlyOf(line, household),
-      yearly: t.yearly + householdYearlyOf(line, household),
-      equity: addEquity(t.equity, equityOf(line, rate, household)),
+      monthly: add(t.monthly, householdMonthlyOf(line, household)),
+      yearly: add(t.yearly, householdYearlyOf(line, household)),
+      equity: add(t.equity, equityOf(line, rate, household)),
     }),
     { monthly: 0, yearly: 0, equity: 0 } as Totals,
   );
@@ -183,9 +195,9 @@ export function grandTotals(
   const a = totalsOf(expenses.fixed, rate, household);
   const b = totalsOf(expenses.variable, rate, household);
   return {
-    monthly: a.monthly + b.monthly,
-    yearly: a.yearly + b.yearly,
-    equity: addEquity(a.equity, b.equity),
+    monthly: add(a.monthly, b.monthly),
+    yearly: add(a.yearly, b.yearly),
+    equity: add(a.equity, b.equity),
   };
 }
 

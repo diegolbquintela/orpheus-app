@@ -561,6 +561,10 @@ function NewAccount({
   );
 }
 
+/** An amount, or `—` for null (Q10, Q14). */
+const orDash = (value: number | null): string =>
+  value === null ? NOT_COMPUTED : formatAmount(value);
+
 function TotalRow({
   label,
   totals,
@@ -570,7 +574,7 @@ function TotalRow({
 }: {
   label: string;
   totals: Totals;
-  whole: number;
+  whole: number | null;
   incomeMonthly: number;
   testId: string;
 }) {
@@ -591,14 +595,9 @@ function TotalRow({
       </div>
       {value("income", "% of income", formatShare(totals.monthly, incomeMonthly), "income")}
       {value("share", "% of expenses", formatShare(totals.monthly, whole), "share")}
-      {value("monthly", "Monthly", formatAmount(totals.monthly), "monthly")}
-      {value("yearly", "Yearly", formatAmount(totals.yearly), "yearly")}
-      {value(
-        "equity",
-        "Equity to cover",
-        totals.equity === null ? NOT_COMPUTED : formatAmount(totals.equity),
-        "equity",
-      )}
+      {value("monthly", "Monthly", orDash(totals.monthly), "monthly")}
+      {value("yearly", "Yearly", orDash(totals.yearly), "yearly")}
+      {value("equity", "Equity to cover", orDash(totals.equity), "equity")}
     </div>
   );
 }

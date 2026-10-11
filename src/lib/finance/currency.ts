@@ -1,6 +1,6 @@
 /**
  * Personal finance household currency (#87 v1.4; spec `attachments/personal-finance-spec.md` section 14, PF-21..25).
- * One household-level code from a fixed list (default `USD`, Q13): income, every total, both percentages and
+ * One household-level code from a fixed list (default `CAD`, Q13 decided: Diego): income, every total, both percentages and
  * `Equity to cover` are in it. Each expense line may be in another code with a typed `FX rate` (household units per
  * 1 unit of the line's currency, Q12; the conversion lives in `expenses.ts`). Stored in this browser's
  * `localStorage`, its own key; the other three keys are unchanged.
@@ -25,7 +25,7 @@ export const CURRENCIES = [
   "CNY",
 ] as const;
 export type CurrencyCode = (typeof CURRENCIES)[number];
-export const DEFAULT_HOUSEHOLD: CurrencyCode = "USD";
+export const DEFAULT_HOUSEHOLD: CurrencyCode = "CAD";
 
 export const isCurrency = (value: unknown): value is CurrencyCode =>
   typeof value === "string" && (CURRENCIES as readonly string[]).includes(value);
@@ -35,7 +35,7 @@ export const DEFAULT_CURRENCY: Household = { household: DEFAULT_HOUSEHOLD };
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
-/** A stored value back into the page: an unknown, missing or malformed value reads as `USD` (never throws). */
+/** A stored value back into the page: an unknown, missing or malformed value reads as `CAD` (never throws; Q13). */
 export function asHousehold(value: unknown): Household {
   if (!value || typeof value !== "object") return DEFAULT_CURRENCY;
   const v = value as Record<string, unknown>;

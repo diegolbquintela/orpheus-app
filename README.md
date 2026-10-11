@@ -207,14 +207,15 @@ Totals add each line's override or calculated amount; with no rate, a line witho
 its total. ROIC may be above 100%; the withdrawal rate is 0–100%. Stored in this browser only,
 in `orpheus.finance.equity.v1`.
 
-**Foreign currency (#87 v1.4).** Pick the `Household currency` at the top of the page (default USD; income, totals,
+**Foreign currency (#87 v1.4).** Pick the `Household currency` at the top of the page (default CAD; income, totals,
 percentages and equity cover are in it). An expense line can be in another `Currency` (e.g. BRL); type its `FX rate`
-as household units per 1 unit of that currency (1 BRL = 0.2 USD → `0.2`). The line's Monthly / Yearly stay in its
+as household units per 1 unit of that currency (1 BRL = 0.2 CAD → `0.2`). The line's Monthly / Yearly stay in its
 own currency as typed; everything computed from them uses the converted amount (Condo 2,000 BRL a month at 0.2 →
-400 USD in the totals; equity cover on 4,800 a year). A foreign line without a valid rate shows `Enter a number above
-0.` and counts as 0. No live rates: typed only. The household currency is stored in `orpheus.finance.currency.v1`;
-each line's currency and rate in the expenses key (older lines read as household lines). Draft PR #100; Q12–Q16
-open for EL (defaults as built).
+400 CAD in the totals; equity cover on 4,800 a year). A foreign line without a valid rate shows `Enter a number above
+0.` and shows `—` in place of every converted figure and in any total that contains it (its own Monthly / Yearly
+still show what you typed). No live rates: typed only. The household currency is stored in `orpheus.finance.currency.v1`;
+each line's currency and rate in the expenses key (older lines read as household lines). Draft PR #100; EL decided Q12–Q16
+(multiply by the rate, default CAD, `—` without a rate, no symbols, one rate per line).
 
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
