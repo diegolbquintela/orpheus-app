@@ -43,6 +43,7 @@ always: ST0-05).
 | 3b | #80 saved searches | ST0-01..03, ST4 on `/calculator` (ST4-19..24 new: button always visible and closed by default, list of 5 + Load, auto-save, refresh restore (multi-name restore page CLS < 0.1, EL Q18), no auth / `localStorage` only, isolation + clear-site-data) ; ST0-05 | `/` (ST3), sign-in, `/dashboard` |
 | 5 | #73 sign-in | ST0-01..03, ST5b-01..05 on `/dashboard/sign-in` (ST5b-04 AA / color-scheme / autofill and ST5b-05 layout / noindex new; `qa/tools/signin-page.mjs`); ST0-05 | `/`, `/calculator`, `/dashboard` |
 | 6 | #72 leave-outs + regression | ST6-01..09 (ST6-06 font / strict CLS, -07 punctuation, -08 bar tap targets, -09 dark 404 new; ST3-01 / ST4-01 CLS now strict 0) and every row above except ST5a, shipped pages; `qa/tools/site-style-regression.mjs` | `/dashboard` (ST0-05) |
+| 7 | #84 Personal Finance v1.1 + lyre | PF-01..10 on `/personal-finance` (`qa/tools/personal-finance.mjs`); ST1-05 the lyre on every page; EL (≈ 12:05 ET): URL only (Q1 (d): ST1-01 three items, ST3-03 two home lines unchanged), unitless amounts until #87 (Q2), a typed `Equity to cover` overrides #86's calculated amount (Q3, for #86), `__grok/icon-180.png` out of scope (Q4); ST0-05 | every shipped page (`qa/tools/site-style-regression.mjs`: `/`, `/calculator`, sign-in, the 404; `$313,000`) |
 | — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
@@ -229,13 +230,15 @@ average cost and last close (spec 0.5 item 20).
 
 ## Personal Finance (#84 v1.1; spec `attachments/personal-finance-spec.md`)
 
+EL decisions (2026-10-11, ≈ 12:05 ET): reached by URL only (no bar item, no home line), amounts unitless until #87,
+a typed `Equity to cover` overrides #86's calculated amount, Grok builder assets (`__grok/icon-180.png`) out of scope.
 Business user: the CFO. QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900 on `/personal-finance` with
 `qa/tools/personal-finance.mjs`; the no-regression pass on the shipped pages with `qa/tools/site-style-regression.mjs`
 (ST1-05 lyre on every page included). #85 income, #86 equity cover and #87 foreign currency add their rows here.
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
-| PF-01 | BLOCK | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (no current item, Q1) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
+| PF-01 | BLOCK | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (unchanged, no current item: URL only, Q1 (d)) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
 | PF-02 | BLOCK | Exact copy (section 4): `01`, `Personal finance.`, `02`, `Expenses`, `Fixed`, `Variable`, the seven column labels in order, `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
 | PF-03 | BLOCK | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
 | PF-04 | BLOCK | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` shows `—` everywhere (no income until #85). |

@@ -184,8 +184,13 @@ business user: the CFO). Two groups of expenses, **Fixed** and **Variable**, wit
 both groups. `% of income` shows `—` until income exists (#85). `Equity to cover` is a number you type until #86
 computes it. Account is a dropdown with `Add account…` (one shared list for both groups). Totals per group and for
 both. Manual entry only: everything stays in this browser's `localStorage` (`orpheus.finance.expenses.v1`), with
-no login, no server copy and no request to `/api`. The page is reached by its URL for now; where it is linked
-(bar or home) is open question Q1. QA: `qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
+no login, no server copy and no request to `/api`. Amounts carry no currency symbol until #87. The page is
+reached by its URL only (EL decision): the bar keeps its three items and home its two lines. QA:
+`qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
+
+**Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
+after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
+default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.
 
 ## Dashboard (released, behind a flag)
 

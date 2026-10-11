@@ -26,6 +26,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-11, ≈ 10:38 ET | **#72 kickoff (Diego via CoS; EL):** leave-outs and regression on the shipped pages (home, calculator, sign-in, the shell and the dark 404); #71 stays on hold (ST0-05 still checked). In scope: ST6-01..05; **Q16 done here:** Schibsted Grotesk self-hosted (the Google Fonts dependency dropped), so the page CLS is a strict 0 at 360 / 400 / 1024 / 1440 with every shift counted (ST3-01 / ST4-01 tightened from < 0.001); the `tnum` spaced punctuation (`research .`, `business :`) fixed on the dark pages; the bar links made ≥ 44 px tap targets (QA N1 on #73) without growing the bar; a minimal dark 404. Dated schedule wording dropped (section 3 is an order, not days). ST6-06..09 added; `qa/tools/site-style-regression.mjs` runs the regression. |
 | 2026-10-11, ≈ 10:58 ET | **EL answers on #72 (PR #83 at `3759f95`; docs-only commit, no code change):** (1) **font loading decided:** `font-display: optional` and a strict page CLS of 0 are the point of Q16; a slow first visit may stay in the size-adjusted fallback for that one page view; never swap the font in a way that brings CLS above 0. (2) **Figures decided:** proportional figures on the dark pages; don't turn `tabular-nums` (or `tnum`) back on for the result values or anywhere else there: the wide comma and spaced punctuation are worse than losing digit alignment; `/dashboard` keeps `main`'s setting. (3) **404 wording decided:** `Page not found.` |
 | 2026-10-11, ≈ 11:33 ET | **#84 kickoff (Diego via CoS; EL):** the **lyre** replaces the geometric mark on every page (inline SVG in the bar beside `Orpheus`, decorative; `favicon.svg`), same bar (45 px, ≥ 44 px tap targets) and footer; ST1-05 added. The Personal Finance page (`/personal-finance`) follows `attachments/personal-finance-spec.md` (PF rows) and every shell rule here; the bar's items (ST1-01) and home (ST3-03) are unchanged until EL answers its Q1 (navigation). |
+| 2026-10-11, ≈ 12:05 ET | **EL answers on #84 (PR #88 at `f067c84`; docs-only commit, no code change):** `/personal-finance` is reached by URL only (Q1 (d)): **ST1-01 stays exactly three bar items** and **home stays the hero + two Platforms lines (ST3-03)**. Amounts unitless until #87 (Q2); a typed `Equity to cover` overrides #86's calculated amount (Q3, for #86); `__grok/icon-180.png` untouched, Grok builder assets out of scope for #84 (Q4). Details: `attachments/personal-finance-spec.md`. |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -675,3 +676,11 @@ assumed white.
     strict CLS 0; a slow first visit may keep the fallback for that view, never a swap that adds CLS); figures
     decided (proportional on the dark pages, no `tabular-nums` back on result values; `/dashboard` as on `main`);
     the 404 wording `Page not found.` decided.
+- **#84, lyre mark (PR #88, with the Personal Finance page; built at `f067c84`, 2026-10-11).** ST1-05: the inline
+  lyre (`src/components/lyre.tsx`, `aria-hidden`, 20 px, `currentColor`) first in the bar's `Orpheus` link on every
+  page; `public/favicon.svg` the same lyre in chalk on charcoal (the two-bar mark is gone). Bar (45 px, three items,
+  ≥ 44 px links) and footer unchanged. `/personal-finance` follows `attachments/personal-finance-spec.md` and is in
+  the regression runner's page list.
+  - **EL answers (2026-10-11, ≈ 12:05 ET; docs-only commit, no code change):** the page stays URL only (Q1 (d)):
+    ST1-01 three bar items and ST3-03 home's two lines unchanged; `__grok/icon-180.png` untouched (Q4: Grok builder
+    assets out of scope for #84). Q2 / Q3 in the personal-finance spec.
