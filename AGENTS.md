@@ -65,6 +65,20 @@ affects the repo.
   classes. `/dashboard` keeps `main`'s body `tnum` (ST0-05). Bar links are 44 px tall hit areas inside the 45 px
   bar. The 404 is `src/components/not-found.tsx` (`Page not found.`), the root route's `notFoundComponent`.
   QA runner: `qa/tools/site-style-regression.mjs` (every shipped-page tool + the ST6 checks).
+- **Lyre mark (#84, ST1-05):** the bar's `Orpheus` link starts with an inline lyre SVG (`src/components/lyre.tsx`,
+  decorative, `aria-hidden`); `public/favicon.svg` is the same lyre. Don't bring the two-bar mark back.
+- **Personal Finance (#84 v1.1+):** `attachments/personal-finance-spec.md` (PF rows; business user the CFO) on top of
+  every shell rule here. `/personal-finance`: Fixed and Variable expenses, this browser's `localStorage` only
+  (`orpheus.finance.expenses.v1`; no auth, no server write, no `/api/*`), manual entry only (no Plaid, no feeds).
+  `% of income` shows `—` until #85; `Equity to cover` is a typed amount until #86. Page-only classes `.pf-*`.
+  Reached by URL only (EL, Q1 (d)): don't add a bar item (ST1-01 three items) or a home line (ST3-03 two).
+  Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
+  line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
+  QA: `qa/tools/personal-finance.mjs`.
+- **Landed: #84 Personal Finance v1.1 + lyre (PR #88).** `src/routes/personal-finance.tsx`,
+  `src/components/personal-finance/expenses-page.tsx` (`[data-testid=pf-line]`, `pf-add-<group>`,
+  `pf-total-<fixed|variable|all>`), `src/lib/finance/expenses.ts` (pure), `src/components/lyre.tsx`,
+  `public/favicon.svg`. EL answers Q1–Q4 (2026-10-11, docs-only) as above.
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.

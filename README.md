@@ -172,6 +172,26 @@ the last search again. No login: everything stays in this browser's `localStorag
 (`orpheus.calculator.last.v1`, `orpheus.calculator.saved.v1`), so another device sees nothing and clearing the
 browser's site data clears it. QA: `qa/tools/saved-searches.mjs` at 360, 400, 1024 and 1440 px.
 
+**Lyre mark (#84).** The bar's `Orpheus` link starts with a small lyre (an inline SVG, decorative), and
+`/favicon.svg` is the same lyre; it replaces the old two-bar mark. The bar, its items and the footer are unchanged.
+
+## Personal finance (#84 v1.1)
+
+`/personal-finance` is a dark page in the same shell (spec: `attachments/personal-finance-spec.md`, PF-01..10;
+business user: the CFO). Two groups of expenses, **Fixed** and **Variable**, with the columns Name, % of income,
+% of expenses, Monthly, Yearly, Equity to cover and Account. Type Monthly or Yearly and the other converts (× 12 or
+÷ 12); what you typed stays as typed. `% of expenses` is each line's (and group's) share of the monthly total of
+both groups. `% of income` shows `—` until income exists (#85). `Equity to cover` is a number you type until #86
+computes it. Account is a dropdown with `Add account…` (one shared list for both groups). Totals per group and for
+both. Manual entry only: everything stays in this browser's `localStorage` (`orpheus.finance.expenses.v1`), with
+no login, no server copy and no request to `/api`. Amounts carry no currency symbol until #87. The page is
+reached by its URL only (EL decision): the bar keeps its three items and home its two lines. QA:
+`qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
+
+**Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
+after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
+default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.
+
 ## Dashboard (released, behind a flag)
 
 A signed-in dashboard, built ticket by ticket (spec: `attachments/dashboard-spec.md`), gated by one

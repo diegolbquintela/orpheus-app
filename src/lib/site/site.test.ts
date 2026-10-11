@@ -111,6 +111,7 @@ describe("site shell (#46)", () => {
       "src/routes/calculator.tsx",
       "src/routes/dashboard.tsx",
       "src/routes/dashboard_.sign-in.tsx",
+      "src/routes/personal-finance.tsx",
     ])
       assert.match(readFileSync(file, "utf8"), /noindex, nofollow/, file);
     assert.match(readFileSync("vite.config.ts", "utf8"), /"X-Robots-Tag": "noindex, nofollow"/);
@@ -310,9 +311,9 @@ describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
   it("no tnum on the dark pages (ST6-07); /dashboard keeps main's body setting", () => {
     assert.match(css, /body \{[^}]*font-feature-settings: "tnum" on, "zero" on;/);
     assert.match(css, /body\.scheme-dark \{\s*font-feature-settings: "zero" on;\s*\}/);
-    for (const m of css.matchAll(/\n {2}(\.(?:calc|home|signin)[^{]*)\{([^}]*)\}/g))
+    for (const m of css.matchAll(/\n {2}(\.(?:calc|home|signin|pf)[^{]*)\{([^}]*)\}/g))
       assert.doesNotMatch(m[2], /tabular-nums|"tnum"/, m[1]);
-    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx"])
+    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx", "src/components/personal-finance/expenses-page.tsx"])
       assert.doesNotMatch(readFileSync(f, "utf8"), /tabular-nums/, f);
   });
 
@@ -326,4 +327,51 @@ describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
 
 describe("404 copy (#72)", () => {
   it("exactly `Page not found.`", () => assert.equal(NOT_FOUND_TITLE, "Page not found."));
+});
+
+describe("lyre mark (#84, ST1-05)", () => {
+  const lyre = readFileSync("src/components/lyre.tsx", "utf8");
+  const favicon = readFileSync("public/favicon.svg", "utf8");
+  const menu = readFileSync("src/components/site-menu.tsx", "utf8");
+  const paths = [...lyre.matchAll(/^ {2}"(M[^"]+)",/gm)].map((m) => m[1]);
+
+  it("the bar's Orpheus link carries the lyre (decorative, currentColor)", () => {
+    assert.equal(paths.length, 5);
+    assert.match(lyre, /stroke="currentColor"/);
+    assert.match(lyre, /aria-hidden="true"/);
+    assert.match(menu, /<Lyre className="shrink-0" \/>\s*<span>\{home\.label\}<\/span>/);
+  });
+
+  it("favicon.svg is the same lyre in chalk on charcoal; the two-bar mark is gone", () => {
+    for (const d of paths) assert.ok(favicon.includes(`d="${d}"`), d);
+    assert.match(favicon, /fill="#1e2124"/);
+    assert.match(favicon, /stroke="#f2f0eb"/);
+    assert.doesNotMatch(favicon, /<rect[^>]*(x="6"|height="1\.25")/);
+  });
+});
+
+describe("personal finance route (#84)", () => {
+  it("dark shell, no bar item current (Q1: URL only), the bar unchanged", () => {
+    assert.equal(shellPage("/personal-finance"), "dark");
+    assert.equal(currentSection("/personal-finance"), null);
+    assert.deepEqual(
+      MENU_ITEMS.map((m) => m.label),
+      ["Orpheus", "Calculator", "Dashboard"],
+    );
+    const route = readFileSync("src/routes/personal-finance.tsx", "utf8");
+    assert.match(route, /title: "Personal finance · Orpheus Wisdom"/);
+  });
+
+  it("no server: the page makes no fetch and uses no cookie / sessionStorage / IndexedDB", () => {
+    for (const f of ["src/components/personal-finance/expenses-page.tsx", "src/lib/finance/expenses.ts"]) {
+      const text = readFileSync(f, "utf8");
+      assert.doesNotMatch(text, /fetch\(|\/api\/|document\.cookie|sessionStorage|indexedDB/, f);
+    }
+  });
+
+  it("page-only classes: never the shared .field / .kicker / .section (Q10)", () => {
+    const page = readFileSync("src/components/personal-finance/expenses-page.tsx", "utf8");
+    for (const m of page.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g))
+      assert.doesNotMatch(m[1] ?? m[2], /(?<![\w-])(field|kicker|section)(?![\w-])/, m[0]);
+  });
 });

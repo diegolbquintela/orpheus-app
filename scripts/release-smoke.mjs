@@ -40,9 +40,10 @@ const get = async (p) => {
 const MENU = /<nav aria-label="Site" data-testid="site-menu"[\s\S]*?<\/nav>/;
 const menu = (r) => r.body.match(MENU)?.[0] ?? "";
 const current = (r) =>
-  [...menu(r).matchAll(/<a [^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((m) => m[1]);
+  [...menu(r).matchAll(/<a [^>]*aria-current="page"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => m[1].replace(/<[^>]*>/g, ""));
 const menuOk = (r, want) =>
-  /href="\/"[^>]*>Orpheus</.test(menu(r)) &&
+  // The Orpheus link may lead with the lyre mark (#84, ST1-05): <svg …>…</svg><span>Orpheus</span>.
+  /href="\/"[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span>)?Orpheus</.test(menu(r)) &&
   /href="\/calculator"[^>]*>Calculator</.test(menu(r)) &&
   /href="\/dashboard"[^>]*>Dashboard</.test(menu(r)) &&
   JSON.stringify(current(r)) === JSON.stringify(want ? [want] : []);

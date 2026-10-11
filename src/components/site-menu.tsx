@@ -1,7 +1,8 @@
+import { Lyre } from "@/components/lyre";
 import { currentSection, MENU_ITEMS } from "@/lib/site/site";
 
 /**
- * The site menu (#46; dark shell, epic #66 #68): one thin charcoal bar that stays at the top on scroll, on
+ * The site menu (#46; dark shell, epic #66 #68; the lyre mark #84 before `Orpheus`, decorative): one thin charcoal bar that stays at the top on scroll, on
  * every page, including /dashboard, sign-in and the 404 (same markup everywhere). "Orpheus" on the left links
  * home; "Calculator" and "Dashboard" on the right. No dropdowns, no hover rule. The current page gets
  * aria-current="page" and a visual mark keyed on that attribute (off-white and underlined; the other two items
@@ -25,9 +26,10 @@ export function SiteMenu({ pathname }: { pathname: string }) {
         <a
           href={home.href}
           aria-current={current === home.section ? "page" : undefined}
-          className={`text-sm text-chalk ${link}`}
+          className={`gap-2 text-sm text-chalk ${link}`}
         >
-          {home.label}
+          <Lyre className="shrink-0" />
+          <span>{home.label}</span>
         </a>
         <ul className="flex items-center gap-6 text-sm">
           {right.map((item) => (
