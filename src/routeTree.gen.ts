@@ -14,6 +14,7 @@ import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as PersonalFinanceRouteImport } from './routes/personal-finance'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
+import { Route as ApiPersonalFinanceRouteImport } from './routes/api/personal-finance'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronDailyRefreshRouteImport } from './routes/api/cron/daily-refresh'
@@ -51,6 +52,11 @@ const PersonalFinanceRoute = PersonalFinanceRouteImport.update({
 const ApiChartRoute = ApiChartRouteImport.update({
   id: '/api/chart',
   path: '/api/chart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPersonalFinanceRoute = ApiPersonalFinanceRouteImport.update({
+  id: '/api/personal-finance',
+  path: '/api/personal-finance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSignInRoute = DashboardSignInRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
+  '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
+  '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
+  '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/personal-finance'
     | '/api/chart'
+    | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/personal-finance'
     | '/api/chart'
+    | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/personal-finance'
     | '/api/chart'
+    | '/api/personal-finance'
     | '/dashboard_/sign-in'
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   PersonalFinanceRoute: typeof PersonalFinanceRoute
   ApiChartRoute: typeof ApiChartRoute
+  ApiPersonalFinanceRoute: typeof ApiPersonalFinanceRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronDailyRefreshRoute: typeof ApiCronDailyRefreshRoute
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chart'
       fullPath: '/api/chart'
       preLoaderRoute: typeof ApiChartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/personal-finance': {
+      id: '/api/personal-finance'
+      path: '/api/personal-finance'
+      fullPath: '/api/personal-finance'
+      preLoaderRoute: typeof ApiPersonalFinanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard_/sign-in': {
@@ -401,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   PersonalFinanceRoute: PersonalFinanceRoute,
   ApiChartRoute: ApiChartRoute,
+  ApiPersonalFinanceRoute: ApiPersonalFinanceRoute,
   DashboardSignInRoute: DashboardSignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronDailyRefreshRoute: ApiCronDailyRefreshRoute,

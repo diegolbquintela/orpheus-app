@@ -10,6 +10,7 @@ import { EQUITY_KEY } from "@/lib/finance/equity";
 import { CURRENCY_KEY } from "@/lib/finance/currency";
 import { OVERVIEW_KEY } from "@/lib/finance/overview";
 import { PersonalFinancePage } from "./expenses-page";
+import { loadLocalStore } from "@/lib/finance/account-client";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -20,7 +21,7 @@ async function render(): Promise<HTMLElement> {
   container = dom.window.document.createElement("div");
   dom.window.document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => root!.render(<PersonalFinancePage now={NOW} />));
+  await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadLocalStore} />));
   return container;
 }
 
@@ -238,6 +239,7 @@ describe("income block (#85)", () => {
         "Count wages",
         "Count bonus",
         "Share (%)",
+        "Foreign",
       ],
     );
     assert.deepEqual(
@@ -325,6 +327,9 @@ describe("income block (#85)", () => {
         share: "100",
         countWages: false,
         countBonus: false,
+        foreign: false,
+        currency: "",
+        rate: "",
       },
     );
     assert.deepEqual(Object.keys(dom.window.localStorage).sort(), [INCOME_KEY, STORAGE_KEY].sort());
@@ -522,7 +527,7 @@ describe("equity cover (#86, option A)", () => {
     await type(q(condo, "pf-currency"), "BRL");
     // No rate yet (Q14, decided): the check, and the line contributes — to every household figure.
     const fx = q(condo, "pf-fx") as HTMLInputElement;
-    assert.equal(fx.getAttribute("aria-label"), "FX rate, Fixed 3");
+    assert.equal(fx.getAttribute("aria-label"), "FX rate (BRL per 1 CAD), Fixed 3");
     assert.equal(fx.getAttribute("aria-invalid"), "true");
     assert.equal(
       condo.querySelector('[data-field="rate"]')!.textContent,
@@ -558,7 +563,7 @@ describe("equity cover (#86, option A)", () => {
     assert.equal(text(q(el, "pf-total-fixed"), "pf-total-equity"), "—");
     assert.equal(text(q(el, "pf-total-variable"), "pf-total-equity"), "30,000");
     await type(q(el, "pf-roic"), "");
-    await type(fx, "0.2");
+    await type(fx, "5");
     assert.equal(fx.getAttribute("aria-invalid"), null);
     // The line keeps its own currency; every figure is in CAD.
     assert.equal((q(condo, "pf-monthly") as HTMLInputElement).value, "2,000");
@@ -584,7 +589,7 @@ describe("equity cover (#86, option A)", () => {
       "household untouched: not written",
     );
     const stored = JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!);
-    assert.deepEqual([stored.fixed[2].currency, stored.fixed[2].rate], ["BRL", "0.2"]);
+    assert.deepEqual([stored.fixed[2].currency, stored.fixed[2].rate], ["BRL", "5"]);
     await type(q(el, "pf-household"), "USD");
     assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(CURRENCY_KEY)!), {
       household: "USD",
@@ -595,7 +600,7 @@ describe("equity cover (#86, option A)", () => {
     assert.equal((q(again, "pf-household") as HTMLSelectElement).value, "USD");
     const condo2 = lines(again, "fixed")[2];
     assert.equal((q(condo2, "pf-currency") as HTMLSelectElement).value, "BRL");
-    assert.equal((q(condo2, "pf-fx") as HTMLInputElement).value, "0.2");
+    assert.equal((q(condo2, "pf-fx") as HTMLInputElement).value, "5");
     // Making BRL the household currency turns Condo into a household line (× 1); its rate stays stored.
     await type(q(again, "pf-household"), "BRL");
     assert.equal(text(condo2, "pf-fx-none"), "—");
@@ -603,7 +608,7 @@ describe("equity cover (#86, option A)", () => {
       ["pf-total-monthly", "pf-total-yearly"].map((f) => text(q(again, "pf-total-fixed"), f)),
       ["3,250", "39,000"],
     );
-    assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[2].rate, "0.2");
+    assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[2].rate, "5");
   });
 
   it("a v1.3 stored line restores as a household line; a malformed currency key reads as CAD (PF-25)", async () => {
@@ -764,5 +769,85 @@ describe("Overview and Update (#94, PF-26..31)", () => {
     el = await render();
     assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
     assert.equal(qa(el, "pf-error").length, 0);
+  });
+});
+
+describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", () => {
+  it("Brazilian Dividends: Foreign BRL at 3.70 → Converted 10,000; table, Net income and % of income use it", async () => {
+    const el = await render();
+    await click(q(el, "pf-add-person"));
+    const p = q(el, "pf-person");
+    await type(q(p, "pf-person-name"), "Brazilian Dividends");
+    await type(q(p, "pf-person-wages"), "37,000");
+    assert.equal(qa(p, "pf-person-currency").length, 0, "Foreign off by default: no foreign cells");
+    assert.equal((q(p, "pf-person-foreign") as HTMLInputElement).checked, false);
+    await click(q(p, "pf-person-foreign"));
+    assert.equal(
+      (q(p, "pf-person-currency") as HTMLSelectElement).value,
+      "USD",
+      "default: the first non-household code",
+    );
+    assert.ok(
+      ![...(q(p, "pf-person-currency") as HTMLSelectElement).options].some(
+        (o) => o.value === "CAD",
+      ),
+      "the household code is not offered",
+    );
+    await type(q(p, "pf-person-currency"), "BRL");
+    assert.deepEqual(
+      [...p.querySelectorAll(".pf-fb .pf-label, .pf-foreign .pf-label")].map((l) => l.textContent),
+      ["Foreign", "Currency", "FX rate (BRL per 1 CAD)", "Converted (yearly)"],
+    );
+    // No rate yet: the check, Converted —, Net income —.
+    assert.equal(text(p, "pf-error"), "Enter a number above 0.");
+    assert.equal(text(p, "pf-person-converted"), "—");
+    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "—");
+    await type(q(p, "pf-person-rate"), "3.70");
+    assert.equal(text(p, "pf-person-net"), "37,000", "Net stays in BRL");
+    assert.equal(text(p, "pf-person-converted"), "10,000");
+    const wagesLine = qa(el, "pf-income-line")[0];
+    assert.deepEqual(
+      ["pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) =>
+        text(wagesLine, id),
+      ),
+      ["384.62", "833.33", "10,000"],
+    );
+    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "10,000");
+    // % of income on an expense of 83.33 a month: 10.0%.
+    await click(q(el, "pf-add-fixed"));
+    await type(q(lines(el, "fixed")[0], "pf-yearly"), "1,000");
+    assert.equal(text(lines(el, "fixed")[0], "pf-income"), "10.0%");
+    // Unticking keeps currency and rate stored; × 1 again.
+    await click(q(p, "pf-person-foreign"));
+    const stored = JSON.parse(dom.window.localStorage.getItem(INCOME_KEY)!).people[0];
+    assert.deepEqual([stored.foreign, stored.currency, stored.rate], [false, "BRL", "3.70"]);
+    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "37,000");
+  });
+
+  it("an old v1 expenses value is migrated once: rate 0.2 → 5, Condo still 400 (PF-38)", async () => {
+    dom.window.localStorage.setItem(
+      "orpheus.finance.expenses.v1",
+      JSON.stringify({
+        fixed: [
+          {
+            id: "c",
+            name: "Condo",
+            amount: "2,000",
+            per: "month",
+            equity: "",
+            account: "",
+            currency: "BRL",
+            rate: "0.2",
+          },
+        ],
+        variable: [],
+        accounts: [],
+      }),
+    );
+    const el = await render();
+    assert.equal((q(lines(el, "fixed")[0], "pf-fx") as HTMLInputElement).value, "5");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "400");
+    assert.equal(dom.window.localStorage.getItem("orpheus.finance.expenses.v1"), null);
+    assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[0].rate, "5");
   });
 });

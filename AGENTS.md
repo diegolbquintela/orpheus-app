@@ -68,8 +68,19 @@ affects the repo.
 - **Lyre mark (#84, ST1-05):** the bar's `Orpheus` link starts with an inline lyre SVG (`src/components/lyre.tsx`,
   decorative, `aria-hidden`); `public/favicon.svg` is the same lyre. Don't bring the two-bar mark back.
 - **Personal Finance (#84 v1.1+):** `attachments/personal-finance-spec.md` (PF rows; business user the CFO) on top of
-  every shell rule here. `/personal-finance`: Fixed and Variable expenses, this browser's `localStorage` only
-  (`orpheus.finance.expenses.v1`; no auth, no server write, no `/api/*`), manual entry only (no Plaid, no feeds).
+  every shell rule here. `/personal-finance`: Fixed and Variable expenses, manual entry only (no Plaid, no feeds).
+  **Since #102 (spec section 16; Q24–Q31 open, simplest readings):** signed-in only (the route's `beforeLoad` asks
+  `getPersonalFinanceViewer` (`src/lib/finance/gate.ts`, the dashboard's `dashboardViewer`, behind `DASHBOARD_ENABLED`);
+  signed out → 307 to `/dashboard/sign-in?next=/personal-finance`, the only other `next` the sign-in page accepts);
+  the five values live in the account (`personal_finance` table, `migrations/0010_personal_finance.sql`;
+  `GET` / `PUT` / `DELETE /api/personal-finance`, `src/lib/finance/account.server.ts`, gate order 404 / 405 / 401 /
+  403 / 400 / 413 / 503); the page loads the record once (`account-client.ts` → a `RecordStore` the page reads like
+  `localStorage`) and PUTs the whole record 400 ms after a change (last write wins; failure → `Not saved.`). First
+  signed-in visit with no record imports this browser's old `localStorage` keys, then removes them. **Every FX rate is
+  foreign units per 1 household unit and household = amount ÷ rate** (#87's × superseded; v1 expense rates inverted
+  once into `orpheus.finance.expenses.v2`). Each person has a `Foreign` box (Currency, `FX rate (BRL per 1 CAD)`,
+  `Converted (yearly)`); income figures use the converted amount. No second auth system, no roles / account menu (#90).
+  Before #102 (history): this browser's `localStorage` only (`orpheus.finance.expenses.v1`; no auth, no server write).
   v1.2 (#85): `02` Income above `03` Expenses (spec section 12): people (wages, bonus rating %, average tax %,
   net), Count wages / Count bonus and a Share % per person, an income table (biweekly = yearly ÷ 26); stored in
   `orpheus.finance.income.v1`; `% of income` = expense monthly ÷ counted net income monthly (`—` at 0).
@@ -105,7 +116,9 @@ affects the repo.
   `src/components/personal-finance/overview-block.tsx`; the page takes an optional `now` (tests).
   Amounts stay unitless (Q2, kept by #87, Q15). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
-  QA: `qa/tools/personal-finance.mjs`.
+  QA: `qa/tools/personal-finance.mjs` (#102: signed in with QA_EMAIL / QA_PASSWORD through `session.mjs`; it RESETS
+  that account's Personal finance record; without them only the signed-out PF-33 checks run). Locally: sign up an
+  allow-listed address on a throwaway database (PGLite `pglite-server -m 20`: one connection is not enough).
 - **Landed: #84 Personal Finance v1.1 + lyre (PR #88).** `src/routes/personal-finance.tsx`,
   `src/components/personal-finance/expenses-page.tsx` (`[data-testid=pf-line]`, `pf-add-<group>`,
   `pf-total-<fixed|variable|all>`), `src/lib/finance/expenses.ts` (pure), `src/components/lyre.tsx`,

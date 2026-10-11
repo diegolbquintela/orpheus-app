@@ -1,8 +1,18 @@
 import { Minus } from "lucide-react";
 import { useId } from "react";
-import { AMOUNT_ERROR, formatAmount, NAME_MAX, parseAmount } from "@/lib/finance/expenses";
+import { type CurrencyCode, CURRENCIES, RATE_ERROR } from "@/lib/finance/currency";
+import {
+  AMOUNT_ERROR,
+  formatAmount,
+  NAME_MAX,
+  NOT_COMPUTED,
+  parseAmount,
+  parseRate,
+} from "@/lib/finance/expenses";
 import {
   biweekly,
+  CONVERTED_LABEL,
+  FOREIGN_LABEL,
   type Income,
   incomeLines,
   monthly,
@@ -14,8 +24,11 @@ import {
   PERCENT_ERROR,
   type Person,
   PERSON_COLUMNS,
+  personConverted,
+  personCurrency,
   personLabel,
   personNet,
+  rateLabel,
   TABLE_COLUMNS,
 } from "@/lib/finance/income";
 import { Cell, SectionHead } from "./pf-cells";
@@ -23,20 +36,24 @@ import { Cell, SectionHead } from "./pf-cells";
 /**
  * The income block (#85 v1.2; spec `attachments/personal-finance-spec.md` section 12, PF-11..16): people with
  * wages, a bonus rating and an average tax, their net, which incomes count and each person's share, and the income
- * table (biweekly, monthly, yearly) whose `Net income` the expenses' `% of income` divides by.
+ * table (biweekly, monthly, yearly) whose `Net income` the expenses' `% of income` divides by. #102 (section 16): a
+ * person can be `Foreign` (a currency and a rate, foreign units per 1 household unit); the table and `Net income`
+ * are in the household currency (÷ rate; `—` without a valid rate).
  */
 export function IncomeBlock({
   income,
   update,
+  household,
 }: {
   income: Income;
   update: (change: (current: Income) => Income) => void;
+  household: CurrencyCode;
 }) {
   const people = income.people;
   const updatePerson = (id: string, patch: Partial<Person>) =>
     update((i) => ({ people: i.people.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
-  const lines = incomeLines(people);
-  const net = netIncomeYearly(people);
+  const lines = incomeLines(people, household);
+  const net = netIncomeYearly(people, household);
 
   return (
     <section
@@ -58,6 +75,7 @@ export function IncomeBlock({
             key={person.id}
             person={person}
             label={personLabel(person, index)}
+            household={household}
             onChange={(patch) => updatePerson(person.id, patch)}
             onRemove={() => update((i) => ({ people: i.people.filter((p) => p.id !== person.id) }))}
           />
@@ -98,7 +116,7 @@ function TableRow({
   total = false,
 }: {
   label: string;
-  yearly: number;
+  yearly: number | null;
   testId: string;
   total?: boolean;
 }) {
@@ -118,7 +136,7 @@ function TableRow({
       ).map(([area, column, value]) => (
         <Cell key={area} label={column} area={area}>
           <span className="pf-value" data-testid={`pf-income-${area}`}>
-            {formatAmount(value)}
+            {value === null ? NOT_COMPUTED : formatAmount(value)}
           </span>
         </Cell>
       ))}
@@ -129,11 +147,13 @@ function TableRow({
 function PersonRow({
   person,
   label,
+  household,
   onChange,
   onRemove,
 }: {
   person: Person;
   label: string;
+  household: CurrencyCode;
   onChange: (patch: Partial<Person>) => void;
   onRemove: () => void;
 }) {
@@ -181,8 +201,17 @@ function PersonRow({
     </Cell>
   );
 
+  const code = personCurrency(person, household);
+  const foreignHere = person.foreign && code !== household;
+  const rateBad = foreignHere && parseRate(person.rate) === null;
+  const converted = personConverted(person, household);
+  const rateName = rateLabel(code, household);
   return (
-    <div className="pf-person" data-testid="pf-person">
+    <div
+      className="pf-person"
+      data-testid="pf-person"
+      data-foreign={person.foreign ? "true" : "false"}
+    >
       <Cell label="Name" area="name" control>
         <input
           value={person.name}
@@ -205,6 +234,79 @@ function PersonRow({
       {box("countWages", "Count wages", "cw")}
       {box("countBonus", "Count bonus", "cb")}
       {field("share", "Share (%)", "pct")}
+      <Cell label={FOREIGN_LABEL} area="fb" control>
+        <label className="pf-check">
+          <input
+            type="checkbox"
+            checked={person.foreign}
+            onChange={(event) => onChange({ foreign: event.target.checked })}
+            aria-label={aria(FOREIGN_LABEL)}
+            data-testid="pf-person-foreign"
+          />
+        </label>
+      </Cell>
+      {person.foreign ? (
+        <div className="pf-foreign" data-testid="pf-foreign">
+          <div className="pf-cell pf-foreign-cell">
+            <label htmlFor={`${uid}-currency`} className="pf-label">
+              Currency
+            </label>
+            <select
+              id={`${uid}-currency`}
+              value={code}
+              onChange={(event) => onChange({ currency: event.target.value })}
+              className="pf-field"
+              data-testid="pf-person-currency"
+            >
+              {CURRENCIES.filter((c) => c !== household || c === code).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="pf-cell pf-foreign-cell">
+            <label htmlFor={`${uid}-rate`} className="pf-label">
+              {rateName}
+            </label>
+            {foreignHere ? (
+              <input
+                id={`${uid}-rate`}
+                value={person.rate}
+                maxLength={40}
+                onChange={(event) => onChange({ rate: event.target.value })}
+                inputMode="decimal"
+                autoComplete="off"
+                className="pf-field"
+                data-testid="pf-person-rate"
+                {...(rateBad
+                  ? { "aria-invalid": true as const, "aria-describedby": `${uid}-rate-error` }
+                  : {})}
+              />
+            ) : (
+              <span className="pf-value" id={`${uid}-rate`} data-testid="pf-person-rate-none">
+                {NOT_COMPUTED}
+              </span>
+            )}
+            {rateBad ? (
+              <span
+                id={`${uid}-rate-error`}
+                className="pf-error"
+                data-testid="pf-error"
+                data-field="person-rate"
+              >
+                {RATE_ERROR}
+              </span>
+            ) : null}
+          </div>
+          <div className="pf-cell pf-foreign-cell">
+            <span className="pf-label">{CONVERTED_LABEL}</span>
+            <span className="pf-value" data-testid="pf-person-converted">
+              {converted === null ? NOT_COMPUTED : formatAmount(converted)}
+            </span>
+          </div>
+        </div>
+      ) : null}
       <button
         type="button"
         onClick={onRemove}

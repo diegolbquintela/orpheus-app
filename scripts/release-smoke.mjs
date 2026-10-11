@@ -10,8 +10,9 @@
  *
  * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard / Personal finance since
  * #97, the current page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title
- * and exactly three Platforms lines since #97 with their `Open` links), `/personal-finance` (#97: Personal finance
- * current), the footer (exactly "Orpheus Wisdom"),
+ * and exactly three Platforms lines since #97 with their `Open` links), `/personal-finance` (#102: signed out, a
+ * redirect to `/dashboard/sign-in?next=/personal-finance`; `/api/personal-finance` 401 with the flag on, 404 off),
+ * the footer (exactly "Orpheus Wisdom"),
  * the calculator at `/calculator`, `/?query` → `/calculator?query`, noindex meta + X-Robots-Tag on every
  * page, and the calculator's VOD.L refusal (GET /api/chart: 400 with the exact message).
  *
@@ -85,11 +86,22 @@ const checks = [
       !/data-testid="home-card"|<form|Compare plans/.test(r.body),
     "200 home: noindex + X-Robots-Tag, menu (Orpheus current, Dashboard shown), Jordaens hero + title, exactly three Platforms lines with Open links, footer, no calculator",
   ],
+  // #102: Personal finance is for signed-in accounts; this check never signs in, so it sees the redirect.
   [
     "/personal-finance",
-    (r) => page(r, "Personal finance") && /<h1[^>]*>Personal finance\.<\/h1>/.test(r.body),
-    "200 personal finance (#97): noindex + X-Robots-Tag, menu (Personal finance current), title, footer",
+    (r) =>
+      [302, 303, 307].includes(r.status) &&
+      new URL(r.location, base).pathname === "/dashboard/sign-in" &&
+      new URL(r.location, base).searchParams.get("next") === "/personal-finance",
+    "signed out: redirect to /dashboard/sign-in?next=/personal-finance (#102)",
   ],
+  on
+    ? [
+        "/api/personal-finance",
+        (r) => r.status === 401 && r.body === '{"error":"Unauthorized."}',
+        '401 {"error":"Unauthorized."} signed out (#102)',
+      ]
+    : ["/api/personal-finance", (r) => r.status === 404, "404 (#102: behind the dashboard flag)"],
   [
     "/calculator",
     (r) =>

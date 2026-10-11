@@ -19,7 +19,8 @@
  *     /api/dashboard/*, /api/auth/* and /api/cron/daily-refresh: 404 JSON.
  *   Flag on ("true"), signed out:
  *   - GET /dashboard redirects to /dashboard/sign-in (DASH-04); the sign-in page renders (noindex).
- *   - /api/dashboard/{me,settings,holdings,holdings/1,fx,columns}: 401 JSON for served methods; others 405 JSON.
+ *   - /api/dashboard/{me,settings,holdings,holdings/1,fx,columns} and /api/personal-finance (#102): 401 JSON for served
+ *     methods; others 405 JSON. /personal-finance (#102), flag off or on: 307 to /dashboard/sign-in?next=/personal-finance.
  *   - /api/dashboard/fx?date=<impossible date> (2026-02-31, 02-29, 02-30, 04-31, 0000-01-01) and the leap
  *     day 2024-02-29 signed out: 401 JSON (gate first, never 500). --with-database: 400 / 200 signed in.
  *   - /api/dashboard/status 200 with sign-in diagnostics (names/states only; plain on production),
@@ -153,6 +154,7 @@ const SESSION_API_PATHS = [
   "/api/dashboard/holdings/1",
   "/api/dashboard/fx",
   "/api/dashboard/columns",
+  "/api/personal-finance", // #102: the account's Personal finance record
 ];
 // Methods each per-user route serves (anything else: 405 JSON when the flag is on).
 const SESSION_ALLOW = {
@@ -162,6 +164,7 @@ const SESSION_ALLOW = {
   "/api/dashboard/holdings/1": ["GET", "HEAD", "PUT", "DELETE"],
   "/api/dashboard/fx": ["GET", "HEAD"],
   "/api/dashboard/columns": ["GET", "HEAD", "PUT"],
+  "/api/personal-finance": ["GET", "HEAD", "PUT", "DELETE"],
 };
 const AUTH_PATHS = ["/api/auth/get-session", "/api/auth/sign-up/email", "/api/auth/sign-in/email"];
 // T05: the cron route and the preview-only refresh button (checked separately when the flag is on).
@@ -233,10 +236,11 @@ for (const flag of [undefined, "true"]) {
   check(NOINDEX.test(home.body), `${label}: / lacks noindex`);
   check(JSON.stringify(menuCurrent(home.body)) === '["Orpheus"]', `${label}: / current menu item ${menuCurrent(home.body)}`);
   check(/<a href="\/"[^>]*><svg [^>]*aria-hidden="true"[^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus<\/span><\/a>/.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / Orpheus link lacks the lyre mark (ST1-05)`);
+  // #102: signed out, /personal-finance redirects to sign-in with ?next (flag off or on; the page itself is checked
+  // signed in under --with-database).
   const pf = await call("GET", "/personal-finance", flag);
-  check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(pf.body), `${label}: GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
-  check(JSON.stringify(menuCurrent(pf.body)) === '["Personal finance"]', `${label}: /personal-finance current menu item (#97) ${menuCurrent(pf.body)}`);
-  check(/<title>Personal finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
+  const pfTo = new URL(pf.location ?? "/x", ORIGIN);
+  check(pf.status === 307 && pfTo.pathname === "/dashboard/sign-in" && pfTo.searchParams.get("next") === "/personal-finance", `${label}: signed out, GET /personal-finance -> ${pf.status} ${pf.location} (want 307 to /dashboard/sign-in?next=/personal-finance)`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
   check(/href="\/personal-finance"[^>]*>Personal finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal finance item (#97)`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
@@ -295,6 +299,20 @@ const isRedirectTo = (r, path) =>
     WITH_DB ? /data-testid="sign-in-form"/.test(signIn.body) : /Sign-in is not configured/.test(signIn.body),
     `${label}: sign-in page ${WITH_DB ? "lacks the form" : 'lacks "not configured"'}`,
   );
+  // #102 QA D1 (open redirect): only ?next=/personal-finance is kept; an external URL, //host or another path never
+  // reaches the page or a redirect (TanStack's canonical redirect drops it: 307 to /dashboard/sign-in).
+  for (const bad of ["https://evil.example", "//evil.example", "/calculator"]) {
+    const r = await call("GET", `/dashboard/sign-in?next=${encodeURIComponent(bad)}`, "true");
+    const to = r.location ? new URL(r.location, ORIGIN) : null;
+    check(
+      !r.body.includes(bad) && !(r.location ?? "").includes("evil") && (r.status === 200 || (to?.pathname === "/dashboard/sign-in" && !to.searchParams.has("next"))),
+      `${label}: GET /dashboard/sign-in?next=${bad} -> ${r.status} ${r.location} (the value must not survive)`,
+    );
+  }
+  {
+    const r = await call("GET", "/dashboard/sign-in?next=%2Fpersonal-finance", "true");
+    check(r.status === 200 && /next:"\/personal-finance"/.test(r.body), `${label}: GET /dashboard/sign-in?next=/personal-finance -> ${r.status} (kept)`);
+  }
   for (const path of SESSION_API_PATHS) {
     const r = await call("GET", path, "true");
     check(
@@ -436,6 +454,45 @@ if (!WITH_DB) {
   check(!/data-testid="preview-refresh"/.test(page.body), `${label}: refresh button shown without VERCEL_ENV=preview`);
   const me = await call("GET", "/api/dashboard/me", "true", undefined, { cookie: token });
   check(me.status === 200 && me.body.includes(`"email":"${ALLOWED}"`), `${label}: GET me -> ${me.status} ${me.body}`);
+  // #102: signed in, /personal-finance renders (h1, noindex, footer, menu, title); ?next brings a signed-in visitor
+  // there; the account's record starts empty, saves, and reads back from a second session.
+  {
+    const NOINDEX = /<meta name="robots" content="noindex, nofollow"\/>/;
+    const FOOTER = /<footer[^>]*><p[^>]*data-testid="site-footer"[^>]*>Orpheus Wisdom<\/p><\/footer>/;
+    const pf = await call("GET", "/personal-finance", "true", undefined, { cookie: token });
+    check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(pf.body), `${label}: signed in, GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
+    check(JSON.stringify(menuCurrent(pf.body)) === '["Personal finance"]', `${label}: /personal-finance current menu item (#97) ${menuCurrent(pf.body)}`);
+    check(/<title>Personal finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
+    // #102 QA D1: signed in, a bad ?next ends on /dashboard (never the external host or another path).
+    for (const bad of ["https://evil.example", "//evil.example", "/calculator"]) {
+      let path = `/dashboard/sign-in?next=${encodeURIComponent(bad)}`;
+      const hops = [];
+      for (let i = 0; i < 4; i++) {
+        const r = await call("GET", path, "true", undefined, { cookie: token });
+        if (!(r.status >= 300 && r.status < 400)) break;
+        const to = new URL(r.location ?? "/x", ORIGIN);
+        hops.push(r.location);
+        if (to.origin !== ORIGIN) { path = "EXTERNAL"; break; }
+        path = to.pathname + to.search;
+        if (to.pathname === "/dashboard") break;
+      }
+      check(path === "/dashboard", `${label}: signed in, GET /dashboard/sign-in?next=${bad} -> ${hops.join(" -> ")} (want /dashboard)`);
+    }
+    const nextPf = await call("GET", "/dashboard/sign-in?next=%2Fpersonal-finance", "true", undefined, { cookie: token });
+    check(isRedirectTo(nextPf, "/personal-finance"), `${label}: signed in, GET /dashboard/sign-in?next=/personal-finance -> ${nextPf.status} ${nextPf.location}`);
+    const PF = "/api/personal-finance";
+    const none = await call("GET", PF, "true", undefined, { cookie: token });
+    check(none.status === 200 && none.body === '{"data":null}', `${label}: GET ${PF} (new account) -> ${none.status} ${none.body}`);
+    const data = { "orpheus.finance.currency.v1": '"CAD"' };
+    const saved = await call("PUT", PF, "true", undefined, { cookie: token, body: { data } });
+    check(saved.status === 200 && saved.body === JSON.stringify({ data }), `${label}: PUT ${PF} -> ${saved.status} ${saved.body}`);
+    const bad = await call("PUT", PF, "true", undefined, { cookie: token, body: { data: { x: "1" } } });
+    check(bad.status === 400, `${label}: PUT ${PF} unknown name -> ${bad.status} ${bad.body}`);
+    const second = await call("POST", "/api/auth/sign-in/email", "true", undefined, { body: { email: ALLOWED, password: "check-password-1" } });
+    const secondToken = second.cookie.split("; ").filter((c) => c.includes("session_token=")).join("; ");
+    const read = await call("GET", PF, "true", undefined, { cookie: secondToken });
+    check(second.status === 200 && read.body === JSON.stringify({ data }), `${label}: second session GET ${PF} -> ${second.status} ${read.status} ${read.body}`);
+  }
   // Base currency (T06): CAD until changed.
   check(/data-testid="base-currency-select"/.test(page.body) && /<option value="CAD" selected="">/.test(page.body), `${label}: /dashboard lacks the base-currency select with CAD selected`);
   const put = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: token, body: { baseCurrency: "USD" } });
@@ -450,6 +507,11 @@ if (!WITH_DB) {
   check(poke.status === 403, `${label}: other user PUT settings {userId:<first>} -> ${poke.status}`);
   const own = await call("GET", "/api/dashboard/settings", "true", undefined, { cookie: otherToken });
   check(own.body === '{"settings":{"baseCurrency":"CAD"}}', `${label}: other user's own settings -> ${own.body}`);
+  // #102: the Personal finance record is per account.
+  const otherPf = await call("GET", "/api/personal-finance", "true", undefined, { cookie: otherToken });
+  check(otherPf.body === '{"data":null}', `${label}: other user's own personal finance -> ${otherPf.body}`);
+  const peekPf = await call("GET", `/api/personal-finance?userId=${encodeURIComponent(myId)}`, "true", undefined, { cookie: otherToken });
+  check(peekPf.status === 403, `${label}: other user GET personal-finance?userId=<first> -> ${peekPf.status}`);
   const mine = await call("GET", "/api/dashboard/settings", "true", undefined, { cookie: token });
   check(mine.body === '{"settings":{"baseCurrency":"USD"}}', `${label}: first user's settings after the attempts -> ${mine.body}`);
   // Holdings (T04): add / validate / duplicate / edit / isolation / delete. Adding asks the live
@@ -709,6 +771,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); personal finance (#102: page signed in, ?next, record save / second session / per account); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home hero + Platforms lines, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

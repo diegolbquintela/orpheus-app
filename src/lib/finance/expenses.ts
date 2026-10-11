@@ -11,7 +11,12 @@
 
 import { type CurrencyCode, DEFAULT_HOUSEHOLD, isCurrency } from "./currency.ts";
 
-export const STORAGE_KEY = "orpheus.finance.expenses.v1";
+/**
+ * #102: v2 holds rates in the new direction (foreign units per 1 household unit, ÷). v1 (#84–#94) held them as
+ * household units per 1 foreign unit (×); `migrateExpenses` converts a v1 value once.
+ */
+export const STORAGE_KEY = "orpheus.finance.expenses.v2";
+export const LEGACY_EXPENSES_KEY = "orpheus.finance.expenses.v1";
 export const NAME_MAX = 80;
 export const ACCOUNT_MAX = 40;
 export const ACCOUNTS_MAX = 50;
@@ -91,14 +96,28 @@ export function parseRate(text: string): number | null {
   return value !== null && value > 0 ? value : null;
 }
 
+/** 1 ÷ a valid rate (#102: the rate is foreign units per 1 household unit), else null. */
+export const factorFromRate = (text: string): number | null => {
+  const rate = parseRate(text);
+  return rate === null ? null : 1 / rate;
+};
+
 /**
- * What one unit of the line's amount is worth in the household currency: 1, its valid rate, or null (`—`) for a
- * foreign line without a valid rate (Q14, decided).
+ * What one unit of the line's amount is worth in the household currency: 1, 1 ÷ its valid rate (#102; #87 was ×
+ * rate), or null (`—`) for a foreign line without a valid rate (Q14, decided).
  */
 export const factorOf = (line: Line, household: CurrencyCode = DEFAULT_HOUSEHOLD): number | null =>
-  isForeign(line, household) ? parseRate(line.rate) : 1;
+  isForeign(line, household) ? factorFromRate(line.rate) : 1;
 
-const times = (a: number, b: number | null): number | null => (b === null ? null : a * b);
+/** What the line's amount is divided by (#102): 1 for a household line, its valid rate, or null (`—`). */
+export const divisorOf = (
+  line: Line,
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): number | null => (isForeign(line, household) ? parseRate(line.rate) : 1);
+
+/** amount ÷ divisor, null when the divisor is (no valid rate). Division, not × (1 ÷ rate), keeps 37,000 ÷ 3.7 exact. */
+export const over = (amount: number, divisor: number | null): number | null =>
+  divisor === null ? null : amount / divisor;
 
 /**
  * The line's monthly / yearly amount in the household currency (#87): what every total and percentage uses; null
@@ -107,11 +126,11 @@ const times = (a: number, b: number | null): number | null => (b === null ? null
 export const householdMonthlyOf = (
   line: Line,
   household: CurrencyCode = DEFAULT_HOUSEHOLD,
-): number | null => times(monthlyOf(line), factorOf(line, household));
+): number | null => over(monthlyOf(line), divisorOf(line, household));
 export const householdYearlyOf = (
   line: Line,
   household: CurrencyCode = DEFAULT_HOUSEHOLD,
-): number | null => times(yearlyOf(line), factorOf(line, household));
+): number | null => over(yearlyOf(line), divisorOf(line, household));
 
 const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
@@ -282,6 +301,44 @@ export function asExpenses(value: unknown): Expenses {
     return out;
   };
   return { fixed: lines(v.fixed), variable: lines(v.variable), accounts };
+}
+
+/** An old-direction rate inverted once (#102, Q27): 1 ÷ rate, ≤ 6 decimals, no trailing zeros; bad / empty kept. */
+export function invertRate(text: string): string {
+  const rate = parseRate(text);
+  if (rate === null) return text;
+  return String(Number((1 / rate).toFixed(6)));
+}
+
+type MigratableStorage = StorageLike & { removeItem?: (key: string) => void };
+
+/**
+ * #102: a v1 expenses value (old rate direction) becomes v2 with every valid rate inverted; v1 is then removed.
+ * No-op when v2 already exists or there is no v1. Returns true when it converted.
+ */
+export function migrateExpenses(storage: MigratableStorage | null): boolean {
+  try {
+    const old = storage?.getItem(LEGACY_EXPENSES_KEY);
+    if (!storage || !old) return false;
+    if (storage.getItem(STORAGE_KEY)) {
+      storage.removeItem?.(LEGACY_EXPENSES_KEY);
+      return false;
+    }
+    const value = asExpenses(JSON.parse(old));
+    const flip = (l: Line): Line => ({ ...l, rate: invertRate(l.rate) });
+    storage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...value,
+        fixed: value.fixed.map(flip),
+        variable: value.variable.map(flip),
+      }),
+    );
+    storage.removeItem?.(LEGACY_EXPENSES_KEY);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function readExpenses(storage: StorageLike | null): Expenses {

@@ -1,7 +1,27 @@
 // Personal finance page (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency; spec
 // attachments/personal-finance-spec.md PF-01..25, plus the lyre ST1-05) in a
-// real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900, signed out. Everything it types stays in that
-// browser context's localStorage (no server write exists), so it is safe on any host.
+// real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900. #102: the page is signed-in only and its figures
+// live in the account (/api/personal-finance), so the page checks run signed in with QA_EMAIL / QA_PASSWORD from env
+// (through session.mjs's eachViewport: never logged, always signed out). The QA account's Personal finance record is
+// RESET (DELETE /api/personal-finance) before each part and left empty at the end; use a QA account only. Without the
+// credentials only the signed-out checks (PF-33) run and the rest is reported SKIPPED.
+//
+//   PF-33 signed out: 307 to /dashboard/sign-in?next=/personal-finance, no page copy; the browser lands on sign-in
+//         (Dashboard current, as on every sign-in page); /api/personal-finance GET / PUT / DELETE 401 JSON, POST 405
+//   PF-34 signing in through the form from ?next returns to /personal-finance (then signed out on /dashboard); QA D1
+//         (signed out, no account): ?next=https://evil.example, //evil.example and /calculator are dropped on load and a
+//         faked successful sign-in goes to /dashboard; ?next=/personal-finance is kept and goes there
+//   PF-35 the rate direction: foreign per 1 household, ÷ (Condo 2,000 BRL at 5 → 400); the FX field's name
+//   PF-36 the account: every change PUT to /api/personal-finance (debounced), a reload restores it, nothing in
+//         localStorage; a second signed-in context (another device) loads the same figures; ?userId= someone else →
+//         403; a failed save shows `Not saved.` and the next change retries
+//   PF-37 foreign income: Brazilian Dividends 37,000 BRL at 3.70 → Converted 10,000 (table 384.62 / 833.33 / 10,000;
+//         Net income 144,400 with the section 12 people; Overview income follows); no rate → the check and —;
+//         unticking keeps the currency and rate stored
+//   PF-38 migration: old localStorage v1 (Condo at 0.2) imported into an empty account as v2 at 5, the old keys
+//         removed; an account with a record ignores the browser
+//   PF-39 layout with a foreign person (phone: the box under the count boxes, the three cells stacked; wide: the
+//         last column, the three cells in a row under the person), 44 px, focus, AA, axe, CLS 0 restored
 //
 //   PF-01 shell: 200, title, noindex meta + X-Robots-Tag, color-scheme dark, charcoal + chalk, the bar unchanged
 //         (#97: Orpheus / Calculator / Dashboard / Personal finance, Personal finance current), footer `Orpheus Wisdom`, one Analytics script, no
@@ -13,8 +33,9 @@
 //         net income (8.9% / 2.2% / 0.9%; totals 11.2% / 0.9% / 12.1% on the spec example)
 //   PF-05 totals (the spec example: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200)
 //   PF-06 accounts: inline add, `Name the account.`, any-case reuse, shared by both groups, Cancel
-//   PF-07 reload keeps everything from the one key; no /api request, no cookie / sessionStorage / IndexedDB; a new
-//         context is empty; a malformed value shows the empty page without an error
+//   PF-07 (#102: the account) a reload keeps everything from the record; only /api/personal-finance requests, no
+//         localStorage / sessionStorage / IndexedDB, only the session cookie; a malformed record value shows the empty
+//         page without an error
 //   PF-08 layout (phone stacked, wide one row per line in column order), no horizontal scroll, controls ≥ 44 px,
 //         AA (contrast scan; axe-core color-contrast too with AXE_PATH), a ≥ 3:1 focus mark on every Tab stop,
 //         no tnum / tabular-nums
@@ -26,7 +47,7 @@
 //         wins; a typed 4 is 4%; 0 → —; the percent check); PF-19 the override (placeholder = calculated, typed
 //         wins, a bad one falls back (Q9), cleared → calculated, totals; no rate → — (Q10)); ROIC > 100 valid (Q11); PF-20 rates restored from orpheus.finance.equity.v1, layout
 //   PF-21 currency copy (Household currency CAD by default (Q13) above Income, ten codes; a line's Currency, FX rate — on a household
-//         line); PF-22 conversion (Condo 2,000 BRL at 0.2 → 400: Fixed 1,650 / 19,800, Total 1,750 / 21,000, 22.9%,
+//         line); PF-22 conversion (#102: Condo 2,000 BRL at 5 BRL per 1 CAD → 400: Fixed 1,650 / 19,800, Total 1,750 / 21,000, 22.9%,
 //         % of income 3.6% / 14.7% / 15.6%); PF-23 equity on the household amount (120,000; 495,000 / 30,000 /
 //         525,000; override 100,000 → 475,000); PF-24 no valid rate → `Enter a number above 0.` and — in every household
 //         figure and total containing the line (Q14), its own Monthly / Yearly as typed; household = the
@@ -44,6 +65,7 @@ import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { eachViewport } from "./session.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -59,7 +81,10 @@ const VIEWPORTS = [
   ["desktop", { width: 1440, height: 900 }, false],
 ];
 const PATH = "/personal-finance";
-const KEY = "orpheus.finance.expenses.v1";
+// #102: the account record's names (the old localStorage keys, expenses at v2); v1 only as the import source.
+const KEY = "orpheus.finance.expenses.v2";
+const LEGACY_KEY = "orpheus.finance.expenses.v1";
+const API = "/api/personal-finance";
 const INCOME_KEY = "orpheus.finance.income.v1";
 const EQUITY_KEY = "orpheus.finance.equity.v1";
 const CURRENCY_KEY = "orpheus.finance.currency.v1";
@@ -67,7 +92,8 @@ const OVERVIEW_KEY = "orpheus.finance.overview.v1";
 const CODES = ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
 // A line's Currency choices under the default household CAD (Q13): CAD first, then the other nine in list order.
 const CODES_CAD = ["CAD", "USD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
-const PERSON_COLUMNS = ["Name", "Wages (yearly)", "Bonus rating (%)", "Average tax (%)", "Net (yearly)", "Count wages", "Count bonus", "Share (%)"];
+const PERSON_COLUMNS = ["Name", "Wages (yearly)", "Bonus rating (%)", "Average tax (%)", "Net (yearly)", "Count wages", "Count bonus", "Share (%)", "Foreign"];
+const CODES_NOT_CAD = CODES.filter((c) => c !== "CAD");
 const TABLE_COLUMNS = ["Income", "Biweekly", "Monthly", "Yearly"];
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
@@ -223,30 +249,58 @@ const totals = async (page, id) => {
   return out;
 };
 
-// PF-09: one cold load (fresh context, cache disabled), every layout shift counted; `stored` restores lines.
-async function coldCls(browser, viewport, mobile, stored, overview = null) {
-  const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
+// #102: the account, from inside the page (the session cookie rides along; Playwright's API client drops the Secure
+// cookie on a plain-http local server). A page not yet on this host first opens the API's own URL (a harmless GET).
+async function acct(page, method, data, path = API) {
+  if (!page.url().startsWith(base)) await page.goto(`${base}${API}`);
+  return page.evaluate(async ([m, url, d]) => {
+    const r = await fetch(url, { method: m, headers: d === undefined ? {} : { "content-type": "application/json" }, body: d === undefined ? undefined : JSON.stringify({ data: d }) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  }, [method, path, data]);
+}
+const record = async (page) => (await acct(page, "GET")).body?.data ?? null;
+const reset = (page) => acct(page, "DELETE");
+const seed = (page, data) => acct(page, "PUT", data);
+// Saves are debounced (400 ms): wait past the debounce, then until no PUT is in flight.
+const saving = new WeakMap();
+function trackSaves(page) {
+  const s = { n: 0, puts: 0 };
+  saving.set(page, s);
+  const mine = (q) => q.method() === "PUT" && new URL(q.url()).pathname === API;
+  page.on("request", (q) => { if (mine(q)) { s.n++; s.puts++; } });
+  page.on("requestfinished", (q) => { if (mine(q)) s.n--; });
+  page.on("requestfailed", (q) => { if (mine(q)) s.n--; });
+  return s;
+}
+async function settle(page) {
+  await page.waitForTimeout(700);
+  for (let i = 0; i < 100 && (saving.get(page)?.n ?? 0) > 0; i++) await page.waitForTimeout(100);
+}
+const ready = (page) => page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+
+// PF-09 / PF-39: one cold load (a new page, cache disabled), every layout shift counted; `stored` is the account record.
+async function coldCls(ctx, stored) {
   const page = await ctx.newPage();
-  const cdp = await ctx.newCDPSession(page);
-  await cdp.send("Network.enable");
-  await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-  await page.addInitScript(([key, value, incomeKey, income, equityKey, equity, currencyKey, currency, overviewKey, overview]) => {
-    if (value) localStorage.setItem(key, value);
-    if (income) localStorage.setItem(incomeKey, income);
-    if (equity) localStorage.setItem(equityKey, equity);
-    if (currency) localStorage.setItem(currencyKey, currency);
-    if (overview) localStorage.setItem(overviewKey, overview);
-    window.__shifts = [];
-    new PerformanceObserver((list) => {
-      for (const e of list.getEntries())
-        window.__shifts.push({ value: e.value, sources: (e.sources ?? []).map((s) => (s.node?.textContent ?? s.node?.nodeName ?? "").slice(0, 30)) });
-    }).observe({ type: "layout-shift", buffered: true });
-  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null, EQUITY_KEY, stored ? STORED_RATES : null, CURRENCY_KEY, stored ? STORED_CURRENCY : null, OVERVIEW_KEY, overview]);
-  await page.goto(`${base}${PATH}`, { waitUntil: "load" });
-  await page.waitForTimeout(1500);
-  const m = await page.evaluate(() => ({ shifts: window.__shifts, lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length }));
-  await ctx.close();
-  return { total: m.shifts.reduce((a, e) => a + e.value, 0), sources: m.shifts.flatMap((e) => e.sources), lines: m.lines };
+  try {
+    await reset(page);
+    if (stored) await seed(page, stored);
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send("Network.enable");
+    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+    await page.addInitScript(() => {
+      window.__shifts = [];
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries())
+          window.__shifts.push({ value: e.value, sources: (e.sources ?? []).map((s) => (s.node?.textContent ?? s.node?.nodeName ?? "").slice(0, 30)) });
+      }).observe({ type: "layout-shift", buffered: true });
+    });
+    await page.goto(`${base}${PATH}`, { waitUntil: "load" });
+    await page.waitForTimeout(1500);
+    const m = await page.evaluate(() => ({ shifts: window.__shifts, lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length }));
+    return { total: m.shifts.reduce((a, e) => a + e.value, 0), sources: m.shifts.flatMap((e) => e.sources), lines: m.lines };
+  } finally {
+    await page.close().catch(() => {});
+  }
 }
 
 const STORED_INCOME = JSON.stringify({
@@ -266,40 +320,118 @@ const STORED = JSON.stringify({
   fixed: [
     { id: "q1", name: "Rent", amount: "1,000", per: "month", equity: "300,000", account: "Chequing" },
     { id: "q2", name: "Phone", amount: "250", per: "month", equity: "", account: "" },
-    { id: "q4", name: "Condo", amount: "2,000", per: "month", equity: "", account: "", currency: "BRL", rate: "0.2" },
+    { id: "q4", name: "Condo", amount: "2,000", per: "month", equity: "", account: "", currency: "BRL", rate: "5" },
   ],
   variable: [{ id: "q3", name: "Gifts", amount: "1,200", per: "year", equity: "", account: "Visa" }],
   accounts: ["Chequing", "Visa"],
 });
+// #102 PF-38: the same lines as an old browser stored them (v1, Condo at the old 0.2 = CAD per BRL).
+const STORED_V1 = STORED.replace('"rate":"5"', '"rate":"0.2"');
+// #102 PF-37 / PF-39: the section 12 people plus Brazilian Dividends (BRL at 3.70 per 1 household unit).
+const STORED_INCOME_FX = JSON.stringify({
+  people: [
+    ...JSON.parse(STORED_INCOME).people,
+    { id: "b1", name: "Brazilian Dividends", wages: "37,000", bonus: "", tax: "", share: "100", countWages: true, countBonus: true, foreign: true, currency: "BRL", rate: "3.70" },
+  ],
+});
+const RESTORED = { [KEY]: STORED, [INCOME_KEY]: STORED_INCOME_FX, [EQUITY_KEY]: STORED_RATES, [CURRENCY_KEY]: STORED_CURRENCY };
 
 let AXE = null;
 if (process.env.AXE_PATH) AXE = readFileSync(process.env.AXE_PATH, "utf8");
 else console.log("INFO axe-core not run (set AXE_PATH to axe.min.js); the contrast scan covers PF-08");
 
+const email = process.env.QA_EMAIL;
+const password = process.env.QA_PASSWORD;
 const browser = await chromium.launch();
 try {
+  // PF-33 signed out (no session): the page redirects, the API refuses.
   {
     const r = await fetch(`${base}${PATH}`, { redirect: "manual" });
     const body = await r.text();
-    check("PF-01 GET /personal-finance → 200, X-Robots-Tag noindex", r.status === 200 && /noindex/i.test(r.headers.get("x-robots-tag") ?? ""), [r.status, r.headers.get("x-robots-tag")]);
-    check("PF-01 SSR: title and h1, the expenses area empty until the browser reads storage", /<title>Personal finance · Orpheus Wisdom<\/title>/.test(body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(body) && /data-testid="pf-area"[^>]*data-ready="false"/.test(body), body.length);
+    const to = new URL(r.headers.get("location") ?? "/x", base);
+    check("PF-33 signed out: GET /personal-finance → 307 /dashboard/sign-in?next=/personal-finance, no page copy", r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === PATH && !/pf-area|Personal finance\./.test(body), [r.status, r.headers.get("location")]);
+    const calls = [];
+    for (const method of ["GET", "PUT", "DELETE", "POST"]) {
+      const a = await fetch(`${base}${API}`, { method, redirect: "manual", headers: method === "PUT" ? { "content-type": "application/json" } : {}, body: method === "PUT" ? '{"data":{}}' : undefined });
+      calls.push([method, a.status, (a.headers.get("content-type") ?? "").includes("application/json"), await a.text()]);
+    }
+    check("PF-33 signed out: /api/personal-finance GET / PUT / DELETE → 401 JSON, POST → 405 JSON", calls.slice(0, 3).every(([, st, json, b]) => st === 401 && json && b === '{"error":"Unauthorized."}') && calls[3][1] === 405 && calls[3][2], calls);
     const fav = await fetch(`${base}/favicon.svg`);
     const svg = await fav.text();
     check("ST1-05 /favicon.svg is the lyre (chalk strokes on charcoal, no two-bar mark)", fav.status === 200 && /fill="#1e2124"/.test(svg) && /stroke="#f2f0eb"/.test(svg) && (svg.match(/<path /g) ?? []).length === 5 && !/<rect[^>]*x="6"/.test(svg), svg.length);
+    const page = await browser.newPage();
+    try {
+      await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+      const at = new URL(page.url());
+      const landed = { path: at.pathname, next: at.searchParams.get("next"), form: await page.getByTestId("sign-in-form").count(), current: await page.locator('nav[aria-label="Site"] a[aria-current=page]').allTextContents(), pf: await page.locator("[data-testid=pf-area]").count() };
+      check("PF-33 signed out, the browser lands on the sign-in form (?next kept; Dashboard current as on every sign-in page); no page area", JSON.stringify(landed) === JSON.stringify({ path: "/dashboard/sign-in", next: PATH, form: 1, current: ["Dashboard"], pf: 0 }), landed);
+      // PF-34 / QA D1 (open redirect): only ?next=/personal-finance survives. Each bad value is dropped on load (the
+      // URL loses it, the page never holds it) and, after a faked successful sign-in (the auth POST answered 200 in
+      // the browser; no account), the browser goes to /dashboard, never to the external host or another path.
+      for (const [bad, want] of [["https://evil.example", "/dashboard"], ["//evil.example", "/dashboard"], ["/calculator", "/dashboard"], [PATH, PATH]]) {
+        const p5 = await browser.newPage();
+        const navs = [];
+        try {
+          p5.on("request", (q) => { if (q.isNavigationRequest() && q.frame() === p5.mainFrame()) navs.push(q.url()); });
+          await p5.route((u) => u.hostname === "evil.example", (r) => r.abort());
+          await p5.route("**/api/auth/**", (r) =>
+            r.request().method() === "POST"
+              ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ token: "fake", redirect: false, user: { id: "fake", email: "fake@example.com", name: "fake", emailVerified: false, image: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }) })
+              : r.fulfill({ status: 200, contentType: "application/json", body: "null" }),
+          );
+          await p5.goto(`${base}/dashboard/sign-in?next=${encodeURIComponent(bad)}`, { waitUntil: "networkidle" });
+          const loaded = { next: new URL(p5.url()).searchParams.get("next"), html: bad === PATH ? false : await p5.evaluate((b) => document.documentElement.outerHTML.includes(b.includes("evil") ? "evil.example" : `next:"${b}"`) || JSON.stringify(window.__TSR_ROUTER__?.state?.matches?.map((m) => m.loaderData) ?? "").includes(b), bad) };
+          const start = navs.length;
+          await p5.getByTestId("sign-in-form").locator("input[type=email]").fill("fake@example.com");
+          await p5.getByTestId("sign-in-form").locator("input[type=password]").fill("fake-password-1");
+          await p5.getByTestId("sign-in-form").locator("button[type=submit]").click();
+          await p5.waitForTimeout(2500);
+          const after = navs.slice(start).map((u) => { const x = new URL(u); return x.origin === new URL(base).origin ? x.pathname : x.origin; });
+          const ok = loaded.next === (bad === PATH ? PATH : null) && !loaded.html && after[0] === want && !after.some((u) => /evil\.example/.test(u));
+          check(`PF-34 / D1 ?next=${bad}: ${bad === PATH ? "kept" : "dropped on load (not in the URL or the page)"}; a faked successful sign-in goes to ${want}`, ok, { loaded, after });
+        } finally {
+          await p5.close().catch(() => {});
+        }
+      }
+      if (email && password) {
+        // PF-34: the form returns to the page      if (email && password) {
+        // PF-34: the form returns to the page, then this session signs out on /dashboard.
+        await page.getByTestId("sign-in-form").locator("input[type=email]").fill(email);
+        await page.getByTestId("sign-in-form").locator("input[type=password]").fill(password);
+        await page.getByTestId("sign-in-form").locator("button[type=submit]").click();
+        await page.waitForURL(new RegExp(`${PATH}$`), { timeout: 30000 }).catch(() => {});
+        check("PF-34 signing in from ?next=/personal-finance returns to /personal-finance", new URL(page.url()).pathname === PATH, page.url());
+        await page.goto(`${base}/dashboard/sign-in?next=%2Fpersonal-finance`, { waitUntil: "networkidle" });
+        check("PF-34 signed in, /dashboard/sign-in?next=/personal-finance goes straight to the page", new URL(page.url()).pathname === PATH, page.url());
+      }
+    } finally {
+      if (email && password) {
+        await page.goto(`${base}/dashboard`, { waitUntil: "networkidle" }).catch(() => {});
+        await page.getByTestId("dashboard-sign-out").click().catch(() => {});
+        await page.waitForURL(/\/dashboard\/sign-in/, { timeout: 15000 }).catch(() => {});
+      }
+      await page.close().catch(() => {});
+    }
   }
 
-  for (const [vp, viewport, mobile] of VIEWPORTS) {
+  if (!email || !password) {
+    console.log("INFO PF-01..32, PF-34..39 SKIPPED: the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal finance record is reset)");
+  } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
     const wide = viewport.width >= 1024;
-    const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
-    const page = await ctx.newPage();
     const api = [];
     const errors = [];
     page.on("request", (q) => { if (new URL(q.url()).pathname.startsWith("/api/")) api.push(`${q.method()} ${new URL(q.url()).pathname}`); });
     page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 80)));
+    trackSaves(page);
     try {
+      await reset(page);
+      // PF-01 SSR, signed in: the page's own HTML (title, h1, the area empty until the browser reads the account).
+      const ssr = await page.evaluate(async (u) => { const r = await fetch(u); return { status: r.status, robots: r.headers.get("x-robots-tag"), body: await r.text() }; }, PATH);
+      check(`${tag} PF-01 SSR signed in: 200, X-Robots-Tag noindex, title and h1, the area empty until the browser reads the account`, ssr.status === 200 && /noindex/i.test(ssr.robots ?? "") && /<title>Personal finance · Orpheus Wisdom<\/title>/.test(ssr.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(ssr.body) && /data-testid="pf-area"[^>]*data-ready="false"/.test(ssr.body), [ssr.status, ssr.robots]);
+      api.length = 0;
       const res = await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
-      await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+      await ready(page);
       // PF-01 shell
       const sh = await page.evaluate(() => {
         const nav = document.querySelector('nav[aria-label="Site"]');
@@ -446,16 +578,17 @@ try {
       check(`${tag} PF-12 field checks: Share 120 → \`Enter a percent from 0 to 100.\` (aria-invalid); Wages abc → \`Enter a number, 0 or more.\``, pctErr === "Enter a percent from 0 to 100." && pctInvalid === "true" && amtErr === "Enter a number, 0 or more." && (await page.getByTestId("pf-error").count()) === 0, { pctErr, pctInvalid, amtErr });
       // Income layout.
       const pc = {};
-      for (const id of ["pf-person-name", "pf-person-wages", "pf-person-bonus", "pf-person-tax", "pf-person-net", "pf-person-count-wages", "pf-person-count-bonus", "pf-person-share", "pf-remove-person"]) pc[id] = await box(me.getByTestId(id));
+      for (const id of ["pf-person-name", "pf-person-wages", "pf-person-bonus", "pf-person-tax", "pf-person-net", "pf-person-count-wages", "pf-person-count-bonus", "pf-person-share", "pf-person-foreign", "pf-remove-person"]) pc[id] = await box(me.getByTestId(id));
       if (wide) {
         const xs = Object.values(pc).map((b) => b.x);
         const mids = Object.values(pc).map((b) => b.y + b.h / 2);
         const head = await page.locator("[data-testid=pf-person-head] span").evaluateAll((s) => s.map((e) => Math.round(e.getBoundingClientRect().left)));
         const checkCells = await me.locator(".pf-cw, .pf-cb").evaluateAll((s) => s.map((e) => Math.round(e.getBoundingClientRect().left)));
-        const starts = [pc["pf-person-name"].x, pc["pf-person-wages"].x, pc["pf-person-bonus"].x, pc["pf-person-tax"].x, pc["pf-person-net"].x, ...checkCells, pc["pf-person-share"].x];
-        check(`${tag} PF-16 wide: one row per person in column order under its labels`, xs.every((x, i) => i === 0 || x > xs[i - 1]) && Math.max(...mids) - Math.min(...mids) <= 2 && head.every((x, i) => Math.abs(x - starts[i]) <= 1), { head, starts });
+        const fbCell = await me.locator(".pf-fb").evaluate((e) => Math.round(e.getBoundingClientRect().left));
+        const starts = [pc["pf-person-name"].x, pc["pf-person-wages"].x, pc["pf-person-bonus"].x, pc["pf-person-tax"].x, pc["pf-person-net"].x, ...checkCells, pc["pf-person-share"].x, fbCell];
+        check(`${tag} PF-16 / PF-39 wide: one row per person in column order under its labels (Foreign last, #102)`, xs.every((x, i) => i === 0 || x > xs[i - 1]) && Math.max(...mids) - Math.min(...mids) <= 2 && head.length === 9 && head.every((x, i) => Math.abs(x - starts[i]) <= 1), { head, starts });
       } else {
-        check(`${tag} PF-16 phone: a person is a block (name + remove; Wages | Bonus rating; Share | Average tax; Count wages | Count bonus; Net)`, pc["pf-person-wages"].y > pc["pf-person-name"].y && pc["pf-person-wages"].y === pc["pf-person-bonus"].y && pc["pf-person-tax"].y === pc["pf-person-share"].y && pc["pf-person-tax"].x > pc["pf-person-share"].x && pc["pf-person-tax"].y > pc["pf-person-wages"].y && pc["pf-person-count-wages"].y > pc["pf-person-tax"].y && pc["pf-person-net"].y > pc["pf-person-count-wages"].y && pc["pf-person-bonus"].x > pc["pf-person-wages"].x, pc);
+        check(`${tag} PF-16 / PF-39 phone: a person is a block (name + remove; Wages | Bonus rating; Share | Average tax; Count wages | Count bonus; Foreign; Net)`, pc["pf-person-foreign"].y > pc["pf-person-count-wages"].y && pc["pf-person-net"].y > pc["pf-person-foreign"].y && pc["pf-person-wages"].y > pc["pf-person-name"].y && pc["pf-person-wages"].y === pc["pf-person-bonus"].y && pc["pf-person-tax"].y === pc["pf-person-share"].y && pc["pf-person-tax"].x > pc["pf-person-share"].x && pc["pf-person-tax"].y > pc["pf-person-wages"].y && pc["pf-person-count-wages"].y > pc["pf-person-tax"].y && pc["pf-person-net"].y > pc["pf-person-count-wages"].y && pc["pf-person-bonus"].x > pc["pf-person-wages"].x, pc);
       }
       const shotI = join(CFG.out, `pf-income-${viewport.width}.png`);
       await page.getByTestId("pf-income-block").screenshot({ path: shotI });
@@ -559,20 +692,16 @@ try {
       await phone.getByTestId("pf-remove").click();
       check(`${tag} PF-03 Remove expense removes the line`, (await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count()) === 1 && (await totals(page, "fixed"))[2] === "1,000");
 
-      // PF-07 storage
-      const store = await page.evaluate(async ([key, incomeKey, equityKey]) => ({
-        keys: Object.keys(localStorage).sort(),
-        value: JSON.parse(localStorage.getItem(key) ?? "null"),
-        income: JSON.parse(localStorage.getItem(incomeKey) ?? "null"),
-        rates: JSON.parse(localStorage.getItem(equityKey) ?? "null"),
-        session: sessionStorage.length,
-        idb: indexedDB.databases ? (await indexedDB.databases()).length : 0,
-      }), [KEY, INCOME_KEY, EQUITY_KEY]);
-      // Cookies on this host only (the builder's extensions script brings a third-party one of its own).
-      const cookies = (await ctx.cookies(base)).filter((c) => !c.domain.endsWith("grok.com")).length;
-      check(`${tag} PF-07 / PF-20 the three localStorage keys only; typed values as typed; no sessionStorage / IndexedDB / cookie`, JSON.stringify(store.keys) === JSON.stringify([KEY, INCOME_KEY, EQUITY_KEY].sort()) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.session === 0 && store.idb === 0 && cookies === 0, { ...store, cookies });
+      // PF-07 / PF-36 storage: the account's record (after the debounced save), nothing in the browser.
+      await settle(page);
+      const rec = (await record(page)) ?? {};
+      const parse = (k) => { try { return JSON.parse(rec[k] ?? "null"); } catch { return "bad"; } };
+      const store = { names: Object.keys(rec).sort(), value: parse(KEY), income: parse(INCOME_KEY), rates: parse(EQUITY_KEY), ...(await page.evaluate(async () => ({ local: localStorage.length, session: sessionStorage.length, idb: indexedDB.databases ? (await indexedDB.databases()).length : 0 }))) };
+      // Cookies on this host: only the auth session's (the builder's extensions script brings a third-party one of its own).
+      const cookies = (await ctx.cookies(base)).filter((c) => !c.domain.endsWith("grok.com")).map((c) => c.name);
+      check(`${tag} PF-07 / PF-20 / PF-36 the account holds the three names only, typed values as typed; nothing in localStorage / sessionStorage / IndexedDB; only the session cookies`, JSON.stringify(store.names) === JSON.stringify([KEY, INCOME_KEY, EQUITY_KEY].sort()) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.local === 0 && store.session === 0 && store.idb === 0 && cookies.every((n) => /auth/.test(n)), { ...store, cookies });
       await page.reload({ waitUntil: "networkidle" });
-      await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+      await ready(page);
       const back = {
         rent: [await val(line(page, "fixed", 0).getByTestId("pf-name")), await val(line(page, "fixed", 0).getByTestId("pf-monthly")), await val(line(page, "fixed", 0).getByTestId("pf-equity")), await val(line(page, "fixed", 0).getByTestId("pf-account"))],
         gifts: [await val(line(page, "variable", 0).getByTestId("pf-name")), await val(line(page, "variable", 0).getByTestId("pf-yearly")), await val(line(page, "variable", 0).getByTestId("pf-account"))],
@@ -581,7 +710,7 @@ try {
         net: await txt(page.getByTestId("pf-net-income").getByTestId("pf-income-yearly")),
         rates: [await val(page.getByTestId("pf-withdrawal")), await val(page.getByTestId("pf-roic")), await txt(page.getByTestId("pf-rate-used"))],
       };
-      check(`${tag} PF-07 / PF-16 / PF-20 a reload restores every line, typed value, account, selection, person and rate (Total equity 250,000 + 30,000)`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "250,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100", "13,200", "280,000"], people: ["Me", false, "80"], net: "134,400", rates: ["", "8", "4%"] }), back);
+      check(`${tag} PF-07 / PF-16 / PF-20 / PF-36 a reload restores (from the account) every line, typed value, account, selection, person and rate (Total equity 250,000 + 30,000)`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "250,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100", "13,200", "280,000"], people: ["Me", false, "80"], net: "134,400", rates: ["", "8", "4%"] }), back);
       // PF-21..25 foreign currency (#87): the section 14.2 example (Rent's override cleared, Phone back, Condo in BRL).
       await line(page, "fixed", 0).getByTestId("pf-equity").fill("");
       await page.getByTestId("pf-add-fixed").click();
@@ -612,8 +741,8 @@ try {
         await fx.fill(bad);
         bads.push([bad, await txt(fc.getByTestId("pf-error")), JSON.stringify(await dash24()) === JSON.stringify(want24)]);
       }
-      check(`${tag} PF-24 Q14 (decided): a BRL line with no rate (empty, abc, -1, 0): \`Enter a number above 0.\` (alert, aria-invalid); it contributes — (Fixed and Total —: monthly, yearly, % of expenses, % of income, equity; every % of expenses —); its own Monthly / Yearly stay 2,000 / 24,000; Variable 100 / 1,200 / 30,000 and Rent's 8.9% of income still show`, JSON.stringify(noRate24) === JSON.stringify({ err: "Enter a number above 0.", invalid: "true", label: "FX rate, Fixed 3", color: ALERT, ...want24 }) && bads.every(([, e, ok]) => e === "Enter a number above 0." && ok), { noRate24, bads });
-      await fx.fill("0.2");
+      check(`${tag} PF-24 / PF-35 Q14 (decided): a BRL line (FX field named \`FX rate (BRL per 1 CAD)\`) with no rate (empty, abc, -1, 0): \`Enter a number above 0.\` (alert, aria-invalid); it contributes — (Fixed and Total —: monthly, yearly, % of expenses, % of income, equity; every % of expenses —); its own Monthly / Yearly stay 2,000 / 24,000; Variable 100 / 1,200 / 30,000 and Rent's 8.9% of income still show`, JSON.stringify(noRate24) === JSON.stringify({ err: "Enter a number above 0.", invalid: "true", label: "FX rate (BRL per 1 CAD), Fixed 3", color: ALERT, ...want24 }) && bads.every(([, e, ok]) => e === "Enter a number above 0." && ok), { noRate24, bads });
+      await fx.fill("5");
       const conv22 = {
         errors: await fc.getByTestId("pf-error").count(),
         condo: [await val(fc.getByTestId("pf-monthly")), await val(fc.getByTestId("pf-yearly")), await txt(fc.getByTestId("pf-share")), await txt(fc.getByTestId("pf-income"))],
@@ -621,7 +750,7 @@ try {
         variable: await totals(page, "variable"),
         all: await totals(page, "all"),
       };
-      check(`${tag} PF-22 Q12: Condo 2,000 BRL × 0.2: its fields stay 2,000 / 24,000; 22.9% / 3.6%; Fixed 1,650 / 19,800 (14.7%), Variable 100 / 1,200, Total 1,750 / 21,000 (15.6%)`, JSON.stringify(conv22) === JSON.stringify({ errors: 0, condo: ["2,000", "24,000", "22.9%", "3.6%"], fixed: ["94.3%", "14.7%", "1,650", "19,800", "495,000"], variable: ["5.7%", "0.9%", "100", "1,200", "30,000"], all: ["100.0%", "15.6%", "1,750", "21,000", "525,000"] }), conv22);
+      check(`${tag} PF-22 / PF-35 Condo 2,000 BRL ÷ 5 (BRL per 1 CAD) = 400: its fields stay 2,000 / 24,000; 22.9% / 3.6%; Fixed 1,650 / 19,800 (14.7%), Variable 100 / 1,200, Total 1,750 / 21,000 (15.6%)`, JSON.stringify(conv22) === JSON.stringify({ errors: 0, condo: ["2,000", "24,000", "22.9%", "3.6%"], fixed: ["94.3%", "14.7%", "1,650", "19,800", "495,000"], variable: ["5.7%", "0.9%", "100", "1,200", "30,000"], all: ["100.0%", "15.6%", "1,750", "21,000", "525,000"] }), conv22);
       const holder23 = await page.locator("[data-testid=pf-equity]").evaluateAll((f) => f.map((e) => e.placeholder));
       await fc.getByTestId("pf-equity").fill("100,000");
       const ov23 = (await totals(page, "fixed"))[4];
@@ -645,39 +774,119 @@ try {
       const shotX = join(CFG.out, `pf-fx-${viewport.width}.png`);
       await page.screenshot({ path: shotX, fullPage: true });
       R.shots.push(shotX);
-      // Storage: the line's currency / rate; the household key only once changed.
-      const before = await page.evaluate((k) => [Object.keys(localStorage).includes(k[0]), JSON.parse(localStorage.getItem(k[1])).fixed[2]], [CURRENCY_KEY, KEY]);
+      // Storage: the line's currency / rate; the household name only once changed (the account's record).
+      await settle(page);
+      const rec25 = (await record(page)) ?? {};
+      const before = [Object.keys(rec25).includes(CURRENCY_KEY), JSON.parse(rec25[KEY]).fixed[2]];
       await hhSel.selectOption("USD");
-      const cadKey = await page.evaluate((k) => localStorage.getItem(k), CURRENCY_KEY);
+      await settle(page);
+      const cadKey = ((await record(page)) ?? {})[CURRENCY_KEY];
       await page.reload({ waitUntil: "networkidle" });
-      await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+      await ready(page);
       const fc2 = line(page, "fixed", 2);
       const back25 = { household: await page.getByTestId("pf-household").inputValue(), cur: await fc2.getByTestId("pf-currency").inputValue(), rate: await val(fc2.getByTestId("pf-fx")), all: (await totals(page, "all")).slice(2, 4) };
-      check(`${tag} PF-25 storage: Condo {currency BRL, rate 0.2} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"USD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "0.2" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "0.2", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
+      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"USD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
       await page.getByTestId("pf-household").selectOption("BRL");
-      const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).fixed[2].rate, KEY) };
+      const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await (async () => { await settle(page); return JSON.parse(((await record(page)) ?? {})[KEY]).fixed[2].rate; })() };
       await page.getByTestId("pf-household").selectOption("CAD");
-      check(`${tag} PF-24 household BRL makes Condo a household line: FX rate —, × 1 (Fixed 3,250 / 39,000), the rate kept stored`, JSON.stringify(asHome) === JSON.stringify({ fx: "—", cur: "BRL", fixed: ["3,250", "39,000"], rate: "0.2" }), asHome);
-      check(`${tag} PF-07 no /api request; no page error`, api.length === 0 && errors.length === 0, { api, errors });
+      check(`${tag} PF-24 household BRL makes Condo a household line: FX rate —, × 1 (Fixed 3,250 / 39,000), the rate kept stored`, JSON.stringify(asHome) === JSON.stringify({ fx: "—", cur: "BRL", fixed: ["3,250", "39,000"], rate: "5" }), asHome);
+      await settle(page);
+
+      // PF-37 foreign income (#102): the section 12 people (Net income 134,400) plus Brazilian Dividends.
+      await page.getByTestId("pf-add-person").click();
+      const bd = page.getByTestId("pf-person").nth(2);
+      const off37 = { box: await bd.getByTestId("pf-person-foreign").isChecked(), cells: await bd.getByTestId("pf-foreign").count(), label: await bd.getByTestId("pf-person-foreign").getAttribute("aria-label") };
+      await bd.getByTestId("pf-person-name").fill("Brazilian Dividends");
+      await bd.getByTestId("pf-person-wages").fill("37,000");
+      await bd.getByTestId("pf-person-foreign").check();
+      const on37 = { cur: await val(bd.getByTestId("pf-person-currency")), codes: await bd.getByTestId("pf-person-currency").evaluate((s) => [...s.options].map((o) => o.value)) };
+      await bd.getByTestId("pf-person-currency").selectOption("BRL");
+      const fxIn = bd.getByTestId("pf-person-rate");
+      const net37 = () => txt(page.getByTestId("pf-net-income").getByTestId("pf-income-yearly"));
+      const noRate37 = { labels: await bd.locator(".pf-fb .pf-label, .pf-foreign .pf-label").allTextContents(), err: await txt(bd.getByTestId("pf-error")), invalid: await fxIn.getAttribute("aria-invalid"), conv: await txt(bd.getByTestId("pf-person-converted")), net: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")) };
+      check(`${tag} PF-37 a new person's Foreign box is off (named \`Foreign, Person 3\`); ticked: Currency (USD first; the nine codes, not CAD), no rate yet → \`Enter a number above 0.\`, Converted —, Net income —, % of income —`, JSON.stringify(off37) === JSON.stringify({ box: false, cells: 0, label: "Foreign, Person 3" }) && JSON.stringify(on37) === JSON.stringify({ cur: "USD", codes: CODES_NOT_CAD }) && JSON.stringify(noRate37) === JSON.stringify({ labels: ["Foreign", "Currency", "FX rate (BRL per 1 CAD)", "Converted (yearly)"], err: "Enter a number above 0.", invalid: "true", conv: "—", net: "—", rent: "—" }), { off37, on37, noRate37 });
+      await fxIn.fill("3.70");
+      const row37 = await page.locator("[data-testid=pf-income-line]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())).filter((r) => r[0].startsWith("Brazilian Dividends")));
+      const yes37 = { net: await txt(bd.getByTestId("pf-person-net")), conv: await txt(bd.getByTestId("pf-person-converted")), rows: row37, total: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")), errors: await bd.getByTestId("pf-error").count() };
+      check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"], ["Brazilian Dividends · Bonus", "0", "0", "0"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
+      const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]").allTextContents();
+      check(`${tag} PF-37 the Overview's page income follows (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
+      // Layout with the foreign person (PF-39).
+      const fl = { name: await box(bd.getByTestId("pf-person-name")), share: await box(bd.getByTestId("pf-person-share")), cw: await box(bd.getByTestId("pf-person-count-wages")), box: await box(bd.getByTestId("pf-person-foreign").locator("xpath=..")), cur: await box(bd.getByTestId("pf-person-currency")), rate: await box(fxIn), conv: await box(bd.getByTestId("pf-person-converted")), net: await box(bd.getByTestId("pf-person-net")) };
+      const row = viewport.width >= 640;
+      const okFl = fl.box.h >= 44 && fl.cur.h >= 44 && fl.rate.h >= 44 && (wide ? fl.box.x > fl.share.x && Math.abs(fl.box.y + fl.box.h / 2 - (fl.name.y + fl.name.h / 2)) <= 2 && fl.cur.y > fl.name.y + fl.name.h : fl.box.y > fl.cw.y && fl.cur.y > fl.box.y && fl.net.y > fl.cur.y) && (row ? fl.cur.y === fl.rate.y && fl.rate.x > fl.cur.x && fl.conv.x > fl.rate.x && fl.cur.w <= 256 && fl.rate.w <= 256 : fl.rate.y > fl.cur.y && fl.conv.y > fl.rate.y && fl.rate.x === fl.cur.x);
+      check(`${tag} PF-39 ${wide ? "wide: Foreign the last person column; Currency / FX rate / Converted in one row under the person (≤ 16rem)" : row ? "Foreign under the count boxes; the three cells in one row" : "phone: Foreign under the count boxes; the three cells stacked, Net last"}; 44 px controls`, okFl, fl);
+      if (wide) {
+        const head = await page.locator("[data-testid=pf-person-head] span").evaluateAll((sp) => sp.map((e) => [e.textContent.trim(), Math.round(e.getBoundingClientRect().left)]));
+        check(`${tag} PF-39 wide: the column label \`Foreign\` sits over the box`, head.at(-1)?.[0] === "Foreign" && Math.abs(head.at(-1)[1] - fl.box.x) <= 1, { head: head.at(-1), box: fl.box.x });
+      }
+      await fxIn.focus();
+      const ring37 = await fxIn.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, parseFloat(c.outlineWidth), c.outlineColor]; });
+      await page.evaluate(() => document.activeElement?.blur());
+      const scroll37 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      const scan37 = await contrastScan(page);
+      check(`${tag} PF-39 person FX rate focus ring 2 px chalk; no horizontal scroll; AA for every text with the foreign person`, ring37[0] !== "none" && ring37[1] >= 2 && ring37[2] === CHALK && scroll37 <= 0 && scan37.bad.length === 0, { ring37, scroll37, bad: scan37.bad });
+      if (AXE) {
+        await page.addScriptTag({ content: AXE });
+        const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast", "label", "select-name", "aria-valid-attr-value", "label-content-name-mismatch"] } })).violations.map((x) => ({ id: x.id, nodes: x.nodes.length, html: x.nodes[0]?.html.slice(0, 80) })));
+        check(`${tag} PF-39 axe-core with the foreign person: no violation`, v.length === 0, v);
+      }
+      await bd.scrollIntoViewIfNeeded();
+      const shotB = join(CFG.out, `pf-foreign-${viewport.width}.png`);
+      await page.getByTestId("pf-income-block").screenshot({ path: shotB });
+      R.shots.push(shotB);
+      // Unticking keeps the currency and rate stored, counted × 1 (Net income 134,400 + 37,000).
+      await bd.getByTestId("pf-person-foreign").uncheck();
+      const untick = { cells: await bd.getByTestId("pf-foreign").count(), net: await net37() };
+      await settle(page);
+      const kept = JSON.parse(((await record(page)) ?? {})[INCOME_KEY] ?? "{}").people?.[2];
+      check(`${tag} PF-37 unticking: the cells go, counted × 1 (Net income 171,400); the account keeps BRL / 3.70`, JSON.stringify(untick) === '{"cells":0,"net":"171,400"}' && kept?.foreign === false && kept?.currency === "BRL" && kept?.rate === "3.70", { untick, kept });
+      await bd.getByTestId("pf-person-foreign").check();
+      await settle(page);
+
+      // PF-36 another device: a second signed-in context on the same account loads the same figures.
+      const figures = async (pg) => ({ people: await pg.getByTestId("pf-person").count(), lines: await pg.locator("[data-testid=pf-line]").count(), conv: await pg.getByTestId("pf-person-converted").allTextContents(), net: await txt(pg.getByTestId("pf-net-income").getByTestId("pf-income-yearly")), all: await totals(pg, "all"), household: await pg.getByTestId("pf-household").inputValue() });
+      const mine = await figures(page);
+      let other = null;
+      await eachViewport({ browser, baseUrl: base, email, password, check: (n, ok, d) => check(`${tag} PF-36 second device ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: p2 }) => {
+        await p2.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(p2);
+        other = await figures(p2);
+      });
+      check(`${tag} PF-36 a second signed-in context (another device) loads the same figures`, JSON.stringify(other) === JSON.stringify(mine) && mine.people === 3 && mine.net === "144,400", { mine, other });
+      const peek = await acct(page, "GET", undefined, `${API}?userId=someone-else`);
+      check(`${tag} PF-36 ?userId= naming another account → 403`, peek.status === 403, peek);
+      // A failed save shows `Not saved.`; the next change (saved) clears it.
+      await page.route(`**${API}`, (r) => (r.request().method() === "PUT" ? r.abort() : r.continue()));
+      await bd.getByTestId("pf-person-name").fill("Brazilian Dividends 2");
+      await page.waitForTimeout(1200);
+      const failed = await txt(page.getByTestId("pf-save"));
+      const failedStyle = await page.getByTestId("pf-save").evaluate((e) => ({ color: getComputedStyle(e).color, role: e.getAttribute("role") }));
+      await page.unroute(`**${API}`);
+      await bd.getByTestId("pf-person-name").fill("Brazilian Dividends");
+      await settle(page);
+      const saveCleared = await txt(page.getByTestId("pf-save"));
+      check(`${tag} PF-36 a failed save shows \`Not saved.\` (alert, role status); the next change saves and clears it`, failed === "Not saved." && failedStyle.color === ALERT && failedStyle.role === "status" && saveCleared === "", { failed, failedStyle, saveCleared });
+      check(`${tag} PF-07 / PF-36 only /api/personal-finance requests (GET once, PUT saves); no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}`) && api.filter((a) => a === `GET ${API}`).length >= 1 && api.some((a) => a === `PUT ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
-    } finally {
-      await ctx.close().catch(() => {});
     }
 
     // #94 PF-26..32: Overview and Update, today fixed at 11 October 2026; the page at Total 1,750 / Net income 11,200.
     {
-      const c3 = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
-      const p3 = await c3.newPage();
+      const p3 = await ctx.newPage();
+      trackSaves(p3);
       const errs = [];
       const api3 = [];
       p3.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
       p3.on("request", (q) => { if (new URL(q.url()).pathname.startsWith("/api/")) api3.push(new URL(q.url()).pathname); });
       try {
         await p3.clock.setFixedTime(TODAY);
-        await p3.addInitScript(([k, v, ik, iv]) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem(k, v); localStorage.setItem(ik, iv); sessionStorage.setItem("seeded", "1"); } }, [KEY, OV_EXPENSES, INCOME_KEY, OV_INCOME]);
+        await reset(p3);
+        await seed(p3, { [KEY]: OV_EXPENSES, [INCOME_KEY]: OV_INCOME });
+        api3.length = 0;
         await p3.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
-        await p3.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+        await ready(p3);
         const ov = () => p3.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, [...document.querySelectorAll(`[data-testid=pf-ov-${r}] [role=cell]`)].map((c) => c.textContent.trim())])));
         const chart = () => p3.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: f.dataset.netLast, lines: [...f.querySelectorAll(".recharts-line-curve")].map((p) => p.getAttribute("stroke")), hidden: f.querySelector(".pf-chart-plot").getAttribute("aria-hidden"), legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()), h: Math.round(f.querySelector(".pf-chart-plot").getBoundingClientRect().height) }));
         const t0 = await ov();
@@ -735,50 +944,76 @@ try {
         await p3.locator("section[aria-labelledby=pf-overview]").screenshot({ path: shotS });
         R.shots.push(shotS);
         // Storage + reload.
-        const stored = await p3.evaluate((k) => [localStorage.getItem(k), Object.keys(localStorage).sort()], OVERVIEW_KEY);
+        await settle(p3);
+        const rec3 = (await record(p3)) ?? {};
+        const stored = [rec3[OVERVIEW_KEY], Object.keys(rec3).sort(), await p3.evaluate(() => localStorage.length)];
         await p3.reload({ waitUntil: "networkidle" });
-        await p3.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+        await ready(p3);
         await p3.getByTestId("pf-month").selectOption("2026-06");
         const back = { t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(p3.getByTestId("pf-month-expenses")), await val(p3.getByTestId("pf-month-income"))], net: (await chart()).net };
-        check(`${tag} PF-31 storage: ${OVERVIEW_KEY} holds start / growth / Future / 5 years / June as typed (only the five PF keys); a reload restores it all (average 2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify([CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, OVERVIEW_KEY].filter((k) => stored[1].includes(k)).sort()) && stored[1].includes(OVERVIEW_KEY) && JSON.stringify(back) === JSON.stringify({ t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "9,000"], net: "613370.68" }), { stored, back });
+        check(`${tag} PF-31 / PF-36 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years / June as typed (only PF names; nothing in localStorage); a reload restores it all (average 2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify([CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, OVERVIEW_KEY].filter((k) => stored[1].includes(k)).sort()) && stored[1].includes(OVERVIEW_KEY) && stored[2] === 0 && JSON.stringify(back) === JSON.stringify({ t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "9,000"], net: "613370.68" }), { stored, back });
         // Clearing June empties it.
         await p3.getByTestId("pf-month-expenses").fill("");
         await p3.getByTestId("pf-month-income").fill("");
         const t2 = await ov();
-        const months = await p3.evaluate((k) => JSON.parse(localStorage.getItem(k)).months, OVERVIEW_KEY);
+        await settle(p3);
+        const months = JSON.parse(((await record(p3)) ?? {})[OVERVIEW_KEY] ?? "{}").months;
         check(`${tag} PF-27 clearing June's fields empties the month (average back to 1,750 / 11,200; dropped from storage)`, JSON.stringify(t2) === JSON.stringify(t0) && JSON.stringify(months) === "{}", { t2, months });
-        check(`${tag} PF-31 no /api request; no page error (Overview / Update)`, api3.length === 0 && errs.length === 0, { api3, errs });
+        check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / Update)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
         check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
       } finally {
-        await c3.close().catch(() => {});
+        await p3.close().catch(() => {});
       }
     }
 
-    // PF-07 a new context starts empty; a malformed value shows the empty page without an error.
-    for (const [what, value] of [["a new browser context", null], ["malformed stored values (all five keys)", "{not json"]]) {
-      const c2 = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
-      const p2 = await c2.newPage();
+    // PF-38 migration: an old browser record (v1, Condo at 0.2) goes into an empty account as v2 at 5; then the browser
+    // keys are gone. An account that already has a record ignores the browser's values.
+    {
+      const p4 = await ctx.newPage();
       const errs = [];
-      p2.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
-      if (value) await p2.addInitScript(([k, ik, ek, ck, ok, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); localStorage.setItem(ek, v); localStorage.setItem(ck, v); localStorage.setItem(ok, v); }, [KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY, value]);
-      await p2.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
-      await p2.locator("[data-testid=pf-area][data-ready=true]").waitFor();
-      const n = await p2.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
-      const hh = await p2.getByTestId("pf-household").inputValue();
-      const fut = await p2.getByTestId("pf-future-toggle").getAttribute("aria-pressed");
-      check(`${tag} PF-07 / PF-25 / PF-31 ${what}: the empty page, Household currency CAD (Q13), Future off, no error`, n === 0 && hh === "CAD" && fut === "false" && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
-      await c2.close();
+      p4.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
+      trackSaves(p4);
+      try {
+        await reset(p4);
+        await p4.evaluate((kv) => { for (const [k, v] of kv) localStorage.setItem(k, v); }, [[LEGACY_KEY, STORED_V1], [INCOME_KEY, STORED_INCOME], [EQUITY_KEY, STORED_RATES], [CURRENCY_KEY, STORED_CURRENCY]]);
+        await p4.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(p4);
+        await settle(p4);
+        const condo = line(p4, "fixed", 2);
+        const rec4 = (await record(p4)) ?? {};
+        const got = { rate: await val(condo.getByTestId("pf-fx")), all: (await totals(p4, "all")).slice(2, 4), people: await p4.getByTestId("pf-person").count(), names: Object.keys(rec4).sort(), v2rate: JSON.parse(rec4[KEY] ?? "{}").fixed?.[2]?.rate, local: await p4.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("orpheus.finance."))) };
+        check(`${tag} PF-38 the old browser record is imported into the empty account: Condo's 0.2 → 5 (Total 1,750 / 21,000), saved as ${KEY} (no v1), the browser's keys removed`, JSON.stringify(got) === JSON.stringify({ rate: "5", all: ["1,750", "21,000"], people: 2, names: [CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY].sort(), v2rate: "5", local: [] }), got);
+        await p4.evaluate((kv) => localStorage.setItem(kv[0], kv[1]), [LEGACY_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [] })]);
+        await p4.reload({ waitUntil: "networkidle" });
+        await ready(p4);
+        const ignored = { lines: await p4.locator("[data-testid=pf-line]").count(), left: await p4.evaluate((k) => localStorage.getItem(k) !== null, LEGACY_KEY) };
+        check(`${tag} PF-38 with a record, the browser's old values are ignored (4 lines still) and left as they are; no page error`, JSON.stringify(ignored) === '{"lines":4,"left":true}' && errs.length === 0, { ignored, errs });
+        await p4.evaluate((k) => localStorage.removeItem(k), LEGACY_KEY);
+        // PF-07 / PF-25 / PF-31: a malformed record value (all five names) shows the empty page without an error.
+        await reset(p4);
+        await seed(p4, Object.fromEntries([KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY].map((k) => [k, "{not json"])));
+        await p4.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(p4);
+        const n = await p4.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
+        const hh = await p4.getByTestId("pf-household").inputValue();
+        const fut = await p4.getByTestId("pf-future-toggle").getAttribute("aria-pressed");
+        check(`${tag} PF-07 / PF-25 / PF-31 malformed record values (all five names): the empty page, Household currency CAD (Q13), Future off, no error`, n === 0 && hh === "CAD" && fut === "false" && errs.length === 0 && JSON.stringify(await mainTexts(p4)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
+      } catch (e) {
+        check(`${tag} PF-38 ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+      } finally {
+        await p4.close().catch(() => {});
+      }
     }
 
-    // PF-09 strict CLS 0, empty and restored.
-    for (const [what, stored, ov] of [["empty", null, null], ["restored", STORED, null], ["restored + overview (June typed, Future on, 5 years)", STORED, STORED_OVERVIEW]]) {
+    // PF-09 / PF-39 strict CLS 0 signed in, empty and restored from the account (the last run leaves it empty).
+    for (const [what, stored, n] of [["restored", RESTORED, 7], ["restored + overview (June typed, Future on, 5 years)", { ...RESTORED, [OVERVIEW_KEY]: STORED_OVERVIEW }, 7], ["empty", null, 0]]) {
       const runs = [];
-      for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(browser, viewport, mobile, stored, ov));
+      for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(ctx, stored));
       const worst = Math.max(...runs.map((r) => r.total));
-      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (4 lines incl. a BRL one, 2 people, rates, household USD)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 6 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
+      check(`${tag} PF-09 / PF-39 page CLS exactly 0, ${what}${stored ? " (4 lines incl. a BRL one, 3 people incl. Brazilian Dividends in BRL, rates, household USD)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === n), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
     }
-  }
+  });
 } finally {
   await browser.close();
 }

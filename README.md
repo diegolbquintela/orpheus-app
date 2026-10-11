@@ -184,8 +184,8 @@ business user: the CFO). Two groups of expenses, **Fixed** and **Variable**, wit
 ÷ 12); what you typed stays as typed. `% of expenses` is each line's (and group's) share of the monthly total of
 both groups. `% of income` shows `—` until income exists (#85). `Equity to cover` is a number you type until #86
 computes it. Account is a dropdown with `Add account…` (one shared list for both groups). Totals per group and for
-both. Manual entry only: everything stays in this browser's `localStorage` (`orpheus.finance.expenses.v1`), with
-no login, no server copy and no request to `/api`. Amounts carry no currency symbol (kept by #87: the household currency is named once, by its field). The page is
+both. Manual entry only. Before #102 everything stayed in this browser's `localStorage` (`orpheus.finance.expenses.v1`), with
+no login; since #102 it is stored in your account (below). Amounts carry no currency symbol (kept by #87: the household currency is named once, by its field). The page is
 first-class since #97: the bar's fourth item `Personal finance` (current here) and the third home line; the URL
 still works. QA:
 `qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
@@ -216,6 +216,18 @@ own currency as typed; everything computed from them uses the converted amount (
 still show what you typed). No live rates: typed only. The household currency is stored in `orpheus.finance.currency.v1`;
 each line's currency and rate in the expenses key (older lines read as household lines). Draft PR #100; EL decided Q12–Q16
 (multiply by the rate, default CAD, `—` without a rate, no symbols, one rate per line).
+
+**Sign-in, the account and foreign income (#102).** `/personal-finance` is now for signed-in users only: signed out,
+it sends you to `/dashboard/sign-in?next=/personal-finance` and back after signing in (the same email/password sign-in
+as the dashboard, invite-only sign-up; it needs `DASHBOARD_ENABLED=true`). Everything you type is saved to your
+account (`personal_finance` table, `/api/personal-finance`) about half a second after you stop typing, so the same
+account on another device shows the same figures; if a save fails, `Not saved.` shows under the title until the next
+change saves. On your first signed-in visit, values this browser kept under the old keys are moved into the account.
+**FX rates now read the other way round:** units of the foreign currency per 1 unit of the household currency
+(`FX rate (BRL per 1 CAD)`: 1 CAD = 5 BRL → `5`; Condo 2,000 BRL ÷ 5 = 400 CAD). Rates saved the old way (`0.2`) are
+converted once (→ `5`). Each person has a `Foreign` box: tick it, pick the `Currency`, type the `FX rate` and the
+person's `Converted (yearly)` (their Net ÷ rate) is what the income table, `Net income`, `% of income` and the
+Overview use (Brazilian Dividends 37,000 BRL at 3.70 → 10,000 CAD). No live rates. Q24–Q31 open for EL (spec section 9).
 
 **Overview and Update (#94).** Under `04 Overview`: this month against the 12-month average (Expenses, Income,
 Surplus), a chart of the three lines Expenses, Income and Net assets, a typed `Starting net assets` and `Growth rate (%)`,

@@ -272,16 +272,21 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
     assert.doesNotMatch(route, /New here|Have an account|invite-only|password reset/i);
   });
 
+  // #102: the redirect and the after-sign-in target honour `?next=/personal-finance` (the only other target
+  // allowed); the default stays /dashboard.
   it("auth logic unchanged (ST5b-03): the same calls, gate and redirect", () => {
     for (const s of [
       "await ensureDashboardEnabled();",
       "const viewer = await getDashboardViewer();",
-      'if (viewer.user) throw redirect({ to: "/dashboard" });',
+      // #102 QA D1: the allowlist on load and again before the post-auth navigation.
+      "const next = safeNext((search as { next?: unknown }).next);",
+      "if (viewer.user) throw redirect({ to: next });",
+      "next: safeNext(context.next),",
       'await import("@/lib/auth/client")',
       "authClient.signIn.email({ email: trimmed, password })",
       "authClient.signUp.email({",
       'name: trimmed.split("@")[0] || trimmed,',
-      'window.location.href = "/dashboard";',
+      "window.location.assign(safeNext(next));",
       "minLength={8}",
       'autoComplete={mode === "sign-in" ? "current-password" : "new-password"}',
       'setMode(mode === "sign-in" ? "sign-up" : "sign-in");',

@@ -1,19 +1,34 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ensureDashboardEnabled, getDashboardViewer } from "@/lib/dashboard/gate";
+import { DEFAULT_NEXT, safeNext, type SafeNext } from "@/lib/auth/next";
 
 // /dashboard/sign-in (T03 #11): email/password sign-in and sign-up. Same gate as
 // /dashboard: 404 unless DASHBOARD_ENABLED is exactly "true". Already signed in:
 // back to /dashboard. Sign-up only works for addresses on the allow-list (D12);
-// the server enforces it.
+// the server enforces it. #102: `?next=/personal-finance` (the only other target allowed) sends the visitor back
+// there after signing in (and straight there when already signed in). QA D1: the raw `?next` is never trusted.
+// TanStack keeps unvalidated search params from the root, so `safeNext` is applied on load (validateSearch,
+// beforeLoad, loader) and again right before the post-auth navigation; anything but the exact relative path
+// `/personal-finance` (an external URL, `//host`, another path, missing) is `/dashboard`.
+
 export const Route = createFileRoute("/dashboard_/sign-in")({
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>): { next?: SafeNext } => {
+    const next = safeNext(search.next);
+    return { next: next === DEFAULT_NEXT ? undefined : next };
+  },
+  beforeLoad: async ({ search }) => {
     await ensureDashboardEnabled();
     const viewer = await getDashboardViewer();
-    if (viewer.user) throw redirect({ to: "/dashboard" });
-    return { authReady: viewer.authReady };
+    const next = safeNext((search as { next?: unknown }).next);
+    if (viewer.user) throw redirect({ to: next });
+    return { authReady: viewer.authReady, next };
   },
-  loader: ({ context }) => ({ enabled: true as const, authReady: context.authReady }),
+  loader: ({ context }) => ({
+    enabled: true as const,
+    authReady: context.authReady,
+    next: safeNext(context.next),
+  }),
   head: ({ loaderData }) =>
     loaderData?.enabled
       ? {
@@ -29,7 +44,7 @@ export const Route = createFileRoute("/dashboard_/sign-in")({
 type Mode = "sign-in" | "sign-up";
 
 function SignInPage() {
-  const { authReady } = Route.useLoaderData();
+  const { authReady, next } = Route.useLoaderData();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,8 +71,8 @@ function SignInPage() {
         setBusy(false);
         return;
       }
-      // Full load so the server renders /dashboard with the new session cookie.
-      window.location.href = "/dashboard";
+      // Full load so the server renders the page (/dashboard, or #102's ?next) with the new session cookie.
+      window.location.assign(safeNext(next));
     } catch {
       setError("Something went wrong. Try again.");
       setBusy(false);

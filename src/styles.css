@@ -603,6 +603,19 @@
     color: var(--color-chalk);
     white-space: nowrap;
   }
+  /* #102: a failed save, under the title without taking room (nothing moves). */
+  .pf-save {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-alert);
+  }
+  .pf-save:empty {
+    display: none;
+  }
   .pf-error {
     display: block;
     font-size: 0.8125rem;
@@ -821,6 +834,7 @@
       "wages bonus bonus"
       "pct tax tax"
       "cw cb cb"
+      "fb fb fb"
       "net net net";
     column-gap: 1rem;
     row-gap: 1.25rem;
@@ -848,6 +862,9 @@
   .pf-pct {
     grid-area: pct;
   }
+  .pf-fb {
+    grid-area: fb;
+  }
   .pf-biweekly {
     grid-area: biweekly;
   }
@@ -861,6 +878,31 @@
     height: 1.25rem;
     width: 1.25rem;
     accent-color: var(--color-chalk);
+  }
+  /* #102 (spec 16.6): the person's Foreign box sits with the other boxes (phone: its own row under Count wages |
+     Count bonus; wide: the last column); ticked, Currency / FX rate / Converted stack under the boxes on a phone and
+     sit in one row (each ≤ 16rem) from 640 px, under the person's row from 1024 px. */
+  .pf-person[data-foreign="true"] {
+    grid-template-areas:
+      "name name remove"
+      "wages bonus bonus"
+      "pct tax tax"
+      "cw cb cb"
+      "fb fb fb"
+      "fo fo fo"
+      "net net net";
+  }
+  .pf-foreign {
+    grid-area: fo;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  @media (min-width: 40rem) {
+    .pf-foreign {
+      grid-template-columns: repeat(3, minmax(0, 16rem));
+      column-gap: 1.25rem;
+    }
   }
   .pf-table-row,
   .pf-table-row.pf-table-total {
@@ -891,13 +933,18 @@
     .pf-person {
       grid-template-columns:
         minmax(0, 1.6fr) minmax(0, 1fr) 6.5rem 6.5rem minmax(0, 1fr) 5.5rem 5.5rem 5.5rem
-        2.75rem;
+        5.5rem 2.75rem;
       column-gap: 1.25rem;
     }
     .pf-person {
-      grid-template-areas: "name wages bonus tax net cw cb pct remove";
+      grid-template-areas: "name wages bonus tax net cw cb pct fb remove";
       border-bottom: 0;
       padding-bottom: 0;
+    }
+    .pf-person[data-foreign="true"] {
+      grid-template-areas:
+        "name wages bonus tax net cw cb pct fb remove"
+        "fo fo fo fo fo fo fo fo fo fo";
     }
     .pf-head.pf-table-head,
     .pf-table-row,

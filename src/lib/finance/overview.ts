@@ -91,7 +91,7 @@ export function typedFigure(text: string | undefined): number | null {
 export const orZero = (text: string): number => parseAmount(text) ?? 0;
 
 export type Figures = { expenses: number | null; income: number | null };
-export type PageFigures = { expenses: number | null; income: number };
+export type PageFigures = { expenses: number | null; income: number | null };
 
 /** A month's figures (Q17): typed, else the page's for the current month when above 0, else null (empty). */
 export function monthFigures(

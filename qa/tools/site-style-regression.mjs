@@ -2,8 +2,9 @@
 // runner). Two parts:
 //
 // 1. Its own ST6 checks in a real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900 on `/`, `/calculator`,
-//    `/dashboard/sign-in`, `/personal-finance` (#84, empty) and a 404 (`/no-such-page`), signed out, read-only (no
-//    form is submitted); ST1-05 (#84): the lyre mark first in the bar's Orpheus link on every page:
+//    `/dashboard/sign-in` and a 404 (`/no-such-page`), signed out, read-only (no form is submitted; #102:
+//    `/personal-finance` is signed-in only, so here only its signed-out 307 to `/dashboard/sign-in?next=/personal-finance`;
+//    the signed-in page is personal-finance.mjs's and site-shell.mjs's, with QA_EMAIL / QA_PASSWORD in env); ST1-05 (#84): the lyre mark first in the bar's Orpheus link on every page:
 //    ST6-01 no painting but the two heroes: `/` exactly one img (the Jordaens alt), `/calculator` exactly one (the
 //           Botticelli alt), sign-in and the 404 none; no CSS background-image anywhere
 //    ST6-02 no instruction text: the visible texts of the content area (between the bar and the footer) are exactly
@@ -74,7 +75,7 @@ const PAGES = [
   // #84 / #85 (personal-finance spec §4, §12), the empty page: a phone shows each total's labelled cells; from 1024 px the
   // column-label rows are aria-hidden (not counted) and the cells' labels visually hidden.
   {
-    path: "/personal-finance", current: "Personal finance", status: 200, imgs: [],
+    path: "/personal-finance", current: "Personal finance", status: 200, imgs: [], signedIn: true, // #102: browser checks skipped here
     texts: (wide) => {
       const total = (label) => (wide ? [label, "—", "—", "0", "0", "0"] : [label, "% of income", "—", "% of expenses", "—", "Monthly", "0", "Yearly", "0", "Equity to cover", "0"]);
       // #85: the income block first (`02` Income; its column-label rows aria-hidden), then `03` Expenses; #86: the
@@ -209,6 +210,11 @@ async function ownChecks(browser) {
   // Server answers (no browser): status, X-Robots-Tag; signed-out /dashboard.
   for (const p of PAGES) {
     const r = await fetch(`${base}${p.path}`, { redirect: "manual" });
+    if (p.signedIn) {
+      const to = new URL(r.headers.get("location") ?? "/x", base);
+      check(`ST6-04 signed-out ${p.path} → 307 /dashboard/sign-in?next=${p.path} (#102)`, r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === p.path, [r.status, r.headers.get("location")]);
+      continue;
+    }
     check(`ST6-05 / ST6-09 GET ${p.path} → ${p.status}, X-Robots-Tag noindex`, r.status === p.status && /noindex/i.test(r.headers.get("x-robots-tag") ?? ""), [r.status, r.headers.get("x-robots-tag")]);
   }
   {
@@ -221,6 +227,7 @@ async function ownChecks(browser) {
 
   for (const [vp, viewport, mobile] of VIEWPORTS) {
     for (const p of PAGES) {
+      if (p.signedIn) continue; // #102: signed in, checked by personal-finance.mjs (PF-01 / PF-08 / PF-09 / PF-39)
       const tag = `[${vp}] ${p.path}`;
       const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
       const page = await ctx.newPage();

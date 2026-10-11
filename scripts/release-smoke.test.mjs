@@ -59,7 +59,6 @@ const CALC = shell(
   `<h1>DCA vs lump sum</h1><form><p class="x">US, EU and CA listings, one currency per basket.</p><button>Compare plans</button></form>`,
 );
 const NOT_FOUND = shell(null, `<p>Not Found</p>`);
-const FINANCE = shell("Personal finance", `<h1 class="x">Personal finance.</h1>`);
 const html = (res, status, body) =>
   res
     .writeHead(status, { "content-type": "text/html", "x-robots-tag": "noindex, nofollow" })
@@ -77,7 +76,9 @@ function app(mode, override = () => false) {
       return res.writeHead(307, { location: `/calculator${u.search}` }).end();
     if (u.pathname === "/") return html(res, 200, HOME);
     if (u.pathname === "/calculator") return html(res, 200, CALC);
-    if (u.pathname === "/personal-finance") return html(res, 200, FINANCE);
+    // #102: signed out, Personal finance redirects to sign-in (flag on or off).
+    if (u.pathname === "/personal-finance")
+      return res.writeHead(307, { location: "/dashboard/sign-in?next=%2Fpersonal-finance" }).end();
     if (u.pathname === "/api/chart")
       return json(res, 400, { error: "VOD.L lists on LSE. US, EU, and CA listings only." });
     if (!on)
@@ -97,9 +98,12 @@ function app(mode, override = () => false) {
         ? json(res, 200, { state: "connected", tables: 11, missingTables: [] })
         : json(res, 404, { error: "Not found." });
     if (
-      ["/api/dashboard/holdings", "/api/dashboard/columns", "/api/cron/daily-refresh"].includes(
-        u.pathname,
-      )
+      [
+        "/api/dashboard/holdings",
+        "/api/dashboard/columns",
+        "/api/cron/daily-refresh",
+        "/api/personal-finance",
+      ].includes(u.pathname)
     )
       return json(res, 401, { error: "Unauthorized." });
     if (u.pathname === "/api/dashboard/refresh")
@@ -229,13 +233,17 @@ test("bad usage exits 2", () => {
   assert.equal(spawnSync(process.execPath, ["scripts/release-smoke.mjs"]).status, 2);
 });
 
-test("/personal-finance must mark Personal finance current (#97)", async () => {
-  const wrong = FINANCE.replace(' aria-current="page"', "");
+test("/personal-finance must redirect a signed-out visitor to sign-in with ?next (#102)", async () => {
   const { s, base } = await serve(
-    app("preview", (req, res) => req.url === "/personal-finance" && (html(res, 200, wrong), true)),
+    app(
+      "preview",
+      (req, res) =>
+        req.url === "/personal-finance" &&
+        (res.writeHead(307, { location: "/dashboard/sign-in" }).end(), true),
+    ),
   );
   const r = await run(base, "preview");
   s.close();
   assert.equal(r.code, 1);
-  assert.match(r.out, /FAIL GET \/personal-finance -> 200/);
+  assert.match(r.out, /FAIL GET \/personal-finance -> 307/);
 });

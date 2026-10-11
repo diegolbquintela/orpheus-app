@@ -4,7 +4,8 @@
  * `localStorage` (its own key; the expenses key is unchanged). Bonus rating = % of yearly wages (Q5); net = gross ×
  * (1 − average tax) (Q6); one share per person (Q7); biweekly = yearly ÷ 26 (Q8).
  */
-import { amountOrZero, NAME_MAX, parseAmount } from "./expenses.ts";
+import { type CurrencyCode, CURRENCIES, DEFAULT_HOUSEHOLD, isCurrency } from "./currency.ts";
+import { amountOrZero, NAME_MAX, over, parseAmount, parseRate } from "./expenses.ts";
 
 export const INCOME_KEY = "orpheus.finance.income.v1";
 export const PEOPLE_MAX = 20;
@@ -19,7 +20,13 @@ export const PERSON_COLUMNS = [
   "Count wages",
   "Count bonus",
   "Share (%)",
+  "Foreign", // #102
 ] as const;
+export const FOREIGN_LABEL = "Foreign";
+export const CONVERTED_LABEL = "Converted (yearly)";
+/** `FX rate (BRL per 1 CAD)` (#102: foreign units per 1 household unit). */
+export const rateLabel = (code: string, household: string): string =>
+  `FX rate (${code} per 1 ${household})`;
 export const TABLE_COLUMNS = ["Income", "Biweekly", "Monthly", "Yearly"] as const;
 export const NET_INCOME = "Net income";
 
@@ -36,6 +43,12 @@ export type Person = {
   share: string;
   countWages: boolean;
   countBonus: boolean;
+  /** #102: the person's amounts are in `currency`, converted ÷ `rate` (foreign per 1 household unit). */
+  foreign: boolean;
+  /** One of the ten codes, or "" (the default foreign choice). */
+  currency: string;
+  /** As typed. */
+  rate: string;
 };
 
 export type Income = { people: Person[] };
@@ -63,11 +76,44 @@ export const personNet = (p: Person): number => afterTax(p, grossWages(p) + gros
 export const personLabel = (p: Person, index: number): string =>
   p.name.trim() || `Person ${index + 1}`;
 
-export type IncomeLine = { id: string; label: string; yearly: number; counted: boolean };
+/** A foreign person's currency: as stored, else the first code that isn't the household's. */
+export const personCurrency = (
+  p: Person,
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): CurrencyCode =>
+  isCurrency(p.currency) ? p.currency : (CURRENCIES.find((c) => c !== household) as CurrencyCode);
 
-/** The income table: Wages then Bonus per person, each line's counted net (× share, 0 when not ticked). */
-export function incomeLines(people: readonly Person[]): IncomeLine[] {
+/** True when the person's amounts need converting (#102): Foreign ticked and a currency other than the household's. */
+export const isForeignPerson = (p: Person, household: CurrencyCode = DEFAULT_HOUSEHOLD): boolean =>
+  p.foreign && personCurrency(p, household) !== household;
+
+/** What the person's amounts are divided by (#102): 1, their valid rate, or null (no valid rate). */
+export const personDivisor = (
+  p: Person,
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): number | null => (isForeignPerson(p, household) ? parseRate(p.rate) : 1);
+
+/** `Converted (yearly)`: Net ÷ rate in the household currency, or null (`—`). */
+export const personConverted = (
+  p: Person,
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): number | null => {
+  return over(personNet(p), personDivisor(p, household));
+};
+
+export type IncomeLine = { id: string; label: string; yearly: number | null; counted: boolean };
+
+/**
+ * The income table: Wages then Bonus per person, each line's counted net (× share, 0 when not ticked), in the
+ * household currency (#102: a foreign person's lines ÷ rate; null (`—`) without a valid rate).
+ */
+export function incomeLines(
+  people: readonly Person[],
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): IncomeLine[] {
   return people.flatMap((p, i) => {
+    const d = personDivisor(p, household);
+    const conv = (v: number): number | null => over(v, d);
     const share = percentOrZero(p.share) / 100;
     const label = personLabel(p, i);
     return [
@@ -75,24 +121,38 @@ export function incomeLines(people: readonly Person[]): IncomeLine[] {
         id: `${p.id}-wages`,
         label: `${label} · Wages`,
         counted: p.countWages,
-        yearly: p.countWages ? afterTax(p, grossWages(p)) * share : 0,
+        yearly: p.countWages ? conv(afterTax(p, grossWages(p)) * share) : 0,
       },
       {
         id: `${p.id}-bonus`,
         label: `${label} · Bonus`,
         counted: p.countBonus,
-        yearly: p.countBonus ? afterTax(p, grossBonus(p)) * share : 0,
+        yearly: p.countBonus ? conv(afterTax(p, grossBonus(p)) * share) : 0,
       },
     ];
   });
 }
 
-/** The counted net income, yearly (what `% of income` divides by, monthly). */
-export const netIncomeYearly = (people: readonly Person[]): number =>
-  incomeLines(people).reduce((sum, l) => sum + l.yearly, 0);
+/** The counted net income, yearly, household currency (what `% of income` divides by, monthly); null (`—`) when a line is. */
+export const netIncomeYearly = (
+  people: readonly Person[],
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): number | null =>
+  incomeLines(people, household).reduce<number | null>(
+    (sum, l) => (sum === null || l.yearly === null ? null : sum + l.yearly),
+    0,
+  );
 
-export const biweekly = (yearly: number): number => yearly / PERIODS_BIWEEKLY;
-export const monthly = (yearly: number): number => yearly / 12;
+export function biweekly(yearly: number): number;
+export function biweekly(yearly: number | null): number | null;
+export function biweekly(yearly: number | null): number | null {
+  return yearly === null ? null : yearly / PERIODS_BIWEEKLY;
+}
+export function monthly(yearly: number): number;
+export function monthly(yearly: number | null): number | null;
+export function monthly(yearly: number | null): number | null {
+  return yearly === null ? null : yearly / 12;
+}
 
 let counter = 0;
 export function newPerson(): Person {
@@ -106,6 +166,9 @@ export function newPerson(): Person {
     share: "100",
     countWages: true,
     countBonus: true,
+    foreign: false,
+    currency: "",
+    rate: "",
   };
 }
 
@@ -126,6 +189,10 @@ function asPerson(value: unknown): Person | null {
     share: v.share as string,
     countWages: v.countWages,
     countBonus: v.countBonus,
+    // #102: people stored before it read as not foreign.
+    foreign: v.foreign === true,
+    currency: isCurrency(v.currency) ? v.currency : "",
+    rate: isText(v.rate, 40) ? v.rate : "",
   };
 }
 
