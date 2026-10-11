@@ -81,6 +81,18 @@ affects the repo.
   `c5live.mjs`) are historical and don't apply to the new page. ST0-05's `/dashboard` compare runs signed in
   against the base PR's preview (`site-shell.mjs --compare-url`), never production (no QA sign-in there).
 
+- **Landed: #69 home.** `src/components/home.tsx` (page) and `home-hero.tsx` (the Jordaens band); hero data in
+  `src/lib/site/home-hero.ts` (two crops, widths, the prince-and-horses figure box per crop: change a crop and
+  you must change its box); files `public/hero/frederick-*` and `public/hero/home-SOURCE.md` (Commons / RKD,
+  public domain; every file ≤ 300 KB, the 2880 wide file AVIF only). Home-only classes in `src/styles.css`
+  (`.home-title`, `.home-wash`, `.home-hero-text`, `.home-line`, `.home-open`; sizes in spec §8); the `.calc-*`
+  classes are untouched. The title box is font-independent like the calculator's (5.3em × 3.3em, one text node,
+  three lines). Wide, the hero text's left edge is `min(content column, 33.24vw − 280px)` so the wash never
+  reaches the horses on very wide screens. The home cards (`HOME_LINE`, `HOME_CARDS`, `data-testid="home-card"`)
+  are gone: the Platforms lines are `[data-testid=platform-line][data-href=…]` with `[data-testid=platform-open]`.
+  QA: `qa/tools/home-page.mjs` (ST3-01..07 + ST0-01..03 at 360 / 400 / 1024 / 1440; screenshots incl.
+  `hero-<w>.png` with the figure and the wash outlined). Q17 (home phone band) is on its default.
+
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 
 *Harness for tickets 1–6 of epic #53 (#54 harness + specs, #55 holdings list, #56 add holding, #57 metrics
@@ -133,7 +145,8 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
 
 Orpheus Wisdom: TanStack Start + Vite + React, deployed on Vercel. One site, three routes (#46):
 
-- `/`: home. One line plus exactly two cards (Calculator, Dashboard). It does no calculating.
+- `/`: home (#69): the Jordaens band with `01` + `Investment driven by research.`, then `02` `Platforms` with
+  two lines (Calculator, Dashboard), each `Open` a link. It does no calculating.
 - `/calculator`: the DCA vs lump-sum calculator (moved here from `/` in #46, behaviour unchanged).
   DCA logic lives in `src/lib/dca/*`; the UI is `src/components/desk.tsx`; the price feed is the
   server route `src/routes/api/chart.ts` → `src/lib/dca/yahoo.server.ts`. See `README.md` for the six
@@ -282,7 +295,7 @@ browser and the network.
 
 ### Site shell: menu, home, footer (#46)
 
-- Code: `src/lib/site/site.ts` (pure: `MENU_ITEMS`, `HOME_LINE`, `HOME_CARDS`, `FOOTER_LINE`,
+- Code: `src/lib/site/site.ts` (pure: `MENU_ITEMS`, `HOME_PLATFORMS`, `FOOTER_LINE`,
   `currentSection()`, `homeRedirectHref()`), `src/components/site-menu.tsx`, `site-footer.tsx`, `home.tsx`,
   wired in `src/routes/__root.tsx` around the `<Outlet />`, so every page (calculator, home, `/dashboard`,
   `/dashboard/sign-in`, the 404) gets them. Routes: `src/routes/index.tsx` (home) and `calculator.tsx`.
@@ -290,11 +303,12 @@ browser and the network.
   "Dashboard" on the right. No dropdowns. The current page gets `aria-current="page"` and a visual state
   (full-strength text plus underline, styled from the attribute). `/dashboard/sign-in` counts as Dashboard; a
   404 has no current item. Plain links (full page loads), so `/dashboard` always goes through its server gate.
-- **The Dashboard item and the home card show even when `DASHBOARD_ENABLED` is off** (Diego, #46). The shell
+- **The Dashboard item and the home Platforms line show even when `DASHBOARD_ENABLED` is off** (Diego, #46). The shell
   never reads the flag or imports dashboard code (`flag.test.ts`); flag off, the link lands on the plain 404.
   This replaces the old rule "no nav link when the flag is off" (spec §2, DASH-01 updated).
-- **Home `/`:** `HOME_LINE` plus exactly two cards with the #46 texts verbatim ("compare a lump sum with
-  contributions" → `/calculator`; "holdings, value, stored figures" → `/dashboard`). No fetches, no calculator
+- **Home `/` (#69, replaces the #46 line and cards):** the Jordaens hero (`home-hero.tsx`, data in
+  `src/lib/site/home-hero.ts`) with `01` + `HOME_TITLE`, then `02` `Platforms` and exactly the two
+  `HOME_PLATFORMS` lines (spec §4 copy verbatim; `Open` → `/calculator`, `/dashboard`). No fetches, no calculator
   code in the route (`site.test.ts` checks the imports).
 - **`/?query` → `/calculator?query`** (307, from the home route's `beforeLoad`). The calculator reads no URL
   parameters today, so this only keeps old links with a query string landing on the calculator. Plain `/` is home.
@@ -303,12 +317,12 @@ browser and the network.
   basket, as before.
 - noindex: the root `head()` sets `robots: noindex, nofollow` for every page, each page route repeats it, and
   `vite.config.ts` adds `X-Robots-Tag: noindex, nofollow` to every response.
-- Tests: `src/lib/site/site.test.ts` (menu items, current page per route, the two cards, footer text,
+- Tests: `src/lib/site/site.test.ts` (menu items, current page per route, the two Platforms lines, footer text,
   redirect, home imports, noindex in every route file), `src/components/site.dom.test.tsx` (jsdom:
-  `aria-current` per route, Dashboard always shown, no dropdowns, sticky, exactly two cards and no fetch,
+  `aria-current` per route, Dashboard always shown, no dropdowns, sticky, exactly two Platforms lines and no fetch,
   footer text), `check-dashboard-built.mjs` (built server, flag off and on: home, calculator, redirect, menu
   current item, footer, the flag-off 404 has no dashboard copy outside the menu), `release-smoke.mjs` (every
-  mode) and `qa/tools/site.mjs` (browser: menu fixed on scroll, cards, footer, $313,000 and VOD.L at
+  mode) and `qa/tools/site.mjs` (browser: menu fixed on scroll, the Platforms `Open` links, footer, $313,000 and VOD.L at
   `/calculator`).
 
 ### Vercel Web Analytics (#48)
@@ -886,7 +900,7 @@ lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded
   rollback, Diego's test-account steps and removal SQL, open decisions (N3: keep `/api/dashboard/db` 404 on
   production as coded; `/status` public with only `{"dashboard":"enabled"}` there).
 - `scripts/release-smoke.mjs <url> off|on|preview`: GET-only, no credentials; test `scripts/release-smoke.test.mjs`.
-  Since #46 every mode also checks the site shell (menu, home cards, footer, `/calculator`, the `/?query`
+  Since #46 every mode also checks the site shell (menu, home Platforms lines (#69; the home cards until then), footer, `/calculator`, the `/?query`
   redirect, noindex meta + `X-Robots-Tag`) and `GET /api/chart?ticker=VOD.L…` → 400 with the exact message.
 - #45 release decisions (EL) are recorded in `docs/release/dashboard-release.md` §5.
 - N1: `format.ts` `formatPortfolioPct()` is the one "% of portfolio" formatter (table `weightPct` and pie

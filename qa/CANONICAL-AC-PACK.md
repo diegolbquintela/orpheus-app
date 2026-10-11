@@ -28,7 +28,7 @@ Source of truth: [`attachments/site-style-spec.md`](../attachments/site-style-sp
 Diego via CoS and EL, 2026-10-05 21:26 ET; the row text below is copied from its section 11). **A white style was
 proposed on 2026-10-05 and dropped at 21:26 ET; dark wins and nothing white gets merged.** The #53 dark style
 stands and is extended. Widths: phone 400 × 860, 1024 × 800, 1440 × 900, plus 360 × 780 for the calculator's
-phone rows (ST4-08..12) and ST4-14 / -15; phone rules below 1024 px, the wide layout from 1024 px. ST2 (hover) is retired; ST5a (dashboard content) is deferred while #71 is on hold.
+phone rows (ST4-08..12) and ST4-14 / -15, and home's ST3-01, -02, -05, -06 (#69); phone rules below 1024 px, the wide layout from 1024 px. ST2 (hover) is retired; ST5a (dashboard content) is deferred while #71 is on hold.
 
 **Per-ticket QA:** each ticket's own rows plus a no-regression pass on everything else (the dashboard content
 always: ST0-05).
@@ -66,10 +66,13 @@ always: ST0-05).
 
 | AC | Tier | Pass when (on the preview / live page) |
 |----|------|------------------------------|
-| ST3-01 | BLOCK | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it; source and licence recorded in the repo; optimised, served from the app, explicit `width` and `height`, layout shift 0. |
-| ST3-02 | BLOCK | `01` and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type; at 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash. |
-| ST3-03 | BLOCK | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer. |
-| ST3-04 | BLOCK | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`. |
+| ST3-01 | BLOCK | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total < 0.001 on every run (strict 0 PLANNED for #72). |
+| ST3-02 | BLOCK | `01` (small) and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; sizes in section 8); chalk on the wash ≥ 4.5:1 at the worst pixel. At 360, 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash (with its soft edge): their region is the figure box per crop in `src/lib/site/home-hero.ts` through the crop and `object-position`, checked by geometry and by a screenshot with both boxes outlined. |
+| ST3-03 | BLOCK | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer (no #46 line, no cards). |
+| ST3-04 | BLOCK | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`; `noindex` meta and `X-Robots-Tag: noindex, nofollow` unchanged. |
+| ST3-05 | BLOCK | The wash box fully contains the bounding boxes of `01` and the title (element and text-line rects) at 360, 400, 1024 and 1440; it hugs the text, anchored lower left (≤ 12 px of padding a side on a phone, ≤ 24 px wide), and takes at most 50% of the band's height at 360 and 400 (as ST4-15). |
+| ST3-06 | BLOCK | Phone (360 and 400; phone rules below 1024 px): the phone crop in its band (section 8), the title three lines, the Platforms lines one column (name and `Open` on a row, the description under them), every text whole, no horizontal page scroll; the bar's three items on one line (ST1-01). Wide (1024, 1440): the wide crop, each Platforms line one row. |
+| ST3-07 | BLOCK | AA on dark for every text on `/` (`01`, title, `02`, `Platforms`, names, descriptions, `Open`; the focus ring ≥ 3:1); an axe-core run reports no `color-contrast` violation; `color-scheme: dark` on `<html>` and `<body>`. |
 
 ### ST4: calculator `/calculator` (#70, Mon Oct 5)
 

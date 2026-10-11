@@ -17,6 +17,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-05, ≈ 22:00 ET | EL accepted **every section 12 default** (Q0, Q2, Q4, Q5, Q6, Q8, Q10, Q11, Q12, Q13, Q14, Q15) and the green `#5cc08a`. Q12 with a caveat: the per-name table, the summary line and the swipe hint go unless a DCA rule or acceptance row needs those figures shown (none does; #70 checked `attachments/dca-app-spec.md` and the QA pack). |
 | 2026-10-05, ≈ 22:05 ET | EL amendments folded into #70: **A1 / A9** (ST4-10: short `Lump sum` / `DCA` row labels, the metric labels word for word as full-width captions, two columns while each is ≥ 150 px), **A2** (ST4-08: rows full width, remove control beside the ticker), **A3** (new ST4-14: the hero text clear of Venus), **A4** (new ST4-15: the wash contains the hero text), **A11** (ST4-04: the note 13 px dim, one line at 360 without changing its wording), exact sizes (section 7), a primary-button row (ST4-16), the 300 KB limit at 2x and CLS by PerformanceObserver (ST4-01), phone below 1024 px / wide from 1024 px (section 7a), the bar on one line at 360 (ST1-01), `color-scheme: dark` (section 6), the `/dashboard` screenshot compare against production (ST0-05; superseded at ≈ 23:00 ET by N7: against the base PR's preview, signed in). |
 | 2026-10-05, ≈ 23:00 ET | **QA round 1 on #70 (PR #76 at `2d4ee7c`) failed; EL's fixes and decisions:** D1 (CLS on phones 0.0036 / 0.0028 from the web-font swap resizing the wash; the QA tool had skipped shifts Playwright's phone emulation tags `hadRecentInput`): font-independent wash and title sizes, a size-adjusted local fallback, every shift counted (ST4-01; Q16 decided: #72 self-hosts the fonts, PLANNED). D2 (the Frequency list opened white with chalk text): charcoal select and options, `color-scheme: dark` on `<html>` (section 6, ST4-03). D3 (the `Max drop` value wrapped under its label at 360 / 400): one-line rows, the date on its own muted line (ST4-10). **N1:** keep the fixed method sentence word for word as one muted caption (Q12). **N4:** the wash hugs the text lower left, ≤ 50% of the band at 360 / 400 (ST4-15). **N7:** ST0-05 compares `/dashboard` signed in against the base PR's preview with the QA accounts, never production (it has no QA sign-in). |
+| 2026-10-10, ≈ 22:00 ET | **#69 kickoff (EL):** home in the dark shell keeps the Jordaens hero, `Investment driven by research.` and the Platforms lines (Q11; #69 builds them). The home rows get the calculator's bar: the largest file served at 1440 px on a 2x screen ≤ 300 KB, CLS by `PerformanceObserver` with every shift counted (hero 0, page total < 0.001 until #72), phone rules below 1024 px and wide from 1024 px (checked at 360, 400, 1024 and 1440), the bar on one line at 360, no visible credit and the `alt` naming the painting (Q5). ST3-01..04 amended and ST3-05..07 added from #69 (section 8 has the sizes); Q17 records the home phone band default. |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -246,6 +247,25 @@ results right) from 1024 px. QA checks the phone rules at 360 and 400 and the wi
   `File:The_Triumph_of_Frederik_Hendrik,_by_Jacob_Jordaens_(I).jpg` (4,587 × 4,385 px; from RKD, digital ID
   249278); public domain (author died 1678; the RKD copy carries the Public Domain Mark 1.0), checked 2026-10-05.
 - Home still does no calculating, and `/?query` still redirects to `/calculator?query`.
+- **Crops (as built in #69; source pixels of the 4,587 × 4,385 Commons file; `public/hero/home-SOURCE.md`):**
+  - phone (below 1024 px): x 0–3300, y 1880–4080 (3,300 × 2,200, 3:2): the prince on his chariot, the four
+    white horses down to their hooves, and the women and the lion on the left;
+  - wide (from 1024 px): x 0–3670, y 1880–3409 (3,670 × 1,529, 2.4:1): the prince and the horses' heads and
+    chests, the statue, the women and the soldiers on the left.
+  The protected figure (the prince with his cape, and the four white chariot horses with the dark horse's head
+  behind the leftmost) is x 1220–3250, y 1940–4000 of the source; the text and wash sit left of it, over the
+  women and the statue base. Willem II's brown horse on the far right is outside that box (and partly outside the
+  phone crop).
+- **Exact sizes (#69; the calculator's section 7 values unless stated):**
+
+  | Part | Size |
+  |---|---|
+  | Band | phone `min(66.667vw, 480px)` tall (240 at 360, 267 at 400; Q17); wide at the crop's 2.4:1 (427 at 1024, 600 at 1440), ≤ 600 px; `object-position` 50% 30% on a phone, 50% 10% wide (only used once the 480 / 600 px cap crops) |
+  | Hero `01` | as the calculator: 12 px, weight 400, chalk; a 12 px line on a phone, 14.4 px from 1024 |
+  | Hero title | 16 px on a phone, 40 px at 1024, 44 px from 1280 (≤ 48 at 1440), in a fixed 5.3em × 3.3em box: three lines (`Investment` / `driven by` / `research.`; `Investment` is 5.20em in Schibsted, 5.12em in the fallback, and two words never fit: 8.26em and up); line-height 1.1; weight 400; chalk; one text node |
+  | Hero wash | night at 88%, hugging `01` and the title: 6 px top / bottom and 8 px side padding on a phone (80.8 px tall: 34% of the band at 360, 30% at 400), 16 / 20 px wide; lower left; `box-shadow 0 0 12px 4px` night at 50%; radius 0. Wide, the text starts on the content column's left edge but never further right than `33.24vw − 280px`, so the wash stays left of the horses on any screen wider than 1440 |
+  | `02` + `Platforms` | `02` 12 px dim (the calculator's section label); `Platforms` 24 px chalk, weight 400 |
+  | Platforms line | a `hair` rule above each line; the name 20 px chalk; the description 14 px dim (line-height 1.5); `Open` 14 px chalk with a 1 px `rule` underline, a chalk focus ring; on a phone the name and `Open` share the first row and the description sits under them; from 1024 one row: name (12rem), description, `Open` |
 
 ## 9. Sign-in (#73, Sun Oct 11)
 
@@ -268,9 +288,9 @@ results right) from 1024 px. QA checks the phone rules at 360 and 400 and the wi
 - **Fields:** already underline-only (`.field`: no border, 1 px ink underline, transparent), shared with the
   dashboard and sign-in.
 
-## 11. Acceptance (ST rows; QA at phone 400 × 860, 1024 × 800 and 1440 × 900, plus 360 × 780 for the calculator's phone rows)
+## 11. Acceptance (ST rows; QA at phone 400 × 860, 1024 × 800 and 1440 × 900, plus 360 × 780 for the calculator's and home's phone rows)
 
-Each row is checked on the PR preview at 400, 1024 and 1440 (the calculator's phone rows also at 360), then on production after the merge. "Shipped page" =
+Each row is checked on the PR preview at 400, 1024 and 1440 (the calculator's and home's phone rows also at 360), then on production after the merge. "Shipped page" =
 `/calculator` (from #70), `/` (from #69), `/dashboard/sign-in` (from #73). ST2 (hover) is retired: the dark brief
 has no hover rule.
 
@@ -297,10 +317,13 @@ has no hover rule.
 
 | ID | Pass when |
 |---|---|
-| ST3-01 | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it; source and licence recorded in the repo; optimised, served from the app, explicit `width` and `height`, layout shift 0. |
-| ST3-02 | `01` and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type; at 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash. |
-| ST3-03 | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer. |
-| ST3-04 | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`. |
+| ST3-01 | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total < 0.001 on every run (strict 0 PLANNED for #72). |
+| ST3-02 | `01` (small) and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; sizes in section 8); chalk on the wash ≥ 4.5:1 at the worst pixel. At 360, 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash (with its soft edge): their region is the figure box per crop in `src/lib/site/home-hero.ts` through the crop and `object-position`, checked by geometry and by a screenshot with both boxes outlined. |
+| ST3-03 | `02` `Platforms` follows with exactly the two lines of section 4 (`Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business: fundamentals for each name, and the whole.` · `Open` → `/dashboard`); nothing else between the bar and the footer (no #46 line, no cards). |
+| ST3-04 | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`; `noindex` meta and `X-Robots-Tag: noindex, nofollow` unchanged. |
+| ST3-05 | The wash box fully contains the bounding boxes of `01` and the title (element and text-line rects) at 360, 400, 1024 and 1440; it hugs the text, anchored lower left (≤ 12 px of padding a side on a phone, ≤ 24 px wide), and takes at most 50% of the band's height at 360 and 400 (as ST4-15). |
+| ST3-06 | Phone (360 and 400; phone rules below 1024 px): the phone crop in its band (section 8), the title three lines, the Platforms lines one column (name and `Open` on a row, the description under them), every text whole, no horizontal page scroll; the bar's three items on one line (ST1-01). Wide (1024, 1440): the wide crop, each Platforms line one row. |
+| ST3-07 | AA on dark for every text on `/` (`01`, title, `02`, `Platforms`, names, descriptions, `Open`; the focus ring ≥ 3:1); an axe-core run reports no `color-contrast` violation; `color-scheme: dark` on `<html>` and `<body>`. |
 
 **ST4: calculator `/calculator` (#70, Mon Oct 5)**
 
@@ -401,6 +424,11 @@ assumed white.
   **PLANNED for #72:** self-host Schibsted Grotesk to reach a strict page CLS of 0 and drop the Google Fonts
   outside host (`fonts.googleapis.com` / `fonts.gstatic.com`). Not done in #70.
 
+- **Q17. Home band on a phone (new, from #69).** Section 8 gives home the calculator's image rules but no phone
+  height; the calculator's "short band, ≤ 200 px" is section 7a, approved for the calculator only. Default (as
+  built): a 3:2 crop at `min(66.667vw, 480px)` (240 px at 360, 267 at 400), so the prince and all four horses
+  fit whole beside the text. Or the calculator's ≤ 200 px band (the horses then cut at the knees)?
+
 ## 13. Landed
 
 - **#68, dark shell (PR #75, stacked on #74; 2026-10-05).** New tokens `night` / `chalk` / `dim` / `rule` /
@@ -450,3 +478,17 @@ assumed white.
     cell (out of flow, so the figure always fits beside the label; the ` · ` stays in the text). N1: the method
     sentence back as a caption (Q12). N4: wash 87.4 px (49% of the band at 360, 44% at 400). N7: ST0-05 against
     the base PR's preview, signed in. Q16 decided; #72 (self-hosted fonts) PLANNED.
+- **#69, home (2026-10-10).** Built to section 8 with the #69 kickoff rows (decision log; ST3-01..07). The #46
+  line and the two cards are gone: the Jordaens band (`public/hero/frederick-*`, source and licence in
+  `public/hero/home-SOURCE.md`: Wikimedia Commons, from the RKD (249278), public domain, `PD-old-100` and the
+  Public Domain Mark, checked on the Commons API 2026-10-10), two crops (phone 3:2 below 1024 px, wide 2.4:1
+  from 1024 px), AVIF / WebP / JPEG `srcset`s with `width` / `height`, the band sized by CSS; `01` and the title
+  in a hugging wash lower left, the title in a fixed em box (16 px on a phone, 40 / 44 px wide; three lines),
+  left of the prince and the horses at every width; then `02` `Platforms` and the two lines, each `Open` a link
+  (`aria-describedby` names the platform). Home's own classes (`.home-*`); the calculator's untouched. Q17 (phone
+  band) follows its default. The redirect (`/?query` → `/calculator?query`), `noindex` and the analytics are
+  unchanged.
+  - Checks: `src/components/home.dom.test.tsx`, `src/lib/site/site.test.ts` (home hero files),
+    `qa/tools/home-page.mjs` (ST3-01..07 at 360 / 400 / 1024 / 1440, ST0-01..03 on the page),
+    `qa/tools/site.mjs` and `scripts/release-smoke.mjs` (the two `Open` links), `qa/tools/site-shell.mjs` (ST1;
+    `/` no longer has a white panel to compare).
