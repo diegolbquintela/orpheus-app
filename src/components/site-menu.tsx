@@ -4,8 +4,9 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
 /**
  * The site menu (#46; dark shell, epic #66 #68; the lyre mark #84 before `Orpheus`, decorative): one thin charcoal bar that stays at the top on scroll, on
  * every page, including /dashboard, sign-in and the 404 (same markup everywhere). "Orpheus" on the left links
- * home; "Calculator" and "Dashboard" on the right. No dropdowns, no hover rule. The current page gets
- * aria-current="page" and a visual mark keyed on that attribute (off-white and underlined; the other two items
+ * home; "Calculator", "Dashboard" and (#97) "Personal finance" on the right, text only. Below 640 px the text is 12 px
+ * and the right links 8 px apart so all four fit on one line at 360 px (site-style Q21). No dropdowns, no hover rule. The current page gets
+ * aria-current="page" and a visual mark keyed on that attribute (off-white and underlined; the other items
  * are dim). Off-white focus ring (the site's green focus colour is too dark on charcoal). Plain links (full page
  * loads), so /dashboard always goes through its server gate.
  */
@@ -26,12 +27,12 @@ export function SiteMenu({ pathname }: { pathname: string }) {
         <a
           href={home.href}
           aria-current={current === home.section ? "page" : undefined}
-          className={`gap-2 text-sm text-chalk ${link}`}
+          className={`gap-2 text-xs text-chalk sm:text-sm ${link}`}
         >
           <Lyre className="shrink-0" />
           <span>{home.label}</span>
         </a>
-        <ul className="flex items-center gap-6 text-sm">
+        <ul className="flex items-center gap-2 text-xs sm:gap-6 sm:text-sm">
           {right.map((item) => (
             <li key={item.section}>
               <a

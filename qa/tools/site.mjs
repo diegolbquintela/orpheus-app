@@ -20,7 +20,7 @@ async function shell(page, path, want) {
   const nav = page.locator('nav[aria-label="Site"]');
   check(`${path}: menu visible`, await nav.isVisible());
   const links = await nav.locator('a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')]));
-  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard']]), links);
+  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal finance', '/personal-finance']]), links);
   const current = await nav.locator('[aria-current="page"]').allTextContents();
   check(`${path}: current page ${want ?? '(none)'}`, JSON.stringify(current) === JSON.stringify(want ? [want] : []), current);
   if (want) {
@@ -49,7 +49,13 @@ for (const vp of ['desktop', 'mobile']) {
   await page.screenshot({ path: `${OUT}/home-${vp}.png`, fullPage: true });
   await shell(page, `[${vp}] /`, 'Orpheus');
   const lines = await page.locator('[data-testid="platform-line"]').evaluateAll((ls) => ls.map((l) => [l.querySelector('h3')?.textContent, l.querySelector('p')?.textContent, l.querySelector('a')?.textContent, l.querySelector('a')?.getAttribute('href')]));
-  check(`[${vp}] /: exactly two Platforms lines with the spec texts and Open links`, JSON.stringify(lines) === JSON.stringify([['Calculator', 'Dollar-cost average calculator.', 'Open', '/calculator'], ['Dashboard', 'The portfolio as a business: fundamentals for each name, and the whole.', 'Open', '/dashboard']]), lines);
+  check(`[${vp}] /: exactly three Platforms lines with the spec texts and Open links (#97)`, JSON.stringify(lines) === JSON.stringify([['Calculator', 'Dollar-cost average calculator.', 'Open', '/calculator'], ['Dashboard', 'The portfolio as a business.', 'Open', '/dashboard'], ['Personal finance', 'Income, expenses, and the cover.', 'Open', '/personal-finance']]), lines);
+  // #97: Personal finance's Open opens /personal-finance, where the bar marks it current.
+  await page.locator('[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]').click();
+  await page.waitForURL(/\/personal-finance$/);
+  await page.waitForLoadState('networkidle');
+  await shell(page, `[${vp}] /personal-finance`, 'Personal finance');
+  await page.goto(`${base}/`, { waitUntil: 'networkidle' });
   check(`[${vp}] /: no price requests, no calculator`, !requests.some((u) => u.includes('/api/chart')) && (await page.locator('form').count()) === 0, requests.filter((u) => u.includes('/api/')));
   await page.locator('[data-testid="platform-open"]').first().click();
   await page.waitForURL(/\/calculator$/);

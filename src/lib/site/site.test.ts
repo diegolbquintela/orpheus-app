@@ -19,13 +19,14 @@ import {
 } from "./site.ts";
 
 describe("site shell (#46)", () => {
-  it("menu: Orpheus → /, Calculator, Dashboard; Dashboard is always listed (no flag input)", () => {
+  it("menu: Orpheus → /, Calculator, Dashboard, Personal finance (#97); Dashboard is always listed (no flag input)", () => {
     assert.deepEqual(
       MENU_ITEMS.map((m) => [m.label, m.href]),
       [
         ["Orpheus", "/"],
         ["Calculator", "/calculator"],
         ["Dashboard", "/dashboard"],
+        ["Personal finance", "/personal-finance"],
       ],
     );
     assert.doesNotMatch(
@@ -41,19 +42,23 @@ describe("site shell (#46)", () => {
     assert.equal(currentSection("/dashboard"), "dashboard");
     assert.equal(currentSection("/dashboard/sign-in"), "dashboard");
     assert.equal(currentSection("/dashboardx"), null);
+    assert.equal(currentSection("/personal-finance"), "personal-finance");
+    assert.equal(currentSection("/personal-finance/"), "personal-finance");
+    assert.equal(currentSection("/personal-financex"), null);
     assert.equal(currentSection("/orpheus-missing-path"), null);
   });
 
-  it("home (#69): `02` `Platforms` and exactly two lines with the spec §4 copy and links", () => {
+  it("home (#69, #97): `02` `Platforms` and exactly three lines with the spec §4 copy and links", () => {
     assert.equal(HOME_PLATFORMS_NUMERAL, "02");
     assert.equal(HOME_PLATFORMS_HEADING, "Platforms");
     assert.equal(HOME_OPEN, "Open");
     assert.deepEqual(HOME_PLATFORMS, [
       { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
+      { name: "Dashboard", text: "The portfolio as a business.", href: "/dashboard" },
       {
-        name: "Dashboard",
-        text: "The portfolio as a business: fundamentals for each name, and the whole.",
-        href: "/dashboard",
+        name: "Personal finance",
+        text: "Income, expenses, and the cover.",
+        href: "/personal-finance",
       },
     ]);
   });
@@ -351,12 +356,12 @@ describe("lyre mark (#84, ST1-05)", () => {
 });
 
 describe("personal finance route (#84)", () => {
-  it("dark shell, no bar item current (Q1: URL only), the bar unchanged", () => {
+  it("dark shell; #97: a bar item (Personal finance, current here; Q1 (d) superseded)", () => {
     assert.equal(shellPage("/personal-finance"), "dark");
-    assert.equal(currentSection("/personal-finance"), null);
+    assert.equal(currentSection("/personal-finance"), "personal-finance");
     assert.deepEqual(
       MENU_ITEMS.map((m) => m.label),
-      ["Orpheus", "Calculator", "Dashboard"],
+      ["Orpheus", "Calculator", "Dashboard", "Personal finance"],
     );
     const route = readFileSync("src/routes/personal-finance.tsx", "utf8");
     assert.match(route, /title: "Personal finance · Orpheus Wisdom"/);

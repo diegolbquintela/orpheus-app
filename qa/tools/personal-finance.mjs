@@ -4,7 +4,7 @@
 // browser context's localStorage (no server write exists), so it is safe on any host.
 //
 //   PF-01 shell: 200, title, noindex meta + X-Robots-Tag, color-scheme dark, charcoal + chalk, the bar unchanged
-//         (Orpheus / Calculator / Dashboard, none current, Q1), footer `Orpheus Wisdom`, one Analytics script, no
+//         (#97: Orpheus / Calculator / Dashboard / Personal finance, Personal finance current), footer `Orpheus Wisdom`, one Analytics script, no
 //         painting; ST1-05 the lyre (aria-hidden SVG) first in the Orpheus link, bar ≤ 48 px, links ≥ 44 px;
 //         /favicon.svg is the lyre
 //   PF-02 exact copy of the new page (phone: labelled cells; wide: the column-label rows), nothing else
@@ -278,7 +278,7 @@ try {
       });
       check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && /noindex/.test(res.headers()["x-robots-tag"] ?? ""), [res.status(), sh.title, sh.robots]);
       check(`${tag} PF-01 charcoal page, chalk type, color-scheme dark; no painting; page-only classes`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme.every((s) => s === "dark") && sh.paint === 0 && sh.badClass === 0, { bg: sh.bg, color: sh.color, scheme: sh.scheme, paint: sh.paint, badClass: sh.badClass });
-      check(`${tag} PF-01 bar unchanged (Orpheus / Calculator / Dashboard), none current (Q1), footer, one Analytics script`, JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"]]) && sh.links.every((l) => l[2] === null) && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
+      check(`${tag} PF-01 bar (#97): Orpheus / Calculator / Dashboard / Personal finance, Personal finance current (Q1 (d) superseded), footer, one Analytics script`, JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
       check(`${tag} ST1-05 the lyre first in the Orpheus link: aria-hidden, currentColor in chalk, 20 × 20, 5 paths`, sh.lyre && sh.lyre.first && sh.lyre.hidden === "true" && sh.lyre.stroke === "currentColor" && sh.lyre.color === CHALK && sh.lyre.w === 20 && sh.lyre.h === 20 && sh.lyre.paths === 5, sh.lyre);
       check(`${tag} ST1-05 / ST6-08 bar ≤ 48 px, every link ≥ 44 × 44`, sh.bar <= 48 && sh.links.every((l) => l[3] >= 44 && l[4] >= 44), { bar: sh.bar, links: sh.links.map((l) => [l[0], l[3], l[4]]) });
 

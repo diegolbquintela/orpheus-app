@@ -84,7 +84,8 @@ affects the repo.
   EL Q9–Q11 (≈ 14:12 ET): a bad override falls back to the calculated amount; no usable rate → `—` for a line
   without a valid override and for any total containing it; ROIC 0 or more with no cap (withdrawal rate 0–100).
   Page-only classes `.pf-*`.
-  Reached by URL only (EL, Q1 (d)): don't add a bar item (ST1-01 three items) or a home line (ST3-03 two).
+  First-class since #97 (Q1 (d) superseded): the bar's fourth item `Personal finance` (current on this page,
+  ST1-01 / ST1-02) and the third home line (ST3-03); the URL still works. Bar text is 12 px below 640 px (Q21).
   Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
   QA: `qa/tools/personal-finance.mjs`.
@@ -216,7 +217,7 @@ sheet and chips, #58 book, #59 leave-outs and regression). Approved by Diego via
 Orpheus Wisdom: TanStack Start + Vite + React, deployed on Vercel. One site, three routes (#46):
 
 - `/`: home (#69): the Jordaens band with `01` + `Investment driven by research.`, then `02` `Platforms` with
-  two lines (Calculator, Dashboard), each `Open` a link. It does no calculating.
+  three lines (Calculator, Dashboard, Personal finance; #97), each `Open` a link. It does no calculating.
 - `/calculator`: the DCA vs lump-sum calculator (moved here from `/` in #46, behaviour unchanged).
   DCA logic lives in `src/lib/dca/*`; the UI is `src/components/desk.tsx`; the price feed is the
   server route `src/routes/api/chart.ts` → `src/lib/dca/yahoo.server.ts`. See `README.md` for the six

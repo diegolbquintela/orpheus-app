@@ -47,7 +47,7 @@ describe("site menu", () => {
     assert.deepEqual(current(el), []);
   });
 
-  it("Orpheus on the left → /, Calculator and Dashboard on the right; Dashboard always shown", async () => {
+  it("Orpheus on the left → /, Calculator, Dashboard and Personal finance on the right (#97); Dashboard always shown", async () => {
     const el = await render(<SiteMenu pathname="/calculator" />);
     const nav = el.querySelector("nav")!;
     assert.equal(nav.getAttribute("aria-label"), "Site");
@@ -59,7 +59,10 @@ describe("site menu", () => {
       ["Orpheus", "/"],
       ["Calculator", "/calculator"],
       ["Dashboard", "/dashboard"],
+      ["Personal finance", "/personal-finance"],
     ]);
+    // No icons on the right (#97): text links only.
+    assert.equal(nav.querySelectorAll("ul svg, ul img").length, 0);
     // The lyre mark (#84, ST1-05): first in the Orpheus link, decorative.
     const lyre = nav.querySelector('a[href="/"] > svg[data-testid="lyre"]')!;
     assert.ok(lyre, "lyre inside the Orpheus link");
@@ -69,8 +72,13 @@ describe("site menu", () => {
     // Right group is one list, after the Orpheus link.
     assert.deepEqual(
       [...nav.querySelectorAll("ul a")].map((a) => a.textContent),
-      ["Calculator", "Dashboard"],
+      ["Calculator", "Dashboard", "Personal finance"],
     );
+  });
+
+  it("/personal-finance marks Personal finance current (#97)", async () => {
+    const el = await render(<SiteMenu pathname="/personal-finance" />);
+    assert.deepEqual(current(el), ["Personal finance"]);
   });
 
   it("stays put on scroll (sticky top) and has a visual current state", async () => {
@@ -84,9 +92,9 @@ describe("site menu", () => {
     );
   });
 
-  it("no dropdowns: only three links, no buttons, popups or menus", async () => {
+  it("no dropdowns: only four links, no buttons, popups or menus", async () => {
     const el = await render(<SiteMenu pathname="/" />);
-    assert.equal(el.querySelectorAll("a").length, 3);
+    assert.equal(el.querySelectorAll("a").length, 4);
     assert.equal(
       el.querySelectorAll("button, select, details, [aria-haspopup], [role=menu]").length,
       0,
@@ -95,7 +103,7 @@ describe("site menu", () => {
 });
 
 describe("home (#69)", () => {
-  it("the Jordaens hero with 01 + the title, then 02 Platforms and exactly two lines with Open links; no fetch", async () => {
+  it("the Jordaens hero with 01 + the title, then 02 Platforms and exactly three lines with Open links (#97); no fetch", async () => {
     let fetches = 0;
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
@@ -141,12 +149,8 @@ describe("home (#69)", () => {
         }),
         [
           ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
-          [
-            "Dashboard",
-            "The portfolio as a business: fundamentals for each name, and the whole.",
-            "Open",
-            "/dashboard",
-          ],
+          ["Dashboard", "The portfolio as a business.", "Open", "/dashboard"],
+          ["Personal finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
         ],
       );
       // Nothing else: the #46 line and cards are gone; no calculator code.

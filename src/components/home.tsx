@@ -8,7 +8,7 @@ import {
 
 /**
  * Home `/` (#69, spec §8; replaces the #46 line and cards): the Jordaens band with `01` and the title, then
- * `02` `Platforms` with exactly two lines, each `Open` a link. Nothing else between the bar and the footer.
+ * `02` `Platforms` with exactly three lines (#97: Calculator, Dashboard, Personal finance), each `Open` a link. Nothing else between the bar and the footer.
  * Static: no price fetches, no calculator code.
  */
 export function Home() {
@@ -26,7 +26,7 @@ export function Home() {
           </h2>
           <ul className="mt-8">
             {HOME_PLATFORMS.map((line) => {
-              const id = `platform-${line.name.toLowerCase()}`;
+              const id = `platform-${line.name.toLowerCase().replace(/\s+/g, "-")}`;
               return (
                 <li
                   key={line.href}
