@@ -1,4 +1,4 @@
-# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover; later #87 foreign currency)
+# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency)
 
 Source of truth for the Personal Finance page, with `attachments/site-style-spec.md` for everything the shared dark
 shell already rules (bar, footer, tokens, AA, CLS 0, no painting, no instruction text). Harness first, then this
@@ -18,6 +18,7 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 13:57 ET | **EL picked option A (formula locked):** two household fields, `Withdrawal rate (%)` and `Portfolio ROIC (%)`. **Rate used** = the typed withdrawal rate; if that field is empty, ROIC ÷ 2. **Equity to cover (calculated)** = the line's **yearly** expense ÷ (rate ÷ 100). A typed `4` is used as 4% (a typed withdrawal rate is never halved). Both typed: the withdrawal rate wins. Neither typed, or a rate of 0: the calculated amount shows `—`. **Q3 now implemented:** a typed `Equity to cover` on a line is an override; the calculated amount is the default while the field is empty; values typed in v1.1 / v1.2 carry over as overrides (no migration). Totals sum each line's override or calculated amount. New key `orpheus.finance.equity.v1`; the expenses and income keys unchanged. Example: Rent 1,000 a month, ROIC 8% (rate 4%) → 12,000 ÷ 0.04 = **300,000**. |
 | 2026-10-11, ≈ 14:12 ET | **EL answers on #86 (PR #96 at `5d1523e`; small docs + code amend):** **Q9** a badly typed `Equity to cover` override **falls back to the calculated amount** until it is a valid number (never read as 0; the field check still shows). **Q10** with no usable rate, a line without a valid override contributes **`—`** (not 0); a total shows `—` when any of its lines contributes `—` (a group with no lines stays `0`). **Q11** `Withdrawal rate (%)` stays 0–100; `Portfolio ROIC (%)` may exceed 100 (0 or more, no upper cap); a bad or negative rate is still invalid → no rate (`—`). Not started: #97, #87, #94, #90, #71. |
 | 2026-10-11, ≈ 15:15 ET | **#97 (Diego via CoS; EL; site-style spec):** **Q1 (d) superseded for navigation:** `Personal finance` is a first-class bar item on every page (the fourth item, right of `Dashboard`; current on `/personal-finance`) and the third home Platforms line (`Income, expenses, and the cover.` · `Open`). The URL still works. This page's content, storage and layout are unchanged by #97 (#87 / #94 later). |
+| 2026-10-11, ≈ 16:03 ET | **#87 kickoff (Diego via CoS; EL):** v1.4 adds a **foreign-currency line** (section 14): a line can take a **typed exchange rate** (BRL example) and converts into the **household currency** for the totals, `% of expenses`, `% of income` and `Equity to cover`. Manual entry only (no live FX feed, no Plaid). The issue is thin; simplest readings taken, as built, open for EL (Q12–Q16): one household-level `Household currency` (a fixed list of ten ISO codes, default `USD`), set once above `02` `Income`; each expense line has a `Currency` (default: the household currency) and, when foreign, a typed `FX rate` = **household-currency units per 1 unit of the line's currency** (household = line amount × rate; `1 BRL = 0.2 USD` → type `0.2`); a foreign line with an empty, bad or 0 rate shows `Enter a number above 0.` and counts as 0 (like a bad amount); `Monthly` / `Yearly` stay in the line's own currency as typed, every figure built from them (totals, both percentages, `Equity to cover`) is in the household currency; an `Equity to cover` override is typed in the household currency; income is in the household currency (unchanged). Amounts stay unitless (Q2 kept: the household currency is named once, by its field). Storage: the expenses key `orpheus.finance.expenses.v1` keeps its name, each line gains optional `currency` / `rate` strings (an old line reads as a household line; nothing rewritten until the next edit); the household currency in a new key `orpheus.finance.currency.v1`. Income and equity formulas unchanged (they consume converted amounts). Not started: #94, #98, #90, #71, Plaid. |
 
 ## 2. The brief (verbatim, issue #84)
 
@@ -47,7 +48,7 @@ later); Engineering Lead owns the tech loop.
 | Numeral + title (`h1`) | `01`, `Personal finance.` |
 | Sections | `02`, `Income` (v1.2, section 12); `03`, `Expenses` (was `02` in v1.1) |
 | Groups (`h3`) | `Fixed`, `Variable` |
-| Column labels, in order | `Name`, `% of income`, `% of expenses`, `Monthly`, `Yearly`, `Equity to cover`, `Account` |
+| Column labels, in order | `Name`, `% of income`, `% of expenses`, `Monthly`, `Yearly`, `Currency`, `FX rate`, `Equity to cover`, `Account` (v1.4 adds `Currency` and `FX rate`, section 14) |
 | Add a line (one per group) | `↳ Add expense` |
 | Remove a line (`aria-label`) | `Remove expense` |
 | Account choices | `—` (none), then the user's accounts in the order added, then `Add account…` |
@@ -58,7 +59,10 @@ later); Engineering Lead owns the tech loop.
 | Field check (new account) | `Name the account.` |
 | Equity cover fields (v1.3, section 13) | `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` |
 | Field check (rates) | Withdrawal rate: `Enter a percent from 0 to 100.`; Portfolio ROIC: `Enter a number, 0 or more.` (Q11) |
-| Not computed yet | `—` |
+| Household currency (v1.4, section 14) | label `Household currency`; choices the codes `USD`, `CAD`, `EUR`, `GBP`, `BRL`, `MXN`, `CHF`, `JPY`, `AUD`, `CNY` |
+| Line currency (v1.4) | `Currency`: the household code first, then the other nine codes in the same order |
+| Field check (FX rate, v1.4) | `Enter a number above 0.` |
+| Not computed yet | `—` (also the `FX rate` cell of a line in the household currency) |
 
 No other text on the page (site-style ST6-02: no instruction text, no notes, no empty-state copy).
 
@@ -72,6 +76,9 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   other field makes it the typed one. Amounts read with commas dropped; empty reads as 0; a non-number or a negative
   number shows the field check `Enter a number, 0 or more.` under the field (alert colour, `aria-invalid`) and the
   line counts as 0 in every total and percentage until fixed.
+- **Currency / FX rate (v1.4, #87; section 14):** `Monthly` / `Yearly` are typed in the line's `Currency`; every
+  figure below uses the line's amount **in the household currency** (× its `FX rate` on a foreign line, × 1 on a
+  household line). A foreign line with no valid rate counts as 0 until fixed (Q14).
 - **% of expenses:** the line's monthly amount ÷ the monthly total of **both** groups × 100, one decimal and `%`
   (e.g. `12.5%`); `—` while that total is 0. A group total's `% of expenses` is the group's share of both; `Total`
   shows `100.0%` (or `—` at 0).
@@ -93,16 +100,17 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   `% of expenses`, `% of income` (as above), Equity to cover = the sum of each line's valid override or calculated
   amount; `—` when any of its lines contributes `—` (Q10; a group with no lines shows `0`). Totals are computed, never inputs.
 - **Number format:** grouped with commas, up to two decimals, no trailing zeros (`1,200`, `83.33`); no currency
-  symbol: amounts stay unitless until #87 (EL, Q2, decided). Percentages with one decimal.
+  symbol: amounts stay unitless (EL, Q2, decided; kept in v1.4, Q15: the household currency is named once by its
+  field, a line's own currency by its `Currency` cell). Percentages with one decimal.
 - **Remove:** each line has a remove button (`Remove expense`); no confirmation (manual data, nothing on a server).
 
-## 6. Storage (v1.1; v1.2 adds the income key, v1.3 the equity key)
+## 6. Storage (v1.1; v1.2 adds the income key, v1.3 the equity key, v1.4 the currency key)
 
 - This browser's `localStorage` only. Expenses in `orpheus.finance.expenses.v1` (unchanged from v1.1), income in
-  its own key `orpheus.finance.income.v1` (section 12), the two rates in `orpheus.finance.equity.v1` (section 13);
-  nothing else. Expenses:
+  its own key `orpheus.finance.income.v1` (section 12), the two rates in `orpheus.finance.equity.v1` (section 13),
+  the household currency in `orpheus.finance.currency.v1` (section 14); nothing else. Expenses:
   `{ fixed: Line[], variable: Line[], accounts: string[] }`, `Line = { id, name, amount, per: "month" | "year",
-  equity, account }` (strings as typed). Saved on every change; read once after hydration. A missing, malformed or
+  equity, account, currency?, rate? }` (strings as typed; v1.4 adds the optional `currency` and `rate`, section 14.3). Saved on every change; read once after hydration. A missing, malformed or
   over-large value reads as an empty page (never throws). ≤ 100 lines per group.
 - No login, never the account, no cookie, no `sessionStorage` / IndexedDB, no server copy, no network request at
   all from the page (no `/api/*`). Another device or browser sees nothing; clearing the site's data clears it.
@@ -116,7 +124,8 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
 - No painting: a plain header band under the bar, `01` (12 px dim) and the `h1` (32 px on a phone, 44 px from
   1024, chalk, weight 400), the content column `max-w-6xl` like the calculator.
 - **Phone (below 1024 px):** each line is a block: `Name` full width with the remove button beside it, then a
-  two-column grid of labelled cells: `Monthly` | `Yearly`, `% of expenses` | `% of income`, `Account` |
+  two-column grid of labelled cells: `Monthly` | `Yearly`, (v1.4) `Currency` | `FX rate`, `% of expenses` |
+  `% of income`, `Account` |
   `Equity to cover` (the wider right cell, so its label stays on one line at 360 px). Labels visible on every line.
   Totals: the row label, then the same labelled cells (no Account).
 - **Wide (from 1024 px):** one row per line in the column order of section 4, a column-label row above each group
@@ -136,7 +145,7 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   (`public/__grok/icon-180.png`) is the builder's default, not the geometric mark; untouched (EL, Q4: Grok builder
   assets are out of scope for #84).
 
-## 9. Questions for EL (all answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET)
+## 9. Questions for EL (Q1–Q11 answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET; Q12–Q16 open, #87)
 
 - **Q1. Navigation. Decided: (d) URL only, as built. Superseded by #97 (2026-10-11): a bar item and a home line.** Not a fourth bar item (ST1-01 stays three items), not a
   third home Platforms line (ST3-03: home stays the hero + two lines).
@@ -160,22 +169,37 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   when any of its lines contributes `—`.
 - **Q11. Rate range (#86). Decided:** `Withdrawal rate (%)` 0–100; `Portfolio ROIC (%)` 0 or more with no upper cap
   (field check `Enter a number, 0 or more.`); a bad or negative rate is invalid → no rate (`—`).
+- **Q12. Rate direction (#87). Open; default as built:** `FX rate` = household-currency units per **1** unit of the
+  line's currency (household amount = line amount × rate; household `USD`, a `BRL` line, `1 BRL = 0.2 USD` → type
+  `0.2`). Or the inverse (line units per 1 household unit, `5`; household = amount ÷ rate)?
+- **Q13. Household currency (#87). Open; default as built:** one select, `Household currency`, a fixed list of ten
+  codes (`USD`, `CAD`, `EUR`, `GBP`, `BRL`, `MXN`, `CHF`, `JPY`, `AUD`, `CNY`), default `USD`, above `02` `Income`.
+  Or default `CAD`, another list, or a free-text code?
+- **Q14. A foreign line without a valid rate (#87). Open; default as built:** empty, bad or 0 → the field check
+  `Enter a number above 0.` and the line counts as 0 everywhere until fixed (the bad-amount rule). Or show `—` and
+  carry it into the totals (the Q10 rule)?
+- **Q15. Symbols and what the line shows (#87). Open; default as built:** amounts stay unitless (Q2 kept);
+  `Monthly` / `Yearly` on a foreign line show its own currency as typed; totals, both percentages and
+  `Equity to cover` (calculated and a typed override) are in the household currency; no converted-amount column.
+  Or show a code / symbol on amounts, or add an `In <household>` column?
+- **Q16. One rate per line (#87). Open; default as built:** each foreign line has its own typed rate (two BRL lines
+  can differ). Or one shared rate per currency for the household?
 
 ## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
 
-Tools: `qa/tools/personal-finance.mjs` (PF-01..09, PF-11..20 and ST1-05), `qa/tools/site-style-regression.mjs` (PF-10: its own
+Tools: `qa/tools/personal-finance.mjs` (PF-01..09, PF-11..25 and ST1-05), `qa/tools/site-style-regression.mjs` (PF-10: its own
 ST6 checks now include `/personal-finance` and the lyre on every page, then every shipped-page tool, `site.mjs`'s
 `$313,000` and `release-smoke`).
 
 | ID | Pass when |
 |---|---|
 | PF-01 | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (#97: four items, `Personal finance` current; ST1-01 / ST1-02) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
-| PF-02 | Exact copy (sections 4 and 12): `01`, `Personal finance.`, `02`, `Income` with its copy (section 12), `03`, `Expenses`, (v1.3) `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` `—` (section 13), `Fixed`, `Variable`, the seven column labels in order, `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
+| PF-02 | Exact copy (sections 4 and 12): `01`, `Personal finance.`, `02`, `Income` with its copy (section 12), `03`, `Expenses`, (v1.3) `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` `—` (section 13), (v1.4) `Household currency` `USD`, `Fixed`, `Variable`, the nine column labels in order (v1.4: `Currency`, `FX rate` after `Yearly`), `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
 | PF-03 | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
 | PF-04 | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` per line, group and `Total` = monthly ÷ the monthly counted net income (section 12; one decimal), `—` while that income is 0 (v1.2: e.g. the section 12 example's 11,200 a month: Fixed 1,000 → `8.9%`, 250 → `2.2%`, Fixed total `11.2%`, Variable 100 → `0.9%`, Total `12.1%`). |
 | PF-05 | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200); v1.3: Equity to cover sums each line's valid override or calculated amount, `—` when any line contributes `—` (PF-19). |
 | PF-06 | Account: a dropdown per line with `—`, the accounts and `Add account…`; adding one (inline `New account`, `Add`) selects it on that line and offers it on every line in both groups; an empty name shows `Name the account.`; a repeat name (any case) reuses the existing account. |
-| PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
+| PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1` and (v1.4) `orpheus.finance.currency.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
 | PF-08 | Layout: phone (360, 400) lines stacked with labels, no horizontal page scroll; wide (1024, 1440) one row per line in column order with the column labels; every control ≥ 44 px tall; AA for every visible text (axe-core too), a ≥ 3:1 focus mark on every Tab stop; proportional figures (no `tnum`). |
 | PF-09 | Strict page CLS 0 on cold loads at every width, every shift counted, both empty and with stored lines (v1.2: and people; v1.3: and rates) restored. |
 | PF-10 | Logic and shell untouched elsewhere: the calculator `$313,000`, the dashboard content (ST0-05; no diff under `src/components/dashboard/*`, `src/routes/dashboard.tsx`), sign-in, home (hero + three lines since #97, ST3-03), the bar's four items since #97 (ST1-01), the lyre (ST1-05) and the site-style regression (`qa/tools/site-style-regression.mjs`) pass. |
@@ -189,6 +213,11 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-18 | (#86) Formula A: rate used = the typed withdrawal rate, else ROIC ÷ 2; a typed withdrawal rate is used as typed (never halved) and wins when both are typed; calculated `Equity to cover` = the line's yearly amount ÷ (rate ÷ 100); e.g. ROIC `8` → `Rate used` `4%`, Rent 1,000 a month → `300,000`, Phone 250 a month → `75,000`, Gifts 1,200 a year → `30,000`; then withdrawal rate `5` → `5%`, `240,000` / `60,000` / `24,000`; neither typed, or a rate of 0 → `—`. |
 | PF-19 | (#86, Q3 implemented) Override: an empty `Equity to cover` shows the calculated amount as the field's placeholder (dim, AA) and uses it; a valid typed value replaces it on that line only (stored as typed); a bad one shows `Enter a number, 0 or more.` and the line falls back to the calculated amount (Q9; e.g. ROIC 8, Rent `abc` → Fixed `375,000`); clearing it brings the calculated amount back; totals sum each line's valid override or calculated amount (e.g. ROIC 8, Rent override `250,000`: Fixed `325,000`, Variable `30,000`, Total `355,000`); with no usable rate a line without a valid override contributes `—` and so does its total and `Total` (Q10; e.g. no rate, Rent `250,000`, Phone and Gifts empty → `—` / `—` / `—`; every line overridden → the sum); a v1.1 / v1.2 stored line with a typed amount restores as an override. |
 | PF-20 | (#86) The rates survive a reload from `orpheus.finance.equity.v1` (malformed → both empty, no error); changing either rate updates every line's placeholder and every total at once; layout (phone: the two fields stacked full width, then `Rate used`; wide: one row of three), 44 px controls, AA, focus ring and CLS as PF-08 / PF-09. |
+| PF-21 | (#87) Currency copy and inputs (section 14.1): `Household currency` (a select, visible label, `USD` on a new page, the ten codes in order) above `02` `Income`; each line's `Currency` (the household code first, then the other nine) and `FX rate`: `—` on a household line, an input with its visible label on a foreign line; column labels `Currency`, `FX rate` after `Yearly` (wide); no other text. |
+| PF-22 | (#87) Conversion (Q12): a foreign line's household amount = its amount × `FX rate`; household `USD`, Rent 1,000 / Phone 250 a month and `Condo` 2,000 a month in `BRL` at `0.2` (Fixed), Gifts 1,200 a year (Variable): the Condo fields stay `2,000` / `24,000` (its own currency) while Fixed total `1,650` / `19,800`, Variable `100` / `1,200`, Total `1,750` / `21,000`; Condo `% of expenses` `22.9%`; with the section 12 example's income (11,200 a month) Condo `% of income` `3.6%`, Fixed total `14.7%`, Total `15.6%`. |
+| PF-23 | (#87) Equity cover on a foreign line uses the household yearly amount: ROIC `8` (rate 4%) → Condo placeholder `120,000` (4,800 ÷ 0.04), Fixed total `495,000`, Variable `30,000`, Total `525,000`; a typed override is in the household currency as typed (Condo `100,000` → Fixed `475,000`); the formulas of sections 12 and 13 are unchanged. |
+| PF-24 | (#87, Q14) A foreign line with an empty, bad (`abc`, `-1`) or `0` rate shows `Enter a number above 0.` under `FX rate` (alert, `aria-invalid`) and counts as 0 in every total, percentage and its calculated `Equity to cover` (`0`) until fixed; switching the line back to the household currency (or making the household currency the line's) drops the rate from the sums (× 1) and keeps it stored. |
+| PF-25 | (#87) Storage: the household currency survives a reload from `orpheus.finance.currency.v1` (malformed or unknown code → `USD`, no error); each line's `currency` / `rate` from `orpheus.finance.expenses.v1`; a v1.1–v1.3 stored line (no `currency` / `rate`) restores as a household line with its figures unchanged; layout (phone: `Currency` \| `FX rate` under `Monthly` \| `Yearly`; wide: one row, nine columns + remove, no horizontal scroll at 1024), 44 px controls, AA, focus ring and CLS as PF-08 / PF-09 (with a stored foreign line and household currency restored). |
 
 ## 11. Landed
 
@@ -330,3 +359,56 @@ Percents are typed as plain numbers (`8`, not `8%` or `0.08`), like section 12.
 - **Phone (below 640 px):** `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` stacked, each full width.
   **From 640 px:** one row of three cells (each ≤ 16rem). The `.pf-*` look (underline fields 44 px, 12 px dim
   labels, chalk focus ring, AA, proportional figures); labels visible at every width.
+
+## 14. Foreign currency (v1.4, #87; simplest reading, Q12–Q16 open)
+
+### 14.1 Copy (exact)
+
+| Where | String |
+|---|---|
+| Household field (visible label, a select) | `Household currency`; choices `USD`, `CAD`, `EUR`, `GBP`, `BRL`, `MXN`, `CHF`, `JPY`, `AUD`, `CNY` |
+| Line columns (after `Yearly`) | `Currency` (a select: the household code first, then the other nine in the order above), `FX rate` |
+| `FX rate` on a household line | `—` (not an input) |
+| Field check (`FX rate`) | `Enter a number above 0.` |
+
+No other text (ST6-02): no currency names, no rate hint, no symbol on amounts (Q2 kept, Q15).
+
+### 14.2 Rules
+
+- **Household currency:** one household-level select, default `USD` (Q13). Income (section 12), every total, both
+  percentages and `Equity to cover` are in it. Changing it relabels; it converts nothing (amounts are numbers).
+- **Line currency:** each expense line has a `Currency`, default the household currency (stored `""`). A line whose
+  currency is the household currency (stored `""`, or the same code) is a **household line**: factor 1, `FX rate`
+  shows `—`.
+- **FX rate (Q12):** on a **foreign line**, a typed number = household-currency units per **1** unit of the line's
+  currency, stored as typed (section 5 reading: commas dropped; up to 40 characters). **Household amount = line amount
+  × rate.** Example: household `USD`, `Condo` 2,000 a month in `BRL`, rate `0.2` → 400 a month, 4,800 a year.
+- **No valid rate (Q14):** empty, not a number, negative or `0` → `Enter a number above 0.` under the field (alert,
+  `aria-invalid`), and the line counts as 0 in every sum and percentage, its calculated `Equity to cover` `0`
+  (the bad-amount rule of section 5), until fixed.
+- **What uses the household amount:** `% of expenses`, `% of income`, group and `Total` Monthly / Yearly, the
+  calculated `Equity to cover` (yearly household amount ÷ (rate used ÷ 100); section 13 unchanged) and every total of
+  it. The line's own `Monthly` / `Yearly` fields stay in its currency (typed as typed, the other one converted × 12 or
+  ÷ 12 as in section 5). A typed `Equity to cover` override is in the household currency, as typed (Q15).
+- **One rate per line (Q16):** two lines in the same foreign currency each carry their own rate.
+- **Example (QA, PF-22 / PF-23):** household `USD`; Fixed: Rent 1,000 a month, Phone 250 a month, `Condo` 2,000 a
+  month `BRL` at `0.2`; Variable: Gifts 1,200 a year. Totals Fixed 1,650 / 19,800, Variable 100 / 1,200, Total
+  1,750 / 21,000; Condo `% of expenses` 22.9%. With income 11,200 a month: Condo 3.6%, Fixed total 14.7%, Total 15.6%.
+  ROIC `8`: Condo 120,000, Fixed 495,000, Variable 30,000, Total 525,000; Condo override `100,000` → Fixed 475,000.
+
+### 14.3 Storage
+
+- `orpheus.finance.currency.v1`: `{ household: "USD" }` (one of the ten codes). Missing, malformed or another value
+  reads as `USD` (never throws). Saved on change, read once after hydration with the other three keys.
+- `orpheus.finance.expenses.v1` keeps its name and shape; each `Line` gains optional `currency` (`""` or one of the
+  ten codes) and `rate` (as typed, ≤ 40 characters). A stored line without them (v1.1–v1.3) reads as a household
+  line, `rate` `""`; an unknown code reads as `""`. Forward-only and idempotent: nothing is rewritten until the next
+  edit saves the page as usual. The income and equity keys are unchanged.
+
+### 14.4 Layout
+
+- `Household currency`: one cell (≤ 16rem, the `.pf-*` underline select, 44 px, visible 12 px label) at the top of
+  the content area, above `02` `Income`.
+- **Phone (below 1024 px):** a line adds the row `Currency` | `FX rate` under `Monthly` | `Yearly`. **Wide (from
+  1024 px):** one row, `Currency` and `FX rate` after `Yearly` (nine columns + remove); the totals rows leave those
+  two columns empty. No horizontal page scroll at 360 or 1024; AA, 44 px controls, chalk focus ring, CLS 0.
