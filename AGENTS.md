@@ -70,7 +70,10 @@ affects the repo.
 - **Personal Finance (#84 v1.1+):** `attachments/personal-finance-spec.md` (PF rows; business user the CFO) on top of
   every shell rule here. `/personal-finance`: Fixed and Variable expenses, this browser's `localStorage` only
   (`orpheus.finance.expenses.v1`; no auth, no server write, no `/api/*`), manual entry only (no Plaid, no feeds).
-  `% of income` shows `—` until #85; `Equity to cover` is a typed amount until #86. Page-only classes `.pf-*`.
+  v1.2 (#85): `02` Income above `03` Expenses (spec section 12): people (wages, bonus rating %, average tax %,
+  net), Count wages / Count bonus and a Share % per person, an income table (biweekly = yearly ÷ 26); stored in
+  `orpheus.finance.income.v1`; `% of income` = expense monthly ÷ counted net income monthly (`—` at 0).
+  `Equity to cover` is a typed amount until #86. Page-only classes `.pf-*`.
   Reached by URL only (EL, Q1 (d)): don't add a bar item (ST1-01 three items) or a home line (ST3-03 two).
   Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
