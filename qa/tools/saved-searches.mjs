@@ -17,7 +17,8 @@
 //   ST4-24 a second context (another device) sees no list and blank fields; clearing the site's data
 //          (CDP Storage.clearDataForOrigin) and reloading shows the empty list and blank fields
 // At 1440 also: six different searches leave the newest 5 (the oldest drops), a repeat moves to the top.
-// QA D1 (#81), every width: KO saved with capital 1000, then again as `ko` with `1,000`: one line, moved to the top.
+// QA D1 (#81), every width: KO saved with capital 1000, then again as `ko` with `1,000`: one line, moved to the top,
+// stored as typed; Load and a refresh refill `ko` / `1,000`.
 // Screenshots: saved-<w>.png (the open list), saved-<w>-restored.png (after a refresh).
 //   node qa/tools/saved-searches.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
@@ -68,7 +69,7 @@ async function calculate(page, search) {
   await page.waitForFunction(({ ticker, contribution }) => {
     const last = JSON.parse(localStorage.getItem("orpheus.calculator.last.v1") ?? "null");
     return last && last.rows[0].ticker === ticker && last.contribution === contribution;
-  }, { ticker: search.rows[0][0].trim().toUpperCase(), contribution: String(Number(search.contribution.replace(/,/g, ""))) }, { timeout: 90000 });
+  }, { ticker: search.rows[0][0], contribution: search.contribution }, { timeout: 90000 });
   await page.waitForSelector("[data-testid=results]", { timeout: 90000 });
 }
 const fieldValues = (page) => page.evaluate(() => [...document.querySelectorAll("[data-testid=calculator-form] input, [data-testid=calculator-form] select")].map((e) => e.value));
@@ -206,7 +207,17 @@ try {
       const koLines = afterRepeat.filter((l) => l === KO_LINE).length;
       check(`${tag} ST4-21 / QA D1 a repeat typed differently (1,000 vs 1000, ko vs KO) moves the line to the top, no duplicate`, beforeRepeat[1] === KO_LINE && afterRepeat[0] === KO_LINE && koLines === 1 && afterRepeat.length === beforeRepeat.length && JSON.stringify(afterRepeat.slice(1)) === JSON.stringify(beforeRepeat.filter((l) => l !== KO_LINE)), { before: beforeRepeat, after: afterRepeat });
       const koStored = await stored(page);
-      check(`${tag} ST4-21 / QA D1 stored in one form (ticker upper-case, capital 1000)`, JSON.parse(koStored.last).capital === "1000" && JSON.parse(koStored.last).rows[0].ticker === "KO" && koStored.saved.filter((x) => x.rows[0].ticker === "KO").length === 1, { last: JSON.parse(koStored.last), saved: koStored.saved.map((x) => `${x.rows[0].ticker} ${x.capital} ${x.contribution}`) });
+      const koLast = JSON.parse(koStored.last);
+      check(`${tag} ST4-21 / QA D1 stored as typed (ko, 1,000), one KO entry`, koLast.capital === "1,000" && koLast.rows[0].ticker === "ko" && koStored.saved.filter((x) => x.rows[0].ticker.toUpperCase() === "KO").length === 1 && koStored.saved[0].capital === "1,000", { last: koLast, saved: koStored.saved.map((x) => `${x.rows[0].ticker} ${x.capital} ${x.contribution}`) });
+      // ST4-20 (EL, D1 follow-up): Load refills exactly what was typed (1,000 stays 1,000); a refresh too.
+      await openList(page);
+      await page.locator("[data-testid=saved-load]").nth(0).click();
+      const koTyped = ["ko", "100", "2023-01-03", "2024-12-31", "1,000", "100", "monthly"];
+      const loaded = await fieldValues(page);
+      await page.reload({ waitUntil: "networkidle" });
+      await page.waitForTimeout(800);
+      const refreshed = await fieldValues(page);
+      check(`${tag} ST4-20 / QA D1 Load and refresh refill as typed (1,000 stays 1,000)`, JSON.stringify(loaded) === JSON.stringify(koTyped) && JSON.stringify(refreshed) === JSON.stringify(koTyped), { loaded, refreshed });
       // ST4-23: no auth, nothing but localStorage.
       const auth = requests.filter((r) => /\/api\/(auth|dashboard)\b/.test(new URL(r.url).pathname));
       check(`${tag} ST4-23 no request to /api/auth or /api/dashboard (signed out, no account)`, auth.length === 0, auth);

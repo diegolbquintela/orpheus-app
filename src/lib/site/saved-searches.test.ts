@@ -75,7 +75,7 @@ describe("saved searches (#80, spec §7b; ST4-20..24)", () => {
     assert.deepEqual(addSearch([], search()).length, 1);
   });
 
-  it("QA D1: a repeat typed differently (1,000 vs 1000, ticker case) moves the line to the top, no duplicate", () => {
+  it("QA D1: a repeat typed differently (1,000 vs 1000, ticker case) moves the line to the top, no duplicate; stored as typed", () => {
     const store = new Memory();
     const ko = (over: Partial<SavedSearch>) =>
       search({
@@ -87,17 +87,19 @@ describe("saved searches (#80, spec §7b; ST4-20..24)", () => {
       });
     saveSearch(store, ko({ capital: "1000" }));
     saveSearch(store, search());
-    saveSearch(
-      store,
-      ko({ capital: "1,000", rows: [{ ticker: " ko ", weight: "100.0" }], contribution: "1,00" }),
-    );
+    saveSearch(store, ko({ capital: "1,000", rows: [{ ticker: "ko", weight: "100.0" }] }));
     const list = readSaved(store);
-    assert.equal(list.length, 2);
-    assert.deepEqual(list[0].rows, [{ ticker: "KO", weight: "100" }]);
-    assert.equal(list[0].capital, "1000", "stored canonical");
-    assert.equal(list[0].contribution, "100");
-    assert.equal(readLast(store)?.capital, "1000");
+    assert.equal(list.length, 2, "one KO line, not two");
+    assert.deepEqual(
+      list[0].rows,
+      [{ ticker: "ko", weight: "100.0" }],
+      "moved to the top, as typed",
+    );
+    assert.equal(list[0].capital, "1,000", "stored as typed");
+    assert.equal(readLast(store)?.capital, "1,000");
+    assert.equal(searchLine(list[0]), "KO · 2023-01-03 – 2024-12-31 · DCA $100");
     assert.ok(sameSearch(ko({ capital: "1,000" }), ko({ capital: "1000" })));
+    assert.ok(sameSearch(ko({ rows: [{ ticker: " ko ", weight: "100" }] }), ko({})));
     assert.ok(!sameSearch(ko({ capital: "1,000" }), ko({ capital: "1001" })));
     assert.equal(canonicalAmount("1,000.50"), "1000.5");
     assert.equal(canonicalAmount(""), "");

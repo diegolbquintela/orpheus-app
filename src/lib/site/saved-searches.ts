@@ -82,8 +82,8 @@ export function canonicalAmount(text: string): string {
 }
 
 /**
- * One form for a search (QA D1 on #81): tickers trimmed and upper-cased, weights and amounts canonical. Applied on
- * save, so stored searches compare equal however the amounts were typed.
+ * The standard form of a search, for matching only (QA D1 on #81; EL: match on the standard form, store what was
+ * typed): tickers trimmed and upper-cased, weights and amounts canonical. Never stored.
  */
 export function normalizeSearch(search: SavedSearch): SavedSearch {
   return {
@@ -112,8 +112,8 @@ export function addSearch(list: SavedSearch[], search: SavedSearch): SavedSearch
 }
 
 /** Saves a successful search as the last one and at the top of the list; returns the new list. */
-export function saveSearch(storage: StorageLike | null, typed: SavedSearch): SavedSearch[] {
-  const search = normalizeSearch(typed);
+export function saveSearch(storage: StorageLike | null, search: SavedSearch): SavedSearch[] {
+  // Stored as typed (EL, D1 follow-up): Load and a refresh refill exactly this; a repeat replaces the older line.
   const list = addSearch(readSaved(storage), search);
   try {
     storage?.setItem(LAST_KEY, JSON.stringify(search));
@@ -132,7 +132,7 @@ export function searchLine(search: SavedSearch): string {
   const dca = Number.isFinite(contribution)
     ? money(contribution, search.currency)
     : search.contribution;
-  return `${search.rows.map((r) => r.ticker).join(", ")} · ${search.start} – ${search.end} · DCA ${dca}`;
+  return `${search.rows.map((r) => r.ticker.trim().toUpperCase()).join(", ")} · ${search.start} – ${search.end} · DCA ${dca}`;
 }
 
 /** This browser's localStorage, or null where it can't be used (server render, blocked storage). */

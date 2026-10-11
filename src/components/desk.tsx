@@ -188,11 +188,12 @@ export function Desk() {
       // #80 (ST4-21): a successful calculation is the save (no save button); the fields stay as typed.
       setSaved(
         saveSearch(browserStorage(), {
-          rows: basket.map((name) => ({ ticker: name.ticker, weight: rows[name.index].weight.trim() })),
+          // As typed (EL, #81 D1 follow-up): Load and a refresh refill the user's own formatting.
+          rows: basket.map((name) => ({ ticker: rows[name.index].ticker, weight: rows[name.index].weight })),
           start,
           end,
-          capital: capital.trim(),
-          contribution: contribution.trim(),
+          capital,
+          contribution,
           frequency: runFrequency,
           currency,
         }),
