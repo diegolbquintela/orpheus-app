@@ -86,8 +86,8 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
         line({ id: "b", amount: "250", equity: "5" }),
       ],
       variable: [
-        line({ id: "c", amount: "1,200", per: "year" as const }),
-        line({ id: "d", amount: "oops", equity: "-3" }),
+        line({ id: "c", amount: "1,200", per: "year" as const, equity: "0" }),
+        line({ id: "d", amount: "oops", equity: "0" }),
       ],
       accounts: [],
     };

@@ -75,7 +75,15 @@ affects the repo.
   `orpheus.finance.income.v1`; `% of income` = expense monthly ÷ counted net income monthly (`—` at 0).
   EL decided Q5–Q8 (as built): bonus rating = % of yearly wages; one average tax % per person on wages and bonus;
   one Share (%) per person on each counted line; biweekly = yearly ÷ 26. Landed #85 in PR #89 (draft, in QA).
-  `Equity to cover` is a typed amount until #86. Page-only classes `.pf-*`.
+  v1.3 (#86, spec section 13, EL option A): `Withdrawal rate (%)` and `Portfolio ROIC (%)` (household, typed) at
+  the top of `03` Expenses; rate used = the typed withdrawal rate (never halved; wins when both are typed), else
+  ROIC ÷ 2; calculated `Equity to cover` = yearly expense ÷ (rate ÷ 100) (`—` with no rate), shown as the field's
+  placeholder; a typed value overrides it (Q3, implemented; v1.1 values carry over as overrides); totals add the
+  override or the calculated amount; key `orpheus.finance.equity.v1` (`src/lib/finance/equity.ts`,
+  `equity-rates.tsx`). Don't halve a typed withdrawal rate or divide a monthly amount by a yearly rate.
+  EL Q9–Q11 (≈ 14:12 ET): a bad override falls back to the calculated amount; no usable rate → `—` for a line
+  without a valid override and for any total containing it; ROIC 0 or more with no cap (withdrawal rate 0–100).
+  Page-only classes `.pf-*`.
   Reached by URL only (EL, Q1 (d)): don't add a bar item (ST1-01 three items) or a home line (ST3-03 two).
   Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).

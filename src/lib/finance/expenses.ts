@@ -1,8 +1,8 @@
 /**
  * Personal finance expenses (#84 v1.1; spec `attachments/personal-finance-spec.md` §5–§6, PF-03..07). Pure helpers:
  * amounts, conversion, percentages, totals, accounts and this browser's `localStorage` (one key, no login, no
- * server). A missing or broken storage just reads as an empty page. `% of income` waits for #85; `Equity to cover`
- * is a typed amount until #86.
+ * server). A missing or broken storage just reads as an empty page. `% of income` is wired by #85; `Equity to cover`
+ * (#86, spec section 13): the yearly amount ÷ (rate ÷ 100), and a typed value overrides it (Q3).
  */
 
 export const STORAGE_KEY = "orpheus.finance.expenses.v1";
@@ -36,7 +36,7 @@ export type Line = {
   /** The amount as typed, in the period `per`. */
   amount: string;
   per: Per;
-  /** Equity to cover as typed (manual until #86). */
+  /** Equity to cover as typed: an override of the calculated amount (#86, Q3); empty uses the calculated one. */
   equity: string;
   /** An account name from `accounts`, or "" for none. */
   account: string;
@@ -89,26 +89,50 @@ export function fieldText(line: Line, field: Per): string {
   return formatAmount(field === "month" ? monthlyOf(line) : yearlyOf(line));
 }
 
-export type Totals = { monthly: number; yearly: number; equity: number };
+/** True when the line's `Equity to cover` field holds a valid typed override (not blank, a number 0 or more; Q9). */
+export const hasOverride = (line: Line): boolean =>
+  line.equity.trim() !== "" && parseAmount(line.equity) !== null;
 
-export function totalsOf(lines: readonly Line[]): Totals {
+/**
+ * The calculated `Equity to cover` (#86, option A): the line's yearly amount ÷ (rate ÷ 100), or null with no rate
+ * (null, 0 or less). `rate` is the rate used, a percent (4 for 4%).
+ */
+export function calculatedEquity(line: Line, rate: number | null): number | null {
+  if (rate === null || !(rate > 0)) return null;
+  return (yearlyOf(line) * 100) / rate;
+}
+
+/**
+ * What a line adds to the totals: its valid override, else the calculated amount (a bad override falls back to it,
+ * Q9); null (`—`) with no valid override and no usable rate (Q10).
+ */
+export const equityOf = (line: Line, rate: number | null): number | null =>
+  hasOverride(line) ? amountOrZero(line.equity) : calculatedEquity(line, rate);
+
+/** Equity to cover in a total: null (`—`) when any line contributes `—` (Q10). */
+const addEquity = (a: number | null, b: number | null): number | null =>
+  a === null || b === null ? null : a + b;
+
+export type Totals = { monthly: number; yearly: number; equity: number | null };
+
+export function totalsOf(lines: readonly Line[], rate: number | null = null): Totals {
   return lines.reduce(
     (t, line) => ({
       monthly: t.monthly + monthlyOf(line),
       yearly: t.yearly + yearlyOf(line),
-      equity: t.equity + amountOrZero(line.equity),
+      equity: addEquity(t.equity, equityOf(line, rate)),
     }),
-    { monthly: 0, yearly: 0, equity: 0 },
+    { monthly: 0, yearly: 0, equity: 0 } as Totals,
   );
 }
 
-export function grandTotals(expenses: Expenses): Totals {
-  const a = totalsOf(expenses.fixed);
-  const b = totalsOf(expenses.variable);
+export function grandTotals(expenses: Expenses, rate: number | null = null): Totals {
+  const a = totalsOf(expenses.fixed, rate);
+  const b = totalsOf(expenses.variable, rate);
   return {
     monthly: a.monthly + b.monthly,
     yearly: a.yearly + b.yearly,
-    equity: a.equity + b.equity,
+    equity: addEquity(a.equity, b.equity),
   };
 }
 

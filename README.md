@@ -196,6 +196,15 @@ every expense line's `% of income` now divides its monthly amount by that net in
 Stored in this browser only, in its own key `orpheus.finance.income.v1`. Landed in PR #89; EL accepted these readings
 (bonus rating as a % of wages, one average tax and one share per person, biweekly = yearly ÷ 26).
 
+**Equity cover (#86 v1.3).** At the top of `03 Expenses`, type a `Withdrawal rate (%)` and/or your `Portfolio ROIC
+(%)`. The rate used is the withdrawal rate as typed (4 means 4%), or half the ROIC when no withdrawal rate is typed
+(`Rate used` shows it). Each line's `Equity to cover` is then its yearly amount ÷ that rate: Rent 1,000 a month with
+ROIC 8% → 12,000 ÷ 4% = 300,000. The calculated amount shows dimmed in the field; type a number to override it for
+that line, clear it to go back (a badly typed one falls back to the calculated amount until it's a number).
+Totals add each line's override or calculated amount; with no rate, a line without an override shows `—` and so does
+its total. ROIC may be above 100%; the withdrawal rate is 0–100%. Stored in this browser only,
+in `orpheus.finance.equity.v1`.
+
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
 default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.

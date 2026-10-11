@@ -574,6 +574,11 @@
   .pf-field:focus-visible {
     border-bottom-color: var(--color-chalk);
   }
+  /* #86: an empty Equity to cover shows the calculated amount as its placeholder, dim (7.22:1 on charcoal). */
+  .pf-field::placeholder {
+    color: var(--color-dim);
+    opacity: 1;
+  }
   .pf-field[aria-invalid="true"] {
     border-bottom-color: var(--color-alert);
   }
@@ -701,6 +706,18 @@
     }
     .pf-new > div {
       padding-top: 1.45rem;
+    }
+  }
+  /* Equity-cover rates (#86, spec section 13.4): stacked full width on a phone, one row of three from 640 px. */
+  .pf-rates {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  @media (min-width: 40rem) {
+    .pf-rates {
+      grid-template-columns: repeat(3, minmax(0, 16rem));
+      column-gap: 1.25rem;
     }
   }
   /* Income block (#85, personal-finance spec section 12.4): a person is a block of labelled cells on a phone (Average

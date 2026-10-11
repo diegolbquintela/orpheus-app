@@ -77,9 +77,10 @@ const PAGES = [
     path: "/personal-finance", current: null, status: 200, imgs: [],
     texts: (wide) => {
       const total = (label) => (wide ? [label, "—", "—", "0", "0", "0"] : [label, "% of income", "—", "% of expenses", "—", "Monthly", "0", "Yearly", "0", "Equity to cover", "0"]);
-      // #85: the income block first (`02` Income; its column-label rows aria-hidden), then `03` Expenses.
+      // #85: the income block first (`02` Income; its column-label rows aria-hidden), then `03` Expenses; #86: the
+      // equity-cover rates (visible labels) before Fixed.
       const net = wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"];
-      return ["01", "Personal finance.", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total")];
+      return ["01", "Personal finance.", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total")];
     },
   },
 ];
