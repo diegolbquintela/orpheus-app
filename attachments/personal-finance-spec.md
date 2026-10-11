@@ -16,6 +16,7 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 13:11 ET | **EL answers on #85 (PR #89 at `9839861`; docs-only commit, no code change):** the four simplest readings accepted as built. **Q5** bonus rating = % of the person's yearly wages. **Q6** one average tax % per person, on wages and bonus alike (net = gross × (1 − tax)). **Q7** one Share (%) per person, applied to each counted line (the `Count wages` / `Count bonus` ticks). **Q8** biweekly = yearly ÷ 26. Not started: #86, #87, #71. |
 | 2026-10-11, ≈ 13:54 ET | **#86 kickoff (Diego via CoS; EL):** v1.3 computes `Equity to cover` (section 13). Diego's default: the rate is **half of portfolio ROIC**; 4% is just a number the user can type as the withdrawal rate. Household-level inputs, typed (manual entry, no data source). EL's first formula (monthly expense ÷ (ROIC ÷ 2), and ÷ (withdrawal rate ÷ 2)) disagreed with the issue on two material points (monthly vs yearly; halving a typed withdrawal rate): stopped and reported options A–D. Not started: #87 (still no currency symbol), #94, #90, #71 / #95 (dashboard on hold), Plaid. |
 | 2026-10-11, ≈ 13:57 ET | **EL picked option A (formula locked):** two household fields, `Withdrawal rate (%)` and `Portfolio ROIC (%)`. **Rate used** = the typed withdrawal rate; if that field is empty, ROIC ÷ 2. **Equity to cover (calculated)** = the line's **yearly** expense ÷ (rate ÷ 100). A typed `4` is used as 4% (a typed withdrawal rate is never halved). Both typed: the withdrawal rate wins. Neither typed, or a rate of 0: the calculated amount shows `—`. **Q3 now implemented:** a typed `Equity to cover` on a line is an override; the calculated amount is the default while the field is empty; values typed in v1.1 / v1.2 carry over as overrides (no migration). Totals sum each line's override or calculated amount. New key `orpheus.finance.equity.v1`; the expenses and income keys unchanged. Example: Rent 1,000 a month, ROIC 8% (rate 4%) → 12,000 ÷ 0.04 = **300,000**. |
+| 2026-10-11, ≈ 14:12 ET | **EL answers on #86 (PR #96 at `5d1523e`; small docs + code amend):** **Q9** a badly typed `Equity to cover` override **falls back to the calculated amount** until it is a valid number (never read as 0; the field check still shows). **Q10** with no usable rate, a line without a valid override contributes **`—`** (not 0); a total shows `—` when any of its lines contributes `—` (a group with no lines stays `0`). **Q11** `Withdrawal rate (%)` stays 0–100; `Portfolio ROIC (%)` may exceed 100 (0 or more, no upper cap); a bad or negative rate is still invalid → no rate (`—`). Not started: #97, #87, #94, #90, #71. |
 
 ## 2. The brief (verbatim, issue #84)
 
@@ -55,7 +56,7 @@ later); Engineering Lead owns the tech loop.
 | Field check (amounts) | `Enter a number, 0 or more.` |
 | Field check (new account) | `Name the account.` |
 | Equity cover fields (v1.3, section 13) | `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` |
-| Field check (rates) | `Enter a percent from 0 to 100.` |
+| Field check (rates) | Withdrawal rate: `Enter a percent from 0 to 100.`; Portfolio ROIC: `Enter a number, 0 or more.` (Q11) |
 | Not computed yet | `—` |
 
 No other text on the page (site-style ST6-02: no instruction text, no notes, no empty-state copy).
@@ -78,17 +79,18 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   `Total` the same (a total above `100.0%` shows as is). Not an input. (v1.1 showed `—` everywhere.)
 - **Equity to cover (v1.3, #86; section 13):** each line's **calculated** amount = its yearly amount ÷ (rate used ÷
   100); the field is an **override** (Q3, implemented): empty → the calculated amount applies and shows in the field
-  as its placeholder (dim; `—` with no rate); typed → the typed value applies, stored as typed, the same field
-  check (a bad override shows `Enter a number, 0 or more.` and counts as 0). Values typed in v1.1 / v1.2 carry
-  over as overrides. (v1.1 / v1.2: a manual amount only.)
+  as its placeholder (dim; `—` with no rate); a valid typed number → it applies, stored as typed; a bad one shows
+  `Enter a number, 0 or more.` and the line **falls back to the calculated amount** until fixed (Q9). With no
+  usable rate a line without a valid override contributes `—` (Q10). Values typed in v1.1 / v1.2 carry over as
+  overrides. (v1.1 / v1.2: a manual amount only.)
 - **Account:** a dropdown per line: `—`, the accounts, `Add account…`. Choosing `Add account…` opens an inline
   `New account` field with `Add` and `Cancel` under that line; `Add` trims the name, refuses an empty one
   (`Name the account.`), reuses an existing account with the same name (case-insensitive) instead of a duplicate,
   appends a new one to the shared list (≤ 40 characters, ≤ 50 accounts) and selects it on that line. The account
   list is shared by both groups. An account is never removed in v1.1.
 - **Totals:** per group (`Fixed total`, `Variable total`) and for both (`Total`): Monthly, Yearly (Monthly × 12),
-  `% of expenses`, `% of income` (as above), Equity to cover = the sum of each line's override or calculated amount
-  (a line with no override and no rate adds 0). Totals are computed, never inputs.
+  `% of expenses`, `% of income` (as above), Equity to cover = the sum of each line's valid override or calculated
+  amount; `—` when any of its lines contributes `—` (Q10; a group with no lines shows `0`). Totals are computed, never inputs.
 - **Number format:** grouped with commas, up to two decimals, no trailing zeros (`1,200`, `83.33`); no currency
   symbol: amounts stay unitless until #87 (EL, Q2, decided). Percentages with one decimal.
 - **Remove:** each line has a remove button (`Remove expense`); no confirmation (manual data, nothing on a server).
@@ -133,7 +135,7 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   (`public/__grok/icon-180.png`) is the builder's default, not the geometric mark; untouched (EL, Q4: Grok builder
   assets are out of scope for #84).
 
-## 9. Questions for EL (Q1–Q4 answered ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 open)
+## 9. Questions for EL (all answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET)
 
 - **Q1. Navigation. Decided: (d) URL only, as built.** Not a fourth bar item (ST1-01 stays three items), not a
   third home Platforms line (ST3-03: home stays the hero + two lines).
@@ -151,13 +153,12 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   `Count wages` / `Count bonus` ticks pick the lines).
 - **Q8. Biweekly (#85). Decided (as built):** yearly ÷ 26.
 - **Formula (#86). Decided: option A** (EL, ≈ 13:57 ET; section 13).
-- **Q9. A bad override (#86, open, built as stated; not blocking).** Built: a bad typed `Equity to cover` shows the
-  field check and counts as 0 (like every bad amount). Or fall back to the calculated amount until fixed?
-- **Q10. Totals with no rate (#86, open, built as stated; not blocking).** Built: a line with no override and no
-  rate adds 0, so a total shows the overrides' sum (`0` on a new page, as in v1.1). Or show `—` in a total while any
-  of its lines has neither?
-- **Q11. Rate range (#86, open, built as stated; not blocking).** Built: both rates are percents 0–100 (the income
-  percent check; a ROIC above 100% is refused). Allow a ROIC above 100?
+- **Q9. A bad override (#86). Decided:** a badly typed `Equity to cover` falls back to the calculated amount until
+  the override is a valid number (not read as 0); the field check still shows under the field.
+- **Q10. No usable rate (#86). Decided:** a line without a valid override contributes `—` (not 0); a total shows `—`
+  when any of its lines contributes `—`.
+- **Q11. Rate range (#86). Decided:** `Withdrawal rate (%)` 0–100; `Portfolio ROIC (%)` 0 or more with no upper cap
+  (field check `Enter a number, 0 or more.`); a bad or negative rate is invalid → no rate (`—`).
 
 ## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
 
@@ -171,7 +172,7 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-02 | Exact copy (sections 4 and 12): `01`, `Personal finance.`, `02`, `Income` with its copy (section 12), `03`, `Expenses`, (v1.3) `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` `—` (section 13), `Fixed`, `Variable`, the seven column labels in order, `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
 | PF-03 | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
 | PF-04 | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` per line, group and `Total` = monthly ÷ the monthly counted net income (section 12; one decimal), `—` while that income is 0 (v1.2: e.g. the section 12 example's 11,200 a month: Fixed 1,000 → `8.9%`, 250 → `2.2%`, Fixed total `11.2%`, Variable 100 → `0.9%`, Total `12.1%`). |
-| PF-05 | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200); v1.3: Equity to cover sums each line's override or calculated amount (PF-19). |
+| PF-05 | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200); v1.3: Equity to cover sums each line's valid override or calculated amount, `—` when any line contributes `—` (PF-19). |
 | PF-06 | Account: a dropdown per line with `—`, the accounts and `Add account…`; adding one (inline `New account`, `Add`) selects it on that line and offers it on every line in both groups; an empty name shows `Name the account.`; a repeat name (any case) reuses the existing account. |
 | PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
 | PF-08 | Layout: phone (360, 400) lines stacked with labels, no horizontal page scroll; wide (1024, 1440) one row per line in column order with the column labels; every control ≥ 44 px tall; AA for every visible text (axe-core too), a ≥ 3:1 focus mark on every Tab stop; proportional figures (no `tnum`). |
@@ -183,9 +184,9 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-14 | (#85) Counted and share: each income line counts its net × the person's share when its box is ticked, 0 when not; the section 12 example (own bonus excluded, spouse at 80%) gives the table `84,000` / `0` / `48,000` / `2,400` yearly and `Net income` `134,400` yearly, `11,200` monthly, `5,169.23` biweekly. |
 | PF-15 | (#85) Income table: one row per person per line (Wages, then Bonus) in people order, Biweekly = yearly ÷ 26, Monthly = yearly ÷ 12, Yearly; `Net income` sums them; up to two decimals, no currency symbol (Q2). |
 | PF-16 | (#85) `% of income` wired: changing a share, a box, a tax or wages updates every expense line's and total's `% of income` at once (PF-04); with no counted income they show `—`; income survives a reload from `orpheus.finance.income.v1` (malformed → no people, no error); layout, AA, 44 px controls (checkbox rows included) and CLS as PF-08 / PF-09. |
-| PF-17 | (#86) Equity cover copy and inputs (section 13): under `03` `Expenses`, before `Fixed`: `Withdrawal rate (%)` and `Portfolio ROIC (%)` (inputs, visible labels, empty on a new page) and `Rate used` (computed: `—` on a new page); typed values stay as typed; a bad or out-of-range rate shows `Enter a percent from 0 to 100.` (alert, `aria-invalid`) and reads as 0. |
+| PF-17 | (#86) Equity cover copy and inputs (section 13): under `03` `Expenses`, before `Fixed`: `Withdrawal rate (%)` and `Portfolio ROIC (%)` (inputs, visible labels, empty on a new page) and `Rate used` (computed: `—` on a new page); typed values stay as typed; a bad or out-of-range withdrawal rate shows `Enter a percent from 0 to 100.`, a bad or negative ROIC `Enter a number, 0 or more.` (alert, `aria-invalid`; Q11: ROIC above 100 is valid, e.g. `150` → `Rate used` `75%`); an invalid rate is no rate (`—`). |
 | PF-18 | (#86) Formula A: rate used = the typed withdrawal rate, else ROIC ÷ 2; a typed withdrawal rate is used as typed (never halved) and wins when both are typed; calculated `Equity to cover` = the line's yearly amount ÷ (rate ÷ 100); e.g. ROIC `8` → `Rate used` `4%`, Rent 1,000 a month → `300,000`, Phone 250 a month → `75,000`, Gifts 1,200 a year → `30,000`; then withdrawal rate `5` → `5%`, `240,000` / `60,000` / `24,000`; neither typed, or a rate of 0 → `—`. |
-| PF-19 | (#86, Q3 implemented) Override: an empty `Equity to cover` shows the calculated amount as the field's placeholder (dim, AA) and uses it; a typed value replaces it on that line only (stored as typed; a bad one shows `Enter a number, 0 or more.` and counts as 0); clearing it brings the calculated amount back; totals sum each line's override or calculated amount (e.g. ROIC 8, Rent override `250,000`: Fixed `325,000`, Variable `30,000`, Total `355,000`); a v1.1 / v1.2 stored line with a typed amount restores as an override. |
+| PF-19 | (#86, Q3 implemented) Override: an empty `Equity to cover` shows the calculated amount as the field's placeholder (dim, AA) and uses it; a valid typed value replaces it on that line only (stored as typed); a bad one shows `Enter a number, 0 or more.` and the line falls back to the calculated amount (Q9; e.g. ROIC 8, Rent `abc` → Fixed `375,000`); clearing it brings the calculated amount back; totals sum each line's valid override or calculated amount (e.g. ROIC 8, Rent override `250,000`: Fixed `325,000`, Variable `30,000`, Total `355,000`); with no usable rate a line without a valid override contributes `—` and so does its total and `Total` (Q10; e.g. no rate, Rent `250,000`, Phone and Gifts empty → `—` / `—` / `—`; every line overridden → the sum); a v1.1 / v1.2 stored line with a typed amount restores as an override. |
 | PF-20 | (#86) The rates survive a reload from `orpheus.finance.equity.v1` (malformed → both empty, no error); changing either rate updates every line's placeholder and every total at once; layout (phone: the two fields stacked full width, then `Rate used`; wide: one row of three), 44 px controls, AA, focus ring and CLS as PF-08 / PF-09. |
 
 ## 11. Landed
@@ -214,10 +215,14 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
     rating = % of yearly wages; one average tax % per person on wages and bonus; one Share (%) per person on each
     counted line; biweekly = yearly ÷ 26.
 
-- **#86, Personal Finance v1.3 equity cover (PR draft, 2026-10-11).** Formula A (section 13). Built on
+- **#86, Personal Finance v1.3 equity cover (PR #96, draft, 2026-10-11).** Formula A (section 13). Built on
   `feat/personal-finance-equity-cover` off `23febbf`; checks: `src/lib/finance/equity.test.ts`,
   `expenses.test.ts`, `expenses-page.dom.test.tsx`, `site.test.ts`, `qa/tools/personal-finance.mjs` (PF-17..20) and
-  `qa/tools/site-style-regression.mjs` (the empty page's copy).
+  `qa/tools/site-style-regression.mjs` (the empty page's copy). PR #96 (draft); preview at `5d1523e`: regression
+  318/318, `personal-finance.mjs` 189/189, `$313,000`, strict CLS 0. In QA.
+  - **EL answers (2026-10-11, ≈ 14:12 ET; small docs + code amend):** Q9 a bad override falls back to the
+    calculated amount; Q10 no usable rate → a line without a valid override contributes `—`, and so does its total;
+    Q11 ROIC may exceed 100 (withdrawal rate stays 0–100).
 
 ## 12. Income (v1.2, #85)
 
@@ -295,21 +300,23 @@ Percents are typed as plain numbers (`8`, not `8%` or `0.08`), like section 12.
 ### 13.2 Formula (locked)
 
 - Two **household-level** inputs, typed (manual entry; no ROIC data source, the dashboard untouched):
-  `Withdrawal rate (%)` and `Portfolio ROIC (%)`, each 0–100 (the section 12 percent reading; a bad one shows the
-  field check and reads as 0).
+  `Withdrawal rate (%)` (0–100, the section 12 percent reading) and `Portfolio ROIC (%)` (0 or more, no upper cap,
+  Q11). A bad one (or a negative one) shows its field check and is no rate.
 - **Rate used** = the typed withdrawal rate when its field is not empty (used as typed: `4` is 4%, never halved; it
   wins when both are typed); else **ROIC ÷ 2** (Diego's default: half of portfolio ROIC). A rate of 0 (or a bad
   field, or neither typed) means no rate: `Rate used` `—`.
 - **Calculated `Equity to cover`** of a line = the line's **yearly** amount ÷ (rate used ÷ 100); `—` with no rate.
-- **Override (Q3):** a non-empty `Equity to cover` field is the line's amount (as typed; a bad one counts as 0); an
-  empty (or blank) field uses the calculated amount, shown in the field as its placeholder (dim, `--color-dim`,
+- **Override (Q3):** a `Equity to cover` field holding a valid number is the line's amount (as typed); an empty
+  (or blank) field, or a bad one (Q9: the field check shows, the line falls back), uses the calculated amount, shown in the field as its placeholder (dim, `--color-dim`,
   7.22:1 on charcoal). Clearing the field brings the calculated amount back. v1.1 / v1.2 typed values are
   overrides as they stand (no migration).
-- **Totals** add each line's override or calculated amount; a line with no override and no rate adds 0 (Q10).
+- **Totals** add each line's valid override or calculated amount. With no usable rate a line without a valid
+  override contributes `—`, and any total containing such a line shows `—` (Q10); a group with no lines shows `0`.
 - **Example (QA):** Rent 1,000 a month (12,000 a year), Phone 250 a month (3,000), Gifts 1,200 a year.
   ROIC `8` → rate 4%: Rent **300,000**, Phone 75,000, Gifts 30,000. Withdrawal rate `5` too → 5% wins: 240,000,
   60,000, 24,000. Withdrawal rate `4` alone → 4% (not 2%): 300,000. Rent override `250,000` with ROIC `8`: Fixed
-  325,000, Variable 30,000, Total 355,000.
+  325,000, Variable 30,000, Total 355,000. Rent `abc` with ROIC 8 → Rent falls back to 300,000 (Fixed 375,000).
+  No rate, Rent `250,000`, Phone and Gifts empty → every total `—`. ROIC `150` → rate 75%.
 
 ### 13.3 Storage
 

@@ -89,8 +89,9 @@ export function fieldText(line: Line, field: Per): string {
   return formatAmount(field === "month" ? monthlyOf(line) : yearlyOf(line));
 }
 
-/** True when the line's `Equity to cover` field holds a typed override (anything but blank). */
-export const hasOverride = (line: Line): boolean => line.equity.trim() !== "";
+/** True when the line's `Equity to cover` field holds a valid typed override (not blank, a number 0 or more; Q9). */
+export const hasOverride = (line: Line): boolean =>
+  line.equity.trim() !== "" && parseAmount(line.equity) !== null;
 
 /**
  * The calculated `Equity to cover` (#86, option A): the line's yearly amount ÷ (rate ÷ 100), or null with no rate
@@ -101,20 +102,27 @@ export function calculatedEquity(line: Line, rate: number | null): number | null
   return (yearlyOf(line) * 100) / rate;
 }
 
-/** What a line adds to the totals: its override (a bad one counts as 0), else the calculated amount (0 with no rate). */
-export const equityOf = (line: Line, rate: number | null): number =>
-  hasOverride(line) ? amountOrZero(line.equity) : (calculatedEquity(line, rate) ?? 0);
+/**
+ * What a line adds to the totals: its valid override, else the calculated amount (a bad override falls back to it,
+ * Q9); null (`—`) with no valid override and no usable rate (Q10).
+ */
+export const equityOf = (line: Line, rate: number | null): number | null =>
+  hasOverride(line) ? amountOrZero(line.equity) : calculatedEquity(line, rate);
 
-export type Totals = { monthly: number; yearly: number; equity: number };
+/** Equity to cover in a total: null (`—`) when any line contributes `—` (Q10). */
+const addEquity = (a: number | null, b: number | null): number | null =>
+  a === null || b === null ? null : a + b;
+
+export type Totals = { monthly: number; yearly: number; equity: number | null };
 
 export function totalsOf(lines: readonly Line[], rate: number | null = null): Totals {
   return lines.reduce(
     (t, line) => ({
       monthly: t.monthly + monthlyOf(line),
       yearly: t.yearly + yearlyOf(line),
-      equity: t.equity + equityOf(line, rate),
+      equity: addEquity(t.equity, equityOf(line, rate)),
     }),
-    { monthly: 0, yearly: 0, equity: 0 },
+    { monthly: 0, yearly: 0, equity: 0 } as Totals,
   );
 }
 
@@ -124,7 +132,7 @@ export function grandTotals(expenses: Expenses, rate: number | null = null): Tot
   return {
     monthly: a.monthly + b.monthly,
     yearly: a.yearly + b.yearly,
-    equity: a.equity + b.equity,
+    equity: addEquity(a.equity, b.equity),
   };
 }
 

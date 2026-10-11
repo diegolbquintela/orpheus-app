@@ -1,18 +1,22 @@
 import { useId } from "react";
+import { AMOUNT_ERROR } from "@/lib/finance/expenses";
 import {
   formatRate,
+  parseRoic,
+  parseWithdrawal,
   RATE_USED_LABEL,
   type Rates,
   rateUsed,
   ROIC_LABEL,
   WITHDRAWAL_LABEL,
 } from "@/lib/finance/equity";
-import { parsePercent, PERCENT_ERROR } from "@/lib/finance/income";
+import { PERCENT_ERROR } from "@/lib/finance/income";
 
 /**
  * The equity-cover rates (#86 v1.3; spec section 13, PF-17..20): `Withdrawal rate (%)` and `Portfolio ROIC (%)`,
  * typed, and the computed `Rate used` (the withdrawal rate as typed, else ROIC ÷ 2; `—` with none). Labels visible
- * at every width; a bad or out-of-range rate shows the percent check under its field.
+ * at every width; a bad rate shows its check under the field (withdrawal: the percent check; ROIC, no upper cap:
+ * the amount check).
  */
 export function EquityRates({
   rates,
@@ -23,7 +27,8 @@ export function EquityRates({
 }) {
   const uid = useId();
   const field = (key: keyof Rates, label: string, testId: string) => {
-    const bad = parsePercent(rates[key]) === null;
+    // Withdrawal rate 0–100; ROIC 0 or more with no upper cap (Q11).
+    const bad = (key === "withdrawal" ? parseWithdrawal : parseRoic)(rates[key]) === null;
     return (
       <div className="pf-cell pf-rate">
         <label htmlFor={`${uid}-${key}`} className="pf-label">
@@ -48,7 +53,7 @@ export function EquityRates({
             data-testid="pf-error"
             data-field={key}
           >
-            {PERCENT_ERROR}
+            {key === "withdrawal" ? PERCENT_ERROR : AMOUNT_ERROR}
           </span>
         ) : null}
       </div>

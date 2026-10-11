@@ -24,7 +24,7 @@
 //         follows every income change, income restored from orpheus.finance.income.v1 (malformed → no people)
 //   PF-17 equity-cover copy (the two rates, Rate used); PF-18 formula A (ROIC 8 → 4% → Rent 300,000; withdrawal 5
 //         wins; a typed 4 is 4%; 0 → —; the percent check); PF-19 the override (placeholder = calculated, typed
-//         wins, cleared → calculated, totals); PF-20 rates restored from orpheus.finance.equity.v1, layout
+//         wins, a bad one falls back (Q9), cleared → calculated, totals; no rate → — (Q10)); ROIC > 100 valid (Q11); PF-20 rates restored from orpheus.finance.equity.v1, layout
 //   PF-10 is the other tools' job (site-style-regression.mjs runs them all, site.mjs the $313,000).
 // Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-equity-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png.
 //   node qa/tools/personal-finance.mjs --base-url <url> --out <dir>
@@ -314,7 +314,7 @@ try {
       const incomes = await page.locator("[data-testid=pf-income], [data-testid=pf-total-income]").allTextContents();
       check(`${tag} PF-04 % of expenses per line (74.1 / 18.5 / 7.4); % of income — everywhere while there is no income`, JSON.stringify(shares) === JSON.stringify(["74.1%", "18.5%", "7.4%"]) && incomes.length === 6 && incomes.every((t) => t.trim() === "—"), { shares, incomes });
       const t = { fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all") };
-      check(`${tag} PF-05 totals: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200 (100.0%); no rate: equity = the override only`, JSON.stringify(t) === JSON.stringify({ fixed: ["92.6%", "—", "1,250", "15,000", "250,000"], variable: ["7.4%", "—", "100", "1,200", "0"], all: ["100.0%", "—", "1,350", "16,200", "250,000"] }), t);
+      check(`${tag} PF-05 totals: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200 (100.0%); no rate: equity — where a line has no override (Q10)`, JSON.stringify(t) === JSON.stringify({ fixed: ["92.6%", "—", "1,250", "15,000", "—"], variable: ["7.4%", "—", "100", "1,200", "—"], all: ["100.0%", "—", "1,350", "16,200", "—"] }), t);
 
       // PF-17..20 equity cover (#86, option A).
       const eqTotals = async () => [await txt(page.locator("[data-testid=pf-total-fixed] [data-testid=pf-total-equity]")), await txt(page.locator("[data-testid=pf-total-variable] [data-testid=pf-total-equity]")), await txt(page.locator("[data-testid=pf-total-all] [data-testid=pf-total-equity]"))];
@@ -337,12 +337,25 @@ try {
       await wd.fill("150");
       const rErr = { text: await txt(page.getByTestId("pf-rates").getByTestId("pf-error")), invalid: await wd.getAttribute("aria-invalid"), color: await page.getByTestId("pf-rates").getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), used: await used() };
       await wd.fill("");
+      await roic.fill("150");
+      const r150 = { used: await used(), errors: await page.getByTestId("pf-rates").getByTestId("pf-error").count() };
+      await roic.fill("-8");
+      const rNeg = { used: await used(), text: await txt(page.getByTestId("pf-rates").getByTestId("pf-error")), invalid: await roic.getAttribute("aria-invalid") };
+      await roic.fill("8");
+      check(`${tag} PF-17 Q11: ROIC 150 is valid → Rate used 75%; ROIC -8 → \`Enter a number, 0 or more.\` (aria-invalid), Rate used —`, JSON.stringify(r150) === '{"used":"75%","errors":0}' && JSON.stringify(rNeg) === JSON.stringify({ used: "—", text: "Enter a number, 0 or more.", invalid: "true" }), { r150, rNeg });
       check(`${tag} PF-17 a bad rate: \`Enter a percent from 0 to 100.\` (alert, aria-invalid), Rate used —; cleared → ROIC ÷ 2 again`, JSON.stringify(rErr) === JSON.stringify({ text: "Enter a percent from 0 to 100.", invalid: "true", color: ALERT, used: "—" }) && (await used()) === "4%" && (await page.getByTestId("pf-rates").getByTestId("pf-error").count()) === 0, rErr);
       const ph = await rent.getByTestId("pf-equity").evaluate((e) => getComputedStyle(e, "::placeholder").color);
       await rent.getByTestId("pf-equity").fill("");
       const cleared = { rent: await val(rent.getByTestId("pf-equity")), holder: (await holders())[0], totals: await eqTotals() };
+      await rent.getByTestId("pf-equity").fill("abc");
+      const badOv = { err: await txt(rent.getByTestId("pf-error")), invalid: await rent.getByTestId("pf-equity").getAttribute("aria-invalid"), totals: await eqTotals() };
       await rent.getByTestId("pf-equity").fill("250,000");
       const typed = { rent: await val(rent.getByTestId("pf-equity")), totals: await eqTotals() };
+      check(`${tag} PF-19 Q9: a bad override (Rent abc) shows \`Enter a number, 0 or more.\` and falls back to the calculated 300,000 (Fixed 375,000, Total 405,000)`, JSON.stringify(badOv) === JSON.stringify({ err: "Enter a number, 0 or more.", invalid: "true", totals: ["375,000", "30,000", "405,000"] }), badOv);
+      await roic.fill("");
+      const noRate = await eqTotals();
+      await roic.fill("8");
+      check(`${tag} PF-19 Q10: no usable rate → every total with a line lacking a valid override shows —`, JSON.stringify(noRate) === '["—","—","—"]', noRate);
       check(`${tag} PF-19 override: typed 250,000 wins on Rent (Fixed 325,000, Total 355,000); cleared → the calculated 300,000 (Fixed 375,000); placeholder dim (${ratio(rgb(DIM), rgb(NIGHT))}:1)`, ph === DIM && JSON.stringify(cleared) === JSON.stringify({ rent: "", holder: "300,000", totals: ["375,000", "30,000", "405,000"] }) && JSON.stringify(typed) === JSON.stringify({ rent: "250,000", totals: ["325,000", "30,000", "355,000"] }), { ph, cleared, typed });
       const rb = { wd: await box(wd), roic: await box(roic), used: await box(page.getByTestId("pf-rate-used")) };
       check(`${tag} PF-20 ${wide ? "wide: the three rate cells in one row" : "phone: the rate cells stacked full width"}`, wide ? rb.wd.y === rb.roic.y && rb.roic.x > rb.wd.x && rb.used.x > rb.roic.x && rb.wd.h >= 44 : rb.roic.y > rb.wd.y && rb.used.y > rb.roic.y && rb.wd.x === rb.roic.x && rb.wd.w === rb.roic.w && rb.wd.w >= viewport.width - 80, rb);

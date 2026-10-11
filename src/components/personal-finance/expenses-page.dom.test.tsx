@@ -110,9 +110,10 @@ describe("personal finance page (#84)", () => {
       ["share", "income", "monthly", "yearly", "equity"].map((f) =>
         text(q(el, `pf-total-${id}`), `pf-total-${f}`),
       );
-    assert.deepEqual(totals("fixed"), ["92.6%", "—", "1,250", "15,000", "300,000"]);
-    assert.deepEqual(totals("variable"), ["7.4%", "—", "100", "1,200", "0"]);
-    assert.deepEqual(totals("all"), ["100.0%", "—", "1,350", "16,200", "300,000"]);
+    // No rate (#86, Q10): Phone and Gifts have no override, so their totals show —.
+    assert.deepEqual(totals("fixed"), ["92.6%", "—", "1,250", "15,000", "—"]);
+    assert.deepEqual(totals("variable"), ["7.4%", "—", "100", "1,200", "—"]);
+    assert.deepEqual(totals("all"), ["100.0%", "—", "1,350", "16,200", "—"]);
     // A bad amount: the field check, and the line counts as 0.
     await type(q(phone, "pf-monthly"), "abc");
     assert.equal(q(phone, "pf-error").textContent, "Enter a number, 0 or more.");
@@ -367,7 +368,7 @@ describe("equity cover (#86, option A)", () => {
     await type(q(phone, "pf-monthly"), "250");
     await type(q(gifts, "pf-yearly"), "1,200");
     assert.deepEqual(holders(el), ["—", "—", "—"], "no rate: —");
-    assert.deepEqual(totals(el), ["0", "0", "0"]);
+    assert.deepEqual(totals(el), ["—", "—", "—"], "Q10: no rate → — in every total");
     // ROIC 8 → 4%: Rent 1,000 a month → 300,000.
     await type(q(el, "pf-roic"), "8");
     assert.equal(text(el, "pf-rate-used"), "4%");
@@ -389,8 +390,15 @@ describe("equity cover (#86, option A)", () => {
     assert.equal(q(q(el, "pf-rates"), "pf-error").textContent, "Enter a percent from 0 to 100.");
     assert.equal(q(el, "pf-withdrawal").getAttribute("aria-invalid"), "true");
     assert.equal(text(el, "pf-rate-used"), "—");
-    // Empty withdrawal → ROIC ÷ 2 again.
+    // Empty withdrawal → ROIC ÷ 2. Q11: ROIC above 100 is valid; negative is not.
     await type(q(el, "pf-withdrawal"), "");
+    await type(q(el, "pf-roic"), "150");
+    assert.equal(text(el, "pf-rate-used"), "75%");
+    assert.equal(qa(q(el, "pf-rates"), "pf-error").length, 0);
+    await type(q(el, "pf-roic"), "-8");
+    assert.equal(q(q(el, "pf-rates"), "pf-error").textContent, "Enter a number, 0 or more.");
+    assert.equal(text(el, "pf-rate-used"), "—");
+    await type(q(el, "pf-roic"), "8");
     assert.equal(text(el, "pf-rate-used"), "4%");
     // Override (Q3): Rent typed 250,000 wins on its line only.
     await type(q(rent, "pf-equity"), "250,000");
@@ -400,7 +408,7 @@ describe("equity cover (#86, option A)", () => {
     assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"], "cleared: calculated again");
     await type(q(rent, "pf-equity"), "abc");
     assert.equal(q(rent, "pf-error").textContent, "Enter a number, 0 or more.");
-    assert.deepEqual(totals(el), ["75,000", "30,000", "105,000"], "a bad override counts as 0");
+    assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"], "Q9: a bad override falls back");
     await type(q(rent, "pf-equity"), "250,000");
     // Storage: three keys; the rates as typed.
     assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(EQUITY_KEY)!), {

@@ -489,7 +489,12 @@ function TotalRow({
       {value("share", "% of expenses", formatShare(totals.monthly, whole), "share")}
       {value("monthly", "Monthly", formatAmount(totals.monthly), "monthly")}
       {value("yearly", "Yearly", formatAmount(totals.yearly), "yearly")}
-      {value("equity", "Equity to cover", formatAmount(totals.equity), "equity")}
+      {value(
+        "equity",
+        "Equity to cover",
+        totals.equity === null ? NOT_COMPUTED : formatAmount(totals.equity),
+        "equity",
+      )}
     </div>
   );
 }

@@ -81,6 +81,8 @@ affects the repo.
   placeholder; a typed value overrides it (Q3, implemented; v1.1 values carry over as overrides); totals add the
   override or the calculated amount; key `orpheus.finance.equity.v1` (`src/lib/finance/equity.ts`,
   `equity-rates.tsx`). Don't halve a typed withdrawal rate or divide a monthly amount by a yearly rate.
+  EL Q9–Q11 (≈ 14:12 ET): a bad override falls back to the calculated amount; no usable rate → `—` for a line
+  without a valid override and for any total containing it; ROIC 0 or more with no cap (withdrawal rate 0–100).
   Page-only classes `.pf-*`.
   Reached by URL only (EL, Q1 (d)): don't add a bar item (ST1-01 three items) or a home line (ST3-03 two).
   Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that

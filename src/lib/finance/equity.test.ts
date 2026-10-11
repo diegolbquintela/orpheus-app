@@ -62,8 +62,11 @@ describe("personal finance equity cover (#86, option A, PF-17..20)", () => {
     assert.equal(rateUsed(rates("0", "8")), null, "a typed 0 is no rate (it still wins)");
     assert.equal(rateUsed(rates("", "0")), null);
     assert.equal(rateUsed(rates("abc", "8")), null, "a bad withdrawal rate reads as 0");
-    assert.equal(rateUsed(rates("120", "")), null, "out of range reads as 0");
-    assert.equal(rateUsed(rates("", "-8")), null);
+    assert.equal(rateUsed(rates("120", "")), null, "a withdrawal rate above 100 is invalid");
+    assert.equal(rateUsed(rates("", "-8")), null, "a negative ROIC is invalid");
+    assert.equal(rateUsed(rates("", "abc")), null);
+    assert.equal(rateUsed(rates("", "150")), 75, "Q11: ROIC may exceed 100");
+    assert.equal(rateUsed(rates("", "250")), 125);
   });
 
   it("formats the rate used", () => {
@@ -89,18 +92,23 @@ describe("personal finance equity cover (#86, option A, PF-17..20)", () => {
     assert.equal(calculatedEquity(line({ amount: "abc" }), 4), 0, "a bad amount counts as 0");
   });
 
-  it("override (Q3): a typed value wins on its line; blank uses the calculated amount; bad counts as 0", () => {
+  it("override (Q3): a valid typed value wins; blank or bad (Q9) uses the calculated amount; no rate → null (Q10)", () => {
     assert.equal(hasOverride(line({ equity: "250,000" })), true);
     assert.equal(hasOverride(line({ equity: "0" })), true);
     assert.equal(hasOverride(line({ equity: "  " })), false);
+    assert.equal(hasOverride(line({ equity: "abc" })), false, "a bad override is not an override");
+    assert.equal(hasOverride(line({ equity: "-3" })), false);
     assert.equal(equityOf(line({ equity: "250,000" }), 4), 250000);
     assert.equal(equityOf(line({ equity: "0" }), 4), 0);
     assert.equal(equityOf(line({ equity: "  " }), 4), 300000);
-    assert.equal(equityOf(line({ equity: "abc" }), 4), 0);
-    assert.equal(equityOf(line(), null), 0, "no override and no rate adds 0");
+    assert.equal(equityOf(line({ equity: "abc" }), 4), 300000, "Q9: a bad override falls back");
+    assert.equal(equityOf(line({ equity: "-3" }), 4), 300000);
+    assert.equal(equityOf(line(), null), null, "Q10: no override and no rate → —");
+    assert.equal(equityOf(line({ equity: "abc" }), null), null);
+    assert.equal(equityOf(line({ equity: "250,000" }), null), 250000);
   });
 
-  it("totals sum each line's override or calculated amount (PF-19)", () => {
+  it("totals sum each line's override or calculated amount; — when any line is — (PF-19, Q10)", () => {
     const withOverride: Expenses = {
       ...example,
       fixed: [line({ id: "r", equity: "250,000" }), example.fixed[1]],
@@ -116,8 +124,24 @@ describe("personal finance equity cover (#86, option A, PF-17..20)", () => {
       equity: 30000,
     });
     assert.equal(grandTotals(withOverride, 4).equity, 355000);
-    assert.equal(grandTotals(withOverride, null).equity, 250000, "no rate: the overrides only");
-    assert.equal(grandTotals(withOverride).equity, 250000, "v1.2 call sites: no rate");
+    assert.equal(
+      totalsOf(withOverride.fixed, null).equity,
+      null,
+      "no rate: Phone is —, so the total is —",
+    );
+    assert.equal(grandTotals(withOverride, null).equity, null);
+    assert.equal(grandTotals(withOverride).equity, null);
+    assert.equal(
+      totalsOf([line({ equity: "250,000" })], null).equity,
+      250000,
+      "all overridden: the sum",
+    );
+    assert.equal(totalsOf([], null).equity, 0, "no lines: 0");
+    const bad: Expenses = {
+      ...example,
+      fixed: [line({ id: "r", equity: "abc" }), example.fixed[1]],
+    };
+    assert.equal(totalsOf(bad.fixed, 4).equity, 375000, "Q9: Rent abc falls back to 300,000");
   });
 
   it("stores the rates as typed in their own key; malformed reads as both empty", () => {
