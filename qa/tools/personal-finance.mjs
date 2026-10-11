@@ -1,5 +1,5 @@
-// Personal finance page (#84 v1.1, #85 v1.2 income; spec attachments/personal-finance-spec.md PF-01..16, plus the
-// lyre ST1-05) in a
+// Personal finance page (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover; spec attachments/personal-finance-spec.md
+// PF-01..20, plus the lyre ST1-05) in a
 // real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900, signed out. Everything it types stays in that
 // browser context's localStorage (no server write exists), so it is safe on any host.
 //
@@ -22,8 +22,11 @@
 //   PF-11 income copy; PF-12 people (add / remove, defaults, field checks); PF-13 net per person; PF-14 counted +
 //         share (own bonus excluded, spouse 80%); PF-15 income table (biweekly = yearly ÷ 26); PF-16 % of income
 //         follows every income change, income restored from orpheus.finance.income.v1 (malformed → no people)
+//   PF-17 equity-cover copy (the two rates, Rate used); PF-18 formula A (ROIC 8 → 4% → Rent 300,000; withdrawal 5
+//         wins; a typed 4 is 4%; 0 → —; the percent check); PF-19 the override (placeholder = calculated, typed
+//         wins, cleared → calculated, totals); PF-20 rates restored from orpheus.finance.equity.v1, layout
 //   PF-10 is the other tools' job (site-style-regression.mjs runs them all, site.mjs the $313,000).
-// Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png.
+// Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-equity-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png.
 //   node qa/tools/personal-finance.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -46,6 +49,7 @@ const VIEWPORTS = [
 const PATH = "/personal-finance";
 const KEY = "orpheus.finance.expenses.v1";
 const INCOME_KEY = "orpheus.finance.income.v1";
+const EQUITY_KEY = "orpheus.finance.equity.v1";
 const PERSON_COLUMNS = ["Name", "Wages (yearly)", "Bonus rating (%)", "Average tax (%)", "Net (yearly)", "Count wages", "Count bonus", "Share (%)"];
 const TABLE_COLUMNS = ["Income", "Biweekly", "Monthly", "Yearly"];
 const NIGHT = "rgb(30, 33, 36)";
@@ -82,6 +86,10 @@ const emptyTexts = (wide) => [
   ...(wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"]),
   "03",
   "Expenses",
+  "Withdrawal rate (%)",
+  "Portfolio ROIC (%)",
+  "Rate used",
+  "—",
   "Fixed",
   ...(wide ? COLUMNS : []),
   "↳ Add expense",
@@ -185,15 +193,16 @@ async function coldCls(browser, viewport, mobile, stored) {
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Network.enable");
   await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-  await page.addInitScript(([key, value, incomeKey, income]) => {
+  await page.addInitScript(([key, value, incomeKey, income, equityKey, equity]) => {
     if (value) localStorage.setItem(key, value);
     if (income) localStorage.setItem(incomeKey, income);
+    if (equity) localStorage.setItem(equityKey, equity);
     window.__shifts = [];
     new PerformanceObserver((list) => {
       for (const e of list.getEntries())
         window.__shifts.push({ value: e.value, sources: (e.sources ?? []).map((s) => (s.node?.textContent ?? s.node?.nodeName ?? "").slice(0, 30)) });
     }).observe({ type: "layout-shift", buffered: true });
-  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null]);
+  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null, EQUITY_KEY, stored ? STORED_RATES : null]);
   await page.goto(`${base}${PATH}`, { waitUntil: "load" });
   await page.waitForTimeout(1500);
   const m = await page.evaluate(() => ({ shifts: window.__shifts, lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length }));
@@ -207,6 +216,7 @@ const STORED_INCOME = JSON.stringify({
     { id: "s1", name: "Spouse", wages: "80,000", bonus: "5", tax: "25", share: "80", countWages: true, countBonus: true },
   ],
 });
+const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
 const STORED = JSON.stringify({
   fixed: [
     { id: "q1", name: "Rent", amount: "1,000", per: "month", equity: "300,000", account: "Chequing" },
@@ -289,7 +299,7 @@ try {
       const [rent, phone, gifts] = [line(page, "fixed", 0), line(page, "fixed", 1), line(page, "variable", 0)];
       await rent.getByTestId("pf-name").fill("Rent");
       await rent.getByTestId("pf-monthly").fill("1,000");
-      await rent.getByTestId("pf-equity").fill("300,000");
+      await rent.getByTestId("pf-equity").fill("250,000");
       await phone.getByTestId("pf-name").fill("Phone");
       await phone.getByTestId("pf-monthly").fill("250");
       await gifts.getByTestId("pf-name").fill("Gifts");
@@ -304,7 +314,42 @@ try {
       const incomes = await page.locator("[data-testid=pf-income], [data-testid=pf-total-income]").allTextContents();
       check(`${tag} PF-04 % of expenses per line (74.1 / 18.5 / 7.4); % of income — everywhere while there is no income`, JSON.stringify(shares) === JSON.stringify(["74.1%", "18.5%", "7.4%"]) && incomes.length === 6 && incomes.every((t) => t.trim() === "—"), { shares, incomes });
       const t = { fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all") };
-      check(`${tag} PF-05 totals: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200 (100.0%), equity summed`, JSON.stringify(t) === JSON.stringify({ fixed: ["92.6%", "—", "1,250", "15,000", "300,000"], variable: ["7.4%", "—", "100", "1,200", "0"], all: ["100.0%", "—", "1,350", "16,200", "300,000"] }), t);
+      check(`${tag} PF-05 totals: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200 (100.0%); no rate: equity = the override only`, JSON.stringify(t) === JSON.stringify({ fixed: ["92.6%", "—", "1,250", "15,000", "250,000"], variable: ["7.4%", "—", "100", "1,200", "0"], all: ["100.0%", "—", "1,350", "16,200", "250,000"] }), t);
+
+      // PF-17..20 equity cover (#86, option A).
+      const eqTotals = async () => [await txt(page.locator("[data-testid=pf-total-fixed] [data-testid=pf-total-equity]")), await txt(page.locator("[data-testid=pf-total-variable] [data-testid=pf-total-equity]")), await txt(page.locator("[data-testid=pf-total-all] [data-testid=pf-total-equity]"))];
+      const holders = () => page.locator("[data-testid=pf-equity]").evaluateAll((f) => f.map((e) => e.placeholder));
+      const used = () => txt(page.getByTestId("pf-rate-used"));
+      const [wd, roic] = [page.getByTestId("pf-withdrawal"), page.getByTestId("pf-roic")];
+      const rateLabels = await page.getByTestId("pf-rates").evaluate((r) => [...r.querySelectorAll(".pf-label")].map((l) => ({ t: l.textContent.trim(), vis: l.getBoundingClientRect().width > 1 })));
+      const names = [await wd.evaluate((e) => e.labels?.[0]?.textContent), await roic.evaluate((e) => e.labels?.[0]?.textContent)];
+      check(`${tag} PF-17 Withdrawal rate (%) / Portfolio ROIC (%) inputs with visible labels, Rate used —, before Fixed`, JSON.stringify(rateLabels) === JSON.stringify([{ t: "Withdrawal rate (%)", vis: true }, { t: "Portfolio ROIC (%)", vis: true }, { t: "Rate used", vis: true }]) && JSON.stringify(names) === '["Withdrawal rate (%)","Portfolio ROIC (%)"]' && (await used()) === "—" && (await page.getByTestId("pf-rates").evaluate((r) => !!(r.compareDocumentPosition(document.querySelector("[data-testid=pf-group-fixed]")) & Node.DOCUMENT_POSITION_FOLLOWING))), { rateLabels, names });
+      const h0 = await holders();
+      await roic.fill("8");
+      const a8 = { used: await used(), holders: await holders(), totals: await eqTotals() };
+      await wd.fill("5");
+      const a5 = { used: await used(), holders: await holders(), totals: await eqTotals() };
+      await wd.fill("4");
+      const a4 = { used: await used(), rent: (await holders())[0] };
+      await wd.fill("0");
+      const a0 = { used: await used(), holders: await holders() };
+      check(`${tag} PF-18 no rate → —; ROIC 8 → 4%: Rent 1,000/mo → 300,000, 75,000, 30,000; withdrawal 5 wins → 240,000 / 60,000 / 24,000; a typed 4 is 4%; 0 → —`, JSON.stringify(h0) === '["—","—","—"]' && JSON.stringify(a8) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"] }) && JSON.stringify(a5) === JSON.stringify({ used: "5%", holders: ["240,000", "60,000", "24,000"], totals: ["310,000", "24,000", "334,000"] }) && JSON.stringify(a4) === JSON.stringify({ used: "4%", rent: "300,000" }) && JSON.stringify(a0) === JSON.stringify({ used: "—", holders: ["—", "—", "—"] }), { h0, a8, a5, a4, a0 });
+      await wd.fill("150");
+      const rErr = { text: await txt(page.getByTestId("pf-rates").getByTestId("pf-error")), invalid: await wd.getAttribute("aria-invalid"), color: await page.getByTestId("pf-rates").getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), used: await used() };
+      await wd.fill("");
+      check(`${tag} PF-17 a bad rate: \`Enter a percent from 0 to 100.\` (alert, aria-invalid), Rate used —; cleared → ROIC ÷ 2 again`, JSON.stringify(rErr) === JSON.stringify({ text: "Enter a percent from 0 to 100.", invalid: "true", color: ALERT, used: "—" }) && (await used()) === "4%" && (await page.getByTestId("pf-rates").getByTestId("pf-error").count()) === 0, rErr);
+      const ph = await rent.getByTestId("pf-equity").evaluate((e) => getComputedStyle(e, "::placeholder").color);
+      await rent.getByTestId("pf-equity").fill("");
+      const cleared = { rent: await val(rent.getByTestId("pf-equity")), holder: (await holders())[0], totals: await eqTotals() };
+      await rent.getByTestId("pf-equity").fill("250,000");
+      const typed = { rent: await val(rent.getByTestId("pf-equity")), totals: await eqTotals() };
+      check(`${tag} PF-19 override: typed 250,000 wins on Rent (Fixed 325,000, Total 355,000); cleared → the calculated 300,000 (Fixed 375,000); placeholder dim (${ratio(rgb(DIM), rgb(NIGHT))}:1)`, ph === DIM && JSON.stringify(cleared) === JSON.stringify({ rent: "", holder: "300,000", totals: ["375,000", "30,000", "405,000"] }) && JSON.stringify(typed) === JSON.stringify({ rent: "250,000", totals: ["325,000", "30,000", "355,000"] }), { ph, cleared, typed });
+      const rb = { wd: await box(wd), roic: await box(roic), used: await box(page.getByTestId("pf-rate-used")) };
+      check(`${tag} PF-20 ${wide ? "wide: the three rate cells in one row" : "phone: the rate cells stacked full width"}`, wide ? rb.wd.y === rb.roic.y && rb.roic.x > rb.wd.x && rb.used.x > rb.roic.x && rb.wd.h >= 44 : rb.roic.y > rb.wd.y && rb.used.y > rb.roic.y && rb.wd.x === rb.roic.x && rb.wd.w === rb.roic.w && rb.wd.w >= viewport.width - 80, rb);
+      await page.evaluate(() => document.activeElement?.blur());
+      const shotQ = join(CFG.out, `pf-equity-${viewport.width}.png`);
+      await page.locator("section[aria-labelledby=pf-expenses]").screenshot({ path: shotQ });
+      R.shots.push(shotQ);
 
       // PF-11..16 income (#85): the spec example, then % of income on the lines above.
       await page.getByTestId("pf-add-person").click();
@@ -456,16 +501,17 @@ try {
       check(`${tag} PF-03 Remove expense removes the line`, (await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count()) === 1 && (await totals(page, "fixed"))[2] === "1,000");
 
       // PF-07 storage
-      const store = await page.evaluate(async ([key, incomeKey]) => ({
+      const store = await page.evaluate(async ([key, incomeKey, equityKey]) => ({
         keys: Object.keys(localStorage).sort(),
         value: JSON.parse(localStorage.getItem(key) ?? "null"),
         income: JSON.parse(localStorage.getItem(incomeKey) ?? "null"),
+        rates: JSON.parse(localStorage.getItem(equityKey) ?? "null"),
         session: sessionStorage.length,
         idb: indexedDB.databases ? (await indexedDB.databases()).length : 0,
-      }), [KEY, INCOME_KEY]);
+      }), [KEY, INCOME_KEY, EQUITY_KEY]);
       // Cookies on this host only (the builder's extensions script brings a third-party one of its own).
       const cookies = (await ctx.cookies(base)).filter((c) => !c.domain.endsWith("grok.com")).length;
-      check(`${tag} PF-07 the two localStorage keys only; typed values as typed; no sessionStorage / IndexedDB / cookie`, JSON.stringify(store.keys) === JSON.stringify([KEY, INCOME_KEY].sort()) && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.session === 0 && store.idb === 0 && cookies === 0, { ...store, cookies });
+      check(`${tag} PF-07 / PF-20 the three localStorage keys only; typed values as typed; no sessionStorage / IndexedDB / cookie`, JSON.stringify(store.keys) === JSON.stringify([KEY, INCOME_KEY, EQUITY_KEY].sort()) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.session === 0 && store.idb === 0 && cookies === 0, { ...store, cookies });
       await page.reload({ waitUntil: "networkidle" });
       await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
       const back = {
@@ -474,8 +520,9 @@ try {
         all: await totals(page, "all"),
         people: [await val(page.getByTestId("pf-person").nth(0).getByTestId("pf-person-name")), await page.getByTestId("pf-person").nth(0).getByTestId("pf-person-count-bonus").isChecked(), await val(page.getByTestId("pf-person").nth(1).getByTestId("pf-person-share"))],
         net: await txt(page.getByTestId("pf-net-income").getByTestId("pf-income-yearly")),
+        rates: [await val(page.getByTestId("pf-withdrawal")), await val(page.getByTestId("pf-roic")), await txt(page.getByTestId("pf-rate-used"))],
       };
-      check(`${tag} PF-07 / PF-16 a reload restores every line, typed value, account, selection and person`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "300,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100", "13,200", "300,000"], people: ["Me", false, "80"], net: "134,400" }), back);
+      check(`${tag} PF-07 / PF-16 / PF-20 a reload restores every line, typed value, account, selection, person and rate (Total equity 250,000 + 30,000)`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "250,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100", "13,200", "280,000"], people: ["Me", false, "80"], net: "134,400", rates: ["", "8", "4%"] }), back);
       check(`${tag} PF-07 no /api request; no page error`, api.length === 0 && errors.length === 0, { api, errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
@@ -484,12 +531,12 @@ try {
     }
 
     // PF-07 a new context starts empty; a malformed value shows the empty page without an error.
-    for (const [what, value] of [["a new browser context", null], ["malformed stored values (both keys)", "{not json"]]) {
+    for (const [what, value] of [["a new browser context", null], ["malformed stored values (all three keys)", "{not json"]]) {
       const c2 = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
       const p2 = await c2.newPage();
       const errs = [];
       p2.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
-      if (value) await p2.addInitScript(([k, ik, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); }, [KEY, INCOME_KEY, value]);
+      if (value) await p2.addInitScript(([k, ik, ek, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); localStorage.setItem(ek, v); }, [KEY, INCOME_KEY, EQUITY_KEY, value]);
       await p2.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await p2.locator("[data-testid=pf-area][data-ready=true]").waitFor();
       const n = await p2.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
@@ -502,7 +549,7 @@ try {
       const runs = [];
       for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(browser, viewport, mobile, stored));
       const worst = Math.max(...runs.map((r) => r.total));
-      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (3 lines, 2 people)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 5 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
+      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (3 lines, 2 people, rates)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 5 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
     }
   }
 } finally {

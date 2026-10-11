@@ -1,4 +1,4 @@
-// Personal finance page (#84, spec attachments/personal-finance-spec.md; PF-02..07) in jsdom with the real component.
+// Personal finance page (#84–#86, spec attachments/personal-finance-spec.md; PF-02..07, PF-11..20) in jsdom with the real component.
 import { dom } from "../../test/dom-setup";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
@@ -6,6 +6,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { STORAGE_KEY } from "@/lib/finance/expenses";
 import { INCOME_KEY } from "@/lib/finance/income";
+import { EQUITY_KEY } from "@/lib/finance/equity";
 import { PersonalFinancePage } from "./expenses-page";
 
 let root: Root | undefined;
@@ -322,5 +323,121 @@ describe("income block (#85)", () => {
     const el = await render();
     assert.equal(people(el).length, 0);
     assert.equal(q(el, "pf-area").getAttribute("data-ready"), "true");
+  });
+});
+
+describe("equity cover (#86, option A)", () => {
+  const totals = (el: HTMLElement) =>
+    ["fixed", "variable", "all"].map((g) => text(q(el, `pf-total-${g}`), "pf-total-equity"));
+  const holders = (el: HTMLElement) =>
+    qa(el, "pf-equity").map((f) => (f as HTMLInputElement).placeholder);
+
+  it("copy: the two rate fields with visible labels and Rate used — before Fixed (PF-17)", async () => {
+    const el = await render();
+    const rates = q(el, "pf-rates");
+    assert.deepEqual(
+      [...rates.querySelectorAll(".pf-label")].map((l) => l.textContent),
+      ["Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used"],
+    );
+    for (const id of ["pf-withdrawal", "pf-roic"]) {
+      const input = q(rates, id) as HTMLInputElement;
+      assert.equal(input.value, "");
+      assert.equal(
+        input.labels?.[0]?.textContent,
+        id === "pf-withdrawal" ? "Withdrawal rate (%)" : "Portfolio ROIC (%)",
+      );
+    }
+    assert.equal(text(rates, "pf-rate-used"), "—");
+    assert.ok(
+      rates.compareDocumentPosition(q(el, "pf-group-fixed")) &
+        dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+      "the rates sit before Fixed",
+    );
+    assert.equal(dom.window.localStorage.getItem(EQUITY_KEY), null);
+  });
+
+  it("formula A, the override, totals, storage and reload (PF-18..20)", async () => {
+    const el = await render();
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-variable"));
+    const [rent, phone] = lines(el, "fixed");
+    const [gifts] = lines(el, "variable");
+    await type(q(rent, "pf-monthly"), "1,000");
+    await type(q(phone, "pf-monthly"), "250");
+    await type(q(gifts, "pf-yearly"), "1,200");
+    assert.deepEqual(holders(el), ["—", "—", "—"], "no rate: —");
+    assert.deepEqual(totals(el), ["0", "0", "0"]);
+    // ROIC 8 → 4%: Rent 1,000 a month → 300,000.
+    await type(q(el, "pf-roic"), "8");
+    assert.equal(text(el, "pf-rate-used"), "4%");
+    assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
+    assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"]);
+    // Withdrawal rate 5 wins, used as typed.
+    await type(q(el, "pf-withdrawal"), "5");
+    assert.equal(text(el, "pf-rate-used"), "5%");
+    assert.deepEqual(holders(el), ["240,000", "60,000", "24,000"]);
+    // A typed 4 is 4% (never halved).
+    await type(q(el, "pf-withdrawal"), "4");
+    assert.equal(text(el, "pf-rate-used"), "4%");
+    assert.equal(holders(el)[0], "300,000");
+    // 0 → —; a bad rate → the check and —.
+    await type(q(el, "pf-withdrawal"), "0");
+    assert.equal(text(el, "pf-rate-used"), "—");
+    assert.deepEqual(holders(el), ["—", "—", "—"]);
+    await type(q(el, "pf-withdrawal"), "150");
+    assert.equal(q(q(el, "pf-rates"), "pf-error").textContent, "Enter a percent from 0 to 100.");
+    assert.equal(q(el, "pf-withdrawal").getAttribute("aria-invalid"), "true");
+    assert.equal(text(el, "pf-rate-used"), "—");
+    // Empty withdrawal → ROIC ÷ 2 again.
+    await type(q(el, "pf-withdrawal"), "");
+    assert.equal(text(el, "pf-rate-used"), "4%");
+    // Override (Q3): Rent typed 250,000 wins on its line only.
+    await type(q(rent, "pf-equity"), "250,000");
+    assert.equal((q(rent, "pf-equity") as HTMLInputElement).value, "250,000");
+    assert.deepEqual(totals(el), ["325,000", "30,000", "355,000"]);
+    await type(q(rent, "pf-equity"), "");
+    assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"], "cleared: calculated again");
+    await type(q(rent, "pf-equity"), "abc");
+    assert.equal(q(rent, "pf-error").textContent, "Enter a number, 0 or more.");
+    assert.deepEqual(totals(el), ["75,000", "30,000", "105,000"], "a bad override counts as 0");
+    await type(q(rent, "pf-equity"), "250,000");
+    // Storage: three keys; the rates as typed.
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(EQUITY_KEY)!), {
+      withdrawal: "",
+      roic: "8",
+    });
+    assert.deepEqual(
+      Object.keys(dom.window.localStorage).sort(),
+      [EQUITY_KEY, STORAGE_KEY].sort(),
+      "income untouched: not written",
+    );
+    await act(async () => root!.unmount());
+    container!.remove();
+    const again = await render();
+    assert.equal((q(again, "pf-roic") as HTMLInputElement).value, "8");
+    assert.equal(text(again, "pf-rate-used"), "4%");
+    assert.deepEqual(totals(again), ["325,000", "30,000", "355,000"]);
+  });
+
+  it("a v1.1 / v1.2 line with a typed amount restores as an override; malformed rates read as empty", async () => {
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        fixed: [
+          { id: "r", name: "Rent", amount: "1,000", per: "month", equity: "10,000", account: "" },
+        ],
+        variable: [],
+        accounts: [],
+      }),
+    );
+    dom.window.localStorage.setItem(EQUITY_KEY, "{broken");
+    const el = await render();
+    const [rent] = lines(el, "fixed");
+    assert.equal((q(rent, "pf-equity") as HTMLInputElement).value, "10,000");
+    assert.equal(text(el, "pf-rate-used"), "—");
+    await type(q(el, "pf-roic"), "8");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "10,000", "the override stays");
+    assert.equal((q(rent, "pf-equity") as HTMLInputElement).placeholder, "300,000");
   });
 });

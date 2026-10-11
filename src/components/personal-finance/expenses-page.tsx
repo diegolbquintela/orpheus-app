@@ -5,6 +5,7 @@ import {
   ACCOUNTS_MAX,
   addAccount,
   AMOUNT_ERROR,
+  calculatedEquity,
   COLUMNS,
   type Expenses,
   fieldText,
@@ -32,6 +33,8 @@ import {
   readIncome,
   writeIncome,
 } from "@/lib/finance/income";
+import { type Rates, rateUsed, readRates, writeRates } from "@/lib/finance/equity";
+import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { Cell, SectionHead } from "./pf-cells";
 
@@ -46,18 +49,21 @@ function storage(): Storage | null {
 }
 
 /**
- * Personal finance (#84 v1.1, #85 v1.2; spec `attachments/personal-finance-spec.md`, PF-01..16): the income block
- * and Fixed and Variable expenses, in this browser's localStorage only (two keys). The server renders the title
+ * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3; spec `attachments/personal-finance-spec.md`, PF-01..20): the
+ * income block, the equity-cover rates and Fixed and Variable expenses, in this browser's localStorage only (three
+ * keys). The server renders the title
  * and an empty area at least the viewport tall; the browser fills it once after reading storage, so nothing on
  * screen moves (strict CLS 0).
  */
 export function PersonalFinancePage() {
   const [expenses, setExpenses] = useState<Expenses | null>(null);
   const [income, setIncome] = useState<Income | null>(null);
+  const [rates, setRates] = useState<Rates | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
 
   useEffect(() => {
     setIncome(readIncome(storage()));
+    setRates(readRates(storage()));
     setExpenses(readExpenses(storage()));
   }, []);
 
@@ -66,6 +72,15 @@ export function PersonalFinancePage() {
       if (!current) return current;
       const next = change(current);
       writeIncome(storage(), next);
+      return next;
+    });
+  }
+
+  function updateRates(patch: Partial<Rates>) {
+    setRates((current) => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      writeRates(storage(), next);
       return next;
     });
   }
@@ -93,16 +108,18 @@ export function PersonalFinancePage() {
         <div
           className="pf-area flex flex-col gap-14 lg:gap-16"
           data-testid="pf-area"
-          data-ready={expenses && income ? "true" : "false"}
+          data-ready={expenses && income && rates ? "true" : "false"}
         >
-          {expenses && income ? (
+          {expenses && income && rates ? (
             <>
               <IncomeBlock income={income} update={updateIncome} />
               <section className="flex flex-col gap-8" aria-labelledby="pf-expenses">
                 <SectionHead numeral="03" title="Expenses" id="pf-expenses" />
+                <EquityRates rates={rates} update={updateRates} />
                 <div className="flex flex-col gap-12">
                   <Groups
                     expenses={expenses}
+                    rate={rateUsed(rates)}
                     incomeMonthly={monthly(netIncomeYearly(income.people))}
                     adding={adding}
                     setAdding={setAdding}
@@ -121,6 +138,7 @@ export function PersonalFinancePage() {
 
 function Groups({
   expenses,
+  rate,
   incomeMonthly,
   adding,
   setAdding,
@@ -128,6 +146,8 @@ function Groups({
   updateLine,
 }: {
   expenses: Expenses;
+  /** The rate used (#86), a percent, or null: each line's calculated `Equity to cover` divides by it. */
+  rate: number | null;
   /** The counted net income a month (#85); `% of income` divides by it, `—` at 0. */
   incomeMonthly: number;
   adding: string | null;
@@ -135,7 +155,7 @@ function Groups({
   update: (change: (current: Expenses) => Expenses) => void;
   updateLine: (group: GroupKey, id: string, patch: Partial<Line>) => void;
 }) {
-  const grand = grandTotals(expenses);
+  const grand = grandTotals(expenses, rate);
   return (
     <>
       {GROUPS.map((group) => {
@@ -163,6 +183,7 @@ function Groups({
                 accounts={expenses.accounts}
                 share={formatShare(monthlyOf(line), grand.monthly)}
                 ofIncome={formatShare(monthlyOf(line), incomeMonthly)}
+                calculated={calculatedEquity(line, rate)}
                 adding={adding === line.id}
                 setAdding={setAdding}
                 onChange={(patch) => updateLine(group.key, line.id, patch)}
@@ -199,7 +220,7 @@ function Groups({
             </button>
             <TotalRow
               label={group.total}
-              totals={totalsOf(lines)}
+              totals={totalsOf(lines, rate)}
               whole={grand.monthly}
               incomeMonthly={incomeMonthly}
               testId={group.key}
@@ -225,6 +246,7 @@ function LineRow({
   accounts,
   share,
   ofIncome,
+  calculated,
   adding,
   setAdding,
   onChange,
@@ -237,6 +259,8 @@ function LineRow({
   accounts: string[];
   share: string;
   ofIncome: string;
+  /** The calculated `Equity to cover` (#86), shown as the field's placeholder while no override is typed. */
+  calculated: number | null;
   adding: boolean;
   setAdding: (id: string | null) => void;
   onChange: (patch: Partial<Line>) => void;
@@ -301,6 +325,7 @@ function LineRow({
       <Cell label="Equity to cover" area="equity" control>
         <input
           value={line.equity}
+          placeholder={calculated === null ? NOT_COMPUTED : formatAmount(calculated)}
           onChange={(event) => onChange({ equity: event.target.value })}
           inputMode="decimal"
           autoComplete="off"

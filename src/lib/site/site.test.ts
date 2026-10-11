@@ -313,7 +313,7 @@ describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
     assert.match(css, /body\.scheme-dark \{\s*font-feature-settings: "zero" on;\s*\}/);
     for (const m of css.matchAll(/\n {2}(\.(?:calc|home|signin|pf)[^{]*)\{([^}]*)\}/g))
       assert.doesNotMatch(m[2], /tabular-nums|"tnum"/, m[1]);
-    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx", "src/components/personal-finance/expenses-page.tsx", "src/components/personal-finance/income-block.tsx"])
+    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx", "src/components/personal-finance/expenses-page.tsx", "src/components/personal-finance/income-block.tsx", "src/components/personal-finance/equity-rates.tsx"])
       assert.doesNotMatch(readFileSync(f, "utf8"), /tabular-nums/, f);
   });
 
@@ -367,8 +367,10 @@ describe("personal finance route (#84)", () => {
       "src/components/personal-finance/expenses-page.tsx",
       "src/components/personal-finance/income-block.tsx",
       "src/components/personal-finance/pf-cells.tsx",
+      "src/components/personal-finance/equity-rates.tsx",
       "src/lib/finance/expenses.ts",
       "src/lib/finance/income.ts",
+      "src/lib/finance/equity.ts",
     ]) {
       const text = readFileSync(f, "utf8");
       assert.doesNotMatch(text, /fetch\(|\/api\/|document\.cookie|sessionStorage|indexedDB/, f);
@@ -376,7 +378,7 @@ describe("personal finance route (#84)", () => {
   });
 
   it("page-only classes: never the shared .field / .kicker / .section (Q10)", () => {
-    const page = ["expenses-page", "income-block", "pf-cells"]
+    const page = ["expenses-page", "income-block", "pf-cells", "equity-rates"]
       .map((f) => readFileSync(`src/components/personal-finance/${f}.tsx`, "utf8"))
       .join("\n");
     for (const m of page.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g))
