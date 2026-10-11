@@ -85,7 +85,7 @@ affects the repo.
   without a valid override and for any total containing it; ROIC 0 or more with no cap (withdrawal rate 0–100).
   Page-only classes `.pf-*`.
   First-class since #97 (Q1 (d) superseded): the bar's fourth item `Personal finance` (current on this page,
-  ST1-01 / ST1-02) and the third home line (ST3-03); the URL still works. Bar text is 12 px below 640 px (Q21).
+  ST1-01 / ST1-02) and the third home line (ST3-03); the URL still works. Bar text is 12 px below 640 px (Q21, EL-decided).
   Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
   QA: `qa/tools/personal-finance.mjs`.

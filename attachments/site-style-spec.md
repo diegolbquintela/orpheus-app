@@ -29,6 +29,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-11, ≈ 12:05 ET | **EL answers on #84 (PR #88 at `f067c84`; docs-only commit, no code change):** `/personal-finance` is reached by URL only (Q1 (d)): **ST1-01 stays exactly three bar items** and **home stays the hero + two Platforms lines (ST3-03)**. Amounts unitless until #87 (Q2); a typed `Equity to cover` overrides #86's calculated amount (Q3, for #86); `__grok/icon-180.png` untouched, Grok builder assets out of scope for #84 (Q4). Details: `attachments/personal-finance-spec.md`. |
 | 2026-10-11, ≈ 12:55 ET | **#85 kickoff (Diego via CoS; EL):** the income block on `/personal-finance` (personal-finance spec section 12, PF-11..16): same page and shell rules; bar three items, home two lines, the lyre and CLS 0 unchanged. |
 | 2026-10-11, ≈ 15:15 ET | **#97 kickoff (Diego via CoS; EL; approved home layout on the issue):** Personal Finance becomes first-class. **Bar (every page):** the lyre + `Orpheus` left (→ `/`); text links right, in order, `Calculator`, `Dashboard`, `Personal finance` (→ `/calculator`, `/dashboard`, `/personal-finance`); no icons (the lyre stays decorative in the Orpheus link); current underlined (`/personal-finance` → `Personal finance`); ≥ 44 px taps; bar ≤ 48 px; charcoal / off-white, no gold. **Supersedes** ST1-01's three items and personal-finance Q1 (d) (URL only; the URL still works). **Home 02 Platforms:** exactly three full-width rows, thin rules, no boxes, the issue's copy: `Calculator` · `Dollar-cost average calculator.`; `Dashboard` · `The portfolio as a business.`; `Personal finance` · `Income, expenses, and the cover.`; each `Open`. Hero 01 unchanged; footer `Orpheus Wisdom`. To fit four items on one line at 360 px (14 px text needs ≈ 374 px of content), the bar's text is 12 px with 8 px between the right links below 640 px (14 px and 24 px from 640) (Q21). The `/personal-finance` page itself unchanged. Not started: #87, #94, #98, #71 (on hold). |
+| 2026-10-11, ≈ 15:42 ET | **EL answers on #97 (PR #99 at `fdeaa40`; docs-only commit, no code change):** **Q21** accepted as built: below 640 px the bar text is 12 px with the right links 8 px apart so all four items fit on one line; from 640 px 14 px, 24 px apart. Keep the word `Orpheus` (not lyre-only on a phone); no sideways-scrolling bar. **Q22** accepted as built: the home Dashboard line stays the issue's wording `The portfolio as a business.` (not the longer live sentence). ST1-01 / ST3-03 notes, section 12, Landed and the AC pack updated. |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -97,7 +98,7 @@ stays as briefed. Section 7a.
 | Home line (`h1`) | `Investment driven by research.` |
 | Home Platforms section (Q11) | `02`, `Platforms` |
 | Home Platforms line 1 (→ `/calculator`) | `Calculator`, `Dollar-cost average calculator.`, `Open` |
-| Home Platforms line 2 (→ `/dashboard`) | `Dashboard`, `The portfolio as a business.`, `Open` (#97, the approved layout's copy; was `The portfolio as a business: fundamentals for each name, and the whole.`; Q22) |
+| Home Platforms line 2 (→ `/dashboard`) | `Dashboard`, `The portfolio as a business.`, `Open` (#97, the approved layout's copy; was `The portfolio as a business: fundamentals for each name, and the whole.`; Q22, decided by EL: keep the issue's wording) |
 | Home Platforms line 3 (→ `/personal-finance`; #97) | `Personal finance`, `Income, expenses, and the cover.`, `Open` |
 | Calculator listings note (unchanged) | `US, EU and CA listings, one currency per basket.` |
 | Calculator result plans (#78) | `Lump sum`, `DCA` |
@@ -161,7 +162,8 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   text and underline where they were), so the bar stays 45 px (44 + the 1 px `hair` rule) and ≤ 48 px (ST1-01).
   **Four items on a phone (#97, Q21):** below 640 px the bar's text (`Orpheus` and the three links) is 12 px and the
   right links sit 8 px apart, so all four fit on one line at 360 px with the 20 px side padding (≈ 14 px left
-  between `Orpheus` and `Calculator`); from 640 px 14 px text, 24 px apart (as before).
+  between `Orpheus` and `Calculator`); from 640 px 14 px text, 24 px apart (as before). **Decided (EL, Q21):** keep
+  the word `Orpheus` on a phone (not lyre-only); no sideways-scrolling bar.
 - **Font (#72, Q16):** Schibsted Grotesk self-hosted from `public/fonts/schibsted-grotesk/` (the Google Fonts
   files, unmodified: upright and italic, latin and latin-ext, variable weight; SIL OFL 1.1, source and licence in
   `public/fonts/schibsted-grotesk/SOURCE.md` and `OFL.txt`), declared in `src/styles.css` with the same
@@ -417,7 +419,7 @@ has no hover rule.
 
 | ID | Pass when |
 |---|---|
-| ST1-01 | On every page (`/`, `/calculator`, `/dashboard`, `/dashboard/sign-in`, a 404) one thin charcoal bar (height ≤ 48 px), sticky on scroll: `Orpheus` (with the lyre) left (→ `/`), `Calculator`, `Dashboard` and `Personal finance` right (→ `/calculator`, `/dashboard`, `/personal-finance`), in that order, text only (no icons), no other items, no dropdowns; at 360 and 400 px all four fit on one line with no horizontal page scroll (#97; below 640 px 12 px text, Q21). On `/personal-finance` too. |
+| ST1-01 | On every page (`/`, `/calculator`, `/dashboard`, `/dashboard/sign-in`, a 404) one thin charcoal bar (height ≤ 48 px), sticky on scroll: `Orpheus` (with the lyre) left (→ `/`), `Calculator`, `Dashboard` and `Personal finance` right (→ `/calculator`, `/dashboard`, `/personal-finance`), in that order, text only (no icons), no other items, no dropdowns; at 360 and 400 px all four fit on one line with no horizontal page scroll (#97; Q21 decided: below 640 px 12 px text, right links 8 px apart; from 640 px 14 px, 24 px apart; the word `Orpheus` kept, no sideways scroll). On `/personal-finance` too. |
 | ST1-02 | The current page's item has `aria-current="page"` and a visible mark (chalk and underline; the others dim): exactly one item on `/` (Orpheus), `/calculator`, `/dashboard` and `/dashboard/sign-in` (Dashboard), `/personal-finance` (Personal finance, #97); none on a 404. |
 | ST1-03 | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
 | ST1-04 | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
@@ -429,7 +431,7 @@ has no hover rule.
 |---|---|
 | ST3-01 | Charcoal page in the dark shell; under the bar the Jordaens band (*Triumph of Frederick Henry, Prince of Orange*, 1652), `alt` naming it, no visible credit (Q5); source and licence recorded in the repo (`public/hero/home-SOURCE.md`); optimised (`srcset`, AVIF or WebP + JPEG; every file ≤ 300 KB and the largest file served at 1440 px on a 2x screen ≤ 300 KB), served from the app, explicit `width` and `height`. Layout shift measured as ST4-01 (`PerformanceObserver`, every entry counted, cold cache-disabled loads, several runs per width at 360, 400, 1024 and 1440): CLS from the hero = 0 and the page total = 0 (strict, since #72's self-hosted font) on every run. |
 | ST3-02 | `01` (small) and the `h1` `Investment driven by research.` sit lower left on the soft wash in plain type (site font, normal weight, no all caps or effects, ≤ 48 px at 1440 and ≤ 32 px on a phone; sizes in section 8); chalk on the wash ≥ 4.5:1 at the worst pixel. At 360, 400, 1024 and 1440 the prince and the horses are not covered by the text or the wash (with its soft edge). Protected: the prince and the four white chariot horses (with the dark head behind the leftmost); the brown horse on the far right is outside the box and may be partly cropped on phones (EL, 2026-10-10): their region is the figure box per crop in `src/lib/site/home-hero.ts` through the crop and `object-position`, checked by geometry and by a screenshot with both boxes outlined. |
-| ST3-03 | `02` `Platforms` follows with exactly the three lines of section 4 (#97; `Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business.` · `Open` → `/dashboard`; `Personal finance` · `Income, expenses, and the cover.` · `Open` → `/personal-finance`): full-width rows, a thin rule above each, no boxes (no border box, background or shadow), the same pattern for all three; nothing else between the bar and the footer (no #46 line, no cards). |
+| ST3-03 | `02` `Platforms` follows with exactly the three lines of section 4 (#97; `Calculator` · `Dollar-cost average calculator.` · `Open` → `/calculator`; `Dashboard` · `The portfolio as a business.` (Q22 decided: the issue's wording, not the longer live sentence) · `Open` → `/dashboard`; `Personal finance` · `Income, expenses, and the cover.` · `Open` → `/personal-finance`): full-width rows, a thin rule above each, no boxes (no border box, background or shadow), the same pattern for all three; nothing else between the bar and the footer (no #46 line, no cards). |
 | ST3-04 | Home does no calculating (no price requests, no calculator code) and `/?query` still redirects to `/calculator?query`; `noindex` meta and `X-Robots-Tag: noindex, nofollow` unchanged. |
 | ST3-05 | The wash box fully contains the bounding boxes of `01` and the title (element and text-line rects) at 360, 400, 1024 and 1440; it hugs the text, anchored lower left (≤ 12 px of padding a side on a phone, ≤ 24 px wide), and takes at most 50% of the band's height at 360 and 400 (as ST4-15). |
 | ST3-06 | Phone (360 and 400; phone rules below 1024 px): the phone crop in its band, `min(66.667vw, 480px)`: 240 px at 360, 267 px at 400 (Q17; the ≤ 200 px cap is calculator-only), the title three lines, the Platforms lines one column (name and `Open` on a row, the description under them), every text whole, no horizontal page scroll; the bar's four items on one line (ST1-01). Wide (1024, 1440): the wide crop, each Platforms line one row. |
@@ -575,14 +577,17 @@ assumed white.
   **Decided (EL, 2026-10-11, ≈ 09:29 ET):** the button is always visible, closed by default; the empty list
   reads `No saved searches yet.` Don't hide the button until a search exists.
 
-- **Q21. The bar on a phone (new, from #97).** Four text items at 14 px need ≈ 374 px of content at 360 px
+- **Q21. The bar on a phone (from #97). Decided (EL, 2026-10-11, ≈ 15:42 ET): as built.** Four text items at 14 px need ≈ 374 px of content at 360 px
   (`Orpheus` with the lyre 84 px, the links 69 + 71 + 110 px, measured), more than the 320 px between the paddings.
   Default (as built): below 640 px the bar's text is 12 px and the right links 8 px apart (one line, 44 px taps,
   bar 45 px, no icons, nothing hidden). Or keep 14 px and drop the word `Orpheus` on a phone (lyre only), or let the
   links scroll sideways?
-- **Q22. Home Dashboard line (new, from #97).** The approved layout's copy is `The portfolio as a business.`; the
+  **Decided:** 12 px / 8 px gaps below 640 px, 14 px / 24 px from 640; keep the word `Orpheus` (not lyre-only); no
+  sideways-scrolling bar.
+- **Q22. Home Dashboard line (from #97). Decided (EL, 2026-10-11, ≈ 15:42 ET): as built.** The approved layout's copy is `The portfolio as a business.`; the
   live line read `The portfolio as a business: fundamentals for each name, and the whole.` Default (as built,
   "build exactly"): the issue's shorter line. Or keep the live wording?
+  **Decided:** the issue's wording `The portfolio as a business.` stays (not the longer live sentence).
 
 ## 13. Landed
 
@@ -703,3 +708,6 @@ assumed white.
 - **#97, home + bar for Personal Finance (PR draft, 2026-10-11).** Bar: four items (`MENU_ITEMS`; `currentSection`
   marks `/personal-finance`), 12 px text below 640 px (Q21). Home: three Platforms lines (`HOME_PLATFORMS`), the
   approved copy. Hero, footer, the `/personal-finance` page and the dashboard unchanged.
+  - **EL answers (2026-10-11, ≈ 15:42 ET; docs-only commit, no code change):** Q21 and Q22 accepted as built (12 px /
+    8 px below 640, 14 px / 24 px from 640, the word `Orpheus` kept, no sideways scroll; Dashboard line `The
+    portfolio as a business.`).
