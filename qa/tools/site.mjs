@@ -93,23 +93,33 @@ for (const vp of ['desktop', 'mobile']) {
   };
   await fill({ rows: [['PLTR', 50], ['TQQQ', 50]], start: '2020-10-02', end: '2026-10-01', capital: 1000, contribution: 1000, frequency: 'weekly' });
   await page.waitForSelector('h2:has-text("Result")', { timeout: 90000 }); await page.waitForTimeout(1000);
-  // #70 (ST4-13: only how the value is found changes): label-value rows, `[data-key=invested]` with one `dd` per
-  // plan; before #70, the results table's "Total invested" row.
+  // ST4-13: only how the value is found changes. #78: plan columns, `[data-plan] [data-key=invested] dd`; #70: label-value
+  // rows `[data-testid=result-metric][data-key=invested]`; before #70, the results table's "Total invested" row.
+  const plansNow = page.locator('[data-testid="result-plan"] [data-testid="result-line"][data-key="invested"] dd');
   const rowsNow = page.locator('[data-testid="result-metric"][data-key="invested"] dd');
-  const invested = (await rowsNow.count())
-    ? await rowsNow.allTextContents()
-    : await page.locator('tr', { has: page.locator('th', { hasText: 'Total invested' }) }).first().locator('td').allTextContents();
-  const dcaInvested = (await rowsNow.count()) ? await page.locator('[data-testid="result-metric"][data-key="invested"] [data-plan="dca"] dd').innerText() : null;
+  const invested = (await plansNow.count())
+    ? await plansNow.allTextContents()
+    : (await rowsNow.count())
+      ? await rowsNow.allTextContents()
+      : await page.locator('tr', { has: page.locator('th', { hasText: 'Total invested' }) }).first().locator('td').allTextContents();
+  const dcaInvested = (await plansNow.count())
+    ? await page.locator('[data-testid="result-plan"][data-plan="dca"] [data-key="invested"] dd').innerText()
+    : (await rowsNow.count()) ? await page.locator('[data-testid="result-metric"][data-key="invested"] [data-plan="dca"] dd').innerText() : null;
   R.regression = { invested, dcaInvested };
   check('/calculator: PLTR/TQQQ weekly DCA total invested $313,000', invested.some((t) => t.trim() === '$313,000') && (dcaInvested === null || dcaInvested.trim() === '$313,000'), R.regression);
   await page.locator('section[aria-live]').screenshot({ path: `${OUT}/calculator-result.png` });
   api.length = 0;
   await fill({ rows: [['VOD.L', 100]], start: '2023-01-03', end: '2024-12-31', capital: 10000, contribution: 500, frequency: 'monthly' });
-  await page.waitForSelector('[role=alert]', { timeout: 60000 });
-  const alert = (await page.locator('[role=alert]').innerText()).trim();
+  // #78 (ST4-13 / ST4-17): the message sits under the VOD.L ticker field (`[data-testid=field-error][data-field=ticker-0]`);
+  // before #78, the one alert line under the listings note.
+  const underField = page.locator('[data-testid="basket-row"]').nth(0).locator('[data-testid="field-error"]');
+  await Promise.race([underField.waitFor({ timeout: 60000 }), page.waitForSelector('[role=alert]', { timeout: 60000 })]);
+  const marked = await underField.count();
+  const alert = (marked ? await underField.innerText() : await page.locator('[role=alert]').innerText()).trim();
+  const where = marked ? 'under the VOD.L field' : 'alert line';
   const vod = api.find((a) => a.url.includes('VOD.L'));
-  R.vod = { alert, status: vod?.status, body: vod?.body };
-  check('/calculator: VOD.L refused, HTTP 400 + exact message', alert === VOD_L && vod?.status === 400 && vod?.body?.error === VOD_L, R.vod);
+  R.vod = { alert, where, status: vod?.status, body: vod?.body };
+  check('/calculator: VOD.L refused, HTTP 400 + exact message (under its field since #78)', alert === VOD_L && vod?.status === 400 && vod?.body?.error === VOD_L, R.vod);
   await ctx.close();
 }
 await browser.close();

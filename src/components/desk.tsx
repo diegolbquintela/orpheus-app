@@ -1,6 +1,14 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Minus } from "lucide-react";
 import { runDesk, scaleWeights } from "@/lib/dca/simulate";
+import {
+  checkFields,
+  checkListings,
+  tickerField,
+  weightField,
+  type FieldErrors,
+  type Listing,
+} from "@/lib/site/field-checks";
 import { CALCULATOR_NOTE, DIVIDENDS_CAPTION, METHOD_CAPTION } from "@/lib/site/site";
 import { CalculatorHero } from "./calculator/hero";
 import { DcaChart } from "./calculator/dca-chart";
@@ -25,16 +33,14 @@ function nextId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function parseAmount(value: string): number | null {
-  const amount = Number(value.replace(/,/g, "").trim());
-  return Number.isFinite(amount) ? amount : null;
-}
+/** A refusal from /api/chart (the venue rule, an unknown ticker): shown under that ticker (ST4-17). */
+class FeedRefusal extends Error {}
 
 async function loadChart(ticker: string, start: string, end: string): Promise<ChartPayload> {
   const params = new URLSearchParams({ ticker, start, end });
   const response = await fetch(`/api/chart?${params}`);
   const body = (await response.json().catch(() => null)) as (ChartPayload & { error?: string }) | null;
-  if (!response.ok) throw new Error(body?.error || `Price feed refused ${ticker}.`);
+  if (!response.ok) throw new FeedRefusal(body?.error || `Price feed refused ${ticker}.`);
   return body as ChartPayload;
 }
 
@@ -62,8 +68,10 @@ export function Desk() {
   const [frequency, setFrequency] = useState<"" | Frequency>("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [ready, setReady] = useState<Ready | null>(null);
   const resultRef = useRef<HTMLElement>(null);
+  const uid = useId();
 
   function updateRow(id: string, patch: Partial<Row>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -75,67 +83,70 @@ export function Desk() {
 
   function removeRow(id: string) {
     setRows((current) => (current.length === 1 ? current : current.filter((row) => row.id !== id)));
+    // Row marks are keyed by position; a removed row shifts them, so they go (the values stay).
+    setErrors((current) =>
+      Object.fromEntries(Object.entries(current).filter(([field]) => !/^(ticker|weight)-/.test(field))),
+    );
+  }
+
+  /** Editing a field clears its own message (#78); the other marks and every value stay. */
+  function clearError(field: string) {
+    setErrors((current) => {
+      if (!(field in current)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    const filled = rows
-      .map((row) => ({ ticker: row.ticker.trim().toUpperCase(), weight: row.weight.trim() }))
-      .filter((row) => row.ticker || row.weight);
-    if (!filled.length) {
-      setError("Add a ticker.");
+    // #78 field checks (spec ST4-17): every bad field at once, before any price request; nothing is cleared.
+    const checked = checkFields({ rows, start, end, capital, contribution, frequency });
+    if (!checked.ok) {
+      setErrors(checked.errors);
+      setReady(null);
       return;
     }
-    if (filled.some((row) => !row.ticker || !row.weight)) {
-      setError("Each name needs a ticker and a weight.");
-      return;
-    }
-    const tickers = filled.map((row) => row.ticker);
-    if (new Set(tickers).size !== tickers.length) {
-      setError("Each ticker once.");
-      return;
-    }
-    if (!start || !end) {
-      setError("Start and end are required.");
-      return;
-    }
-    if (end < start) {
-      setError("End date is before the start date.");
-      return;
-    }
-    if (!frequency) {
-      setError("Choose a frequency.");
-      return;
-    }
-    const capitalAmount = parseAmount(capital);
-    const contributionAmount = parseAmount(contribution);
-    if (capitalAmount == null || contributionAmount == null || !(capitalAmount > 0) || !(contributionAmount > 0)) {
-      setError("Capital and contribution must be above zero.");
-      return;
-    }
-    const rawWeights = filled.map((row) => parseAmount(row.weight));
-    if (rawWeights.some((weight) => weight == null || !(weight > 0))) {
-      setError("Weights must be above zero.");
-      return;
-    }
+    setErrors({});
+    const { basket, capital: capitalAmount, contribution: contributionAmount } = checked;
+    const runFrequency: Frequency = checked.frequency;
 
     setPending(true);
     try {
-      const names = await Promise.all(tickers.map((ticker) => loadChart(ticker, start, end)));
-      const currency = names[0]?.currency ?? "";
-      if (!currency || names.some((name) => name.currency !== currency)) {
-        throw new Error(
-          `Mixed currencies (${names.map((name) => `${name.ticker} ${name.currency || "?"}`).join(", ")}). One currency per basket. No conversion in this version.`,
-        );
+      const settled = await Promise.allSettled(basket.map((name) => loadChart(name.ticker, start, end)));
+      const offline = settled.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected" && !(result.reason instanceof FeedRefusal),
+      );
+      if (offline) throw offline.reason;
+      // After the prices are read, before calculating (EL decision 1): venue and currency under the ticker.
+      const listings: Listing[] = settled.map((result, at) =>
+        result.status === "fulfilled"
+          ? { index: basket[at].index, ticker: basket[at].ticker, ok: true, currency: result.value.currency }
+          : {
+              index: basket[at].index,
+              ticker: basket[at].ticker,
+              ok: false,
+              message: (result.reason as Error).message,
+            },
+      );
+      const listingErrors = checkListings(listings);
+      if (Object.keys(listingErrors).length) {
+        setErrors(listingErrors);
+        setReady(null);
+        return;
       }
-      const scaled = scaleWeights(rawWeights as number[]);
+      const names = settled.map((result) => (result as PromiseFulfilledResult<ChartPayload>).value);
+      const currency = names[0].currency;
+      const scaled = scaleWeights(basket.map((name) => name.weight));
       const run = runDesk({
         names,
         weights: scaled.weights,
         capital: capitalAmount,
         contribution: contributionAmount,
-        frequency,
+        frequency: runFrequency,
         start,
         end,
       });
@@ -148,7 +159,7 @@ export function Desk() {
         weightSum: scaled.sum,
         capital: capitalAmount,
         contribution: contributionAmount,
-        frequency,
+        frequency: runFrequency,
       });
       queueMicrotask(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (caught) {
@@ -159,14 +170,31 @@ export function Desk() {
     }
   }
 
+  const describe = (field: string) =>
+    errors[field] ? { "aria-invalid": true as const, "aria-describedby": `${uid}-${field}` } : {};
+  const fieldError = (field: string) =>
+    errors[field] ? (
+      <span id={`${uid}-${field}`} className="calc-error" data-testid="field-error" data-field={field}>
+        {errors[field]}
+      </span>
+    ) : null;
+
   return (
     <div className="calc">
       <CalculatorHero />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-14 px-5 pt-10 pb-20 sm:px-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16 lg:pt-14 lg:pb-24">
+      {/* #78 (EL decision 3): one column at every width; wide, the window fields in one row and the results below
+          the form at full width. */}
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 pt-10 pb-20 sm:px-8 lg:gap-16 lg:pt-14 lg:pb-24">
         <div className="min-w-0">
-          <form onSubmit={onSubmit} autoComplete="off" className="flex flex-col gap-12" data-testid="calculator-form">
-            <section className="flex flex-col gap-6">
+          <form
+            onSubmit={onSubmit}
+            autoComplete="off"
+            noValidate
+            className="flex flex-col gap-12"
+            data-testid="calculator-form"
+          >
+            <section className="flex flex-col gap-6 lg:max-w-[26rem]">
               <SectionHead numeral="02" title="Basket" />
               <fieldset className="flex min-w-0 flex-col gap-6">
                 <legend className="sr-only">Basket</legend>
@@ -176,21 +204,33 @@ export function Desk() {
                       <span className={index === 0 ? "calc-label" : "calc-label lg:sr-only"}>Ticker</span>
                       <input
                         value={row.ticker}
-                        onChange={(event) => updateRow(row.id, { ticker: event.target.value })}
+                        onChange={(event) => {
+                          updateRow(row.id, { ticker: event.target.value });
+                          clearError(tickerField(index));
+                        }}
                         spellCheck={false}
                         autoCapitalize="characters"
                         className="calc-field"
+                        data-testid="ticker-input"
+                        {...describe(tickerField(index))}
                       />
                     </label>
+                    {fieldError(tickerField(index))}
                     <label className="calc-weight flex min-w-0 flex-col gap-2">
                       <span className={index === 0 ? "calc-label" : "calc-label lg:sr-only"}>Weight</span>
                       <input
                         value={row.weight}
-                        onChange={(event) => updateRow(row.id, { weight: event.target.value })}
+                        onChange={(event) => {
+                          updateRow(row.id, { weight: event.target.value });
+                          clearError(weightField(index));
+                        }}
                         inputMode="decimal"
                         className="calc-field"
+                        data-testid="weight-input"
+                        {...describe(weightField(index))}
                       />
                     </label>
+                    {fieldError(weightField(index))}
                     <button
                       type="button"
                       onClick={() => removeRow(row.id)}
@@ -210,45 +250,75 @@ export function Desk() {
 
             <section className="flex flex-col gap-6">
               <SectionHead numeral="03" title="Window" />
-              <div className="grid min-w-0 gap-8 lg:grid-cols-2">
-                <label className="flex min-w-0 flex-col gap-2">
-                  <span className="calc-label">Start</span>
-                  <input type="date" value={start} onChange={(event) => setStart(event.target.value)} className="calc-field" />
-                </label>
-                <label className="flex min-w-0 flex-col gap-2">
-                  <span className="calc-label">End</span>
-                  <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} className="calc-field" />
-                </label>
-                <label className="flex min-w-0 flex-col gap-2">
-                  <span className="calc-label">Starting capital</span>
+              <div className="grid min-w-0 gap-8 lg:grid-cols-5 lg:gap-x-6" data-testid="window-row">
+                <WindowField label="Start" error={fieldError("start")}>
+                  <input
+                    type="date"
+                    value={start}
+                    onChange={(event) => {
+                      setStart(event.target.value);
+                      clearError("start");
+                    }}
+                    className="calc-field"
+                    data-field="start"
+                    {...describe("start")}
+                  />
+                </WindowField>
+                <WindowField label="End" error={fieldError("end")}>
+                  <input
+                    type="date"
+                    value={end}
+                    onChange={(event) => {
+                      setEnd(event.target.value);
+                      clearError("end");
+                    }}
+                    className="calc-field"
+                    data-field="end"
+                    {...describe("end")}
+                  />
+                </WindowField>
+                <WindowField label="Starting capital" error={fieldError("capital")}>
                   <input
                     value={capital}
-                    onChange={(event) => setCapital(event.target.value)}
+                    onChange={(event) => {
+                      setCapital(event.target.value);
+                      clearError("capital");
+                    }}
                     inputMode="decimal"
                     className="calc-field"
+                    data-field="capital"
+                    {...describe("capital")}
                   />
-                </label>
-                <label className="flex min-w-0 flex-col gap-2">
-                  <span className="calc-label">Contribution</span>
+                </WindowField>
+                <WindowField label="Contribution" error={fieldError("contribution")}>
                   <input
                     value={contribution}
-                    onChange={(event) => setContribution(event.target.value)}
+                    onChange={(event) => {
+                      setContribution(event.target.value);
+                      clearError("contribution");
+                    }}
                     inputMode="decimal"
                     className="calc-field"
+                    data-field="contribution"
+                    {...describe("contribution")}
                   />
-                </label>
-                <label className="flex min-w-0 flex-col gap-2">
-                  <span className="calc-label">Frequency</span>
+                </WindowField>
+                <WindowField label="Frequency" error={fieldError("frequency")}>
                   <select
                     value={frequency}
-                    onChange={(event) => setFrequency(event.target.value as "" | Frequency)}
+                    onChange={(event) => {
+                      setFrequency(event.target.value as "" | Frequency);
+                      clearError("frequency");
+                    }}
                     className="calc-field"
+                    data-field="frequency"
+                    {...describe("frequency")}
                   >
                     <option value=""></option>
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                   </select>
-                </label>
+                </WindowField>
               </div>
               <button type="submit" disabled={pending} className="calc-button self-start" data-testid="compare">
                 {pending ? "Reading prices…" : "Compare plans"}
@@ -282,6 +352,19 @@ export function Desk() {
           </section>
         ) : null}
       </main>
+    </div>
+  );
+}
+
+/** A window field: its label and control, then its field check (#78) directly under it. */
+function WindowField({ label, error, children }: { label: string; error: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col">
+      <label className="flex min-w-0 flex-col gap-2">
+        <span className="calc-label">{label}</span>
+        {children}
+      </label>
+      {error}
     </div>
   );
 }

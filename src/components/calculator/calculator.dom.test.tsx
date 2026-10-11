@@ -1,5 +1,5 @@
-// Calculator page (#70, spec §7 / §7a; ST4-03, -04, -05, -06, -07) in jsdom with the real components: one chart
-// series and the last-value pill, label-value results with no table, the calculator's own underline field class,
+// Calculator page (#70 / #78, spec §7 / §7a; ST4-03, -04, -05, -06, -07, -17) in jsdom with the real components:
+// one chart series and the last-value pill, four result lines per plan with no table, the field checks, the calculator's own underline field class,
 // the listings note directly under the form, and the hero's image markup. Layout (columns, widths, the band
 // height, CLS) is checked in a real browser by qa/tools/calculator-page.mjs.
 import { dom } from "../../test/dom-setup";
@@ -10,7 +10,6 @@ import { afterEach, describe, it } from "node:test";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { money } from "@/lib/dca/format";
-import { METRIC_ROWS } from "@/lib/dca/results";
 import type { DeskRun, PlanStats } from "@/lib/dca/types";
 import { CALCULATOR_NOTE, METHOD_CAPTION } from "@/lib/site/site";
 import { Desk } from "../desk";
@@ -102,44 +101,140 @@ describe("calculator chart (#70, ST4-05)", () => {
   });
 });
 
-describe("calculator results (#70, ST4-06, ST4-10)", () => {
-  it("label-value rows: every METRIC_ROWS label word for word as a caption, then Lump sum and DCA", async () => {
+describe("calculator results (#78, ST4-06, ST4-10)", () => {
+  it("two plan columns, Lump sum then DCA, each with exactly four lines, labels word for word", async () => {
     const el = await render(<ResultRows run={RUN} currency="USD" />);
-    const metrics = [...el.querySelectorAll('[data-testid="result-metric"]')];
-    assert.deepEqual(
-      metrics.map((m) => m.querySelector("p")!.textContent),
-      METRIC_ROWS.map((m) => m.label),
-    );
-    for (const m of metrics) {
-      assert.deepEqual([...m.querySelectorAll("dt")].map((d) => d.textContent), ["Lump sum", "DCA"]);
-      assert.ok(m.querySelector("dl")!.classList.contains("calc-pairs"));
+    const plans = [...el.querySelectorAll('[data-testid="result-plan"]')];
+    assert.deepEqual(plans.map((p) => p.getAttribute("data-plan")), ["lump", "dca"]);
+    assert.deepEqual(plans.map((p) => p.querySelector("h3")!.textContent), ["Lump sum", "DCA"]);
+    for (const plan of plans) {
+      const lines = [...plan.querySelectorAll('[data-testid="result-line"]')];
+      assert.equal(lines.length, 4);
+      assert.deepEqual(lines.map((l) => l.getAttribute("data-key")), ["nlv", "invested", "total", "cagr"]);
+      assert.deepEqual(lines.map((l) => l.querySelector("dt")!.textContent), [
+        "Final value",
+        "Total invested",
+        "Return (%)",
+        "CAGR (%)",
+      ]);
+      for (const l of lines) assert.ok(l.querySelector("dd")!.classList.contains("calc-value"));
     }
-    const invested = metrics[0].querySelector('[data-plan="dca"] dd')!;
-    assert.equal(invested.textContent, "$313,000");
-    assert.ok(invested.querySelector('[data-part="main"]')!.classList.contains("whitespace-nowrap"));
+    assert.equal(el.querySelectorAll('[data-testid="result-line"]').length, 8);
+    assert.ok(el.querySelector('[data-testid="results"]')!.classList.contains("calc-plans"));
   });
 
-  it("Max drop: the figure on the label's line, the date on its own muted line, wording unchanged (QA r1, D3)", async () => {
+  it("values from the engine's figures in the results' formats (display only)", async () => {
     const el = await render(<ResultRows run={RUN} currency="USD" />);
-    const dd = el.querySelector('[data-key="drop"] [data-plan="lump"] dd')!;
-    const drop = METRIC_ROWS.find((m) => m.key === "drop")!;
-    assert.equal(dd.textContent, drop.value(RUN.lump, "USD"), "the separator stays in the text");
-    assert.match(dd.querySelector('[data-part="main"]')!.textContent!, /%$/);
-    const date = dd.querySelector('[data-part="date"]')!;
-    assert.equal(date.textContent, "2022-12-28");
-    assert.ok(["absolute", "text-xs", "text-dim", "whitespace-nowrap"].every((c) => date.classList.contains(c)));
-    assert.ok(dd.classList.contains("relative") && dd.classList.contains("pb-4"), "room for the date line");
-    assert.ok(dd.querySelector(".sr-only"));
+    const value = (plan: string, key: string) =>
+      el.querySelector(`[data-plan="${plan}"] [data-key="${key}"] dd`)!.textContent;
+    assert.equal(value("dca", "invested"), "$313,000");
+    assert.equal(value("dca", "nlv"), "$2,020,136");
+    assert.equal(value("lump", "nlv"), "$12,965");
+    assert.equal(value("lump", "total"), "+1196.5%");
+    assert.equal(value("lump", "cagr"), "+53.3%");
+    assert.doesNotMatch(el.textContent ?? "", /XIRR|Money-weighted|Max drop|drop|2022-12-28/);
   });
 
-  it("no table, no boxes: no <table>, no border or background classes on the rows", async () => {
+  it("no table, no boxes: no <table>, no border or background classes on the lines", async () => {
     const el = await render(<ResultRows run={RUN} currency="USD" />);
     assert.equal(el.querySelector("table"), null);
     assert.equal(el.querySelectorAll("[class*=border], [class*=bg-]").length, 0);
   });
 
-  it("two columns while each is at least 150 px, stacked otherwise (CSS grid auto-fit)", () => {
-    assert.match(rule(".calc-pairs"), /grid-template-columns: repeat\(auto-fit, minmax\(150px, 1fr\)\);/);
+  it("two columns while each is at least 150 px, stacked otherwise; values never wrap", () => {
+    assert.match(rule(".calc-plans"), /grid-template-columns: repeat\(auto-fit, minmax\(150px, 1fr\)\);/);
+    assert.match(rule(".calc-value"), /white-space: nowrap;/);
+    assert.match(rule(".calc-line"), /flex-direction: column;/, "label above value on a phone");
+  });
+});
+
+/**
+ * Types into a React-controlled field. React DOM loads before jsdom's globals here (an external import in the
+ * bundle), so it uses its old-browser input fallback: it watches the focused field (focusin / focusout, through
+ * IE's attachEvent, stubbed here) and reads its value on keyup. A select uses its change event.
+ */
+const legacy = dom.window.HTMLElement.prototype as unknown as Record<string, unknown>;
+legacy.attachEvent ??= () => {};
+legacy.detachEvent ??= () => {};
+async function type(field: HTMLInputElement | HTMLSelectElement, value: string) {
+  const select = field.tagName === "SELECT";
+  const proto = select ? dom.window.HTMLSelectElement.prototype : dom.window.HTMLInputElement.prototype;
+  await act(async () => {
+    field.dispatchEvent(new dom.window.FocusEvent("focusin", { bubbles: true }));
+    Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(field, value);
+    field.dispatchEvent(new dom.window.Event(select ? "change" : "keyup", { bubbles: true }));
+    field.dispatchEvent(new dom.window.FocusEvent("focusout", { bubbles: true }));
+  });
+}
+async function submit(el: HTMLElement) {
+  await act(async () => {
+    el.querySelector("form")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+  });
+}
+const errorsOf = (el: HTMLElement) =>
+  Object.fromEntries(
+    [...el.querySelectorAll('[data-testid="field-error"]')].map((e) => [e.getAttribute("data-field"), e.textContent]),
+  );
+
+describe("calculator field checks (#78, ST4-17)", () => {
+  it("an empty submit marks every field under itself and sends no price request", async () => {
+    const fetchBefore = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      throw new Error("no request expected");
+    }) as typeof fetch;
+    try {
+      const el = await render(<Desk />);
+      await submit(el);
+      assert.deepEqual(errorsOf(el), {
+        "ticker-0": "Add a ticker.",
+        start: "Add a start date.",
+        end: "Add an end date.",
+        capital: "Enter a number above 0.",
+        contribution: "Enter a number above 0.",
+        frequency: "Choose weekly or monthly.",
+      });
+      assert.equal(calls, 0);
+      assert.equal(el.querySelector('[role="alert"]'), null, "no general error line for field checks");
+      for (const e of el.querySelectorAll('[data-testid="field-error"]')) assert.ok(e.classList.contains("calc-error"));
+    } finally {
+      globalThis.fetch = fetchBefore;
+    }
+  });
+
+  it("marks only the bad fields, keeps every value, links each message to its field", async () => {
+    const el = await render(<Desk />);
+    await type(el.querySelector<HTMLInputElement>('[data-testid="ticker-input"]')!, "PLTR");
+    await type(el.querySelector<HTMLInputElement>('[data-testid="weight-input"]')!, "50");
+    await type(el.querySelector<HTMLInputElement>('[data-field="start"]')!, "2026-10-01");
+    await type(el.querySelector<HTMLInputElement>('[data-field="end"]')!, "2026-10-01");
+    await type(el.querySelector<HTMLInputElement>('[data-field="capital"]')!, "abc");
+    await type(el.querySelector<HTMLInputElement>('[data-field="contribution"]')!, "0");
+    await type(el.querySelector<HTMLSelectElement>('[data-field="frequency"]')!, "weekly");
+    await submit(el);
+    assert.deepEqual(errorsOf(el), {
+      end: "End must be after the start.",
+      capital: "Enter a number above 0.",
+      contribution: "Enter a number above 0.",
+    });
+    const capital = el.querySelector<HTMLInputElement>('[data-field="capital"]')!;
+    assert.equal(capital.value, "abc", "nothing is cleared");
+    assert.equal(el.querySelector<HTMLInputElement>('[data-testid="ticker-input"]')!.value, "PLTR");
+    assert.equal(capital.getAttribute("aria-invalid"), "true");
+    const described = el.ownerDocument.getElementById(capital.getAttribute("aria-describedby")!)!;
+    assert.equal(described.textContent, "Enter a number above 0.");
+    assert.equal(described.parentElement, capital.closest("label")!.parentElement, "directly under its field");
+    await type(capital, "1000");
+    assert.equal(errorsOf(el).capital, undefined, "editing a field clears its own message");
+    assert.equal(errorsOf(el).end, "End must be after the start.");
+  });
+
+  it("styles: 13 px alert colour under the field; the marked underline turns alert", () => {
+    const r = rule(".calc-error");
+    assert.match(r, /font-size: 0\.8125rem;/);
+    assert.match(r, /color: var\(--color-alert\);/);
+    assert.match(css, /\.calc-field\[aria-invalid="true"\] \{\s*border-bottom-color: var\(--color-alert\);/);
   });
 });
 

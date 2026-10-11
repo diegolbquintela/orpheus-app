@@ -25,8 +25,8 @@ or monthly). The app compares two cash plans over the same window:
 - **Lump sum**: the starting capital goes in on day one.
 - **DCA**: the contribution goes in as new cash on each scheduled date.
 
-It shows, for each plan, invested amount, end value, money-weighted return (XIRR), total return, CAGR, max drop,
-value at the drop and return to the drop, as label-value rows, plus one chart of the DCA portfolio value (#70).
+It shows, for each plan, four lines (Final value, Total invested, Return (%), CAGR (%); #78), plus one chart of
+the DCA portfolio value (#70).
 Prices come from Yahoo's daily chart data through a same-origin server route.
 
 - Production: https://orpheus-app-beta.vercel.app
@@ -150,6 +150,13 @@ with `01` and "Investment driven by research." lower left on a soft wash, left o
 every width; then `02` Platforms with two lines, Calculator and Dashboard, each with an `Open` link. The #46 line
 and the two cards are gone. Phone rules below 1024 px (a 3:2 crop of the painting), the wide crop from 1024 px.
 `/?query` still redirects to `/calculator?query`. QA: `qa/tools/home-page.mjs` at 360, 400, 1024 and 1440 px.
+
+**Landed: calculator polish (#78).** The results are two columns, Lump sum and DCA, with exactly four lines each:
+Final value, Total invested, Return (%) and CAGR (%) (display only; the calculation is unchanged). The form
+checks each field before reading prices and shows the message under the bad field without clearing anything:
+amounts must be above 0, the start must be before the end; a ticker on another venue or in another currency is
+marked under that ticker after the prices are read. Wide screens put Start, End, Starting capital, Contribution
+and Frequency in one row with the results below. QA: `qa/tools/calculator-page.mjs` at 360, 400, 1024 and 1440 px.
 
 ## Dashboard (released, behind a flag)
 
