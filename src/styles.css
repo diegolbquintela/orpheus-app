@@ -732,6 +732,84 @@
       column-gap: 1.25rem;
     }
   }
+  /* Overview and Update (#94, spec section 15.4): a three-column table at every width, the fields as .pf-rates,
+     44 px text toggles (the pressed one underlined), the chart in a fixed-height box (CLS 0) with its legend. */
+  .pf-ov-table {
+    display: flex;
+    max-width: 40rem;
+    flex-direction: column;
+  }
+  .pf-ov-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1rem;
+    align-items: center;
+    min-height: 2.75rem;
+    border-bottom: 1px solid var(--color-hair);
+  }
+  .pf-ov-head {
+    min-height: 2rem;
+    align-items: end;
+    padding-bottom: 0.5rem;
+  }
+  .pf-ov-name,
+  .pf-ov-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 1rem;
+    color: var(--color-chalk);
+  }
+  .pf-future,
+  .pf-years {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 1.5rem;
+  }
+  .pf-toggle {
+    display: inline-flex;
+    height: 2.75rem;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--color-chalk);
+    text-underline-offset: 6px;
+  }
+  .pf-toggle[aria-pressed="true"] {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+  .pf-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .pf-chart-plot {
+    height: 240px;
+    width: 100%;
+  }
+  @media (min-width: 64rem) {
+    .pf-chart-plot {
+      height: 320px;
+    }
+  }
+  .pf-legend {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 1.5rem;
+    row-gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-chalk);
+  }
+  .pf-legend > li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .pf-swatch {
+    display: inline-block;
+    height: 2px;
+    width: 0.75rem;
+  }
   /* Income block (#85, personal-finance spec section 12.4): a person is a block of labelled cells on a phone (Average
      tax in the wider right cell so its label stays on one line at 360 px) and
      one row from 1024 px; the income table a label over three values on a phone, one row from 1024 px. */
