@@ -16,12 +16,13 @@
 //          outlined; the figure ≥ 90% inside the band
 //   ST3-05 the wash contains the 01 / title boxes (element + text rects), hugs them (≤ 12 px a side on a phone,
 //          ≤ 24 px wide), lower left, ≤ 50% of the band at 360 / 400; the title three lines (font-independent box)
-//   ST3-03 `02` `Platforms` and exactly the two lines (name, description, `Open` → href) word for word; nothing
+//   ST3-03 `02` `Platforms` and exactly the three lines (#97: Calculator, Dashboard, Personal finance; name,
+//          description, `Open` → href) word for word, full-width rows with a 1 px hair rule above and no box; nothing
 //          else in <main>; no #46 line or cards; the `Open` links: chalk, underlined, a 2 px chalk focus ring,
 //          and clicking the first lands on /calculator
 //   ST3-04 no price requests, no form; `/?ticker=KO` → `/calculator?ticker=KO`; noindex meta + X-Robots-Tag
 //   ST3-06 phone: name and `Open` on one row, the description under them; wide: one row per line; every text
-//          whole; no horizontal page scroll; the bar's three items on one line (ST1-01, incl. 360)
+//          whole; no horizontal page scroll; the bar's four items on one line (ST1-01, incl. 360)
 //   ST3-07 / ST0-03 AA for every visible text (contrast scan; axe-core color-contrast too when AXE_PATH points
 //          at axe.min.js, e.g. from a scratch `npm i axe-core`); color-scheme dark on <html> and <body>
 //   ST0-01 charcoal page and chalk type; ST6-01 one painting, no CSS background-image
@@ -50,11 +51,13 @@ const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
 const RULE = "rgb(139, 146, 152)";
+const HAIR = "rgb(58, 63, 68)";
 const TITLE = "Investment driven by research.";
 const ALT = "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)";
 const LINES = [
   ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
-  ["Dashboard", "The portfolio as a business: fundamentals for each name, and the whole.", "Open", "/dashboard"],
+  ["Dashboard", "The portfolio as a business.", "Open", "/dashboard"],
+  ["Personal finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
 ];
 const MAX_BYTES = 300 * 1024;
 const RUNS = Number(process.env.CLS_RUNS ?? 3); // cold loads per width for ST3-01
@@ -282,6 +285,10 @@ async function pageChecks(page, tag, mobile, viewport) {
         colors: [getComputedStyle(name).color, getComputedStyle(text).color, s.color],
         deco: `${s.textDecorationLine} ${s.textDecorationColor}`,
         describedBy: a.getAttribute("aria-describedby") === name.id,
+        frame: (() => {
+          const c = getComputedStyle(l);
+          return { top: `${c.borderTopWidth} ${c.borderTopColor}`, others: [c.borderRightWidth, c.borderBottomWidth, c.borderLeftWidth], bg: c.backgroundColor, shadow: c.boxShadow, radius: c.borderRadius };
+        })(),
       };
     });
     const html = document.documentElement;
@@ -291,6 +298,7 @@ async function pageChecks(page, tag, mobile, viewport) {
       numeralStyle: [getComputedStyle(sec.querySelector("p")).fontSize, getComputedStyle(sec.querySelector("p")).color],
       headingStyle: [getComputedStyle(sec.querySelector("h2")).fontSize, getComputedStyle(sec.querySelector("h2")).color],
       mainChildren: main.children.length,
+      listWidth: Math.round(sec.querySelector("ul").getBoundingClientRect().width),
       mainText: main.innerText.replace(/\s+/g, " ").trim(),
       lines,
       cards: document.querySelectorAll("[data-testid=home-card]").length,
@@ -307,7 +315,8 @@ async function pageChecks(page, tag, mobile, viewport) {
   });
   check(`${tag} ST0-01 charcoal page, chalk type; ST3-07 color-scheme dark on <html> and <body>`, p.body[0] === NIGHT && p.body[1] === CHALK && p.scheme.every((s) => s === "dark"), { body: p.body, scheme: p.scheme });
   check(`${tag} ST3-03 "02" "Platforms" (12 px dim; 24 px chalk)`, p.numeral === "02" && p.heading === "Platforms" && p.numeralStyle[0] === "12px" && p.numeralStyle[1] === DIM && p.headingStyle[0] === "24px" && p.headingStyle[1] === CHALK, [p.numeral, p.heading, p.numeralStyle, p.headingStyle]);
-  check(`${tag} ST3-03 exactly the two lines, word for word, one Open link each (aria-describedby = the name)`, JSON.stringify(p.lines.map((l) => l.values)) === JSON.stringify(LINES) && p.lines.every((l) => l.links === 1 && l.describedBy), p.lines.map((l) => l.values));
+  check(`${tag} ST3-03 (#97) three full-width rows, a 1 px hair rule above each, no boxes (no other border, background, shadow, radius)`, p.lines.length === 3 && p.lines.every((l) => Math.abs(l.line.width - p.listWidth) <= 1 && l.frame.top === `1px ${HAIR}` && l.frame.others.every((w) => w === "0px") && l.frame.bg === "rgba(0, 0, 0, 0)" && l.frame.shadow === "none" && l.frame.radius === "0px"), p.lines.map((l) => ({ w: Math.round(l.line.width), list: p.listWidth, ...l.frame })));
+  check(`${tag} ST3-03 exactly the three lines, word for word, one Open link each (aria-describedby = the name)`, JSON.stringify(p.lines.map((l) => l.values)) === JSON.stringify(LINES) && p.lines.every((l) => l.links === 1 && l.describedBy), p.lines.map((l) => l.values));
   const wantText = `02 Platforms ${LINES.map((l) => l.slice(0, 3).join(" ")).join(" ")}`;
   check(`${tag} ST3-03 nothing else in <main> (no #46 line, no cards)`, p.mainChildren === 1 && p.mainText === wantText && p.cards === 0 && !/private desk/.test(p.mainText), p.mainText);
   check(`${tag} ST3-03 line sizes / colours: name 20 px chalk, description 14 px dim, Open 14 px chalk underlined (rule)`, p.lines.every((l) => JSON.stringify(l.sizes) === JSON.stringify(["20px", "14px", "14px"]) && JSON.stringify(l.colors) === JSON.stringify([CHALK, DIM, CHALK]) && l.deco === `underline ${RULE}`), p.lines.map((l) => [l.sizes, l.colors, l.deco]));
@@ -320,12 +329,12 @@ async function pageChecks(page, tag, mobile, viewport) {
   check(`${tag} ST3-01 (Q5) no visible credit for the painting`, !p.credit);
   check(`${tag} ST6-01 one painting (the hero img), no CSS background-image`, p.imgs === 1 && p.bgImages.length === 0, { imgs: p.imgs, bg: p.bgImages });
   check(`${tag} ST3-06 no horizontal page scroll`, p.scroll[0] <= p.scroll[1], p.scroll);
-  check(`${tag} ST1-01 the bar fits on one line (${viewport.width} px)`, Math.max(...p.bar) - Math.min(...p.bar) <= 2 && p.bar.length === 3, p.bar);
+  check(`${tag} ST1-01 the bar fits on one line (${viewport.width} px)`, Math.max(...p.bar) - Math.min(...p.bar) <= 2 && p.bar.length === 4, p.bar);
   check(`${tag} ST3-04 noindex meta`, p.robots === "noindex, nofollow", p.robots);
-  // Focus ring on the two Open links: Tab from the bar's last item.
+  // Focus ring on the three Open links: Tab from the bar's last item.
   await page.locator('nav[aria-label="Site"] a').last().focus();
   const rings = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     await page.keyboard.press("Tab");
     const r = await page.evaluate(() => {
       const a = document.activeElement;
@@ -335,7 +344,7 @@ async function pageChecks(page, tag, mobile, viewport) {
     });
     if (r) rings.push(r);
   }
-  check(`${tag} ST3-07 both Open links take focus with a 2 px chalk ring (offset 2 px)`, rings.length === 2 && rings.every((r) => r === `solid 2px ${CHALK} 2px`), rings);
+  check(`${tag} ST3-07 all three Open links take focus with a 2 px chalk ring (offset 2 px)`, rings.length === 3 && rings.every((r) => r === `solid 2px ${CHALK} 2px`), rings);
   await page.evaluate(() => document.activeElement?.blur());
   const scan = await contrastScan(page);
   check(`${tag} ST3-07 / ST0-03 AA contrast for every visible text`, scan.bad.length === 0, scan.bad.length ? scan.bad : { texts: scan.n });

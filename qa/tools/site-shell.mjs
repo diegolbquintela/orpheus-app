@@ -1,12 +1,13 @@
 // Dark shell (epic #66, #68; spec attachments/site-style-spec.md ST0 / ST1, and ST6-03 / -04 as they apply to
 // the shell) in a real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900.
 //
-// Signed out: /, /calculator, /dashboard/sign-in and a 404 (/no-such-page); signed-out /dashboard → 307 to
+// Signed out: /, /calculator, /dashboard/sign-in, /personal-finance (#97) and a 404 (/no-such-page); signed-out /dashboard → 307 to
 // sign-in. Signed in (only when QA_EMAIL / QA_PASSWORD are in env; through session.mjs, never logged): /dashboard.
 //
 // Per page and width:
-//   ST1-01 one thin charcoal bar (≤ 48 px), sticky at the top on scroll, Orpheus left / Calculator, Dashboard
-//          right (order, hrefs, one line), no dropdowns, no horizontal page scroll
+//   ST1-01 one thin charcoal bar (≤ 48 px), sticky at the top on scroll, Orpheus left / Calculator, Dashboard,
+//          Personal finance right (#97; order, hrefs, one line, text only, 12 px below 640 px / 14 px from 640,
+//          links ≥ 44 px tall), no dropdowns, no horizontal page scroll
 //   ST1-02 exactly one current item (aria-current="page") in off-white + underline, the others dim; none on a 404
 //   ST1-03 the footer is charcoal and reads exactly "Orpheus Wisdom"
 //   ST1-04 the same bar markup on every page (aria-current aside); plain links
@@ -53,12 +54,13 @@ const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
 const WHITE = "rgb(255, 255, 255)";
 const INK = "rgb(30, 33, 36)";
-const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"]];
+const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"]];
 const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
   ["/calculator", "Calculator", "dark", null], // converted by #70 (qa/tools/calculator-page.mjs); no white panel left
   ["/dashboard/sign-in", "Dashboard", "dark", null], // converted by #73 (qa/tools/signin-page.mjs); no white panel left
+  ["/personal-finance", "Personal finance", "dark", null], // #97: a bar item (the page itself is personal-finance.mjs's)
   ["/no-such-page", null, "dark", null],
 ];
 const navHtml = new Map();
@@ -130,7 +132,7 @@ async function shell(page, { vp, path, want, kind, viewport }) {
     const links = [...n.querySelectorAll("a")].map((a) => {
       const s = getComputedStyle(a);
       const b = a.getBoundingClientRect();
-      return { text: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current"), color: s.color, deco: s.textDecorationLine, x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + b.height / 2) };
+      return { text: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current"), color: s.color, deco: s.textDecorationLine, size: parseFloat(s.fontSize), x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + b.height / 2), h: Math.round(b.height), w: Math.round(b.width), icons: a.getAttribute("href") === "/" ? 0 : a.querySelectorAll("svg, img").length };
     });
     return { bg: cs.backgroundColor, position: cs.position, height: Math.round(r.height), links, popups: n.querySelectorAll("button, select, details, [aria-haspopup], [role=menu]").length };
   });
@@ -140,7 +142,10 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   // Right group right-aligned: Dashboard ends within the bar's side padding (≤ 40 px from the right edge, or
   // the 1152 px column's edge on wide screens), Calculator just before it, Orpheus at the left.
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
-  check(`${tag} ST1-01 Orpheus left, Calculator then Dashboard right, one line`, bar.links[0].x < viewport.width / 4 && bar.links[0].x < bar.links[1].x && bar.links[1].x < bar.links[2].x && bar.links[2].right >= colRight - 40 && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
+  const last = bar.links.at(-1);
+  check(`${tag} ST1-01 Orpheus left, Calculator, Dashboard, Personal finance right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
+  const size = viewport.width < 640 ? 12 : 14;
+  check(`${tag} ST1-01 text only on the right (no icons), ${size} px text (Q21), every link ≥ 44 px tall and wide`, bar.links.every((l) => l.icons === 0 && l.size === size && l.h >= 44 && l.w >= 44), bar.links.map((l) => [l.text, l.size, l.w, l.h, l.icons]));
   check(`${tag} ST1-01 no dropdowns`, bar.popups === 0);
   const current = bar.links.filter((l) => l.current === "page");
   check(`${tag} ST1-02 current page ${want ?? "(none)"}`, JSON.stringify(current.map((l) => l.text)) === JSON.stringify(want ? [want] : []), current.map((l) => l.text));

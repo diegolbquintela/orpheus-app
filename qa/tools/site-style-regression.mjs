@@ -10,7 +10,7 @@
 //           the shipped copy (spec §4; the calculator before a run; results and field checks: calculator-page.mjs)
 //    ST6-03 AA: every visible text (contrast scan; axe-core color-contrast too with AXE_PATH), and every Tab stop
 //           shows a ≥ 2 px focus ring (or a chalk underline on a field) at ≥ 3:1 against its background
-//    ST6-04 shell: one bar ≤ 48 px with Orpheus / Calculator / Dashboard, the right current item (none on the 404),
+//    ST6-04 shell: one bar ≤ 48 px with Orpheus / Calculator / Dashboard / Personal finance (#97), the right current item (none on the 404),
 //           footer exactly `Orpheus Wisdom`, charcoal page + chalk type, color-scheme dark; signed-out /dashboard
 //           → 307 sign-in (the full ST1 and ST0-05 run in site-shell.mjs, below)
 //    ST6-05 noindex meta + X-Robots-Tag on every page; exactly one Vercel Analytics script; no horizontal scroll
@@ -63,7 +63,7 @@ const JORDAENS = "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (
 const PAGES = [
   {
     path: "/", current: "Orpheus", status: 200, imgs: [JORDAENS],
-    texts: ["01", "Investment driven by research.", "02", "Platforms", "Calculator", "Dollar-cost average calculator.", "Open", "Dashboard", "The portfolio as a business: fundamentals for each name, and the whole.", "Open"],
+    texts: ["01", "Investment driven by research.", "02", "Platforms", "Calculator", "Dollar-cost average calculator.", "Open", "Dashboard", "The portfolio as a business.", "Open", "Personal finance", "Income, expenses, and the cover.", "Open"],
   },
   {
     path: "/calculator", current: "Calculator", status: 200, imgs: [/^Sandro Botticelli, The Birth of Venus/],
@@ -74,7 +74,7 @@ const PAGES = [
   // #84 / #85 (personal-finance spec §4, §12), the empty page: a phone shows each total's labelled cells; from 1024 px the
   // column-label rows are aria-hidden (not counted) and the cells' labels visually hidden.
   {
-    path: "/personal-finance", current: null, status: 200, imgs: [],
+    path: "/personal-finance", current: "Personal finance", status: 200, imgs: [],
     texts: (wide) => {
       const total = (label) => (wide ? [label, "—", "—", "0", "0", "0"] : [label, "% of income", "—", "% of expenses", "—", "Monthly", "0", "Yearly", "0", "Equity to cover", "0"]);
       // #85: the income block first (`02` Income; its column-label rows aria-hidden), then `03` Expenses; #86: the
@@ -268,7 +268,7 @@ async function ownChecks(browser) {
             analytics: document.querySelectorAll('script[src*="/_vercel/insights/script.js"], script[src*="va.vercel-scripts.com"]').length,
           };
         });
-        check(`${tag} ST6-04 bar: charcoal, ≤ 48 px, Orpheus / Calculator / Dashboard, current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"]]) && JSON.stringify(sh.links.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]) });
+        check(`${tag} ST6-04 bar: charcoal, ≤ 48 px, Orpheus / Calculator / Dashboard / Personal finance (#97), current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"]]) && JSON.stringify(sh.links.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]) });
         check(`${tag} ST1-05 the lyre mark (aria-hidden SVG, 20 px) first in the Orpheus link`, sh.lyre === true, sh.lyre);
         check(`${tag} ST6-08 bar links ≥ 44 × 44 px tap targets, bar ≤ 48 px`, sh.links.every((l) => l.h >= 44 && l.w >= 44) && sh.bar <= 48, { bar: sh.bar, links: sh.links.map((l) => [l.text, l.w, l.h]) });
         check(`${tag} ST6-04 footer exactly \`Orpheus Wisdom\`; charcoal page, chalk type, color-scheme dark`, sh.footer === "Orpheus Wisdom" && sh.bodyBg === NIGHT && sh.bodyColor === CHALK && sh.scheme.every((s) => s === "dark"), { footer: sh.footer, bg: sh.bodyBg, color: sh.bodyColor, scheme: sh.scheme });

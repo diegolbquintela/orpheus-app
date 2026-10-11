@@ -11,7 +11,7 @@
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it outside the site menu
  *     (#46: the menu's Dashboard item shows on every page, flag on or off; no item is current on a 404).
  *   Site shell (#46), both flag states: / is home (menu with Orpheus current; #69: the Jordaens hero, one h1
- *   `Investment driven by research.`, exactly two Platforms lines with their `Open` links, no home cards;
+ *   `Investment driven by research.`, exactly three Platforms lines (#97) with their `Open` links, no home cards;
  *   the footer reading exactly "Orpheus Wisdom", noindex, no calculator form); /calculator is the calculator
  *   (menu with Calculator current, the form, its listings note, noindex); / with a query string redirects to /calculator with the same query.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
@@ -235,9 +235,10 @@ for (const flag of [undefined, "true"]) {
   check(/<a href="\/"[^>]*><svg [^>]*aria-hidden="true"[^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus<\/span><\/a>/.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / Orpheus link lacks the lyre mark (ST1-05)`);
   const pf = await call("GET", "/personal-finance", flag);
   check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(pf.body), `${label}: GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
-  check(menuCurrent(pf.body).length === 0, `${label}: /personal-finance marks a menu item current: ${menuCurrent(pf.body)}`);
+  check(JSON.stringify(menuCurrent(pf.body)) === '["Personal finance"]', `${label}: /personal-finance current menu item (#97) ${menuCurrent(pf.body)}`);
   check(/<title>Personal finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
+  check(/href="\/personal-finance"[^>]*>Personal finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal finance item (#97)`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
   const heroImg = home.body.match(/<header [^>]*data-testid="home-hero"[\s\S]*?(<img [^>]*>)/)?.[1] ?? "";
   check(/ alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(heroImg) && / width="3300"/.test(heroImg) && / height="2200"/.test(heroImg), `${label}: / lacks the Jordaens hero img (alt, width, height): ${heroImg}`);
@@ -246,11 +247,12 @@ for (const flag of [undefined, "true"]) {
     JSON.stringify(lines) ===
       JSON.stringify([
         ["Calculator", "Dollar-cost average calculator.", "/calculator", "Open"],
-        ["Dashboard", "The portfolio as a business: fundamentals for each name, and the whole.", "/dashboard", "Open"],
+        ["Dashboard", "The portfolio as a business.", "/dashboard", "Open"],
+        ["Personal finance", "Income, expenses, and the cover.", "/personal-finance", "Open"],
       ]),
     `${label}: / Platforms lines -> ${JSON.stringify(lines)}`,
   );
-  check((home.body.match(/data-testid="platform-line"/g) ?? []).length === 2 && !/data-testid="home-card"/.test(home.body), `${label}: / has not exactly two Platforms lines (or still has a home card)`);
+  check((home.body.match(/data-testid="platform-line"/g) ?? []).length === 3 && !/data-testid="home-card"/.test(home.body), `${label}: / has not exactly three Platforms lines (or still has a home card)`);
   check(!/<form|Compare plans/.test(home.body), `${label}: / renders calculator UI`);
   check(FOOTER.test(home.body), `${label}: / footer is not exactly "Orpheus Wisdom"`);
   const calc = await call("GET", "/calculator", flag);

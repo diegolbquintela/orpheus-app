@@ -8,9 +8,10 @@
  *   node scripts/release-smoke.mjs <base-url> on        # production with the dashboard on
  *   node scripts/release-smoke.mjs <base-url> preview   # a Vercel preview / release candidate (flag on)
  *
- * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard, the current
- * page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title and exactly two
- * Platforms lines with their `Open` links), the footer (exactly "Orpheus Wisdom"),
+ * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard / Personal finance since
+ * #97, the current page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title
+ * and exactly three Platforms lines since #97 with their `Open` links), `/personal-finance` (#97: Personal finance
+ * current), the footer (exactly "Orpheus Wisdom"),
  * the calculator at `/calculator`, `/?query` → `/calculator?query`, noindex meta + X-Robots-Tag on every
  * page, and the calculator's VOD.L refusal (GET /api/chart: 400 with the exact message).
  *
@@ -46,6 +47,7 @@ const menuOk = (r, want) =>
   /href="\/"[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span>)?Orpheus</.test(menu(r)) &&
   /href="\/calculator"[^>]*>Calculator</.test(menu(r)) &&
   /href="\/dashboard"[^>]*>Dashboard</.test(menu(r)) &&
+  /href="\/personal-finance"[^>]*>Personal finance</.test(menu(r)) &&
   JSON.stringify(current(r)) === JSON.stringify(want ? [want] : []);
 const noindex = (r) =>
   /<meta name="robots" content="noindex, nofollow"\/?>/.test(r.body) && /noindex/i.test(r.robots);
@@ -61,7 +63,8 @@ const platforms = (r) =>
     .join(" ");
 const HOME_PLATFORMS =
   "Calculator|Dollar-cost average calculator.|/calculator|Open " +
-  "Dashboard|The portfolio as a business: fundamentals for each name, and the whole.|/dashboard|Open";
+  "Dashboard|The portfolio as a business.|/dashboard|Open " +
+  "Personal finance|Income, expenses, and the cover.|/personal-finance|Open";
 const homeHero = (r) =>
   /<h1[^>]*>Investment driven by research\.<\/h1>/.test(r.body) &&
   /<img [^>]*alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(
@@ -80,7 +83,12 @@ const checks = [
       homeHero(r) &&
       platforms(r) === HOME_PLATFORMS &&
       !/data-testid="home-card"|<form|Compare plans/.test(r.body),
-    "200 home: noindex + X-Robots-Tag, menu (Orpheus current, Dashboard shown), Jordaens hero + title, exactly two Platforms lines with Open links, footer, no calculator",
+    "200 home: noindex + X-Robots-Tag, menu (Orpheus current, Dashboard shown), Jordaens hero + title, exactly three Platforms lines with Open links, footer, no calculator",
+  ],
+  [
+    "/personal-finance",
+    (r) => page(r, "Personal finance") && /<h1[^>]*>Personal finance\.<\/h1>/.test(r.body),
+    "200 personal finance (#97): noindex + X-Robots-Tag, menu (Personal finance current), title, footer",
   ],
   [
     "/calculator",

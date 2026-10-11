@@ -148,7 +148,8 @@ in #72). Phone rules below 1024 px (fields stack, short band), the wide layout
 **Landed: home (#69).** `/` has no white panel left: a Jordaens band (*Triumph of Frederick Henry, Prince of
 Orange*, 1652, public domain; source and licence in [`public/hero/home-SOURCE.md`](public/hero/home-SOURCE.md))
 with `01` and "Investment driven by research." lower left on a soft wash, left of the prince and his horses at
-every width; then `02` Platforms with two lines, Calculator and Dashboard, each with an `Open` link. The #46 line
+every width; then `02` Platforms with three lines (since #97), Calculator, Dashboard and Personal finance, each
+with an `Open` link. The #46 line
 and the two cards are gone. Phone rules below 1024 px (a 3:2 crop of the painting), the wide crop from 1024 px.
 `/?query` still redirects to `/calculator?query`. QA: `qa/tools/home-page.mjs` at 360, 400, 1024 and 1440 px.
 
@@ -185,7 +186,8 @@ both groups. `% of income` shows `—` until income exists (#85). `Equity to cov
 computes it. Account is a dropdown with `Add account…` (one shared list for both groups). Totals per group and for
 both. Manual entry only: everything stays in this browser's `localStorage` (`orpheus.finance.expenses.v1`), with
 no login, no server copy and no request to `/api`. Amounts carry no currency symbol until #87. The page is
-reached by its URL only (EL decision): the bar keeps its three items and home its two lines. QA:
+first-class since #97: the bar's fourth item `Personal finance` (current here) and the third home line; the URL
+still works. QA:
 `qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
 
 **Income (#85 v1.2).** Above the expenses, `02 Income` lists the household's people: Wages (yearly), Bonus rating
@@ -208,6 +210,11 @@ in `orpheus.finance.equity.v1`.
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
 default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.
+
+**Landed: home + top bar for Personal Finance (#97).** The bar reads Orpheus | Calculator, Dashboard, Personal
+finance (text only, the current item underlined; 12 px text below 640 px so all four fit at 360 px; the word Orpheus kept, no sideways scroll; Q21, decided by EL). Home
+`02` Platforms has three full-width lines: Calculator, Dashboard ("The portfolio as a business.", Q22, decided by EL) and Personal
+finance ("Income, expenses, and the cover."). The finance page itself is unchanged.
 
 ## Dashboard (released, behind a flag)
 

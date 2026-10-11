@@ -5,26 +5,28 @@
  * itself stays gated (a 404 while the flag is off).
  */
 
-export type SiteSection = "home" | "calculator" | "dashboard";
+export type SiteSection = "home" | "calculator" | "dashboard" | "personal-finance";
 
-/** Menu items, left to right. "Orpheus" sits on the left; the other two on the right. */
+/** Menu items, left to right. "Orpheus" sits on the left; the other three on the right (#97: Personal finance). */
 export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: string }[] = [
   { section: "home", label: "Orpheus", href: "/" },
   { section: "calculator", label: "Calculator", href: "/calculator" },
   { section: "dashboard", label: "Dashboard", href: "/dashboard" },
+  { section: "personal-finance", label: "Personal finance", href: "/personal-finance" },
 ];
 
 /** Home's Platforms section (#69, spec §4 / Q11): the numeral and heading. */
 export const HOME_PLATFORMS_NUMERAL = "02";
 export const HOME_PLATFORMS_HEADING = "Platforms";
 
-/** Exactly two Platforms lines, spec §4 word for word; each line's `Open` links to `href`. */
+/** Exactly three Platforms lines (#97, the approved layout), spec §4 word for word; each `Open` links to `href`. */
 export const HOME_PLATFORMS: readonly { name: string; text: string; href: string }[] = [
   { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
+  { name: "Dashboard", text: "The portfolio as a business.", href: "/dashboard" },
   {
-    name: "Dashboard",
-    text: "The portfolio as a business: fundamentals for each name, and the whole.",
-    href: "/dashboard",
+    name: "Personal finance",
+    text: "Income, expenses, and the cover.",
+    href: "/personal-finance",
   },
 ];
 
@@ -86,6 +88,7 @@ export function currentSection(pathname: string): SiteSection | null {
   if (path === "/") return "home";
   if (path === "/calculator") return "calculator";
   if (path === "/dashboard" || path.startsWith("/dashboard/")) return "dashboard";
+  if (path === "/personal-finance") return "personal-finance";
   return null;
 }
 
