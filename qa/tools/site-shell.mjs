@@ -1,8 +1,9 @@
 // Dark shell (epic #66, #68; spec attachments/site-style-spec.md ST0 / ST1, and ST6-03 / -04 as they apply to
 // the shell) in a real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900.
 //
-// Signed out: /, /calculator, /dashboard/sign-in, /personal-finance (#97) and a 404 (/no-such-page); signed-out /dashboard → 307 to
-// sign-in. Signed in (only when QA_EMAIL / QA_PASSWORD are in env; through session.mjs, never logged): /dashboard.
+// Signed out: /, /calculator, /dashboard/sign-in and a 404 (/no-such-page); signed-out /dashboard → 307 to sign-in, and
+// signed-out /personal-finance → 307 to /dashboard/sign-in?next=/personal-finance (#102). Signed in (only when QA_EMAIL /
+// QA_PASSWORD are in env; through session.mjs, never logged): /dashboard and /personal-finance (#97 bar item; #102).
 //
 // Per page and width:
 //   ST1-01 one thin charcoal bar (≤ 48 px), sticky at the top on scroll, Orpheus left / Calculator, Dashboard,
@@ -60,7 +61,6 @@ const PAGES = [
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
   ["/calculator", "Calculator", "dark", null], // converted by #70 (qa/tools/calculator-page.mjs); no white panel left
   ["/dashboard/sign-in", "Dashboard", "dark", null], // converted by #73 (qa/tools/signin-page.mjs); no white panel left
-  ["/personal-finance", "Personal finance", "dark", null], // #97: a bar item (the page itself is personal-finance.mjs's)
   ["/no-such-page", null, "dark", null],
 ];
 const navHtml = new Map();
@@ -275,13 +275,17 @@ try {
   // Signed-out /dashboard: the server gate still answers 307 to sign-in.
   const r = await fetch(`${base}/dashboard`, { redirect: "manual" });
   check("signed-out /dashboard → 307 /dashboard/sign-in", r.status === 307 && /\/dashboard\/sign-in$/.test(r.headers.get("location") ?? ""), [r.status, r.headers.get("location")]);
+  // #102: Personal finance is signed-in only; signed out it redirects to sign-in and comes back after.
+  const pf = await fetch(`${base}/personal-finance`, { redirect: "manual" });
+  const pfTo = new URL(pf.headers.get("location") ?? "/x", base);
+  check("signed-out /personal-finance → 307 /dashboard/sign-in?next=/personal-finance (#102)", pf.status === 307 && pfTo.pathname === "/dashboard/sign-in" && pfTo.searchParams.get("next") === "/personal-finance", [pf.status, pf.headers.get("location")]);
   await signedOut(browser, base, false);
   if (CFG.compareUrl) await signedOut(browser, CFG.compareUrl, true);
 
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;
   if (!email || !password) {
-    info("signed-in /dashboard SKIPPED (QA_EMAIL / QA_PASSWORD not set in env)");
+    info("signed-in /dashboard and /personal-finance SKIPPED (QA_EMAIL / QA_PASSWORD not set in env)");
   } else {
     const hosts = CFG.compareUrl ? [[base, "base"], [CFG.compareUrl, "compare"]] : [[base, "base"]];
     for (const [host, which] of hosts) {
@@ -299,6 +303,15 @@ try {
           R.shots.push(file);
         }
         if (CFG.compareUrl) (R.panels[`${vp} /dashboard`] ??= {})[which] = await panelShot(page, content, `${vp}_dashboard-${which}`);
+        if (which === "base") {
+          // #97 / #102: Personal finance, signed in (the page itself is personal-finance.mjs's).
+          await page.goto(`${host}/personal-finance`, { waitUntil: "networkidle" });
+          await page.waitForTimeout(300);
+          await shell(page, { vp, path: "/personal-finance", want: "Personal finance", kind: "dark", viewport });
+          const file = join(CFG.out, `personal-finance-${viewport.width}.png`);
+          await page.screenshot({ path: file, fullPage: true });
+          R.shots.push(file);
+        }
       });
     }
   }

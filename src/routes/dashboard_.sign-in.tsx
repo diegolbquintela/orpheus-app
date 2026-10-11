@@ -5,15 +5,25 @@ import { ensureDashboardEnabled, getDashboardViewer } from "@/lib/dashboard/gate
 // /dashboard/sign-in (T03 #11): email/password sign-in and sign-up. Same gate as
 // /dashboard: 404 unless DASHBOARD_ENABLED is exactly "true". Already signed in:
 // back to /dashboard. Sign-up only works for addresses on the allow-list (D12);
-// the server enforces it.
+// the server enforces it. #102: `?next=/personal-finance` (the only other target allowed) sends the visitor back
+// there after signing in (and straight there when already signed in).
+const NEXT_ALLOWED = ["/personal-finance"] as const;
+type Next = (typeof NEXT_ALLOWED)[number];
+
 export const Route = createFileRoute("/dashboard_/sign-in")({
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>): { next?: Next } =>
+    (NEXT_ALLOWED as readonly unknown[]).includes(search.next) ? { next: search.next as Next } : {},
+  beforeLoad: async ({ search }) => {
     await ensureDashboardEnabled();
     const viewer = await getDashboardViewer();
-    if (viewer.user) throw redirect({ to: "/dashboard" });
-    return { authReady: viewer.authReady };
+    if (viewer.user) throw redirect({ href: search.next ?? "/dashboard" });
+    return { authReady: viewer.authReady, next: search.next ?? "/dashboard" };
   },
-  loader: ({ context }) => ({ enabled: true as const, authReady: context.authReady }),
+  loader: ({ context }) => ({
+    enabled: true as const,
+    authReady: context.authReady,
+    next: context.next,
+  }),
   head: ({ loaderData }) =>
     loaderData?.enabled
       ? {
@@ -29,7 +39,7 @@ export const Route = createFileRoute("/dashboard_/sign-in")({
 type Mode = "sign-in" | "sign-up";
 
 function SignInPage() {
-  const { authReady } = Route.useLoaderData();
+  const { authReady, next } = Route.useLoaderData();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,8 +66,8 @@ function SignInPage() {
         setBusy(false);
         return;
       }
-      // Full load so the server renders /dashboard with the new session cookie.
-      window.location.href = "/dashboard";
+      // Full load so the server renders the page (/dashboard, or #102's ?next) with the new session cookie.
+      window.location.href = next;
     } catch {
       setError("Something went wrong. Try again.");
       setBusy(false);

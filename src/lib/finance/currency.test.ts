@@ -53,13 +53,13 @@ const line = (over: Partial<Line> = {}): Line => ({
   ...over,
 });
 
-// The section 14.2 example: household USD; Condo 2,000 a month in BRL at 0.2.
+// The section 14.2 example: household USD; Condo 2,000 a month in BRL at 5 (#102: 5 BRL per 1 CAD, ÷).
 const example = (): Expenses => ({
   accounts: [],
   fixed: [
     line({ id: "r" }),
     line({ id: "p", name: "Phone", amount: "250" }),
-    line({ id: "c", name: "Condo", amount: "2,000", currency: "BRL", rate: "0.2" }),
+    line({ id: "c", name: "Condo", amount: "2,000", currency: "BRL", rate: "5" }),
   ],
   variable: [line({ id: "g", name: "Gifts", amount: "1,200", per: "year" })],
 });
@@ -120,19 +120,19 @@ describe("foreign-currency line (#87, PF-22..25)", () => {
       assert.equal(parseRate(bad), null, bad);
   });
 
-  it("household line factor 1; foreign line × its rate (Q12), null (—) without a valid rate (Q14)", () => {
+  it("household line factor 1; foreign line ÷ its rate (#102; Q12 superseded), null (—) without a valid rate (Q14)", () => {
     assert.equal(factorOf(line()), 1);
     assert.equal(factorOf(line({ currency: "CAD", rate: "abc" })), 1);
     assert.equal(isForeign(line({ currency: "CAD" })), false);
     assert.equal(isForeign(line({ currency: "USD" })), true, "CAD is the default household (Q13)");
-    assert.equal(factorOf(line({ currency: "BRL", rate: "0.2" })), 0.2);
+    assert.equal(factorOf(line({ currency: "BRL", rate: "5" })), 0.2);
     for (const rate of ["", "0", "abc", "-1"]) {
       assert.equal(factorOf(line({ currency: "BRL", rate })), null, rate);
       assert.equal(householdMonthlyOf(line({ currency: "BRL", rate })), null, rate);
     }
     // The household currency becomes the line's: × 1, the rate ignored (kept stored).
-    assert.equal(factorOf(line({ currency: "BRL", rate: "0.2" }), "BRL"), 1);
-    assert.equal(householdMonthlyOf(line({ amount: "2,000", currency: "BRL", rate: "0.2" })), 400);
+    assert.equal(factorOf(line({ currency: "BRL", rate: "5" }), "BRL"), 1);
+    assert.equal(householdMonthlyOf(line({ amount: "2,000", currency: "BRL", rate: "5" })), 400);
   });
 
   it("converts into the household currency for totals and percentages (the section 14.2 example)", () => {

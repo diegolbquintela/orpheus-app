@@ -32,6 +32,9 @@ class Memory {
 }
 
 const person = (over: Partial<Person> = {}): Person => ({
+  foreign: false,
+  currency: "",
+  rate: "",
   id: "a",
   name: "",
   wages: "",
@@ -74,6 +77,7 @@ describe("personal finance income (#85, PF-11..16)", () => {
         "Count wages",
         "Count bonus",
         "Share (%)",
+        "Foreign",
       ],
     );
     assert.deepEqual([...TABLE_COLUMNS], ["Income", "Biweekly", "Monthly", "Yearly"]);
@@ -99,9 +103,9 @@ describe("personal finance income (#85, PF-11..16)", () => {
     assert.deepEqual(
       lines.map((l) => [
         l.label,
-        formatAmount(l.yearly),
-        formatAmount(monthly(l.yearly)),
-        formatAmount(biweekly(l.yearly)),
+        formatAmount(l.yearly!),
+        formatAmount(monthly(l.yearly!)),
+        formatAmount(biweekly(l.yearly!)),
       ]),
       [
         ["Me · Wages", "84,000", "7,000", "3,230.77"],
@@ -110,7 +114,7 @@ describe("personal finance income (#85, PF-11..16)", () => {
         ["Spouse · Bonus", "2,400", "200", "92.31"],
       ],
     );
-    const net = netIncomeYearly([me, spouse]);
+    const net = netIncomeYearly([me, spouse])!;
     assert.deepEqual(
       [formatAmount(net), formatAmount(monthly(net)), formatAmount(biweekly(net))],
       ["134,400", "11,200", "5,169.23"],

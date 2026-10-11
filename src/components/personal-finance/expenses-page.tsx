@@ -27,11 +27,13 @@ import {
   type Totals,
   totalsOf,
   writeExpenses,
+  migrateExpenses,
 } from "@/lib/finance/expenses";
 import {
   type Income,
   monthly,
   netIncomeYearly,
+  rateLabel,
   readIncome,
   writeIncome,
 } from "@/lib/finance/income";
@@ -54,26 +56,30 @@ import { OverviewBlock } from "./overview-block";
 import { Cell, SectionHead } from "./pf-cells";
 
 import { type Overview, readOverview, writeOverview } from "@/lib/finance/overview";
+import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
 
 const ADD_ACCOUNT = "__add-account__";
 
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
+let currentStore: StoreLike | null = null;
+/** The loaded store (#102: the account's record; tests: localStorage). Null until loaded. */
+function storage(): StoreLike | null {
+  return currentStore;
 }
 
 /**
  * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3, #87 v1.4, #94; spec `attachments/personal-finance-spec.md`,
  * PF-01..32): the household currency, the income block, the equity-cover rates and Fixed and Variable expenses
- * (a line may be in a foreign currency with a typed FX rate), then (#94) `04` Overview and `05` Update, in this
- * browser's localStorage only (five keys). The server renders the title
+ * (a line may be in a foreign currency with a typed FX rate), then (#94) `04` Overview and `05` Update. #102: the
+ * five values live against the signed-in account (`loadStore`, default the account API); a failed save shows
+ * `Not saved.` (absolutely placed under the title, so nothing moves). The server renders the title
  * and an empty area at least the viewport tall; the browser fills it once after reading storage, so nothing on
  * screen moves (strict CLS 0).
  */
-export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
+export function PersonalFinancePage({
+  now: fixedNow,
+  loadStore = loadAccountStore,
+}: { now?: Date; loadStore?: LoadStore } = {}) {
+  const [saveFailed, setSaveFailed] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [expenses, setExpenses] = useState<Expenses | null>(null);
@@ -83,13 +89,29 @@ export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
   const [adding, setAdding] = useState<string | null>(null);
 
   useEffect(() => {
+    let alive = true;
+    loadStore({ onSaved: (ok) => alive && setSaveFailed(!ok) })
+      .then((store) => {
+        if (!alive) return;
+        currentStore = store;
+        migrateExpenses(store);
+        fill();
+      })
+      .catch(() => alive && setSaveFailed(true));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedNow, loadStore]);
+
+  function fill() {
     setIncome(readIncome(storage()));
     setRates(readRates(storage()));
     setHousehold(readHousehold(storage()));
     setOverview(readOverview(storage()));
     setNow(fixedNow ?? new Date());
     setExpenses(readExpenses(storage()));
-  }, [fixedNow]);
+  }
 
   function updateOverview(change: (current: Overview) => Overview) {
     setOverview((current) => {
@@ -139,9 +161,12 @@ export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
   return (
     <div className="pf">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 pt-10 pb-20 sm:px-8 lg:gap-16 lg:pt-14 lg:pb-24">
-        <header>
+        <header className="relative">
           <p className="pf-label">01</p>
           <h1 className="pf-title mt-2">Personal finance.</h1>
+          <p className="pf-save" role="status" data-testid="pf-save">
+            {saveFailed ? "Not saved." : ""}
+          </p>
         </header>
 
         <div
@@ -154,7 +179,7 @@ export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
           {expenses && income && rates && household && overview && now ? (
             <>
               <HouseholdCurrency value={household.household} onChange={updateHousehold} />
-              <IncomeBlock income={income} update={updateIncome} />
+              <IncomeBlock income={income} update={updateIncome} household={household.household} />
               <section className="flex flex-col gap-8" aria-labelledby="pf-expenses">
                 <SectionHead numeral="03" title="Expenses" id="pf-expenses" />
                 <EquityRates rates={rates} update={updateRates} />
@@ -163,7 +188,7 @@ export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
                     expenses={expenses}
                     rate={rateUsed(rates)}
                     household={household.household}
-                    incomeMonthly={monthly(netIncomeYearly(income.people))}
+                    incomeMonthly={monthly(netIncomeYearly(income.people, household.household))}
                     adding={adding}
                     setAdding={setAdding}
                     update={update}
@@ -177,7 +202,7 @@ export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
                 now={now}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
-                  income: monthly(netIncomeYearly(income.people)),
+                  income: monthly(netIncomeYearly(income.people, household.household)),
                 }}
               />
             </>
@@ -237,7 +262,7 @@ function Groups({
   /** The household currency (#87): every figure below is in it (a foreign line × its FX rate). */
   household: CurrencyCode;
   /** The counted net income a month (#85); `% of income` divides by it, `—` at 0. */
-  incomeMonthly: number;
+  incomeMonthly: number | null;
   adding: string | null;
   setAdding: (id: string | null) => void;
   update: (change: (current: Expenses) => Expenses) => void;
@@ -440,7 +465,7 @@ function LineRow({
             onChange={(event) => onChange({ rate: event.target.value })}
             inputMode="decimal"
             autoComplete="off"
-            aria-label={aria(FX_RATE_LABEL)}
+            aria-label={aria(rateLabel(line.currency, household))}
             className="pf-field"
             data-testid="pf-fx"
             {...check(rateBad, "rate")}
@@ -603,7 +628,7 @@ function TotalRow({
   label: string;
   totals: Totals;
   whole: number | null;
-  incomeMonthly: number;
+  incomeMonthly: number | null;
   testId: string;
 }) {
   const value = (area: string, column: string, text: string, field: string) => (
