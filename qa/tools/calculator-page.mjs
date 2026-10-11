@@ -1,4 +1,4 @@
-// Calculator page (epic #66, #70; spec attachments/site-style-spec.md §7 / §7a, ST4-01..16, plus ST0 / ST6 as
+// Calculator page (epic #66, #70, #78; spec attachments/site-style-spec.md §7 / §7a, ST4-01..18, plus ST0 / ST6 as
 // they apply) in a real browser at 360 × 780, 400 × 860 (phone rules: below 1024 px), 1024 × 800 and 1440 × 900
 // (wide layout: from 1024 px). Read-only, signed out; the only network writes are the calculator's own
 // GET /api/chart requests for the $313,000 regression case.
@@ -32,21 +32,28 @@
 //   ST4-07 / ST6-02 no instruction text (intro, swipe hint, scale note, field hints); ST6-01 one image, no CSS
 //          background-image on the page
 //   ST4-08 phone: the fields stack, full width, the ticker above its weight with the remove control beside it
-//   Q8 an empty submit shows the error in #ff8f87
+//   ST4-17 (#78) field checks, each message word for word directly under its field in #ff8f87 13 px, the field
+//          aria-invalid and described by it, every bad field at once, nothing cleared, no price request: an empty
+//          submit; a weight missing, a duplicate ticker, equal dates, text / negative amounts; at 360 and 1440
+//          also after the prices: VOD.L (venue) and SHOP.TO in a USD basket (currency), under those tickers
+//   ST4-18 (#78) wide: the basket ≤ 26rem; Start, End, Starting capital, Contribution, Frequency in one row,
+//          the button under them
 //   AA for every visible text against its background; no horizontal page scroll; the bar on one line
 // After the regression run (PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly):
 //   ST4-05 one chart, one series (one area, no line series), green line, 16% green fill, the last value in a
 //          22 px green pill (night text) equal to the DCA "NLV at end" value, unclipped
-//   ST4-06 eight metrics, captions word for word, `Lump sum` / `DCA` label-value rows, no <table>, no boxes or
-//          borders; DCA Total invested $313,000; captions: "Dividends reinvested.", then the fixed method sentence
-//          word for word (EL N1), then only run-specific lines
+//   ST4-06 (#78) two plan columns, `Lump sum` then `DCA`, each EXACTLY four lines (Final value, Total invested,
+//          Return (%), CAGR (%), word for word), no other metric, no <table>, no boxes or borders; DCA Total
+//          invested $313,000; captions: "Dividends reinvested.", then the fixed method sentence word for word
+//          (EL N1), then only run-specific lines
 //   ST4-09 phone: the chart spans the content column (same edges as the form)
 //   ST4-10 two columns while each column is ≥ 150 px, else stacked (Lump sum above DCA); every value on one
-//          line inside its column (expected: two columns at 360 and 400); (D3, QA round 1) every label-value
-//          row's main line is one line: the value's figure on the label's line, never wrapped under it (a date
-//          sits on its own muted line inside the value cell)
-//   ST4-12 wide: form left, results right; no horizontal scroll at any width
-// Screenshots: calculator-<w>.png (before), calculator-<w>-result.png (after), hero-<w>.png (boxes outlined).
+//          line inside its column (expected: two columns at 360 and 400); phone: each label above its value;
+//          wide: label and value on one row
+//   ST4-18 wide: the results below the form at full width (the window row's edges); no horizontal scroll at
+//          any width
+// Screenshots: calculator-<w>.png (before), calculator-<w>-checks.png (the form with field checks shown),
+// calculator-<w>-result.png (after), hero-<w>.png (boxes outlined).
 //   node qa/tools/calculator-page.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
@@ -76,16 +83,9 @@ const ALERT = "rgb(255, 143, 135)";
 const TITLE = "Dollar-cost average calculator.";
 const ALT = "Sandro Botticelli, The Birth of Venus";
 const NOTE = "US, EU and CA listings, one currency per basket.";
-const LABELS = [
-  "Total invested",
-  "NLV at end",
-  "Money-weighted return (XIRR, per year)",
-  "Total return",
-  "CAGR on total invested, as if all invested day one",
-  "Max drop",
-  "NLV at that drop",
-  "Return to the drop",
-];
+const LABELS = ["Final value", "Total invested", "Return (%)", "CAGR (%)"];
+const KEYS = ["nlv", "invested", "total", "cagr"];
+const VOD_L = "VOD.L lists on LSE. US, EU, and CA listings only.";
 const CASE = { rows: [["PLTR", 50], ["TQQQ", 50]], start: "2020-10-02", end: "2026-10-01", capital: 1000, contribution: 1000, frequency: "weekly" };
 const MAX_BYTES = 300 * 1024;
 const RUNS = Number(process.env.CLS_RUNS ?? 3); // cold loads per width for ST4-01
@@ -400,14 +400,119 @@ async function formChecks(page, tag, mobile, viewport) {
     check(`${tag} ST4-08 fields stack, one under another`, tops.every((t, i) => i === 0 || t > tops[i - 1] + 10), tops.map(Math.round));
     check(`${tag} ST4-08 ticker above its weight (Q15), remove control beside the ticker`, f.weight.top >= f.ticker.bottom && f.remove.left >= f.ticker.right && Math.abs(f.remove.bottom - f.ticker.bottom) <= 2 && Math.abs(f.remove.right - f.form.right) <= 1, { ticker: f.ticker, remove: f.remove, weight: f.weight });
   }
-  // Q8: an empty submit shows the error line in the alert colour (≥ 4.5:1 on charcoal).
-  await page.getByRole("button", { name: "Compare plans" }).click();
-  const alert = await page.locator("[role=alert]").evaluate((a) => ({ text: a.textContent, color: getComputedStyle(a).color }));
-  check(`${tag} Q8 error line in #ff8f87 (${ratio(rgb(ALERT), rgb(NIGHT))}:1)`, alert.color === ALERT && alert.text === "Add a ticker.", alert);
+  if (!mobile) {
+    // ST4-18 (#78): the basket ≤ 26rem; the five window fields in one row, left to right; the button under them.
+    const w = await page.evaluate(() => {
+      const box = (e) => { const r = e.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width }; };
+      const row = document.querySelector("[data-testid=window-row]");
+      return {
+        basket: box(document.querySelector("[data-testid=basket-row]").closest("section")),
+        fields: [...row.querySelectorAll("input, select")].map((e) => ({ label: e.closest("label").querySelector("span").textContent, ...box(e) })),
+        button: box(document.querySelector("[data-testid=compare]")),
+      };
+    });
+    const tops = w.fields.map((x) => Math.round(x.top));
+    check(`${tag} ST4-18 Start, End, Starting capital, Contribution, Frequency in one row (same top, left to right)`, JSON.stringify(w.fields.map((x) => x.label)) === JSON.stringify(["Start", "End", "Starting capital", "Contribution", "Frequency"]) && Math.max(...tops) - Math.min(...tops) <= 1 && w.fields.every((x, i) => i === 0 || x.left >= w.fields[i - 1].right), w.fields.map((x) => [x.label, Math.round(x.left), Math.round(x.top), Math.round(x.width)]));
+    check(`${tag} ST4-18 the button under the row`, w.button.top >= Math.max(...w.fields.map((x) => x.bottom)), { button: w.button.top, fields: Math.max(...w.fields.map((x) => x.bottom)) });
+    check(`${tag} ST4-18 the basket stacked, at most 26rem wide (${Math.round(w.basket.width)} px)`, w.basket.width <= 416.5, w.basket);
+  }
+  await fieldChecks(page, tag, viewport);
   const scan = await contrastScan(page);
   check(`${tag} ST0-03 AA contrast for every visible text (before a run, error shown)`, scan.bad.length === 0, scan.bad.length ? scan.bad : { texts: scan.n });
   const barLine = await page.locator('nav[aria-label="Site"] a').evaluateAll((as) => as.map((a) => Math.round(a.getBoundingClientRect().top)));
   check(`${tag} the bar fits on one line (${viewport.width} px)`, Math.max(...barLine) - Math.min(...barLine) <= 2, barLine);
+}
+
+// ST4-17 (#78): every field-check message word for word, directly under its field, in the alert colour; nothing
+// cleared; no price request before the field checks pass. At 360 and 1440 also the checks after the prices.
+async function readFieldErrors(page) {
+  return page.evaluate(() => {
+    const box = (e) => { const r = e.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom }; };
+    const control = (field) => {
+      const m = /^(ticker|weight)-(\d+)$/.exec(field);
+      if (m) return document.querySelectorAll("[data-testid=basket-row]")[Number(m[2])]?.querySelector(`[data-testid=${m[1]}-input]`);
+      return document.querySelector(`input[data-field="${field}"], select[data-field="${field}"]`);
+    };
+    return [...document.querySelectorAll("[data-testid=field-error]")].map((e) => {
+      const c = control(e.dataset.field);
+      const s = getComputedStyle(e);
+      return {
+        field: e.dataset.field, text: e.textContent, color: s.color, size: s.fontSize, box: box(e), control: c && box(c),
+        invalid: c?.getAttribute("aria-invalid") === "true", described: !!c && c.getAttribute("aria-describedby") === e.id,
+        underline: c && getComputedStyle(c).borderBottomColor,
+      };
+    });
+  });
+}
+function errorChecks(tag, name, errs, want) {
+  const got = Object.fromEntries(errs.map((e) => [e.field, e.text]));
+  check(`${tag} ST4-17 ${name}: messages word for word under the right fields`, JSON.stringify(got) === JSON.stringify(want), got);
+  const bad = errs.filter((e) => !(e.control && e.box.top >= e.control.bottom - 0.5 && e.box.top - e.control.bottom <= 12 && Math.abs(e.box.left - e.control.left) <= 1));
+  check(`${tag} ST4-17 ${name}: each directly under its field`, bad.length === 0, bad);
+  check(`${tag} ST4-17 ${name}: #ff8f87 13 px, the field aria-invalid + described by it, its underline alert`, errs.every((e) => e.color === ALERT && e.size === "13px" && e.invalid && e.described && e.underline === ALERT), errs.map((e) => [e.field, e.color, e.size, e.invalid, e.described, e.underline]));
+}
+async function fieldChecks(page, tag, viewport) {
+  const requests = [];
+  const onReq = (req) => { if (req.url().includes("/api/chart")) requests.push(req.url()); };
+  page.on("request", onReq);
+  // 1. An empty submit.
+  await page.getByRole("button", { name: "Compare plans" }).click();
+  await page.waitForSelector("[data-testid=field-error]");
+  errorChecks(tag, "empty submit", await readFieldErrors(page), {
+    "ticker-0": "Add a ticker.",
+    start: "Add a start date.",
+    end: "Add an end date.",
+    capital: "Enter a number above 0.",
+    contribution: "Enter a number above 0.",
+    frequency: "Choose weekly or monthly.",
+  });
+  check(`${tag} ST4-17 / Q8 no general error line for field checks`, (await page.locator("[role=alert]").count()) === 0, null);
+  // 2. Bad values: a weight missing, a duplicate ticker, equal dates, text and a negative amount.
+  await page.goto(page.url(), { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: /Add name/ }).click();
+  const rows = page.locator("[data-testid=basket-row]");
+  await rows.nth(0).locator("[data-testid=ticker-input]").fill("PLTR");
+  await rows.nth(1).locator("[data-testid=ticker-input]").fill("pltr");
+  await rows.nth(1).locator("[data-testid=weight-input]").fill("10");
+  await page.locator('input[data-field="start"]').fill("2024-01-02");
+  await page.locator('input[data-field="end"]').fill("2024-01-02");
+  await page.locator('input[data-field="capital"]').fill("abc");
+  await page.locator('input[data-field="contribution"]').fill("-5");
+  await page.locator('select[data-field="frequency"]').selectOption("weekly");
+  await page.getByRole("button", { name: "Compare plans" }).click();
+  await page.waitForSelector("[data-testid=field-error]");
+  errorChecks(tag, "bad values", await readFieldErrors(page), {
+    "weight-0": "Enter a weight above 0.",
+    "ticker-1": "PLTR is already in the basket.",
+    end: "End must be after the start.",
+    capital: "Enter a number above 0.",
+    contribution: "Enter a number above 0.",
+  });
+  const checksShot = join(CFG.out, `calculator-${viewport.width}-checks.png`);
+  await page.locator("[data-testid=calculator-form]").screenshot({ path: checksShot });
+  R.shots.push(checksShot);
+  const kept = await page.evaluate(() => [...document.querySelectorAll("[data-testid=calculator-form] input, [data-testid=calculator-form] select")].map((e) => e.value));
+  check(`${tag} ST4-17 nothing cleared`, JSON.stringify(kept) === JSON.stringify(["PLTR", "", "pltr", "10", "2024-01-02", "2024-01-02", "abc", "-5", "weekly"]), kept);
+  check(`${tag} ST4-17 no price request before the field checks pass`, requests.length === 0, requests);
+  await page.locator('input[data-field="capital"]').fill("1000");
+  check(`${tag} ST4-17 editing a field clears its own message only`, (await page.locator('[data-testid=field-error][data-field="capital"]').count()) === 0 && (await page.locator("[data-testid=field-error]").count()) === 4, await page.locator("[data-testid=field-error]").allTextContents());
+  page.off("request", onReq);
+  // 3. After the prices (decision 1): venue and currency under those tickers; nothing calculated.
+  if (viewport.width === 360 || viewport.width === 1440) {
+    await page.goto(page.url(), { waitUntil: "networkidle" });
+    await fill(page, { rows: [["PLTR", 50], ["SHOP.TO", 25], ["VOD.L", 25]], start: "2023-01-03", end: "2024-12-31", capital: 10000, contribution: 500, frequency: "monthly" });
+    await page.waitForSelector("[data-testid=field-error]", { timeout: 90000 });
+    await page.waitForTimeout(300);
+    errorChecks(tag, "after the prices (VOD.L venue, SHOP.TO currency)", await readFieldErrors(page), {
+      "ticker-1": "SHOP.TO trades in CAD; this basket is in USD. One currency per basket.",
+      "ticker-2": VOD_L,
+    });
+    check(`${tag} ST4-17 no result after a listing refusal`, (await page.locator("[data-testid=result]").count()) === 0, null);
+  }
+  // Leave the page with the empty-submit marks shown for the AA scan.
+  await page.goto(page.url(), { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Compare plans" }).click();
+  await page.waitForSelector("[data-testid=field-error]");
 }
 
 async function resultChecks(page, tag, mobile) {
@@ -419,19 +524,21 @@ async function resultChecks(page, tag, mobile) {
     const area = chart.querySelector(".recharts-area-area");
     const pill = chart.querySelector("[data-testid=chart-pill]");
     const ps = pill && getComputedStyle(pill);
-    const metrics = [...result.querySelectorAll("[data-testid=result-metric]")].map((m) => {
-      const dl = m.querySelector("dl");
-      const lines = (el) => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
-      const cols = [...dl.children].map((c) => {
-        const dt = c.querySelector("dt");
-        const dd = c.querySelector("dd");
-        const main = dd.querySelector("[data-part=main]") ?? dd;
-        const date = dd.querySelector("[data-part=date]");
-        return { plan: c.dataset.plan, dt: dt.textContent, dd: dd.textContent, box: box(c), ddBox: box(main), dtBox: box(dt), mainBox: box(main), mainLines: lines(main), dateBox: date && box(date), dateColor: date && getComputedStyle(date).color, ddLines: lines(main) };
-      });
-      const ms = getComputedStyle(m);
-      const ds = getComputedStyle(dl);
-      return { key: m.dataset.key, caption: m.querySelector("p").textContent, captionBox: box(m.querySelector("p")), dl: box(dl), gap: parseFloat(ds.columnGap), cols, borders: [ms.borderTopWidth, ms.borderBottomWidth, ds.borderTopWidth, ds.borderBottomWidth, ...[...dl.children].map((c) => getComputedStyle(c).borderTopWidth)], bgs: [ms.backgroundColor, ds.backgroundColor, ...[...dl.children].map((c) => getComputedStyle(c).backgroundColor)] };
+    const lines = (el) => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
+    const grid = result.querySelector("[data-testid=results]");
+    const plans = [...grid.querySelectorAll("[data-testid=result-plan]")].map((p) => {
+      const ps = getComputedStyle(p);
+      const h = p.querySelector("h3");
+      return {
+        plan: p.dataset.plan, heading: h?.textContent, box: box(p),
+        lines: [...p.querySelectorAll("[data-testid=result-line]")].map((l) => {
+          const dt = l.querySelector("dt");
+          const dd = l.querySelector("dd");
+          const ls = getComputedStyle(l);
+          return { key: l.dataset.key, dt: dt.textContent, dd: dd.textContent, dtBox: box(dt), ddBox: box(dd), ddLines: lines(dd), ddSize: getComputedStyle(dd).fontSize, border: [ls.borderTopWidth, ls.borderBottomWidth, ls.borderLeftWidth, ls.borderRightWidth], bg: ls.backgroundColor };
+        }),
+        border: [ps.borderTopWidth, ps.borderBottomWidth, ps.borderLeftWidth, ps.borderRightWidth], bg: ps.backgroundColor,
+      };
     });
     return {
       result: box(result), form: box(document.querySelector("[data-testid=calculator-form]")),
@@ -443,7 +550,9 @@ async function resultChecks(page, tag, mobile) {
       fill: area && getComputedStyle(area).fill, fillOpacity: area?.getAttribute("fill-opacity"),
       chart: box(chart),
       pill: pill && { text: pill.textContent, bg: ps.backgroundColor, color: ps.color, height: box(pill).height, box: box(pill) },
-      metrics,
+      plans, grid: box(grid), gap: parseFloat(getComputedStyle(grid).columnGap),
+      allLines: result.querySelectorAll("[data-testid=result-line]").length,
+      windowRow: box(document.querySelector("[data-testid=window-row]")),
       tables: document.querySelectorAll("table").length,
       captions: [...result.querySelectorAll("[data-testid=result-captions] p")].map((p) => p.textContent),
       text: result.innerText,
@@ -452,50 +561,37 @@ async function resultChecks(page, tag, mobile) {
   });
   check(`${tag} ST4-05 one chart, one series (one area, no line series)`, r.wrappers === 1 && r.areas === 1 && r.lines === 0, { wrappers: r.wrappers, areas: r.areas, lines: r.lines });
   check(`${tag} ST4-05 green line (2 px) and a 16% green fill`, r.stroke === GREEN && r.strokeWidth === "2" && r.fill === GREEN && r.fillOpacity === "0.16", { stroke: r.stroke, width: r.strokeWidth, fill: r.fill, opacity: r.fillOpacity });
-  const nlv = r.metrics.find((m) => m.key === "nlv")?.cols.find((c) => c.plan === "dca")?.dd;
-  check(`${tag} ST4-05 last value in a 22 px green pill, night text, = DCA NLV at end`, r.pill && r.pill.bg === GREEN && r.pill.color === NIGHT && Math.round(r.pill.height) === 22 && r.pill.text === nlv, { pill: r.pill, nlv });
+  const value = (plan, key) => r.plans.find((p) => p.plan === plan)?.lines.find((l) => l.key === key)?.dd;
+  const nlv = value("dca", "nlv");
+  check(`${tag} ST4-05 last value in a 22 px green pill, night text, = DCA Final value`, r.pill && r.pill.bg === GREEN && r.pill.color === NIGHT && Math.round(r.pill.height) === 22 && r.pill.text === nlv, { pill: r.pill, nlv });
   check(`${tag} ST4-05 / ST4-09 the pill is not clipped (inside the chart)`, r.pill && inside(r.pill.box, r.chart), { pill: r.pill?.box, chart: r.chart });
   check(`${tag} ST4-05 no chart note`, !/scale/i.test(r.text), null);
   check(`${tag} ST4-06 no <table> on the page`, r.tables === 0, r.tables);
-  check(`${tag} ST4-06 eight metrics, captions word for word`, JSON.stringify(r.metrics.map((m) => m.caption)) === JSON.stringify(LABELS), r.metrics.map((m) => m.caption));
-  check(`${tag} ST4-06 Lump sum / DCA label-value rows (short labels)`, r.metrics.every((m) => JSON.stringify(m.cols.map((c) => c.dt)) === '["Lump sum","DCA"]'), r.metrics.map((m) => m.cols.map((c) => c.dt).join("|")));
-  check(`${tag} ST4-06 no boxes, no borders`, r.metrics.every((m) => m.borders.every((b) => b === "0px") && m.bgs.every((b) => b === "rgba(0, 0, 0, 0)")), r.metrics[0]);
-  const invested = r.metrics.find((m) => m.key === "invested")?.cols.find((c) => c.plan === "dca")?.dd;
+  check(`${tag} ST4-06 two plan columns, Lump sum then DCA`, JSON.stringify(r.plans.map((p) => [p.plan, p.heading])) === '[["lump","Lump sum"],["dca","DCA"]]', r.plans.map((p) => [p.plan, p.heading]));
+  check(`${tag} ST4-06 exactly four lines per plan, labels word for word, in order (${r.allLines} lines in all)`, r.allLines === 8 && r.plans.every((p) => JSON.stringify(p.lines.map((l) => l.dt)) === JSON.stringify(LABELS) && JSON.stringify(p.lines.map((l) => l.key)) === JSON.stringify(KEYS) && p.lines.every((l) => l.dd.trim())), r.plans.map((p) => p.lines.map((l) => `${l.dt}: ${l.dd}`)));
+  check(`${tag} ST4-06 no other metric shown (XIRR, max drop, value at the drop, return to the drop)`, !/XIRR|Money-weighted|Max drop|NLV at|Return to the drop/.test(r.text), null);
+  check(`${tag} ST4-06 values in the results' formats (money, signed percent)`, r.plans.every((p) => /^\$[\d,]+$/.test(value(p.plan, "nlv")) && /^\$[\d,]+$/.test(value(p.plan, "invested")) && /^([+−]\d+\.\d%|0\.0%|—)$/.test(value(p.plan, "total")) && /^([+−]\d+\.\d%|0\.0%|—)$/.test(value(p.plan, "cagr"))), r.plans.map((p) => p.lines.map((l) => l.dd)));
+  check(`${tag} ST4-06 no boxes, no borders around the plans or lines`, r.plans.every((p) => p.border.every((b) => b === "0px") && p.bg === "rgba(0, 0, 0, 0)" && p.lines.every((l) => l.border.every((b) => b === "0px") && l.bg === "rgba(0, 0, 0, 0)")), r.plans.map((p) => [p.border, p.bg]));
+  const invested = value("dca", "invested");
   check(`${tag} ST4-06 / DCA-01..06 regression: DCA Total invested $313,000`, invested === "$313,000", invested);
   check(`${tag} Q2 / Q12 (N1) captions: "Dividends reinvested.", the method sentence word for word, then only run-specific lines`, r.captions[0] === "Dividends reinvested." && r.captions[1] === METHOD && r.captions.length === 2, r.captions);
   // ST4-10: two columns while each column is ≥ 150 px, else stacked; values on one line inside their column.
-  const layout = r.metrics.map((m) => {
-    const [a, b] = m.cols;
-    const two = Math.abs(a.box.top - b.box.top) <= 1 && b.box.left >= a.box.right;
-    const fits = (m.dl.width - m.gap) / 2 >= 150;
-    const whole = m.cols.every((c) => c.ddLines === 1 && c.ddBox.right <= c.box.right + 0.5 && c.ddBox.left >= c.box.left - 0.5);
-    const captionFull = Math.abs(m.captionBox.width - m.dl.width) <= 1;
-    return { key: m.key, two, fits, whole, captionFull, stackedOrder: two || b.box.top >= a.box.bottom };
-  });
-  check(`${tag} ST4-10 two columns when each ≥ 150 px, else stacked (Lump sum above DCA)`, layout.every((l) => l.two === l.fits && l.stackedOrder), layout.map((l) => `${l.key}:${l.two ? "2col" : "stack"}`));
-  if (mobile) check(`${tag} ST4-10 expected: two columns at this width (EL A1)`, layout.every((l) => l.two), layout.map((l) => l.two));
-  check(`${tag} ST4-10 every value whole on one line, inside its column`, layout.every((l) => l.whole), layout.filter((l) => !l.whole));
-  // D3: each label-value row's main line is a single line: the figure on the label's line (bottoms aligned, right
-  // of the label), one line high (≤ 24 px); a date only on its own muted line under the figure, inside the cell.
-  const rows = r.metrics.flatMap((m) => m.cols.map((c) => ({ key: m.key, plan: c.plan, ...c })));
-  const rowBad = rows.filter((c) => {
-    const sameLine = Math.abs(c.mainBox.bottom - c.dtBox.bottom) <= 3 && c.mainBox.left >= c.dtBox.right;
-    const oneLine = c.mainLines === 1 && c.mainBox.height <= 24 && c.dtBox.height <= 24;
-    const date = !c.dateBox || (c.dateBox.top >= c.mainBox.bottom - 1 && c.dateBox.right <= c.box.right + 0.5 && c.dateBox.left >= c.box.left - 0.5 && c.dateBox.bottom <= c.box.bottom + 0.5 && c.dateColor === DIM);
-    return !(sameLine && oneLine && date);
-  });
-  check(`${tag} D3 every label-value row's main line is one line, no value wrapped under its label (${rows.length} rows)`, rowBad.length === 0, rowBad.length ? rowBad.map((c) => ({ key: c.key, plan: c.plan, dt: c.dtBox, main: c.mainBox, date: c.dateBox, cell: c.box })) : rows.filter((c) => c.dateBox).map((c) => `${c.key}/${c.plan}: label ${Math.round(c.dtBox.height)} px, figure ${Math.round(c.mainBox.height)} px on one line, date own line`));
-  R.rows ??= {};
-  R.rows[tag] = rows.map((c) => ({ key: c.key, plan: c.plan, label: c.dtBox.height, main: c.mainBox.height, cell: c.box.height, date: !!c.dateBox }));
-  const drop = rows.filter((c) => c.key === "drop");
-  check(`${tag} D3 Max drop: figure on the label's line, the date on its own muted line`, drop.length === 2 && drop.every((c) => c.dateBox && /^\d{4}-\d{2}-\d{2}$/.test(c.dd.split(" · ")[1] ?? "")), drop.map((c) => c.dd));
-  check(`${tag} ST4-10 metric captions full width`, layout.every((l) => l.captionFull), layout.filter((l) => !l.captionFull).map((l) => l.key));
+  const [a, b] = r.plans;
+  const two = Math.abs(a.box.top - b.box.top) <= 1 && b.box.left >= a.box.right;
+  const fits = (r.grid.width - r.gap) / 2 >= 150;
+  check(`${tag} ST4-10 two columns when each ≥ 150 px, else stacked (Lump sum above DCA) (${Math.round((r.grid.width - r.gap) / 2)} px each)`, two === fits && (two || b.box.top >= a.box.bottom), { two, fits, lump: a.box, dca: b.box });
+  if (mobile) check(`${tag} ST4-10 expected: two columns at this width (EL A1)`, two, { two });
+  const allLines = r.plans.flatMap((p) => p.lines.map((l) => ({ plan: p.plan, col: p.box, ...l })));
+  const whole = allLines.filter((l) => !(l.ddLines === 1 && l.ddBox.right <= l.col.right + 0.5 && l.ddBox.left >= l.col.left - 0.5));
+  check(`${tag} ST4-10 every value whole on one line, inside its column`, whole.length === 0, whole.map((l) => [l.plan, l.key, l.ddBox]));
+  const placed = allLines.filter((l) => (mobile ? !(l.ddBox.top >= l.dtBox.bottom - 1 && Math.abs(l.ddBox.left - l.dtBox.left) <= 1) : !(Math.abs(l.ddBox.bottom - l.dtBox.bottom) <= 4 && l.ddBox.left >= l.dtBox.right)));
+  check(`${tag} ST4-10 ${mobile ? "phone: each label above its value" : "wide: label and value on one row"}`, placed.length === 0, placed.length ? placed.map((l) => [l.plan, l.key, l.dtBox, l.ddBox]) : allLines.map((l) => `${l.plan}/${l.key} ${l.ddSize}`).slice(0, 2));
   check(`${tag} ST4-12 no horizontal page scroll (after a run)`, r.scroll[0] <= r.scroll[1], r.scroll);
   if (mobile) {
     check(`${tag} ST4-09 chart full width (same edges as the form)`, Math.abs(r.chart.left - r.form.left) <= 1 && Math.abs(r.chart.right - r.form.right) <= 1, { chart: r.chart, form: r.form });
     check(`${tag} phone: results under the form`, r.result.top >= r.form.bottom, [r.result.top, r.form.bottom]);
   } else {
-    check(`${tag} ST4-12 wide: form left, results right`, r.result.left >= r.form.right && Math.abs(r.result.top - r.form.top) <= 4, { form: r.form, result: r.result });
+    check(`${tag} ST4-18 wide: the results below the form at full width (the window row's edges)`, r.result.top >= r.form.bottom && Math.abs(r.result.left - r.windowRow.left) <= 1 && Math.abs(r.result.right - r.windowRow.right) <= 1 && Math.abs(r.grid.width - r.windowRow.width) <= 1, { form: r.form, result: r.result, windowRow: r.windowRow, grid: r.grid });
   }
   const scan = await contrastScan(page);
   check(`${tag} ST0-03 AA contrast for every visible text (after a run, chart ticks and pill included)`, scan.bad.length === 0, scan.bad.length ? scan.bad : { texts: scan.n });

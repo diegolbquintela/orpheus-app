@@ -66,7 +66,7 @@ affects the repo.
   `src/lib/site/hero.ts` (crops, widths, Venus's figure box per crop: change the crop and you must change the box);
   files and licence in `public/hero/` (`calculator-SOURCE.md`; every file ≤ 300 KB). Calculator-only classes in
   `src/styles.css` (`.calc`, `.calc-field`, `.calc-label`, `.calc-row`, `.calc-button`, `.calc-note`,
-  `.calc-caption`, `.calc-pairs`, `.calc-title`, `.calc-wash`, `.calc-pill`; sizes in spec §7); the shared `.field` / `.kicker` /
+  `.calc-caption`, `.calc-plans` / `.calc-plan` / `.calc-line` / `.calc-value` / `.calc-error` (#78; `.calc-pairs` gone), `.calc-title`, `.calc-wash`, `.calc-pill`; sizes in spec §7); the shared `.field` / `.kicker` /
   `.section` are untouched, and the unused `.mast-grid` / `.basket-row` were removed. `color-scheme: dark` comes
   from `shellHtmlClass()` on `<html>` and `shellBodyClass()` on `<body>` (`scheme-dark`) on every dark page, and
   `html.scheme-dark select, option` gives every select charcoal + chalk (a transparent select opens a white list
@@ -74,9 +74,9 @@ affects the repo.
   size-adjusted local fallback (`Schibsted Grotesk Fallback`, `unicode-range` = the web font's subsets only, so
   `→` / `↳` keep their old system glyphs), so the Google Fonts swap shifts nothing in the hero
   (ST4-01 counts every layout shift; keep both until #72 self-hosts the font, PLANNED). A value with ` · date`
-  renders the date on its own muted line (`result-rows.tsx`, text unchanged). Basket rows carry `data-testid="basket-row"`;
-  results `[data-testid=result-metric][data-key=…] [data-plan=lump|dca] dd` (`qa/tools/site.mjs` reads the
-  `$313,000` there). Don't import from `src/lib/dca/*` anything new that changes logic; presentation helpers
+  rendered the date on its own muted line (#70; gone with #78's four lines). Basket rows carry `data-testid="basket-row"`;
+  results (since #78) `[data-testid=result-plan][data-plan=lump|dca] [data-testid=result-line][data-key=…] dd`
+  (`qa/tools/site.mjs` reads the `$313,000` there). Don't import from `src/lib/dca/*` anything new that changes logic; presentation helpers
   (`METRIC_ROWS`, `planName`, `money`) are read-only. QA: `qa/tools/calculator-page.mjs` (ST4 at 360 / 400 /
   1024 / 1440, before and after the regression run; screenshots incl. `hero-<w>.png` with Venus and the wash
   outlined). The pre-#70 tools that read the old tables (`pr3*.mjs`, `sidebyside.mjs`, `full.mjs`, `run.mjs`,
@@ -105,7 +105,7 @@ affects the repo.
   currency checks after the prices are read; each message is `[data-testid=field-error][data-field=…]` under its
   field (tickers / weights per row: `ticker-<n>`, `weight-<n>`, 0-based; then `start`, `end`, `capital`,
   `contribution`, `frequency`), the input `aria-invalid` + `aria-describedby`; errors with no field stay
-  `[role=alert]` under the listings note. Wide: one column, `calc-window` with the five fields in one row, the
+  `[role=alert]` under the listings note. Wide: one column, `[data-testid=window-row]` with the five fields in one row, the
   button under it, the results below. QA: `qa/tools/calculator-page.mjs` (ST4-06, -10, -17, -18 added),
   `qa/tools/site.mjs` (`$313,000` from the DCA `Total invested` line; VOD.L under its field).
 
