@@ -36,7 +36,10 @@ const menu = (current) =>
   ]
     .map(
       ([href, label]) =>
-        `<a href="${href}"${label === current ? ' aria-current="page"' : ""} class="x">${label}</a>`,
+        `<a href="${href}"${label === current ? ' aria-current="page"' : ""} class="x">${
+          // The Orpheus link leads with the lyre mark since #84 (ST1-05).
+          href === "/" ? `<svg viewBox="0 0 24 24" aria-hidden="true" data-testid="lyre"><path d="M6.5 8h11"></path></svg><span>${label}</span>` : label
+        }</a>`,
     )
     .join("") +
   `</div></nav>`;

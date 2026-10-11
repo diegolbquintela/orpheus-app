@@ -60,6 +60,12 @@ describe("site menu", () => {
       ["Calculator", "/calculator"],
       ["Dashboard", "/dashboard"],
     ]);
+    // The lyre mark (#84, ST1-05): first in the Orpheus link, decorative.
+    const lyre = nav.querySelector('a[href="/"] > svg[data-testid="lyre"]')!;
+    assert.ok(lyre, "lyre inside the Orpheus link");
+    assert.equal(lyre.getAttribute("aria-hidden"), "true");
+    assert.equal(lyre.getAttribute("stroke"), "currentColor");
+    assert.equal(nav.querySelector('a[href="/"]')!.firstElementChild, lyre);
     // Right group is one list, after the Orpheus link.
     assert.deepEqual(
       [...nav.querySelectorAll("ul a")].map((a) => a.textContent),

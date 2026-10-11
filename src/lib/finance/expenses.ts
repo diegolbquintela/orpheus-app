@@ -1,0 +1,207 @@
+/**
+ * Personal finance expenses (#84 v1.1; spec `attachments/personal-finance-spec.md` §5–§6, PF-03..07). Pure helpers:
+ * amounts, conversion, percentages, totals, accounts and this browser's `localStorage` (one key, no login, no
+ * server). A missing or broken storage just reads as an empty page. `% of income` waits for #85; `Equity to cover`
+ * is a typed amount until #86.
+ */
+
+export const STORAGE_KEY = "orpheus.finance.expenses.v1";
+export const NAME_MAX = 80;
+export const ACCOUNT_MAX = 40;
+export const ACCOUNTS_MAX = 50;
+export const LINES_MAX = 100;
+export const AMOUNT_ERROR = "Enter a number, 0 or more.";
+export const ACCOUNT_ERROR = "Name the account.";
+export const NOT_COMPUTED = "—";
+
+export type Per = "month" | "year";
+export type GroupKey = "fixed" | "variable";
+export const GROUPS: readonly { key: GroupKey; title: string; total: string }[] = [
+  { key: "fixed", title: "Fixed", total: "Fixed total" },
+  { key: "variable", title: "Variable", total: "Variable total" },
+];
+export const COLUMNS = [
+  "Name",
+  "% of income",
+  "% of expenses",
+  "Monthly",
+  "Yearly",
+  "Equity to cover",
+  "Account",
+] as const;
+
+export type Line = {
+  id: string;
+  name: string;
+  /** The amount as typed, in the period `per`. */
+  amount: string;
+  per: Per;
+  /** Equity to cover as typed (manual until #86). */
+  equity: string;
+  /** An account name from `accounts`, or "" for none. */
+  account: string;
+};
+
+export type Expenses = { fixed: Line[]; variable: Line[]; accounts: string[] };
+
+export const EMPTY: Expenses = { fixed: [], variable: [], accounts: [] };
+
+type StorageLike = Pick<Storage, "getItem" | "setItem">;
+
+/**
+ * A typed amount: commas and spaces dropped; empty is 0. Null when it is not a number 0 or more (the field check).
+ */
+export function parseAmount(text: string): number | null {
+  const trimmed = text.replace(/[,\s]/g, "");
+  if (!trimmed) return 0;
+  if (!/^\d*\.?\d*$/.test(trimmed) || trimmed === ".") return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/** A typed amount as a number, 0 when it fails the field check (it counts as 0 everywhere until fixed). */
+export const amountOrZero = (text: string): number => parseAmount(text) ?? 0;
+
+export const monthlyOf = (line: Line): number =>
+  line.per === "month" ? amountOrZero(line.amount) : amountOrZero(line.amount) / 12;
+
+export const yearlyOf = (line: Line): number =>
+  line.per === "year" ? amountOrZero(line.amount) : amountOrZero(line.amount) * 12;
+
+const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+/** Grouped with commas, up to two decimals, no trailing zeros, no currency symbol (Q2): `1,200`, `83.33`. */
+export function formatAmount(value: number): string {
+  const text = NUMBER.format(value);
+  return text === "-0" ? "0" : text;
+}
+
+/** One decimal and `%`, or `—` while the whole is 0. */
+export function formatShare(part: number, whole: number): string {
+  if (!(whole > 0)) return NOT_COMPUTED;
+  return `${((part / whole) * 100).toFixed(1)}%`;
+}
+
+/** What a Monthly / Yearly field shows: the typed text in its own period, the conversion in the other. */
+export function fieldText(line: Line, field: Per): string {
+  if (line.per === field) return line.amount;
+  if (!line.amount.trim() || parseAmount(line.amount) === null) return "";
+  return formatAmount(field === "month" ? monthlyOf(line) : yearlyOf(line));
+}
+
+export type Totals = { monthly: number; yearly: number; equity: number };
+
+export function totalsOf(lines: readonly Line[]): Totals {
+  return lines.reduce(
+    (t, line) => ({
+      monthly: t.monthly + monthlyOf(line),
+      yearly: t.yearly + yearlyOf(line),
+      equity: t.equity + amountOrZero(line.equity),
+    }),
+    { monthly: 0, yearly: 0, equity: 0 },
+  );
+}
+
+export function grandTotals(expenses: Expenses): Totals {
+  const a = totalsOf(expenses.fixed);
+  const b = totalsOf(expenses.variable);
+  return {
+    monthly: a.monthly + b.monthly,
+    yearly: a.yearly + b.yearly,
+    equity: a.equity + b.equity,
+  };
+}
+
+/**
+ * Adds an account to the shared list. Trims; refuses an empty name; reuses an existing one with the same name in
+ * any case; ≤ 40 characters, ≤ 50 accounts. Returns the list and the name to select, or the field check.
+ */
+export function addAccount(
+  accounts: readonly string[],
+  typed: string,
+): { accounts: string[]; name: string } | { error: string } {
+  const name = typed.trim().slice(0, ACCOUNT_MAX);
+  if (!name) return { error: ACCOUNT_ERROR };
+  const existing = accounts.find((a) => a.toLowerCase() === name.toLowerCase());
+  if (existing) return { accounts: [...accounts], name: existing };
+  // Full list: the page hides `Add account…` at 50, so this only guards a stale call (nothing added).
+  if (accounts.length >= ACCOUNTS_MAX) return { accounts: [...accounts], name: "" };
+  return { accounts: [...accounts, name], name };
+}
+
+let counter = 0;
+export function newLine(): Line {
+  counter += 1;
+  return {
+    id: `l${Date.now().toString(36)}${counter.toString(36)}`,
+    name: "",
+    amount: "",
+    per: "month",
+    equity: "",
+    account: "",
+  };
+}
+
+const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
+
+function asLine(value: unknown, accounts: readonly string[]): Line | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (!isText(v.id, 40) || !v.id) return null;
+  if (!isText(v.name, NAME_MAX) || !isText(v.amount, 40) || !isText(v.equity, 40)) return null;
+  if (v.per !== "month" && v.per !== "year") return null;
+  if (!isText(v.account, ACCOUNT_MAX)) return null;
+  return {
+    id: v.id,
+    name: v.name,
+    amount: v.amount,
+    per: v.per,
+    equity: v.equity,
+    account: accounts.includes(v.account) ? v.account : "",
+  };
+}
+
+/** A stored value back into the page, or the empty page when it isn't one (never throws). */
+export function asExpenses(value: unknown): Expenses {
+  if (!value || typeof value !== "object") return EMPTY;
+  const v = value as Record<string, unknown>;
+  const accounts: string[] = [];
+  if (Array.isArray(v.accounts)) {
+    for (const a of v.accounts) {
+      if (!isText(a, ACCOUNT_MAX) || !a.trim()) continue;
+      if (accounts.some((b) => b.toLowerCase() === a.toLowerCase())) continue;
+      if (accounts.length < ACCOUNTS_MAX) accounts.push(a);
+    }
+  }
+  const lines = (list: unknown): Line[] => {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set<string>();
+    const out: Line[] = [];
+    for (const item of list.slice(0, LINES_MAX)) {
+      const line = asLine(item, accounts);
+      if (line && !seen.has(line.id)) {
+        seen.add(line.id);
+        out.push(line);
+      }
+    }
+    return out;
+  };
+  return { fixed: lines(v.fixed), variable: lines(v.variable), accounts };
+}
+
+export function readExpenses(storage: StorageLike | null): Expenses {
+  try {
+    const text = storage?.getItem(STORAGE_KEY);
+    return text ? asExpenses(JSON.parse(text)) : EMPTY;
+  } catch {
+    return EMPTY;
+  }
+}
+
+export function writeExpenses(storage: StorageLike | null, expenses: Expenses): void {
+  try {
+    storage?.setItem(STORAGE_KEY, JSON.stringify(expenses));
+  } catch {
+    // Storage full or blocked: the page keeps working for this visit.
+  }
+}

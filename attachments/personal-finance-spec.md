@@ -94,9 +94,10 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
 
 - No painting: a plain header band under the bar, `01` (12 px dim) and the `h1` (32 px on a phone, 44 px from
   1024, chalk, weight 400), the content column `max-w-6xl` like the calculator.
-- **Phone (below 1024 px):** each line is a block: `Name` full width, then a two-column grid of labelled cells
-  (`Monthly`, `Yearly`, `% of expenses`, `% of income`, `Equity to cover`, `Account`), the remove button beside the
-  name. Labels visible on every line. Totals as label-value rows.
+- **Phone (below 1024 px):** each line is a block: `Name` full width with the remove button beside it, then a
+  two-column grid of labelled cells: `Monthly` | `Yearly`, `% of expenses` | `% of income`, `Account` |
+  `Equity to cover` (the wider right cell, so its label stays on one line at 360 px). Labels visible on every line.
+  Totals: the row label, then the same labelled cells (no Account).
 - **Wide (from 1024 px):** one row per line in the column order of section 4, a column-label row above each group
   (visual; every input keeps its own accessible label), the totals row aligned to the same columns.
 - Fields: the calculator's underline style in Personal-Finance-only classes (`.pf-*`; Q10 rule: never `.field` /
@@ -125,6 +126,10 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   the builder's file).
 
 ## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
+
+Tools: `qa/tools/personal-finance.mjs` (PF-01..09 and ST1-05), `qa/tools/site-style-regression.mjs` (PF-10: its own
+ST6 checks now include `/personal-finance` and the lyre on every page, then every shipped-page tool, `site.mjs`'s
+`$313,000` and `release-smoke`).
 
 | ID | Pass when |
 |---|---|

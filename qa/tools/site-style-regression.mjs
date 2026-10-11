@@ -2,7 +2,8 @@
 // runner). Two parts:
 //
 // 1. Its own ST6 checks in a real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900 on `/`, `/calculator`,
-//    `/dashboard/sign-in` and a 404 (`/no-such-page`), signed out, read-only (no form is submitted):
+//    `/dashboard/sign-in`, `/personal-finance` (#84, empty) and a 404 (`/no-such-page`), signed out, read-only (no
+//    form is submitted); ST1-05 (#84): the lyre mark first in the bar's Orpheus link on every page:
 //    ST6-01 no painting but the two heroes: `/` exactly one img (the Jordaens alt), `/calculator` exactly one (the
 //           Botticelli alt), sign-in and the 404 none; no CSS background-image anywhere
 //    ST6-02 no instruction text: the visible texts of the content area (between the bar and the footer) are exactly
@@ -22,7 +23,7 @@
 //    ST6-09 the 404: status 404, only `Page not found.`, no current bar item
 // 2. Unless --own-only: runs every shipped-page tool against the same host and reports each one's result
 //    (site-shell.mjs [--compare-url for ST0-05 signed in, with QA_EMAIL / QA_PASSWORD in env], home-page.mjs,
-//    calculator-page.mjs, saved-searches.mjs, signin-page.mjs, site.mjs ($313,000), scripts/release-smoke.mjs
+//    calculator-page.mjs, saved-searches.mjs, signin-page.mjs, personal-finance.mjs (#84), site.mjs ($313,000), scripts/release-smoke.mjs
 //    <base> <--smoke-mode, default preview>). Each tool writes into <out>/<tool>/, its log as <tool>.log.
 //
 //   node qa/tools/site-style-regression.mjs --base-url <url> --out <dir> [--compare-url <base PR preview>]
@@ -70,6 +71,15 @@ const PAGES = [
   },
   { path: "/dashboard/sign-in", current: "Dashboard", status: 200, imgs: [], texts: ["Sign in", "Email", "Password", "Sign in", "Create an account"] },
   { path: "/no-such-page", current: null, status: 404, imgs: [], texts: ["Page not found."] },
+  // #84 (personal-finance spec §4), the empty page: a phone shows each total's labelled cells; from 1024 px the
+  // column-label rows are aria-hidden (not counted) and the cells' labels visually hidden.
+  {
+    path: "/personal-finance", current: null, status: 200, imgs: [],
+    texts: (wide) => {
+      const total = (label) => (wide ? [label, "—", "—", "0", "0", "0"] : [label, "% of income", "—", "% of expenses", "—", "Monthly", "0", "Yearly", "0", "Equity to cover", "0"]);
+      return ["01", "Personal finance.", "02", "Expenses", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total")];
+    },
+  },
 ];
 const lum = ([r, g, b]) => {
   const f = (x) => ((x /= 255) <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
@@ -147,7 +157,8 @@ const contentTexts = (page) =>
       const s = t.nodeValue.trim();
       const el = t.parentElement;
       const r = el.getBoundingClientRect();
-      if (s && r.width > 0 && r.height > 0 && !el.closest(".sr-only, [aria-hidden=true], script, style, noscript")) out.push(s);
+      // > 1 px: a visually hidden label (1 × 1 px, clipped) is not on screen.
+      if (s && r.width > 1 && r.height > 1 && !el.closest(".sr-only, [aria-hidden=true], script, style, noscript")) out.push(s);
     }
     return out;
   });
@@ -230,13 +241,18 @@ async function ownChecks(browser) {
 
         // ST6-02 copy
         const texts = await contentTexts(page);
-        check(`${tag} ST6-02 no instruction text: the content is exactly the shipped copy`, JSON.stringify(texts) === JSON.stringify(p.texts), texts);
+        const want = typeof p.texts === "function" ? p.texts(viewport.width >= 1024) : p.texts;
+        check(`${tag} ST6-02 no instruction text: the content is exactly the shipped copy`, JSON.stringify(texts) === JSON.stringify(want), texts);
 
         // ST6-04 / -05 / -08 shell
         const sh = await page.evaluate(() => {
           const nav = document.querySelector('nav[aria-label="Site"]');
+          const home = nav.querySelector('a[href="/"]');
+          const svg = home?.firstElementChild;
+          const lyre = svg?.tagName.toLowerCase() === "svg" && svg.getAttribute("aria-hidden") === "true" && svg.querySelectorAll("path").length === 5 && Math.round(svg.getBoundingClientRect().width) === 20;
           const links = [...nav.querySelectorAll("a")].map((a) => { const r = a.getBoundingClientRect(); return { text: a.textContent.trim(), href: a.getAttribute("href"), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, current: a.getAttribute("aria-current") }; });
           return {
+            lyre,
             bar: Math.round(nav.getBoundingClientRect().height * 10) / 10,
             barBg: getComputedStyle(nav).backgroundColor,
             links,
@@ -250,6 +266,7 @@ async function ownChecks(browser) {
           };
         });
         check(`${tag} ST6-04 bar: charcoal, ≤ 48 px, Orpheus / Calculator / Dashboard, current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"]]) && JSON.stringify(sh.links.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]) });
+        check(`${tag} ST1-05 the lyre mark (aria-hidden SVG, 20 px) first in the Orpheus link`, sh.lyre === true, sh.lyre);
         check(`${tag} ST6-08 bar links ≥ 44 × 44 px tap targets, bar ≤ 48 px`, sh.links.every((l) => l.h >= 44 && l.w >= 44) && sh.bar <= 48, { bar: sh.bar, links: sh.links.map((l) => [l.text, l.w, l.h]) });
         check(`${tag} ST6-04 footer exactly \`Orpheus Wisdom\`; charcoal page, chalk type, color-scheme dark`, sh.footer === "Orpheus Wisdom" && sh.bodyBg === NIGHT && sh.bodyColor === CHALK && sh.scheme.every((s) => s === "dark"), { footer: sh.footer, bg: sh.bodyBg, color: sh.bodyColor, scheme: sh.scheme });
         check(`${tag} ST6-05 noindex meta, one Analytics script, no horizontal scroll`, /noindex/.test(sh.robots ?? "") && sh.analytics === 1 && sh.scroll <= 0, { robots: sh.robots, analytics: sh.analytics, scroll: sh.scroll });
@@ -365,6 +382,7 @@ if (!OWN_ONLY) {
   await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}"]);
   await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}"]);
   await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}"]);
+  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}"]);
   await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}"]);
   await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE]);
 }

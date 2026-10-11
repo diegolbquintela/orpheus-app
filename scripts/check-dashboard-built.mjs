@@ -139,8 +139,9 @@ const normalise = (html) => html.replace(/u:\d+/g, "u:0");
 // The site menu (#46) is on every page, the 404 included; its Dashboard item is the only allowed mention.
 const SITE_MENU = /<nav aria-label="Site" data-testid="site-menu"[\s\S]*?<\/nav>/;
 const withoutMenu = (html) => html.replace(SITE_MENU, "");
+// A link's text without its markup (the Orpheus link holds the lyre SVG and a span since #84).
 const menuCurrent = (html) =>
-  [...(html.match(SITE_MENU)?.[0] ?? "").matchAll(/<a [^>]*aria-current="page"[^>]*>([^<]*)<\/a>/g)].map((m) => m[1]);
+  [...(html.match(SITE_MENU)?.[0] ?? "").matchAll(/<a [^>]*aria-current="page"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => m[1].replace(/<[^>]*>/g, ""));
 const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 // Routes with their own handlers (GET/HEAD when on); everything else under /api/dashboard is the catch-all.
 const GATED_API_PATHS = ["/api/dashboard/status", "/api/dashboard/db"];
@@ -231,6 +232,11 @@ for (const flag of [undefined, "true"]) {
   check(home.status === 200, `${label}: GET / -> ${home.status}`);
   check(NOINDEX.test(home.body), `${label}: / lacks noindex`);
   check(JSON.stringify(menuCurrent(home.body)) === '["Orpheus"]', `${label}: / current menu item ${menuCurrent(home.body)}`);
+  check(/<a href="\/"[^>]*><svg [^>]*aria-hidden="true"[^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus<\/span><\/a>/.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / Orpheus link lacks the lyre mark (ST1-05)`);
+  const pf = await call("GET", "/personal-finance", flag);
+  check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(pf.body), `${label}: GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
+  check(menuCurrent(pf.body).length === 0, `${label}: /personal-finance marks a menu item current: ${menuCurrent(pf.body)}`);
+  check(/<title>Personal finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
   const heroImg = home.body.match(/<header [^>]*data-testid="home-hero"[\s\S]*?(<img [^>]*>)/)?.[1] ?? "";

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as PersonalFinanceRouteImport } from './routes/personal-finance'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -40,6 +41,11 @@ const CalculatorRoute = CalculatorRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalFinanceRoute = PersonalFinanceRouteImport.update({
+  id: '/personal-finance',
+  path: '/personal-finance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChartRoute = ApiChartRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
+  '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
+  '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
+  '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/calculator'
     | '/dashboard'
+    | '/personal-finance'
     | '/api/chart'
     | '/dashboard/sign-in'
     | '/api/auth/$'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/calculator'
     | '/dashboard'
+    | '/personal-finance'
     | '/api/chart'
     | '/dashboard/sign-in'
     | '/api/auth/$'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/'
     | '/calculator'
     | '/dashboard'
+    | '/personal-finance'
     | '/api/chart'
     | '/dashboard_/sign-in'
     | '/api/auth/$'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalculatorRoute: typeof CalculatorRoute
   DashboardRoute: typeof DashboardRoute
+  PersonalFinanceRoute: typeof PersonalFinanceRoute
   ApiChartRoute: typeof ApiChartRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personal-finance': {
+      id: '/personal-finance'
+      path: '/personal-finance'
+      fullPath: '/personal-finance'
+      preLoaderRoute: typeof PersonalFinanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chart': {
@@ -379,6 +399,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalculatorRoute: CalculatorRoute,
   DashboardRoute: DashboardRoute,
+  PersonalFinanceRoute: PersonalFinanceRoute,
   ApiChartRoute: ApiChartRoute,
   DashboardSignInRoute: DashboardSignInRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
