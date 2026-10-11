@@ -1,4 +1,4 @@
-# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update)
+# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update, #102 account + foreign income)
 
 Source of truth for the Personal Finance page, with `attachments/site-style-spec.md` for everything the shared dark
 shell already rules (bar, footer, tokens, AA, CLS 0, no painting, no instruction text). Harness first, then this
@@ -23,6 +23,7 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 16:55 ET | **#94 kickoff (Diego via CoS; EL):** **Overview and Update** on `/personal-finance` (section 15), after `03` Expenses: `04` `Overview` (this month against the **12-month average**; a chart with three lines, Expenses, Income and Net assets; a `Future` toggle with **1, 5, 10, 15 years**; a typed `Growth rate (%)`: net assets compound at it as if the surplus were invested; future expenses and income stay on the 12-month average; **empty months use the average**) and `05` `Update` (a `Month` dropdown of the last 12 months **including the current one**; type a past month's expenses and income, e.g. June 2026 in October 2026; the month updates the average). Manual entry, this browser only, new key `orpheus.finance.overview.v1`; the other four keys unchanged; household currency, unitless (Q2 / Q15). The brief is thin; simplest readings taken, as built, open for EL (Q17–Q23): a month's figure = its typed value, else (current month only) the page's monthly figures (`Total` monthly from `03`, `Net income` monthly from `02`) when above 0; the 12-month average = the mean of the months that have a figure; net assets = a typed `Starting net assets` (empty 0) at the start of the 12-month window, plus each month's surplus (income − expenses; no growth on past months); under Future each month compounds at (1 + growth)^(1/12) and adds the average surplus. Chart: the repo's `recharts` (already used by the calculator), two y axes (monthly flows left, net assets right). Not started: #98, #90, #71 (dashboard on hold), Plaid. |
 | 2026-10-11, ≈ 17:14 ET | **EL on #94 (PR #101 at `0ec697d`; docs-only commit, no code change):** Q17–Q23 accepted as built (section 9): typed Update figure wins, else the current month takes the page's monthly totals when > 0, past months empty → the average (Q17); average = mean of only the months with a figure (Q18); net assets = typed `Starting net assets` (empty 0), no growth on past months (Q19); Future compounds monthly on the whole balance at (1 + rate/100)^(1/12) plus the average surplus (Q20); future Expenses / Income stay on the averages, no future-expenses field (Q21); dual axis, Expenses alert red, Income green, Net assets off-white, no gold (Q22); Overview stays `04` after Expenses (Q23). Q19 wording settled at ≈ 17:16 ET (next row). |
 | 2026-10-11, ≈ 17:16 ET | **EL on #94 Q19 (PR #101 at `ad8970d`; docs-only, no code change): option A.** Net assets may go negative over time when expenses exceed income; the `Starting net assets` field stays 0 or more (as built). The earlier "negatives allowed" note is resolved; nothing pending on Q17–Q23. |
+| 2026-10-11, ≈ 17:48 ET | **#102 kickoff (Diego via CoS; EL):** extends #87 (section 16). **(1) Rate direction changes for every FX rate on the page:** a rate is now **units of the foreign currency per 1 unit of the household (master) currency** (label e.g. `FX rate (BRL per 1 CAD)`; `3.70` means 3.70 BRL = 1 CAD); **household amount = foreign amount ÷ rate** (was × rate, Q12 superseded). **Migration:** stored v1 expense lines carry the old direction unambiguously (the key itself says v1), so they are **inverted once** (rate → 1 ÷ rate, 6 decimals, trailing zeros dropped; a bad / empty rate kept as typed) into the bumped key `orpheus.finance.expenses.v2`. **(2) Foreign income:** each person (= an income line in this model; the issue's "person or income line") gets a `Foreign` box; ticked, it shows `Currency`, `FX rate (<code> per 1 <household>)` and `Converted (yearly)` (the person's Net ÷ rate); the income table, `Net income`, `% of income` and the Overview use the converted figure. #87's expense-line `Currency` / `FX rate` stay (new direction). **(3) Sign-in required:** `/personal-finance` is for signed-in users only; signed out → 307 to `/dashboard/sign-in?next=/personal-finance` (the existing Better Auth email/password and the dashboard's server session check; no second auth system; #90 untouched). **(4) Account persistence:** the five PF values are stored against the account (`personal_finance` table, `GET` / `PUT` / `DELETE /api/personal-finance`), so another device loads the same data; this browser's old `localStorage` values are imported once into an empty account, then removed. Simplest readings, open for EL: Q24–Q31. |
 
 ## 2. The brief (verbatim, issue #84)
 
@@ -44,6 +45,9 @@ later); Engineering Lead owns the tech loop.
 - **Navigation (#97; supersedes Q1 (d), URL only):** `Personal finance` is the bar's fourth item (right, after
   `Dashboard`; ST1-01) and is current (chalk, underlined, `aria-current="page"`) on this page; home's third
   Platforms line (`Personal finance` · `Income, expenses, and the cover.` · `Open`, ST3-03). The URL still works.
+- **Sign-in required (#102, section 16.4):** signed out (or where sign-in can't run), `GET /personal-finance` answers
+  **307** to `/dashboard/sign-in?next=/personal-finance`; after signing in the sign-in page returns there. The bar
+  item and home line stay (they lead to sign-in when signed out).
 
 ## 4. Exact copy (tests and QA compare these strings)
 
@@ -67,6 +71,9 @@ later); Engineering Lead owns the tech loop.
 | Line currency (v1.4) | `Currency`: the household code first, then the other nine codes in the same order |
 | Field check (FX rate, v1.4) | `Enter a number above 0.` |
 | Not computed yet | `—` (also the `FX rate` cell of a line in the household currency) |
+| Foreign income (#102, section 16) | `Foreign` (a box per person); ticked: `Currency`, `FX rate (<code> per 1 <household>)`, `Converted (yearly)` |
+| Expense-line FX rate's accessible name (#102) | `FX rate (<code> per 1 <household>)` (the visible column label stays `FX rate`) |
+| Save failure (#102, only when a save fails) | `Not saved.` |
 
 No other text on the page (site-style ST6-02: no instruction text, no notes, no empty-state copy).
 
@@ -81,8 +88,8 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   number shows the field check `Enter a number, 0 or more.` under the field (alert colour, `aria-invalid`) and the
   line counts as 0 in every total and percentage until fixed.
 - **Currency / FX rate (v1.4, #87; section 14):** `Monthly` / `Yearly` are typed in the line's `Currency`; every
-  figure below uses the line's amount **in the household currency** (× its `FX rate` on a foreign line, × 1 on a
-  household line). A foreign line with no valid rate contributes `—` to each of them, and to any total containing it,
+  figure below uses the line's amount **in the household currency** (÷ its `FX rate` on a foreign line since #102,
+  × 1 on a household line). A foreign line with no valid rate contributes `—` to each of them, and to any total containing it,
   until fixed (Q14, decided).
 - **% of expenses:** the line's monthly amount ÷ the monthly total of **both** groups × 100, one decimal and `%`
   (e.g. `12.5%`); `—` while that total is 0. A group total's `% of expenses` is the group's share of both; `Total`
@@ -107,9 +114,15 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
 - **Number format:** grouped with commas, up to two decimals, no trailing zeros (`1,200`, `83.33`); no currency
   symbol: amounts stay unitless (EL, Q2, decided; kept in v1.4, Q15: the household currency is named once by its
   field, a line's own currency by its `Currency` cell). Percentages with one decimal.
-- **Remove:** each line has a remove button (`Remove expense`); no confirmation (manual data, nothing on a server).
+- **Remove:** each line has a remove button (`Remove expense`); no confirmation (manual data).
 
-## 6. Storage (v1.1; v1.2 adds the income key, v1.3 the equity key, v1.4 the currency key, #94 the overview key)
+## 6. Storage (v1.1; v1.2 adds the income key, v1.3 the equity key, v1.4 the currency key, #94 the overview key; #102: the account)
+
+**Since #102 (section 16.5) the five values below live against the signed-in account, not in `localStorage`;** the
+key names are the value names inside the account's record, and `orpheus.finance.expenses.v1` becomes
+`orpheus.finance.expenses.v2` (rates in the new direction). The paragraphs below describe the values' shapes
+(v1.1–#94 history); where they say `localStorage`, read "the account" from #102 on.
+
 
 - This browser's `localStorage` only. Expenses in `orpheus.finance.expenses.v1` (unchanged from v1.1), income in
   its own key `orpheus.finance.income.v1` (section 12), the two rates in `orpheus.finance.equity.v1` (section 13),
@@ -118,8 +131,9 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   `{ fixed: Line[], variable: Line[], accounts: string[] }`, `Line = { id, name, amount, per: "month" | "year",
   equity, account, currency?, rate? }` (strings as typed; v1.4 adds the optional `currency` and `rate`, section 14.3). Saved on every change; read once after hydration. A missing, malformed or
   over-large value reads as an empty page (never throws). ≤ 100 lines per group.
-- No login, never the account, no cookie, no `sessionStorage` / IndexedDB, no server copy, no network request at
-  all from the page (no `/api/*`). Another device or browser sees nothing; clearing the site's data clears it.
+- (v1.1–#94, superseded by #102:) no login, never the account, no cookie, no `sessionStorage` / IndexedDB, no server
+  copy, no network request at all from the page (no `/api/*`). Since #102: the page's only requests are the session
+  and `/api/personal-finance` (section 16.5); another device signed in to the same account sees the same data.
 - **CLS 0 with a restore:** the server renders the hero (`01`, title) and an empty area that is at least the
   viewport tall (so the footer starts below the fold); the browser fills it (v1.2: Income, then Expenses) once
   after reading the keys (v1.3: three).
@@ -207,6 +221,32 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   Expenses `alert` red, Income `green`, Net assets `chalk` (off-white); a visible legend; the plot `aria-hidden`; no gold.
 - **Q23. Placement (#94). Decided (as built):** `04` `Overview` and `05` `Update` stay after `03` `Expenses`.
 
+- **Q24. Where `Foreign` lives (#102). Open; default as built:** on each **person** (the income line in this
+  model: a person's Wages and Bonus lines share the person's currency); expense lines keep #87's `Currency` select
+  (no box). Or a box on expense lines too, or per table line (Wages vs Bonus)?
+- **Q25. The foreign person's currency (#102). Open; default as built:** ticking `Foreign` shows a `Currency` select
+  (the nine non-household codes; default the first, `USD` under `CAD`) besides the brief's two fields, because the
+  rate label names the code. Or a fixed currency?
+- **Q26. `Converted` (#102). Open; default as built:** `Converted (yearly)` = the person's `Net (yearly)` ÷ rate
+  (household currency), a computed value; Wages / Bonus / Net stay in the person's currency as typed. The income
+  table, `Net income`, `% of income` and the Overview use converted figures; no valid rate → `—` there (the Q14
+  pattern).
+- **Q27. Migration (#102). Open; default as built:** stored v1 expense rates are inverted once (1 ÷ rate, 6
+  decimals) into `expenses.v2`; bad / empty rates kept as typed. Or clear foreign rates instead?
+- **Q28. Old browser data (#102). Open; default as built:** on the first signed-in visit, if the account has no
+  Personal Finance record and this browser holds the old `localStorage` values, they are imported into the account
+  (rates migrated) and removed from the browser; if the account already has a record, the browser's old values are
+  ignored and left untouched. Or never import?
+- **Q29. Saving (#102). Open; default as built:** every change saves the whole record (debounced 400 ms, flushed on
+  leaving the page); last write wins across devices (no merge); a failed save shows `Not saved.` (alert) under the
+  title and retries on the next change. The page reads the account once per load (no live sync between open tabs).
+- **Q30. Sign-in path (#102). Open; default as built:** the existing Better Auth email/password and sign-in page
+  (`/dashboard/sign-in`, now with `?next=/personal-finance`), sign-up still limited to `DASHBOARD_SIGNUP_ALLOWLIST`,
+  the API behind the same `DASHBOARD_ENABLED` server flag as `/api/auth/*` (on in production and previews today).
+  No sign-out control on this page (#90's account menu). Or a Personal-Finance-only flag?
+- **Q31. Household currency label (#102). Open; default as built:** the brief's "master currency" is the existing
+  `Household currency` field (label unchanged). Or relabel `Master currency`?
+
 ## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
 
 Tools: `qa/tools/personal-finance.mjs` (PF-01..09, PF-11..32 and ST1-05), `qa/tools/site-style-regression.mjs` (PF-10: its own
@@ -215,13 +255,13 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 
 | ID | Pass when |
 |---|---|
-| PF-01 | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (#97: four items, `Personal finance` current; ST1-01 / ST1-02) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
+| PF-01 | (#102: signed in; signed out → PF-33) `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (#97: four items, `Personal finance` current; ST1-01 / ST1-02) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
 | PF-02 | Exact copy (sections 4 and 12): `01`, `Personal finance.`, `02`, `Income` with its copy (section 12), `03`, `Expenses`, (#94) `04` `Overview` and `05` `Update` with their copy (section 15), (v1.3) `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` `—` (section 13), (v1.4) `Household currency` `CAD` (Q13), `Fixed`, `Variable`, the nine column labels in order (v1.4: `Currency`, `FX rate` after `Yearly`), `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
 | PF-03 | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
 | PF-04 | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` per line, group and `Total` = monthly ÷ the monthly counted net income (section 12; one decimal), `—` while that income is 0 (v1.2: e.g. the section 12 example's 11,200 a month: Fixed 1,000 → `8.9%`, 250 → `2.2%`, Fixed total `11.2%`, Variable 100 → `0.9%`, Total `12.1%`). |
 | PF-05 | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200); v1.3: Equity to cover sums each line's valid override or calculated amount, `—` when any line contributes `—` (PF-19). |
 | PF-06 | Account: a dropdown per line with `—`, the accounts and `Add account…`; adding one (inline `New account`, `Add`) selects it on that line and offers it on every line in both groups; an empty name shows `Name the account.`; a repeat name (any case) reuses the existing account. |
-| PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1`, (v1.4) `orpheus.finance.currency.v1` and (#94) `orpheus.finance.overview.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
+| PF-07 | (#102: from the account, PF-36) Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1`, (v1.4) `orpheus.finance.currency.v1` and (#94) `orpheus.finance.overview.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
 | PF-08 | Layout: phone (360, 400) lines stacked with labels, no horizontal page scroll; wide (1024, 1440) one row per line in column order with the column labels; every control ≥ 44 px tall; AA for every visible text (axe-core too), a ≥ 3:1 focus mark on every Tab stop; proportional figures (no `tnum`). |
 | PF-09 | Strict page CLS 0 on cold loads at every width, every shift counted, both empty and with stored lines (v1.2: and people; v1.3: and rates) restored. |
 | PF-10 | Logic and shell untouched elsewhere: the calculator `$313,000`, the dashboard content (ST0-05; no diff under `src/components/dashboard/*`, `src/routes/dashboard.tsx`), sign-in, home (hero + three lines since #97, ST3-03), the bar's four items since #97 (ST1-01), the lyre (ST1-05) and the site-style regression (`qa/tools/site-style-regression.mjs`) pass. |
@@ -247,6 +287,13 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-30 | (#94, Q20 / Q21) Future: the toggle (`aria-pressed`) shows `1 year` … `15 years` (default `1 year`); on, the chart runs 12 × years months past the current one with Expenses and Income flat at the 12-month average and net assets compounding monthly at (1 + `Growth rate (%)` ÷ 100)^(1/12) plus the average surplus (the 15.2 example: growth `5`: 1 year → 24 points, net assets **190,204.37**; 5 years → 72 points, **613,370.68**); off, the chart ends at the current month. A bad growth rate shows `Enter a number, 0 or more.` and counts as 0. |
 | PF-31 | (#94) Storage: everything typed in `04` / `05` (starting net assets, growth, Future on / years, each month's expenses / income as typed) survives a reload from `orpheus.finance.overview.v1` only (malformed → all empty, Future off, no error; months outside the last 12 are kept but unused); the other four keys unchanged. |
 | PF-32 | (#94) Layout and the shell: phone (360, 400): the table three columns, the fields and the Update fields stacked full width, the year choices wrap, the chart full width (240 px tall); from 640 px the fields in one row (≤ 16rem each); from 1024 px the chart 320 px tall; every control ≥ 44 px, chalk focus ring, AA (axe), no horizontal scroll, strict CLS 0 (empty and restored with months typed and Future on); no gold. |
+| PF-33 | (#102) Signed out: `GET /personal-finance` → **307** to `/dashboard/sign-in?next=/personal-finance` (noindex), no Personal Finance data or copy in the response; the browser lands on the sign-in page (dark shell, the bar marks nothing current); `GET` / `PUT` / `DELETE /api/personal-finance` → **401** JSON; a bad method → 405 JSON; with `DASHBOARD_ENABLED` off → 404 JSON (like `/api/auth/*`). |
+| PF-34 | (#102) Signing in from `?next=/personal-finance` returns to `/personal-finance` (any other `next` is ignored → `/dashboard`); signed in, `/dashboard/sign-in?next=/personal-finance` redirects straight there; the page renders as PF-01..32 with the bar's `Personal finance` current. |
+| PF-35 | (#102) Rate direction: every FX rate = foreign units per 1 household unit; household amount = amount ÷ rate. #87 example with rate `5` (5 BRL per 1 CAD): Condo 2,000 BRL → 400 (Fixed 1,650 / 19,800, Total 1,750 / 21,000); the expense FX field's accessible name `FX rate (BRL per 1 CAD)`; no valid rate → `Enter a number above 0.` and `—` (Q14 unchanged). |
+| PF-36 | (#102) Account persistence: every change (lines, people, rates, months, Foreign boxes, household currency) is saved to `/api/personal-finance` (`PUT`, the whole record) and a reload restores it from the account; nothing PF stays in `localStorage`; a **second browser context signed in to the same account** (another device) loads the same figures; another account sees its own (empty) record; `?userId=` naming anyone else → 403. A failed save shows `Not saved.` |
+| PF-37 | (#102) Foreign income: a person's `Foreign` box (off by default); ticked: `Currency` (nine codes, not the household's), `FX rate (BRL per 1 CAD)`, `Converted (yearly)`. Example: `Brazilian Dividends`, Wages 37,000, tax 0, `Foreign` BRL `3.70` → Net 37,000, Converted **10,000**; with the section 12 people the table's lines and `Net income` use 10,000 for it; % of income and the Overview's income follow; no valid rate → the check, Converted `—`, `Net income` `—`, `% of income` `—`. Unticking keeps the typed currency and rate stored. |
+| PF-38 | (#102) Migration: an old browser record (localStorage v1 keys; Condo BRL at the old `0.2`) is imported into an empty account on the first signed-in visit with the rate inverted to `5` (Condo still 400), saved as `orpheus.finance.expenses.v2`, and the old keys are removed from the browser; an account that already has a record ignores the browser's values. |
+| PF-39 | (#102) Layout and the shell with a foreign person: phone the `Foreign` box with the other boxes, the three foreign cells stacked under them; wide the box as the last person column and the three cells in a row under the person; 44 px controls, chalk focus ring, AA, axe, no horizontal scroll, strict CLS 0 signed in (empty and restored from the account), no gold. |
 
 ## 11. Landed
 
@@ -420,6 +467,8 @@ No other text (ST6-02): no currency names, no rate hint, no symbol on amounts (Q
 - **Line currency:** each expense line has a `Currency`, default the household currency (stored `""`). A line whose
   currency is the household currency (stored `""`, or the same code) is a **household line**: factor 1, `FX rate`
   shows `—`.
+- **Superseded by #102 (section 16.2):** rates are now foreign units per 1 household unit and the household amount
+  = amount ÷ rate (`Condo` at `5`); the #87 text below is the history.
 - **FX rate (Q12):** on a **foreign line**, a typed number = household-currency units per **1** unit of the line's
   currency, stored as typed (section 5 reading: commas dropped; up to 40 characters). **Household amount = line amount
   × rate.** Example: household `CAD`, `Condo` 2,000 a month in `BRL`, rate `0.2` → 400 a month, 4,800 a year.
@@ -524,3 +573,74 @@ Q15), the section 5 number format.
 - **Chart:** full width, 240 px tall below 1024 px, 320 px from 1024 px; lines 2 px: Expenses `alert` (#ff8f87),
   Income `green`, Net assets `chalk`; ticks 12 px dim; grid `hair`; legend under it (a 12 px swatch + 14 px chalk
   name each). No gold. The chart sits in a fixed-height box, so nothing moves when it draws (CLS 0).
+
+## 16. Foreign income, rate direction, sign-in and the account (#102; Q24–Q31 open, simplest readings as built)
+
+### 16.1 Copy (exact)
+
+| Where | String |
+|---|---|
+| Person box (after `Share (%)`; the wide column label too) | `Foreign` |
+| Ticked: the foreign cells (visible labels) | `Currency` (a select: the nine codes other than the household's, in section 14 order), `FX rate (<code> per 1 <household>)` (e.g. `FX rate (BRL per 1 CAD)`), `Converted (yearly)` |
+| Field check (a person's FX rate) | `Enter a number above 0.` |
+| Expense line's FX rate field, accessible name | `FX rate (<code> per 1 <household>)` (visible column / cell label stays `FX rate`) |
+| Save failure (under the title, only then) | `Not saved.` |
+
+No other text (ST6-02). Amounts unitless (Q2 / Q15).
+
+### 16.2 Rate direction (supersedes Q12)
+
+- Every FX rate on the page (expense lines and people) = **units of the foreign currency per 1 unit of the household
+  currency**; a valid rate is a number above 0 (section 5 reading). **Household amount = foreign amount ÷ rate.**
+- Expense example (QA): household `CAD`, `Condo` 2,000 a month `BRL`, rate `5` → 400 a month (the section 14.2
+  figures otherwise unchanged: Fixed 1,650 / 19,800, Total 1,750 / 21,000, Condo 22.9%, equity 120,000 at ROIC 8).
+- Q14 holds: no valid rate → the check and `—` in every converted figure / total containing it.
+
+### 16.3 Foreign income (Q24–Q26)
+
+- Each person has a `Foreign` box (off for a new person and for every stored person). Ticked: `Currency` (default
+  the first code that is not the household's, e.g. `USD` under `CAD`), `FX rate (<code> per 1 <household>)` and the
+  computed `Converted (yearly)` = `Net (yearly)` ÷ rate (`—` without a valid rate).
+- A foreign person's `Wages (yearly)`, `Net (yearly)` (and the bonus) are in their currency as typed. The income
+  table's `<name> · Wages` / `<name> · Bonus` lines, `Net income`, every `% of income` and the Overview's page
+  income use the **converted** amounts (÷ rate); without a valid rate they and any total containing them show `—`.
+- A person whose `Currency` equals the household currency (after a household change) counts × 1, `FX rate` shown
+  as `—`. Unticking `Foreign` keeps the typed currency and rate stored (like #87 lines), counted × 1.
+- Example (QA, PF-37): household `CAD`; `Brazilian Dividends`, Wages `37,000`, Bonus rating empty, tax empty, Share
+  100, both counted, `Foreign`, `BRL`, `3.70` → Net 37,000, Converted **10,000**; its table line Wages 10,000 a year
+  (833.33 a month, 384.62 biweekly); alone, `Net income` 10,000 / 833.33.
+
+### 16.4 Sign-in (Q30)
+
+- `/personal-finance` route: a server check of the Better Auth session (the dashboard's `dashboardViewer`, behind
+  `DASHBOARD_ENABLED` like `/api/auth/*`). Signed out, or sign-in not ready → **307** to
+  `/dashboard/sign-in?next=/personal-finance`. The sign-in page accepts only `next=/personal-finance` (else
+  `/dashboard` as before): signed in it redirects there, and after a successful sign-in / sign-up it goes there.
+- Sign-up stays limited to `DASHBOARD_SIGNUP_ALLOWLIST` (fail closed). No roles, no account menu (#90).
+
+### 16.5 The account (Q28, Q29)
+
+- Table `personal_finance` (`migrations/0010_personal_finance.sql`): `user_id` (primary key, references the auth
+  `user`, deleted with it), `data` jsonb, `updated_at`. One record per account.
+- `GET /api/personal-finance` → `{ data: { "<name>": "<json text>" } | null }`; `PUT` `{ data }` saves the whole
+  record; `DELETE` removes it (QA reset; no UI). Names allowed: `orpheus.finance.expenses.v2`,
+  `orpheus.finance.income.v1`, `orpheus.finance.equity.v1`, `orpheus.finance.currency.v1`,
+  `orpheus.finance.overview.v1`; values strings, the record ≤ 256 KB (else 400 / 413). Order: 404 (flag off), 405,
+  401 (no session), 403 (`userId` naming someone else), 400 / 413, 503 (no database); `Cache-Control: no-store`,
+  noindex. The user id is the session's, never the client's.
+- The page reads the record once after hydration (the strict CLS 0 rule of section 6 holds: the area fills once),
+  then saves the whole record 400 ms after the last change (and on leaving the page). Last write wins. A failed
+  save shows `Not saved.`; the next change retries.
+- **Migration / import (Q27, Q28):** a record holding `orpheus.finance.expenses.v1` (only an import can) is
+  converted once: each line's valid `rate` → 1 ÷ rate (6 decimals, trailing zeros dropped: `0.2` → `5`, `0.27` →
+  `3.703704`), bad / empty rates kept, saved as `expenses.v2`, v1 dropped. First signed-in visit with **no** record:
+  this browser's old `localStorage` values (any of the five #84–#94 keys) are imported (then converted), saved to
+  the account and removed from `localStorage`. With a record: `localStorage` is ignored and left as is.
+
+### 16.6 Layout
+
+- Phone: the `Foreign` box joins `Count wages` | `Count bonus` (its own row cell); ticked, `Currency`, `FX rate (…)`
+  and `Converted (yearly)` stack full width under the boxes. Wide (from 1024 px): `Foreign` is the last person
+  column (column label `Foreign`); ticked, the three cells sit in one row under the person (each ≤ 16rem). 44 px
+  controls, chalk focus ring, AA, no horizontal scroll at 360 / 1024, CLS 0. `Not saved.`: 13 px alert under the
+  title, reserved only when shown (an error after a user action, not on load).
