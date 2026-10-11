@@ -19,6 +19,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-05, ≈ 23:00 ET | **QA round 1 on #70 (PR #76 at `2d4ee7c`) failed; EL's fixes and decisions:** D1 (CLS on phones 0.0036 / 0.0028 from the web-font swap resizing the wash; the QA tool had skipped shifts Playwright's phone emulation tags `hadRecentInput`): font-independent wash and title sizes, a size-adjusted local fallback, every shift counted (ST4-01; Q16 decided: #72 self-hosts the fonts, PLANNED). D2 (the Frequency list opened white with chalk text): charcoal select and options, `color-scheme: dark` on `<html>` (section 6, ST4-03). D3 (the `Max drop` value wrapped under its label at 360 / 400): one-line rows, the date on its own muted line (ST4-10). **N1:** keep the fixed method sentence word for word as one muted caption (Q12). **N4:** the wash hugs the text lower left, ≤ 50% of the band at 360 / 400 (ST4-15). **N7:** ST0-05 compares `/dashboard` signed in against the base PR's preview with the QA accounts, never production (it has no QA sign-in). |
 | 2026-10-10, ≈ 22:00 ET | **#69 kickoff (EL):** home in the dark shell keeps the Jordaens hero, `Investment driven by research.` and the Platforms lines (Q11; #69 builds them). The home rows get the calculator's bar: the largest file served at 1440 px on a 2x screen ≤ 300 KB, CLS by `PerformanceObserver` with every shift counted (hero 0, page total < 0.001 until #72), phone rules below 1024 px and wide from 1024 px (checked at 360, 400, 1024 and 1440), the bar on one line at 360, no visible credit and the `alt` naming the painting (Q5). ST3-01..04 amended and ST3-05..07 added from #69 (section 8 has the sizes); Q17 records the home phone band default. |
 | 2026-10-10, ≈ 22:17 ET | **EL answers on #69 (PR #77 at `5bd0061`), docs only:** Q17 closed: keep the built home phone band, `min(66.667vw, 480px)` (240 px at 360, 267 px at 400), not a flat 240 at both; the ≤ 200 px band (section 7a) stays calculator-only. "The horses" confirmed: the prince plus the four white chariot horses (with the dark head behind the leftmost); the brown horse on the far right may be partly cropped on phones. The spaced punctuation from `tnum` in the body font settings is a shell fix on every page in #72 (not #69 / #70). The calculator band's width above ≈ 1886 px gets the same one-class `w-full` fix as home, in #72 (#70 not touched). |
+| 2026-10-11, ≈ 08:22 ET | **#78 calculator polish (Diego via CoS; EL):** results show exactly four lines per plan, `Final value`, `Total invested`, `Return (%)`, `CAGR (%)` (mapped from the end value, the amount invested, the total return and the existing CAGR; money-weighted return, max drop, value at the drop and return to the drop leave the display; no calculation change; `$313,000` stays). Field checks before the calculation, each message under its field, the other fields kept. **A:** starting capital and contribution must be numbers **above 0** (the engine, `simulate.ts`, refuses 0 and stays untouched), so the issue's "zero or more" reads "above zero"; text, negatives and blanks are refused. **1:** the venue and currency checks run after the prices are read and before the calculation (the listing and currency come from the price feed), under the bad ticker, naming it; blank and duplicate tickers are checked before any request. **2:** the labels word for word as above. **3:** wide (≥ 1024 px) Start, End, Starting capital, Contribution and Frequency in one row with the button under it, the results below the form at full width (replaces "form left, results right"); the basket stays stacked ticker / weight / remove rows. **4:** start must be before end (equal dates refused). ST4-06, -08, -10, -12, -13 amended; ST4-17 (field checks) and ST4-18 (wide layout) added. |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -88,6 +89,9 @@ stays as briefed. Section 7a.
 | Home Platforms line 1 (→ `/calculator`) | `Calculator`, `Dollar-cost average calculator.`, `Open` |
 | Home Platforms line 2 (→ `/dashboard`) | `Dashboard`, `The portfolio as a business: fundamentals for each name, and the whole.`, `Open` |
 | Calculator listings note (unchanged) | `US, EU and CA listings, one currency per basket.` |
+| Calculator result plans (#78) | `Lump sum`, `DCA` |
+| Calculator result lines (#78; each plan, in this order) | `Final value`, `Total invested`, `Return (%)`, `CAGR (%)` |
+| Calculator field checks (#78; under the field) | ticker: `Add a ticker.`, `<T> is already in the basket.`, the price feed's refusal naming the ticker (e.g. `VOD.L lists on LSE. US, EU, and CA listings only.`; prefixed `<T>: ` when the feed's text doesn't name it), `<T> trades in <CUR>; this basket is in <CUR>. One currency per basket.`; weight: `Enter a weight above 0.`; start / end: `Add a start date.`, `Add an end date.`, `End must be after the start.` (under End); starting capital / contribution: `Enter a number above 0.`; frequency: `Choose weekly or monthly.` |
 | Sign-in link | `Create an account` |
 
 The Platforms lines are the ones in the approved home brief, unchanged (Q11: `main` itself still shows the #46
@@ -185,15 +189,30 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   (DCA NLV over time) by default: a green line, a soft green fill under it, and the last value in a small green
   pill (night text on green, full digits, the same money format as the results). No second chart, no legend
   paragraph, no "each plan has its own scale" note.
-- **Results:** `Lump sum` and `DCA` as label-value rows: for each plan, the existing metric labels
-  (`METRIC_ROWS`: Total invested, NLV at end, Money-weighted return, Total return, CAGR on total invested, Max
-  drop, NLV at that drop, Return to the drop) each with its value. No boxes, no borders around them, no `<table>`
-  (Q12 for the per-name table, the summary line and the method note). For PLTR 50 / TQQQ 50, 2020-10-02..
-  2026-10-01, 1,000 + 1,000 weekly, DCA `Total invested` reads `$313,000`.
-- **Layout:** the wide page (1024, 1440) as briefed above; the phone layout is section 7a. No horizontal page
-  scroll at 360, 400, 1024 or 1440.
+- **Results (#78, replaces #70's eight metric captions):** two plan columns, `Lump sum` then `DCA`, each with
+  **exactly four lines**: `Final value` (the end value, `NLV at end`), `Total invested`, `Return (%)` (the total
+  return) and `CAGR (%)` (the existing CAGR on the total invested, as if all invested on day one). The
+  money-weighted return (XIRR), max drop, value at that drop and return to the drop are no longer shown (display
+  only; the engine still computes them). No boxes, no borders around them, no `<table>`. Two columns while each is
+  ≥ 150 px wide, otherwise stacked (Lump sum above DCA). For PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 +
+  1,000 weekly, DCA `Total invested` reads `$313,000`.
+- **Field checks (#78, before the calculation):** each bad field gets its message directly under it (section 4
+  copy), with `aria-invalid` and `aria-describedby`; every bad field is marked at once and no field is cleared;
+  editing a field clears its own message. Order: tickers (blank, duplicate), weights, start / end (both filled,
+  start before end; equal dates refused), starting capital and contribution (numbers above 0: the engine refuses
+  0, decision A; text, negatives and blanks refused), frequency (weekly or monthly). Only when all pass are prices
+  read; then each ticker's venue (US / EU / CA only: the price feed's refusal, e.g. `VOD.L lists on LSE. US, EU,
+  and CA listings only.`, HTTP 400, unchanged) and currency (one per basket; the first ticker's currency is the
+  basket's, each other ticker in another currency is marked) go under that ticker, naming it, and nothing is
+  calculated. An error that belongs to no field (the feed down, the engine's own refusals such as `No session to
+  place the contributions.`) stays one line under the listings note (Q8).
+- **Layout:** wide (from 1024 px, #78 decision 3): one column. `02` Basket (stacked ticker / weight / remove rows,
+  at most 26rem wide: the basket is a list, so it is the exception to "one row"), then `03` Window with Start,
+  End, Starting capital, Contribution and Frequency **in one row**, `Compare plans` under it, the listings note
+  under the form, then `04` Result below the form at full width (chart, then the two plan columns). The phone
+  layout is section 7a. No horizontal page scroll at 360, 400, 1024 or 1440.
 - **Logic untouched:** no change to `src/lib/dca/*` or `src/routes/api/chart.ts`; `qa/tools/site.mjs` keeps
-  `$313,000` and may only change how it finds the value (label-value rows instead of a table row).
+  `$313,000` and may only change how it finds the value (since #78: the DCA plan's `Total invested` line).
 - **No extra instructions:** the intro paragraph (`Pick tickers and weights, …`), the swipe hint and the chart
   scale note go (and the two field hints, `Used only by the lump-sum plan.` and `New cash on each DCA date.`).
 - **Exact sizes (EL, 2026-10-05; as built in #70):**
@@ -212,25 +231,26 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   | Listings note (A11) | 13 px, line-height 1.4, dim (the "muted" colour on dark), one line, `nowrap` (302 px wide at 360, inside the 320 px column) |
   | Chart | 224 px tall; line 2 px green `#5cc08a`; fill green at 16% opacity (`#283a34` over night); grid hair; axis ticks 12 px dim |
   | Last-value pill | 22 px tall, radius 11 px, 8 px side padding, 12 px weight 500, night text on green (7.2:1), the results' money format |
-  | Results | caption (metric label) 13 px dim, full width; row label (`Lump sum`, `DCA`) 14 px dim; value 13 px on a phone, 14 px wide, chalk, `nowrap`, on the label's line; a date in a value (`Max drop`) on its own 12 px dim line under the figure, right-aligned in the value cell (D3); two columns while each is ≥ 150 px (`repeat(auto-fit, minmax(150px, 1fr))`, 16 px gap) |
+  | Results (#78) | plan heading (`Lump sum`, `DCA`) 14 px chalk, weight 500, with a 1 px `hair` rule under it; four lines per plan: label 13 px dim, value 16 px chalk, `nowrap`, tabular figures; on a phone the label sits above its value (a 152 px column at 360 can't hold `Total invested` beside `$313,000`), from 1024 px label left and value right on one row; two columns while each is ≥ 150 px (`repeat(auto-fit, minmax(150px, 1fr))`, 16 px gap; 48 px wide) |
   | Captions under the results | 13 px dim: `Dividends reinvested.` (DCA-01, Q2), then the fixed method sentence word for word (`Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.`; EL N1, Q12), then only the run-specific lines (Q12) |
-  | Error line (Q8) | 14 px `#ff8f87` (7.3:1), under the listings note |
+  | Field check (#78) | 13 px `#ff8f87` (7.3:1), line-height 1.4, directly under its field (6 px gap); the field's underline turns `#ff8f87` while it is marked |
+  | Error line (Q8) | 14 px `#ff8f87` (7.3:1), under the listings note; only for errors that belong to no field |
 
 ## 7a. Calculator on a phone (approved by Diego via EL, 2026-10-05; replaces "Phone is one column")
 
-Phone = below 1024 px wide (EL, 2026-10-05): the phone rules apply below 1024 px and the wide layout (form left,
-results right) from 1024 px. QA checks the phone rules at 360 and 400 and the wide layout at 1024 and 1440.
+Phone = below 1024 px wide (EL, 2026-10-05): the phone rules apply below 1024 px and the wide layout (#78: one
+column, the window fields in one row, the results below the form) from 1024 px. QA checks the phone rules at 360 and 400 and the wide layout at 1024 and 1440.
 
 - **Fields stack**, one under another; the field rows span the full width (A2; Q15: a basket row's ticker sits
   above its weight, with the row's remove control beside the ticker). The listings note is still one line under
   the form.
 - **The chart is full width** (the full content column, same left and right edges as the fields; the y-axis
   labels inside it, the pill not clipped).
-- **Lump sum and DCA sit in two columns if they fit, and stack only if they don't** (EL A1 / A9). Each metric's
-  label (`METRIC_ROWS`, word for word, e.g. `Money-weighted return (XIRR, per year)`) is a full-width caption;
-  under it the short row labels `Lump sum` and `DCA`, each with its value. Two columns while each column is at
-  least 150 px wide, otherwise stacked (Lump sum above DCA): `repeat(auto-fit, minmax(150px, 1fr))`. Every value
-  stays whole on one line, nothing is clipped, no horizontal scroll. Expected: two columns at 360 and at 400.
+- **Lump sum and DCA sit in two columns if they fit, and stack only if they don't** (EL A1 / A9; #78: plan
+  columns). Each column is the plan's heading and its four lines (`Final value`, `Total invested`, `Return (%)`,
+  `CAGR (%)`), each label above its value. Two columns while each column is at least 150 px wide, otherwise
+  stacked (Lump sum above DCA): `repeat(auto-fit, minmax(150px, 1fr))`. Every value stays whole on one line,
+  nothing is clipped, no horizontal scroll. Expected: two columns at 360 and at 400.
 - **The painting is a short band** (≤ 200 px tall at 360 and 400), with `01` and the title still lower left on
   the wash and Venus visible.
 - **Otherwise the same as wide:** dark page, Botticelli hero, borderless underlines, green line, green fill and
@@ -335,17 +355,19 @@ has no hover rule.
 | ST4-03 | The fields (tickers with weights, start, end, starting capital, contribution, weekly or monthly) are borderless with a thin underline only (no box border, fill or radius; a 1 px rule `#8b9298` underline, 5.1:1), with visible labels and a visible focus ring (2 px solid chalk, offset 2 px). The select and its `<option>`s carry charcoal `#1e2124` with chalk text (≥ 4.5:1; the page's own colour, so still no visible fill), so the list Chrome opens is dark and readable; `color-scheme: dark` on `<html>` (and `<body>`), so date pickers are dark too (QA round 1, D2). |
 | ST4-04 | `US, EU and CA listings, one currency per basket.` (wording unchanged) is one line at 13 px in dim (no wrap at 360 or 400 px, nothing clipped) directly under the form; no other note there (Q2, A11). |
 | ST4-05 | One chart with one series (the DCA portfolio value): a green line (2 px), a soft green fill (green at 16%) and the last value in a small green pill (22 px tall, night text on green, same money format as the results); no second chart and no chart note. |
-| ST4-06 | Results are `Lump sum` and `DCA` as label-value rows with the existing metric labels; no boxes, no borders around them, no `<table>` (Q12); the regression case shows DCA `Total invested` `$313,000`. |
+| ST4-06 | (#78) Results are two plan columns, `Lump sum` and `DCA`, each with **exactly four lines** in this order, labels word for word: `Final value` (end value), `Total invested`, `Return (%)` (total return), `CAGR (%)` (the existing CAGR); no money-weighted return, max drop, value at the drop or return to the drop shown; no boxes, no borders around them, no `<table>` (Q12); the regression case shows DCA `Total invested` `$313,000` and each value equals the engine's figure in the results' money / percent format (display only). |
 | ST4-07 | No instruction text: the intro paragraph, the swipe hint and the chart scale note are gone (Q2, Q12). |
-| ST4-08 | Phone (360 and 400; phone rules below 1024 px): the fields stack, one under another; the field rows span the full width, a basket row's ticker above its weight with the remove control beside the ticker (Q15, A2); the listings note is still one line under the form. |
+| ST4-08 | Phone (360 and 400; phone rules below 1024 px): the fields stack, one under another (wide: ST4-18); the field rows span the full width, a basket row's ticker above its weight with the remove control beside the ticker (Q15, A2); the listings note is still one line under the form. |
 | ST4-09 | Phone (360 and 400): the chart is full width (the content column's full width, same edges as the fields), with the green line, the soft fill and the pill unclipped. |
-| ST4-10 | Results rows (EL A1 / A9): each metric's label, word for word (`Money-weighted return (XIRR, per year)`, `CAGR on total invested, as if all invested day one`, …), is a full-width caption; under it the short row labels `Lump sum` and `DCA` with their values, in two columns while each column is ≥ 150 px wide and stacked (Lump sum above DCA) otherwise; every value whole, nothing clipped, no horizontal scroll. Expected and checked: two columns at 360 and 400. Each label-value row's main line is a single line at 360 and 400 (and wide): the value's figure on the label's line, never wrapped under it (row height checked); a value with a date (`Max drop`, `−79.9% · 2022-12-28`) shows the date on its own muted 12 px line under the figure, inside the value cell, wording unchanged (QA round 1, D3). |
+| ST4-10 | Results columns (EL A1 / A9; #78): `Lump sum` and `DCA` side by side while each column is ≥ 150 px wide, stacked (Lump sum above DCA) otherwise; expected and checked: two columns at 360 and 400 (and wide). In each column the four lines in order; on a phone each label above its value, from 1024 px label and value on one row; every value whole on one line (`nowrap`), inside its column, nothing clipped, no horizontal scroll. |
 | ST4-11 | Phone (360 and 400): the painting is a short band (≤ 200 px tall), with `01` and the title lower left on the wash and Venus visible. |
-| ST4-12 | Phone otherwise the same as wide: dark page, Botticelli hero, borderless underlines, green line, fill and pill, label-value results (ST4-01..07 hold at 360 and 400); the wide page (1024, 1440) as briefed; no horizontal page scroll at 360, 400, 1024 or 1440. |
-| ST4-13 | Logic untouched: `qa/tools/site.mjs` passes (`$313,000`; VOD.L 400 with the exact message; it may only change how it finds the value); DCA-01..06 pass; no diff in `src/lib/dca/*` or `src/routes/api/chart.ts`. |
+| ST4-12 | Phone otherwise the same as wide: dark page, Botticelli hero, borderless underlines, green line, fill and pill, label-value results (ST4-01..07 hold at 360 and 400); the wide page (1024, 1440) as ST4-18; no horizontal page scroll at 360, 400, 1024 or 1440. |
+| ST4-13 | Logic untouched: `qa/tools/site.mjs` passes (`$313,000`; VOD.L 400 with the exact message, read from under the VOD.L ticker field since #78; it may only change how it finds the value); DCA-01..06 pass; no diff in `src/lib/dca/*` or `src/routes/api/chart.ts`. |
 | ST4-14 | (EL A3) At 360, 400, 1024 and 1440 the `01` / title block and its wash (with its soft edge) don't overlap Venus; her region is defined by the crop and `object-position` (the figure box per crop in `src/lib/site/hero.ts`); checked by geometry and by a screenshot with both boxes outlined. |
 | ST4-15 | (EL A4) The wash box fully contains the bounding boxes of `01` and the title (element and text-line rects), checked by bounding rect plus screenshot, at 360, 400, 1024 and 1440. (EL N4, QA round 1) The wash hugs the text, anchored lower left (≤ 12 px of padding a side on a phone, ≤ 24 px wide), and takes at most 50% of the band's height at 360 and 400. |
 | ST4-16 | (Q6) The primary button `Compare plans` is a chalk fill with night text (14.2:1), radius 0, the section 7 size, a chalk focus ring; while reading prices a dim fill with night text (7.2:1); not green. |
+| ST4-17 | (#78) Field checks before the calculation, at 360 and 1440: each case's message (section 4 copy, word for word) sits directly under its field in `#ff8f87` 13 px, the field `aria-invalid` and described by it; every bad field marked at once; no field cleared (each keeps what was typed). Cases: empty basket → `Add a ticker.`; a ticker without a weight → `Enter a weight above 0.`; the same ticker twice → `<T> is already in the basket.` under the second; start or end blank → `Add a start date.` / `Add an end date.`; end on or before start → `End must be after the start.`; starting capital or contribution as text, negative, 0 or blank → `Enter a number above 0.` (decision A: above zero, the engine refuses 0); frequency blank → `Choose weekly or monthly.`; none of these sends a price request. After the prices: VOD.L → `VOD.L lists on LSE. US, EU, and CA listings only.` under VOD.L (HTTP 400); a basket mixing currencies → `<T> trades in <CUR>; this basket is in <CUR>. One currency per basket.` under the other ticker; no result shown. A valid run afterwards shows no field message. |
+| ST4-18 | (#78) Wide (1024 and 1440): one column; the basket's ticker / weight / remove rows stacked (≤ 26rem wide); Start, End, Starting capital, Contribution and Frequency in **one row** (same top, left to right), `Compare plans` under them; the listings note one line under the form; the result (chart, then the two plan columns) below the form at full width (same left and right edges as the window row). |
 
 **ST5a: dashboard content (#71): ON HOLD, deferred**
 
@@ -500,3 +522,11 @@ assumed white.
     white chariot horses, with the dark head behind the leftmost; the brown horse may be partly cropped on
     phones); #72 owns the `tnum` spaced punctuation (a shell fix on every page) and the calculator band's
     `w-full` fix above ≈ 1886 px (#70 not touched).
+- **#78, calculator polish (2026-10-11).** Built to the #78 decisions (decision log): results as two plan columns
+  with exactly four lines each (`Final value`, `Total invested`, `Return (%)`, `CAGR (%)`; mapping in
+  `src/lib/site/result-lines.ts`, display only, `src/lib/dca/*` untouched); field checks under each field
+  (section 4 copy; `src/lib/site/field-checks.ts`, pure), the venue and currency checks after the prices are read;
+  wide one column with the window fields in one row and the results below the form. Checks:
+  `src/lib/site/field-checks.test.ts`, `src/components/calculator/calculator.dom.test.tsx`,
+  `qa/tools/calculator-page.mjs` (ST4-06, -10, -17, -18), `qa/tools/site.mjs` (`$313,000` from the DCA plan's
+  `Total invested` line; VOD.L under its field).

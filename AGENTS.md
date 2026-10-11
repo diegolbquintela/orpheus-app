@@ -43,9 +43,11 @@ affects the repo.
   Add new dark tokens next to the old ones (spec §5).
 - **Calculator (#70):** Botticelli hero with `01` + `Dollar-cost average calculator.`, underline-only fields with
   their own class, listings note one line under the form, one green chart line + fill + last-value pill, Lump sum
-  and DCA as label-value rows (no table). Phone rules below 1024 px (spec §7a, checked at 360 and 400): fields
-  stack, chart full width, the two result columns side by side while each is ≥ 150 px, short painting band; the
-  wide layout (form left, results right) from 1024 px. Logic files untouched; `$313,000` unchanged.
+  and DCA as two plan columns of exactly four lines each (`Final value`, `Total invested`, `Return (%)`,
+  `CAGR (%)`; #78), field checks under each field (#78). Phone rules below 1024 px (spec §7a, checked at 360 and
+  400): fields stack, chart full width, the two result columns side by side while each is ≥ 150 px, short painting
+  band; wide from 1024 px (#78): one column, the window fields in one row, the results below the form at full
+  width. Logic files untouched; `$313,000` unchanged.
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.
@@ -94,6 +96,18 @@ affects the repo.
   `hero-<w>.png` with the figure and the wash outlined). Q17 closed (EL): the home phone band stays
   `min(66.667vw, 480px)` (240 px at 360, 267 px at 400); #72 owns the `tnum` punctuation and the calculator's
   `w-full` above ≈ 1886 px.
+- **Landed: #78 calculator polish.** Results: `src/components/calculator/result-rows.tsx` renders
+  `[data-testid=results]` with one `[data-testid=result-plan][data-plan=lump|dca]` per plan and exactly four
+  `[data-testid=result-line][data-key=nlv|invested|total|cagr]` (labels `Final value`, `Total invested`,
+  `Return (%)`, `CAGR (%)`); the label→value mapping is `src/lib/site/result-lines.ts` (display only, reads the
+  existing money / percent formatters; `src/lib/dca/*` untouched, `METRIC_ROWS` no longer rendered). Field
+  checks: `src/lib/site/field-checks.ts` (pure; copy in spec §4) runs before any price request; the venue and
+  currency checks after the prices are read; each message is `[data-testid=field-error][data-field=…]` under its
+  field (tickers / weights per row: `ticker-<n>`, `weight-<n>`, 0-based; then `start`, `end`, `capital`,
+  `contribution`, `frequency`), the input `aria-invalid` + `aria-describedby`; errors with no field stay
+  `[role=alert]` under the listings note. Wide: one column, `calc-window` with the five fields in one row, the
+  button under it, the results below. QA: `qa/tools/calculator-page.mjs` (ST4-06, -10, -17, -18 added),
+  `qa/tools/site.mjs` (`$313,000` from the DCA `Total invested` line; VOD.L under its field).
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 
