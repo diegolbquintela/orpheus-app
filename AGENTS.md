@@ -47,7 +47,9 @@ affects the repo.
   `CAGR (%)`; #78), field checks under each field (#78). Phone rules below 1024 px (spec §7a, checked at 360 and
   400): fields stack, chart full width, the two result columns side by side while each is ≥ 150 px, short painting
   band; wide from 1024 px (#78): one column, the window fields in one row, the results below the form at full
-  width. Logic files untouched; `$313,000` unchanged.
+  width. Saved searches (#80, spec §7b): a `Saved searches` button above the basket, closed by default, the last
+  5 calculated searches with `Load`, the last search restored on refresh; this browser's `localStorage` only.
+  Logic files untouched; `$313,000` unchanged.
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.
@@ -108,6 +110,16 @@ affects the repo.
   `[role=alert]` under the listings note. Wide: one column, `[data-testid=window-row]` with the five fields in one row, the
   button under it, the results below. QA: `qa/tools/calculator-page.mjs` (ST4-06, -10, -17, -18 added),
   `qa/tools/site.mjs` (`$313,000` from the DCA `Total invested` line; VOD.L under its field).
+- **Landed: #80 saved searches.** `src/components/calculator/saved-searches.tsx` (the `Saved searches` button
+  `[data-testid=saved-toggle]` and panel `[data-testid=saved-panel]`, lines `[data-testid=saved-line]` with
+  `[data-testid=saved-load]`) and `src/lib/site/saved-searches.ts` (pure: keys, guarded read / write, dedupe, cap
+  5, line text). `desk.tsx` saves after a successful calculation and restores the last search once after
+  hydration (a refresh with a multi-name basket adds rows after load; the hero never moves). QA:
+  `qa/tools/saved-searches.mjs` (ST4-19..24 at 360 / 400 / 1024 / 1440: closed by default, list + Load, auto-save,
+  cap 5, refresh restore, no auth, the two keys only, a second context sees nothing, clear-site-data wipes).
+  EL answers (2026-10-11, docs-only): Q18 accepted (multi-name restore page CLS under 0.1; keep restoring on
+  load, never hide the form or restore only on tap); Q19 the line shows the search's own contribution, no
+  weekly / monthly; Q20 the button always visible, closed by default, empty list `No saved searches yet.`
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 
@@ -263,6 +275,11 @@ These rules exist so no ticket gets missed.
   The DCA-06 check in `src/lib/dca/fixtures.test.ts` scans user-facing copy for it.
 - **Trackers.** Only Vercel Web Analytics (anonymous page views, cookieless; see its section). No other
   analytics, pixels or session recording, and no custom events.
+- **Browser storage (#80, Diego, locked).** The calculator keeps its saved searches in this browser's
+  `localStorage` only, under exactly `orpheus.calculator.last.v1` and `orpheus.calculator.saved.v1` (≤ 5). No
+  login and never the account (#73 parked): no server copy, no cookie, no `sessionStorage` / IndexedDB, no
+  request beyond `GET /api/chart`. Nothing else on the site writes browser storage; never send these values to
+  the analytics.
 - **Listings.** US, EU and CA listings only, one currency per basket (`src/lib/dca/venues.ts`). Do not
   widen this without a spec change.
 

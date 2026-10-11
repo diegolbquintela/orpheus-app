@@ -16,7 +16,8 @@ Dashboard item shows even when the flag is off. The footer reads "Orpheus Wisdom
 
 **Analytics.** Vercel Web Analytics (`@vercel/analytics`, mounted once in `src/routes/__root.tsx`) collects
 anonymous page views only: the page path with query strings stripped, no cookies, no custom events, no
-emails, tickers or holdings. Why: to see which tools get used. There are no other trackers. Code: `src/lib/site/site.ts`, `src/components/site-menu.tsx`,
+emails, tickers or holdings. Why: to see which tools get used. There are no other trackers. The calculator's saved
+searches (#80) stay in this browser's `localStorage` and are never sent anywhere. Code: `src/lib/site/site.ts`, `src/components/site-menu.tsx`,
 `site-footer.tsx`, `home.tsx`, `src/routes/__root.tsx`.
 
 **The calculator.** You pick tickers and weights, a date range, a starting capital, a contribution and a frequency (weekly
@@ -157,6 +158,13 @@ checks each field before reading prices and shows the message under the bad fiel
 amounts must be above 0, the start must be before the end; a ticker on another venue or in another currency is
 marked under that ticker after the prices are read. Wide screens put Start, End, Starting capital, Contribution
 and Frequency in one row with the results below. QA: `qa/tools/calculator-page.mjs` at 360, 400, 1024 and 1440 px.
+
+**Landed: saved searches (#80).** A `Saved searches` button at the top of the calculator form (closed by default)
+lists the last 5 searches you calculated, newest first (`PLTR, TQQQ · 2020-10-02 – 2026-10-01 · DCA $1,000`),
+each with `Load` to fill the form. Every successful calculation is saved; there's no save button. A refresh fills
+the last search again. No login: everything stays in this browser's `localStorage`
+(`orpheus.calculator.last.v1`, `orpheus.calculator.saved.v1`), so another device sees nothing and clearing the
+browser's site data clears it. QA: `qa/tools/saved-searches.mjs` at 360, 400, 1024 and 1440 px.
 
 ## Dashboard (released, behind a flag)
 
