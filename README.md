@@ -188,6 +188,13 @@ no login, no server copy and no request to `/api`. Amounts carry no currency sym
 reached by its URL only (EL decision): the bar keeps its three items and home its two lines. QA:
 `qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
 
+**Income (#85 v1.2).** Above the expenses, `02 Income` lists the household's people: Wages (yearly), Bonus rating
+(% of wages), Average tax (%) and their Net (yearly) = (wages + bonus) × (1 − tax). Tick which incomes count
+(`Count wages`, `Count bonus`) and each person's `Share (%)` (e.g. untick your own bonus, put your spouse at 80).
+The `Income table` shows each counted line and the `Net income` biweekly (yearly ÷ 26), monthly and yearly, and
+every expense line's `% of income` now divides its monthly amount by that net income a month (`—` while it is 0).
+Stored in this browser only, in its own key `orpheus.finance.income.v1`.
+
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
 default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.

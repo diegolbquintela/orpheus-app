@@ -313,7 +313,7 @@ describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
     assert.match(css, /body\.scheme-dark \{\s*font-feature-settings: "zero" on;\s*\}/);
     for (const m of css.matchAll(/\n {2}(\.(?:calc|home|signin|pf)[^{]*)\{([^}]*)\}/g))
       assert.doesNotMatch(m[2], /tabular-nums|"tnum"/, m[1]);
-    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx", "src/components/personal-finance/expenses-page.tsx"])
+    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx", "src/components/personal-finance/expenses-page.tsx", "src/components/personal-finance/income-block.tsx"])
       assert.doesNotMatch(readFileSync(f, "utf8"), /tabular-nums/, f);
   });
 
@@ -363,14 +363,22 @@ describe("personal finance route (#84)", () => {
   });
 
   it("no server: the page makes no fetch and uses no cookie / sessionStorage / IndexedDB", () => {
-    for (const f of ["src/components/personal-finance/expenses-page.tsx", "src/lib/finance/expenses.ts"]) {
+    for (const f of [
+      "src/components/personal-finance/expenses-page.tsx",
+      "src/components/personal-finance/income-block.tsx",
+      "src/components/personal-finance/pf-cells.tsx",
+      "src/lib/finance/expenses.ts",
+      "src/lib/finance/income.ts",
+    ]) {
       const text = readFileSync(f, "utf8");
       assert.doesNotMatch(text, /fetch\(|\/api\/|document\.cookie|sessionStorage|indexedDB/, f);
     }
   });
 
   it("page-only classes: never the shared .field / .kicker / .section (Q10)", () => {
-    const page = readFileSync("src/components/personal-finance/expenses-page.tsx", "utf8");
+    const page = ["expenses-page", "income-block", "pf-cells"]
+      .map((f) => readFileSync(`src/components/personal-finance/${f}.tsx`, "utf8"))
+      .join("\n");
     for (const m of page.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g))
       assert.doesNotMatch(m[1] ?? m[2], /(?<![\w-])(field|kicker|section)(?![\w-])/, m[0]);
   });

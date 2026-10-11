@@ -182,6 +182,13 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
     (calculated is the default when empty), for #86; Q4 `__grok/icon-180.png` untouched, Grok builder assets out of
     scope for #84.
 
+- **#85, Personal Finance v1.2 income (PR #89, draft, 2026-10-11).** `src/components/personal-finance/income-block.tsx`
+  (people, income table), `pf-cells.tsx` (the shared `Cell` and section head), `src/lib/finance/income.ts` (pure:
+  percent reading, net, counted lines, biweekly ÷ 26, the income key); `expenses-page.tsx` reads both keys and passes
+  the counted net income a month to the expenses (`% of income`). Checks: `src/lib/finance/income.test.ts`,
+  `expenses-page.dom.test.tsx`, `site.test.ts`, `qa/tools/personal-finance.mjs` (PF-11..16 added) and
+  `qa/tools/site-style-regression.mjs` (the empty page's copy). In QA when the preview is green.
+
 ## 12. Income (v1.2, #85)
 
 ### 12.1 Copy (exact)
@@ -237,6 +244,7 @@ numbers (`30`, not `30%` or `0.3`).
 - `02` `Income` above `03` `Expenses`, the same `.pf-*` look (underline fields, 12 px dim labels, 44 px controls,
   chalk focus ring, AA, proportional figures). Checkboxes: native, `accent-color` chalk, in a ≥ 44 px tall cell.
 - **Phone:** a person is a block: `Name` with the remove button beside it; `Wages (yearly)` | `Bonus rating (%)`;
-  `Average tax (%)` | `Share (%)`; `Count wages` | `Count bonus`; `Net (yearly)`. A table line: its label, then
+  `Share (%)` | `Average tax (%)` (the wider right cell, so its label stays on one line at 360 px); `Count wages` |
+  `Count bonus`; `Net (yearly)`. A table line: its label, then
   `Biweekly` | `Monthly` | `Yearly` labelled cells. **Wide (from 1024 px):** one row per person in the column order of
   12.1 under a column-label row; the table one row per line under `Income` / `Biweekly` / `Monthly` / `Yearly`.

@@ -1,5 +1,5 @@
 import { Minus } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ACCOUNT_MAX,
   ACCOUNTS_MAX,
@@ -25,6 +25,15 @@ import {
   totalsOf,
   writeExpenses,
 } from "@/lib/finance/expenses";
+import {
+  type Income,
+  monthly,
+  netIncomeYearly,
+  readIncome,
+  writeIncome,
+} from "@/lib/finance/income";
+import { IncomeBlock } from "./income-block";
+import { Cell, SectionHead } from "./pf-cells";
 
 const ADD_ACCOUNT = "__add-account__";
 
@@ -37,17 +46,29 @@ function storage(): Storage | null {
 }
 
 /**
- * Personal finance (#84 v1.1; spec `attachments/personal-finance-spec.md`, PF-01..10): Fixed and Variable expenses
- * in this browser's localStorage only. The server renders the title and an empty expenses area at least the
- * viewport tall; the browser fills it once after reading storage, so nothing on screen moves (strict CLS 0).
+ * Personal finance (#84 v1.1, #85 v1.2; spec `attachments/personal-finance-spec.md`, PF-01..16): the income block
+ * and Fixed and Variable expenses, in this browser's localStorage only (two keys). The server renders the title
+ * and an empty area at least the viewport tall; the browser fills it once after reading storage, so nothing on
+ * screen moves (strict CLS 0).
  */
 export function PersonalFinancePage() {
   const [expenses, setExpenses] = useState<Expenses | null>(null);
+  const [income, setIncome] = useState<Income | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
 
   useEffect(() => {
+    setIncome(readIncome(storage()));
     setExpenses(readExpenses(storage()));
   }, []);
+
+  function updateIncome(change: (current: Income) => Income) {
+    setIncome((current) => {
+      if (!current) return current;
+      const next = change(current);
+      writeIncome(storage(), next);
+      return next;
+    });
+  }
 
   function update(change: (current: Expenses) => Expenses) {
     setExpenses((current) => {
@@ -69,32 +90,30 @@ export function PersonalFinancePage() {
           <h1 className="pf-title mt-2">Personal finance.</h1>
         </header>
 
-        <section className="flex flex-col gap-8" aria-labelledby="pf-expenses">
-          <div>
-            <p className="pf-label">02</p>
-            <h2
-              id="pf-expenses"
-              className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk"
-            >
-              Expenses
-            </h2>
-          </div>
-          <div
-            className="pf-area flex flex-col gap-12"
-            data-testid="pf-area"
-            data-ready={expenses ? "true" : "false"}
-          >
-            {expenses ? (
-              <Groups
-                expenses={expenses}
-                adding={adding}
-                setAdding={setAdding}
-                update={update}
-                updateLine={updateLine}
-              />
-            ) : null}
-          </div>
-        </section>
+        <div
+          className="pf-area flex flex-col gap-14 lg:gap-16"
+          data-testid="pf-area"
+          data-ready={expenses && income ? "true" : "false"}
+        >
+          {expenses && income ? (
+            <>
+              <IncomeBlock income={income} update={updateIncome} />
+              <section className="flex flex-col gap-8" aria-labelledby="pf-expenses">
+                <SectionHead numeral="03" title="Expenses" id="pf-expenses" />
+                <div className="flex flex-col gap-12">
+                  <Groups
+                    expenses={expenses}
+                    incomeMonthly={monthly(netIncomeYearly(income.people))}
+                    adding={adding}
+                    setAdding={setAdding}
+                    update={update}
+                    updateLine={updateLine}
+                  />
+                </div>
+              </section>
+            </>
+          ) : null}
+        </div>
       </main>
     </div>
   );
@@ -102,12 +121,15 @@ export function PersonalFinancePage() {
 
 function Groups({
   expenses,
+  incomeMonthly,
   adding,
   setAdding,
   update,
   updateLine,
 }: {
   expenses: Expenses;
+  /** The counted net income a month (#85); `% of income` divides by it, `—` at 0. */
+  incomeMonthly: number;
   adding: string | null;
   setAdding: (id: string | null) => void;
   update: (change: (current: Expenses) => Expenses) => void;
@@ -140,6 +162,7 @@ function Groups({
                 group={group.key}
                 accounts={expenses.accounts}
                 share={formatShare(monthlyOf(line), grand.monthly)}
+                ofIncome={formatShare(monthlyOf(line), incomeMonthly)}
                 adding={adding === line.id}
                 setAdding={setAdding}
                 onChange={(patch) => updateLine(group.key, line.id, patch)}
@@ -178,39 +201,20 @@ function Groups({
               label={group.total}
               totals={totalsOf(lines)}
               whole={grand.monthly}
+              incomeMonthly={incomeMonthly}
               testId={group.key}
             />
           </section>
         );
       })}
-      <TotalRow label="Total" totals={grand} whole={grand.monthly} testId="all" />
+      <TotalRow
+        label="Total"
+        totals={grand}
+        whole={grand.monthly}
+        incomeMonthly={incomeMonthly}
+        testId="all"
+      />
     </>
-  );
-}
-
-/**
- * One labelled cell. The label shows above the value on a phone and is visually hidden from 1024 px (the group's
- * column-label row stands in). A control carries its own aria-label, so its visible label is hidden from
- * assistive tech; a computed value keeps its label as its name.
- */
-function Cell({
-  label,
-  area,
-  control = false,
-  children,
-}: {
-  label: string;
-  area: string;
-  control?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className={`pf-cell pf-${area}`}>
-      <span className="pf-label pf-cell-label" {...(control ? { "aria-hidden": true } : {})}>
-        {label}
-      </span>
-      {children}
-    </div>
   );
 }
 
@@ -220,6 +224,7 @@ function LineRow({
   group,
   accounts,
   share,
+  ofIncome,
   adding,
   setAdding,
   onChange,
@@ -231,6 +236,7 @@ function LineRow({
   group: GroupKey;
   accounts: string[];
   share: string;
+  ofIncome: string;
   adding: boolean;
   setAdding: (id: string | null) => void;
   onChange: (patch: Partial<Line>) => void;
@@ -282,7 +288,7 @@ function LineRow({
       </Cell>
       <Cell label="% of income" area="income">
         <span className="pf-value" data-testid="pf-income">
-          {NOT_COMPUTED}
+          {ofIncome}
         </span>
       </Cell>
       <Cell label="% of expenses" area="share">
@@ -430,11 +436,13 @@ function TotalRow({
   label,
   totals,
   whole,
+  incomeMonthly,
   testId,
 }: {
   label: string;
   totals: Totals;
   whole: number;
+  incomeMonthly: number;
   testId: string;
 }) {
   const value = (area: string, column: string, text: string, field: string) => (
@@ -452,7 +460,7 @@ function TotalRow({
       <div className="pf-cell pf-name">
         <span className="pf-total-label">{label}</span>
       </div>
-      {value("income", "% of income", NOT_COMPUTED, "income")}
+      {value("income", "% of income", formatShare(totals.monthly, incomeMonthly), "income")}
       {value("share", "% of expenses", formatShare(totals.monthly, whole), "share")}
       {value("monthly", "Monthly", formatAmount(totals.monthly), "monthly")}
       {value("yearly", "Yearly", formatAmount(totals.yearly), "yearly")}
