@@ -39,6 +39,8 @@ const line = (over: Partial<Line> = {}): Line => ({
   per: "month",
   equity: "",
   account: "",
+  currency: "",
+  rate: "",
   ...over,
 });
 

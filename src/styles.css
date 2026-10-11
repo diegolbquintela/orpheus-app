@@ -522,6 +522,7 @@
     grid-template-areas:
       "name name remove"
       "monthly yearly yearly"
+      "currency fx fx"
       "share income income"
       "account equity equity"
       "new new new";
@@ -556,6 +557,17 @@
   }
   .pf-account {
     grid-area: account;
+  }
+  /* #87 (spec section 14.4): a line's Currency | FX rate under Monthly | Yearly on a phone, after Yearly when wide;
+     the Household currency select one cell (≤ 16rem) above 02 Income. */
+  .pf-currency {
+    grid-area: currency;
+  }
+  .pf-fx {
+    grid-area: fx;
+  }
+  .pf-household {
+    max-width: 16rem;
   }
   .pf-field {
     height: 2.75rem;
@@ -673,23 +685,23 @@
     .pf-head,
     .pf-line {
       grid-template-columns:
-        minmax(0, 2fr) 6rem 6.5rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)
-        2.75rem;
-      column-gap: 1.25rem;
+        minmax(0, 1.5fr) 6rem 6.5rem minmax(0, 1fr) minmax(0, 1fr) 4.5rem minmax(0, 0.8fr)
+        minmax(0, 1.4fr) minmax(0, 1.2fr) 2.75rem;
+      column-gap: 1rem;
     }
     .pf-head {
       display: grid;
     }
     .pf-line {
       grid-template-areas:
-        "name income share monthly yearly equity account remove"
-        "new new new new new new new new";
+        "name income share monthly yearly currency fx equity account remove"
+        "new new new new new new new new new new";
       row-gap: 1rem;
       border-bottom: 0;
       padding-bottom: 0;
     }
     .pf-total {
-      grid-template-areas: "name income share monthly yearly equity . .";
+      grid-template-areas: "name income share monthly yearly . . equity . .";
     }
     .pf-cell-label {
       position: absolute;

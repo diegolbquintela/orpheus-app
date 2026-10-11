@@ -180,12 +180,12 @@ browser's site data clears it. QA: `qa/tools/saved-searches.mjs` at 360, 400, 10
 
 `/personal-finance` is a dark page in the same shell (spec: `attachments/personal-finance-spec.md`, PF-01..10;
 business user: the CFO). Two groups of expenses, **Fixed** and **Variable**, with the columns Name, % of income,
-% of expenses, Monthly, Yearly, Equity to cover and Account. Type Monthly or Yearly and the other converts (× 12 or
+% of expenses, Monthly, Yearly, Currency, FX rate (#87), Equity to cover and Account. Type Monthly or Yearly and the other converts (× 12 or
 ÷ 12); what you typed stays as typed. `% of expenses` is each line's (and group's) share of the monthly total of
 both groups. `% of income` shows `—` until income exists (#85). `Equity to cover` is a number you type until #86
 computes it. Account is a dropdown with `Add account…` (one shared list for both groups). Totals per group and for
 both. Manual entry only: everything stays in this browser's `localStorage` (`orpheus.finance.expenses.v1`), with
-no login, no server copy and no request to `/api`. Amounts carry no currency symbol until #87. The page is
+no login, no server copy and no request to `/api`. Amounts carry no currency symbol (kept by #87: the household currency is named once, by its field). The page is
 first-class since #97: the bar's fourth item `Personal finance` (current here) and the third home line; the URL
 still works. QA:
 `qa/tools/personal-finance.mjs` at 360, 400, 1024 and 1440 px.
@@ -206,6 +206,16 @@ that line, clear it to go back (a badly typed one falls back to the calculated a
 Totals add each line's override or calculated amount; with no rate, a line without an override shows `—` and so does
 its total. ROIC may be above 100%; the withdrawal rate is 0–100%. Stored in this browser only,
 in `orpheus.finance.equity.v1`.
+
+**Foreign currency (#87 v1.4).** Pick the `Household currency` at the top of the page (default CAD; income, totals,
+percentages and equity cover are in it). An expense line can be in another `Currency` (e.g. BRL); type its `FX rate`
+as household units per 1 unit of that currency (1 BRL = 0.2 CAD → `0.2`). The line's Monthly / Yearly stay in its
+own currency as typed; everything computed from them uses the converted amount (Condo 2,000 BRL a month at 0.2 →
+400 CAD in the totals; equity cover on 4,800 a year). A foreign line without a valid rate shows `Enter a number above
+0.` and shows `—` in place of every converted figure and in any total that contains it (its own Monthly / Yearly
+still show what you typed). No live rates: typed only. The household currency is stored in `orpheus.finance.currency.v1`;
+each line's currency and rate in the expenses key (older lines read as household lines). Draft PR #100; EL decided Q12–Q16
+(multiply by the rate, default CAD, `—` without a rate, no symbols, one rate per line).
 
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
