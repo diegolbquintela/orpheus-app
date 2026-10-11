@@ -226,6 +226,37 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
+  /* Saved searches (#80, spec §7b): a plain text button; each line underlined across the form's full width. */
+  .calc-saved-toggle {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--color-chalk);
+  }
+  .calc-saved-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--color-rule);
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--color-chalk);
+    font-variant-numeric: tabular-nums;
+  }
+  .calc-saved-load {
+    display: inline-flex;
+    min-height: 2.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--color-chalk);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
   /* Field checks (#78, spec §7 sizes; ST4-17): the message under its field, the underline in the alert colour. */
   .calc-error {
     display: block;

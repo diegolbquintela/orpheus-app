@@ -329,3 +329,59 @@ describe("calculator page (#70, ST4-01..04, ST4-07)", () => {
     for (const w of ["Pick tickers", "Swipe", "own scale", "Used only by", "New cash on each"]) assert.doesNotMatch(el.textContent ?? "", new RegExp(w));
   });
 });
+
+describe("calculator saved searches (#80, ST4-19, -20, -22)", () => {
+  const saved = (contribution: string, ticker = "PLTR") => ({
+    rows: [
+      { ticker, weight: "50" },
+      { ticker: "TQQQ", weight: "50" },
+    ],
+    start: "2020-10-02",
+    end: "2026-10-01",
+    capital: "1000",
+    contribution,
+    frequency: "weekly",
+    currency: "USD",
+  });
+  afterEach(() => dom.window.localStorage.clear());
+
+  it("the form's first control, closed by default; with nothing stored the fields are blank", async () => {
+    const el = await render(<Desk />);
+    const form = el.querySelector("form")!;
+    const toggle = el.querySelector<HTMLButtonElement>('[data-testid="saved-toggle"]')!;
+    assert.equal(toggle.textContent, "Saved searches");
+    assert.equal(toggle.type, "button");
+    assert.equal(form.querySelector("button, input, select"), toggle, "first control, above the basket");
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    assert.equal(el.querySelector('[data-testid="saved-panel"]'), null);
+    await act(async () => toggle.click());
+    assert.equal(toggle.getAttribute("aria-expanded"), "true");
+    assert.equal(el.querySelector('[data-testid="saved-empty"]')!.textContent, "No saved searches yet.");
+    assert.equal(el.querySelector<HTMLInputElement>('[data-testid="ticker-input"]')!.value, "");
+    assert.equal([...el.querySelectorAll("button")].filter((b) => /save/i.test(b.textContent ?? "") && b !== toggle).length, 0, "no save button");
+  });
+
+  it("a refresh fills the last search and lists the saved ones; Load fills every field and closes the list", async () => {
+    dom.window.localStorage.setItem("orpheus.calculator.last.v1", JSON.stringify(saved("1000")));
+    dom.window.localStorage.setItem("orpheus.calculator.saved.v1", JSON.stringify([saved("1000"), saved("100", "VOO")]));
+    const el = await render(<Desk />);
+    const values = () => [...el.querySelectorAll<HTMLInputElement>("form input, form select")].map((f) => f.value);
+    assert.deepEqual(values(), ["PLTR", "50", "TQQQ", "50", "2020-10-02", "2026-10-01", "1000", "1000", "weekly"]);
+    assert.equal(el.querySelector('[data-testid="saved-panel"]'), null, "still closed");
+    await act(async () => el.querySelector<HTMLButtonElement>('[data-testid="saved-toggle"]')!.click());
+    assert.deepEqual([...el.querySelectorAll('[data-testid="saved-text"]')].map((t) => t.textContent), [
+      "PLTR, TQQQ · 2020-10-02 – 2026-10-01 · DCA $1,000",
+      "VOO, TQQQ · 2020-10-02 – 2026-10-01 · DCA $100",
+    ]);
+    assert.ok(el.querySelector('[data-testid="saved-line"]')!.classList.contains("calc-saved-line"));
+    await act(async () => el.querySelectorAll<HTMLButtonElement>('[data-testid="saved-load"]')[1].click());
+    assert.deepEqual(values(), ["VOO", "50", "TQQQ", "50", "2020-10-02", "2026-10-01", "1000", "100", "weekly"]);
+    assert.equal(el.querySelector('[data-testid="saved-panel"]'), null, "Load closes the list");
+  });
+
+  it("each line underlined by the fields' rule across the full width", () => {
+    const r = rule(".calc-saved-line");
+    assert.match(r, /border-bottom: 1px solid var\(--color-rule\);/);
+    assert.match(r, /justify-content: space-between;/);
+  });
+});

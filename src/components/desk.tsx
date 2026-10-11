@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Minus } from "lucide-react";
 import { runDesk, scaleWeights } from "@/lib/dca/simulate";
 import {
@@ -9,10 +9,12 @@ import {
   type FieldErrors,
   type Listing,
 } from "@/lib/site/field-checks";
+import { browserStorage, readLast, readSaved, saveSearch, type SavedSearch } from "@/lib/site/saved-searches";
 import { CALCULATOR_NOTE, DIVIDENDS_CAPTION, METHOD_CAPTION } from "@/lib/site/site";
 import { CalculatorHero } from "./calculator/hero";
 import { DcaChart } from "./calculator/dca-chart";
 import { ResultRows } from "./calculator/result-rows";
+import { SavedSearches } from "./calculator/saved-searches";
 import type { ChartPayload, DeskRun, Frequency } from "@/lib/dca/types";
 
 type Row = { id: string; ticker: string; weight: string };
@@ -72,6 +74,28 @@ export function Desk() {
   const [ready, setReady] = useState<Ready | null>(null);
   const resultRef = useRef<HTMLElement>(null);
   const uid = useId();
+  const [saved, setSaved] = useState<SavedSearch[]>([]);
+
+  /** Fills every field from a saved search (#80): Load, and the last search on a refresh. Nothing is calculated. */
+  function applySearch(search: SavedSearch) {
+    setRows(search.rows.map((row, index) => ({ id: index === 0 ? "first" : nextId(), ...row })));
+    setStart(search.start);
+    setEnd(search.end);
+    setCapital(search.capital);
+    setContribution(search.contribution);
+    setFrequency(search.frequency);
+    setErrors({});
+    setError("");
+    setReady(null);
+  }
+
+  // #80 (ST4-22): after hydration (the server can't read localStorage), the list and the last search come back.
+  useEffect(() => {
+    const storage = browserStorage();
+    setSaved(readSaved(storage));
+    const last = readLast(storage);
+    if (last) applySearch(last);
+  }, []);
 
   function updateRow(id: string, patch: Partial<Row>) {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -161,6 +185,18 @@ export function Desk() {
         contribution: contributionAmount,
         frequency: runFrequency,
       });
+      // #80 (ST4-21): a successful calculation is the save (no save button); the fields stay as typed.
+      setSaved(
+        saveSearch(browserStorage(), {
+          rows: basket.map((name) => ({ ticker: name.ticker, weight: rows[name.index].weight.trim() })),
+          start,
+          end,
+          capital: capital.trim(),
+          contribution: contribution.trim(),
+          frequency: runFrequency,
+          currency,
+        }),
+      );
       queueMicrotask(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     } catch (caught) {
       setReady(null);
@@ -194,6 +230,8 @@ export function Desk() {
             className="flex flex-col gap-12"
             data-testid="calculator-form"
           >
+            <SavedSearches list={saved} onLoad={applySearch} />
+
             <section className="flex flex-col gap-6 lg:max-w-[26rem]">
               <SectionHead numeral="02" title="Basket" />
               <fieldset className="flex min-w-0 flex-col gap-6">

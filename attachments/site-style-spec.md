@@ -494,6 +494,17 @@ assumed white.
   fit whole beside the text. Or the calculator's ≤ 200 px band (the horses then cut at the knees)?
   **Decided (EL, 2026-10-10, ≈ 22:17 ET):** keep the built band, `min(66.667vw, 480px)`: 240 px at 360, 267 px
   at 400 (not a flat 240 at both). The ≤ 200 px cap stays calculator-only (section 7a).
+- **Q18. Restore shift on a refresh (new, from #80).** The server can't read `localStorage`, so a refresh that
+  restores a basket of more than one name adds the extra rows after load: the hero never moves (CLS 0), but the
+  form below shifts. Measured on the local build (PLTR / TQQQ restored): page CLS 0.029 at 360, 0.037 at 400,
+  0.010 at 1024, 0.006 at 1440 (a one-name restore: 0). ST4-01's cold loads are unchanged (no stored search).
+  Default (as built): accept it (under the Web Vitals "good" 0.1) and report it in ST4-22. Or hold the form
+  until the restore (a blank form flash instead), or restore only on the user's tap?
+- **Q19. The saved line's amount (new, from #80).** The issue's line reads `tickers · dates · DCA amount $100`.
+  Default (as built): `$100` is the example; each line shows the search's own contribution in the results'
+  money format (`DCA $1,000`, `DCA $100`), without the frequency or the weights. Or add `weekly` / `monthly`?
+- **Q20. Empty list (new, from #80).** Default (as built): with nothing saved, the open panel shows one dim line
+  `No saved searches yet.` (a status, not an instruction). Or show the button only once a search exists?
 
 ## 13. Landed
 
@@ -575,4 +586,5 @@ assumed white.
   (button and panel), `src/lib/site/saved-searches.ts` (pure: the two `localStorage` keys, read / write with
   guards, dedupe, cap 5, the line text). Saved on a successful calculation from `desk.tsx`; restored once after
   hydration. Checks: `src/lib/site/saved-searches.test.ts`, `calculator.dom.test.tsx`,
-  `qa/tools/saved-searches.mjs` (ST4-19..24 at 360 / 400 / 1024 / 1440).
+  `qa/tools/saved-searches.mjs` (ST4-19..24 at 360 / 400 / 1024 / 1440). Open for EL: Q18 (restore shift),
+  Q19 (the line's amount), Q20 (empty list).
