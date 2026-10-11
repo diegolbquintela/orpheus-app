@@ -223,7 +223,7 @@ and a `Future` toggle (1, 5, 10 or 15 years) where net assets keep compounding a
 invested each month while expenses and income stay on the 12-month average. Under `05 Update`: pick one of the last 12
 months (this one included) and type that month's Expenses and Income (e.g. June 2026 in October 2026); the average
 updates at once. This month uses the page's own monthly totals until you type it; months you leave empty use the
-average. Stored in `orpheus.finance.overview.v1`. Draft PR #101; the readings are open for EL (Q17–Q23).
+average. Stored in `orpheus.finance.overview.v1`. Draft PR #101; EL accepted Q17–Q23 as built (the typed starting net assets is 0 or more for now; whether to allow a negative start is pending).
 
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
