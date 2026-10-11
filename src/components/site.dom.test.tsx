@@ -189,6 +189,7 @@ describe("dark shell (#68, ST1)", () => {
         assert.match(a.className, /aria-\[current=page\]:text-chalk/);
         assert.match(a.className, /aria-\[current=page\]:underline/);
         assert.match(a.className, /focus-visible:outline-chalk/);
+        assert.match(a.className, /(^| )inline-flex h-11 min-w-11 items-center( |$)/, "44 px tap target (#72, ST6-08)");
         assert.doesNotMatch(a.className, /hover:/, "no hover rule (ST2 retired)");
       }
       const right = [...nav.querySelectorAll("ul a")];

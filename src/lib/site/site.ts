@@ -34,6 +34,9 @@ export const HOME_OPEN = "Open";
 /** The footer text: exactly "Orpheus Wisdom", nothing else (#46 brief update, 2026-10-04). */
 export const FOOTER_LINE = "Orpheus Wisdom";
 
+/** The 404's only text (#72, spec §4 / §6, ST6-09). */
+export const NOT_FOUND_TITLE = "Page not found.";
+
 /** The calculator's listings note under the basket, unchanged from before the move (#46). */
 export const CALCULATOR_NOTE = "US, EU and CA listings, one currency per basket.";
 

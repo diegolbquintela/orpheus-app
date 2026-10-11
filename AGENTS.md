@@ -89,8 +89,8 @@ affects the repo.
   `html.scheme-dark select, option` gives every select charcoal + chalk (a transparent select opens a white list
   in Chrome). The hero title has a font-independent box (`.calc-title`, one text node) and `--font-sans` a
   size-adjusted local fallback (`Schibsted Grotesk Fallback`, `unicode-range` = the web font's subsets only, so
-  `→` / `↳` keep their old system glyphs), so the Google Fonts swap shifts nothing in the hero
-  (ST4-01 counts every layout shift; keep both until #72 self-hosts the font, PLANNED). A value with ` · date`
+  `→` / `↳` keep their old system glyphs), so a font that arrives late shifts nothing in the hero
+  (ST4-01 counts every layout shift; keep both: since #72 the font is self-hosted with `font-display: optional` and the page CLS is a strict 0). A value with ` · date`
   rendered the date on its own muted line (#70; gone with #78's four lines). Basket rows carry `data-testid="basket-row"`;
   results (since #78) `[data-testid=result-plan][data-plan=lump|dca] [data-testid=result-line][data-key=…] dd`
   (`qa/tools/site.mjs` reads the `$313,000` there). Don't import from `src/lib/dca/*` anything new that changes logic; presentation helpers

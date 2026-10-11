@@ -7,6 +7,7 @@ import {
   currentSection,
   FOOTER_LINE,
   HOME_OPEN,
+  NOT_FOUND_TITLE,
   HOME_PLATFORMS,
   HOME_PLATFORMS_HEADING,
   HOME_PLATFORMS_NUMERAL,
@@ -281,4 +282,48 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
     ])
       assert.ok(route.includes(s), s);
   });
+});
+
+describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
+  const css = readFileSync("src/styles.css", "utf8");
+  const root = readFileSync("src/routes/__root.tsx", "utf8");
+
+  it("Schibsted Grotesk self-hosted (Q16, ST6-06): no Google Fonts host, every face local, optional, preloaded", async () => {
+    const { createHash } = await import("node:crypto");
+    for (const f of [root, css]) assert.doesNotMatch(f, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+    const faces = [...css.matchAll(/@font-face \{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /"Schibsted Grotesk";/.test(b));
+    assert.equal(faces.length, 6, "Google's six declarations: 400 / 500 / italic 400 × latin, latin-ext");
+    const source = readFileSync("public/fonts/schibsted-grotesk/SOURCE.md", "utf8");
+    for (const b of faces) {
+      assert.match(b, /font-display: optional;/);
+      const url = /url\("(\/fonts\/schibsted-grotesk\/[a-z-]+\.woff2)"\)/.exec(b)?.[1];
+      assert.ok(url, b);
+      const bytes = readFileSync(`public${url}`);
+      const sha = createHash("sha256").update(bytes).digest("hex");
+      assert.ok(source.includes(sha), `${url} SHA-256 recorded in SOURCE.md`);
+    }
+    assert.match(readFileSync("public/fonts/schibsted-grotesk/OFL.txt", "utf8"), /SIL Open Font License, Version 1\.1/);
+    assert.match(root, /rel: "preload",\s*href: "\/fonts\/schibsted-grotesk\/schibsted-grotesk-latin\.woff2",\s*as: "font",\s*type: "font\/woff2",\s*crossOrigin: "anonymous"/);
+    assert.match(css, /font-family: "Schibsted Grotesk Fallback";/, "the size-adjusted fallback stays");
+  });
+
+  it("no tnum on the dark pages (ST6-07); /dashboard keeps main's body setting", () => {
+    assert.match(css, /body \{[^}]*font-feature-settings: "tnum" on, "zero" on;/);
+    assert.match(css, /body\.scheme-dark \{\s*font-feature-settings: "zero" on;\s*\}/);
+    for (const m of css.matchAll(/\n {2}(\.(?:calc|home|signin)[^{]*)\{([^}]*)\}/g))
+      assert.doesNotMatch(m[2], /tabular-nums|"tnum"/, m[1]);
+    for (const f of ["src/components/desk.tsx", "src/components/home.tsx", "src/routes/dashboard_.sign-in.tsx", "src/components/not-found.tsx"])
+      assert.doesNotMatch(readFileSync(f, "utf8"), /tabular-nums/, f);
+  });
+
+  it("the dark 404 (ST6-09): the root's notFoundComponent, only the title", () => {
+    assert.match(root, /notFoundComponent: NotFound/);
+    const nf = readFileSync("src/components/not-found.tsx", "utf8");
+    assert.match(nf, /\{NOT_FOUND_TITLE\}/);
+    assert.doesNotMatch(nf, /bg-paper|bg-white|<a\b|<img\b/);
+  });
+});
+
+describe("404 copy (#72)", () => {
+  it("exactly `Page not found.`", () => assert.equal(NOT_FOUND_TITLE, "Page not found."));
 });

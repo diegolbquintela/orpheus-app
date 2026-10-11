@@ -12,7 +12,7 @@
 //          hasTouch emulation tags load-time shifts as recent input). Cold loads only: a fresh browser each time
 //          with the cache disabled (CDP), CLS_RUNS (default 3) times per width, the last one with the hero files
 //          held back 1 s. Pass: CLS from the hero = 0 (no entry with a source inside the band; band, image and
-//          wash still) and the page total < 0.001 on every run. A strict page 0 is #72 (self-hosted fonts; Q16)
+//          wash still) and the page total = 0 on every run (strict since #72's self-hosted font; Q16)
 //   ST4-02 `01` and the exact h1 lower left in plain type (site font, weight 400, no caps, no letter-spacing,
 //          no text effects; h1 ≤ 32 px on a phone, ≤ 48 px wide); chalk on the wash ≥ 4.5:1 at the worst pixel
 //          (the wash screenshotted with the text made transparent, the lightest pixel measured)
@@ -628,7 +628,7 @@ try {
     const scale = mobile ? 2 : 1;
     // ST4-01 (D1, QA round 1): CLS on cold loads, EVERY layout-shift entry counted (no hadRecentInput exclusion),
     // a fresh browser with the cache disabled each time, RUNS times; the last run holds the hero files back 1 s.
-    // From the hero: entries with any source inside the band. Pass: hero 0 and page total < 0.001 on every run.
+    // From the hero: entries with any source inside the band. Pass: hero 0 and page total = 0 on every run (#72).
     {
       const runs = [];
       for (let i = 0; i < RUNS; i++) {
@@ -678,7 +678,7 @@ try {
       }
       const r5 = (v) => Math.round(v * 1e5) / 1e5;
       check(`${tag} ST4-01 CLS from the hero = 0 on ${RUNS} cold loads (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
-      check(`${tag} ST4-01 page CLS < 0.001 on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total < 0.001), runs.map((x) => r5(x.total)));
+      check(`${tag} ST4-01 page CLS = 0 (strict, #72) on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => r5(x.total)));
       R.cls ??= {};
       R.cls[vp] = { width: viewport.width, hero: runs.map((x) => x.hero), total: runs.map((x) => x.total), runs };
       console.log(`INFO ${tag} CLS cold × ${RUNS} (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);
