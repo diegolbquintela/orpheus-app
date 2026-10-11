@@ -73,6 +73,8 @@ affects the repo.
   v1.2 (#85): `02` Income above `03` Expenses (spec section 12): people (wages, bonus rating %, average tax %,
   net), Count wages / Count bonus and a Share % per person, an income table (biweekly = yearly ÷ 26); stored in
   `orpheus.finance.income.v1`; `% of income` = expense monthly ÷ counted net income monthly (`—` at 0).
+  EL decided Q5–Q8 (as built): bonus rating = % of yearly wages; one average tax % per person on wages and bonus;
+  one Share (%) per person on each counted line; biweekly = yearly ÷ 26. Landed #85 in PR #89 (draft, in QA).
   `Equity to cover` is a typed amount until #86. Page-only classes `.pf-*`.
   Reached by URL only (EL, Q1 (d)): don't add a bar item (ST1-01 three items) or a home line (ST3-03 two).
   Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
