@@ -72,7 +72,7 @@ describe("QA N4: qa/tools sessions always sign out", () => {
 
   it("every qa/tools script that signs in uses eachViewport, with no sign-out or context of its own", () => {
     const dir = join(import.meta.dirname, "..", "qa", "tools");
-    const tools = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "dashboard-redesign.mjs" /* spawns the tools; own test below */ && readFileSync(join(dir, f), "utf8").includes("QA_PASSWORD"));
+    const tools = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "dashboard-redesign.mjs" /* spawns the tools; own test below */ && f !== "site-style-regression.mjs" /* #72 runner: spawns site-shell.mjs; own test below */ && readFileSync(join(dir, f), "utf8").includes("QA_PASSWORD"));
     assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "site-shell.mjs"]);
     for (const f of tools) {
       const src = readFileSync(join(dir, f), "utf8");
@@ -98,5 +98,11 @@ describe("QA N4: qa/tools sessions always sign out", () => {
     const src = readFileSync(join(import.meta.dirname, "..", "qa", "tools", "dashboard-redesign.mjs"), "utf8");
     assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|newContext\(|console\.\w+\([^)]*process\.env\.QA_(EMPTY_)?PASSWORD/);
     assert.doesNotMatch(src, /name: "Delete"|getByText\("Delete"|method: "DELETE"/);
+  });
+
+  it("#72: the site-style runner never signs in itself, never reads or logs the password (it only forwards env to site-shell.mjs)", () => {
+    const src = readFileSync(join(import.meta.dirname, "..", "qa", "tools", "site-style-regression.mjs"), "utf8");
+    assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|process\.env\.QA_PASSWORD|eachViewport/);
+    assert.doesNotMatch(src, /\.fill\(|\.click\(|method: "(POST|PUT|PATCH|DELETE)"/, "its own checks are read-only");
   });
 });
