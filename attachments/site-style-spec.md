@@ -24,6 +24,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-11, ≈ 09:29 ET | **EL answers on #80 (PR #81 at `0b0512b`; docs-only commit, no code change):** **Q18 accepted:** a refresh restoring a multi-name basket may shift the form below the hero, page CLS under 0.1 is fine (hero CLS stays 0); the form is not hidden until the restore and the restore is not tap-only; a refresh still fills the last search (ST4-22). **Q19:** each line shows that search's own contribution (the issue's `$100` was an example); no `weekly` / `monthly` on the line (ST4-20). **Q20:** the button is always visible, closed by default; the empty list reads `No saved searches yet.`; the button is not hidden until a search exists (ST4-19, ST4-20). |
 | 2026-10-11, ≈ 10:09 ET | **#73 kickoff (Diego via CoS; EL):** sign-in dark in the shared shell: email, password and a `Create an account` link only; sign-in logic unchanged; its own field / label classes (Q10); charcoal page, chalk type, underline fields, AA contrast, `color-scheme: dark`. Section 9 is the build spec; ST5b-04 / -05 added. Simplest reading of the code against Q4 (noted in the PR): the heading and submit stay (`Sign in`; `Create account` in create-account mode, as today); the link keeps today's in-place mode switch (a `button`, so no auth or route change) with the text `Create an account` / `Sign in`; the deployment-state line `Sign-in is not configured on this deployment.` stays (it replaces the form only when auth is off; `check-dashboard-built` reads it). |
 | 2026-10-11, ≈ 10:38 ET | **#72 kickoff (Diego via CoS; EL):** leave-outs and regression on the shipped pages (home, calculator, sign-in, the shell and the dark 404); #71 stays on hold (ST0-05 still checked). In scope: ST6-01..05; **Q16 done here:** Schibsted Grotesk self-hosted (the Google Fonts dependency dropped), so the page CLS is a strict 0 at 360 / 400 / 1024 / 1440 with every shift counted (ST3-01 / ST4-01 tightened from < 0.001); the `tnum` spaced punctuation (`research .`, `business :`) fixed on the dark pages; the bar links made ≥ 44 px tap targets (QA N1 on #73) without growing the bar; a minimal dark 404. Dated schedule wording dropped (section 3 is an order, not days). ST6-06..09 added; `qa/tools/site-style-regression.mjs` runs the regression. |
+| 2026-10-11, ≈ 10:58 ET | **EL answers on #72 (PR #83 at `3759f95`; docs-only commit, no code change):** (1) **font loading decided:** `font-display: optional` and a strict page CLS of 0 are the point of Q16; a slow first visit may stay in the size-adjusted fallback for that one page view; never swap the font in a way that brings CLS above 0. (2) **Figures decided:** proportional figures on the dark pages; don't turn `tabular-nums` (or `tnum`) back on for the result values or anywhere else there: the wide comma and spaced punctuation are worse than losing digit alignment; `/dashboard` keeps `main`'s setting. (3) **404 wording decided:** `Page not found.` |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -159,8 +160,12 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
 - **Figures and punctuation (#72):** `tnum` (whose Schibsted lookup also widens `# % , . : ;`) is off on the
   dark pages, so prose punctuation sits normally (`research.`, `business:`); figures are proportional there.
   `zero` (slashed zero) stays. `/dashboard` keeps `main`'s `tnum` body setting (its content is on hold; ST0-05).
+  **Decided (EL, #72):** keep proportional figures on the dark pages, result values included; don't turn
+  `tabular-nums` / `tnum` back on there (the wide comma and spaced punctuation are worse than losing digit
+  alignment).
 - **404 (#72):** dark like every page; the only content is the `h1` `Page not found.` (20 px chalk, weight 400) in
-  the content column, answered with status 404 (the dashboard-off paths render the same page).
+  the content column, answered with status 404 (the dashboard-off paths render the same page). Wording decided
+  (EL, #72).
 - **Footer:** today's single `SiteFooter`, restyled charcoal; the only text is `Orpheus Wisdom` (dim), on every
   page.
 - **Page and base type:** charcoal page and chalk base text on every page except `/dashboard`.
@@ -471,8 +476,8 @@ has no hover rule.
 | ST6-03 | AA on dark on every shipped page (and the 404) at every width, including focus, error and disabled-but-readable states (ST0-03). |
 | ST6-04 | The shell holds everywhere: ST1 passes on `/`, `/calculator`, `/dashboard`, `/dashboard/sign-in` and a 404; ST0-05 passes. |
 | ST6-05 | Regression on the preview, then production, at 400 / 1024 / 1440: every ST row except ST5a, DCA-01..06 (`$313,000`), noindex meta + `X-Robots-Tag` on every page, the analytics rules, `release-smoke.mjs`; `README.md`, `AGENTS.md`, this spec and the QA pack match the shipped site. Runner: `qa/tools/site-style-regression.mjs` (runs every shipped-page tool and the ST6 checks; `--compare-url` for ST0-05 signed in). The dashboard's full regression waits for its new brief. |
-| ST6-06 | Self-hosted font (Q16): no request to `fonts.googleapis.com` / `fonts.gstatic.com` on any page; Schibsted Grotesk served from the app (`/fonts/schibsted-grotesk/`, licence and source in the repo), the upright latin file preloaded, `font-display: optional`; the page CLS is a strict 0 on `/`, `/calculator`, `/dashboard/sign-in` and a 404 at 360, 400, 1024 and 1440 on cold loads, every shift counted. |
-| ST6-07 | Punctuation: on the dark pages no text runs with `tnum` (the body sets `zero` only; no `tabular-nums` in the dark pages' classes), so `.` `,` `:` `;` take their normal widths (`research.`, `business:` with no gap); `/dashboard` keeps `main`'s setting. |
+| ST6-06 | Self-hosted font (Q16): no request to `fonts.googleapis.com` / `fonts.gstatic.com` on any page; Schibsted Grotesk served from the app (`/fonts/schibsted-grotesk/`, licence and source in the repo), the upright latin file preloaded, `font-display: optional`; the page CLS is a strict 0 on `/`, `/calculator`, `/dashboard/sign-in` and a 404 at 360, 400, 1024 and 1440 on cold loads, every shift counted (EL: a slow first visit may keep the fallback for that view; never a swap that adds CLS). |
+| ST6-07 | Punctuation: on the dark pages no text runs with `tnum` (the body sets `zero` only; no `tabular-nums` in the dark pages' classes), so `.` `,` `:` `;` take their normal widths (`research.`, `business:` with no gap); figures stay proportional, result values included (EL: no `tabular-nums` back on); `/dashboard` keeps `main`'s setting. |
 | ST6-08 | Bar tap targets (QA N1 on #73): `Orpheus`, `Calculator` and `Dashboard` each ≥ 44 px tall (and ≥ 44 px wide) on every page at 360, 400, 1024 and 1440, the bar still ≤ 48 px (45 px), the text, underline and current mark where they were. |
 | ST6-09 | The 404 is dark (charcoal, chalk, the shell's bar with no current item and footer), status 404, and shows only the `h1` `Page not found.` in the content column; the dashboard-off paths serve the same page. |
 
@@ -530,6 +535,8 @@ assumed white.
   **Done in #72:** Schibsted Grotesk is self-hosted (section 6, Font), preloaded and `font-display: optional`,
   with the size-adjusted fallback kept; no request goes to `fonts.googleapis.com` / `fonts.gstatic.com`, and the
   page CLS is a strict 0 (ST3-01, ST4-01, ST6-06).
+  **Decided (EL, #72 answers):** `font-display: optional` and the strict 0 are the point of Q16. A slow first visit
+  may stay in the fallback for that one page view; never swap the font in a way that brings the CLS above 0.
 
 - **Q17. Home band on a phone (new, from #69).** Section 8 gives home the calculator's image rules but no phone
   height; the calculator's "short band, ≤ 200 px" is section 7a, approved for the calculator only. Default (as
@@ -659,3 +666,7 @@ assumed white.
   45 px bar (ST6-08); the 404 shows `Page not found.` (`src/components/not-found.tsx`, ST6-09); the calculator band is
   `w-full` so it spans the page above ≈ 1886 px (owned by #72 since EL's #69 answers). QA:
   `qa/tools/site-style-regression.mjs`.
+  - **EL answers (2026-10-11, ≈ 10:58 ET; docs-only commit, no code change):** font loading decided (`optional`,
+    strict CLS 0; a slow first visit may keep the fallback for that view, never a swap that adds CLS); figures
+    decided (proportional on the dark pages, no `tabular-nums` back on result values; `/dashboard` as on `main`);
+    the 404 wording `Page not found.` decided.
