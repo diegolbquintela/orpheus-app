@@ -488,7 +488,7 @@ assumed white.
   (`aria-describedby` names the platform). Home's own classes (`.home-*`); the calculator's untouched. Q17 (phone
   band) follows its default. The redirect (`/?query` → `/calculator?query`), `noindex` and the analytics are
   unchanged.
-  - Checks: `src/components/home.dom.test.tsx`, `src/lib/site/site.test.ts` (home hero files),
+  - Checks: `src/components/site.dom.test.tsx` (home), `src/lib/site/site.test.ts` (home hero files, copy),
     `qa/tools/home-page.mjs` (ST3-01..07 at 360 / 400 / 1024 / 1440, ST0-01..03 on the page),
     `qa/tools/site.mjs` and `scripts/release-smoke.mjs` (the two `Open` links), `qa/tools/site-shell.mjs` (ST1;
     `/` no longer has a white panel to compare).

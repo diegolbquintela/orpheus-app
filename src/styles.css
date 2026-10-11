@@ -244,6 +244,77 @@
       font-size: 2.75rem;
     }
   }
+  /* Home (#69, spec §8): its own classes; the calculator's .calc-* stay as they are. The hero title box is
+     font-independent like .calc-title: 5.3em wide ("Investment" is 5.20em in Schibsted, 5.12em in the fallback;
+     two words never fit: 8.26em and up), three lines of 1.1, one text node. 16 px on a phone, 40 / 44 px wide. */
+  .home :focus-visible {
+    outline: 2px solid var(--color-chalk);
+    outline-offset: 2px;
+  }
+  .home-title {
+    width: 5.3em;
+    height: 3.3em;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.1;
+  }
+  .home-wash {
+    background: rgb(30 33 36 / 0.88);
+    box-shadow: 0 0 12px 4px rgb(30 33 36 / 0.5);
+  }
+  .home-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    color: var(--color-dim);
+  }
+  /* A Platforms line: name and Open on the first row, the description under them on a phone; one row wide. */
+  .home-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name open" "text text";
+    align-items: baseline;
+    column-gap: 1rem;
+    row-gap: 0.5rem;
+    border-top: 1px solid var(--color-hair);
+    padding: 1.25rem 0;
+  }
+  .home-line > .home-name {
+    grid-area: name;
+  }
+  .home-line > .home-text {
+    grid-area: text;
+  }
+  .home-line > .home-open {
+    grid-area: open;
+  }
+  .home-open {
+    display: inline-block;
+    padding: 0.25rem 0;
+    color: var(--color-chalk);
+    font-size: 0.875rem;
+    line-height: 1.2;
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+  @media (min-width: 64rem) {
+    .home-title {
+      font-size: 2.5rem;
+    }
+    .home-line {
+      grid-template-columns: 12rem minmax(0, 1fr) auto;
+      grid-template-areas: "name text open";
+      column-gap: 2rem;
+      padding: 1.5rem 0;
+    }
+  }
+  @media (min-width: 80rem) {
+    .home-title {
+      font-size: 2.75rem;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;

@@ -10,7 +10,8 @@
  *   - GET /dashboard, /dashboard/x, /dashboard/sign-in: 404 HTML identical to the 404 for any
  *     unknown path (timestamps aside), with no "dashboard" anywhere in it outside the site menu
  *     (#46: the menu's Dashboard item shows on every page, flag on or off; no item is current on a 404).
- *   Site shell (#46), both flag states: / is home (menu with Orpheus current, one h1, exactly two cards,
+ *   Site shell (#46), both flag states: / is home (menu with Orpheus current; #69: the Jordaens hero, one h1
+ *   `Investment driven by research.`, exactly two Platforms lines with their `Open` links, no home cards;
  *   the footer reading exactly "Orpheus Wisdom", noindex, no calculator form); /calculator is the calculator
  *   (menu with Calculator current, the form, its listings note, noindex); / with a query string redirects to /calculator with the same query.
  *   - /dashboard/ redirects like any unknown path with a trailing slash.
@@ -231,16 +232,18 @@ for (const flag of [undefined, "true"]) {
   check(NOINDEX.test(home.body), `${label}: / lacks noindex`);
   check(JSON.stringify(menuCurrent(home.body)) === '["Orpheus"]', `${label}: / current menu item ${menuCurrent(home.body)}`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
-  const cards = [...home.body.matchAll(/<a href="([^"]+)" data-testid="home-card"[\s\S]*?<h2[^>]*>([^<]*)<\/h2>[\s\S]*?<p[^>]*>([^<]*)<\/p>/g)].map((m) => m.slice(1));
+  check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
+  check(/<img [^>]*alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"[^>]*width="3300" height="2200"/.test(home.body), `${label}: / lacks the Jordaens hero img (alt, width, height)`);
+  const lines = [...home.body.matchAll(/<li [^>]*data-testid="platform-line"[^>]*>[\s\S]*?<h3[^>]*>([^<]*)<\/h3>[\s\S]*?<p[^>]*>([^<]*)<\/p>[\s\S]*?<a href="([^"]+)"[^>]*data-testid="platform-open"[^>]*>([^<]*)<\/a>/g)].map((m) => m.slice(1));
   check(
-    JSON.stringify(cards) ===
+    JSON.stringify(lines) ===
       JSON.stringify([
-        ["/calculator", "Calculator", "compare a lump sum with contributions"],
-        ["/dashboard", "Dashboard", "holdings, value, stored figures"],
+        ["Calculator", "Dollar-cost average calculator.", "/calculator", "Open"],
+        ["Dashboard", "The portfolio as a business: fundamentals for each name, and the whole.", "/dashboard", "Open"],
       ]),
-    `${label}: / cards -> ${JSON.stringify(cards)}`,
+    `${label}: / Platforms lines -> ${JSON.stringify(lines)}`,
   );
-  check((home.body.match(/data-testid="home-card"/g) ?? []).length === 2, `${label}: / has not exactly two cards`);
+  check((home.body.match(/data-testid="platform-line"/g) ?? []).length === 2 && !/data-testid="home-card"/.test(home.body), `${label}: / has not exactly two Platforms lines (or still has a home card)`);
   check(!/<form|Compare plans/.test(home.body), `${label}: / renders calculator UI`);
   check(FOOTER.test(home.body), `${label}: / footer is not exactly "Orpheus Wisdom"`);
   const calc = await call("GET", "/calculator", flag);
@@ -698,5 +701,5 @@ if (failures.length) {
 console.log(
   WITH_DB
     ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
-    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home cards, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
+    : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home hero + Platforms lines, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

@@ -1,4 +1,4 @@
-// Site shell (#46) in jsdom: the menu on each route, the home cards and the footer, rendered with the
+// Site shell (#46) in jsdom: the menu on each route, home (#69) and the footer, rendered with the
 // real components. The menu takes no flag input, so "Dashboard shown with the flag off" holds by
 // construction; the flag-off 404 page is checked on the built server (check-dashboard-built.mjs).
 import { dom } from "../test/dom-setup";
@@ -88,8 +88,8 @@ describe("site menu", () => {
   });
 });
 
-describe("home", () => {
-  it("one line plus exactly two cards with the issue texts and links; no fetch", async () => {
+describe("home (#69)", () => {
+  it("the Jordaens hero with 01 + the title, then 02 Platforms and exactly two lines with Open links; no fetch", async () => {
     let fetches = 0;
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
@@ -98,20 +98,54 @@ describe("home", () => {
     }) as typeof fetch;
     try {
       const el = await render(<Home />);
-      assert.equal(el.querySelectorAll("h1").length, 1);
-      const cards = [...el.querySelectorAll('[data-testid="home-card"]')];
-      assert.equal(cards.length, 2);
+      const hero = el.querySelector('[data-testid="home-hero"]')!;
+      const img = hero.querySelector("picture img")!;
+      assert.equal(
+        img.getAttribute("alt"),
+        "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)",
+      );
+      assert.ok(img.getAttribute("width") && img.getAttribute("height"));
+      for (const source of hero.querySelectorAll("picture source"))
+        assert.ok(source.getAttribute("width") && source.getAttribute("height"), source.outerHTML);
+      assert.match(img.getAttribute("srcset")!, /\/hero\/frederick-phone-800\.jpg 800w/);
+      // Plain type in the wash: one text node in the h1; no credit line anywhere (Q5).
+      const h1s = el.querySelectorAll("h1");
+      assert.equal(h1s.length, 1);
+      assert.equal(h1s[0].textContent, "Investment driven by research.");
+      assert.equal(h1s[0].childNodes.length, 1);
+      assert.equal(hero.querySelector('[data-testid="hero-wash"] p')!.textContent, "01");
+      assert.doesNotMatch(el.textContent!, /Jordaens|Wikimedia|public domain|courtesy/i);
+
+      const platforms = el.querySelector('[data-testid="platforms"]')!;
+      assert.equal(platforms.querySelector("p")!.textContent, "02");
+      assert.equal(platforms.querySelector("h2")!.textContent, "Platforms");
+      const lines = [...el.querySelectorAll('[data-testid="platform-line"]')];
       assert.deepEqual(
-        cards.map((c) => [
-          c.getAttribute("href"),
-          c.querySelector("h2")!.textContent,
-          c.querySelector("p")!.textContent,
-        ]),
+        lines.map((l) => {
+          const open = l.querySelector("a")!;
+          const name = l.querySelector("h3")!;
+          assert.equal(open.getAttribute("aria-describedby"), name.id);
+          assert.equal(l.querySelectorAll("a").length, 1);
+          return [
+            name.textContent,
+            l.querySelector("p")!.textContent,
+            open.textContent,
+            open.getAttribute("href"),
+          ];
+        }),
         [
-          ["/calculator", "Calculator", "compare a lump sum with contributions"],
-          ["/dashboard", "Dashboard", "holdings, value, stored figures"],
+          ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
+          [
+            "Dashboard",
+            "The portfolio as a business: fundamentals for each name, and the whole.",
+            "Open",
+            "/dashboard",
+          ],
         ],
       );
+      // Nothing else: the #46 line and cards are gone; no calculator code.
+      assert.equal(el.querySelectorAll('[data-testid="home-card"]').length, 0);
+      assert.doesNotMatch(el.textContent!, /private desk with two tools/);
       assert.equal(el.querySelectorAll("form, input, table, button").length, 0);
       assert.equal(fetches, 0);
     } finally {

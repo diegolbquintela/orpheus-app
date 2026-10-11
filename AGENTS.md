@@ -85,7 +85,7 @@ affects the repo.
   `src/lib/site/home-hero.ts` (two crops, widths, the prince-and-horses figure box per crop: change a crop and
   you must change its box); files `public/hero/frederick-*` and `public/hero/home-SOURCE.md` (Commons / RKD,
   public domain; every file ≤ 300 KB, the 2880 wide file AVIF only). Home-only classes in `src/styles.css`
-  (`.home-title`, `.home-wash`, `.home-hero-text`, `.home-line`, `.home-open`; sizes in spec §8); the `.calc-*`
+  (`.home`, `.home-title`, `.home-wash`, `.home-label`, `.home-line`, `.home-name`, `.home-text`, `.home-open`; sizes in spec §8); the `.calc-*`
   classes are untouched. The title box is font-independent like the calculator's (5.3em × 3.3em, one text node,
   three lines). Wide, the hero text's left edge is `min(content column, 33.24vw − 280px)` so the wash never
   reaches the horses on very wide screens. The home cards (`HOME_LINE`, `HOME_CARDS`, `data-testid="home-card"`)

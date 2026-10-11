@@ -6,8 +6,10 @@ import {
   CALCULATOR_NOTE,
   currentSection,
   FOOTER_LINE,
-  HOME_CARDS,
-  HOME_LINE,
+  HOME_OPEN,
+  HOME_PLATFORMS,
+  HOME_PLATFORMS_HEADING,
+  HOME_PLATFORMS_NUMERAL,
   homeRedirectHref,
   MENU_ITEMS,
   shellBodyClass,
@@ -41,10 +43,17 @@ describe("site shell (#46)", () => {
     assert.equal(currentSection("/orpheus-missing-path"), null);
   });
 
-  it("home: exactly two cards with the issue texts and links", () => {
-    assert.deepEqual(HOME_CARDS, [
-      { title: "Calculator", text: "compare a lump sum with contributions", href: "/calculator" },
-      { title: "Dashboard", text: "holdings, value, stored figures", href: "/dashboard" },
+  it("home (#69): `02` `Platforms` and exactly two lines with the spec §4 copy and links", () => {
+    assert.equal(HOME_PLATFORMS_NUMERAL, "02");
+    assert.equal(HOME_PLATFORMS_HEADING, "Platforms");
+    assert.equal(HOME_OPEN, "Open");
+    assert.deepEqual(HOME_PLATFORMS, [
+      { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
+      {
+        name: "Dashboard",
+        text: "The portfolio as a business: fundamentals for each name, and the whole.",
+        href: "/dashboard",
+      },
     ]);
   });
 
@@ -68,7 +77,7 @@ describe("site shell (#46)", () => {
   });
 
   it("home route does no calculating: no calculator, engine or price-feed code", () => {
-    for (const file of ["src/routes/index.tsx", "src/components/home.tsx"]) {
+    for (const file of ["src/routes/index.tsx", "src/components/home.tsx", "src/components/home-hero.tsx", "src/lib/site/home-hero.ts"]) {
       const text = readFileSync(file, "utf8");
       assert.doesNotMatch(
         text,
@@ -85,9 +94,10 @@ describe("site shell (#46)", () => {
       "i",
     );
     for (const text of [
-      HOME_LINE,
       FOOTER_LINE,
-      ...HOME_CARDS.flatMap((c) => [c.title, c.text]),
+      HOME_PLATFORMS_HEADING,
+      HOME_OPEN,
+      ...HOME_PLATFORMS.flatMap((c) => [c.name, c.text]),
       ...MENU_ITEMS.map((m) => m.label),
     ])
       assert.doesNotMatch(text, re, text);
@@ -167,5 +177,29 @@ describe("calculator hero files (#70, ST4-01 / ST4-16)", () => {
     assert.match(source, /Sandro Botticelli/);
     assert.match(source, /Public domain/i);
     assert.match(source, /commons\.wikimedia\.org\/wiki\/File:Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited\.jpg/);
+  });
+});
+
+describe("home hero files (#69, ST3-01)", () => {
+  it("every file named in a srcset exists in public/, each ≤ 300 KB; the figure box sane; source and licence recorded", async () => {
+    const { HOME_HERO_ALT, HOME_HERO_CROPS, HOME_TITLE, homeHeroFile } = await import("./home-hero.ts");
+    const { statSync, existsSync } = await import("node:fs");
+    assert.equal(HOME_TITLE, "Investment driven by research.");
+    assert.match(HOME_HERO_ALT, /Jordaens, Triumph of Frederick Henry, Prince of Orange/);
+    for (const crop of Object.values(HOME_HERO_CROPS)) {
+      assert.ok(crop.figure.every((f) => f >= 0 && f <= 1) && crop.figure[0] < crop.figure[2], crop.name);
+      for (const ext of ["avif", "webp", "jpg"] as const)
+        for (const w of crop.widths[ext]) {
+          const path = `public${homeHeroFile(crop.name, w, ext)}`;
+          assert.ok(existsSync(path), path);
+          assert.ok(statSync(path).size <= 300 * 1024, `${path} ${statSync(path).size}`);
+        }
+    }
+    assert.ok(HOME_HERO_CROPS.wide.widths.avif.includes(2880), "1440 px at 2x is served from a ≤ 300 KB AVIF");
+    const source = readFileSync("public/hero/home-SOURCE.md", "utf8");
+    assert.match(source, /Jacob Jordaens/);
+    assert.match(source, /Public domain/i);
+    assert.match(source, /PD-old-100/);
+    assert.match(source, /commons\.wikimedia\.org\/wiki\/File:The_Triumph_of_Frederik_Hendrik,_by_Jacob_Jordaens_\(I\)\.jpg/);
   });
 });

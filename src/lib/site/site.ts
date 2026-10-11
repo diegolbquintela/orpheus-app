@@ -1,5 +1,5 @@
 /**
- * Site shell copy and rules (#46): the menu, the home cards, the footer text and the `/?query`
+ * Site shell copy and rules (#46): the menu, the home Platforms lines (#69), the footer text and the `/?query`
  * redirect. Pure (no React, no server imports) so tests, the menu and the home route share it.
  * The menu does not read the dashboard flag: the Dashboard item is always shown, and /dashboard
  * itself stays gated (a 404 while the flag is off).
@@ -14,14 +14,22 @@ export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: s
   { section: "dashboard", label: "Dashboard", href: "/dashboard" },
 ];
 
-/** The one line on the home page that says what the desk is. */
-export const HOME_LINE = "Orpheus Wisdom is a private desk with two tools.";
+/** Home's Platforms section (#69, spec §4 / Q11): the numeral and heading. */
+export const HOME_PLATFORMS_NUMERAL = "02";
+export const HOME_PLATFORMS_HEADING = "Platforms";
 
-/** Exactly two home cards; the descriptions are the issue #46 texts, verbatim. */
-export const HOME_CARDS: readonly { title: string; text: string; href: string }[] = [
-  { title: "Calculator", text: "compare a lump sum with contributions", href: "/calculator" },
-  { title: "Dashboard", text: "holdings, value, stored figures", href: "/dashboard" },
+/** Exactly two Platforms lines, spec §4 word for word; each line's `Open` links to `href`. */
+export const HOME_PLATFORMS: readonly { name: string; text: string; href: string }[] = [
+  { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
+  {
+    name: "Dashboard",
+    text: "The portfolio as a business: fundamentals for each name, and the whole.",
+    href: "/dashboard",
+  },
 ];
+
+/** The link text on each Platforms line. */
+export const HOME_OPEN = "Open";
 
 /** The footer text: exactly "Orpheus Wisdom", nothing else (#46 brief update, 2026-10-04). */
 export const FOOTER_LINE = "Orpheus Wisdom";

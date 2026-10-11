@@ -43,11 +43,12 @@ const menu = (current) =>
 const shell = (current, main) =>
   `<html><head><meta name="robots" content="noindex, nofollow"/><title>Orpheus Wisdom</title></head><body>${menu(current)}<main>${main}</main>` +
   `<footer class="x"><p class="x" data-testid="site-footer">Orpheus Wisdom</p></footer></body></html>`;
-const card = (href, title, text) =>
-  `<li><a href="${href}" data-testid="home-card" class="x"><div><h2 class="x">${title}</h2></div><p class="x">${text}</p></a></li>`;
+const line = (name, text, href) =>
+  `<li class="x" data-testid="platform-line" data-href="${href}"><h3 id="p-${name}" class="x">${name}</h3><p class="x">${text}</p><a href="${href}" class="x" aria-describedby="p-${name}" data-testid="platform-open">Open</a></li>`;
 const HOME = shell(
   "Orpheus",
-  `<h1>Orpheus Wisdom is a private desk with two tools.</h1><ul>${card("/calculator", "Calculator", "compare a lump sum with contributions")}${card("/dashboard", "Dashboard", "holdings, value, stored figures")}</ul>`,
+  `<header data-testid="home-hero"><picture><img alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)" width="3300" height="2200"/></picture><div><p>01</p><h1 class="x">Investment driven by research.</h1></div></header>` +
+    `<section><p>02</p><h2>Platforms</h2><ul>${line("Calculator", "Dollar-cost average calculator.", "/calculator")}${line("Dashboard", "The portfolio as a business: fundamentals for each name, and the whole.", "/dashboard")}</ul></section>`,
 );
 const CALC = shell(
   "Calculator",
@@ -132,11 +133,16 @@ test("off mode fails when the flag-off 404 has dashboard copy outside the menu",
   assert.match(r.out, /FAIL GET \/dashboard -> 404/);
 });
 
-test("home fails with a third card, a missing Dashboard menu item, no noindex header or the calculator on /", async () => {
-  const third = HOME.replace("</ul>", `${card("/x", "News", "x")}</ul>`);
+test("home fails with a third Platforms line, the old title, a missing Dashboard menu item, no noindex header or the calculator on /", async () => {
+  const third = HOME.replace("</ul>", `${line("News", "x", "/x")}</ul>`);
+  const oldTitle = HOME.replace(
+    "Investment driven by research.",
+    "Orpheus Wisdom is a private desk with two tools.",
+  );
   const noDash = HOME.replace(/<a href="\/dashboard"[^>]*>Dashboard<\/a>/, "");
   for (const [label, override] of [
-    ["third card", (req, res) => req.url === "/" && (html(res, 200, third), true)],
+    ["third line", (req, res) => req.url === "/" && (html(res, 200, third), true)],
+    ["old title", (req, res) => req.url === "/" && (html(res, 200, oldTitle), true)],
     ["menu without Dashboard", (req, res) => req.url === "/" && (html(res, 200, noDash), true)],
     [
       "no X-Robots-Tag",
