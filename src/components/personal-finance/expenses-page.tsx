@@ -14,13 +14,15 @@ import {
   grandTotals,
   type GroupKey,
   GROUPS,
+  householdMonthlyOf,
+  isForeign,
   type Line,
   LINES_MAX,
-  monthlyOf,
   NAME_MAX,
   newLine,
   NOT_COMPUTED,
   parseAmount,
+  parseRate,
   readExpenses,
   type Totals,
   totalsOf,
@@ -34,6 +36,18 @@ import {
   writeIncome,
 } from "@/lib/finance/income";
 import { type Rates, rateUsed, readRates, writeRates } from "@/lib/finance/equity";
+import {
+  CURRENCIES,
+  type CurrencyCode,
+  currencyChoices,
+  FX_RATE_LABEL,
+  type Household,
+  HOUSEHOLD_LABEL,
+  isCurrency,
+  RATE_ERROR,
+  readHousehold,
+  writeHousehold,
+} from "@/lib/finance/currency";
 import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { Cell, SectionHead } from "./pf-cells";
@@ -49,9 +63,9 @@ function storage(): Storage | null {
 }
 
 /**
- * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3; spec `attachments/personal-finance-spec.md`, PF-01..20): the
- * income block, the equity-cover rates and Fixed and Variable expenses, in this browser's localStorage only (three
- * keys). The server renders the title
+ * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3, #87 v1.4; spec `attachments/personal-finance-spec.md`,
+ * PF-01..25): the household currency, the income block, the equity-cover rates and Fixed and Variable expenses
+ * (a line may be in a foreign currency with a typed FX rate), in this browser's localStorage only (four keys). The server renders the title
  * and an empty area at least the viewport tall; the browser fills it once after reading storage, so nothing on
  * screen moves (strict CLS 0).
  */
@@ -59,11 +73,13 @@ export function PersonalFinancePage() {
   const [expenses, setExpenses] = useState<Expenses | null>(null);
   const [income, setIncome] = useState<Income | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
+  const [household, setHousehold] = useState<Household | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
 
   useEffect(() => {
     setIncome(readIncome(storage()));
     setRates(readRates(storage()));
+    setHousehold(readHousehold(storage()));
     setExpenses(readExpenses(storage()));
   }, []);
 
@@ -83,6 +99,12 @@ export function PersonalFinancePage() {
       writeRates(storage(), next);
       return next;
     });
+  }
+
+  function updateHousehold(code: CurrencyCode) {
+    const next = { household: code };
+    writeHousehold(storage(), next);
+    setHousehold(next);
   }
 
   function update(change: (current: Expenses) => Expenses) {
@@ -108,10 +130,11 @@ export function PersonalFinancePage() {
         <div
           className="pf-area flex flex-col gap-14 lg:gap-16"
           data-testid="pf-area"
-          data-ready={expenses && income && rates ? "true" : "false"}
+          data-ready={expenses && income && rates && household ? "true" : "false"}
         >
-          {expenses && income && rates ? (
+          {expenses && income && rates && household ? (
             <>
+              <HouseholdCurrency value={household.household} onChange={updateHousehold} />
               <IncomeBlock income={income} update={updateIncome} />
               <section className="flex flex-col gap-8" aria-labelledby="pf-expenses">
                 <SectionHead numeral="03" title="Expenses" id="pf-expenses" />
@@ -120,6 +143,7 @@ export function PersonalFinancePage() {
                   <Groups
                     expenses={expenses}
                     rate={rateUsed(rates)}
+                    household={household.household}
                     incomeMonthly={monthly(netIncomeYearly(income.people))}
                     adding={adding}
                     setAdding={setAdding}
@@ -136,9 +160,43 @@ export function PersonalFinancePage() {
   );
 }
 
+/** `Household currency` (#87, section 14): one select above `02` `Income`; the figures are in it. */
+function HouseholdCurrency({
+  value,
+  onChange,
+}: {
+  value: CurrencyCode;
+  onChange: (code: CurrencyCode) => void;
+}) {
+  const uid = useId();
+  return (
+    <div className="pf-cell pf-household" data-testid="pf-household-cell">
+      <label htmlFor={`${uid}-household`} className="pf-label">
+        {HOUSEHOLD_LABEL}
+      </label>
+      <select
+        id={`${uid}-household`}
+        value={value}
+        onChange={(event) => {
+          if (isCurrency(event.target.value)) onChange(event.target.value);
+        }}
+        className="pf-field"
+        data-testid="pf-household"
+      >
+        {CURRENCIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function Groups({
   expenses,
   rate,
+  household,
   incomeMonthly,
   adding,
   setAdding,
@@ -148,6 +206,8 @@ function Groups({
   expenses: Expenses;
   /** The rate used (#86), a percent, or null: each line's calculated `Equity to cover` divides by it. */
   rate: number | null;
+  /** The household currency (#87): every figure below is in it (a foreign line × its FX rate). */
+  household: CurrencyCode;
   /** The counted net income a month (#85); `% of income` divides by it, `—` at 0. */
   incomeMonthly: number;
   adding: string | null;
@@ -155,7 +215,7 @@ function Groups({
   update: (change: (current: Expenses) => Expenses) => void;
   updateLine: (group: GroupKey, id: string, patch: Partial<Line>) => void;
 }) {
-  const grand = grandTotals(expenses, rate);
+  const grand = grandTotals(expenses, rate, household);
   return (
     <>
       {GROUPS.map((group) => {
@@ -181,9 +241,10 @@ function Groups({
                 index={index}
                 group={group.key}
                 accounts={expenses.accounts}
-                share={formatShare(monthlyOf(line), grand.monthly)}
-                ofIncome={formatShare(monthlyOf(line), incomeMonthly)}
-                calculated={calculatedEquity(line, rate)}
+                household={household}
+                share={formatShare(householdMonthlyOf(line, household), grand.monthly)}
+                ofIncome={formatShare(householdMonthlyOf(line, household), incomeMonthly)}
+                calculated={calculatedEquity(line, rate, household)}
                 adding={adding === line.id}
                 setAdding={setAdding}
                 onChange={(patch) => updateLine(group.key, line.id, patch)}
@@ -220,7 +281,7 @@ function Groups({
             </button>
             <TotalRow
               label={group.total}
-              totals={totalsOf(lines, rate)}
+              totals={totalsOf(lines, rate, household)}
               whole={grand.monthly}
               incomeMonthly={incomeMonthly}
               testId={group.key}
@@ -244,6 +305,7 @@ function LineRow({
   index,
   group,
   accounts,
+  household,
   share,
   ofIncome,
   calculated,
@@ -257,6 +319,7 @@ function LineRow({
   index: number;
   group: GroupKey;
   accounts: string[];
+  household: CurrencyCode;
   share: string;
   ofIncome: string;
   /** The calculated `Equity to cover` (#86), shown as the field's placeholder while no override is typed. */
@@ -273,12 +336,14 @@ function LineRow({
   const selectRef = useRef<HTMLSelectElement>(null);
   const amountBad = parseAmount(line.amount) === null;
   const equityBad = parseAmount(line.equity) === null;
+  const foreign = isForeign(line, household);
+  const rateBad = foreign && parseRate(line.rate) === null;
   const check = (bad: boolean, field: string) =>
     bad ? { "aria-invalid": true as const, "aria-describedby": `${uid}-${field}` } : {};
-  const error = (bad: boolean, field: string) =>
+  const error = (bad: boolean, field: string, text: string = AMOUNT_ERROR) =>
     bad ? (
       <span id={`${uid}-${field}`} className="pf-error" data-testid="pf-error" data-field={field}>
-        {AMOUNT_ERROR}
+        {text}
       </span>
     ) : null;
   const amountField = (per: "month" | "year", column: string) => (
@@ -322,6 +387,45 @@ function LineRow({
       </Cell>
       {amountField("month", "Monthly")}
       {amountField("year", "Yearly")}
+      <Cell label="Currency" area="currency" control>
+        <select
+          value={foreign ? line.currency : household}
+          onChange={(event) =>
+            onChange({ currency: event.target.value === household ? "" : event.target.value })
+          }
+          aria-label={aria("Currency")}
+          className="pf-field"
+          data-testid="pf-currency"
+        >
+          {currencyChoices(household).map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </Cell>
+      {foreign ? (
+        <Cell label={FX_RATE_LABEL} area="fx" control>
+          <input
+            value={line.rate}
+            maxLength={40}
+            onChange={(event) => onChange({ rate: event.target.value })}
+            inputMode="decimal"
+            autoComplete="off"
+            aria-label={aria(FX_RATE_LABEL)}
+            className="pf-field"
+            data-testid="pf-fx"
+            {...check(rateBad, "rate")}
+          />
+          {error(rateBad, "rate", RATE_ERROR)}
+        </Cell>
+      ) : (
+        <Cell label={FX_RATE_LABEL} area="fx">
+          <span className="pf-value" data-testid="pf-fx-none">
+            {NOT_COMPUTED}
+          </span>
+        </Cell>
+      )}
       <Cell label="Equity to cover" area="equity" control>
         <input
           value={line.equity}

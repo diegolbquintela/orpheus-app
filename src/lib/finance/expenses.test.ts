@@ -38,14 +38,26 @@ const line = (over: Partial<Line> = {}): Line => ({
   per: "month",
   equity: "",
   account: "",
+  currency: "",
+  rate: "",
   ...over,
 });
 
 describe("personal finance expenses (#84, PF-03..07)", () => {
-  it("has the seven columns in the brief's order", () => {
+  it("has the nine columns in order (#87 adds Currency and FX rate after Yearly)", () => {
     assert.deepEqual(
       [...COLUMNS],
-      ["Name", "% of income", "% of expenses", "Monthly", "Yearly", "Equity to cover", "Account"],
+      [
+        "Name",
+        "% of income",
+        "% of expenses",
+        "Monthly",
+        "Yearly",
+        "Currency",
+        "FX rate",
+        "Equity to cover",
+        "Account",
+      ],
     );
   });
 
@@ -170,7 +182,16 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
     assert.notEqual(a.id, b.id);
     assert.deepEqual(
       { ...a, id: "" },
-      { id: "", name: "", amount: "", per: "month", equity: "", account: "" },
+      {
+        id: "",
+        name: "",
+        amount: "",
+        per: "month",
+        equity: "",
+        account: "",
+        currency: "",
+        rate: "",
+      },
     );
   });
 });

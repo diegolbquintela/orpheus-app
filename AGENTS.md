@@ -86,7 +86,14 @@ affects the repo.
   Page-only classes `.pf-*`.
   First-class since #97 (Q1 (d) superseded): the bar's fourth item `Personal finance` (current on this page,
   ST1-01 / ST1-02) and the third home line (ST3-03); the URL still works. Bar text is 12 px below 640 px (Q21, EL-decided).
-  Amounts unitless until #87 (Q2). For #86: a typed `Equity to cover` overrides the calculated amount for that
+  v1.4 (#87, spec section 14; Q12–Q16 open, defaults as built): `Household currency` (one select above `02` Income,
+  ten codes, default `USD`; key `orpheus.finance.currency.v1`, `src/lib/finance/currency.ts`); each expense line
+  has `Currency` and, when foreign, a typed `FX rate` = household units per 1 unit of the line's currency
+  (household = amount × rate); `Monthly` / `Yearly` stay in the line's currency, every total, both percentages and
+  the calculated `Equity to cover` use the household amount (`householdMonthlyOf` / `householdYearlyOf` in
+  `expenses.ts`); no valid rate → `Enter a number above 0.` and the line counts as 0; an override is household.
+  Lines gain optional `currency` / `rate` in the expenses key (old lines read as household lines). No live FX.
+  Amounts stay unitless (Q2, kept by #87, Q15). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
   QA: `qa/tools/personal-finance.mjs`.
 - **Landed: #84 Personal Finance v1.1 + lyre (PR #88).** `src/routes/personal-finance.tsx`,

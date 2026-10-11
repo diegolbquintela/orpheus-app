@@ -254,6 +254,14 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
     calculated amount; Q10 no usable rate → a line without a valid override contributes `—`, and so does its total;
     Q11 ROIC may exceed 100 (withdrawal rate stays 0–100).
 
+- **#87, Personal Finance v1.4 foreign currency (PR #100, draft, 2026-10-11).** Section 14. Built on
+  `feat/personal-finance-fx` off `b6de355`: `src/lib/finance/currency.ts` (codes, household key), `expenses.ts`
+  (`currency` / `rate` on a line, `parseRate`, `factorOf`, `householdMonthlyOf` / `householdYearlyOf`; totals and the
+  calculated equity on the household amount), `expenses-page.tsx` (`Household currency`, the line's `Currency` /
+  `FX rate`), `.pf-currency` / `.pf-fx` / `.pf-household` in `src/styles.css`. Checks: `currency.test.ts`,
+  `expenses.test.ts`, `expenses-page.dom.test.tsx`, `qa/tools/personal-finance.mjs` (PF-21..25) and
+  `qa/tools/site-style-regression.mjs` (the empty page's copy). Q12–Q16 open (defaults as built). In QA.
+
 ## 12. Income (v1.2, #85)
 
 ### 12.1 Copy (exact)

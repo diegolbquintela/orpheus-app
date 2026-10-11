@@ -1,5 +1,5 @@
-// Personal finance page (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover; spec attachments/personal-finance-spec.md
-// PF-01..20, plus the lyre ST1-05) in a
+// Personal finance page (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency; spec
+// attachments/personal-finance-spec.md PF-01..25, plus the lyre ST1-05) in a
 // real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900, signed out. Everything it types stays in that
 // browser context's localStorage (no server write exists), so it is safe on any host.
 //
@@ -25,8 +25,14 @@
 //   PF-17 equity-cover copy (the two rates, Rate used); PF-18 formula A (ROIC 8 → 4% → Rent 300,000; withdrawal 5
 //         wins; a typed 4 is 4%; 0 → —; the percent check); PF-19 the override (placeholder = calculated, typed
 //         wins, a bad one falls back (Q9), cleared → calculated, totals; no rate → — (Q10)); ROIC > 100 valid (Q11); PF-20 rates restored from orpheus.finance.equity.v1, layout
+//   PF-21 currency copy (Household currency USD above Income, ten codes; a line's Currency, FX rate — on a household
+//         line); PF-22 conversion (Condo 2,000 BRL at 0.2 → 400: Fixed 1,650 / 19,800, Total 1,750 / 21,000, 22.9%,
+//         % of income 3.6% / 14.7% / 15.6%); PF-23 equity on the household amount (120,000; 495,000 / 30,000 /
+//         525,000; override 100,000 → 475,000); PF-24 no valid rate → `Enter a number above 0.` and 0; household = the
+//         line's currency → × 1; PF-25 orpheus.finance.currency.v1 restored, layout, focus, AA, CLS with a foreign line
 //   PF-10 is the other tools' job (site-style-regression.mjs runs them all, site.mjs the $313,000).
-// Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-equity-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png.
+// Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-equity-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png,
+//   pf-fx-<w>.png (#87: the foreign line).
 //   node qa/tools/personal-finance.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -50,13 +56,15 @@ const PATH = "/personal-finance";
 const KEY = "orpheus.finance.expenses.v1";
 const INCOME_KEY = "orpheus.finance.income.v1";
 const EQUITY_KEY = "orpheus.finance.equity.v1";
+const CURRENCY_KEY = "orpheus.finance.currency.v1";
+const CODES = ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
 const PERSON_COLUMNS = ["Name", "Wages (yearly)", "Bonus rating (%)", "Average tax (%)", "Net (yearly)", "Count wages", "Count bonus", "Share (%)"];
 const TABLE_COLUMNS = ["Income", "Biweekly", "Monthly", "Yearly"];
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
 const ALERT = "rgb(255, 143, 135)";
-const COLUMNS = ["Name", "% of income", "% of expenses", "Monthly", "Yearly", "Equity to cover", "Account"];
+const COLUMNS = ["Name", "% of income", "% of expenses", "Monthly", "Yearly", "Currency", "FX rate", "Equity to cover", "Account"];
 const CLS_RUNS = Number(process.env.CLS_RUNS ?? 2);
 const lum = ([r, g, b]) => {
   const f = (x) => ((x /= 255) <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
@@ -77,6 +85,7 @@ const totalTexts = (label, wide, v = { share: "—", monthly: "0", yearly: "0", 
 const emptyTexts = (wide) => [
   "01",
   "Personal finance.",
+  "Household currency",
   "02",
   "Income",
   ...(wide ? PERSON_COLUMNS : []),
@@ -193,16 +202,17 @@ async function coldCls(browser, viewport, mobile, stored) {
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Network.enable");
   await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-  await page.addInitScript(([key, value, incomeKey, income, equityKey, equity]) => {
+  await page.addInitScript(([key, value, incomeKey, income, equityKey, equity, currencyKey, currency]) => {
     if (value) localStorage.setItem(key, value);
     if (income) localStorage.setItem(incomeKey, income);
     if (equity) localStorage.setItem(equityKey, equity);
+    if (currency) localStorage.setItem(currencyKey, currency);
     window.__shifts = [];
     new PerformanceObserver((list) => {
       for (const e of list.getEntries())
         window.__shifts.push({ value: e.value, sources: (e.sources ?? []).map((s) => (s.node?.textContent ?? s.node?.nodeName ?? "").slice(0, 30)) });
     }).observe({ type: "layout-shift", buffered: true });
-  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null, EQUITY_KEY, stored ? STORED_RATES : null]);
+  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null, EQUITY_KEY, stored ? STORED_RATES : null, CURRENCY_KEY, stored ? STORED_CURRENCY : null]);
   await page.goto(`${base}${PATH}`, { waitUntil: "load" });
   await page.waitForTimeout(1500);
   const m = await page.evaluate(() => ({ shifts: window.__shifts, lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length }));
@@ -217,10 +227,12 @@ const STORED_INCOME = JSON.stringify({
   ],
 });
 const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
+const STORED_CURRENCY = JSON.stringify({ household: "CAD" });
 const STORED = JSON.stringify({
   fixed: [
     { id: "q1", name: "Rent", amount: "1,000", per: "month", equity: "300,000", account: "Chequing" },
     { id: "q2", name: "Phone", amount: "250", per: "month", equity: "", account: "" },
+    { id: "q4", name: "Condo", amount: "2,000", per: "month", equity: "", account: "", currency: "BRL", rate: "0.2" },
   ],
   variable: [{ id: "q3", name: "Gifts", amount: "1,200", per: "year", equity: "", account: "Visa" }],
   accounts: ["Chequing", "Visa"],
@@ -449,15 +461,15 @@ try {
 
       // PF-08 layout with lines
       const cells = {};
-      for (const id of ["pf-name", "pf-income", "pf-share", "pf-monthly", "pf-yearly", "pf-equity", "pf-account", "pf-remove"]) cells[id] = await box(rent.getByTestId(id));
+      for (const id of ["pf-name", "pf-income", "pf-share", "pf-monthly", "pf-yearly", "pf-currency", "pf-fx-none", "pf-equity", "pf-account", "pf-remove"]) cells[id] = await box(rent.getByTestId(id));
       const order = Object.values(cells).map((b) => b.x);
       if (wide) {
         const tops = Object.values(cells).map((b) => b.y + b.h);
         check(`${tag} PF-08 wide: one row per line, cells in column order`, order.every((x, i) => i === 0 || x > order[i - 1]) && Math.max(...tops) - Math.min(...tops) <= 1, cells);
         const head = await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-head] span").evaluateAll((s) => s.map((e) => Math.round(e.getBoundingClientRect().left)));
-        check(`${tag} PF-08 wide: the column labels sit over their columns`, head.every((x, i) => Math.abs(x - order[i]) <= 1), { head, cells: order.slice(0, 7) });
+        check(`${tag} PF-08 wide: the nine column labels sit over their columns`, head.length === 9 && head.every((x, i) => Math.abs(x - order[i]) <= 1), { head, cells: order.slice(0, 9) });
       } else {
-        check(`${tag} PF-08 phone: a line is a block (name; Monthly | Yearly; % of expenses | % of income; Account | Equity to cover), remove beside the name`, cells["pf-monthly"].y > cells["pf-name"].y && cells["pf-monthly"].y === cells["pf-yearly"].y && cells["pf-equity"].y > cells["pf-share"].y && cells["pf-equity"].y === cells["pf-account"].y && cells["pf-equity"].x > cells["pf-account"].x && Math.abs(cells["pf-remove"].y + cells["pf-remove"].h - (cells["pf-name"].y + cells["pf-name"].h)) <= 1, cells);
+        check(`${tag} PF-08 / PF-25 phone: a line is a block (name; Monthly | Yearly; Currency | FX rate; % of expenses | % of income; Account | Equity to cover), remove beside the name`, cells["pf-monthly"].y > cells["pf-name"].y && cells["pf-monthly"].y === cells["pf-yearly"].y && cells["pf-currency"].y > cells["pf-monthly"].y && cells["pf-currency"].y === cells["pf-fx-none"].y && cells["pf-fx-none"].x > cells["pf-currency"].x && cells["pf-share"].y > cells["pf-currency"].y && cells["pf-equity"].y > cells["pf-share"].y && cells["pf-equity"].y === cells["pf-account"].y && cells["pf-equity"].x > cells["pf-account"].x && Math.abs(cells["pf-remove"].y + cells["pf-remove"].h - (cells["pf-name"].y + cells["pf-name"].h)) <= 1, cells);
       }
       const sizes = await page.evaluate(() => [...document.querySelectorAll("main input:not([type=checkbox]), main select, main button, main .pf-check")].map((e) => [e.dataset.testid, Math.round(e.getBoundingClientRect().height * 10) / 10, Math.round(e.getBoundingClientRect().width)]));
       check(`${tag} PF-08 every control ≥ 44 px tall (remove 44 × 44)`, sizes.every(([, h]) => h >= 44) && sizes.filter(([id]) => id === "pf-remove").every(([, , w]) => w >= 44), sizes.filter(([, h]) => h < 44));
@@ -536,6 +548,80 @@ try {
         rates: [await val(page.getByTestId("pf-withdrawal")), await val(page.getByTestId("pf-roic")), await txt(page.getByTestId("pf-rate-used"))],
       };
       check(`${tag} PF-07 / PF-16 / PF-20 a reload restores every line, typed value, account, selection, person and rate (Total equity 250,000 + 30,000)`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "250,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100", "13,200", "280,000"], people: ["Me", false, "80"], net: "134,400", rates: ["", "8", "4%"] }), back);
+      // PF-21..25 foreign currency (#87): the section 14.2 example (Rent's override cleared, Phone back, Condo in BRL).
+      await line(page, "fixed", 0).getByTestId("pf-equity").fill("");
+      await page.getByTestId("pf-add-fixed").click();
+      await page.getByTestId("pf-add-fixed").click();
+      const [fp, fc] = [line(page, "fixed", 1), line(page, "fixed", 2)];
+      await fp.getByTestId("pf-name").fill("Phone");
+      await fp.getByTestId("pf-monthly").fill("250");
+      await fc.getByTestId("pf-name").fill("Condo");
+      await fc.getByTestId("pf-monthly").fill("2,000");
+      const hhSel = page.getByTestId("pf-household");
+      const c21 = {
+        household: await hhSel.inputValue(),
+        codes: await hhSel.evaluate((s) => [...s.options].map((o) => o.text)),
+        label: await hhSel.evaluate((s) => ({ t: s.labels?.[0]?.textContent, vis: (s.labels?.[0]?.getBoundingClientRect().width ?? 0) > 1 })),
+        above: await page.getByTestId("pf-household-cell").evaluate((c) => !!(c.compareDocumentPosition(document.querySelector("[data-testid=pf-income-block]")) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        line: await fc.getByTestId("pf-currency").evaluate((s) => [s.value, s.getAttribute("aria-label"), [...s.options].map((o) => o.text)]),
+        fx: await txt(fc.getByTestId("pf-fx-none")),
+        inputs: await fc.getByTestId("pf-fx").count(),
+      };
+      check(`${tag} PF-21 Household currency USD (visible label, ten codes) above Income; a line's Currency (household first) and FX rate —`, JSON.stringify(c21) === JSON.stringify({ household: "USD", codes: CODES, label: { t: "Household currency", vis: true }, above: true, line: ["USD", "Currency, Fixed 3", CODES], fx: "—", inputs: 0 }), c21);
+      await fc.getByTestId("pf-currency").selectOption("BRL");
+      const fx = fc.getByTestId("pf-fx");
+      const noRate24 = { err: await txt(fc.getByTestId("pf-error")), invalid: await fx.getAttribute("aria-invalid"), label: await fx.getAttribute("aria-label"), color: await fc.getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), fixed: await totals(page, "fixed"), holder: await fc.getByTestId("pf-equity").getAttribute("placeholder") };
+      const bads = [];
+      for (const bad of ["abc", "-1", "0"]) {
+        await fx.fill(bad);
+        bads.push([bad, await txt(fc.getByTestId("pf-error")), (await totals(page, "fixed"))[2]]);
+      }
+      check(`${tag} PF-24 Q14: a BRL line with no rate (empty, abc, -1, 0): \`Enter a number above 0.\` (alert, aria-invalid) and it counts as 0 (Fixed 1,250; equity 0)`, JSON.stringify(noRate24) === JSON.stringify({ err: "Enter a number above 0.", invalid: "true", label: "FX rate, Fixed 3", color: ALERT, fixed: ["92.6%", "11.2%", "1,250", "15,000", "375,000"], holder: "0" }) && bads.every(([, e, m]) => e === "Enter a number above 0." && m === "1,250"), { noRate24, bads });
+      await fx.fill("0.2");
+      const conv22 = {
+        errors: await fc.getByTestId("pf-error").count(),
+        condo: [await val(fc.getByTestId("pf-monthly")), await val(fc.getByTestId("pf-yearly")), await txt(fc.getByTestId("pf-share")), await txt(fc.getByTestId("pf-income"))],
+        fixed: await totals(page, "fixed"),
+        variable: await totals(page, "variable"),
+        all: await totals(page, "all"),
+      };
+      check(`${tag} PF-22 Q12: Condo 2,000 BRL × 0.2: its fields stay 2,000 / 24,000; 22.9% / 3.6%; Fixed 1,650 / 19,800 (14.7%), Variable 100 / 1,200, Total 1,750 / 21,000 (15.6%)`, JSON.stringify(conv22) === JSON.stringify({ errors: 0, condo: ["2,000", "24,000", "22.9%", "3.6%"], fixed: ["94.3%", "14.7%", "1,650", "19,800", "495,000"], variable: ["5.7%", "0.9%", "100", "1,200", "30,000"], all: ["100.0%", "15.6%", "1,750", "21,000", "525,000"] }), conv22);
+      const holder23 = await page.locator("[data-testid=pf-equity]").evaluateAll((f) => f.map((e) => e.placeholder));
+      await fc.getByTestId("pf-equity").fill("100,000");
+      const ov23 = (await totals(page, "fixed"))[4];
+      await fc.getByTestId("pf-equity").fill("");
+      check(`${tag} PF-23 equity on the household yearly amount (ROIC 8): Condo 120,000 (Fixed 495,000, Total 525,000); override 100,000 (household) → Fixed 475,000`, JSON.stringify(holder23) === JSON.stringify(["300,000", "75,000", "120,000", "30,000"]) && ov23 === "475,000", { holder23, ov23 });
+      // Layout, size, focus and AA with the foreign line.
+      const fb = { cur: await box(fc.getByTestId("pf-currency")), fx: await box(fx), monthly: await box(fc.getByTestId("pf-monthly")), yearly: await box(fc.getByTestId("pf-yearly")), equity: await box(fc.getByTestId("pf-equity")), share: await box(fc.getByTestId("pf-share")), hh: await box(hhSel) };
+      check(`${tag} PF-25 ${wide ? "wide: Currency and FX rate after Yearly, before Equity to cover, one row" : "phone: Currency | FX rate under Monthly | Yearly"}; 44 px controls; Household currency ≤ 16rem`, fb.cur.h >= 44 && fb.fx.h >= 44 && fb.hh.h >= 44 && fb.hh.w <= 256 && (wide ? fb.cur.x > fb.yearly.x && fb.fx.x > fb.cur.x && fb.equity.x > fb.fx.x && Math.abs(fb.cur.y - fb.monthly.y) <= 1 && Math.abs(fb.fx.y - fb.monthly.y) <= 1 : fb.cur.y > fb.monthly.y && fb.cur.y === fb.fx.y && fb.fx.x > fb.cur.x && fb.share.y > fb.cur.y), fb);
+      await fx.focus();
+      const ring = await fx.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, parseFloat(c.outlineWidth), c.outlineColor]; });
+      await page.evaluate(() => document.activeElement?.blur());
+      const scroll25 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      const scan25 = await contrastScan(page);
+      check(`${tag} PF-25 FX rate focus ring 2 px chalk; no horizontal scroll; AA for every text and field value with the foreign line`, ring[0] !== "none" && ring[1] >= 2 && ring[2] === CHALK && scroll25 <= 0 && scan25.bad.length === 0, { ring, scroll25, bad: scan25.bad });
+      if (AXE) {
+        await page.addScriptTag({ content: AXE });
+        const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast", "label", "select-name", "aria-valid-attr-value", "label-content-name-mismatch"] } })).violations.map((x) => ({ id: x.id, nodes: x.nodes.length, html: x.nodes[0]?.html.slice(0, 80) })));
+        check(`${tag} PF-25 axe-core with the foreign line and Household currency: no violation`, v.length === 0, v);
+      }
+      await fc.scrollIntoViewIfNeeded();
+      const shotX = join(CFG.out, `pf-fx-${viewport.width}.png`);
+      await page.screenshot({ path: shotX, fullPage: true });
+      R.shots.push(shotX);
+      // Storage: the line's currency / rate; the household key only once changed.
+      const before = await page.evaluate((k) => [Object.keys(localStorage).includes(k[0]), JSON.parse(localStorage.getItem(k[1])).fixed[2]], [CURRENCY_KEY, KEY]);
+      await hhSel.selectOption("CAD");
+      const cadKey = await page.evaluate((k) => localStorage.getItem(k), CURRENCY_KEY);
+      await page.reload({ waitUntil: "networkidle" });
+      await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+      const fc2 = line(page, "fixed", 2);
+      const back25 = { household: await page.getByTestId("pf-household").inputValue(), cur: await fc2.getByTestId("pf-currency").inputValue(), rate: await val(fc2.getByTestId("pf-fx")), all: (await totals(page, "all")).slice(2, 4) };
+      check(`${tag} PF-25 storage: Condo {currency BRL, rate 0.2} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"CAD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "0.2" && cadKey === '{"household":"CAD"}' && JSON.stringify(back25) === JSON.stringify({ household: "CAD", cur: "BRL", rate: "0.2", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
+      await page.getByTestId("pf-household").selectOption("BRL");
+      const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).fixed[2].rate, KEY) };
+      await page.getByTestId("pf-household").selectOption("USD");
+      check(`${tag} PF-24 household BRL makes Condo a household line: FX rate —, × 1 (Fixed 3,250 / 39,000), the rate kept stored`, JSON.stringify(asHome) === JSON.stringify({ fx: "—", cur: "BRL", fixed: ["3,250", "39,000"], rate: "0.2" }), asHome);
       check(`${tag} PF-07 no /api request; no page error`, api.length === 0 && errors.length === 0, { api, errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
@@ -544,16 +630,17 @@ try {
     }
 
     // PF-07 a new context starts empty; a malformed value shows the empty page without an error.
-    for (const [what, value] of [["a new browser context", null], ["malformed stored values (all three keys)", "{not json"]]) {
+    for (const [what, value] of [["a new browser context", null], ["malformed stored values (all four keys)", "{not json"]]) {
       const c2 = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
       const p2 = await c2.newPage();
       const errs = [];
       p2.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
-      if (value) await p2.addInitScript(([k, ik, ek, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); localStorage.setItem(ek, v); }, [KEY, INCOME_KEY, EQUITY_KEY, value]);
+      if (value) await p2.addInitScript(([k, ik, ek, ck, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); localStorage.setItem(ek, v); localStorage.setItem(ck, v); }, [KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, value]);
       await p2.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await p2.locator("[data-testid=pf-area][data-ready=true]").waitFor();
       const n = await p2.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
-      check(`${tag} PF-07 ${what}: the empty page, no error`, n === 0 && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, errs });
+      const hh = await p2.getByTestId("pf-household").inputValue();
+      check(`${tag} PF-07 / PF-25 ${what}: the empty page, Household currency USD, no error`, n === 0 && hh === "USD" && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
       await c2.close();
     }
 
@@ -562,7 +649,7 @@ try {
       const runs = [];
       for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(browser, viewport, mobile, stored));
       const worst = Math.max(...runs.map((r) => r.total));
-      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (3 lines, 2 people, rates)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 5 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
+      check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (4 lines incl. a BRL one, 2 people, rates, household CAD)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 6 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
     }
   }
 } finally {
