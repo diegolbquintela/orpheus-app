@@ -20,6 +20,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-10, ≈ 22:00 ET | **#69 kickoff (EL):** home in the dark shell keeps the Jordaens hero, `Investment driven by research.` and the Platforms lines (Q11; #69 builds them). The home rows get the calculator's bar: the largest file served at 1440 px on a 2x screen ≤ 300 KB, CLS by `PerformanceObserver` with every shift counted (hero 0, page total < 0.001 until #72), phone rules below 1024 px and wide from 1024 px (checked at 360, 400, 1024 and 1440), the bar on one line at 360, no visible credit and the `alt` naming the painting (Q5). ST3-01..04 amended and ST3-05..07 added from #69 (section 8 has the sizes); Q17 records the home phone band default. |
 | 2026-10-10, ≈ 22:17 ET | **EL answers on #69 (PR #77 at `5bd0061`), docs only:** Q17 closed: keep the built home phone band, `min(66.667vw, 480px)` (240 px at 360, 267 px at 400), not a flat 240 at both; the ≤ 200 px band (section 7a) stays calculator-only. "The horses" confirmed: the prince plus the four white chariot horses (with the dark head behind the leftmost); the brown horse on the far right may be partly cropped on phones. The spaced punctuation from `tnum` in the body font settings is a shell fix on every page in #72 (not #69 / #70). The calculator band's width above ≈ 1886 px gets the same one-class `w-full` fix as home, in #72 (#70 not touched). |
 | 2026-10-11, ≈ 08:22 ET | **#78 calculator polish (Diego via CoS; EL):** results show exactly four lines per plan, `Final value`, `Total invested`, `Return (%)`, `CAGR (%)` (mapped from the end value, the amount invested, the total return and the existing CAGR; money-weighted return, max drop, value at the drop and return to the drop leave the display; no calculation change; `$313,000` stays). Field checks before the calculation, each message under its field, the other fields kept. **A:** starting capital and contribution must be numbers **above 0** (the engine, `simulate.ts`, refuses 0 and stays untouched), so the issue's "zero or more" reads "above zero"; text, negatives and blanks are refused. **1:** the venue and currency checks run after the prices are read and before the calculation (the listing and currency come from the price feed), under the bad ticker, naming it; blank and duplicate tickers are checked before any request. **2:** the labels word for word as above. **3:** wide (≥ 1024 px) Start, End, Starting capital, Contribution and Frequency in one row with the button under it, the results below the form at full width (replaces "form left, results right"); the basket stays stacked ticker / weight / remove rows. **4:** start must be before end (equal dates refused). ST4-06, -08, -10, -12, -13 amended; ST4-17 (field checks) and ST4-18 (wide layout) added. |
+| 2026-10-11, ≈ 09:14 ET | **#80 saved searches (Diego via CoS; EL kickoff):** a `Saved searches` button at the top of the calculator form, above the basket's Ticker, closed by default; open, a short list, newest first, each line `tickers · dates · DCA amount` (the search's own contribution in the results' money format, e.g. `$1,000`; the issue's `$100` is the example) with a `Load` that fills every field; the last 5 only, the oldest drops. Saved automatically by a successful calculation (no second save button); a refresh fills the last search and keeps the list; calculating keeps the search in the fields. **Storage (Diego, locked):** no login, never the account (#73 parked); this browser only, `localStorage` (two keys, section 7b); another device sees nothing; clearing the browser's site data clears both. ST4-19..ST4-24 added. |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -91,6 +92,7 @@ stays as briefed. Section 7a.
 | Calculator listings note (unchanged) | `US, EU and CA listings, one currency per basket.` |
 | Calculator result plans (#78) | `Lump sum`, `DCA` |
 | Calculator result lines (#78; each plan, in this order) | `Final value`, `Total invested`, `Return (%)`, `CAGR (%)` |
+| Calculator saved searches (#80) | button `Saved searches`; each line `<TICKERS> · <start> – <end> · DCA <amount>` (tickers joined by `, `, dates `YYYY-MM-DD`, the amount in the results' money format), then `Load`; empty: `No saved searches yet.` |
 | Calculator field checks (#78; under the field) | ticker: `Add a ticker.`, `<T> is already in the basket.`, the price feed's refusal naming the ticker (e.g. `VOD.L lists on LSE. US, EU, and CA listings only.`; prefixed `<T>: ` when the feed's text doesn't name it), `<T> trades in <CUR>; this basket is in <CUR>. One currency per basket.`; weight: `Enter a weight above 0.`; start / end: `Add a start date.`, `Add an end date.`, `End must be after the start.` (under End); starting capital / contribution: `Enter a number above 0.`; frequency: `Choose weekly or monthly.` |
 | Sign-in link | `Create an account` |
 
@@ -183,6 +185,7 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   (the existing select, styled the same). Labels stay visible. Section numbering continues from the hero `01`
   (today `02` Basket, `03` window and amounts, `04` Result). The calculator gets its own field class; the shared
   `.field` stays as it is for the dashboard (Q10).
+  Since #80 the form starts with the `Saved searches` button (section 7b), above `02` Basket.
 - **Listings note:** `US, EU and CA listings, one currency per basket.` stays one line (no wrap at 360 or 400 px)
   under the form. Q2 for the dividends rule.
 - **Chart (today: two charts, one series each; see section 10):** one chart, one series, the DCA portfolio value
@@ -255,6 +258,38 @@ column, the window fields in one row, the results below the form) from 1024 px. 
   the wash and Venus visible.
 - **Otherwise the same as wide:** dark page, Botticelli hero, borderless underlines, green line, green fill and
   green pill, label-value results. Calculator rules unchanged.
+
+## 7b. Saved searches (#80, Diego via CoS; storage locked by Diego, 2026-10-11)
+
+- **Button:** `Saved searches`, the first control in the form, above `02` Basket and its Ticker field; a plain
+  text button (14 px chalk, the site font, a chevron that turns when open), `aria-expanded` and
+  `aria-controls` the panel; the chalk focus ring. **Closed by default** on every load.
+- **Panel (open):** directly under the button, the form's full width (wide too: not limited to the basket's
+  26rem). A short list, newest first, at most **5** lines; each line is the search's text
+  (`PLTR, TQQQ · 2020-10-02 – 2026-10-01 · DCA $1,000`: tickers in basket order, start – end, the DCA
+  contribution in the results' money format and the basket's currency) and a `Load` button, with a 1 px rule
+  underline across the full width (the fields' rule, `#8b9298`). Text 14 px chalk, wraps on a phone; `Load`
+  14 px chalk, 44 px tall touch target. With no saved search: one dim 13 px line `No saved searches yet.`
+- **Load** fills every field from the saved search (the basket rows with their tickers and weights, start,
+  end, starting capital, contribution, frequency), clears the field marks and any result shown, and closes the
+  panel. It does not calculate.
+- **Saving:** automatic, only when a calculation succeeds (a result is shown); a field-check or listing refusal
+  saves nothing. **No save button.** The search becomes the last search and the newest line; the same search
+  again (same tickers, weights, dates, amounts and frequency) moves to the top instead of repeating; a sixth
+  search drops the oldest.
+- **Refresh:** on the same browser the form opens with the last search in the fields (no result until
+  `Compare plans`) and the list of up to 5 behind the button (still closed). Calculating keeps the search in the
+  fields (nothing is cleared, as before).
+- **Storage (Diego, locked):** this browser only, `window.localStorage`, two keys:
+  `orpheus.calculator.last.v1` (the last search) and `orpheus.calculator.saved.v1` (the list, newest first, ≤ 5),
+  each a JSON object of the typed values (tickers upper-cased) plus the basket's currency. **No login, never the
+  account** (no request to `/api/auth/*` or `/api/dashboard/*`; no cookie, `sessionStorage`, IndexedDB or server
+  copy; the only requests stay `GET /api/chart`). Another device or browser sees nothing; clearing the site's
+  data clears both. Storage unavailable or a malformed value: the list is empty and the form starts blank (no
+  error shown). Nothing from it reaches the analytics (the analytics rules in `AGENTS.md` unchanged).
+- **Layout shift:** a cold load has no stored search, so ST4-01 is unchanged. On a refresh with a stored basket of
+  more than one name the extra basket rows appear after the page loads (the server can't read `localStorage`);
+  the hero never moves (ST4-22).
 
 ## 8. Home (#69, Sat Oct 10)
 
@@ -368,6 +403,12 @@ has no hover rule.
 | ST4-16 | (Q6) The primary button `Compare plans` is a chalk fill with night text (14.2:1), radius 0, the section 7 size, a chalk focus ring; while reading prices a dim fill with night text (7.2:1); not green. |
 | ST4-17 | (#78) Field checks before the calculation, at 360 and 1440: each case's message (section 4 copy, word for word) sits directly under its field in `#ff8f87` 13 px, the field `aria-invalid` and described by it; every bad field marked at once; no field cleared (each keeps what was typed). Cases: empty basket → `Add a ticker.`; a ticker without a weight → `Enter a weight above 0.`; the same ticker twice → `<T> is already in the basket.` under the second; start or end blank → `Add a start date.` / `Add an end date.`; end on or before start → `End must be after the start.`; starting capital or contribution as text, negative, 0 or blank → `Enter a number above 0.` (decision A: above zero, the engine refuses 0); frequency blank → `Choose weekly or monthly.`; none of these sends a price request. After the prices: VOD.L → `VOD.L lists on LSE. US, EU, and CA listings only.` under VOD.L (HTTP 400); a basket mixing currencies → `<T> trades in <CUR>; this basket is in <CUR>. One currency per basket.` under the other ticker; no result shown. A valid run afterwards shows no field message. |
 | ST4-18 | (#78) Wide (1024 and 1440): one column; the basket's ticker / weight / remove rows stacked (≤ 26rem wide); Start, End, Starting capital, Contribution and Frequency in **one row** (same top, left to right), `Compare plans` under them; the listings note one line under the form; the result (chart, then the two plan columns) below the form at full width (same left and right edges as the window row). |
+| ST4-19 | (#80) `Saved searches` is a button (`aria-expanded`, `aria-controls`), the form's first control, above `02` Basket and the first Ticker, in the site font with the chalk focus ring; **closed by default** on every load (the panel not rendered or hidden); it opens and closes the panel; at 360, 400, 1024 and 1440. |
+| ST4-20 | (#80) Open: newest first, at most 5 lines, each exactly `<TICKERS> · <start> – <end> · DCA <amount>` (section 4) with the search's own contribution, then `Load`; each line underlined by a 1 px `#8b9298` rule across the form's full width; empty: `No saved searches yet.` `Load` fills every field (basket rows, tickers, weights, start, end, starting capital, contribution, frequency) word for word, clears field marks and any result, closes the panel, sends no request. No other save control anywhere on the page. |
+| ST4-21 | (#80) Saved automatically by a successful calculation only (a field-check or listing refusal saves nothing); the same search again moves to the top (no duplicate line); six different searches leave the newest 5 (the oldest dropped); the `$313,000` regression case still reads `$313,000` and is saved like any search. |
+| ST4-22 | (#80) Refresh on the same browser: the fields hold the last search, the list (closed) holds the same ≤ 5 lines; no result until `Compare plans`; calculating keeps the search in the fields. The restore moves nothing in the hero (hero CLS 0); the page shift from extra basket rows is measured and reported. |
+| ST4-23 | (#80) No auth, this browser only: signed out with no account, no request to `/api/auth/*` or `/api/dashboard/*` while saving, loading or restoring (only `GET /api/chart` on a calculation); exactly two `localStorage` keys, `orpheus.calculator.last.v1` and `orpheus.calculator.saved.v1`; no cookie set, nothing in `sessionStorage` or IndexedDB from the calculator; the analytics rules unchanged. |
+| ST4-24 | (#80) Isolation and clearing: a second browser context (another device) on the same preview sees no list and blank fields; clearing the site's data (`localStorage` cleared, e.g. DevTools "Clear site data" / `Storage.clearDataForOrigin`) and reloading shows `No saved searches yet.` and blank fields. |
 
 **ST5a: dashboard content (#71): ON HOLD, deferred**
 
@@ -530,3 +571,8 @@ assumed white.
   `src/lib/site/field-checks.test.ts`, `src/components/calculator/calculator.dom.test.tsx`,
   `qa/tools/calculator-page.mjs` (ST4-06, -10, -17, -18), `qa/tools/site.mjs` (`$313,000` from the DCA plan's
   `Total invested` line; VOD.L under its field).
+- **#80, saved searches (2026-10-11).** Built to section 7b: `src/components/calculator/saved-searches.tsx`
+  (button and panel), `src/lib/site/saved-searches.ts` (pure: the two `localStorage` keys, read / write with
+  guards, dedupe, cap 5, the line text). Saved on a successful calculation from `desk.tsx`; restored once after
+  hydration. Checks: `src/lib/site/saved-searches.test.ts`, `calculator.dom.test.tsx`,
+  `qa/tools/saved-searches.mjs` (ST4-19..24 at 360 / 400 / 1024 / 1440).
