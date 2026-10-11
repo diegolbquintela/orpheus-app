@@ -260,9 +260,9 @@ results right) from 1024 px. QA checks the phone rules at 360 and 400 and the wi
 
   | Part | Size |
   |---|---|
-  | Band | phone `min(66.667vw, 480px)` tall (240 at 360, 267 at 400; Q17); wide at the crop's 2.4:1 (427 at 1024, 600 at 1440), ≤ 600 px; `object-position` 50% 30% on a phone, 50% 10% wide (only used once the 480 / 600 px cap crops) |
+  | Band | phone `min(66.667vw, 480px)` tall (240 at 360, 267 at 400; Q17); wide at the crop's 2.4:1 (427 at 1024, 600 at 1440), ≤ 600 px; `object-position` top centre (the 480 / 600 px caps crop only from the bottom, so the prince is never cut); the band `w-full` |
   | Hero `01` | as the calculator: 12 px, weight 400, chalk; a 12 px line on a phone, 14.4 px from 1024 |
-  | Hero title | 16 px on a phone, 40 px at 1024, 44 px from 1280 (≤ 48 at 1440), in a fixed 5.3em × 3.3em box: three lines (`Investment` / `driven by` / `research.`; `Investment` is 5.20em in Schibsted, 5.12em in the fallback, and two words never fit: 8.26em and up); line-height 1.1; weight 400; chalk; one text node |
+  | Hero title | 16 px on a phone (`min(16px, 4.45vw)`: 14.2 px on a 320 px phone, so the wash stays left of the horses there too), 40 px at 1024, 44 px from 1280 (≤ 48 at 1440), in a fixed 5.3em × 3.3em box: three lines (`Investment` / `driven by` / `research.`; `Investment` is 5.20em in Schibsted, 5.12em in the fallback, and two words never fit: 8.26em and up); line-height 1.1; weight 400; chalk; one text node |
   | Hero wash | night at 88%, hugging `01` and the title: 6 px top / bottom and 8 px side padding on a phone (80.8 px tall: 34% of the band at 360, 30% at 400), 16 / 20 px wide; lower left; `box-shadow 0 0 12px 4px` night at 50%; radius 0. Wide, the text starts on the content column's left edge but never further right than `33.24vw − 280px`, so the wash stays left of the horses on any screen wider than 1440 |
   | `02` + `Platforms` | `02` 12 px dim (the calculator's section label); `Platforms` 24 px chalk, weight 400 |
   | Platforms line | a `hair` rule above each line; the name 20 px chalk; the description 14 px dim (line-height 1.5); `Open` 14 px chalk with a 1 px `rule` underline, a chalk focus ring; on a phone the name and `Open` share the first row and the description sits under them; from 1024 one row: name (12rem), description, `Open` |

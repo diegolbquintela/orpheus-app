@@ -6,7 +6,8 @@
  *   wide: a 2.4:1 crop (source x 0–3670, y 1880–3409), the band at the crop's aspect ratio, ≤ 600 px.
  * `figure` is the prince with his cape and the four white chariot horses (with the dark horse's head behind the
  * leftmost), source x 1220–3250, y 1940–4000, as fractions of each crop, so the QA tool can check that the `01` /
- * title wash never covers them (ST3-02). Pure data: no React.
+ * title wash never covers them (ST3-02). `object-position` is top centre for both: the bands only crop (at the
+ * 480 / 600 px caps) from the bottom, so the prince is never cut. Pure data: no React.
  */
 import type { HeroCrop } from "@/lib/site/hero";
 
@@ -20,7 +21,7 @@ export const HOME_HERO_CROPS: Record<"phone" | "wide", HeroCrop> = {
     height: 2200,
     widths: { avif: [480, 800, 1200], webp: [480, 800, 1200], jpg: [480, 800, 1200] },
     figure: [0.369, 0.027, 0.985, 0.964],
-    position: "50% 30%",
+    position: "50% 0%",
   },
   wide: {
     name: "wide",
@@ -29,7 +30,7 @@ export const HOME_HERO_CROPS: Record<"phone" | "wide", HeroCrop> = {
     // 2880 (1440 px at 2x) only as AVIF: the WebP is ≈ 290 KB and the JPEG ≈ 473 KB at that width.
     widths: { avif: [1024, 1440, 2048, 2880], webp: [1024, 1440, 2048], jpg: [1024, 1440, 2048] },
     figure: [0.332, 0.039, 0.886, 1],
-    position: "50% 10%",
+    position: "50% 0%",
   },
 };
 

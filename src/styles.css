@@ -251,10 +251,12 @@
     outline: 2px solid var(--color-chalk);
     outline-offset: 2px;
   }
+  /* min(16 px, 4.45vw): 16 px from 360 px; below it (a 320 px phone: 14.2 px) the title shrinks with the band,
+     so the wash stays left of the horses. */
   .home-title {
     width: 5.3em;
     height: 3.3em;
-    font-size: 1rem;
+    font-size: min(1rem, 4.45vw);
     font-weight: 400;
     line-height: 1.1;
   }

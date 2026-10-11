@@ -17,7 +17,8 @@ const TYPES = [
 
 /**
  * The Jordaens band under the bar (#69, spec §8; ST3-01, -02, -05, -06). The band's height comes from CSS alone
- * (min(66.667vw, 480px) on a phone, the wide crop's aspect ratio from 1024 px, ≤ 600 px), and every source carries
+ * (min(66.667vw, 480px) on a phone, the wide crop's aspect ratio from 1024 px, ≤ 600 px; `w-full`, so the 600 px
+ * cap can't narrow the band through the aspect ratio on screens wider than 1440 px), and every source carries
  * its intrinsic width and height, so nothing moves when the image arrives (CLS 0). `01` and the title sit lower
  * left in a soft wash (night at 88%) that hugs them, in plain type; the title box is font-independent
  * (`.home-title`: 5.3em × 3.3em, three lines, one text node), so the Google Fonts swap moves nothing. The wash
@@ -28,7 +29,7 @@ const TYPES = [
 export function HomeHero() {
   return (
     <header
-      className="relative h-[min(66.667vw,480px)] overflow-hidden bg-night lg:aspect-[3670/1529] lg:h-auto lg:max-h-[600px]"
+      className="relative h-[min(66.667vw,480px)] w-full overflow-hidden bg-night lg:aspect-[3670/1529] lg:h-auto lg:max-h-[600px]"
       data-testid="home-hero"
     >
       <picture>
@@ -64,7 +65,7 @@ export function HomeHero() {
           decoding="async"
           data-figure-phone={phone.figure.join(",")}
           data-figure-wide={wide.figure.join(",")}
-          className="absolute inset-0 size-full object-cover object-[50%_30%] lg:object-[50%_10%]"
+          className="absolute inset-0 size-full object-cover object-top"
         />
       </picture>
       <div

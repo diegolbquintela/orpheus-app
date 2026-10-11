@@ -233,7 +233,8 @@ for (const flag of [undefined, "true"]) {
   check(JSON.stringify(menuCurrent(home.body)) === '["Orpheus"]', `${label}: / current menu item ${menuCurrent(home.body)}`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
-  check(/<img [^>]*alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"[^>]*width="3300" height="2200"/.test(home.body), `${label}: / lacks the Jordaens hero img (alt, width, height)`);
+  const heroImg = home.body.match(/<header [^>]*data-testid="home-hero"[\s\S]*?(<img [^>]*>)/)?.[1] ?? "";
+  check(/ alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(heroImg) && / width="3300"/.test(heroImg) && / height="2200"/.test(heroImg), `${label}: / lacks the Jordaens hero img (alt, width, height): ${heroImg}`);
   const lines = [...home.body.matchAll(/<li [^>]*data-testid="platform-line"[^>]*>[\s\S]*?<h3[^>]*>([^<]*)<\/h3>[\s\S]*?<p[^>]*>([^<]*)<\/p>[\s\S]*?<a href="([^"]+)"[^>]*data-testid="platform-open"[^>]*>([^<]*)<\/a>/g)].map((m) => m.slice(1));
   check(
     JSON.stringify(lines) ===
