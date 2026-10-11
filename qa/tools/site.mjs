@@ -1,5 +1,5 @@
 // Site shell (#46) in a real browser: the menu on every route (fixed on scroll, current page, no
-// dropdowns), home with exactly two cards and no price requests, the footer (exactly "Orpheus Wisdom"),
+// dropdowns), home with exactly two Platforms lines (#69; `Open` links) and no price requests, the footer (exactly "Orpheus Wisdom"),
 // noindex, the calculator's listings note, then the
 // calculator at /calculator: the $313,000 regression (PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01,
 // $1,000 start + $1,000 weekly) and the VOD.L refusal (HTTP 400, exact message). Read-only: no sign-in.
@@ -48,12 +48,12 @@ for (const vp of ['desktop', 'mobile']) {
   check(`[${vp}] / X-Robots-Tag`, /noindex/i.test(res.headers()['x-robots-tag'] ?? ''), res.headers()['x-robots-tag']);
   await page.screenshot({ path: `${OUT}/home-${vp}.png`, fullPage: true });
   await shell(page, `[${vp}] /`, 'Orpheus');
-  const cards = await page.locator('[data-testid="home-card"]').evaluateAll((as) => as.map((a) => [a.getAttribute('href'), a.querySelector('h2')?.textContent, a.querySelector('p')?.textContent]));
-  check(`[${vp}] /: exactly two cards with the issue texts`, JSON.stringify(cards) === JSON.stringify([['/calculator', 'Calculator', 'compare a lump sum with contributions'], ['/dashboard', 'Dashboard', 'holdings, value, stored figures']]), cards);
+  const lines = await page.locator('[data-testid="platform-line"]').evaluateAll((ls) => ls.map((l) => [l.querySelector('h3')?.textContent, l.querySelector('p')?.textContent, l.querySelector('a')?.textContent, l.querySelector('a')?.getAttribute('href')]));
+  check(`[${vp}] /: exactly two Platforms lines with the spec texts and Open links`, JSON.stringify(lines) === JSON.stringify([['Calculator', 'Dollar-cost average calculator.', 'Open', '/calculator'], ['Dashboard', 'The portfolio as a business: fundamentals for each name, and the whole.', 'Open', '/dashboard']]), lines);
   check(`[${vp}] /: no price requests, no calculator`, !requests.some((u) => u.includes('/api/chart')) && (await page.locator('form').count()) === 0, requests.filter((u) => u.includes('/api/')));
-  await page.locator('[data-testid="home-card"]').first().click();
+  await page.locator('[data-testid="platform-open"]').first().click();
   await page.waitForURL(/\/calculator$/);
-  check(`[${vp}] Calculator card opens /calculator`, new URL(page.url()).pathname === '/calculator');
+  check(`[${vp}] Calculator Open opens /calculator`, new URL(page.url()).pathname === '/calculator');
   await page.waitForLoadState('networkidle');
   await shell(page, `[${vp}] /calculator`, 'Calculator');
   check(`[${vp}] /calculator: listings note under the form`, (await page.getByText('US, EU and CA listings, one currency per basket.', { exact: true }).count()) === 1);

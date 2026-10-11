@@ -1,33 +1,57 @@
-import { HOME_CARDS, HOME_LINE } from "@/lib/site/site";
+import { HomeHero } from "@/components/home-hero";
+import {
+  HOME_OPEN,
+  HOME_PLATFORMS,
+  HOME_PLATFORMS_HEADING,
+  HOME_PLATFORMS_NUMERAL,
+} from "@/lib/site/site";
 
-/** Home `/` (#46): one line and exactly two cards. Static: no price fetches, no calculator code. */
+/**
+ * Home `/` (#69, spec §8; replaces the #46 line and cards): the Jordaens band with `01` and the title, then
+ * `02` `Platforms` with exactly two lines, each `Open` a link. Nothing else between the bar and the footer.
+ * Static: no price fetches, no calculator code.
+ */
 export function Home() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 pt-16 pb-24 sm:px-8 sm:pt-24">
-      <h1 className="max-w-3xl text-balance text-3xl leading-tight font-normal tracking-tight sm:text-5xl">
-        {HOME_LINE}
-      </h1>
-      <ul className="mt-12 grid gap-px border border-line bg-line sm:mt-16 sm:grid-cols-2">
-        {HOME_CARDS.map((card) => (
-          <li key={card.href} className="bg-paper text-ink">
-            <a
-              href={card.href}
-              data-testid="home-card"
-              className="group flex h-full flex-col gap-3 p-8 transition-colors hover:bg-ink hover:text-card sm:p-10"
-            >
-              <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-2xl leading-none font-normal tracking-tight">{card.title}</h2>
-                <span aria-hidden="true" className="text-muted group-hover:text-card/70">
-                  →
-                </span>
-              </div>
-              <p className="text-muted first-letter:uppercase group-hover:text-card/75">
-                {card.text}
-              </p>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </main>
+    <div className="home">
+      <HomeHero />
+      <main className="mx-auto w-full max-w-6xl px-5 pt-10 pb-20 sm:px-8 lg:pt-14 lg:pb-24">
+        <section aria-labelledby="platforms-heading" data-testid="platforms">
+          <p className="home-label">{HOME_PLATFORMS_NUMERAL}</p>
+          <h2
+            id="platforms-heading"
+            className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk"
+          >
+            {HOME_PLATFORMS_HEADING}
+          </h2>
+          <ul className="mt-8">
+            {HOME_PLATFORMS.map((line) => {
+              const id = `platform-${line.name.toLowerCase()}`;
+              return (
+                <li
+                  key={line.href}
+                  className="home-line"
+                  data-testid="platform-line"
+                  data-href={line.href}
+                >
+                  <h3 id={id} className="home-name text-xl leading-tight font-normal text-chalk">
+                    {line.name}
+                  </h3>
+                  <p className="home-text text-sm leading-normal text-dim">{line.text}</p>
+                  <a
+                    href={line.href}
+                    className="home-open"
+                    aria-describedby={id}
+                    data-testid="platform-open"
+                  >
+                    {HOME_OPEN}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      </main>
+    </div>
   );
 }

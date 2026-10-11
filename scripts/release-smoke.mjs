@@ -9,7 +9,8 @@
  *   node scripts/release-smoke.mjs <base-url> preview   # a Vercel preview / release candidate (flag on)
  *
  * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard, the current
- * page marked, Dashboard shown even with the flag off), home `/` with exactly two cards, the footer (exactly "Orpheus Wisdom"),
+ * page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title and exactly two
+ * Platforms lines with their `Open` links), the footer (exactly "Orpheus Wisdom"),
  * the calculator at `/calculator`, `/?query` → `/calculator?query`, noindex meta + X-Robots-Tag on every
  * page, and the calculator's VOD.L refusal (GET /api/chart: 400 with the exact message).
  *
@@ -49,16 +50,22 @@ const noindex = (r) =>
   /<meta name="robots" content="noindex, nofollow"\/?>/.test(r.body) && /noindex/i.test(r.robots);
 const footer = (r) =>
   /<footer[^>]*><p[^>]*data-testid="site-footer"[^>]*>Orpheus Wisdom<\/p><\/footer>/.test(r.body);
-const cards = (r) =>
+const platforms = (r) =>
   [
     ...r.body.matchAll(
-      /<a href="([^"]+)" data-testid="home-card"[\s\S]*?<h2[^>]*>([^<]*)<\/h2>[\s\S]*?<p[^>]*>([^<]*)<\/p>/g,
+      /<li [^>]*data-testid="platform-line"[^>]*>[\s\S]*?<h3[^>]*>([^<]*)<\/h3>[\s\S]*?<p[^>]*>([^<]*)<\/p>[\s\S]*?<a href="([^"]+)"[^>]*data-testid="platform-open"[^>]*>([^<]*)<\/a>/g,
     ),
   ]
     .map((m) => m.slice(1).join("|"))
     .join(" ");
-const HOME_CARDS =
-  "/calculator|Calculator|compare a lump sum with contributions /dashboard|Dashboard|holdings, value, stored figures";
+const HOME_PLATFORMS =
+  "Calculator|Dollar-cost average calculator.|/calculator|Open " +
+  "Dashboard|The portfolio as a business: fundamentals for each name, and the whole.|/dashboard|Open";
+const homeHero = (r) =>
+  /<h1[^>]*>Investment driven by research\.<\/h1>/.test(r.body) &&
+  /<img [^>]*alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(
+    r.body,
+  );
 const page = (r, want) => r.status === 200 && noindex(r) && menuOk(r, want) && footer(r);
 const VOD_L = "VOD.L lists on LSE. US, EU, and CA listings only.";
 
@@ -67,8 +74,12 @@ const checks = [
   // Site shell (#46), every mode.
   [
     "/",
-    (r) => page(r, "Orpheus") && cards(r) === HOME_CARDS && !/<form|Compare plans/.test(r.body),
-    "200 home: noindex + X-Robots-Tag, menu (Orpheus current, Dashboard shown), exactly two cards, footer, no calculator",
+    (r) =>
+      page(r, "Orpheus") &&
+      homeHero(r) &&
+      platforms(r) === HOME_PLATFORMS &&
+      !/data-testid="home-card"|<form|Compare plans/.test(r.body),
+    "200 home: noindex + X-Robots-Tag, menu (Orpheus current, Dashboard shown), Jordaens hero + title, exactly two Platforms lines with Open links, footer, no calculator",
   ],
   [
     "/calculator",

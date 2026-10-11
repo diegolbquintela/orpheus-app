@@ -5,7 +5,7 @@ It is one site with three routes (#46):
 
 | Route | What |
 |---|---|
-| `/` | Home: one line plus two cards, **Calculator** ("compare a lump sum with contributions") and **Dashboard** ("holdings, value, stored figures"). It does no calculating |
+| `/` | Home (#69): the Jordaens hero with "Investment driven by research.", then **Platforms**: **Calculator** ("Dollar-cost average calculator.") and **Dashboard** ("The portfolio as a business: fundamentals for each name, and the whole."), each with an `Open` link. It does no calculating |
 | `/calculator` | The DCA vs lump-sum calculator (below). It lived at `/` until #46; `/` with a query string redirects here with the same query |
 | `/dashboard` | The signed-in dashboard, behind the `DASHBOARD_ENABLED` flag (see "Dashboard" below) |
 
@@ -99,7 +99,7 @@ preview or production:
 ```bash
 npx playwright install chromium                 # once
 node qa/tools/full.mjs --base-url https://<preview>.vercel.app   # opens /calculator (--calculator-path / for older deploys)
-node qa/tools/site.mjs --base-url https://<preview>.vercel.app   # menu, home cards, footer, $313,000 and VOD.L at /calculator
+node qa/tools/site.mjs --base-url https://<preview>.vercel.app   # menu, home Platforms links, footer, $313,000 and VOD.L at /calculator
 python3 qa/tools/fetch.py --base-url https://<preview>.vercel.app --out /tmp/orpheus-fetch
 ```
 
@@ -143,6 +143,13 @@ size-adjusted local fallback, so nothing in the hero moves when the font loads (
 in #72). Phone rules below 1024 px (fields stack, short band), the wide layout
 (form left, results right) from 1024 px. The calculator logic is unchanged ($313,000). QA:
 `qa/tools/calculator-page.mjs` at 360, 400, 1024 and 1440 px.
+
+**Landed: home (#69).** `/` has no white panel left: a Jordaens band (*Triumph of Frederick Henry, Prince of
+Orange*, 1652, public domain; source and licence in [`public/hero/home-SOURCE.md`](public/hero/home-SOURCE.md))
+with `01` and "Investment driven by research." lower left on a soft wash, left of the prince and his horses at
+every width; then `02` Platforms with two lines, Calculator and Dashboard, each with an `Open` link. The #46 line
+and the two cards are gone. Phone rules below 1024 px (a 3:2 crop of the painting), the wide crop from 1024 px.
+`/?query` still redirects to `/calculator?query`. QA: `qa/tools/home-page.mjs` at 360, 400, 1024 and 1440 px.
 
 ## Dashboard (released, behind a flag)
 
@@ -213,7 +220,7 @@ and site regression in one go with `qa/tools/dashboard-redesign.mjs` at 400, 102
   sign-in" below), and `GET /api/dashboard/status` returns `{"dashboard":"enabled"}` plus, off production,
   sign-in diagnostics (`signIn`, `signUpAllowList`; names and states only). Other methods: 405 JSON,
   `Allow: GET, HEAD`.
-- The calculator at `/calculator` doesn't read the flag or link to the dashboard. The site menu and the home card
+- The calculator at `/calculator` doesn't read the flag or link to the dashboard. The site menu and the home Platforms line
   link to `/dashboard` whatever the flag says (#46); they never read it.
 
 ```bash
