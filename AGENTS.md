@@ -91,7 +91,9 @@ affects the repo.
   reaches the horses on very wide screens. The home cards (`HOME_LINE`, `HOME_CARDS`, `data-testid="home-card"`)
   are gone: the Platforms lines are `[data-testid=platform-line][data-href=…]` with `[data-testid=platform-open]`.
   QA: `qa/tools/home-page.mjs` (ST3-01..07 + ST0-01..03 at 360 / 400 / 1024 / 1440; screenshots incl.
-  `hero-<w>.png` with the figure and the wash outlined). Q17 (home phone band) is on its default.
+  `hero-<w>.png` with the figure and the wash outlined). Q17 closed (EL): the home phone band stays
+  `min(66.667vw, 480px)` (240 px at 360, 267 px at 400); #72 owns the `tnum` punctuation and the calculator's
+  `w-full` above ≈ 1886 px.
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 
