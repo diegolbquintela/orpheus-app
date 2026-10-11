@@ -95,6 +95,14 @@ affects the repo.
   total containing it (Q14; `factorOf` / `householdMonthlyOf` return null, totals null-propagate like Q10); an
   override is household; one rate per line (Q16); no symbol, no converted column (Q15).
   Lines gain optional `currency` / `rate` in the expenses key (old lines read as household lines). No live FX.
+  #94 Overview and Update (spec section 15; Q17–Q23 open, simplest readings as built): `04` Overview (this month vs the
+  12-month average for Expenses / Income / Surplus; `Starting net assets`, `Growth rate (%)`; a `Future` toggle with 1 / 5 /
+  10 / 15 years; a recharts line chart, Expenses / Income on the left axis, Net assets on the right, plot aria-hidden) and
+  `05` Update (`Month` = the last 12 months incl. the current one; typed Expenses / Income per month). A month's figure =
+  typed, else (current month only) the page's `Total` / `Net income` monthly when > 0, else empty; the average = mean of
+  months with a figure; empty months use it; net assets = start + each month's surplus; Future: × (1 + g/100)^(1/12) +
+  average surplus monthly. Key `orpheus.finance.overview.v1`, `src/lib/finance/overview.ts`,
+  `src/components/personal-finance/overview-block.tsx`; the page takes an optional `now` (tests).
   Amounts stay unitless (Q2, kept by #87, Q15). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
   QA: `qa/tools/personal-finance.mjs`.

@@ -217,6 +217,14 @@ still show what you typed). No live rates: typed only. The household currency is
 each line's currency and rate in the expenses key (older lines read as household lines). Draft PR #100; EL decided Q12–Q16
 (multiply by the rate, default CAD, `—` without a rate, no symbols, one rate per line).
 
+**Overview and Update (#94).** Under `04 Overview`: this month against the 12-month average (Expenses, Income,
+Surplus), a chart of the three lines Expenses, Income and Net assets, a typed `Starting net assets` and `Growth rate (%)`,
+and a `Future` toggle (1, 5, 10 or 15 years) where net assets keep compounding at that rate with the average surplus
+invested each month while expenses and income stay on the 12-month average. Under `05 Update`: pick one of the last 12
+months (this one included) and type that month's Expenses and Income (e.g. June 2026 in October 2026); the average
+updates at once. This month uses the page's own monthly totals until you type it; months you leave empty use the
+average. Stored in `orpheus.finance.overview.v1`. Draft PR #101; the readings are open for EL (Q17–Q23).
+
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
 default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.

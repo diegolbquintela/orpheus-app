@@ -31,9 +31,14 @@
 //         525,000; override 100,000 → 475,000); PF-24 no valid rate → `Enter a number above 0.` and — in every household
 //         figure and total containing the line (Q14), its own Monthly / Yearly as typed; household = the
 //         line's currency → × 1; PF-25 orpheus.finance.currency.v1 restored, layout, focus, AA, CLS with a foreign line
+//   #94 (today fixed at 11 October 2026): PF-26 the 04 Overview / 05 Update copy (empty page); PF-27 / PF-28 the current
+//         month takes the page (1,750 / 11,200), June 2026 typed (4,000 / 9,000) → average 2,875 / 10,100 / 7,225, the Month
+//         dropdown (12, October 2026 … November 2025), clearing a month; PF-29 the chart (three lines, net assets 96,700);
+//         PF-30 Future 1 / 5 / 10 / 15 years at growth 5 (190,204.37 / 613,370.68), a bad growth rate; PF-31 the overview
+//         key restored, malformed → empty; PF-32 layout, 44 px, focus, AA, axe, no gold, CLS with the overview restored
 //   PF-10 is the other tools' job (site-style-regression.mjs runs them all, site.mjs the $313,000).
 // Screenshots: pf-empty-<w>.png, pf-income-<w>.png, pf-equity-<w>.png, pf-filled-<w>.png, pf-account-<w>.png, pf-check-<w>.png,
-//   pf-fx-<w>.png (#87: the foreign line).
+//   pf-fx-<w>.png (#87: the foreign line), pf-overview-<w>.png and pf-overview-section-<w>.png (#94).
 //   node qa/tools/personal-finance.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -58,6 +63,7 @@ const KEY = "orpheus.finance.expenses.v1";
 const INCOME_KEY = "orpheus.finance.income.v1";
 const EQUITY_KEY = "orpheus.finance.equity.v1";
 const CURRENCY_KEY = "orpheus.finance.currency.v1";
+const OVERVIEW_KEY = "orpheus.finance.overview.v1";
 const CODES = ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
 // A line's Currency choices under the default household CAD (Q13): CAD first, then the other nine in list order.
 const CODES_CAD = ["CAD", "USD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
@@ -111,6 +117,25 @@ const emptyTexts = (wide) => [
   "↳ Add expense",
   ...totalTexts("Variable total", wide),
   ...totalTexts("Total", wide),
+  // #94: 04 Overview and 05 Update (the chart's plot is aria-hidden and skipped; its legend counts).
+  "04",
+  "Overview",
+  "This month",
+  "12-month average",
+  "Expenses", "—", "—",
+  "Income", "—", "—",
+  "Surplus", "—", "—",
+  "Starting net assets",
+  "Growth rate (%)",
+  "Future",
+  "Expenses",
+  "Income",
+  "Net assets",
+  "05",
+  "Update",
+  "Month",
+  "Expenses",
+  "Income",
 ];
 
 // In the page: WCAG contrast of every visible text node's element against its effective background.
@@ -180,7 +205,7 @@ const mainTexts = (page) =>
     for (let t = w.nextNode(); t; t = w.nextNode()) {
       const s = t.nodeValue.trim();
       const el = t.parentElement;
-      if (!s || el.closest("option, select")) continue;
+      if (!s || el.closest("option, select, .pf-chart-plot")) continue;
       const r = el.getBoundingClientRect();
       if (r.width > 1 && r.height > 1) out.push(s);
     }
@@ -199,23 +224,24 @@ const totals = async (page, id) => {
 };
 
 // PF-09: one cold load (fresh context, cache disabled), every layout shift counted; `stored` restores lines.
-async function coldCls(browser, viewport, mobile, stored) {
+async function coldCls(browser, viewport, mobile, stored, overview = null) {
   const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
   const page = await ctx.newPage();
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Network.enable");
   await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-  await page.addInitScript(([key, value, incomeKey, income, equityKey, equity, currencyKey, currency]) => {
+  await page.addInitScript(([key, value, incomeKey, income, equityKey, equity, currencyKey, currency, overviewKey, overview]) => {
     if (value) localStorage.setItem(key, value);
     if (income) localStorage.setItem(incomeKey, income);
     if (equity) localStorage.setItem(equityKey, equity);
     if (currency) localStorage.setItem(currencyKey, currency);
+    if (overview) localStorage.setItem(overviewKey, overview);
     window.__shifts = [];
     new PerformanceObserver((list) => {
       for (const e of list.getEntries())
         window.__shifts.push({ value: e.value, sources: (e.sources ?? []).map((s) => (s.node?.textContent ?? s.node?.nodeName ?? "").slice(0, 30)) });
     }).observe({ type: "layout-shift", buffered: true });
-  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null, EQUITY_KEY, stored ? STORED_RATES : null, CURRENCY_KEY, stored ? STORED_CURRENCY : null]);
+  }, [KEY, stored ?? null, INCOME_KEY, stored ? STORED_INCOME : null, EQUITY_KEY, stored ? STORED_RATES : null, CURRENCY_KEY, stored ? STORED_CURRENCY : null, OVERVIEW_KEY, overview]);
   await page.goto(`${base}${PATH}`, { waitUntil: "load" });
   await page.waitForTimeout(1500);
   const m = await page.evaluate(() => ({ shifts: window.__shifts, lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length }));
@@ -231,6 +257,11 @@ const STORED_INCOME = JSON.stringify({
 });
 const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
 const STORED_CURRENCY = JSON.stringify({ household: "USD" });
+// #94: today is fixed at 11 October 2026 (local) for the Overview checks; June typed, Future on, 5 years.
+const TODAY = new Date(2026, 9, 11, 12);
+const STORED_OVERVIEW = JSON.stringify({ start: "10,000", growth: "5", future: true, years: 5, months: { "2026-06": { expenses: "4,000", income: "9,000" } } });
+const OV_EXPENSES = JSON.stringify({ fixed: [{ id: "o1", name: "Rent", amount: "1,750", per: "month", equity: "", account: "" }], variable: [], accounts: [] });
+const OV_INCOME = JSON.stringify({ people: [{ id: "o2", name: "Me", wages: "134,400", bonus: "", tax: "", share: "100", countWages: true, countBonus: false }] });
 const STORED = JSON.stringify({
   fixed: [
     { id: "q1", name: "Rent", amount: "1,000", per: "month", equity: "300,000", account: "Chequing" },
@@ -634,25 +665,116 @@ try {
       await ctx.close().catch(() => {});
     }
 
+    // #94 PF-26..32: Overview and Update, today fixed at 11 October 2026; the page at Total 1,750 / Net income 11,200.
+    {
+      const c3 = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
+      const p3 = await c3.newPage();
+      const errs = [];
+      const api3 = [];
+      p3.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
+      p3.on("request", (q) => { if (new URL(q.url()).pathname.startsWith("/api/")) api3.push(new URL(q.url()).pathname); });
+      try {
+        await p3.clock.setFixedTime(TODAY);
+        await p3.addInitScript(([k, v, ik, iv]) => { if (!sessionStorage.getItem("seeded")) { localStorage.setItem(k, v); localStorage.setItem(ik, iv); sessionStorage.setItem("seeded", "1"); } }, [KEY, OV_EXPENSES, INCOME_KEY, OV_INCOME]);
+        await p3.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await p3.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+        const ov = () => p3.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, [...document.querySelectorAll(`[data-testid=pf-ov-${r}] [role=cell]`)].map((c) => c.textContent.trim())])));
+        const chart = () => p3.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: f.dataset.netLast, lines: [...f.querySelectorAll(".recharts-line-curve")].map((p) => p.getAttribute("stroke")), hidden: f.querySelector(".pf-chart-plot").getAttribute("aria-hidden"), legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()), h: Math.round(f.querySelector(".pf-chart-plot").getBoundingClientRect().height) }));
+        const t0 = await ov();
+        const opts = await p3.getByTestId("pf-month").evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
+        const ph0 = [await p3.getByTestId("pf-month-expenses").getAttribute("placeholder"), await p3.getByTestId("pf-month-income").getAttribute("placeholder")];
+        check(`${tag} PF-27 / PF-28 the current month takes the page (1,750 / 11,200 / 9,450, same average); Month: 12 choices October 2026 … November 2025, October chosen; placeholders = the page`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(ph0) === '["1,750","11,200"]', { t0, opts, ph0 });
+        await p3.getByTestId("pf-month").selectOption("2026-06");
+        await p3.getByTestId("pf-month-expenses").fill("4,000");
+        await p3.getByTestId("pf-month-income").fill("9,000");
+        const t1 = await ov();
+        check(`${tag} PF-27 typing June 2026 (4,000 / 9,000) updates the average: 2,875 / 10,100 / 7,225; this month unchanged`, JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }), t1);
+        await p3.getByTestId("pf-start").fill("10,000");
+        const ch1 = await chart();
+        check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 96,700.00`, ch1.months === "12" && ch1.net === "96700.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
+        await p3.getByTestId("pf-growth").fill("5");
+        const tog = p3.getByTestId("pf-future-toggle");
+        const off = [await tog.getAttribute("aria-pressed"), await p3.getByTestId("pf-year").count()];
+        await tog.click();
+        const yrs = await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => [b.textContent.trim(), b.getAttribute("aria-pressed")]));
+        const f1 = await chart();
+        await p3.locator("[data-testid=pf-year][data-years='5']").click();
+        const f5 = await chart();
+        await p3.locator("[data-testid=pf-year][data-years='15']").click();
+        const f15 = await chart();
+        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: 1 year 24 points → 190,204.37; 5 years 72 → 613,370.68; 15 years 192`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "24" && f1.net === "190204.37" && f5.months === "72" && f5.net === "613370.68" && f15.months === "192", { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: f15.months });
+        await p3.getByTestId("pf-growth").fill("five");
+        const gErr = await p3.getByTestId("pf-ov-fields").getByTestId("pf-error").textContent().catch(() => null);
+        const f15b = await chart();
+        await p3.getByTestId("pf-growth").fill("5");
+        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: 96,700 + 180 × 7,225)`, gErr === "Enter a number, 0 or more." && f15b.net === (96700 + 180 * 7225).toFixed(2), { gErr, net: f15b.net });
+        await p3.locator("[data-testid=pf-year][data-years='5']").click();
+        // Layout.
+        const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(p3.getByTestId("pf-month")), me: await box(p3.getByTestId("pf-month-expenses")), mi: await box(p3.getByTestId("pf-month-income")), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
+        const row = viewport.width >= 640;
+        const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.mi.h >= 44 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 && lb.month.y === lb.me.y && lb.me.y === lb.mi.y : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x && lb.me.y > lb.month.y && lb.mi.y > lb.me.y) && lb.table.w <= 640;
+        check(`${tag} PF-32 layout: ${row ? "fields in one row (≤ 16rem)" : "fields stacked full width"}; every control ≥ 44 px; chart plot ${wide ? 320 : 240} px; table ≤ 40rem`, okLayout, lb);
+        await p3.getByTestId("pf-growth").focus();
+        await p3.keyboard.press("Tab");
+        const ring = await tog.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, parseFloat(c.outlineWidth), c.outlineColor, document.activeElement === e]; });
+        await p3.evaluate(() => document.activeElement?.blur());
+        const scroll = await p3.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        const scan = await contrastScan(p3);
+        const gold = await p3.evaluate(() => [...document.querySelectorAll("main *")].filter((e) => { const c = getComputedStyle(e); return [c.color, c.backgroundColor, c.borderColor, e.getAttribute("stroke") ?? "", e.getAttribute("fill") ?? ""].some((v) => /gold|rgb\(2[0-4]\d, 1[6-9]\d, [0-9]{1,2}\)|#c9a|#d4af/i.test(v)); }).length);
+        check(`${tag} PF-32 Future (reached by Tab) focus ring 2 px chalk; no horizontal scroll; AA for every text (incl. chart ticks); no gold`, ring[0] !== "none" && ring[1] >= 2 && ring[2] === CHALK && ring[3] && scroll <= 0 && scan.bad.length === 0 && gold === 0, { ring, scroll, bad: scan.bad, gold });
+        if (AXE) {
+          await p3.addScriptTag({ content: AXE });
+          const v = await p3.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast", "label", "select-name", "button-name", "aria-valid-attr-value", "aria-required-children", "aria-required-parent", "label-content-name-mismatch"] } })).violations.map((x) => ({ id: x.id, nodes: x.nodes.length, html: x.nodes[0]?.html.slice(0, 80) })));
+          check(`${tag} PF-32 axe-core with Overview / Update filled and Future on: no violation`, v.length === 0, v);
+        }
+        await p3.getByTestId("pf-overview").scrollIntoViewIfNeeded();
+        const shotO = join(CFG.out, `pf-overview-${viewport.width}.png`);
+        await p3.screenshot({ path: shotO, fullPage: true });
+        R.shots.push(shotO);
+        const shotS = join(CFG.out, `pf-overview-section-${viewport.width}.png`);
+        await p3.locator("section[aria-labelledby=pf-overview]").screenshot({ path: shotS });
+        R.shots.push(shotS);
+        // Storage + reload.
+        const stored = await p3.evaluate((k) => [localStorage.getItem(k), Object.keys(localStorage).sort()], OVERVIEW_KEY);
+        await p3.reload({ waitUntil: "networkidle" });
+        await p3.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+        await p3.getByTestId("pf-month").selectOption("2026-06");
+        const back = { t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(p3.getByTestId("pf-month-expenses")), await val(p3.getByTestId("pf-month-income"))], net: (await chart()).net };
+        check(`${tag} PF-31 storage: ${OVERVIEW_KEY} holds start / growth / Future / 5 years / June as typed (only the five PF keys); a reload restores it all (average 2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify([CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, OVERVIEW_KEY].filter((k) => stored[1].includes(k)).sort()) && stored[1].includes(OVERVIEW_KEY) && JSON.stringify(back) === JSON.stringify({ t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "9,000"], net: "613370.68" }), { stored, back });
+        // Clearing June empties it.
+        await p3.getByTestId("pf-month-expenses").fill("");
+        await p3.getByTestId("pf-month-income").fill("");
+        const t2 = await ov();
+        const months = await p3.evaluate((k) => JSON.parse(localStorage.getItem(k)).months, OVERVIEW_KEY);
+        check(`${tag} PF-27 clearing June's fields empties the month (average back to 1,750 / 11,200; dropped from storage)`, JSON.stringify(t2) === JSON.stringify(t0) && JSON.stringify(months) === "{}", { t2, months });
+        check(`${tag} PF-31 no /api request; no page error (Overview / Update)`, api3.length === 0 && errs.length === 0, { api3, errs });
+      } catch (e) {
+        check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+      } finally {
+        await c3.close().catch(() => {});
+      }
+    }
+
     // PF-07 a new context starts empty; a malformed value shows the empty page without an error.
-    for (const [what, value] of [["a new browser context", null], ["malformed stored values (all four keys)", "{not json"]]) {
+    for (const [what, value] of [["a new browser context", null], ["malformed stored values (all five keys)", "{not json"]]) {
       const c2 = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
       const p2 = await c2.newPage();
       const errs = [];
       p2.on("pageerror", (e) => errs.push(String(e.message).slice(0, 80)));
-      if (value) await p2.addInitScript(([k, ik, ek, ck, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); localStorage.setItem(ek, v); localStorage.setItem(ck, v); }, [KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, value]);
+      if (value) await p2.addInitScript(([k, ik, ek, ck, ok, v]) => { localStorage.setItem(k, v); localStorage.setItem(ik, v); localStorage.setItem(ek, v); localStorage.setItem(ck, v); localStorage.setItem(ok, v); }, [KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY, value]);
       await p2.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await p2.locator("[data-testid=pf-area][data-ready=true]").waitFor();
       const n = await p2.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
       const hh = await p2.getByTestId("pf-household").inputValue();
-      check(`${tag} PF-07 / PF-25 ${what}: the empty page, Household currency CAD (Q13), no error`, n === 0 && hh === "CAD" && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
+      const fut = await p2.getByTestId("pf-future-toggle").getAttribute("aria-pressed");
+      check(`${tag} PF-07 / PF-25 / PF-31 ${what}: the empty page, Household currency CAD (Q13), Future off, no error`, n === 0 && hh === "CAD" && fut === "false" && errs.length === 0 && JSON.stringify(await mainTexts(p2)) === JSON.stringify(emptyTexts(wide)), { n, hh, errs });
       await c2.close();
     }
 
     // PF-09 strict CLS 0, empty and restored.
-    for (const [what, stored] of [["empty", null], ["restored", STORED]]) {
+    for (const [what, stored, ov] of [["empty", null, null], ["restored", STORED, null], ["restored + overview (June typed, Future on, 5 years)", STORED, STORED_OVERVIEW]]) {
       const runs = [];
-      for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(browser, viewport, mobile, stored));
+      for (let i = 0; i < CLS_RUNS; i++) runs.push(await coldCls(browser, viewport, mobile, stored, ov));
       const worst = Math.max(...runs.map((r) => r.total));
       check(`${tag} PF-09 page CLS exactly 0, ${what}${stored ? " (4 lines incl. a BRL one, 2 people, rates, household USD)" : ""} (${CLS_RUNS} cold loads, every shift)`, worst === 0 && runs.every((r) => r.lines === (stored ? 6 : 0)), runs.map((r) => ({ cls: Math.round(r.total * 1e5) / 1e5, lines: r.lines, sources: r.sources.slice(0, 4) })));
     }
