@@ -117,6 +117,9 @@ affects the repo.
   hydration (a refresh with a multi-name basket adds rows after load; the hero never moves). QA:
   `qa/tools/saved-searches.mjs` (ST4-19..24 at 360 / 400 / 1024 / 1440: closed by default, list + Load, auto-save,
   cap 5, refresh restore, no auth, the two keys only, a second context sees nothing, clear-site-data wipes).
+  EL answers (2026-10-11, docs-only): Q18 accepted (multi-name restore page CLS under 0.1; keep restoring on
+  load, never hide the form or restore only on tap); Q19 the line shows the search's own contribution, no
+  weekly / monthly; Q20 the button always visible, closed by default, empty list `No saved searches yet.`
 
 ## Dashboard redesign: mobile first (epic #53). Read this before any dashboard work
 
