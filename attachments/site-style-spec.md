@@ -25,6 +25,7 @@ The calculator rules stay in `attachments/dca-app-spec.md` and the dashboard dat
 | 2026-10-11, ≈ 10:09 ET | **#73 kickoff (Diego via CoS; EL):** sign-in dark in the shared shell: email, password and a `Create an account` link only; sign-in logic unchanged; its own field / label classes (Q10); charcoal page, chalk type, underline fields, AA contrast, `color-scheme: dark`. Section 9 is the build spec; ST5b-04 / -05 added. Simplest reading of the code against Q4 (noted in the PR): the heading and submit stay (`Sign in`; `Create account` in create-account mode, as today); the link keeps today's in-place mode switch (a `button`, so no auth or route change) with the text `Create an account` / `Sign in`; the deployment-state line `Sign-in is not configured on this deployment.` stays (it replaces the form only when auth is off; `check-dashboard-built` reads it). |
 | 2026-10-11, ≈ 10:38 ET | **#72 kickoff (Diego via CoS; EL):** leave-outs and regression on the shipped pages (home, calculator, sign-in, the shell and the dark 404); #71 stays on hold (ST0-05 still checked). In scope: ST6-01..05; **Q16 done here:** Schibsted Grotesk self-hosted (the Google Fonts dependency dropped), so the page CLS is a strict 0 at 360 / 400 / 1024 / 1440 with every shift counted (ST3-01 / ST4-01 tightened from < 0.001); the `tnum` spaced punctuation (`research .`, `business :`) fixed on the dark pages; the bar links made ≥ 44 px tap targets (QA N1 on #73) without growing the bar; a minimal dark 404. Dated schedule wording dropped (section 3 is an order, not days). ST6-06..09 added; `qa/tools/site-style-regression.mjs` runs the regression. |
 | 2026-10-11, ≈ 10:58 ET | **EL answers on #72 (PR #83 at `3759f95`; docs-only commit, no code change):** (1) **font loading decided:** `font-display: optional` and a strict page CLS of 0 are the point of Q16; a slow first visit may stay in the size-adjusted fallback for that one page view; never swap the font in a way that brings CLS above 0. (2) **Figures decided:** proportional figures on the dark pages; don't turn `tabular-nums` (or `tnum`) back on for the result values or anywhere else there: the wide comma and spaced punctuation are worse than losing digit alignment; `/dashboard` keeps `main`'s setting. (3) **404 wording decided:** `Page not found.` |
+| 2026-10-11, ≈ 11:33 ET | **#84 kickoff (Diego via CoS; EL):** the **lyre** replaces the geometric mark on every page (inline SVG in the bar beside `Orpheus`, decorative; `favicon.svg`), same bar (45 px, ≥ 44 px tap targets) and footer; ST1-05 added. The Personal Finance page (`/personal-finance`) follows `attachments/personal-finance-spec.md` (PF rows) and every shell rule here; the bar's items (ST1-01) and home (ST3-03) are unchanged until EL answers its Q1 (navigation). |
 
 What "extended" means against today's site (`main`): today the bar is charcoal (`bg-ink`), the calculator has a
 charcoal header band, and the pages and the footer are white (`--color-paper`). The dark brief makes the bar,
@@ -149,6 +150,9 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   `Calculator` and `Dashboard` right, no dropdowns; the current page `aria-current="page"` in chalk with an
   underline, the others in dim; plain links (full page loads), so `/dashboard` keeps its server gate. Same
   component and items on every page, including `/dashboard`, `/dashboard/sign-in` and a 404.
+  **Lyre mark (#84):** a simple lyre (inline SVG, 20 × 20 px, `currentColor` strokes, `aria-hidden`) sits left of
+  `Orpheus` inside the same link and replaces the geometric mark (`public/favicon.svg`, two bars, is now the same
+  lyre in chalk on charcoal); see `attachments/personal-finance-spec.md` §8.
   **Tap targets (#72, QA N1 on #73):** each bar link is a 44 px tall hit area (the bar's full inner height;
   text and underline where they were), so the bar stays 45 px (44 + the 1 px `hair` rule) and ≤ 48 px (ST1-01).
 - **Font (#72, Q16):** Schibsted Grotesk self-hosted from `public/fonts/schibsted-grotesk/` (the Google Fonts
@@ -409,6 +413,7 @@ has no hover rule.
 | ST1-02 | The current page's item has `aria-current="page"` and a visible mark (chalk and underline; the others dim): exactly one item on `/` (Orpheus), `/calculator`, `/dashboard` and `/dashboard/sign-in` (Dashboard); none on a 404. |
 | ST1-03 | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
 | ST1-04 | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
+| ST1-05 | (#84) The lyre mark: on every page the bar's `Orpheus` link starts with the inline lyre SVG (20 × 20 px, chalk via `currentColor`, `aria-hidden`), the link text stays exactly `Orpheus`, the bar stays 45 px and the link ≥ 44 px tall; `/favicon.svg` is the lyre (no two-bar geometric mark left); the footer stays exactly `Orpheus Wisdom`. |
 
 **ST3: home `/` (#69)**
 

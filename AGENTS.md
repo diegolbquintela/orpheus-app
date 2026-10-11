@@ -65,6 +65,13 @@ affects the repo.
   classes. `/dashboard` keeps `main`'s body `tnum` (ST0-05). Bar links are 44 px tall hit areas inside the 45 px
   bar. The 404 is `src/components/not-found.tsx` (`Page not found.`), the root route's `notFoundComponent`.
   QA runner: `qa/tools/site-style-regression.mjs` (every shipped-page tool + the ST6 checks).
+- **Lyre mark (#84, ST1-05):** the bar's `Orpheus` link starts with an inline lyre SVG (`src/components/lyre.tsx`,
+  decorative, `aria-hidden`); `public/favicon.svg` is the same lyre. Don't bring the two-bar mark back.
+- **Personal Finance (#84 v1.1+):** `attachments/personal-finance-spec.md` (PF rows; business user the CFO) on top of
+  every shell rule here. `/personal-finance`: Fixed and Variable expenses, this browser's `localStorage` only
+  (`orpheus.finance.expenses.v1`; no auth, no server write, no `/api/*`), manual entry only (no Plaid, no feeds).
+  `% of income` shows `—` until #85; `Equity to cover` is a typed amount until #86. Page-only classes `.pf-*`.
+  The bar and home are unchanged until EL picks the navigation (PF Q1). QA: `qa/tools/personal-finance.mjs`.
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.

@@ -1,0 +1,140 @@
+# Personal Finance spec (#84 v1.1; later #85 income, #86 equity cover, #87 foreign currency)
+
+Source of truth for the Personal Finance page, with `attachments/site-style-spec.md` for everything the shared dark
+shell already rules (bar, footer, tokens, AA, CLS 0, no painting, no instruction text). Harness first, then this
+spec, then the work; the spec beats chat. If they disagree, stop and ask EL. Business user: the **CFO** (reviews
+later); Engineering Lead owns the tech loop.
+
+## 1. Decision log
+
+| When | Decision |
+|---|---|
+| 2026-10-11 | **Brief (Diego via CoS, #84):** Personal Finance v1 approved, high priority. Manual entry only, no Plaid, no hires. Dark, the same site style as the calculator / home / sign-in shell. v1.1 = the page, Fixed and Variable expenses, and the lyre mark (shipped with the page). Income (#85), equity-cover math (#86) and a foreign-currency line (#87) are later tickets. The CFO is the business user (issue comment, 15:23 UTC). |
+| 2026-10-11, ≈ 11:33 ET | **#84 kickoff (EL):** the lyre replaces the geometric mark on every page (inline SVG; bar stays 45 px with ≥ 44 px tap targets); the page lives in the shared dark shell. Simplest readings without #85 / #86: `% of income` shows `—` until income exists (#85); `Equity to cover` is a manual number per line (not computed) until #86 wires the rate. Storage: this browser's `localStorage` only (the #80 saved-searches pattern), no auth, no server write. Not started: #85, #86, #87, Plaid, live feeds, the dashboard (#71 on hold). |
+
+## 2. The brief (verbatim, issue #84)
+
+> 1. **Lyre mark:** replace the geometric mark with a simple lyre on every page. Same bar, same footer `Orpheus Wisdom`. Prefer shipping with this page/shell work (not a separate PR).
+> 2. **Personal Finance page** (dark, shared shell):
+>    - **Expenses: Fixed and Variable.** Columns: Name, % of income, % of expenses, Monthly, Yearly, Equity to cover, Account.
+>    - Account is a dropdown; user can add a choice.
+>    - Totals for Fixed, for Variable, and for both.
+
+## 3. Route and navigation
+
+- Route: `/personal-finance` (`src/routes/personal-finance.tsx`), a dark page in the shared shell (`shellPage` →
+  `dark`, `color-scheme: dark`), title `Personal finance · Orpheus Wisdom`, noindex meta + `X-Robots-Tag` like every
+  page, the one Analytics script from the root.
+- **Navigation: open question (Q1).** The site-style harness fixes the bar at exactly `Orpheus`, `Calculator`,
+  `Dashboard` (ST1-01) and home at exactly two Platforms lines (ST3-03, approved copy). Neither the brief nor the
+  kickoff says where the page is linked, so v1.1 does **not** change the bar or home: the page is reached by its URL,
+  and no bar item is current on it (like the 404). EL picks the link (Q1); it is a small follow-up either way.
+
+## 4. Exact copy (tests and QA compare these strings)
+
+| Where | String |
+|---|---|
+| Numeral + title (`h1`) | `01`, `Personal finance.` |
+| Section | `02`, `Expenses` |
+| Groups (`h3`) | `Fixed`, `Variable` |
+| Column labels, in order | `Name`, `% of income`, `% of expenses`, `Monthly`, `Yearly`, `Equity to cover`, `Account` |
+| Add a line (one per group) | `↳ Add expense` |
+| Remove a line (`aria-label`) | `Remove expense` |
+| Account choices | `—` (none), then the user's accounts in the order added, then `Add account…` |
+| Adding an account | label `New account`, buttons `Add` and `Cancel` |
+| Group totals (row label) | `Fixed total`, `Variable total` |
+| Both (row label) | `Total` |
+| Field check (amounts) | `Enter a number, 0 or more.` |
+| Field check (new account) | `Name the account.` |
+| Not computed yet | `—` |
+
+No other text on the page (site-style ST6-02: no instruction text, no notes, no empty-state copy).
+
+## 5. Lines, columns and totals
+
+- Two groups, `Fixed` then `Variable`, each a list of lines; a line is one expense. New page: each group has no
+  lines, only its `↳ Add expense` and its total row (all `0` / `—`).
+- **Name:** text, as typed (≤ 80 characters).
+- **Monthly / Yearly:** both are inputs; the user types either. The one typed is stored as typed (`1,000` stays
+  `1,000`, like #80); the other shows the conversion (Yearly = Monthly × 12; Monthly = Yearly ÷ 12). Typing in the
+  other field makes it the typed one. Amounts read with commas dropped; empty reads as 0; a non-number or a negative
+  number shows the field check `Enter a number, 0 or more.` under the field (alert colour, `aria-invalid`) and the
+  line counts as 0 in every total and percentage until fixed.
+- **% of expenses:** the line's monthly amount ÷ the monthly total of **both** groups × 100, one decimal and `%`
+  (e.g. `12.5%`); `—` while that total is 0. A group total's `% of expenses` is the group's share of both; `Total`
+  shows `100.0%` (or `—` at 0).
+- **% of income:** `—` on every line and total until #85 adds income. Not an input, no number invented.
+- **Equity to cover:** until #86 a manual amount per line (typed, stored as typed, the same field check), summed in
+  the totals; #86 replaces it with the amount computed from the user's withdrawal rate (the typed values are then
+  dropped or kept as an override: #86 decides, Q3).
+- **Account:** a dropdown per line: `—`, the accounts, `Add account…`. Choosing `Add account…` opens an inline
+  `New account` field with `Add` and `Cancel` under that line; `Add` trims the name, refuses an empty one
+  (`Name the account.`), reuses an existing account with the same name (case-insensitive) instead of a duplicate,
+  appends a new one to the shared list (≤ 40 characters, ≤ 50 accounts) and selects it on that line. The account
+  list is shared by both groups. An account is never removed in v1.1.
+- **Totals:** per group (`Fixed total`, `Variable total`) and for both (`Total`): Monthly, Yearly (Monthly × 12),
+  `% of expenses`, `% of income` (`—`), Equity to cover. Totals are computed, never inputs.
+- **Number format:** grouped with commas, up to two decimals, no trailing zeros (`1,200`, `83.33`); no currency
+  symbol until a household currency exists (#87 speaks of one; Q2). Percentages with one decimal.
+- **Remove:** each line has a remove button (`Remove expense`); no confirmation (manual data, nothing on a server).
+
+## 6. Storage (v1.1)
+
+- This browser's `localStorage` only, one key `orpheus.finance.expenses.v1`:
+  `{ fixed: Line[], variable: Line[], accounts: string[] }`, `Line = { id, name, amount, per: "month" | "year",
+  equity, account }` (strings as typed). Saved on every change; read once after hydration. A missing, malformed or
+  over-large value reads as an empty page (never throws). ≤ 100 lines per group.
+- No login, never the account, no cookie, no `sessionStorage` / IndexedDB, no server copy, no network request at
+  all from the page (no `/api/*`). Another device or browser sees nothing; clearing the site's data clears it.
+- **CLS 0 with a restore:** the server renders the hero (`01`, title) and an empty expenses area that is at least
+  the viewport tall (so the footer starts below the fold); the browser fills the area once after reading storage.
+  Nothing on screen moves: the strict page CLS of 0 (site-style ST6-06) holds on this page too.
+
+## 7. Layout (mobile first, the site's dark tokens)
+
+- No painting: a plain header band under the bar, `01` (12 px dim) and the `h1` (32 px on a phone, 44 px from
+  1024, chalk, weight 400), the content column `max-w-6xl` like the calculator.
+- **Phone (below 1024 px):** each line is a block: `Name` full width, then a two-column grid of labelled cells
+  (`Monthly`, `Yearly`, `% of expenses`, `% of income`, `Equity to cover`, `Account`), the remove button beside the
+  name. Labels visible on every line. Totals as label-value rows.
+- **Wide (from 1024 px):** one row per line in the column order of section 4, a column-label row above each group
+  (visual; every input keeps its own accessible label), the totals row aligned to the same columns.
+- Fields: the calculator's underline style in Personal-Finance-only classes (`.pf-*`; Q10 rule: never `.field` /
+  `.kicker`), 44 px tall, 16 px text; computed values 16 px chalk; labels 12 px upper-case dim; the field check
+  13 px in the alert colour under its field. Proportional figures (site-style ST6-07). AA everywhere, chalk focus
+  ring on every control, no horizontal page scroll at 360.
+
+## 8. Lyre mark (every page)
+
+- A simple lyre drawn in an inline SVG (two curved arms, a crossbar, a base and three strings; `currentColor`
+  strokes, no fill) replaces the geometric mark (the old `favicon.svg`: two bars). In the bar it sits left of the
+  `Orpheus` wordmark, inside the same link (20 × 20 px, `aria-hidden="true"`, decorative: the link text already
+  says Orpheus); the bar stays 45 px, the link a ≥ 44 px tap target (ST6-08). `public/favicon.svg` becomes the same
+  lyre in chalk on charcoal. The footer stays exactly `Orpheus Wisdom`. The platform PWA icon
+  (`public/__grok/icon-180.png`) is the builder's default, not the geometric mark; untouched (Q4).
+
+## 9. Questions for EL
+
+- **Q1. Navigation.** Where is the page linked? (a) a fourth bar item (e.g. `Finance`; amends ST1-01, must fit on
+  one line at 360 px), (b) a third home Platforms line (amends ST3-03 and the approved home copy), (c) both, or
+  (d) URL only for now (as built). Default: (d) until EL picks.
+- **Q2. Currency.** Amounts show no currency symbol until a household currency exists (#87). Or show `$` now?
+- **Q3. Equity to cover after #86.** Do the manual values typed in v1.1 become overrides of the computed amount,
+  or are they replaced?
+- **Q4. App icon.** Also replace the platform PWA icon (`__grok/icon-180.png`) with the lyre? Default: no (it is
+  the builder's file).
+
+## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
+
+| ID | Pass when |
+|---|---|
+| PF-01 | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (no current item, Q1) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
+| PF-02 | Exact copy (section 4): `01`, `Personal finance.`, `02`, `Expenses`, `Fixed`, `Variable`, the seven column labels in order, `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
+| PF-03 | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
+| PF-04 | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` shows `—` everywhere (no income until #85). |
+| PF-05 | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200). |
+| PF-06 | Account: a dropdown per line with `—`, the accounts and `Add account…`; adding one (inline `New account`, `Add`) selects it on that line and offers it on every line in both groups; an empty name shows `Name the account.`; a repeat name (any case) reuses the existing account. |
+| PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` key `orpheus.finance.expenses.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
+| PF-08 | Layout: phone (360, 400) lines stacked with labels, no horizontal page scroll; wide (1024, 1440) one row per line in column order with the column labels; every control ≥ 44 px tall; AA for every visible text (axe-core too), a ≥ 3:1 focus mark on every Tab stop; proportional figures (no `tnum`). |
+| PF-09 | Strict page CLS 0 on cold loads at every width, every shift counted, both empty and with stored lines restored. |
+| PF-10 | Logic and shell untouched elsewhere: the calculator `$313,000`, the dashboard content (ST0-05; no diff under `src/components/dashboard/*`, `src/routes/dashboard.tsx`), sign-in, home, the bar's items (ST1-01) and the site-style regression (`qa/tools/site-style-regression.mjs`) pass. |

@@ -63,6 +63,7 @@ always: ST0-05).
 | ST1-02 | BLOCK | The current page's item has `aria-current="page"` and a visible mark (chalk and underline; the others dim): exactly one item on `/` (Orpheus), `/calculator`, `/dashboard` and `/dashboard/sign-in` (Dashboard); none on a 404. |
 | ST1-03 | BLOCK | On every page the footer is charcoal and its only text is exactly `Orpheus Wisdom`. |
 | ST1-04 | BLOCK | One bar component and one footer component serve every page (same markup on `/dashboard` as elsewhere); plain links, so every page reaches every other in one click and `/dashboard` stays server-gated. |
+| ST1-05 | BLOCK | (#84) The lyre mark: on every page the bar's `Orpheus` link starts with the inline lyre SVG (20 × 20 px, chalk via `currentColor`, `aria-hidden`), the link text stays exactly `Orpheus`, the bar stays 45 px and the link ≥ 44 px tall; `/favicon.svg` is the lyre (no two-bar geometric mark left); the footer stays exactly `Orpheus Wisdom`. |
 
 ### ST3: home `/` (#69)
 
@@ -225,3 +226,22 @@ How to run DR6 (#59): `QA_EMAIL=… QA_PASSWORD=… node qa/tools/dashboard-rede
 (add `--empty` with `QA_EMPTY_EMAIL` / `QA_EMPTY_PASSWORD` for an account with no holdings; `--read-only` on
 production skips the add / chip-save tools). It runs at 400, 1024 and 1440 px; DR6-02 also covers shares,
 average cost and last close (spec 0.5 item 20).
+
+## Personal Finance (#84 v1.1; spec `attachments/personal-finance-spec.md`)
+
+Business user: the CFO. QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900 on `/personal-finance` with
+`qa/tools/personal-finance.mjs`; the no-regression pass on the shipped pages with `qa/tools/site-style-regression.mjs`
+(ST1-05 lyre on every page included). #85 income, #86 equity cover and #87 foreign currency add their rows here.
+
+| AC | Tier | Pass when (on the preview / live page) |
+|----|------|------------------------------|
+| PF-01 | BLOCK | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (no current item, Q1) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
+| PF-02 | BLOCK | Exact copy (section 4): `01`, `Personal finance.`, `02`, `Expenses`, `Fixed`, `Variable`, the seven column labels in order, `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
+| PF-03 | BLOCK | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
+| PF-04 | BLOCK | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` shows `—` everywhere (no income until #85). |
+| PF-05 | BLOCK | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200). |
+| PF-06 | BLOCK | Account: a dropdown per line with `—`, the accounts and `Add account…`; adding one (inline `New account`, `Add`) selects it on that line and offers it on every line in both groups; an empty name shows `Name the account.`; a repeat name (any case) reuses the existing account. |
+| PF-07 | BLOCK | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` key `orpheus.finance.expenses.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
+| PF-08 | BLOCK | Layout: phone (360, 400) lines stacked with labels, no horizontal page scroll; wide (1024, 1440) one row per line in column order with the column labels; every control ≥ 44 px tall; AA for every visible text (axe-core too), a ≥ 3:1 focus mark on every Tab stop; proportional figures (no `tnum`). |
+| PF-09 | BLOCK | Strict page CLS 0 on cold loads at every width, every shift counted, both empty and with stored lines restored. |
+| PF-10 | BLOCK | Logic and shell untouched elsewhere: the calculator `$313,000`, the dashboard content (ST0-05; no diff under `src/components/dashboard/*`, `src/routes/dashboard.tsx`), sign-in, home, the bar's items (ST1-01) and the site-style regression (`qa/tools/site-style-regression.mjs`) pass. |
