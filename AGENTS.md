@@ -50,6 +50,13 @@ affects the repo.
   width. Saved searches (#80, spec §7b): a `Saved searches` button above the basket, closed by default, the last
   5 calculated searches with `Load`, the last search restored on refresh; this browser's `localStorage` only.
   Logic files untouched; `$313,000` unchanged.
+- **Sign-in (#73, spec §9, ST5b-01..05):** `/dashboard/sign-in` dark in the shared shell: drop the white
+  `bg-paper text-ink` panel; heading, `Email`, `Password`, submit and the `Create an account` / `Sign in` mode
+  switch only (the invite-only note goes); sign-in-only classes `.signin*` (Q10: never `.field` / `.kicker`);
+  underline fields, chalk submit (Q6), `#ff8f87` errors (Q8), autofill stays dark. Only
+  `src/routes/dashboard_.sign-in.tsx` and `src/styles.css` change; the auth calls, the mode switch, the redirect,
+  the `Sign-in is not configured on this deployment.` state and everything under `src/lib/auth/*` stay as they
+  are. QA: `qa/tools/signin-page.mjs`.
 - **Constraints:** no hires; calculator rules and dashboard data rules unchanged; noindex meta + `X-Robots-Tag`
   and the analytics rules unchanged; AA contrast on dark; no extra instructions anywhere; no painting except the
   two heroes; no buy / sell wording, no disclaimer. #50, #51 and PR #52 stay paused until Oct 12.

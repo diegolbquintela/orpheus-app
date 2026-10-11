@@ -41,7 +41,7 @@ always: ST0-05).
 | Sat Oct 10 | #69 home | ST0-01..03, ST3 on `/`; ST0-05 | `/calculator` (ST4), sign-in, `/dashboard` |
 | Sun Oct 11 | #78 calculator polish | ST0-01..03, ST4 on `/calculator` (ST4-06, -10, -12, -13 amended; ST4-17 field checks, ST4-18 wide layout new); ST0-05 | `/` (ST3), sign-in, `/dashboard` |
 | Sun Oct 11 | #80 saved searches | ST0-01..03, ST4 on `/calculator` (ST4-19..24 new: button always visible and closed by default, list of 5 + Load, auto-save, refresh restore (multi-name restore page CLS < 0.1, EL Q18), no auth / `localStorage` only, isolation + clear-site-data) ; ST0-05 | `/` (ST3), sign-in, `/dashboard` |
-| Sun Oct 11 | #73 sign-in | ST0-01..03, ST5b on `/dashboard/sign-in`; ST0-05 | `/`, `/calculator`, `/dashboard` |
+| Sun Oct 11 | #73 sign-in | ST0-01..03, ST5b-01..05 on `/dashboard/sign-in` (ST5b-04 AA / color-scheme / autofill and ST5b-05 layout / noindex new; `qa/tools/signin-page.mjs`); ST0-05 | `/`, `/calculator`, `/dashboard` |
 | Sun Oct 11 | #72 leave-outs + regression | ST6 and every row above except ST5a, shipped pages | `/dashboard` (ST0-05) |
 | On hold | #71 dashboard | ST5a deferred | n/a |
 
@@ -118,6 +118,8 @@ always: ST0-05).
 | ST5b-01 | BLOCK | Dark: charcoal page, chalk type, underline fields (as ST4-03) using sign-in-only classes; `.field` and `.kicker` unchanged. |
 | ST5b-02 | BLOCK | The page shows exactly `Email`, `Password`, the submit button and the `Create an account` link, plus the heading (Q4) and an error line only after a failed attempt; the invite-only note is gone. Create-account mode mirrors it with a `Sign in` link. |
 | ST5b-03 | BLOCK | The auth logic is unchanged: sign-in, sign-up (allow-list), the redirect to `/dashboard`, the signed-out matrix in `scripts/release-smoke.mjs`. |
+| ST5b-04 | BLOCK | AA on dark at 360, 400, 1024 and 1440: every visible text ≥ 4.5:1 (labels `dim` 7.2:1, submit night on chalk 14.2:1, the error `#ff8f87` 7.3:1); the field underline (`rule`, 5.1:1) and the chalk focus ring ≥ 3:1; `color-scheme: dark` on `<html>` and `<body>`; an autofilled field stays charcoal with chalk text. |
+| ST5b-05 | BLOCK | Layout and page rules at 360, 400, 1024 and 1440: no horizontal scroll; fields, submit and link ≥ 44 px tall, the fields the column's full width; title `Sign in · Orpheus Wisdom`, noindex meta and `X-Robots-Tag` unchanged; the shell holds (ST1); no painting or CSS background image. |
 
 ### ST6: leave-outs, contrast and regression (#72, Sun Oct 11, shipped pages)
 
