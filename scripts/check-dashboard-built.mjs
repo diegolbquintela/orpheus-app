@@ -299,6 +299,20 @@ const isRedirectTo = (r, path) =>
     WITH_DB ? /data-testid="sign-in-form"/.test(signIn.body) : /Sign-in is not configured/.test(signIn.body),
     `${label}: sign-in page ${WITH_DB ? "lacks the form" : 'lacks "not configured"'}`,
   );
+  // #102 QA D1 (open redirect): only ?next=/personal-finance is kept; an external URL, //host or another path never
+  // reaches the page or a redirect (TanStack's canonical redirect drops it: 307 to /dashboard/sign-in).
+  for (const bad of ["https://evil.example", "//evil.example", "/calculator"]) {
+    const r = await call("GET", `/dashboard/sign-in?next=${encodeURIComponent(bad)}`, "true");
+    const to = r.location ? new URL(r.location, ORIGIN) : null;
+    check(
+      !r.body.includes(bad) && !(r.location ?? "").includes("evil") && (r.status === 200 || (to?.pathname === "/dashboard/sign-in" && !to.searchParams.has("next"))),
+      `${label}: GET /dashboard/sign-in?next=${bad} -> ${r.status} ${r.location} (the value must not survive)`,
+    );
+  }
+  {
+    const r = await call("GET", "/dashboard/sign-in?next=%2Fpersonal-finance", "true");
+    check(r.status === 200 && /next:"\/personal-finance"/.test(r.body), `${label}: GET /dashboard/sign-in?next=/personal-finance -> ${r.status} (kept)`);
+  }
   for (const path of SESSION_API_PATHS) {
     const r = await call("GET", path, "true");
     check(
@@ -449,6 +463,21 @@ if (!WITH_DB) {
     check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(pf.body), `${label}: signed in, GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
     check(JSON.stringify(menuCurrent(pf.body)) === '["Personal finance"]', `${label}: /personal-finance current menu item (#97) ${menuCurrent(pf.body)}`);
     check(/<title>Personal finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
+    // #102 QA D1: signed in, a bad ?next ends on /dashboard (never the external host or another path).
+    for (const bad of ["https://evil.example", "//evil.example", "/calculator"]) {
+      let path = `/dashboard/sign-in?next=${encodeURIComponent(bad)}`;
+      const hops = [];
+      for (let i = 0; i < 4; i++) {
+        const r = await call("GET", path, "true", undefined, { cookie: token });
+        if (!(r.status >= 300 && r.status < 400)) break;
+        const to = new URL(r.location ?? "/x", ORIGIN);
+        hops.push(r.location);
+        if (to.origin !== ORIGIN) { path = "EXTERNAL"; break; }
+        path = to.pathname + to.search;
+        if (to.pathname === "/dashboard") break;
+      }
+      check(path === "/dashboard", `${label}: signed in, GET /dashboard/sign-in?next=${bad} -> ${hops.join(" -> ")} (want /dashboard)`);
+    }
     const nextPf = await call("GET", "/dashboard/sign-in?next=%2Fpersonal-finance", "true", undefined, { cookie: token });
     check(isRedirectTo(nextPf, "/personal-finance"), `${label}: signed in, GET /dashboard/sign-in?next=/personal-finance -> ${nextPf.status} ${nextPf.location}`);
     const PF = "/api/personal-finance";

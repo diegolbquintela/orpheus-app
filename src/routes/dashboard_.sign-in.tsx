@@ -1,28 +1,33 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ensureDashboardEnabled, getDashboardViewer } from "@/lib/dashboard/gate";
+import { DEFAULT_NEXT, safeNext, type SafeNext } from "@/lib/auth/next";
 
 // /dashboard/sign-in (T03 #11): email/password sign-in and sign-up. Same gate as
 // /dashboard: 404 unless DASHBOARD_ENABLED is exactly "true". Already signed in:
 // back to /dashboard. Sign-up only works for addresses on the allow-list (D12);
 // the server enforces it. #102: `?next=/personal-finance` (the only other target allowed) sends the visitor back
-// there after signing in (and straight there when already signed in).
-const NEXT_ALLOWED = ["/personal-finance"] as const;
-type Next = (typeof NEXT_ALLOWED)[number];
+// there after signing in (and straight there when already signed in). QA D1: the raw `?next` is never trusted.
+// TanStack keeps unvalidated search params from the root, so `safeNext` is applied on load (validateSearch,
+// beforeLoad, loader) and again right before the post-auth navigation; anything but the exact relative path
+// `/personal-finance` (an external URL, `//host`, another path, missing) is `/dashboard`.
 
 export const Route = createFileRoute("/dashboard_/sign-in")({
-  validateSearch: (search: Record<string, unknown>): { next?: Next } =>
-    (NEXT_ALLOWED as readonly unknown[]).includes(search.next) ? { next: search.next as Next } : {},
+  validateSearch: (search: Record<string, unknown>): { next?: SafeNext } => {
+    const next = safeNext(search.next);
+    return { next: next === DEFAULT_NEXT ? undefined : next };
+  },
   beforeLoad: async ({ search }) => {
     await ensureDashboardEnabled();
     const viewer = await getDashboardViewer();
-    if (viewer.user) throw redirect({ href: search.next ?? "/dashboard" });
-    return { authReady: viewer.authReady, next: search.next ?? "/dashboard" };
+    const next = safeNext((search as { next?: unknown }).next);
+    if (viewer.user) throw redirect({ to: next });
+    return { authReady: viewer.authReady, next };
   },
   loader: ({ context }) => ({
     enabled: true as const,
     authReady: context.authReady,
-    next: context.next,
+    next: safeNext(context.next),
   }),
   head: ({ loaderData }) =>
     loaderData?.enabled
@@ -67,7 +72,7 @@ function SignInPage() {
         return;
       }
       // Full load so the server renders the page (/dashboard, or #102's ?next) with the new session cookie.
-      window.location.href = next;
+      window.location.assign(safeNext(next));
     } catch {
       setError("Something went wrong. Try again.");
       setBusy(false);

@@ -8,7 +8,9 @@
 //
 //   PF-33 signed out: 307 to /dashboard/sign-in?next=/personal-finance, no page copy; the browser lands on sign-in
 //         (Dashboard current, as on every sign-in page); /api/personal-finance GET / PUT / DELETE 401 JSON, POST 405
-//   PF-34 signing in through the form from ?next returns to /personal-finance (then signed out on /dashboard)
+//   PF-34 signing in through the form from ?next returns to /personal-finance (then signed out on /dashboard); QA D1
+//         (signed out, no account): ?next=https://evil.example, //evil.example and /calculator are dropped on load and a
+//         faked successful sign-in goes to /dashboard; ?next=/personal-finance is kept and goes there
 //   PF-35 the rate direction: foreign per 1 household, ÷ (Condo 2,000 BRL at 5 → 400); the FX field's name
 //   PF-36 the account: every change PUT to /api/personal-finance (debounced), a reload restores it, nothing in
 //         localStorage; a second signed-in context (another device) loads the same figures; ?userId= someone else →
@@ -363,7 +365,36 @@ try {
       const at = new URL(page.url());
       const landed = { path: at.pathname, next: at.searchParams.get("next"), form: await page.getByTestId("sign-in-form").count(), current: await page.locator('nav[aria-label="Site"] a[aria-current=page]').allTextContents(), pf: await page.locator("[data-testid=pf-area]").count() };
       check("PF-33 signed out, the browser lands on the sign-in form (?next kept; Dashboard current as on every sign-in page); no page area", JSON.stringify(landed) === JSON.stringify({ path: "/dashboard/sign-in", next: PATH, form: 1, current: ["Dashboard"], pf: 0 }), landed);
+      // PF-34 / QA D1 (open redirect): only ?next=/personal-finance survives. Each bad value is dropped on load (the
+      // URL loses it, the page never holds it) and, after a faked successful sign-in (the auth POST answered 200 in
+      // the browser; no account), the browser goes to /dashboard, never to the external host or another path.
+      for (const [bad, want] of [["https://evil.example", "/dashboard"], ["//evil.example", "/dashboard"], ["/calculator", "/dashboard"], [PATH, PATH]]) {
+        const p5 = await browser.newPage();
+        const navs = [];
+        try {
+          p5.on("request", (q) => { if (q.isNavigationRequest() && q.frame() === p5.mainFrame()) navs.push(q.url()); });
+          await p5.route((u) => u.hostname === "evil.example", (r) => r.abort());
+          await p5.route("**/api/auth/**", (r) =>
+            r.request().method() === "POST"
+              ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ token: "fake", redirect: false, user: { id: "fake", email: "fake@example.com", name: "fake", emailVerified: false, image: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } }) })
+              : r.fulfill({ status: 200, contentType: "application/json", body: "null" }),
+          );
+          await p5.goto(`${base}/dashboard/sign-in?next=${encodeURIComponent(bad)}`, { waitUntil: "networkidle" });
+          const loaded = { next: new URL(p5.url()).searchParams.get("next"), html: bad === PATH ? false : await p5.evaluate((b) => document.documentElement.outerHTML.includes(b.includes("evil") ? "evil.example" : `next:"${b}"`) || JSON.stringify(window.__TSR_ROUTER__?.state?.matches?.map((m) => m.loaderData) ?? "").includes(b), bad) };
+          const start = navs.length;
+          await p5.getByTestId("sign-in-form").locator("input[type=email]").fill("fake@example.com");
+          await p5.getByTestId("sign-in-form").locator("input[type=password]").fill("fake-password-1");
+          await p5.getByTestId("sign-in-form").locator("button[type=submit]").click();
+          await p5.waitForTimeout(2500);
+          const after = navs.slice(start).map((u) => { const x = new URL(u); return x.origin === new URL(base).origin ? x.pathname : x.origin; });
+          const ok = loaded.next === (bad === PATH ? PATH : null) && !loaded.html && after[0] === want && !after.some((u) => /evil\.example/.test(u));
+          check(`PF-34 / D1 ?next=${bad}: ${bad === PATH ? "kept" : "dropped on load (not in the URL or the page)"}; a faked successful sign-in goes to ${want}`, ok, { loaded, after });
+        } finally {
+          await p5.close().catch(() => {});
+        }
+      }
       if (email && password) {
+        // PF-34: the form returns to the page      if (email && password) {
         // PF-34: the form returns to the page, then this session signs out on /dashboard.
         await page.getByTestId("sign-in-form").locator("input[type=email]").fill(email);
         await page.getByTestId("sign-in-form").locator("input[type=password]").fill(password);

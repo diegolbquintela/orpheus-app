@@ -278,13 +278,15 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
     for (const s of [
       "await ensureDashboardEnabled();",
       "const viewer = await getDashboardViewer();",
-      'if (viewer.user) throw redirect({ href: search.next ?? "/dashboard" });',
-      'const NEXT_ALLOWED = ["/personal-finance"] as const;',
+      // #102 QA D1: the allowlist on load and again before the post-auth navigation.
+      "const next = safeNext((search as { next?: unknown }).next);",
+      "if (viewer.user) throw redirect({ to: next });",
+      "next: safeNext(context.next),",
       'await import("@/lib/auth/client")',
       "authClient.signIn.email({ email: trimmed, password })",
       "authClient.signUp.email({",
       'name: trimmed.split("@")[0] || trimmed,',
-      "window.location.href = next;",
+      "window.location.assign(safeNext(next));",
       "minLength={8}",
       'autoComplete={mode === "sign-in" ? "current-password" : "new-password"}',
       'setMode(mode === "sign-in" ? "sign-up" : "sign-in");',
