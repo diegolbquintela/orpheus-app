@@ -74,10 +74,35 @@ export function readSaved(storage: StorageLike | null): SavedSearch[] {
     .slice(0, SAVED_MAX);
 }
 
-/** Same search: same basket (order, tickers, weights), dates, amounts and frequency. */
+/** A typed amount in one form: commas and spaces dropped, as a plain number (`1,000` and `1000.0` → `1000`). */
+export function canonicalAmount(text: string): string {
+  const trimmed = text.replace(/,/g, "").trim();
+  const value = Number(trimmed);
+  return trimmed && Number.isFinite(value) ? String(value) : trimmed;
+}
+
+/**
+ * One form for a search (QA D1 on #81): tickers trimmed and upper-cased, weights and amounts canonical. Applied on
+ * save, so stored searches compare equal however the amounts were typed.
+ */
+export function normalizeSearch(search: SavedSearch): SavedSearch {
+  return {
+    ...search,
+    rows: search.rows.map((r) => ({
+      ticker: r.ticker.trim().toUpperCase(),
+      weight: canonicalAmount(r.weight),
+    })),
+    capital: canonicalAmount(search.capital),
+    contribution: canonicalAmount(search.contribution),
+  };
+}
+
+/** Same search: same basket (order, tickers, weights), dates, amounts and frequency, after normalizing (D1). */
 export function sameSearch(a: SavedSearch, b: SavedSearch): boolean {
-  const key = (s: SavedSearch) =>
-    JSON.stringify([s.rows, s.start, s.end, s.capital, s.contribution, s.frequency]);
+  const key = (s: SavedSearch) => {
+    const n = normalizeSearch(s);
+    return JSON.stringify([n.rows, n.start, n.end, n.capital, n.contribution, n.frequency]);
+  };
   return key(a) === key(b);
 }
 
@@ -87,7 +112,8 @@ export function addSearch(list: SavedSearch[], search: SavedSearch): SavedSearch
 }
 
 /** Saves a successful search as the last one and at the top of the list; returns the new list. */
-export function saveSearch(storage: StorageLike | null, search: SavedSearch): SavedSearch[] {
+export function saveSearch(storage: StorageLike | null, typed: SavedSearch): SavedSearch[] {
+  const search = normalizeSearch(typed);
   const list = addSearch(readSaved(storage), search);
   try {
     storage?.setItem(LAST_KEY, JSON.stringify(search));

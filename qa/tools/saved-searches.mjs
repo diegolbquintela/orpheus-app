@@ -17,6 +17,7 @@
 //   ST4-24 a second context (another device) sees no list and blank fields; clearing the site's data
 //          (CDP Storage.clearDataForOrigin) and reloading shows the empty list and blank fields
 // At 1440 also: six different searches leave the newest 5 (the oldest drops), a repeat moves to the top.
+// QA D1 (#81), every width: KO saved with capital 1000, then again as `ko` with `1,000`: one line, moved to the top.
 // Screenshots: saved-<w>.png (the open list), saved-<w>-restored.png (after a refresh).
 //   node qa/tools/saved-searches.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
@@ -67,7 +68,7 @@ async function calculate(page, search) {
   await page.waitForFunction(({ ticker, contribution }) => {
     const last = JSON.parse(localStorage.getItem("orpheus.calculator.last.v1") ?? "null");
     return last && last.rows[0].ticker === ticker && last.contribution === contribution;
-  }, { ticker: search.rows[0][0], contribution: search.contribution }, { timeout: 90000 });
+  }, { ticker: search.rows[0][0].trim().toUpperCase(), contribution: String(Number(search.contribution.replace(/,/g, ""))) }, { timeout: 90000 });
   await page.waitForSelector("[data-testid=results]", { timeout: 90000 });
 }
 const fieldValues = (page) => page.evaluate(() => [...document.querySelectorAll("[data-testid=calculator-form] input, [data-testid=calculator-form] select")].map((e) => e.value));
@@ -191,6 +192,21 @@ try {
         check(`[desktop] ST4-21 the same search again moves to the top, no duplicate`, JSON.stringify(again) === JSON.stringify(["300", "500", "400", "200", "100"].map(LINE_VOO)), again);
         await closeList(page);
       }
+      // ST4-21 / QA D1 (#81): the same search typed differently (capital `1,000` vs `1000`, ticker `ko` vs `KO`)
+      // is a repeat: the existing line moves to the top, no second line.
+      const KO = (capital, ticker = "KO") => ({ rows: [[ticker, 100]], start: "2023-01-03", end: "2024-12-31", capital, contribution: "100", frequency: "monthly" });
+      const KO_LINE = "KO · 2023-01-03 – 2024-12-31 · DCA $100";
+      await calculate(page, KO("1000"));
+      await calculate(page, VOO("100"));
+      const beforeRepeat = await openList(page);
+      await closeList(page);
+      await calculate(page, KO("1,000", "ko"));
+      const afterRepeat = await openList(page);
+      await closeList(page);
+      const koLines = afterRepeat.filter((l) => l === KO_LINE).length;
+      check(`${tag} ST4-21 / QA D1 a repeat typed differently (1,000 vs 1000, ko vs KO) moves the line to the top, no duplicate`, beforeRepeat[1] === KO_LINE && afterRepeat[0] === KO_LINE && koLines === 1 && afterRepeat.length === beforeRepeat.length && JSON.stringify(afterRepeat.slice(1)) === JSON.stringify(beforeRepeat.filter((l) => l !== KO_LINE)), { before: beforeRepeat, after: afterRepeat });
+      const koStored = await stored(page);
+      check(`${tag} ST4-21 / QA D1 stored in one form (ticker upper-case, capital 1000)`, JSON.parse(koStored.last).capital === "1000" && JSON.parse(koStored.last).rows[0].ticker === "KO" && koStored.saved.filter((x) => x.rows[0].ticker === "KO").length === 1, { last: JSON.parse(koStored.last), saved: koStored.saved.map((x) => `${x.rows[0].ticker} ${x.capital} ${x.contribution}`) });
       // ST4-23: no auth, nothing but localStorage.
       const auth = requests.filter((r) => /\/api\/(auth|dashboard)\b/.test(new URL(r.url).pathname));
       check(`${tag} ST4-23 no request to /api/auth or /api/dashboard (signed out, no account)`, auth.length === 0, auth);

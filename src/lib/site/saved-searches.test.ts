@@ -3,12 +3,14 @@ import { describe, it } from "node:test";
 import {
   addSearch,
   asSearch,
+  canonicalAmount,
   LAST_KEY,
   readLast,
   readSaved,
   SAVED_KEY,
   SAVED_MAX,
   saveSearch,
+  sameSearch,
   searchLine,
   type SavedSearch,
 } from "./saved-searches.ts";
@@ -71,6 +73,34 @@ describe("saved searches (#80, spec §7b; ST4-20..24)", () => {
       ["300", "600", "500", "400", "200"],
     );
     assert.deepEqual(addSearch([], search()).length, 1);
+  });
+
+  it("QA D1: a repeat typed differently (1,000 vs 1000, ticker case) moves the line to the top, no duplicate", () => {
+    const store = new Memory();
+    const ko = (over: Partial<SavedSearch>) =>
+      search({
+        rows: [{ ticker: "KO", weight: "100" }],
+        start: "2023-01-03",
+        end: "2024-12-31",
+        contribution: "100",
+        ...over,
+      });
+    saveSearch(store, ko({ capital: "1000" }));
+    saveSearch(store, search());
+    saveSearch(
+      store,
+      ko({ capital: "1,000", rows: [{ ticker: " ko ", weight: "100.0" }], contribution: "1,00" }),
+    );
+    const list = readSaved(store);
+    assert.equal(list.length, 2);
+    assert.deepEqual(list[0].rows, [{ ticker: "KO", weight: "100" }]);
+    assert.equal(list[0].capital, "1000", "stored canonical");
+    assert.equal(list[0].contribution, "100");
+    assert.equal(readLast(store)?.capital, "1000");
+    assert.ok(sameSearch(ko({ capital: "1,000" }), ko({ capital: "1000" })));
+    assert.ok(!sameSearch(ko({ capital: "1,000" }), ko({ capital: "1001" })));
+    assert.equal(canonicalAmount("1,000.50"), "1000.5");
+    assert.equal(canonicalAmount(""), "");
   });
 
   it("nothing stored, malformed values, or no storage read as empty (never throws)", () => {
