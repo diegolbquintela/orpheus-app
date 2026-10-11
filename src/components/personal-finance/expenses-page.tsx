@@ -50,7 +50,10 @@ import {
 } from "@/lib/finance/currency";
 import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
+import { OverviewBlock } from "./overview-block";
 import { Cell, SectionHead } from "./pf-cells";
+
+import { type Overview, readOverview, writeOverview } from "@/lib/finance/overview";
 
 const ADD_ACCOUNT = "__add-account__";
 
@@ -63,13 +66,16 @@ function storage(): Storage | null {
 }
 
 /**
- * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3, #87 v1.4; spec `attachments/personal-finance-spec.md`,
- * PF-01..25): the household currency, the income block, the equity-cover rates and Fixed and Variable expenses
- * (a line may be in a foreign currency with a typed FX rate), in this browser's localStorage only (four keys). The server renders the title
+ * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3, #87 v1.4, #94; spec `attachments/personal-finance-spec.md`,
+ * PF-01..32): the household currency, the income block, the equity-cover rates and Fixed and Variable expenses
+ * (a line may be in a foreign currency with a typed FX rate), then (#94) `04` Overview and `05` Update, in this
+ * browser's localStorage only (five keys). The server renders the title
  * and an empty area at least the viewport tall; the browser fills it once after reading storage, so nothing on
  * screen moves (strict CLS 0).
  */
-export function PersonalFinancePage() {
+export function PersonalFinancePage({ now: fixedNow }: { now?: Date } = {}) {
+  const [now, setNow] = useState<Date | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [expenses, setExpenses] = useState<Expenses | null>(null);
   const [income, setIncome] = useState<Income | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
@@ -80,8 +86,19 @@ export function PersonalFinancePage() {
     setIncome(readIncome(storage()));
     setRates(readRates(storage()));
     setHousehold(readHousehold(storage()));
+    setOverview(readOverview(storage()));
+    setNow(fixedNow ?? new Date());
     setExpenses(readExpenses(storage()));
-  }, []);
+  }, [fixedNow]);
+
+  function updateOverview(change: (current: Overview) => Overview) {
+    setOverview((current) => {
+      if (!current) return current;
+      const next = change(current);
+      writeOverview(storage(), next);
+      return next;
+    });
+  }
 
   function updateIncome(change: (current: Income) => Income) {
     setIncome((current) => {
@@ -130,9 +147,11 @@ export function PersonalFinancePage() {
         <div
           className="pf-area flex flex-col gap-14 lg:gap-16"
           data-testid="pf-area"
-          data-ready={expenses && income && rates && household ? "true" : "false"}
+          data-ready={
+            expenses && income && rates && household && overview && now ? "true" : "false"
+          }
         >
-          {expenses && income && rates && household ? (
+          {expenses && income && rates && household && overview && now ? (
             <>
               <HouseholdCurrency value={household.household} onChange={updateHousehold} />
               <IncomeBlock income={income} update={updateIncome} />
@@ -152,6 +171,15 @@ export function PersonalFinancePage() {
                   />
                 </div>
               </section>
+              <OverviewBlock
+                overview={overview}
+                update={updateOverview}
+                now={now}
+                page={{
+                  expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
+                  income: monthly(netIncomeYearly(income.people)),
+                }}
+              />
             </>
           ) : null}
         </div>

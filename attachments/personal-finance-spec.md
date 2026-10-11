@@ -1,4 +1,4 @@
-# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency)
+# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update)
 
 Source of truth for the Personal Finance page, with `attachments/site-style-spec.md` for everything the shared dark
 shell already rules (bar, footer, tokens, AA, CLS 0, no painting, no instruction text). Harness first, then this
@@ -20,6 +20,9 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 15:15 ET | **#97 (Diego via CoS; EL; site-style spec):** **Q1 (d) superseded for navigation:** `Personal finance` is a first-class bar item on every page (the fourth item, right of `Dashboard`; current on `/personal-finance`) and the third home Platforms line (`Income, expenses, and the cover.` · `Open`). The URL still works. This page's content, storage and layout are unchanged by #97 (#87 / #94 later). |
 | 2026-10-11, ≈ 16:03 ET | **#87 kickoff (Diego via CoS; EL):** v1.4 adds a **foreign-currency line** (section 14): a line can take a **typed exchange rate** (BRL example) and converts into the **household currency** for the totals, `% of expenses`, `% of income` and `Equity to cover`. Manual entry only (no live FX feed, no Plaid). The issue is thin; simplest readings taken, as built, open for EL (Q12–Q16): one household-level `Household currency` (a fixed list of ten ISO codes, default `USD`), set once above `02` `Income`; each expense line has a `Currency` (default: the household currency) and, when foreign, a typed `FX rate` = **household-currency units per 1 unit of the line's currency** (household = line amount × rate; `1 BRL = 0.2 USD` → type `0.2`); a foreign line with an empty, bad or 0 rate shows `Enter a number above 0.` and counts as 0 (like a bad amount); `Monthly` / `Yearly` stay in the line's own currency as typed, every figure built from them (totals, both percentages, `Equity to cover`) is in the household currency; an `Equity to cover` override is typed in the household currency; income is in the household currency (unchanged). Amounts stay unitless (Q2 kept: the household currency is named once, by its field). Storage: the expenses key `orpheus.finance.expenses.v1` keeps its name, each line gains optional `currency` / `rate` strings (an old line reads as a household line; nothing rewritten until the next edit); the household currency in a new key `orpheus.finance.currency.v1`. Income and equity formulas unchanged (they consume converted amounts). Not started: #94, #98, #90, #71, Plaid. |
 | 2026-10-11, ≈ 16:26 ET | **EL answers on #87 (PR #100 at `1d6d1a4`; docs + code amend):** **Q12** decided as built: household amount = line amount × `FX rate` (rate = household units per 1 unit of the line's currency). **Q13** decided (Diego): the default household currency is **`CAD`** (was `USD`); the ten-code list stays; a missing, malformed or unknown `orpheus.finance.currency.v1` reads as `CAD`. **Q14** decided: the field check `Enter a number above 0.` stays; a foreign line without a valid rate contributes **`—`** (not 0) to every household-converted figure: its `% of expenses` / `% of income` / calculated `Equity to cover`, and any group / `Total` Monthly, Yearly and Equity to cover containing it (then every `% of expenses` divides by a `—` total and shows `—`; the Q10 pattern); a valid `Equity to cover` override on that line still counts; the line's own `Monthly` / `Yearly` still show the typed amount. **Q15** decided as built: no currency symbol on amounts, no converted-amount column, the household field names the currency once. **Q16** decided as built: one rate per line. Not started: #94, #98, #90, #71. |
+| 2026-10-11, ≈ 16:55 ET | **#94 kickoff (Diego via CoS; EL):** **Overview and Update** on `/personal-finance` (section 15), after `03` Expenses: `04` `Overview` (this month against the **12-month average**; a chart with three lines, Expenses, Income and Net assets; a `Future` toggle with **1, 5, 10, 15 years**; a typed `Growth rate (%)`: net assets compound at it as if the surplus were invested; future expenses and income stay on the 12-month average; **empty months use the average**) and `05` `Update` (a `Month` dropdown of the last 12 months **including the current one**; type a past month's expenses and income, e.g. June 2026 in October 2026; the month updates the average). Manual entry, this browser only, new key `orpheus.finance.overview.v1`; the other four keys unchanged; household currency, unitless (Q2 / Q15). The brief is thin; simplest readings taken, as built, open for EL (Q17–Q23): a month's figure = its typed value, else (current month only) the page's monthly figures (`Total` monthly from `03`, `Net income` monthly from `02`) when above 0; the 12-month average = the mean of the months that have a figure; net assets = a typed `Starting net assets` (empty 0) at the start of the 12-month window, plus each month's surplus (income − expenses; no growth on past months); under Future each month compounds at (1 + growth)^(1/12) and adds the average surplus. Chart: the repo's `recharts` (already used by the calculator), two y axes (monthly flows left, net assets right). Not started: #98, #90, #71 (dashboard on hold), Plaid. |
+| 2026-10-11, ≈ 17:14 ET | **EL on #94 (PR #101 at `0ec697d`; docs-only commit, no code change):** Q17–Q23 accepted as built (section 9): typed Update figure wins, else the current month takes the page's monthly totals when > 0, past months empty → the average (Q17); average = mean of only the months with a figure (Q18); net assets = typed `Starting net assets` (empty 0), no growth on past months (Q19); Future compounds monthly on the whole balance at (1 + rate/100)^(1/12) plus the average surplus (Q20); future Expenses / Income stay on the averages, no future-expenses field (Q21); dual axis, Expenses alert red, Income green, Net assets off-white, no gold (Q22); Overview stays `04` after Expenses (Q23). Q19 wording settled at ≈ 17:16 ET (next row). |
+| 2026-10-11, ≈ 17:16 ET | **EL on #94 Q19 (PR #101 at `ad8970d`; docs-only, no code change): option A.** Net assets may go negative over time when expenses exceed income; the `Starting net assets` field stays 0 or more (as built). The earlier "negatives allowed" note is resolved; nothing pending on Q17–Q23. |
 
 ## 2. The brief (verbatim, issue #84)
 
@@ -47,7 +50,7 @@ later); Engineering Lead owns the tech loop.
 | Where | String |
 |---|---|
 | Numeral + title (`h1`) | `01`, `Personal finance.` |
-| Sections | `02`, `Income` (v1.2, section 12); `03`, `Expenses` (was `02` in v1.1) |
+| Sections | `02`, `Income` (v1.2, section 12); `03`, `Expenses` (was `02` in v1.1); `04`, `Overview` and `05`, `Update` (#94, section 15) |
 | Groups (`h3`) | `Fixed`, `Variable` |
 | Column labels, in order | `Name`, `% of income`, `% of expenses`, `Monthly`, `Yearly`, `Currency`, `FX rate`, `Equity to cover`, `Account` (v1.4 adds `Currency` and `FX rate`, section 14) |
 | Add a line (one per group) | `↳ Add expense` |
@@ -106,11 +109,12 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   field, a line's own currency by its `Currency` cell). Percentages with one decimal.
 - **Remove:** each line has a remove button (`Remove expense`); no confirmation (manual data, nothing on a server).
 
-## 6. Storage (v1.1; v1.2 adds the income key, v1.3 the equity key, v1.4 the currency key)
+## 6. Storage (v1.1; v1.2 adds the income key, v1.3 the equity key, v1.4 the currency key, #94 the overview key)
 
 - This browser's `localStorage` only. Expenses in `orpheus.finance.expenses.v1` (unchanged from v1.1), income in
   its own key `orpheus.finance.income.v1` (section 12), the two rates in `orpheus.finance.equity.v1` (section 13),
-  the household currency in `orpheus.finance.currency.v1` (section 14); nothing else. Expenses:
+  the household currency in `orpheus.finance.currency.v1` (section 14), the Overview / Update entries in
+  `orpheus.finance.overview.v1` (section 15); nothing else. Expenses:
   `{ fixed: Line[], variable: Line[], accounts: string[] }`, `Line = { id, name, amount, per: "month" | "year",
   equity, account, currency?, rate? }` (strings as typed; v1.4 adds the optional `currency` and `rate`, section 14.3). Saved on every change; read once after hydration. A missing, malformed or
   over-large value reads as an empty page (never throws). ≤ 100 lines per group.
@@ -147,7 +151,7 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   (`public/__grok/icon-180.png`) is the builder's default, not the geometric mark; untouched (EL, Q4: Grok builder
   assets are out of scope for #84).
 
-## 9. Questions for EL (Q1–Q11 answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET; Q12–Q16 ≈ 16:26 ET, #87)
+## 9. Questions for EL (Q1–Q11 answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET; Q12–Q16 ≈ 16:26 ET, #87; Q17–Q23 ≈ 17:14 ET, #94)
 
 - **Q1. Navigation. Decided: (d) URL only, as built. Superseded by #97 (2026-10-11): a bar item and a home line.** Not a fourth bar item (ST1-01 stays three items), not a
   third home Platforms line (ST3-03: home stays the hero + two lines).
@@ -184,22 +188,40 @@ No other text on the page (site-style ST6-02: no instruction text, no notes, no 
   converted-amount column; the household field names the currency once; a line's `Monthly` / `Yearly` in its own
   currency; totals, both percentages and `Equity to cover` (calculated and a typed override) in the household one.
 - **Q16. One rate per line (#87). Decided (as built):** each foreign line carries its own typed rate.
+- **Q17. A month's figure (#94). Decided (EL ≈ 17:14 ET, as built):** a month's Expenses / Income = the value typed
+  in `05` `Update` (typed wins); else, for the **current month only**, the page's own monthly figure (`Total` Monthly of
+  `03`, `Net income` Monthly of `02`) when it is above 0; else the month is **empty** and filled with the average.
+- **Q18. The 12-month average (#94). Decided (as built):** the mean of only the months (of the 12) that have a
+  figure, not always ÷ 12; `—` when none has. Empty months use it (chart and Future), so they don't move it.
+- **Q19. Net assets (#94). Decided (as built):** a typed `Starting net assets` (empty = 0) is the value at the start
+  of the oldest month; each month adds its surplus (income − expenses); no growth on past months. Net assets may go
+  below 0 over time when expenses exceed income (negative surpluses); the typed `Starting net assets` field stays 0 or
+  more (a negative shows `Enter a number, 0 or more.` and counts as 0). EL option A, ≈ 17:16 ET.
+- **Q20. Future (#94). Decided (as built):** the `Future` toggle (off on a new page) adds 1, 5, 10 or 15 years
+  (default 1) of months after the current one; net assets compound monthly on the **whole balance**: each month =
+  previous × (1 + growth ÷ 100)^(1/12) + the average surplus.
+- **Q21. "Expenses stay on the 12-month figure unless changed" (#94). Decided (as built):** future Expenses and
+  Income stay on the 12-month averages (they change only when a month or the page changes); no separate
+  future-expenses field.
+- **Q22. Chart (#94). Decided (as built):** `recharts`; dual axis (monthly Expenses / Income left, Net assets right);
+  Expenses `alert` red, Income `green`, Net assets `chalk` (off-white); a visible legend; the plot `aria-hidden`; no gold.
+- **Q23. Placement (#94). Decided (as built):** `04` `Overview` and `05` `Update` stay after `03` `Expenses`.
 
 ## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
 
-Tools: `qa/tools/personal-finance.mjs` (PF-01..09, PF-11..25 and ST1-05), `qa/tools/site-style-regression.mjs` (PF-10: its own
+Tools: `qa/tools/personal-finance.mjs` (PF-01..09, PF-11..32 and ST1-05), `qa/tools/site-style-regression.mjs` (PF-10: its own
 ST6 checks now include `/personal-finance` and the lyre on every page, then every shipped-page tool, `site.mjs`'s
 `$313,000` and `release-smoke`).
 
 | ID | Pass when |
 |---|---|
 | PF-01 | `/personal-finance` renders in the shared dark shell: charcoal page, chalk type, `color-scheme: dark`, the bar (#97: four items, `Personal finance` current; ST1-01 / ST1-02) and footer `Orpheus Wisdom`; title `Personal finance · Orpheus Wisdom`; noindex meta + `X-Robots-Tag`; one Analytics script; no painting; status 200; signed out, no flag. |
-| PF-02 | Exact copy (sections 4 and 12): `01`, `Personal finance.`, `02`, `Income` with its copy (section 12), `03`, `Expenses`, (v1.3) `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` `—` (section 13), (v1.4) `Household currency` `CAD` (Q13), `Fixed`, `Variable`, the nine column labels in order (v1.4: `Currency`, `FX rate` after `Yearly`), `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
+| PF-02 | Exact copy (sections 4 and 12): `01`, `Personal finance.`, `02`, `Income` with its copy (section 12), `03`, `Expenses`, (#94) `04` `Overview` and `05` `Update` with their copy (section 15), (v1.3) `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Rate used` `—` (section 13), (v1.4) `Household currency` `CAD` (Q13), `Fixed`, `Variable`, the nine column labels in order (v1.4: `Currency`, `FX rate` after `Yearly`), `↳ Add expense` per group, the totals rows; no other text (no instruction text). |
 | PF-03 | Lines: add and remove lines in each group; Name, Monthly, Yearly and Equity to cover are inputs with visible labels; typing Monthly fills Yearly × 12 and typing Yearly fills Monthly ÷ 12; the typed value stays as typed; a bad amount shows `Enter a number, 0 or more.` under its field and counts as 0. |
 | PF-04 | Percentages: `% of expenses` per line and per group = monthly ÷ the monthly total of both groups (one decimal, `—` at 0), `Total` `100.0%`; `% of income` per line, group and `Total` = monthly ÷ the monthly counted net income (section 12; one decimal), `—` while that income is 0 (v1.2: e.g. the section 12 example's 11,200 a month: Fixed 1,000 → `8.9%`, 250 → `2.2%`, Fixed total `11.2%`, Variable 100 → `0.9%`, Total `12.1%`). |
 | PF-05 | Totals: `Fixed total`, `Variable total` and `Total` sum Monthly, Yearly and Equity to cover exactly (e.g. Fixed 1,000 + 250 monthly and Variable 1,200 yearly → Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200); v1.3: Equity to cover sums each line's valid override or calculated amount, `—` when any line contributes `—` (PF-19). |
 | PF-06 | Account: a dropdown per line with `—`, the accounts and `Add account…`; adding one (inline `New account`, `Add`) selects it on that line and offers it on every line in both groups; an empty name shows `Name the account.`; a repeat name (any case) reuses the existing account. |
-| PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1` and (v1.4) `orpheus.finance.currency.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
+| PF-07 | Storage: everything typed survives a reload (lines, typed amounts as typed, accounts, selections) from `localStorage` keys `orpheus.finance.expenses.v1`, (v1.2) `orpheus.finance.income.v1` and (v1.3) `orpheus.finance.equity.v1`, (v1.4) `orpheus.finance.currency.v1` and (#94) `orpheus.finance.overview.v1` only; no `/api/*` request, no cookie, no `sessionStorage` / IndexedDB write; a new browser context starts empty; a malformed stored value shows an empty page without an error. |
 | PF-08 | Layout: phone (360, 400) lines stacked with labels, no horizontal page scroll; wide (1024, 1440) one row per line in column order with the column labels; every control ≥ 44 px tall; AA for every visible text (axe-core too), a ≥ 3:1 focus mark on every Tab stop; proportional figures (no `tnum`). |
 | PF-09 | Strict page CLS 0 on cold loads at every width, every shift counted, both empty and with stored lines (v1.2: and people; v1.3: and rates) restored. |
 | PF-10 | Logic and shell untouched elsewhere: the calculator `$313,000`, the dashboard content (ST0-05; no diff under `src/components/dashboard/*`, `src/routes/dashboard.tsx`), sign-in, home (hero + three lines since #97, ST3-03), the bar's four items since #97 (ST1-01), the lyre (ST1-05) and the site-style regression (`qa/tools/site-style-regression.mjs`) pass. |
@@ -218,6 +240,13 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-23 | (#87) Equity cover on a foreign line uses the household yearly amount: ROIC `8` (rate 4%) → Condo placeholder `120,000` (4,800 ÷ 0.04), Fixed total `495,000`, Variable `30,000`, Total `525,000`; a typed override is in the household currency as typed (Condo `100,000` → Fixed `475,000`); the formulas of sections 12 and 13 are unchanged. |
 | PF-24 | (#87, Q14 decided) A foreign line with an empty, bad (`abc`, `-1`) or `0` rate shows `Enter a number above 0.` under `FX rate` (alert, `aria-invalid`) and contributes `—` (not 0) until fixed: its `% of expenses`, `% of income` and calculated `Equity to cover` (placeholder) show `—`, and so do its group's and `Total`'s Monthly, Yearly, `% of income` and Equity to cover, and every `% of expenses` (the whole is `—`); its own `Monthly` / `Yearly` still show the typed amount (e.g. Condo 2,000 BRL, no rate, ROIC 8: Fixed and Total all `—`, Variable `100` / `1,200` / `30,000`, Rent `% of income` `8.9%`); a valid override on it still counts; switching the line back to the household currency (or making the household currency the line's) drops the rate from the sums (× 1) and keeps it stored. |
 | PF-25 | (#87) Storage: the household currency survives a reload from `orpheus.finance.currency.v1` (malformed or unknown code → `CAD`, Q13; no error); each line's `currency` / `rate` from `orpheus.finance.expenses.v1`; a v1.1–v1.3 stored line (no `currency` / `rate`) restores as a household line with its figures unchanged; layout (phone: `Currency` \| `FX rate` under `Monthly` \| `Yearly`; wide: one row, nine columns + remove, no horizontal scroll at 1024), 44 px controls, AA, focus ring and CLS as PF-08 / PF-09 (with a stored foreign line and household currency restored). |
+| PF-26 | (#94) Overview / Update copy (section 15.1): `04` `Overview` with the table (`This month`, `12-month average`; `Expenses`, `Income`, `Surplus`; `—` on a new page), `Starting net assets`, `Growth rate (%)`, the `Future` toggle (off; `1 year`, `5 years`, `10 years`, `15 years` only while on), the chart's legend `Expenses`, `Income`, `Net assets`; `05` `Update` with `Month` (12 choices, the current month first, e.g. `October 2026` … `November 2025`), `Expenses`, `Income`; nothing else visible. |
+| PF-27 | (#94, Q17 / Q18) This month and the average: with nothing typed and an empty page every figure is `—`; the current month takes the page's `Total` Monthly and `Net income` Monthly when above 0; typing a past month (`June 2026`: Expenses `4,000`, Income `9,000`) updates the 12-month average at once (the mean of the months with a figure: e.g. page 1,750 / 11,200 this month + June → average `2,875` / `10,100`, surplus `9,450` this month, `7,225` average); a typed current month replaces the page figure; clearing a month's fields empties it. |
+| PF-28 | (#94) Update: `Month` lists exactly the last 12 months, newest first, current included; choosing a month shows its typed values (empty fields: placeholder = the page figure for the current month, the average for a past one; dim, AA); a bad value shows `Enter a number, 0 or more.` and is not used. |
+| PF-29 | (#94) Chart: three lines (Expenses, Income, Net assets) over the 12 months (oldest → current); an empty month plots the average; net assets start at `Starting net assets` and add each month's surplus (Q19; the 15.2 example: start `10,000` → **96,700** at the current month); the plot `aria-hidden`, the legend visible; the figure carries `data-months` (points plotted) and `data-net-last` (the last net assets, 2 decimals) for QA. |
+| PF-30 | (#94, Q20 / Q21) Future: the toggle (`aria-pressed`) shows `1 year` … `15 years` (default `1 year`); on, the chart runs 12 × years months past the current one with Expenses and Income flat at the 12-month average and net assets compounding monthly at (1 + `Growth rate (%)` ÷ 100)^(1/12) plus the average surplus (the 15.2 example: growth `5`: 1 year → 24 points, net assets **190,204.37**; 5 years → 72 points, **613,370.68**); off, the chart ends at the current month. A bad growth rate shows `Enter a number, 0 or more.` and counts as 0. |
+| PF-31 | (#94) Storage: everything typed in `04` / `05` (starting net assets, growth, Future on / years, each month's expenses / income as typed) survives a reload from `orpheus.finance.overview.v1` only (malformed → all empty, Future off, no error; months outside the last 12 are kept but unused); the other four keys unchanged. |
+| PF-32 | (#94) Layout and the shell: phone (360, 400): the table three columns, the fields and the Update fields stacked full width, the year choices wrap, the chart full width (240 px tall); from 640 px the fields in one row (≤ 16rem each); from 1024 px the chart 320 px tall; every control ≥ 44 px, chalk focus ring, AA (axe), no horizontal scroll, strict CLS 0 (empty and restored with months typed and Future on); no gold. |
 
 ## 11. Landed
 
@@ -426,3 +455,72 @@ No other text (ST6-02): no currency names, no rate hint, no symbol on amounts (Q
 - **Phone (below 1024 px):** a line adds the row `Currency` | `FX rate` under `Monthly` | `Yearly`. **Wide (from
   1024 px):** one row, `Currency` and `FX rate` after `Yearly` (nine columns + remove); the totals rows leave those
   two columns empty. No horizontal page scroll at 360 or 1024; AA, 44 px controls, chalk focus ring, CLS 0.
+
+## 15. Overview and Update (#94; Q17–Q23 decided by EL ≈ 17:14 ET, as built)
+
+### 15.1 Copy (exact)
+
+| Where | String |
+|---|---|
+| Sections | `04`, `Overview`; `05`, `Update` (after `03` `Expenses`, Q23 decided) |
+| Overview table: column labels | `This month`, `12-month average` |
+| Overview table: row labels | `Expenses`, `Income`, `Surplus` |
+| Overview fields | `Starting net assets`, `Growth rate (%)` |
+| Future toggle (a button, `aria-pressed`) | `Future` |
+| Year choices (while Future is on; buttons, `aria-pressed`) | `1 year`, `5 years`, `10 years`, `15 years` |
+| Chart legend | `Expenses`, `Income`, `Net assets` |
+| Update fields | `Month` (a select; options `<Month> <yyyy>` in English, e.g. `October 2026`), `Expenses`, `Income` |
+| Field check | `Enter a number, 0 or more.` |
+| No figure | `—` |
+
+No other visible text (ST6-02). The chart's plot (axes, ticks, lines) is `aria-hidden`; its `figcaption` (screen
+readers only) reads `Expenses, income and net assets by month`. Amounts in the household currency, unitless (Q2,
+Q15), the section 5 number format.
+
+### 15.2 Rules (Q17–Q23 decided by EL as built)
+
+- **The 12 months:** the current month (the browser's local date) and the 11 before it, oldest → current.
+- **A month's figure (Q17):** Expenses / Income = the value typed for that month in `05` `Update` (a valid number,
+  section 5 reading; a bad one shows the check and is not used); else, for the current month only, the page's
+  `Total` Monthly (`03`) / `Net income` Monthly (`02`) when that is a number above 0 (`—` from Q14 or 0 → no figure);
+  else no figure (an **empty month**, filled with the average).
+- **12-month average (Q18):** for Expenses and for Income separately, the mean of the 12 months that have a figure;
+  `—` when none has. **Empty months use the average** (in the chart and the net assets), so they don't move it.
+  Typing a month updates it at once.
+- **Overview table:** `This month` = the current month's figures; `12-month average` = the averages; `Surplus` =
+  Income − Expenses (`—` when either is `—`; may be negative, shown with a minus).
+- **Net assets (Q19):** `Starting net assets` (typed, empty 0, 0 or more) at the start of the oldest month; at the
+  end of each month: previous + that month's income − expenses (empty months at the average; `—` from the first month
+  where either average is `—`). No growth on past months. Net assets may go negative over time when expenses exceed
+  income; the start field stays 0 or more (Q19, EL option A).
+- **Future (Q20, Q21):** the `Future` toggle (off on a new page); while on, the year choice (`1 year` by default)
+  adds 12 × years months after the current one: Expenses and Income flat at the 12-month averages ("expenses stay on
+  the 12-month figure unless changed": they change when a month or the page changes); net assets each month =
+  previous × (1 + g ÷ 100)^(1/12) + (average income − average expenses), g = `Growth rate (%)` (empty 0; 0 or more,
+  no cap; a bad one shows the check and counts as 0). Off: the chart ends at the current month.
+- **Example (QA, PF-27 / PF-29 / PF-30; current month October 2026):** the section 14.2 page (Total 1,750 a month)
+  with the section 12 income (Net income 11,200 a month); June 2026 typed `4,000` / `9,000`. This month 1,750 /
+  11,200 / surplus 9,450; average (1,750 + 4,000) ÷ 2 = **2,875**, (11,200 + 9,000) ÷ 2 = **10,100**, surplus
+  **7,225**. Net assets from `10,000`: ten months at the average surplus 7,225 (Nov 2025 … May, Jul … Sep 2026, i.e.
+  the ten empty months), June at 5,000, October at 9,450 → 10,000 + 10 × 7,225 + 5,000 + 9,450 = **96,700**. Future 1
+  year, growth `5`: 12 months of × 1.05^(1/12) + 7,225 from 96,700 → **190,204.37**; 5 years → **613,370.68**.
+
+### 15.3 Storage
+
+- `orpheus.finance.overview.v1`: `{ start: string, growth: string, future: boolean, years: 1 | 5 | 10 | 15,
+  months: { "<yyyy-mm>": { expenses: string, income: string } } }` (strings as typed, ≤ 40 characters; ≤ 60 months
+  kept, newest first). Saved on every change, read once after hydration with the other four keys; missing,
+  malformed or over-large reads as all empty, Future off, 1 year (never throws). A month with both fields empty is
+  dropped. The other four keys are unchanged.
+
+### 15.4 Layout
+
+- Same `.pf-*` look (12 px dim labels, underline fields 44 px, chalk focus ring, AA, proportional figures).
+- **Overview table:** three columns (label, `This month`, `12-month average`) at every width; values 16 px chalk.
+- **Fields** (`Starting net assets`, `Growth rate (%)`; Update's `Month`, `Expenses`, `Income`): stacked full width
+  below 640 px, one row from 640 px (each ≤ 16rem), like section 13.4.
+- **Future:** the toggle and the year choices as 44 px text buttons (chalk; the pressed one underlined); they wrap
+  on a phone.
+- **Chart:** full width, 240 px tall below 1024 px, 320 px from 1024 px; lines 2 px: Expenses `alert` (#ff8f87),
+  Income `green`, Net assets `chalk`; ticks 12 px dim; grid `hair`; legend under it (a 12 px swatch + 14 px chalk
+  name each). No gold. The chart sits in a fixed-height box, so nothing moves when it draws (CLS 0).

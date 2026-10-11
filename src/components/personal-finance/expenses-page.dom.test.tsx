@@ -1,4 +1,4 @@
-// Personal finance page (#84–#87, spec attachments/personal-finance-spec.md; PF-02..07, PF-11..25) in jsdom with the real component.
+// Personal finance page (#84–#87, #94; spec attachments/personal-finance-spec.md; PF-02..07, PF-11..31) in jsdom with the real component.
 import { dom } from "../../test/dom-setup";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
@@ -8,16 +8,19 @@ import { STORAGE_KEY } from "@/lib/finance/expenses";
 import { INCOME_KEY } from "@/lib/finance/income";
 import { EQUITY_KEY } from "@/lib/finance/equity";
 import { CURRENCY_KEY } from "@/lib/finance/currency";
+import { OVERVIEW_KEY } from "@/lib/finance/overview";
 import { PersonalFinancePage } from "./expenses-page";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
 
+// #94: a fixed "today" (11 October 2026, local) so the 12 months are known.
+const NOW = new Date(2026, 9, 11, 12);
 async function render(): Promise<HTMLElement> {
   container = dom.window.document.createElement("div");
   dom.window.document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => root!.render(<PersonalFinancePage />));
+  await act(async () => root!.render(<PersonalFinancePage now={NOW} />));
   return container;
 }
 
@@ -59,7 +62,7 @@ describe("personal finance page (#84)", () => {
     assert.equal(el.querySelector("h1")!.textContent, "Personal finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
-      ["Income", "Income table", "Expenses", "Fixed", "Variable"],
+      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Overview", "Update"],
     );
     for (const head of qa(el, "pf-head"))
       assert.deepEqual(
@@ -78,7 +81,7 @@ describe("personal finance page (#84)", () => {
       );
     assert.deepEqual(
       [...el.querySelectorAll("button")].map((b) => b.textContent),
-      ["↳ Add person", "↳ Add expense", "↳ Add expense"],
+      ["↳ Add person", "↳ Add expense", "↳ Add expense", "Future"],
     );
     assert.deepEqual(
       qa(el, "pf-total-all")
@@ -619,5 +622,147 @@ describe("equity cover (#86, option A)", () => {
     assert.equal((q(rent, "pf-currency") as HTMLSelectElement).value, "CAD");
     assert.equal(text(rent, "pf-fx-none"), "—");
     assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "1,000");
+  });
+});
+
+describe("Overview and Update (#94, PF-26..31)", () => {
+  const ov = (el: HTMLElement, row: string) =>
+    [q(el, `pf-ov-${row}`)].map((r) => [text(r, "pf-ov-now"), text(r, "pf-ov-avg")])[0];
+
+  it("copy and a new page: all —, Future off, 12 months newest first (PF-26, PF-28)", async () => {
+    const el = await render();
+    const table = q(el, "pf-ov-table");
+    assert.deepEqual(
+      [...table.querySelectorAll("[role=columnheader]")].map((c) => c.textContent),
+      ["Overview", "This month", "12-month average"],
+    );
+    assert.deepEqual(
+      [...table.querySelectorAll("[role=rowheader]")].map((c) => c.textContent),
+      ["Expenses", "Income", "Surplus"],
+    );
+    for (const row of ["expenses", "income", "surplus"]) assert.deepEqual(ov(el, row), ["—", "—"]);
+    assert.deepEqual(
+      [...q(el, "pf-overview").querySelectorAll("label")].map((l) => l.textContent),
+      ["Starting net assets", "Growth rate (%)"],
+    );
+    assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
+    assert.equal(qa(el, "pf-year").length, 0);
+    assert.deepEqual(
+      [...q(el, "pf-legend").children].map((c) => c.textContent),
+      ["Expenses", "Income", "Net assets"],
+    );
+    assert.equal(
+      q(el, "pf-chart").querySelector(".pf-chart-plot")!.getAttribute("aria-hidden"),
+      "true",
+    );
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
+    assert.deepEqual(
+      [...q(el, "pf-update").querySelectorAll("label")].map((l) => l.textContent),
+      ["Month", "Expenses", "Income"],
+    );
+    const options = [...(q(el, "pf-month") as HTMLSelectElement).options].map((o) => o.textContent);
+    assert.equal(options.length, 12);
+    assert.equal(options[0], "October 2026");
+    assert.equal(options[4], "June 2026");
+    assert.equal(options[11], "November 2025");
+    assert.equal((q(el, "pf-month") as HTMLSelectElement).value, "2026-10");
+    assert.equal(
+      dom.window.localStorage.getItem(OVERVIEW_KEY),
+      null,
+      "nothing written until a change",
+    );
+  });
+
+  it("the page figures, a typed past month updates the average, net assets, Future (PF-27, PF-29, PF-30)", async () => {
+    const el = await render();
+    // The page: one 1,750 monthly expense, one person netting 11,200 a month (134,400 a year, no tax).
+    await click(q(el, "pf-add-fixed"));
+    await type(lines(el, "fixed")[0].querySelector('[data-testid="pf-monthly"]')!, "1,750");
+    await click(q(el, "pf-add-person"));
+    await type(q(el, "pf-person-wages"), "134,400");
+    assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"]);
+    assert.deepEqual(ov(el, "income"), ["11,200", "11,200"]);
+    // Current month: placeholders are the page figures.
+    assert.equal(q(el, "pf-month-expenses").getAttribute("placeholder"), "1,750");
+    await type(q(el, "pf-month"), "2026-06");
+    assert.equal(
+      q(el, "pf-month-expenses").getAttribute("placeholder"),
+      "1,750",
+      "a past month: the average",
+    );
+    await type(q(el, "pf-month-expenses"), "4,000");
+    await type(q(el, "pf-month-income"), "9,000");
+    assert.deepEqual(ov(el, "expenses"), ["1,750", "2,875"]);
+    assert.deepEqual(ov(el, "income"), ["11,200", "10,100"]);
+    assert.deepEqual(ov(el, "surplus"), ["9,450", "7,225"]);
+    await type(q(el, "pf-start"), "10,000");
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "96700.00");
+    // Future.
+    await type(q(el, "pf-growth"), "5");
+    await click(q(el, "pf-future-toggle"));
+    assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "true");
+    assert.deepEqual(
+      qa(el, "pf-year").map((b) => [b.textContent, b.getAttribute("aria-pressed")]),
+      [
+        ["1 year", "true"],
+        ["5 years", "false"],
+        ["10 years", "false"],
+        ["15 years", "false"],
+      ],
+    );
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "24");
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "190204.37");
+    await click(qa(el, "pf-year")[1]);
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "72");
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "613370.68");
+    // A bad growth rate: the check, counts as 0.
+    await type(q(el, "pf-growth"), "five");
+    assert.equal(text(q(el, "pf-overview"), "pf-error"), "Enter a number, 0 or more.");
+    assert.equal(
+      q(el, "pf-chart").getAttribute("data-net-last"),
+      String((96700 + 60 * 7225).toFixed(2)),
+    );
+    // A typed current month replaces the page; clearing June empties it.
+    await type(q(el, "pf-month"), "2026-10");
+    await type(q(el, "pf-month-expenses"), "2,000");
+    assert.deepEqual(ov(el, "expenses"), ["2,000", "3,000"]);
+    await type(q(el, "pf-month"), "2026-06");
+    assert.equal((q(el, "pf-month-expenses") as HTMLInputElement).value, "4,000");
+    await type(q(el, "pf-month-expenses"), "");
+    await type(q(el, "pf-month-income"), "");
+    assert.deepEqual(ov(el, "expenses"), ["2,000", "2,000"]);
+    // Off again: the chart ends at the current month.
+    await click(q(el, "pf-future-toggle"));
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
+  });
+
+  it("everything survives a reload from orpheus.finance.overview.v1 (PF-31)", async () => {
+    let el = await render();
+    await type(q(el, "pf-start"), "10,000");
+    await type(q(el, "pf-growth"), "5");
+    await click(q(el, "pf-future-toggle"));
+    await click(qa(el, "pf-year")[2]);
+    await type(q(el, "pf-month"), "2026-06");
+    await type(q(el, "pf-month-expenses"), "4,000");
+    const saved = JSON.parse(dom.window.localStorage.getItem(OVERVIEW_KEY)!);
+    assert.deepEqual(saved, {
+      start: "10,000",
+      growth: "5",
+      future: true,
+      years: 10,
+      months: { "2026-06": { expenses: "4,000", income: "" } },
+    });
+    await act(async () => root!.unmount());
+    container!.remove();
+    el = await render();
+    assert.equal((q(el, "pf-start") as HTMLInputElement).value, "10,000");
+    assert.equal(qa(el, "pf-year")[2].getAttribute("aria-pressed"), "true");
+    assert.deepEqual(ov(el, "expenses"), ["—", "4,000"]);
+    dom.window.localStorage.setItem(OVERVIEW_KEY, "{broken");
+    await act(async () => root!.unmount());
+    container!.remove();
+    el = await render();
+    assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
+    assert.equal(qa(el, "pf-error").length, 0);
   });
 });
