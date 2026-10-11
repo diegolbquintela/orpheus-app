@@ -5,6 +5,7 @@ import { afterEach, describe, it } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { STORAGE_KEY } from "@/lib/finance/expenses";
+import { INCOME_KEY } from "@/lib/finance/income";
 import { PersonalFinancePage } from "./expenses-page";
 
 let root: Root | undefined;
@@ -56,7 +57,7 @@ describe("personal finance page (#84)", () => {
     assert.equal(el.querySelector("h1")!.textContent, "Personal finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
-      ["Expenses", "Fixed", "Variable"],
+      ["Income", "Income table", "Expenses", "Fixed", "Variable"],
     );
     for (const head of qa(el, "pf-head"))
       assert.deepEqual(
@@ -65,7 +66,7 @@ describe("personal finance page (#84)", () => {
       );
     assert.deepEqual(
       [...el.querySelectorAll("button")].map((b) => b.textContent),
-      ["↳ Add expense", "↳ Add expense"],
+      ["↳ Add person", "↳ Add expense", "↳ Add expense"],
     );
     assert.deepEqual(
       qa(el, "pf-total-all")
@@ -179,6 +180,147 @@ describe("personal finance page (#84)", () => {
     dom.window.localStorage.setItem(STORAGE_KEY, "{not json");
     const el = await render();
     assert.equal(qa(el, "pf-line").length, 0);
+    assert.equal(q(el, "pf-area").getAttribute("data-ready"), "true");
+  });
+});
+
+describe("income block (#85)", () => {
+  const people = (el: HTMLElement) => qa(el, "pf-person");
+  const table = (el: HTMLElement) =>
+    qa(el, "pf-income-line")
+      .concat(qa(el, "pf-net-income"))
+      .map((r) => [
+        r.querySelector('[data-testid="pf-income-label"]')!.textContent,
+        text(r, "pf-income-biweekly"),
+        text(r, "pf-income-monthly"),
+        text(r, "pf-income-yearly"),
+      ]);
+  async function check(field: Element, on: boolean) {
+    const box = field as HTMLInputElement;
+    if (box.checked !== on) await click(box);
+  }
+
+  it("copy: Income, the person columns, Add person, the table with only Net income at 0 (PF-11)", async () => {
+    const el = await render();
+    assert.deepEqual(
+      [...q(el, "pf-person-head").children].map((c) => c.textContent),
+      [
+        "Name",
+        "Wages (yearly)",
+        "Bonus rating (%)",
+        "Average tax (%)",
+        "Net (yearly)",
+        "Count wages",
+        "Count bonus",
+        "Share (%)",
+      ],
+    );
+    assert.deepEqual(
+      [...q(el, "pf-table-head").children].map((c) => c.textContent),
+      ["Income", "Biweekly", "Monthly", "Yearly"],
+    );
+    assert.deepEqual(table(el), [["Net income", "0", "0", "0"]]);
+    assert.equal(
+      [...el.querySelectorAll(".pf-label")]
+        .filter((l) => /^0[1-3]$/.test(l.textContent!))
+        .map((l) => l.textContent)
+        .join(" "),
+      "01 02 03",
+    );
+    assert.equal(dom.window.localStorage.getItem(INCOME_KEY), null);
+  });
+
+  it("the spec example: net, counted + share, table, % of income wired (PF-12..16)", async () => {
+    const el = await render();
+    await click(q(el, "pf-add-person"));
+    await click(q(el, "pf-add-person"));
+    const [me, spouse] = people(el);
+    assert.equal((q(me, "pf-person-share") as HTMLInputElement).value, "100");
+    assert.equal((q(me, "pf-person-count-wages") as HTMLInputElement).checked, true);
+    await type(q(me, "pf-person-name"), "Me");
+    await type(q(me, "pf-person-wages"), "120,000");
+    await type(q(me, "pf-person-bonus"), "10");
+    await type(q(me, "pf-person-tax"), "30");
+    await check(q(me, "pf-person-count-bonus"), false);
+    await type(q(spouse, "pf-person-name"), "Spouse");
+    await type(q(spouse, "pf-person-wages"), "80,000");
+    await type(q(spouse, "pf-person-bonus"), "5");
+    await type(q(spouse, "pf-person-tax"), "25");
+    await type(q(spouse, "pf-person-share"), "80");
+    assert.deepEqual(
+      [text(me, "pf-person-net"), text(spouse, "pf-person-net")],
+      ["92,400", "63,000"],
+    );
+    assert.deepEqual(table(el), [
+      ["Me · Wages", "3,230.77", "7,000", "84,000"],
+      ["Me · Bonus", "0", "0", "0"],
+      ["Spouse · Wages", "1,846.15", "4,000", "48,000"],
+      ["Spouse · Bonus", "92.31", "200", "2,400"],
+      ["Net income", "5,169.23", "11,200", "134,400"],
+    ]);
+    // Expenses: % of income against 11,200 a month.
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-variable"));
+    const [rent, phone] = lines(el, "fixed");
+    const [gifts] = lines(el, "variable");
+    await type(q(rent, "pf-monthly"), "1,000");
+    await type(q(phone, "pf-monthly"), "250");
+    await type(q(gifts, "pf-yearly"), "1,200");
+    assert.deepEqual(
+      [text(rent, "pf-income"), text(phone, "pf-income"), text(gifts, "pf-income")],
+      ["8.9%", "2.2%", "0.9%"],
+    );
+    assert.deepEqual(
+      ["fixed", "variable", "all"].map((g) => text(q(el, `pf-total-${g}`), "pf-total-income")),
+      ["11.2%", "0.9%", "12.1%"],
+    );
+    // Untick everything: no counted income → —.
+    await check(q(me, "pf-person-count-wages"), false);
+    await check(q(spouse, "pf-person-count-wages"), false);
+    await check(q(spouse, "pf-person-count-bonus"), false);
+    assert.equal(text(rent, "pf-income"), "—");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-income"), "—");
+    // Field checks.
+    await type(q(spouse, "pf-person-share"), "120");
+    assert.equal(q(spouse, "pf-error").textContent, "Enter a percent from 0 to 100.");
+    await type(q(spouse, "pf-person-share"), "80");
+    await type(q(spouse, "pf-person-wages"), "lots");
+    assert.equal(q(spouse, "pf-error").textContent, "Enter a number, 0 or more.");
+    // Storage and reload.
+    const stored = JSON.parse(dom.window.localStorage.getItem(INCOME_KEY)!);
+    assert.deepEqual(
+      { ...stored.people[0], id: "" },
+      {
+        id: "",
+        name: "Me",
+        wages: "120,000",
+        bonus: "10",
+        tax: "30",
+        share: "100",
+        countWages: false,
+        countBonus: false,
+      },
+    );
+    assert.deepEqual(Object.keys(dom.window.localStorage).sort(), [INCOME_KEY, STORAGE_KEY].sort());
+    await act(async () => root!.unmount());
+    container!.remove();
+    const again = await render();
+    assert.equal((q(people(again)[1], "pf-person-wages") as HTMLInputElement).value, "lots");
+    assert.equal((q(people(again)[0], "pf-person-count-wages") as HTMLInputElement).checked, false);
+    // Remove a person.
+    await click(q(people(again)[1], "pf-remove-person"));
+    assert.equal(people(again).length, 1);
+    assert.equal(
+      q(people(again)[0], "pf-remove-person").getAttribute("aria-label"),
+      "Remove person",
+    );
+  });
+
+  it("a malformed income value shows no people", async () => {
+    dom.window.localStorage.setItem(INCOME_KEY, "{oops");
+    const el = await render();
+    assert.equal(people(el).length, 0);
     assert.equal(q(el, "pf-area").getAttribute("data-ready"), "true");
   });
 });

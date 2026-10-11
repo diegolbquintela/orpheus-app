@@ -71,13 +71,15 @@ const PAGES = [
   },
   { path: "/dashboard/sign-in", current: "Dashboard", status: 200, imgs: [], texts: ["Sign in", "Email", "Password", "Sign in", "Create an account"] },
   { path: "/no-such-page", current: null, status: 404, imgs: [], texts: ["Page not found."] },
-  // #84 (personal-finance spec §4), the empty page: a phone shows each total's labelled cells; from 1024 px the
+  // #84 / #85 (personal-finance spec §4, §12), the empty page: a phone shows each total's labelled cells; from 1024 px the
   // column-label rows are aria-hidden (not counted) and the cells' labels visually hidden.
   {
     path: "/personal-finance", current: null, status: 200, imgs: [],
     texts: (wide) => {
       const total = (label) => (wide ? [label, "—", "—", "0", "0", "0"] : [label, "% of income", "—", "% of expenses", "—", "Monthly", "0", "Yearly", "0", "Equity to cover", "0"]);
-      return ["01", "Personal finance.", "02", "Expenses", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total")];
+      // #85: the income block first (`02` Income; its column-label rows aria-hidden), then `03` Expenses.
+      const net = wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"];
+      return ["01", "Personal finance.", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total")];
     },
   },
 ];

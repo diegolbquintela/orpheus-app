@@ -703,6 +703,107 @@
       padding-top: 1.45rem;
     }
   }
+  /* Income block (#85, personal-finance spec section 12.4): a person is a block of labelled cells on a phone (Average
+     tax in the wider right cell so its label stays on one line at 360 px) and
+     one row from 1024 px; the income table a label over three values on a phone, one row from 1024 px. */
+  .pf-person {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.75rem;
+    grid-template-areas:
+      "name name remove"
+      "wages bonus bonus"
+      "pct tax tax"
+      "cw cb cb"
+      "net net net";
+    column-gap: 1rem;
+    row-gap: 1.25rem;
+    border-bottom: 1px solid var(--color-hair);
+    padding-bottom: 1.5rem;
+  }
+  .pf-wages {
+    grid-area: wages;
+  }
+  .pf-bonus {
+    grid-area: bonus;
+  }
+  .pf-tax {
+    grid-area: tax;
+  }
+  .pf-net {
+    grid-area: net;
+  }
+  .pf-cw {
+    grid-area: cw;
+  }
+  .pf-cb {
+    grid-area: cb;
+  }
+  .pf-pct {
+    grid-area: pct;
+  }
+  .pf-biweekly {
+    grid-area: biweekly;
+  }
+  .pf-check {
+    display: flex;
+    height: 2.75rem;
+    width: 2.75rem;
+    align-items: center;
+  }
+  .pf-check > input {
+    height: 1.25rem;
+    width: 1.25rem;
+    accent-color: var(--color-chalk);
+  }
+  .pf-table-row,
+  .pf-table-row.pf-table-total {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      "name name name"
+      "biweekly monthly yearly";
+    column-gap: 1rem;
+    row-gap: 0.5rem;
+    border-bottom: 1px solid var(--color-hair);
+    padding-bottom: 1rem;
+  }
+  .pf-table-row.pf-table-total {
+    border-bottom: 0;
+    padding-top: 0.25rem;
+    padding-bottom: 0;
+  }
+  .pf-row-label {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    font-size: 1rem;
+    color: var(--color-chalk);
+  }
+  @media (min-width: 64rem) {
+    .pf-head.pf-person-head,
+    .pf-person {
+      grid-template-columns:
+        minmax(0, 1.6fr) minmax(0, 1fr) 6.5rem 6.5rem minmax(0, 1fr) 5.5rem 5.5rem 5.5rem
+        2.75rem;
+      column-gap: 1.25rem;
+    }
+    .pf-person {
+      grid-template-areas: "name wages bonus tax net cw cb pct remove";
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .pf-head.pf-table-head,
+    .pf-table-row,
+    .pf-table-row.pf-table-total {
+      grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+      grid-template-areas: "name biweekly monthly yearly";
+      column-gap: 1.25rem;
+    }
+    .pf-table-row {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+  }
   /* Home (#69, spec §8): its own classes; the calculator's .calc-* stay as they are. The hero title box is
      font-independent like .calc-title: 5.3em wide ("Investment" is 5.20em in Schibsted, 5.12em in the fallback;
      two words never fit: 8.26em and up), three lines of 1.1, one text node. 16 px on a phone, 40 / 44 px wide. */
