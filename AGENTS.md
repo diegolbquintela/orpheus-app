@@ -95,7 +95,7 @@ affects the repo.
   total containing it (Q14; `factorOf` / `householdMonthlyOf` return null, totals null-propagate like Q10); an
   override is household; one rate per line (Q16); no symbol, no converted column (Q15).
   Lines gain optional `currency` / `rate` in the expenses key (old lines read as household lines). No live FX.
-  #94 Overview and Update (spec section 15; Q17–Q23 decided by EL ≈ 17:14 ET as built; Q19's typed-negative start pending): `04` Overview (this month vs the
+  #94 Overview and Update (spec section 15; Q17–Q23 decided by EL as built; Q19 option A: net assets may go negative over time, the start field stays ≥ 0): `04` Overview (this month vs the
   12-month average for Expenses / Income / Surplus; `Starting net assets`, `Growth rate (%)`; a `Future` toggle with 1 / 5 /
   10 / 15 years; a recharts line chart, Expenses / Income on the left axis, Net assets on the right, plot aria-hidden) and
   `05` Update (`Month` = the last 12 months incl. the current one; typed Expenses / Income per month). A month's figure =
