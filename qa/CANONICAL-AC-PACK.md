@@ -55,6 +55,7 @@ always: ST0-05).
 | 16 | #90 Roles and account | ROLE-01..22 new (the `Account` bar item (person glyph below 640 px) and `/account` in the dark shell; password / email change; Diego-only grant UI with a temporary password shown once; forced password change; public `Create account` removed; one owner (`ORPHEUS_OWNER_EMAIL`), grantees see the owner's data: CFO → Personal Finance, Portfolio Manager → Dashboard, `Read` or `Read and write`; the 403 shell page, read-only pages and API 403s; PF `DELETE` owner-only); ST1-01 (five items), ST5b-02 (no `Create an account` link) and PF-34 (`next` also allows `/account`) amended; Q-D1..Q-D18 decided by Diego via CoS ≈ 23:55 ET exactly as recommended; `qa/tools/roles.mjs` (locally on a throwaway database: owner / CFO-read / PM-write / no-grant; on a preview only once EL sets `ORPHEUS_OWNER_EMAIL` and the four QA accounts, passwords in env only) | PF-01..47 and PFE-01..13 as the owner, every shipped page (`site-style-regression.mjs`, `$313,000`), the signed-out 307s, `safeNext`; #91 / #92 / #93 / #71 untouched |
 | 17 | #50 Remove Grok template leftovers | NG-01..09 new (no grok.com request / script, no `.grok.com` cookie, the static Orpheus `/manifest.webmanifest` with 180 / 512 icons, `apple-touch-icon` retargeted, `/__grok/*` gone, `/?install=1` is just the old-link redirect to the calculator, noindex / X-Robots-Tag / favicon / theme-color / apple meta kept, no preview bridge); decided by EL ≈ 07:50 ET (option A + cut the preview bridge); `qa/tools/no-grok.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), release-smoke, the signed-out 307s; #51 / #71 / #91–#95 untouched |
 | 18 | #51 Remove remaining Grok tooling | TL-01..06 new (`.grok/`, `startup.sh`, the preview / app-env / auth-invariant / write-atomic / browser-smoke scripts and `screenshots/app-builder-*` gone; `dev` / `build` / `preview` run Vite directly; no app-env Vite plugin; the deployed auth flag unchanged because Vercel sets `VITE_AUTH_ENABLED` itself (EL ≈ 08:48 ET); kept: `migrations/*0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default); `scripts/no-grok-tooling.test.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), `qa/tools/no-grok.mjs`, release-smoke, signed-out 307s; #71 / #91–#95 untouched |
+| 19 | #91 Audit log of actions | AUDIT-01..12 new (append-only `audit_event`, the fixed action list, masked actor / target codes, no amounts / names / emails / tickers, owner-only `GET /api/account/audit` and `/account` `06 Activity`, best-effort writes, dark shell); design `attachments/audit-log-design.md`; Q-A1..Q-A4 open, built as recommended; `qa/tools/audit.mjs` | ROLE-01..22 (`roles.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), signed-out 307s; #92 / #93 / #95 / #71 untouched |
 | — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
@@ -384,4 +385,25 @@ Vercel sets `VITE_AUTH_ENABLED` itself (Preview `true`, Production its own encry
 | TL-04 | BLOCK | Deployed behaviour unchanged: the client bundle does not depend on `VITE_AUTH_ENABLED` from a file (an identical build with the file `"false"`, with env `true` and without the file); Preview sign-in still works; signed-out 307s on `/personal-finance`, `/dashboard`, `/account`. |
 | TL-05 | BLOCK | Kept: `migrations/0001_auth.sql`, `migrations/auth/0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default in `qa/tools/config.mjs`. |
 | TL-06 | BLOCK | Nothing else moves: `qa/tools/no-grok.mjs` (no grok.com request / cookie), `site-style-regression.mjs` (`$313,000`, CLS 0, noindex, shell / home), release-smoke, CI green. |
+
+## Audit log of actions (#91; design `attachments/audit-log-design.md`)
+
+Ops / debug log, not personal data. Tool: `qa/tools/audit.mjs` (a preview with the #90 QA accounts: the owner via
+`QA_EMAIL` / `QA_PASSWORD`, `QA_CFO_*`, `QA_PM_*`, `QA_NONE_*`; passwords in env only, never logged). Widths 360 × 780
+and 1440 × 900.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| AUDIT-01 | BLOCK | Migration `0012_audit.sql` creates `audit_event` (id, at, actor, role, action, target, outcome, detail); `UPDATE` and `DELETE` on it fail (append-only). |
+| AUDIT-02 | BLOCK | Each action in design section 3 writes one row with the right `action`, `outcome`, `role`; reads write nothing (except a denial). |
+| AUDIT-03 | BLOCK | Masking: `actor` / `target` are only `owner`, `anonymous`, `p-` + 8 hex or `h-` + 8 hex; the same person always has the same code; no row (any column) contains an email, a person's name, a ticker, a currency code or a digit run that is an amount from the request. |
+| AUDIT-04 | BLOCK | `detail` is null or from the fixed list (grant levels `pf:<lvl> dash:<lvl>`, `<surface> <METHOD>`); never free text from a request. |
+| AUDIT-05 | BLOCK | A failed sign-in writes `auth.sign_in` / `failed` / `anonymous` without the typed email; a good one writes `ok` with the person's code. |
+| AUDIT-06 | BLOCK | A CFO with `Read` writing Personal Finance (403) and a no-grant person opening the Dashboard API (403) write `access.denied` with detail `personal_finance PUT` / `dashboard GET`. |
+| AUDIT-07 | BLOCK | `GET /api/account/audit`: owner 200 newest first, `limit` 1..100 (default 50), `before` pages, `more` flag, `Cache-Control: no-store`; a grantee or no-grant person 403; signed out 401; flag off 404; non-GET 405. |
+| AUDIT-08 | BLOCK | `/account` for the owner shows `06` `Activity`: columns `When`, `Who`, `Role`, `Action`, `Target`, `Result`, newest first, times in ET; `Show older` appends the next page; empty: `No activity yet.` Grantees and a temporary-password session do not see the section. |
+| AUDIT-09 | BLOCK | Style: the dark shell (bar, lyre, footer `Orpheus Wisdom`, `color-scheme: dark`), no gold, AA contrast, no horizontal page scroll at 360 (the table scrolls inside its own box), strict CLS 0, noindex. |
+| AUDIT-10 | MUST | A failing audit insert never changes the action's own answer (unit test); the server log gets the action code only. |
+| AUDIT-11 | BLOCK | No new env var, no allow-list change; the signed-out 307s (`/personal-finance`, `/dashboard`, `/account`) and the `$313,000` calculator unchanged. |
+| AUDIT-12 | MUST | Removing a person keeps their rows (no foreign key). |
 
