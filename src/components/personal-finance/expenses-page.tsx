@@ -4,7 +4,11 @@ import {
   ACCOUNT_MAX,
   ACCOUNTS_MAX,
   addAccount,
+  addCategory,
   AMOUNT_ERROR,
+  CATEGORIES_MAX,
+  CATEGORY_MAX,
+  categoryTotals,
   calculatedEquity,
   COLUMNS,
   type Expenses,
@@ -20,6 +24,7 @@ import {
   LINES_MAX,
   NAME_MAX,
   newLine,
+  NO_CATEGORY,
   NOT_COMPUTED,
   parseAmount,
   parseRate,
@@ -57,8 +62,19 @@ import { Cell, SectionHead } from "./pf-cells";
 
 import { type Overview, readOverview, writeOverview } from "@/lib/finance/overview";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
+import {
+  isOpen,
+  readView,
+  type SectionKey,
+  toggleSection,
+  type View,
+  writeView,
+} from "@/lib/finance/view";
 
 const ADD_ACCOUNT = "__add-account__";
+const ADD_CATEGORY = "__add-category__";
+/** The filter's "every line" value (no category is named this: names are typed, this is not offered). */
+const ALL = "";
 
 let currentStore: StoreLike | null = null;
 /** The loaded store (#102: the account's record; tests: localStorage). Null until loaded. */
@@ -86,7 +102,11 @@ export function PersonalFinancePage({
   const [income, setIncome] = useState<Income | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
+  /** `<line id>` while adding an account on that line, `cat:<line id>` while adding a category (#105). */
   const [adding, setAdding] = useState<string | null>(null);
+  const [view, setView] = useState<View | null>(null);
+  /** #105 (PF-45): the category filter, this visit only; ALL shows every line. */
+  const [filter, setFilter] = useState<string>(ALL);
 
   useEffect(() => {
     let alive = true;
@@ -109,6 +129,7 @@ export function PersonalFinancePage({
     setRates(readRates(storage()));
     setHousehold(readHousehold(storage()));
     setOverview(readOverview(storage()));
+    setView(readView(storage()));
     setNow(fixedNow ?? new Date());
     setExpenses(readExpenses(storage()));
   }
@@ -118,6 +139,15 @@ export function PersonalFinancePage({
       if (!current) return current;
       const next = change(current);
       writeOverview(storage(), next);
+      return next;
+    });
+  }
+
+  function toggle(section: SectionKey) {
+    setView((current) => {
+      if (!current) return current;
+      const next = toggleSection(current, section);
+      writeView(storage(), next);
       return next;
     });
   }
@@ -173,33 +203,73 @@ export function PersonalFinancePage({
           className="pf-area flex flex-col gap-14 lg:gap-16"
           data-testid="pf-area"
           data-ready={
-            expenses && income && rates && household && overview && now ? "true" : "false"
+            expenses && income && rates && household && overview && now && view ? "true" : "false"
           }
         >
-          {expenses && income && rates && household && overview && now ? (
+          {expenses && income && rates && household && overview && now && view ? (
             <>
               <HouseholdCurrency value={household.household} onChange={updateHousehold} />
-              <IncomeBlock income={income} update={updateIncome} household={household.household} />
-              <section className="flex flex-col gap-8" aria-labelledby="pf-expenses">
-                <SectionHead numeral="03" title="Expenses" id="pf-expenses" />
-                <EquityRates rates={rates} update={updateRates} />
-                <div className="flex flex-col gap-12">
-                  <Groups
-                    expenses={expenses}
-                    rate={rateUsed(rates)}
-                    household={household.household}
-                    incomeMonthly={monthly(netIncomeYearly(income.people, household.household))}
-                    adding={adding}
-                    setAdding={setAdding}
-                    update={update}
-                    updateLine={updateLine}
-                  />
+              <IncomeBlock
+                income={income}
+                update={updateIncome}
+                household={household.household}
+                open={isOpen(view, "income")}
+                onToggle={() => toggle("income")}
+              />
+              <section
+                className="flex flex-col gap-8"
+                aria-labelledby="pf-expenses"
+                data-testid="pf-expenses-block"
+              >
+                <SectionHead
+                  numeral="03"
+                  title="Expenses"
+                  id="pf-expenses"
+                  toggle={{
+                    open: isOpen(view, "expenses"),
+                    controls: "pf-expenses-body",
+                    onToggle: () => toggle("expenses"),
+                    testId: "pf-toggle-expenses",
+                  }}
+                />
+                <div
+                  id="pf-expenses-body"
+                  className="pf-section-body flex flex-col gap-8"
+                  data-testid="pf-body-expenses"
+                >
+                  {isOpen(view, "expenses") ? (
+                    <>
+                      <EquityRates rates={rates} update={updateRates} />
+                      <CategoryFilter
+                        categories={expenses.categories}
+                        value={expenses.categories.includes(filter) ? filter : ALL}
+                        onChange={setFilter}
+                      />
+                      <div className="flex flex-col gap-12">
+                        <Groups
+                          expenses={expenses}
+                          rate={rateUsed(rates)}
+                          household={household.household}
+                          incomeMonthly={monthly(
+                            netIncomeYearly(income.people, household.household),
+                          )}
+                          filter={expenses.categories.includes(filter) ? filter : ALL}
+                          adding={adding}
+                          setAdding={setAdding}
+                          update={update}
+                          updateLine={updateLine}
+                        />
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </section>
               <OverviewBlock
                 overview={overview}
                 update={updateOverview}
                 now={now}
+                open={isOpen(view, "overview")}
+                onToggle={() => toggle("overview")}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
                   income: monthly(netIncomeYearly(income.people, household.household)),
@@ -251,12 +321,15 @@ function Groups({
   rate,
   household,
   incomeMonthly,
+  filter,
   adding,
   setAdding,
   update,
   updateLine,
 }: {
   expenses: Expenses;
+  /** #105 (PF-45): show only this category's lines (ALL: every line); totals always use every line. */
+  filter: string;
   /** The rate used (#86), a percent, or null: each line's calculated `Equity to cover` divides by it. */
   rate: number | null;
   /** The household currency (#87): every figure below is in it (a foreign line × its FX rate). */
@@ -287,47 +360,66 @@ function Groups({
                 </span>
               ))}
             </div>
-            {lines.map((line, index) => (
-              <LineRow
-                key={line.id}
-                line={line}
-                index={index}
-                group={group.key}
-                accounts={expenses.accounts}
-                household={household}
-                share={formatShare(householdMonthlyOf(line, household), grand.monthly)}
-                ofIncome={formatShare(householdMonthlyOf(line, household), incomeMonthly)}
-                calculated={calculatedEquity(line, rate, household)}
-                adding={adding === line.id}
-                setAdding={setAdding}
-                onChange={(patch) => updateLine(group.key, line.id, patch)}
-                onRemove={() => {
-                  if (adding === line.id) setAdding(null);
-                  update((e) => ({
-                    ...e,
-                    [group.key]: e[group.key].filter((l) => l.id !== line.id),
-                  }));
-                }}
-                onAddAccount={(typed) => {
-                  const result = addAccount(expenses.accounts, typed);
-                  if ("error" in result) return result.error;
-                  update((e) => ({
-                    ...e,
-                    accounts: result.accounts,
-                    [group.key]: e[group.key].map((l) =>
-                      l.id === line.id && result.name ? { ...l, account: result.name } : l,
-                    ),
-                  }));
-                  setAdding(null);
-                  return null;
-                }}
-              />
-            ))}
+            {lines.map((line, index) =>
+              filter !== ALL && line.category !== filter ? null : (
+                <LineRow
+                  key={line.id}
+                  line={line}
+                  index={index}
+                  group={group.key}
+                  accounts={expenses.accounts}
+                  categories={expenses.categories}
+                  household={household}
+                  share={formatShare(householdMonthlyOf(line, household), grand.monthly)}
+                  ofIncome={formatShare(householdMonthlyOf(line, household), incomeMonthly)}
+                  calculated={calculatedEquity(line, rate, household)}
+                  adding={adding === line.id}
+                  addingCategory={adding === `cat:${line.id}`}
+                  setAdding={setAdding}
+                  onChange={(patch) => updateLine(group.key, line.id, patch)}
+                  onRemove={() => {
+                    if (adding === line.id) setAdding(null);
+                    update((e) => ({
+                      ...e,
+                      [group.key]: e[group.key].filter((l) => l.id !== line.id),
+                    }));
+                  }}
+                  onAddAccount={(typed) => {
+                    const result = addAccount(expenses.accounts, typed);
+                    if ("error" in result) return result.error;
+                    update((e) => ({
+                      ...e,
+                      accounts: result.accounts,
+                      [group.key]: e[group.key].map((l) =>
+                        l.id === line.id && result.name ? { ...l, account: result.name } : l,
+                      ),
+                    }));
+                    setAdding(null);
+                    return null;
+                  }}
+                  onAddCategory={(typed) => {
+                    const result = addCategory(expenses.categories, typed);
+                    if ("error" in result) return result.error;
+                    update((e) => ({
+                      ...e,
+                      categories: result.categories,
+                      [group.key]: e[group.key].map((l) =>
+                        l.id === line.id && result.name ? { ...l, category: result.name } : l,
+                      ),
+                    }));
+                    setAdding(null);
+                    return null;
+                  }}
+                />
+              ),
+            )}
             <button
               type="button"
               className="pf-add"
               disabled={lines.length >= LINES_MAX}
-              onClick={() => update((e) => ({ ...e, [group.key]: [...e[group.key], newLine()] }))}
+              onClick={() =>
+                update((e) => ({ ...e, [group.key]: [...e[group.key], newLine(filter)] }))
+              }
               data-testid={`pf-add-${group.key}`}
             >
               ↳ Add expense
@@ -349,7 +441,95 @@ function Groups({
         incomeMonthly={incomeMonthly}
         testId="all"
       />
+      <CategorySubtotals rows={categoryTotals(expenses, rate, household)} whole={grand.monthly} />
     </>
+  );
+}
+
+/** #105 (PF-45): `Filter by category` (`All`, then the categories); shown once there is a category. */
+function CategoryFilter({
+  categories,
+  value,
+  onChange,
+}: {
+  categories: string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const uid = useId();
+  if (categories.length === 0) return null;
+  return (
+    <div className="pf-cell pf-filter" data-testid="pf-filter-cell">
+      <label htmlFor={`${uid}-filter`} className="pf-label">
+        Filter by category
+      </label>
+      <select
+        id={`${uid}-filter`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="pf-field"
+        data-testid="pf-filter"
+      >
+        <option value={ALL}>All</option>
+        {categories.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** #105 (PF-46): `By category`: each used category, then `No category`; household currency; master totals unchanged. */
+function CategorySubtotals({
+  rows,
+  whole,
+}: {
+  rows: { name: string; totals: Totals }[];
+  whole: number | null;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4" data-testid="pf-categories">
+      <h3 className="pf-group">By category</h3>
+      <div className="pf-head pf-cat-head" aria-hidden="true">
+        {["Category", "% of expenses", "Monthly", "Yearly"].map((c) => (
+          <span key={c} className="pf-label">
+            {c}
+          </span>
+        ))}
+      </div>
+      {rows.map((row) => (
+        <div
+          key={row.name || "-"}
+          className="pf-cat-row"
+          data-testid="pf-cat-row"
+          data-category={row.name}
+        >
+          <div className="pf-cell pf-name">
+            <span className="pf-row-label" data-testid="pf-cat-name">
+              {row.name || NO_CATEGORY}
+            </span>
+          </div>
+          <Cell label="% of expenses" area="share">
+            <span className="pf-value" data-testid="pf-cat-share">
+              {formatShare(row.totals.monthly, whole)}
+            </span>
+          </Cell>
+          <Cell label="Monthly" area="monthly">
+            <span className="pf-value" data-testid="pf-cat-monthly">
+              {orDash(row.totals.monthly)}
+            </span>
+          </Cell>
+          <Cell label="Yearly" area="yearly">
+            <span className="pf-value" data-testid="pf-cat-yearly">
+              {orDash(row.totals.yearly)}
+            </span>
+          </Cell>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -358,35 +538,42 @@ function LineRow({
   index,
   group,
   accounts,
+  categories,
   household,
   share,
   ofIncome,
   calculated,
   adding,
+  addingCategory,
   setAdding,
   onChange,
   onRemove,
   onAddAccount,
+  onAddCategory,
 }: {
   line: Line;
   index: number;
   group: GroupKey;
   accounts: string[];
+  categories: string[];
   household: CurrencyCode;
   share: string;
   ofIncome: string;
   /** The calculated `Equity to cover` (#86), shown as the field's placeholder while no override is typed. */
   calculated: number | null;
   adding: boolean;
+  addingCategory: boolean;
   setAdding: (id: string | null) => void;
   onChange: (patch: Partial<Line>) => void;
   onRemove: () => void;
   onAddAccount: (typed: string) => string | null;
+  onAddCategory: (typed: string) => string | null;
 }) {
   const uid = useId();
   const groupTitle = group === "fixed" ? "Fixed" : "Variable";
   const aria = (column: string) => `${column}, ${groupTitle} ${index + 1}`;
   const selectRef = useRef<HTMLSelectElement>(null);
+  const categoryRef = useRef<HTMLSelectElement>(null);
   const amountBad = parseAmount(line.amount) === null;
   const equityBad = parseAmount(line.equity) === null;
   const foreign = isForeign(line, household);
@@ -516,6 +703,29 @@ function LineRow({
           ) : null}
         </select>
       </Cell>
+      <Cell label="Category" area="category" control>
+        <select
+          ref={categoryRef}
+          value={line.category}
+          onChange={(event) => {
+            if (event.target.value === ADD_CATEGORY) setAdding(`cat:${line.id}`);
+            else onChange({ category: event.target.value });
+          }}
+          aria-label={aria("Category")}
+          className="pf-field"
+          data-testid="pf-category"
+        >
+          <option value="">{NOT_COMPUTED}</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+          {categories.length < CATEGORIES_MAX ? (
+            <option value={ADD_CATEGORY}>Add category…</option>
+          ) : null}
+        </select>
+      </Cell>
       <button
         type="button"
         onClick={onRemove}
@@ -526,7 +736,8 @@ function LineRow({
         <Minus className="size-4" aria-hidden="true" />
       </button>
       {adding ? (
-        <NewAccount
+        <NewName
+          kind="account"
           onAdd={(typed) => {
             const problem = onAddAccount(typed);
             if (!problem) queueMicrotask(() => selectRef.current?.focus());
@@ -538,14 +749,31 @@ function LineRow({
           }}
         />
       ) : null}
+      {addingCategory ? (
+        <NewName
+          kind="category"
+          onAdd={(typed) => {
+            const problem = onAddCategory(typed);
+            if (!problem) queueMicrotask(() => categoryRef.current?.focus());
+            return problem;
+          }}
+          onCancel={() => {
+            setAdding(null);
+            queueMicrotask(() => categoryRef.current?.focus());
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
-function NewAccount({
+/** The inline adder for an account (#84) or, #105, a category: same copy pattern, same checks. */
+function NewName({
+  kind,
   onAdd,
   onCancel,
 }: {
+  kind: "account" | "category";
   onAdd: (typed: string) => string | null;
   onCancel: () => void;
 }) {
@@ -554,13 +782,13 @@ function NewAccount({
   const [problem, setProblem] = useState<string | null>(null);
   const submit = () => setProblem(onAdd(typed));
   return (
-    <div className="pf-new" data-testid="pf-new-account">
+    <div className="pf-new" data-testid={`pf-new-${kind}`}>
       <label className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="pf-label">New account</span>
+        <span className="pf-label">{kind === "account" ? "New account" : "New category"}</span>
         <input
           autoFocus
           value={typed}
-          maxLength={ACCOUNT_MAX}
+          maxLength={kind === "account" ? ACCOUNT_MAX : CATEGORY_MAX}
           onChange={(event) => {
             setTyped(event.target.value);
             setProblem(null);
@@ -576,18 +804,13 @@ function NewAccount({
           }}
           autoComplete="off"
           className="pf-field"
-          data-testid="pf-new-account-input"
+          data-testid={`pf-new-${kind}-input`}
           {...(problem
             ? { "aria-invalid": true as const, "aria-describedby": `${uid}-error` }
             : {})}
         />
         {problem ? (
-          <span
-            id={`${uid}-error`}
-            className="pf-error"
-            data-testid="pf-error"
-            data-field="account"
-          >
+          <span id={`${uid}-error`} className="pf-error" data-testid="pf-error" data-field={kind}>
             {problem}
           </span>
         ) : null}
@@ -597,7 +820,7 @@ function NewAccount({
           type="button"
           className="pf-button"
           onClick={submit}
-          data-testid="pf-new-account-add"
+          data-testid={`pf-new-${kind}-add`}
         >
           Add
         </button>
@@ -605,7 +828,7 @@ function NewAccount({
           type="button"
           className="pf-cancel"
           onClick={onCancel}
-          data-testid="pf-new-account-cancel"
+          data-testid={`pf-new-${kind}-cancel`}
         >
           Cancel
         </button>

@@ -40,11 +40,12 @@ const line = (over: Partial<Line> = {}): Line => ({
   account: "",
   currency: "",
   rate: "",
+  category: "",
   ...over,
 });
 
 describe("personal finance expenses (#84, PF-03..07)", () => {
-  it("has the nine columns in order (#87 adds Currency and FX rate after Yearly)", () => {
+  it("has the ten columns in order (#87 adds Currency and FX rate after Yearly; #105 Category last)", () => {
     assert.deepEqual(
       [...COLUMNS],
       [
@@ -57,6 +58,7 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
         "FX rate",
         "Equity to cover",
         "Account",
+        "Category",
       ],
     );
   });
@@ -102,6 +104,7 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
         line({ id: "d", amount: "oops", equity: "0" }),
       ],
       accounts: [],
+      categories: [],
     };
     assert.deepEqual(totalsOf(expenses.fixed), { monthly: 1250, yearly: 15000, equity: 10005 });
     assert.deepEqual(totalsOf(expenses.variable), { monthly: 100, yearly: 1200, equity: 0 });
@@ -128,6 +131,7 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
       fixed: [line({ account: "Visa" })],
       variable: [line({ id: "b", amount: "1,200", per: "year" as const })],
       accounts: ["Visa"],
+      categories: [],
     };
     writeExpenses(storage, saved);
     assert.deepEqual([...storage.map.keys()], [STORAGE_KEY]);
@@ -191,6 +195,7 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
         account: "",
         currency: "",
         rate: "",
+        category: "",
       },
     );
   });

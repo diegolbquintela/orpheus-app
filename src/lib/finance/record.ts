@@ -3,10 +3,11 @@ import { EQUITY_KEY } from "./equity.ts";
 import { LEGACY_EXPENSES_KEY, migrateExpenses, STORAGE_KEY } from "./expenses.ts";
 import { INCOME_KEY } from "./income.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
+import { VIEW_KEY } from "./view.ts";
 
 /**
- * The Personal Finance record stored against the account (#102; spec section 16.5): the five page values, by
- * name, each the JSON text the page's read / write helpers use. Shared by the page and the API (validation).
+ * The Personal Finance record stored against the account (#102; spec section 16.5): the page values (five; #105 adds the
+ * section toggles), by name, each the JSON text the page's read / write helpers use. Shared by the page and the API (validation).
  */
 export type PfRecord = Record<string, string>;
 
@@ -17,6 +18,7 @@ export const RECORD_NAMES = [
   EQUITY_KEY,
   CURRENCY_KEY,
   OVERVIEW_KEY,
+  VIEW_KEY,
 ] as const;
 /** This browser's old (#84–#94) `localStorage` keys, imported once into an empty account. */
 export const LEGACY_LOCAL_KEYS = [

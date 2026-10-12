@@ -50,12 +50,14 @@ const line = (over: Partial<Line> = {}): Line => ({
   account: "",
   currency: "",
   rate: "",
+  category: "",
   ...over,
 });
 
 // The section 14.2 example: household USD; Condo 2,000 a month in BRL at 5 (#102: 5 BRL per 1 CAD, ÷).
 const example = (): Expenses => ({
   accounts: [],
+  categories: [],
   fixed: [
     line({ id: "r" }),
     line({ id: "p", name: "Phone", amount: "250" }),
@@ -181,12 +183,19 @@ describe("foreign-currency line (#87, PF-22..25)", () => {
   it("v1.1–v1.3 lines restore as household lines; currency / rate round-trip; unknown code reads as household", () => {
     const old = { id: "o", name: "Rent", amount: "1,000", per: "month", equity: "", account: "" };
     const read = asExpenses({ fixed: [old], variable: [], accounts: [] });
-    assert.deepEqual(read.fixed[0], { ...old, per: "month", currency: "", rate: "" });
+    assert.deepEqual(read.fixed[0], {
+      ...old,
+      per: "month",
+      currency: "",
+      rate: "",
+      category: "",
+    });
     assert.deepEqual(totalsOf(read.fixed).monthly, 1000);
     const odd = asExpenses({
       fixed: [{ ...old, currency: "XYZ", rate: "5" }],
       variable: [],
       accounts: [],
+      categories: [],
     });
     assert.equal(odd.fixed[0].currency, "");
     assert.equal(

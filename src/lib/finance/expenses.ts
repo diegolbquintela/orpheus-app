@@ -23,6 +23,11 @@ export const ACCOUNTS_MAX = 50;
 export const LINES_MAX = 100;
 export const AMOUNT_ERROR = "Enter a number, 0 or more.";
 export const ACCOUNT_ERROR = "Name the account.";
+/** #105 (PF-44): categories, like accounts. */
+export const CATEGORY_MAX = 40;
+export const CATEGORIES_MAX = 50;
+export const CATEGORY_ERROR = "Name the category.";
+export const NO_CATEGORY = "No category";
 export const NOT_COMPUTED = "—";
 
 export type Per = "month" | "year";
@@ -41,6 +46,7 @@ export const COLUMNS = [
   "FX rate",
   "Equity to cover",
   "Account",
+  "Category",
 ] as const;
 
 export type Line = {
@@ -57,11 +63,18 @@ export type Line = {
   currency: string;
   /** #87: the FX rate as typed, household units per 1 unit of `currency` (Q12); ignored on a household line. */
   rate: string;
+  /** #105: a category name from `categories`, or "" for none (an older line reads as ""). */
+  category: string;
 };
 
-export type Expenses = { fixed: Line[]; variable: Line[]; accounts: string[] };
+export type Expenses = {
+  fixed: Line[];
+  variable: Line[];
+  accounts: string[];
+  categories: string[];
+};
 
-export const EMPTY: Expenses = { fixed: [], variable: [], accounts: [] };
+export const EMPTY: Expenses = { fixed: [], variable: [], accounts: [], categories: [] };
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
@@ -220,6 +233,23 @@ export function grandTotals(
   };
 }
 
+/** Adds a name to a list: trimmed, ≤ max characters, ≤ limit names, an existing one reused in any case. */
+function addName(
+  list: readonly string[],
+  typed: string,
+  max: number,
+  limit: number,
+  error: string,
+): { list: string[]; name: string } | { error: string } {
+  const name = typed.trim().slice(0, max);
+  if (!name) return { error };
+  const existing = list.find((a) => a.toLowerCase() === name.toLowerCase());
+  if (existing) return { list: [...list], name: existing };
+  // Full list: the page hides the add choice at the limit, so this only guards a stale call (nothing added).
+  if (list.length >= limit) return { list: [...list], name: "" };
+  return { list: [...list, name], name };
+}
+
 /**
  * Adds an account to the shared list. Trims; refuses an empty name; reuses an existing one with the same name in
  * any case; ≤ 40 characters, ≤ 50 accounts. Returns the list and the name to select, or the field check.
@@ -228,17 +258,39 @@ export function addAccount(
   accounts: readonly string[],
   typed: string,
 ): { accounts: string[]; name: string } | { error: string } {
-  const name = typed.trim().slice(0, ACCOUNT_MAX);
-  if (!name) return { error: ACCOUNT_ERROR };
-  const existing = accounts.find((a) => a.toLowerCase() === name.toLowerCase());
-  if (existing) return { accounts: [...accounts], name: existing };
-  // Full list: the page hides `Add account…` at 50, so this only guards a stale call (nothing added).
-  if (accounts.length >= ACCOUNTS_MAX) return { accounts: [...accounts], name: "" };
-  return { accounts: [...accounts, name], name };
+  const r = addName(accounts, typed, ACCOUNT_MAX, ACCOUNTS_MAX, ACCOUNT_ERROR);
+  return "error" in r ? r : { accounts: r.list, name: r.name };
+}
+
+/** #105 (PF-44): the same rules for a category (≤ 40 characters, ≤ 50, `Name the category.`). */
+export function addCategory(
+  categories: readonly string[],
+  typed: string,
+): { categories: string[]; name: string } | { error: string } {
+  const r = addName(categories, typed, CATEGORY_MAX, CATEGORIES_MAX, CATEGORY_ERROR);
+  return "error" in r ? r : { categories: r.list, name: r.name };
+}
+
+/**
+ * #105 (PF-46): subtotals by category, household currency: each category with a line (in the order added), then
+ * `No category` (name "") for the rest; empty when no line has a category. They sum to the grand totals.
+ */
+export function categoryTotals(
+  expenses: Expenses,
+  rate: number | null = null,
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): { name: string; totals: Totals }[] {
+  const all = [...expenses.fixed, ...expenses.variable];
+  if (!all.some((l) => l.category)) return [];
+  const names = [...expenses.categories.filter((c) => all.some((l) => l.category === c)), ""];
+  return names
+    .map((name) => ({ name, lines: all.filter((l) => l.category === name) }))
+    .filter((g) => g.lines.length > 0)
+    .map((g) => ({ name: g.name, totals: totalsOf(g.lines, rate, household) }));
 }
 
 let counter = 0;
-export function newLine(): Line {
+export function newLine(category = ""): Line {
   counter += 1;
   return {
     id: `l${Date.now().toString(36)}${counter.toString(36)}`,
@@ -249,12 +301,17 @@ export function newLine(): Line {
     account: "",
     currency: "",
     rate: "",
+    category,
   };
 }
 
 const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length <= max;
 
-function asLine(value: unknown, accounts: readonly string[]): Line | null {
+function asLine(
+  value: unknown,
+  accounts: readonly string[],
+  categories: readonly string[],
+): Line | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
   if (!isText(v.id, 40) || !v.id) return null;
@@ -272,6 +329,7 @@ function asLine(value: unknown, accounts: readonly string[]): Line | null {
     account: accounts.includes(v.account) ? v.account : "",
     currency: isCurrency(v.currency) ? v.currency : "",
     rate: typeof v.rate === "string" ? v.rate : "",
+    category: typeof v.category === "string" && categories.includes(v.category) ? v.category : "",
   };
 }
 
@@ -287,12 +345,20 @@ export function asExpenses(value: unknown): Expenses {
       if (accounts.length < ACCOUNTS_MAX) accounts.push(a);
     }
   }
+  const categories: string[] = [];
+  if (Array.isArray(v.categories)) {
+    for (const c of v.categories) {
+      if (!isText(c, CATEGORY_MAX) || !c.trim()) continue;
+      if (categories.some((b) => b.toLowerCase() === c.toLowerCase())) continue;
+      if (categories.length < CATEGORIES_MAX) categories.push(c);
+    }
+  }
   const lines = (list: unknown): Line[] => {
     if (!Array.isArray(list)) return [];
     const seen = new Set<string>();
     const out: Line[] = [];
     for (const item of list.slice(0, LINES_MAX)) {
-      const line = asLine(item, accounts);
+      const line = asLine(item, accounts, categories);
       if (line && !seen.has(line.id)) {
         seen.add(line.id);
         out.push(line);
@@ -300,7 +366,7 @@ export function asExpenses(value: unknown): Expenses {
     }
     return out;
   };
-  return { fixed: lines(v.fixed), variable: lines(v.variable), accounts };
+  return { fixed: lines(v.fixed), variable: lines(v.variable), accounts, categories };
 }
 
 /** An old-direction rate inverted once (#102, Q27): 1 ÷ rate, ≤ 6 decimals, no trailing zeros; bad / empty kept. */

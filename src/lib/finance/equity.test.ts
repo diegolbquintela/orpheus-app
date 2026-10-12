@@ -41,6 +41,7 @@ const line = (over: Partial<Line> = {}): Line => ({
   account: "",
   currency: "",
   rate: "",
+  category: "",
   ...over,
 });
 
@@ -49,6 +50,7 @@ const example: Expenses = {
   fixed: [line({ id: "r" }), line({ id: "p", name: "Phone", amount: "250" })],
   variable: [line({ id: "g", name: "Gifts", amount: "1,200", per: "year" })],
   accounts: [],
+  categories: [],
 };
 const rates = (withdrawal: string, roic: string) => ({ withdrawal, roic });
 

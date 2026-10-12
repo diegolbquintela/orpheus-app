@@ -133,6 +133,15 @@ export function incomeLines(
   });
 }
 
+/**
+ * #105 (PF-42): the lines the income table shows: counted and not 0 (a counted foreign line without a valid rate is
+ * `—`, so it stays). `Net income` still sums every line (the hidden ones are 0).
+ */
+export const shownIncomeLines = (
+  people: readonly Person[],
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): IncomeLine[] => incomeLines(people, household).filter((l) => l.counted && l.yearly !== 0);
+
 /** The counted net income, yearly, household currency (what `% of income` divides by, monthly); null (`—`) when a line is. */
 export const netIncomeYearly = (
   people: readonly Person[],

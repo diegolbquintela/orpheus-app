@@ -116,6 +116,12 @@ affects the repo.
   `src/components/personal-finance/overview-block.tsx`; the page takes an optional `now` (tests).
   Amounts stay unitless (Q2, kept by #87, Q15). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
+  #105 (spec section 18, PF-40..47): `02` Income / `03` Expenses / `04` Overview collapse from their heading
+  (`SectionHead` `toggle`; closed list stored against the ACCOUNT as `orpheus.finance.view.v1`, `src/lib/finance/view.ts`);
+  the income table hides uncounted / 0 lines (`shownIncomeLines`); `05` Update is a `Update month` button → panel
+  (draft until `Save`; `Cancel` / Escape discard); expense lines have a `Category` (inline add like accounts),
+  a session-only `Filter by category` and `By category` subtotals (`categoryTotals`); master totals never change.
+  No helper sentence (no instruction text; Q35).
   E2E (#98, spec section 17, PFE-01..13): `qa/tools/personal-finance-e2e.mjs` (helpers `qa/tools/pf-helpers.mjs`): one CFO
   journey at 360 / 400 / 1024 / 1440 (signed out always; signed in with QA_EMAIL / QA_PASSWORD, the preview account
   `qa-pf@orpheus.test`; RESETS its record, refuses production); PFE-12 = `site-style-regression.mjs` on the same preview.

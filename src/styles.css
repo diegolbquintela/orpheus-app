@@ -525,6 +525,7 @@
       "currency fx fx"
       "share income income"
       "account equity equity"
+      "category category category"
       "new new new";
     column-gap: 1rem;
     row-gap: 1.25rem;
@@ -557,6 +558,10 @@
   }
   .pf-account {
     grid-area: account;
+  }
+  /* #105 (spec 18.5): Category on its own row under Account on a phone; the last column before remove from 1024 px. */
+  .pf-category {
+    grid-area: category;
   }
   /* #87 (spec section 14.4): a line's Currency | FX rate under Monthly | Yearly on a phone, after Yearly when wide;
      the Household currency select one cell (≤ 16rem) above 02 Income. */
@@ -699,7 +704,7 @@
     .pf-line {
       grid-template-columns:
         minmax(0, 1.5fr) 6rem 6.5rem minmax(0, 1fr) minmax(0, 1fr) 4.5rem minmax(0, 0.8fr)
-        minmax(0, 1.4fr) minmax(0, 1.2fr) 2.75rem;
+        minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 2.75rem;
       column-gap: 1rem;
     }
     .pf-head {
@@ -707,14 +712,14 @@
     }
     .pf-line {
       grid-template-areas:
-        "name income share monthly yearly currency fx equity account remove"
-        "new new new new new new new new new new";
+        "name income share monthly yearly currency fx equity account category remove"
+        "new new new new new new new new new new new";
       row-gap: 1rem;
       border-bottom: 0;
       padding-bottom: 0;
     }
     .pf-total {
-      grid-template-areas: "name income share monthly yearly . . equity . .";
+      grid-template-areas: "name income share monthly yearly . . equity . . .";
     }
     .pf-cell-label {
       position: absolute;
@@ -904,6 +909,55 @@
       column-gap: 1.25rem;
     }
   }
+  /* #105 (PF-40): a section heading as its toggle (the h2's size; 44 px tall without moving the heading). */
+  .pf-section-toggle {
+    display: inline-flex;
+    min-height: 2.75rem;
+    margin: -0.625rem 0;
+    align-items: center;
+    gap: 0.5rem;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+  }
+  .pf-chevron {
+    color: var(--color-dim);
+    transition: transform 150ms ease;
+  }
+  .pf-section-toggle[aria-expanded="false"] .pf-chevron {
+    transform: rotate(-90deg);
+  }
+  .pf-section-body:empty {
+    display: none;
+  }
+  /* #105 (PF-43, PF-45, PF-46): the Update panel, the category filter and the By category rows. */
+  .pf-update {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  .pf-update-open {
+    align-self: flex-start;
+  }
+  .pf-update-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .pf-filter {
+    max-width: 16rem;
+  }
+  .pf-cat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      "name name name"
+      "share monthly yearly";
+    column-gap: 1rem;
+    row-gap: 0.5rem;
+    border-bottom: 1px solid var(--color-hair);
+    padding-bottom: 1rem;
+  }
   .pf-table-row,
   .pf-table-row.pf-table-total {
     display: grid;
@@ -954,6 +1008,16 @@
       column-gap: 1.25rem;
     }
     .pf-table-row {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .pf-head.pf-cat-head,
+    .pf-cat-row {
+      grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+      grid-template-areas: "name share monthly yearly";
+      column-gap: 1.25rem;
+    }
+    .pf-cat-row {
       border-bottom: 0;
       padding-bottom: 0;
     }

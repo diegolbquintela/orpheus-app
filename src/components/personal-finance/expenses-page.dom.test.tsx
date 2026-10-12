@@ -9,6 +9,7 @@ import { INCOME_KEY } from "@/lib/finance/income";
 import { EQUITY_KEY } from "@/lib/finance/equity";
 import { CURRENCY_KEY } from "@/lib/finance/currency";
 import { OVERVIEW_KEY } from "@/lib/finance/overview";
+import { VIEW_KEY } from "@/lib/finance/view";
 import { PersonalFinancePage } from "./expenses-page";
 import { loadLocalStore } from "@/lib/finance/account-client";
 
@@ -78,11 +79,21 @@ describe("personal finance page (#84)", () => {
           "FX rate",
           "Equity to cover",
           "Account",
+          "Category",
         ],
       );
     assert.deepEqual(
       [...el.querySelectorAll("button")].map((b) => b.textContent),
-      ["↳ Add person", "↳ Add expense", "↳ Add expense", "Future"],
+      [
+        "Income",
+        "↳ Add person",
+        "Expenses",
+        "↳ Add expense",
+        "↳ Add expense",
+        "Overview",
+        "Future",
+        "Update month",
+      ],
     );
     assert.deepEqual(
       qa(el, "pf-total-all")
@@ -191,6 +202,7 @@ describe("personal finance page (#84)", () => {
         account: "Visa",
         currency: "",
         rate: "",
+        category: "",
       },
     );
     await act(async () => root!.unmount());
@@ -280,7 +292,6 @@ describe("income block (#85)", () => {
     );
     assert.deepEqual(table(el), [
       ["Me · Wages", "3,230.77", "7,000", "84,000"],
-      ["Me · Bonus", "0", "0", "0"],
       ["Spouse · Wages", "1,846.15", "4,000", "48,000"],
       ["Spouse · Bonus", "92.31", "200", "2,400"],
       ["Net income", "5,169.23", "11,200", "134,400"],
@@ -633,6 +644,14 @@ describe("equity cover (#86, option A)", () => {
 describe("Overview and Update (#94, PF-26..31)", () => {
   const ov = (el: HTMLElement, row: string) =>
     [q(el, `pf-ov-${row}`)].map((r) => [text(r, "pf-ov-now"), text(r, "pf-ov-avg")])[0];
+  // #105 (PF-43): Update month → the panel → Save.
+  async function updateMonth(el: HTMLElement, month: string, expenses?: string, income?: string) {
+    if (!el.querySelector('[data-testid="pf-update-panel"]')) await click(q(el, "pf-update-open"));
+    await type(q(el, "pf-month"), month);
+    if (expenses !== undefined) await type(q(el, "pf-month-expenses"), expenses);
+    if (income !== undefined) await type(q(el, "pf-month-income"), income);
+    await click(q(el, "pf-update-save"));
+  }
 
   it("copy and a new page: all —, Future off, 12 months newest first (PF-26, PF-28)", async () => {
     const el = await render();
@@ -663,7 +682,20 @@ describe("Overview and Update (#94, PF-26..31)", () => {
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
     assert.deepEqual(
       [...q(el, "pf-update").querySelectorAll("label")].map((l) => l.textContent),
+      [],
+      "#105: only the Update month button until it is pressed",
+    );
+    assert.equal(text(el, "pf-update-open"), "Update month");
+    assert.equal(q(el, "pf-update-open").getAttribute("aria-expanded"), "false");
+    await click(q(el, "pf-update-open"));
+    assert.equal(q(el, "pf-update-open").getAttribute("aria-expanded"), "true");
+    assert.deepEqual(
+      [...q(el, "pf-update").querySelectorAll("label")].map((l) => l.textContent),
       ["Month", "Expenses", "Income"],
+    );
+    assert.deepEqual(
+      [...q(el, "pf-update-panel").querySelectorAll("button")].map((b) => b.textContent),
+      ["Save", "Cancel"],
     );
     const options = [...(q(el, "pf-month") as HTMLSelectElement).options].map((o) => o.textContent);
     assert.equal(options.length, 12);
@@ -688,6 +720,7 @@ describe("Overview and Update (#94, PF-26..31)", () => {
     assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"]);
     assert.deepEqual(ov(el, "income"), ["11,200", "11,200"]);
     // Current month: placeholders are the page figures.
+    await click(q(el, "pf-update-open"));
     assert.equal(q(el, "pf-month-expenses").getAttribute("placeholder"), "1,750");
     await type(q(el, "pf-month"), "2026-06");
     assert.equal(
@@ -697,6 +730,11 @@ describe("Overview and Update (#94, PF-26..31)", () => {
     );
     await type(q(el, "pf-month-expenses"), "4,000");
     await type(q(el, "pf-month-income"), "9,000");
+    assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"], "#105: nothing changes before Save");
+    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
+    await click(q(el, "pf-update-save"));
+    assert.equal(qa(el, "pf-update-panel").length, 0, "Save closes the panel");
+    assert.equal(dom.window.document.activeElement, q(el, "pf-update-open"));
     assert.deepEqual(ov(el, "expenses"), ["1,750", "2,875"]);
     assert.deepEqual(ov(el, "income"), ["11,200", "10,100"]);
     assert.deepEqual(ov(el, "surplus"), ["9,450", "7,225"]);
@@ -728,13 +766,12 @@ describe("Overview and Update (#94, PF-26..31)", () => {
       String((96700 + 60 * 7225).toFixed(2)),
     );
     // A typed current month replaces the page; clearing June empties it.
-    await type(q(el, "pf-month"), "2026-10");
-    await type(q(el, "pf-month-expenses"), "2,000");
+    await updateMonth(el, "2026-10", "2,000");
     assert.deepEqual(ov(el, "expenses"), ["2,000", "3,000"]);
+    await click(q(el, "pf-update-open"));
     await type(q(el, "pf-month"), "2026-06");
     assert.equal((q(el, "pf-month-expenses") as HTMLInputElement).value, "4,000");
-    await type(q(el, "pf-month-expenses"), "");
-    await type(q(el, "pf-month-income"), "");
+    await updateMonth(el, "2026-06", "", "");
     assert.deepEqual(ov(el, "expenses"), ["2,000", "2,000"]);
     // Off again: the chart ends at the current month.
     await click(q(el, "pf-future-toggle"));
@@ -747,8 +784,7 @@ describe("Overview and Update (#94, PF-26..31)", () => {
     await type(q(el, "pf-growth"), "5");
     await click(q(el, "pf-future-toggle"));
     await click(qa(el, "pf-year")[2]);
-    await type(q(el, "pf-month"), "2026-06");
-    await type(q(el, "pf-month-expenses"), "4,000");
+    await updateMonth(el, "2026-06", "4,000");
     const saved = JSON.parse(dom.window.localStorage.getItem(OVERVIEW_KEY)!);
     assert.deepEqual(saved, {
       start: "10,000",
@@ -849,5 +885,162 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "400");
     assert.equal(dom.window.localStorage.getItem("orpheus.finance.expenses.v1"), null);
     assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[0].rate, "5");
+  });
+});
+
+describe("usability (#105, PF-40..46)", () => {
+  it("section toggles: Income / Expenses / Overview collapse from their heading, stored, restored (PF-40, PF-41)", async () => {
+    let el = await render();
+    const toggles = ["income", "expenses", "overview"].map((k) => q(el, `pf-toggle-${k}`));
+    assert.deepEqual(
+      toggles.map((t) => [
+        t.closest("h2")!.textContent,
+        t.getAttribute("aria-expanded"),
+        t.getAttribute("aria-controls"),
+      ]),
+      [
+        ["Income", "true", "pf-income-body"],
+        ["Expenses", "true", "pf-expenses-body"],
+        ["Overview", "true", "pf-overview-body"],
+      ],
+    );
+    assert.equal(qa(el, "pf-toggle-update").length, 0, "05 Update is not collapsible");
+    await click(q(el, "pf-toggle-expenses"));
+    await click(q(el, "pf-toggle-overview"));
+    assert.equal(q(el, "pf-toggle-expenses").getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-body-expenses").children.length, 0);
+    assert.equal(qa(el, "pf-add-fixed").length, 0);
+    assert.equal(qa(el, "pf-chart").length, 0);
+    assert.ok(q(el, "pf-body-income").children.length > 0);
+    assert.ok(el.querySelector("#pf-expenses-body"), "aria-controls target stays in the page");
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), {
+      closed: ["expenses", "overview"],
+    });
+    await act(async () => root!.unmount());
+    container!.remove();
+    el = await render();
+    assert.equal(q(el, "pf-toggle-expenses").getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-toggle-overview").getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-toggle-income").getAttribute("aria-expanded"), "true");
+    await click(q(el, "pf-toggle-expenses"));
+    assert.equal(qa(el, "pf-add-fixed").length, 1);
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), {
+      closed: ["overview"],
+    });
+  });
+
+  it("Update month: Cancel and Escape discard; a bad amount stores nothing (PF-43)", async () => {
+    const el = await render();
+    await click(q(el, "pf-update-open"));
+    await type(q(el, "pf-month"), "2026-06");
+    await type(q(el, "pf-month-expenses"), "4,000");
+    await click(q(el, "pf-update-cancel"));
+    assert.equal(qa(el, "pf-update-panel").length, 0);
+    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
+    await click(q(el, "pf-update-open"));
+    assert.equal((q(el, "pf-month") as HTMLSelectElement).value, "2026-10", "opens on this month");
+    await type(q(el, "pf-month-income"), "9,000");
+    await act(async () => {
+      // Dispatched on the panel (its handler; jsdom + this React build drop the bubble from the input). The
+      // browser tools press Escape in a field for real.
+      q(el, "pf-update-panel").dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    });
+    assert.equal(qa(el, "pf-update-panel").length, 0);
+    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
+    await click(q(el, "pf-update-open"));
+    await type(q(el, "pf-month-expenses"), "four");
+    await click(q(el, "pf-update-save"));
+    assert.equal(qa(el, "pf-update-panel").length, 1, "stays open");
+    assert.equal(text(q(el, "pf-update-panel"), "pf-error"), "Enter a number, 0 or more.");
+    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
+  });
+
+  it("categories: add inline, filter, a new line under the filter, By category subtotals; master totals unchanged (PF-44..46)", async () => {
+    const el = await render();
+    assert.equal(qa(el, "pf-filter").length, 0, "no filter before a category exists");
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-variable"));
+    const [rent, condo] = lines(el, "fixed");
+    const [gifts] = lines(el, "variable");
+    await type(q(rent, "pf-name"), "Rent");
+    await type(q(rent, "pf-monthly"), "1,000");
+    await type(q(condo, "pf-name"), "Condo");
+    await type(q(condo, "pf-monthly"), "2,000");
+    await type(q(condo, "pf-currency"), "BRL");
+    await type(q(condo, "pf-fx"), "5");
+    await type(q(gifts, "pf-name"), "Gifts");
+    await type(q(gifts, "pf-yearly"), "1,200");
+    assert.equal(qa(el, "pf-categories").length, 0, "no subtotals before a category is used");
+    assert.deepEqual(
+      [...(q(rent, "pf-category") as HTMLSelectElement).options].map((o) => o.textContent),
+      ["—", "Add category…"],
+    );
+    assert.equal(q(rent, "pf-category").getAttribute("aria-label"), "Category, Fixed 1");
+    await type(q(rent, "pf-category"), "__add-category__");
+    assert.equal(text(q(rent, "pf-new-category"), "pf-new-category-input") !== null, true);
+    assert.equal(
+      q(rent, "pf-new-category").querySelector(".pf-label")!.textContent,
+      "New category",
+    );
+    await click(q(rent, "pf-new-category-add"));
+    assert.equal(text(rent, "pf-error"), "Name the category.");
+    await type(q(rent, "pf-new-category-input"), "Home");
+    await click(q(rent, "pf-new-category-add"));
+    await type(q(condo, "pf-category"), "__add-category__");
+    await type(q(condo, "pf-new-category-input"), "home");
+    await click(q(condo, "pf-new-category-add"));
+    assert.equal(
+      (q(condo, "pf-category") as HTMLSelectElement).value,
+      "Home",
+      "reused in any case",
+    );
+    const stored = JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!);
+    assert.deepEqual(stored.categories, ["Home"]);
+    assert.deepEqual(
+      stored.fixed.map((l: { category: string }) => l.category),
+      ["Home", "Home"],
+    );
+    const before = ["fixed", "variable", "all"].map((g) =>
+      [...q(el, `pf-total-${g}`).querySelectorAll(".pf-value")].map((v) => v.textContent),
+    );
+    // Subtotals.
+    assert.equal(q(el, "pf-categories").querySelector("h3")!.textContent, "By category");
+    assert.deepEqual(
+      qa(el, "pf-cat-row").map((r) => [
+        text(r, "pf-cat-name"),
+        text(r, "pf-cat-share"),
+        text(r, "pf-cat-monthly"),
+        text(r, "pf-cat-yearly"),
+      ]),
+      [
+        ["Home", "93.3%", "1,400", "16,800"],
+        ["No category", "6.7%", "100", "1,200"],
+      ],
+    );
+    // Filter.
+    assert.deepEqual(
+      [...(q(el, "pf-filter") as HTMLSelectElement).options].map((o) => o.textContent),
+      ["All", "Home"],
+    );
+    assert.equal(q(el, "pf-filter-cell").querySelector("label")!.textContent, "Filter by category");
+    await type(q(el, "pf-filter"), "Home");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [2, 0]);
+    const after = ["fixed", "variable", "all"].map((g) =>
+      [...q(el, `pf-total-${g}`).querySelectorAll(".pf-value")].map((v) => v.textContent),
+    );
+    assert.deepEqual(after, before, "the filter never changes the master totals");
+    await click(q(el, "pf-add-variable"));
+    const [added] = lines(el, "variable");
+    assert.equal((q(added, "pf-category") as HTMLSelectElement).value, "Home");
+    await type(q(el, "pf-filter"), "");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [2, 2]);
+    assert.equal(
+      dom.window.localStorage.getItem("orpheus.finance.filter"),
+      null,
+      "the filter is not stored",
+    );
   });
 });
