@@ -4,7 +4,7 @@ import { DeniedPage } from "@/components/access/denied";
 import { PersonalFinancePage } from "@/components/personal-finance/expenses-page";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
 
-// Personal finance (#84 v1.1 … #102; attachments/personal-finance-spec.md). #102: signed-in users only; signed
+// Personal Finance (#84 v1.1 … #102; attachments/personal-finance-spec.md). #102: signed-in users only; signed
 // out → 307 to /dashboard/sign-in?next=/personal-finance. The figures live against the account
 // (/api/personal-finance). #90 (attachments/roles-and-account-design.md): the figures are the owner's; a temporary
 // password → 307 to /account (ROLE-08); no Personal Finance grant → 403 page with no data (ROLE-14); Read → the
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/personal-finance")({
   loader: ({ context }) => context.access,
   head: () => ({
     meta: [
-      { title: "Personal finance · Orpheus Wisdom" },
+      { title: "Personal Finance · Orpheus Wisdom" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),

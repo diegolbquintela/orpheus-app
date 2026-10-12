@@ -1,5 +1,5 @@
 /**
- * Personal finance equity cover (#86 v1.3; spec `attachments/personal-finance-spec.md` section 13, PF-17..20). EL
+ * Personal Finance equity cover (#86 v1.3; spec `attachments/personal-finance-spec.md` section 13, PF-17..20). EL
  * option A: two household rates, typed (withdrawal rate 0–100; ROIC 0 or more, no cap, Q11). The rate used is the typed withdrawal rate (as typed, never halved; it wins
  * when both are typed), else portfolio ROIC ÷ 2 (Diego's default); a rate of 0 is no rate. Each line's calculated
  * `Equity to cover` = its yearly amount ÷ (rate ÷ 100) (`calculatedEquity` in `expenses.ts`); a typed value on the

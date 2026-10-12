@@ -1,5 +1,5 @@
 /**
- * Personal finance income (#85 v1.2; spec `attachments/personal-finance-spec.md` section 12, PF-11..16). Pure
+ * Personal Finance income (#85 v1.2; spec `attachments/personal-finance-spec.md` section 12, PF-11..16). Pure
  * helpers: people, net, which incomes count and each person's share, the income table and this browser's
  * `localStorage` (its own key; the expenses key is unchanged). Bonus rating = % of yearly wages (Q5); net = gross ×
  * (1 − average tax) (Q6); one share per person (Q7); biweekly = yearly ÷ 26 (Q8).

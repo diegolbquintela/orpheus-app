@@ -1,3 +1,4 @@
+import { deleteQuestion } from "@/lib/finance/expenses";
 import { Minus } from "lucide-react";
 import { useId } from "react";
 import { type CurrencyCode, CURRENCIES, RATE_ERROR } from "@/lib/finance/currency";
@@ -105,9 +106,11 @@ export function IncomeBlock({
                   label={personLabel(person, index)}
                   household={household}
                   onChange={(patch) => updatePerson(person.id, patch)}
-                  onRemove={() =>
-                    update((i) => ({ people: i.people.filter((p) => p.id !== person.id) }))
-                  }
+                  onRemove={() => {
+                    // #113 (PF-62): confirm first.
+                    if (!window.confirm(deleteQuestion(personLabel(person, index)))) return;
+                    update((i) => ({ people: i.people.filter((p) => p.id !== person.id) }));
+                  }}
                 />
               ))}
               <button

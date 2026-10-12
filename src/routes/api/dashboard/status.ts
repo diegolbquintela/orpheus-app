@@ -10,7 +10,7 @@ import { ownerEmailFromEnv } from "@/lib/access/access";
 // Off production it adds sign-in diagnostics (T03): { signIn: "ready" | "not configured (<variable>)",
 // signUpAllowList: "set" | "empty" }, (T05) cronSecret: "set" | "empty" and (T08) secContact: "set" | "empty"
 // (SEC_CONTACT_EMAIL holds a usable address for the SEC User-Agent) and (#90) ownerEmail: "set" | "empty"
-// (ORPHEUS_OWNER_EMAIL; empty means nobody has access to Personal finance or the Dashboard). Names and states only,
+// (ORPHEUS_OWNER_EMAIL; empty means nobody has access to Personal Finance or the Dashboard). Names and states only,
 // never values.
 // HEAD is served by GET. Any other method: 404 JSON when off, 405 JSON
 // (Allow: GET, HEAD) when on; never the HTML app shell.

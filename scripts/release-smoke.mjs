@@ -8,7 +8,7 @@
  *   node scripts/release-smoke.mjs <base-url> on        # production with the dashboard on
  *   node scripts/release-smoke.mjs <base-url> preview   # a Vercel preview / release candidate (flag on)
  *
- * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard / Personal finance since
+ * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard / Personal Finance since
  * #97, the current page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title
  * and exactly three Platforms lines since #97 with their `Open` links), `/personal-finance` (#102: signed out, a
  * redirect to `/dashboard/sign-in?next=/personal-finance`; `/api/personal-finance` 401 with the flag on, 404 off), `/account` (#90: signed out, a redirect to `/dashboard/sign-in?next=/account`; `/api/account/me` 401 on, 404 off),
@@ -48,7 +48,7 @@ const menuOk = (r, want) =>
   /href="\/"[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span>)?Orpheus</.test(menu(r)) &&
   /href="\/calculator"[^>]*>Calculator</.test(menu(r)) &&
   /href="\/dashboard"[^>]*>Dashboard</.test(menu(r)) &&
-  /href="\/personal-finance"[^>]*>Personal finance</.test(menu(r)) &&
+  /href="\/personal-finance"[^>]*>Personal Finance</.test(menu(r)) &&
   // #90 (ROLE-01): Account last (the person glyph, then the word, visually hidden below 640 px).
   /href="\/account"[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span[^>]*>)?Account</.test(menu(r)) &&
   JSON.stringify(current(r)) === JSON.stringify(want ? [want] : []);
@@ -67,7 +67,7 @@ const platforms = (r) =>
 const HOME_PLATFORMS =
   "Calculator|Dollar-cost average calculator.|/calculator|Open " +
   "Dashboard|The portfolio as a business.|/dashboard|Open " +
-  "Personal finance|Income, expenses, and the cover.|/personal-finance|Open";
+  "Personal Finance|Income, expenses, and the cover.|/personal-finance|Open";
 const homeHero = (r) =>
   /<h1[^>]*>Investment driven by research\.<\/h1>/.test(r.body) &&
   /<img [^>]*alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(
@@ -88,7 +88,7 @@ const checks = [
       !/data-testid="home-card"|<form|Compare plans/.test(r.body),
     "200 home: noindex + X-Robots-Tag, menu (Orpheus current, Dashboard shown), Jordaens hero + title, exactly three Platforms lines with Open links, footer, no calculator",
   ],
-  // #102: Personal finance is for signed-in accounts; this check never signs in, so it sees the redirect.
+  // #102: Personal Finance is for signed-in accounts; this check never signs in, so it sees the redirect.
   [
     "/personal-finance",
     (r) =>

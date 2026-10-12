@@ -1,8 +1,8 @@
-// Personal finance page (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency; spec
+// Personal Finance page (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency; spec
 // attachments/personal-finance-spec.md PF-01..25, plus the lyre ST1-05) in a
 // real browser at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900. #102: the page is signed-in only and its figures
 // live in the account (/api/personal-finance), so the page checks run signed in with QA_EMAIL / QA_PASSWORD from env
-// (through session.mjs's eachViewport: never logged, always signed out). The QA account's Personal finance record is
+// (through session.mjs's eachViewport: never logged, always signed out). The QA account's Personal Finance record is
 // RESET (DELETE /api/personal-finance) before each part and left empty at the end; use a QA account only. Without the
 // credentials only the signed-out checks (PF-33) run and the rest is reported SKIPPED.
 //
@@ -24,7 +24,7 @@
 //         last column, the three cells in a row under the person), 44 px, focus, AA, axe, CLS 0 restored
 //
 //   PF-01 shell: 200, title, noindex meta + X-Robots-Tag, color-scheme dark, charcoal + chalk, the bar unchanged
-//         (#97: Orpheus / Calculator / Dashboard / Personal finance, Personal finance current), footer `Orpheus Wisdom`, one Analytics script, no
+//         (#97: Orpheus / Calculator / Dashboard / Personal Finance, Personal Finance current), footer `Orpheus Wisdom`, one Analytics script, no
 //         painting; ST1-05 the lyre (aria-hidden SVG) first in the Orpheus link, bar ≤ 48 px, links ≥ 44 px;
 //         /favicon.svg is the lyre
 //   PF-02 exact copy of the new page (phone: labelled cells; wide: the column-label rows), nothing else
@@ -122,7 +122,7 @@ const totalTexts = (label, wide, v = { share: "—", monthly: "0", yearly: "0", 
     : [label, "% of income", "—", "% of expenses", v.share, "Monthly", v.monthly, "Yearly", v.yearly, "Equity to cover", v.equity];
 const emptyTexts = (wide) => [
   "01",
-  "Personal finance.",
+  "Personal Finance.",
   // #112 (PF-48): the month control (the select's own text is not counted).
   "Month",
   "Household currency",
@@ -352,7 +352,7 @@ try {
     const r = await fetch(`${base}${PATH}`, { redirect: "manual" });
     const body = await r.text();
     const to = new URL(r.headers.get("location") ?? "/x", base);
-    check("PF-33 signed out: GET /personal-finance → 307 /dashboard/sign-in?next=/personal-finance, no page copy", r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === PATH && !/pf-area|Personal finance\./.test(body), [r.status, r.headers.get("location")]);
+    check("PF-33 signed out: GET /personal-finance → 307 /dashboard/sign-in?next=/personal-finance, no page copy", r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === PATH && !/pf-area|Personal Finance\./.test(body), [r.status, r.headers.get("location")]);
     const calls = [];
     for (const method of ["GET", "PUT", "DELETE", "POST"]) {
       const a = await fetch(`${base}${API}`, { method, redirect: "manual", headers: method === "PUT" ? { "content-type": "application/json" } : {}, body: method === "PUT" ? '{"data":{}}' : undefined });
@@ -418,7 +418,7 @@ try {
   }
 
   if (!email || !password) {
-    console.log("INFO PF-01..32, PF-34..39 SKIPPED: the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal finance record is reset)");
+    console.log("INFO PF-01..32, PF-34..39 SKIPPED: the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal Finance record is reset)");
   } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: process.env.PF_ONLY ? VIEWPORTS.filter(([n]) => process.env.PF_ONLY.split(",").includes(n)) : VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
     const wide = viewport.width >= 1024;
@@ -431,7 +431,7 @@ try {
       await reset(page);
       // PF-01 SSR, signed in: the page's own HTML (title, h1, the area empty until the browser reads the account).
       const ssr = await page.evaluate(async (u) => { const r = await fetch(u); return { status: r.status, robots: r.headers.get("x-robots-tag"), body: await r.text() }; }, PATH);
-      check(`${tag} PF-01 SSR signed in: 200, X-Robots-Tag noindex, title and h1, the area empty until the browser reads the account`, ssr.status === 200 && /noindex/i.test(ssr.robots ?? "") && /<title>Personal finance · Orpheus Wisdom<\/title>/.test(ssr.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(ssr.body) && /data-testid="pf-area"[^>]*data-ready="false"/.test(ssr.body), [ssr.status, ssr.robots]);
+      check(`${tag} PF-01 SSR signed in: 200, X-Robots-Tag noindex, title and h1, the area empty until the browser reads the account`, ssr.status === 200 && /noindex/i.test(ssr.robots ?? "") && /<title>Personal Finance · Orpheus Wisdom<\/title>/.test(ssr.body) && /<h1[^>]*>Personal Finance\.<\/h1>/.test(ssr.body) && /data-testid="pf-area"[^>]*data-ready="false"/.test(ssr.body), [ssr.status, ssr.robots]);
       api.length = 0;
       const res = await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
@@ -457,9 +457,9 @@ try {
           badClass: [...document.querySelectorAll("main *")].filter((e) => typeof e.className === "string" && /(^|\s)(field|kicker|section|bg-paper|text-ink)(\s|$)/.test(e.className)).length,
         };
       });
-      check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && /noindex/.test(res.headers()["x-robots-tag"] ?? ""), [res.status(), sh.title, sh.robots]);
+      check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal Finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && /noindex/.test(res.headers()["x-robots-tag"] ?? ""), [res.status(), sh.title, sh.robots]);
       check(`${tag} PF-01 charcoal page, chalk type, color-scheme dark; no painting; page-only classes`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme.every((s) => s === "dark") && sh.paint === 0 && sh.badClass === 0, { bg: sh.bg, color: sh.color, scheme: sh.scheme, paint: sh.paint, badClass: sh.badClass });
-      check(`${tag} PF-01 bar (#97, #90): Orpheus / Calculator / Dashboard / Personal finance / Account, Personal finance current (Q1 (d) superseded), footer, one Analytics script`, JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
+      check(`${tag} PF-01 bar (#97, #90): Orpheus / Calculator / Dashboard / Personal Finance / Account, Personal Finance current (Q1 (d) superseded), footer, one Analytics script`, JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal Finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
       check(`${tag} ST1-05 the lyre first in the Orpheus link: aria-hidden, currentColor in chalk, 20 × 20, 5 paths`, sh.lyre && sh.lyre.first && sh.lyre.hidden === "true" && sh.lyre.stroke === "currentColor" && sh.lyre.color === CHALK && sh.lyre.w === 20 && sh.lyre.h === 20 && sh.lyre.paths === 5, sh.lyre);
       check(`${tag} ST1-05 / ST6-08 bar ≤ 48 px, every link ≥ 44 × 44`, sh.bar <= 48 && sh.links.every((l) => l[3] >= 44 && l[4] >= 44), { bar: sh.bar, links: sh.links.map((l) => [l[0], l[3], l[4]]) });
 
@@ -692,7 +692,17 @@ try {
       const shotC = join(CFG.out, `pf-check-${viewport.width}.png`);
       await page.screenshot({ path: shotC, fullPage: true });
       R.shots.push(shotC);
+      // #113 (PF-61): asked first; Cancel keeps it, OK removes it.
+      const asked61 = [];
+      page.once("dialog", (d) => { asked61.push([d.type(), d.message()]); void d.dismiss(); });
       await phone.getByTestId("pf-remove").click();
+      await page.waitForTimeout(200);
+      const kept61 = await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count();
+      page.once("dialog", (d) => { asked61.push([d.type(), d.message()]); void d.accept(); });
+      await phone.getByTestId("pf-remove").click();
+      await page.waitForTimeout(200);
+      const phoneName = asked61[0]?.[1];
+      check(`${tag} PF-61 Remove expense asks "Delete [name]? This cannot be undone." (browser confirm); Cancel keeps the line`, kept61 === 2 && asked61.length === 2 && asked61.every(([t, m]) => t === "confirm" && /^Delete .+\? This cannot be undone\.$/.test(m)), { kept61, asked61, phoneName });
       check(`${tag} PF-03 Remove expense removes the line`, (await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count()) === 1 && (await totals(page, "fixed"))[2] === "1,000");
 
       // PF-07 / PF-36 storage: the account's record (after the debounced save), nothing in the browser.

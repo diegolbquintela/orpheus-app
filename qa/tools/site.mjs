@@ -20,7 +20,7 @@ async function shell(page, path, want) {
   const nav = page.locator('nav[aria-label="Site"]');
   check(`${path}: menu visible`, await nav.isVisible());
   const links = await nav.locator('a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')]));
-  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal finance', '/personal-finance'], ['Account', '/account']]), links);
+  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal Finance', '/personal-finance'], ['Account', '/account']]), links);
   const current = await nav.locator('[aria-current="page"]').allTextContents();
   check(`${path}: current page ${want ?? '(none)'}`, JSON.stringify(current) === JSON.stringify(want ? [want] : []), current);
   if (want) {
@@ -49,13 +49,13 @@ for (const vp of ['desktop', 'mobile']) {
   await page.screenshot({ path: `${OUT}/home-${vp}.png`, fullPage: true });
   await shell(page, `[${vp}] /`, 'Orpheus');
   const lines = await page.locator('[data-testid="platform-line"]').evaluateAll((ls) => ls.map((l) => [l.querySelector('h3')?.textContent, l.querySelector('p')?.textContent, l.querySelector('a')?.textContent, l.querySelector('a')?.getAttribute('href')]));
-  check(`[${vp}] /: exactly three Platforms lines with the spec texts and Open links (#97)`, JSON.stringify(lines) === JSON.stringify([['Calculator', 'Dollar-cost average calculator.', 'Open', '/calculator'], ['Dashboard', 'The portfolio as a business.', 'Open', '/dashboard'], ['Personal finance', 'Income, expenses, and the cover.', 'Open', '/personal-finance']]), lines);
-  // #97 / #102: Personal finance's Open goes to /personal-finance, which signed out lands on sign-in with ?next (the bar
+  check(`[${vp}] /: exactly three Platforms lines with the spec texts and Open links (#97)`, JSON.stringify(lines) === JSON.stringify([['Calculator', 'Dollar-cost average calculator.', 'Open', '/calculator'], ['Dashboard', 'The portfolio as a business.', 'Open', '/dashboard'], ['Personal Finance', 'Income, expenses, and the cover.', 'Open', '/personal-finance']]), lines);
+  // #97 / #102: Personal Finance's Open goes to /personal-finance, which signed out lands on sign-in with ?next (the bar
   // marks Dashboard current there).
   await page.locator('[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]').click();
   await page.waitForURL(/\/dashboard\/sign-in\?next=%2Fpersonal-finance$/);
   await page.waitForLoadState('networkidle');
-  check(`[${vp}] Personal finance Open, signed out → /dashboard/sign-in?next=/personal-finance (#102)`, new URL(page.url()).searchParams.get('next') === '/personal-finance', page.url());
+  check(`[${vp}] Personal Finance Open, signed out → /dashboard/sign-in?next=/personal-finance (#102)`, new URL(page.url()).searchParams.get('next') === '/personal-finance', page.url());
   await shell(page, `[${vp}] /dashboard/sign-in?next=/personal-finance`, 'Dashboard');
   await page.goto(`${base}/`, { waitUntil: 'networkidle' });
   check(`[${vp}] /: no price requests, no calculator`, !requests.some((u) => u.includes('/api/chart')) && (await page.locator('form').count()) === 0, requests.filter((u) => u.includes('/api/')));

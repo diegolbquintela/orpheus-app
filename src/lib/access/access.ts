@@ -18,7 +18,7 @@ export const SURFACE_ROLE: Record<Surface, string> = {
   dashboard: "Portfolio Manager",
 };
 export const SURFACE_LABEL: Record<Surface, string> = {
-  personal_finance: "Personal finance",
+  personal_finance: "Personal Finance",
   dashboard: "Dashboard",
 };
 export const LEVEL_LABEL: Record<Level, string> = {
@@ -111,6 +111,6 @@ export const COPY = {
 export const deniedLine = (surface: Surface) =>
   surface === "dashboard"
     ? "You don't have access to the Dashboard."
-    : "You don't have access to Personal finance.";
+    : "You don't have access to Personal Finance.";
 
 export const MIN_PASSWORD = 8;

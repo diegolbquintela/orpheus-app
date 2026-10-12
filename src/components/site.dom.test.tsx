@@ -48,7 +48,7 @@ describe("site menu", () => {
     assert.deepEqual(current(el), []);
   });
 
-  it("Orpheus on the left → /, Calculator, Dashboard, Personal finance (#97) and Account (#90, ROLE-01) on the right; Dashboard always shown", async () => {
+  it("Orpheus on the left → /, Calculator, Dashboard, Personal Finance (#97) and Account (#90, ROLE-01) on the right; Dashboard always shown", async () => {
     const el = await render(<SiteMenu pathname="/calculator" />);
     const nav = el.querySelector("nav")!;
     assert.equal(nav.getAttribute("aria-label"), "Site");
@@ -60,7 +60,7 @@ describe("site menu", () => {
       ["Orpheus", "/"],
       ["Calculator", "/calculator"],
       ["Dashboard", "/dashboard"],
-      ["Personal finance", "/personal-finance"],
+      ["Personal Finance", "/personal-finance"],
       ["Account", "/account"],
     ]);
     // Text links only on the right (#97), except Account (#90, Q-D8): a decorative person glyph shown below 640 px,
@@ -81,13 +81,13 @@ describe("site menu", () => {
     // Right group is one list, after the Orpheus link.
     assert.deepEqual(
       [...nav.querySelectorAll("ul a")].map((a) => a.textContent),
-      ["Calculator", "Dashboard", "Personal finance", "Account"],
+      ["Calculator", "Dashboard", "Personal Finance", "Account"],
     );
   });
 
-  it("/personal-finance marks Personal finance current (#97)", async () => {
+  it("/personal-finance marks Personal Finance current (#97)", async () => {
     const el = await render(<SiteMenu pathname="/personal-finance" />);
-    assert.deepEqual(current(el), ["Personal finance"]);
+    assert.deepEqual(current(el), ["Personal Finance"]);
   });
 
   it("stays put on scroll (sticky top) and has a visual current state", async () => {
@@ -159,7 +159,7 @@ describe("home (#69)", () => {
         [
           ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
           ["Dashboard", "The portfolio as a business.", "Open", "/dashboard"],
-          ["Personal finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
+          ["Personal Finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
         ],
       );
       // Nothing else: the #46 line and cards are gone; no calculator code.

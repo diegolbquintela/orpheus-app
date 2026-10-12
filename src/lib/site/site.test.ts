@@ -19,14 +19,14 @@ import {
 } from "./site.ts";
 
 describe("site shell (#46)", () => {
-  it("menu: Orpheus → /, Calculator, Dashboard, Personal finance (#97), Account (#90 ROLE-01); always listed (no flag input)", () => {
+  it("menu: Orpheus → /, Calculator, Dashboard, Personal Finance (#97), Account (#90 ROLE-01); always listed (no flag input)", () => {
     assert.deepEqual(
       MENU_ITEMS.map((m) => [m.label, m.href]),
       [
         ["Orpheus", "/"],
         ["Calculator", "/calculator"],
         ["Dashboard", "/dashboard"],
-        ["Personal finance", "/personal-finance"],
+        ["Personal Finance", "/personal-finance"],
         ["Account", "/account"],
       ],
     );
@@ -64,7 +64,7 @@ describe("site shell (#46)", () => {
       { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
       { name: "Dashboard", text: "The portfolio as a business.", href: "/dashboard" },
       {
-        name: "Personal finance",
+        name: "Personal Finance",
         text: "Income, expenses, and the cover.",
         href: "/personal-finance",
       },
@@ -364,15 +364,15 @@ describe("lyre mark (#84, ST1-05)", () => {
 });
 
 describe("personal finance route (#84)", () => {
-  it("dark shell; #97: a bar item (Personal finance, current here; Q1 (d) superseded)", () => {
+  it("dark shell; #97: a bar item (Personal Finance, current here; Q1 (d) superseded)", () => {
     assert.equal(shellPage("/personal-finance"), "dark");
     assert.equal(currentSection("/personal-finance"), "personal-finance");
     assert.deepEqual(
       MENU_ITEMS.map((m) => m.label),
-      ["Orpheus", "Calculator", "Dashboard", "Personal finance", "Account"],
+      ["Orpheus", "Calculator", "Dashboard", "Personal Finance", "Account"],
     );
     const route = readFileSync("src/routes/personal-finance.tsx", "utf8");
-    assert.match(route, /title: "Personal finance · Orpheus Wisdom"/);
+    assert.match(route, /title: "Personal Finance · Orpheus Wisdom"/);
   });
 
   it("no server: the page makes no fetch and uses no cookie / sessionStorage / IndexedDB", () => {

@@ -119,7 +119,7 @@ if (!status.json || !("signIn" in status.json)) {
   process.exit(2);
 }
 if (status.json.ownerEmail !== "set") {
-  console.error(`[roles] BLOCKED: ORPHEUS_OWNER_EMAIL is not set on ${base} (status ownerEmail=${status.json.ownerEmail}); nobody has access to Personal finance or the Dashboard until EL sets it.`);
+  console.error(`[roles] BLOCKED: ORPHEUS_OWNER_EMAIL is not set on ${base} (status ownerEmail=${status.json.ownerEmail}); nobody has access to Personal Finance or the Dashboard until EL sets it.`);
   writeFileSync(join(CFG.out, "roles.json"), JSON.stringify({ ...R, blocked: "ORPHEUS_OWNER_EMAIL not set" }, null, 2));
   process.exit(3);
 }
@@ -246,7 +246,7 @@ try {
     check("ROLE-09 sign-up off the allow-list → 403", up.status === 403, up.status);
     const want = {
       owner: [["You", "Password", "Email", "Who has access", "Grant access", "Activity"], ["Owner"]], // #91 AUDIT-08 adds 06 Activity
-      cfo: [["You", "Password", "Email", "Who has access"], ["CFO · Personal finance · Read"]],
+      cfo: [["You", "Password", "Email", "Who has access"], ["CFO · Personal Finance · Read"]],
       pm: [["You", "Password", "Email", "Who has access"], ["Portfolio Manager · Dashboard · Read and write"]],
       none: [["You", "Password", "Email", "Who has access"], ["No access"]],
     };
@@ -326,7 +326,7 @@ try {
     }
     for (const [who, jar] of [["none", none.jar], ["pm", pm.jar]]) {
       const p = await http(jar, "GET", "/personal-finance");
-      check(`[${who}] ROLE-14 / -15 /personal-finance → 403, "You don't have access to Personal finance.", no figures`, p.status === 403 && /You don(&#x27;|')t have access to Personal finance\./.test(p.text) && !/data-testid="pf-/.test(p.text), p.status);
+      check(`[${who}] ROLE-14 / -15 /personal-finance → 403, "You don't have access to Personal Finance.", no figures`, p.status === 403 && /You don(&#x27;|')t have access to Personal Finance\./.test(p.text) && !/data-testid="pf-/.test(p.text), p.status);
     }
     const apis = await Promise.all(["/api/personal-finance", "/api/dashboard/holdings", "/api/dashboard/settings", "/api/dashboard/columns"].map((u) => http(none.jar, "GET", u)));
     check("[none] ROLE-14 every PF / Dashboard API → 403", apis.every((a) => a.status === 403), apis.map((a) => a.status));
@@ -335,7 +335,7 @@ try {
     const both = [(await http(cfo.jar, "GET", "/personal-finance")).status, (await http(cfo.jar, "GET", "/dashboard")).status];
     check("ROLE-15 / Q-D3 both grants: both pages open", both.every((s) => s === 200), both);
     const me = await http(cfo.jar, "GET", "/api/account/me");
-    check("ROLE-04 both grants: two role lines", JSON.stringify(me.json?.roles) === JSON.stringify(["CFO · Personal finance · Read", "Portfolio Manager · Dashboard · Read"]), me.json?.roles);
+    check("ROLE-04 both grants: two role lines", JSON.stringify(me.json?.roles) === JSON.stringify(["CFO · Personal Finance · Read", "Portfolio Manager · Dashboard · Read"]), me.json?.roles);
     await access("PUT", { userId: cfo.id, ...grants("read", "none") });
   }
 
@@ -377,7 +377,7 @@ try {
     const cfoSees = await who(cfo.jar);
     const pmSees = await who(pm.jar);
     const noneSees = await who(none.jar);
-    check("ROLE-19 / Q-D14 the CFO sees the owner and the people on Personal finance, not the Dashboard-only PM or no-grant", cfoSees.includes(people.owner.email.toLowerCase()) && cfoSees.includes(cfo.email) && !cfoSees.includes(pm.email) && !cfoSees.includes(none.email), cfoSees.length);
+    check("ROLE-19 / Q-D14 the CFO sees the owner and the people on Personal Finance, not the Dashboard-only PM or no-grant", cfoSees.includes(people.owner.email.toLowerCase()) && cfoSees.includes(cfo.email) && !cfoSees.includes(pm.email) && !cfoSees.includes(none.email), cfoSees.length);
     check("ROLE-19 the PM sees the owner and the people on the Dashboard only", pmSees.includes(pm.email) && !pmSees.includes(cfo.email) && !pmSees.includes(none.email), pmSees.length);
     check("ROLE-19 no grant: only the owner", noneSees.length === 1 && noneSees[0] === people.owner.email.toLowerCase(), noneSees.length);
     const page = await http(O, "GET", "/account");

@@ -8,7 +8,7 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
  *
  * The site menu (#46; dark shell, epic #66 #68; the lyre mark #84 before `Orpheus`, decorative): one thin charcoal bar that stays at the top on scroll, on
  * every page, including /dashboard, sign-in and the 404 (same markup everywhere). "Orpheus" on the left links
- * home; "Calculator", "Dashboard" and (#97) "Personal finance" on the right, text only. Below 640 px the text is 12 px
+ * home; "Calculator", "Dashboard" and (#97) "Personal Finance" on the right, text only. Below 640 px the text is 12 px
  * and the right links 8 px apart so all four fit on one line at 360 px (site-style Q21). No dropdowns, no hover rule. The current page gets
  * aria-current="page" and a visual mark keyed on that attribute (off-white and underlined; the other items
  * are dim). Off-white focus ring (the site's green focus colour is too dark on charcoal). Plain links (full page
@@ -17,7 +17,7 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
 /**
  * #90: below 640 px the glyph link keeps a 44 × 44 box but takes only the glyph's 20 px in the row: it reaches 8 px
  * back over the gap before it and 16 px into the bar's right padding, with the glyph at its right edge, so the glyph
- * still ends on the column edge (20 px from the screen) and sits 8 px from `Personal finance` like the other items.
+ * still ends on the column edge (20 px from the screen) and sits 8 px from `Personal Finance` like the other items.
  * That is what lets the five items keep 8 px gaps (Q21; text 11 px through 399 px, 12 px to 640 px, EL). From 640 px it is a plain text link.
  */
 // #90 (EL, Q21 amended): through 399 px the bar text is 11 px so five items fit on one line at 360.

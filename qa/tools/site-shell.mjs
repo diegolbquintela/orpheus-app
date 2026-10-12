@@ -7,7 +7,7 @@
 //
 // Per page and width:
 //   ST1-01 one thin charcoal bar (≤ 48 px), sticky at the top on scroll, Orpheus left / Calculator, Dashboard,
-//          Personal finance right (#97; order, hrefs, one line, text only, 12 px below 640 px / 14 px from 640,
+//          Personal Finance right (#97; order, hrefs, one line, text only, 12 px below 640 px / 14 px from 640,
 //          links ≥ 44 px tall), no dropdowns, no horizontal page scroll
 //   ST1-02 exactly one current item (aria-current="page") in off-white + underline, the others dim; none on a 404
 //   ST1-03 the footer is charcoal and reads exactly "Orpheus Wisdom"
@@ -56,7 +56,7 @@ const DIM = "rgb(168, 174, 180)";
 const WHITE = "rgb(255, 255, 255)";
 const INK = "rgb(30, 33, 36)";
 // #90 (ROLE-01): Account last.
-const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"], ["Account", "/account"]];
+const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
 const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
@@ -144,7 +144,7 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   // the 1152 px column's edge on wide screens), Calculator just before it, Orpheus at the left.
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
   const last = bar.links.at(-1);
-  check(`${tag} ST1-01 / ROLE-01 Orpheus left, Calculator, Dashboard, Personal finance, Account right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
+  check(`${tag} ST1-01 / ROLE-01 Orpheus left, Calculator, Dashboard, Personal Finance, Account right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
   // #90 (EL, Q21 amended): 11 px through 399 px so the five items fit at 360; 12 px from 400 px; 14 px from 640.
   const size = viewport.width < 400 ? 11 : viewport.width < 640 ? 12 : 14;
   // #90 (ROLE-01, Q-D8): Account is the one icon on the right (the person glyph below 640 px; the word from 640 px).
@@ -279,7 +279,7 @@ try {
   // Signed-out /dashboard: the server gate still answers 307 to sign-in.
   const r = await fetch(`${base}/dashboard`, { redirect: "manual" });
   check("signed-out /dashboard → 307 /dashboard/sign-in", r.status === 307 && /\/dashboard\/sign-in$/.test(r.headers.get("location") ?? ""), [r.status, r.headers.get("location")]);
-  // #102: Personal finance is signed-in only; signed out it redirects to sign-in and comes back after.
+  // #102: Personal Finance is signed-in only; signed out it redirects to sign-in and comes back after.
   const pf = await fetch(`${base}/personal-finance`, { redirect: "manual" });
   const pfTo = new URL(pf.headers.get("location") ?? "/x", base);
   check("signed-out /personal-finance → 307 /dashboard/sign-in?next=/personal-finance (#102)", pf.status === 307 && pfTo.pathname === "/dashboard/sign-in" && pfTo.searchParams.get("next") === "/personal-finance", [pf.status, pf.headers.get("location")]);
@@ -287,7 +287,7 @@ try {
   const ac = await fetch(`${base}/account`, { redirect: "manual" });
   const acTo = new URL(ac.headers.get("location") ?? "/x", base);
   check("signed-out /account → 307 /dashboard/sign-in?next=/account (#90 ROLE-02)", ac.status === 307 && acTo.pathname === "/dashboard/sign-in" && acTo.searchParams.get("next") === "/account", [ac.status, ac.headers.get("location")]);
-  // #90 D1 (ROLE-01): the 11 px edge: 11 px at 399 px, 12 px at 400 px; `Personal finance` on one line at both.
+  // #90 D1 (ROLE-01): the 11 px edge: 11 px at 399 px, 12 px at 400 px; `Personal Finance` on one line at both.
   for (const [w, want] of [[399, 11], [400, 12]]) {
     const pg = await browser.newPage({ viewport: { width: w, height: 800 } });
     await pg.goto(`${base}/`);
@@ -297,7 +297,7 @@ try {
       r.selectNodeContents(pf);
       return { sizes: [...n.querySelectorAll("a")].map((a) => parseFloat(getComputedStyle(a).fontSize)), pfLines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
     });
-    check(`[${w}] ROLE-01 bar text ${want} px, Personal finance on one line`, m.sizes.every((s) => s === want) && m.pfLines === 1, m);
+    check(`[${w}] ROLE-01 bar text ${want} px, Personal Finance on one line`, m.sizes.every((s) => s === want) && m.pfLines === 1, m);
     await pg.close();
   }
   await signedOut(browser, base, false);
@@ -325,10 +325,10 @@ try {
         }
         if (CFG.compareUrl) (R.panels[`${vp} /dashboard`] ??= {})[which] = await panelShot(page, content, `${vp}_dashboard-${which}`);
         if (which === "base") {
-          // #97 / #102: Personal finance, signed in (the page itself is personal-finance.mjs's).
+          // #97 / #102: Personal Finance, signed in (the page itself is personal-finance.mjs's).
           await page.goto(`${host}/personal-finance`, { waitUntil: "networkidle" });
           await page.waitForTimeout(300);
-          await shell(page, { vp, path: "/personal-finance", want: "Personal finance", kind: "dark", viewport });
+          await shell(page, { vp, path: "/personal-finance", want: "Personal Finance", kind: "dark", viewport });
           const file = join(CFG.out, `personal-finance-${viewport.width}.png`);
           await page.screenshot({ path: file, fullPage: true });
           R.shots.push(file);

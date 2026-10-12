@@ -156,7 +156,7 @@ const SESSION_API_PATHS = [
   "/api/dashboard/holdings/1",
   "/api/dashboard/fx",
   "/api/dashboard/columns",
-  "/api/personal-finance", // #102: the account's Personal finance record
+  "/api/personal-finance", // #102: the account's Personal Finance record
   // #90: the account page's API and the own view toggles.
   "/api/personal-finance/view",
   "/api/account/me",
@@ -260,7 +260,7 @@ for (const flag of [undefined, "true"]) {
   const pfTo = new URL(pf.location ?? "/x", ORIGIN);
   check(pf.status === 307 && pfTo.pathname === "/dashboard/sign-in" && pfTo.searchParams.get("next") === "/personal-finance", `${label}: signed out, GET /personal-finance -> ${pf.status} ${pf.location} (want 307 to /dashboard/sign-in?next=/personal-finance)`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
-  check(/href="\/personal-finance"[^>]*>Personal finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal finance item (#97)`);
+  check(/href="\/personal-finance"[^>]*>Personal Finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal Finance item (#97)`);
   // #90 (ROLE-01): Account last; the person glyph (phones) and the word (visually hidden below 640 px).
   check(/<li><a href="\/account"[^>]*><svg [^>]*aria-hidden="true"[^>]*data-testid="person-glyph"[\s\S]*?<\/svg><span class="sr-only sm:not-sr-only">Account<\/span><\/a><\/li><\/ul>/.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Account item last (#90)`);
   check(((home.body.match(SITE_MENU)?.[0] ?? "").match(/<a /g) ?? []).length === 5, `${label}: / menu is not five links (#90)`);
@@ -273,7 +273,7 @@ for (const flag of [undefined, "true"]) {
       JSON.stringify([
         ["Calculator", "Dollar-cost average calculator.", "/calculator", "Open"],
         ["Dashboard", "The portfolio as a business.", "/dashboard", "Open"],
-        ["Personal finance", "Income, expenses, and the cover.", "/personal-finance", "Open"],
+        ["Personal Finance", "Income, expenses, and the cover.", "/personal-finance", "Open"],
       ]),
     `${label}: / Platforms lines -> ${JSON.stringify(lines)}`,
   );
@@ -498,9 +498,9 @@ if (!WITH_DB) {
     const NOINDEX = /<meta name="robots" content="noindex, nofollow"\/>/;
     const FOOTER = /<footer[^>]*><p[^>]*data-testid="site-footer"[^>]*>Orpheus Wisdom<\/p><\/footer>/;
     const pf = await call("GET", "/personal-finance", "true", undefined, { cookie: token });
-    check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal finance\.<\/h1>/.test(pf.body), `${label}: signed in, GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
-    check(JSON.stringify(menuCurrent(pf.body)) === '["Personal finance"]', `${label}: /personal-finance current menu item (#97) ${menuCurrent(pf.body)}`);
-    check(/<title>Personal finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
+    check(pf.status === 200 && NOINDEX.test(pf.body) && FOOTER.test(pf.body) && /<h1[^>]*>Personal Finance\.<\/h1>/.test(pf.body), `${label}: signed in, GET /personal-finance -> ${pf.status} (h1, noindex, footer)`);
+    check(JSON.stringify(menuCurrent(pf.body)) === '["Personal Finance"]', `${label}: /personal-finance current menu item (#97) ${menuCurrent(pf.body)}`);
+    check(/<title>Personal Finance · Orpheus Wisdom<\/title>/.test(pf.body), `${label}: /personal-finance title`);
     // #102 QA D1: signed in, a bad ?next ends on /dashboard (never the external host or another path).
     for (const bad of ["https://evil.example", "//evil.example", "/calculator"]) {
       let path = `/dashboard/sign-in?next=${encodeURIComponent(bad)}`;
@@ -549,7 +549,7 @@ if (!WITH_DB) {
   check(own.status === 403, `${label}: no-grant user GET settings -> ${own.status} ${own.body}`);
   const otherPf = await call("GET", "/api/personal-finance", "true", undefined, { cookie: otherToken });
   check(otherPf.status === 403, `${label}: no-grant user GET personal-finance -> ${otherPf.status} ${otherPf.body}`);
-  for (const [path, line] of [["/personal-finance", "You don(&#x27;|')t have access to Personal finance\\."], ["/dashboard", "You don(&#x27;|')t have access to the Dashboard\\."]]) {
+  for (const [path, line] of [["/personal-finance", "You don(&#x27;|')t have access to Personal Finance\\."], ["/dashboard", "You don(&#x27;|')t have access to the Dashboard\\."]]) {
     const r = await call("GET", path, "true", undefined, { cookie: otherToken });
     check(r.status === 403 && new RegExp(`data-testid="access-denied-line"[^>]*>${line}<`).test(r.body) && !/data-testid="(holding-form|pf-|holdings-)/.test(r.body), `${label}: no-grant user GET ${path} -> ${r.status} (want 403 and the one line)`);
   }

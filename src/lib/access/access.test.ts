@@ -14,7 +14,7 @@ import { temporaryPassword } from "./access.server.ts";
 
 // #90 (attachments/roles-and-account-design.md; Q-D1..Q-D18 decided): the pure access rules and copy.
 describe("access rules (#90)", () => {
-  it("roles: CFO → Personal finance, Portfolio Manager → Dashboard; three levels, no write without read (Q-D2)", () => {
+  it("roles: CFO → Personal Finance, Portfolio Manager → Dashboard; three levels, no write without read (Q-D2)", () => {
     assert.deepEqual(SURFACE_ROLE, { personal_finance: "CFO", dashboard: "Portfolio Manager" });
     assert.deepEqual(LEVEL_LABEL, { none: "No access", read: "Read", read_write: "Read and write" });
     assert.equal(levelOf(undefined), "none");
@@ -27,7 +27,7 @@ describe("access rules (#90)", () => {
   it("role lines (ROLE-04): Owner; one line per grant (Q-D3 both); No access", () => {
     assert.deepEqual(roleLines(true, { personal_finance: "none", dashboard: "none" }), ["Owner"]);
     assert.deepEqual(roleLines(false, { personal_finance: "read", dashboard: "read_write" }), [
-      "CFO · Personal finance · Read",
+      "CFO · Personal Finance · Read",
       "Portfolio Manager · Dashboard · Read and write",
     ]);
     assert.deepEqual(roleLines(false, { personal_finance: "none", dashboard: "none" }), ["No access"]);
@@ -41,7 +41,7 @@ describe("access rules (#90)", () => {
   });
 
   it("denied copy (ROLE-14)", () => {
-    assert.equal(deniedLine("personal_finance"), "You don't have access to Personal finance.");
+    assert.equal(deniedLine("personal_finance"), "You don't have access to Personal Finance.");
     assert.equal(deniedLine("dashboard"), "You don't have access to the Dashboard.");
   });
 

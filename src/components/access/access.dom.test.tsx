@@ -84,7 +84,7 @@ describe("/account page (#90)", () => {
   it("a grantee: no 05; the email form; their role lines", async () => {
     const el = await render(
       <AccountPage
-        data={{ ...base, owner: false, email: "cfo@example.com", roles: ["CFO · Personal finance · Read"], people: base.people }}
+        data={{ ...base, owner: false, email: "cfo@example.com", roles: ["CFO · Personal Finance · Read"], people: base.people }}
       />,
     );
     assert.deepEqual(
@@ -93,7 +93,7 @@ describe("/account page (#90)", () => {
     );
     assert.equal(q(el, "account-grant"), null);
     assert.ok(q(el, "account-email-form"));
-    assert.equal(q(el, "account-role")?.textContent, "CFO · Personal finance · Read");
+    assert.equal(q(el, "account-role")?.textContent, "CFO · Personal Finance · Read");
   });
 
   it("ROLE-08: a temporary password shows only You and Password, with the one line", async () => {
@@ -132,8 +132,8 @@ describe("/account page (#90)", () => {
 describe("denied and read-only (#90)", () => {
   it("ROLE-14: the denied page: the page name, one line, Account and Home; nothing else", async () => {
     const el = await render(<DeniedPage surface="personal_finance" />);
-    assert.equal(el.querySelector("h1")?.textContent, "Personal finance");
-    assert.equal(q(el, "access-denied-line")?.textContent, "You don't have access to Personal finance.");
+    assert.equal(el.querySelector("h1")?.textContent, "Personal Finance");
+    assert.equal(q(el, "access-denied-line")?.textContent, "You don't have access to Personal Finance.");
     assert.deepEqual(
       [...el.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]),
       [
