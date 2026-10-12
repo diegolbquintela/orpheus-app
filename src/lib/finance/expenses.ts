@@ -1,5 +1,5 @@
 /**
- * Personal finance expenses (#84 v1.1; spec `attachments/personal-finance-spec.md` §5–§6, PF-03..07). Pure helpers:
+ * Personal Finance expenses (#84 v1.1; spec `attachments/personal-finance-spec.md` §5–§6, PF-03..07). Pure helpers:
  * amounts, conversion, percentages, totals, accounts and this browser's `localStorage` (one key, no login, no
  * server). A missing or broken storage just reads as an empty page. `% of income` is wired by #85; `Equity to cover`
  * (#86, spec section 13): the yearly amount ÷ (rate ÷ 100), and a typed value overrides it (Q3). Foreign currency
@@ -422,4 +422,35 @@ export function writeExpenses(storage: StorageLike | null, expenses: Expenses): 
   } catch {
     // Storage full or blocked: the page keeps working for this visit.
   }
+}
+
+/** #113 (PF-61, PF-62): the confirmation before an item that removes data goes. */
+export const deleteQuestion = (name: string): string => `Delete ${name}? This cannot be undone.`;
+export const UNNAMED_EXPENSE = "this expense";
+export const CATEGORY_EXISTS = "That category exists.";
+
+/**
+ * #113 (PF-63, PF-64): rename a category: same rules as adding (trimmed, ≤ 40 characters, `Name the category.`);
+ * another category's name in any case is refused (`That category exists.`, no merge); a case-only change is fine.
+ * Every line using it follows; totals do not change.
+ */
+export function renameCategory(
+  expenses: Expenses,
+  from: string,
+  typed: string,
+): { expenses: Expenses; name: string } | { error: string } {
+  const name = typed.trim().slice(0, CATEGORY_MAX);
+  if (!name) return { error: CATEGORY_ERROR };
+  if (expenses.categories.some((c) => c !== from && c.toLowerCase() === name.toLowerCase()))
+    return { error: CATEGORY_EXISTS };
+  const swap = (l: Line): Line => (l.category === from ? { ...l, category: name } : l);
+  return {
+    name,
+    expenses: {
+      ...expenses,
+      categories: expenses.categories.map((c) => (c === from ? name : c)),
+      fixed: expenses.fixed.map(swap),
+      variable: expenses.variable.map(swap),
+    },
+  };
 }

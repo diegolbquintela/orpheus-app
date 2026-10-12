@@ -33,7 +33,7 @@ const menu = (current) =>
     ["/", "Orpheus"],
     ["/calculator", "Calculator"],
     ["/dashboard", "Dashboard"],
-    ["/personal-finance", "Personal finance"],
+    ["/personal-finance", "Personal Finance"],
     ["/account", "Account"],
   ]
     .map(
@@ -56,7 +56,7 @@ const line = (name, text, href) =>
 const HOME = shell(
   "Orpheus",
   `<header data-testid="home-hero"><picture><img alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)" width="3300" height="2200"/></picture><div><p>01</p><h1 class="x">Investment driven by research.</h1></div></header>` +
-    `<section><p>02</p><h2>Platforms</h2><ul>${line("Calculator", "Dollar-cost average calculator.", "/calculator")}${line("Dashboard", "The portfolio as a business.", "/dashboard")}${line("Personal finance", "Income, expenses, and the cover.", "/personal-finance")}</ul></section>`,
+    `<section><p>02</p><h2>Platforms</h2><ul>${line("Calculator", "Dollar-cost average calculator.", "/calculator")}${line("Dashboard", "The portfolio as a business.", "/dashboard")}${line("Personal Finance", "Income, expenses, and the cover.", "/personal-finance")}</ul></section>`,
 );
 const CALC = shell(
   "Calculator",
@@ -80,7 +80,7 @@ function app(mode, override = () => false) {
       return res.writeHead(307, { location: `/calculator${u.search}` }).end();
     if (u.pathname === "/") return html(res, 200, HOME);
     if (u.pathname === "/calculator") return html(res, 200, CALC);
-    // #102: signed out, Personal finance redirects to sign-in (flag on or off).
+    // #102: signed out, Personal Finance redirects to sign-in (flag on or off).
     if (u.pathname === "/personal-finance")
       return res.writeHead(307, { location: "/dashboard/sign-in?next=%2Fpersonal-finance" }).end();
     if (u.pathname === "/api/chart")
@@ -156,7 +156,7 @@ test("home fails with a fourth Platforms line, the old title, a missing Dashboar
     "The portfolio as a business.",
     "The portfolio as a business: fundamentals for each name, and the whole.",
   );
-  const noFinance = HOME.replace(/<a href="\/personal-finance"[^>]*>Personal finance<\/a>/, "");
+  const noFinance = HOME.replace(/<a href="\/personal-finance"[^>]*>Personal Finance<\/a>/, "");
   const oldTitle = HOME.replace(
     "Investment driven by research.",
     "Orpheus Wisdom is a private desk with two tools.",
@@ -166,7 +166,7 @@ test("home fails with a fourth Platforms line, the old title, a missing Dashboar
     ["fourth line", (req, res) => req.url === "/" && (html(res, 200, fourth), true)],
     ["old Dashboard line", (req, res) => req.url === "/" && (html(res, 200, oldDash), true)],
     [
-      "menu without Personal finance",
+      "menu without Personal Finance",
       (req, res) => req.url === "/" && (html(res, 200, noFinance), true),
     ],
     ["old title", (req, res) => req.url === "/" && (html(res, 200, oldTitle), true)],

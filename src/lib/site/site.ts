@@ -8,14 +8,14 @@
 export type SiteSection = "home" | "calculator" | "dashboard" | "personal-finance" | "account";
 
 /**
- * Menu items, left to right. "Orpheus" sits on the left; the others on the right (#97: Personal finance; #90: Account,
+ * Menu items, left to right. "Orpheus" sits on the left; the others on the right (#97: Personal Finance; #90: Account,
  * right-most, always shown; a person glyph below 640 px, ROLE-01).
  */
 export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: string }[] = [
   { section: "home", label: "Orpheus", href: "/" },
   { section: "calculator", label: "Calculator", href: "/calculator" },
   { section: "dashboard", label: "Dashboard", href: "/dashboard" },
-  { section: "personal-finance", label: "Personal finance", href: "/personal-finance" },
+  { section: "personal-finance", label: "Personal Finance", href: "/personal-finance" },
   { section: "account", label: "Account", href: "/account" },
 ];
 
@@ -28,7 +28,7 @@ export const HOME_PLATFORMS: readonly { name: string; text: string; href: string
   { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
   { name: "Dashboard", text: "The portfolio as a business.", href: "/dashboard" },
   {
-    name: "Personal finance",
+    name: "Personal Finance",
     text: "Income, expenses, and the cover.",
     href: "/personal-finance",
   },

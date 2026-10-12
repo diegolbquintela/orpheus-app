@@ -572,3 +572,7 @@ each month keeps its own income and expense lines (`orpheus.finance.months.v1`),
 copy of the current month's saved lines (`Copied from … — edit and save.`), and `Save` (shown only when something is
 unsaved) writes the month; there is no autosave. Design `attachments/pf-month-control-design.md`, spec section 19,
 AC PF-48..PF-58, QA `qa/tools/pf-months.mjs`.
+
+**Personal Finance usability (#113).** "Personal Finance" with a capital F everywhere; removing an expense line or a
+person asks `Delete [name]? This cannot be undone.`; a chosen category can be renamed (every line and month follows).
+Spec section 20, AC PF-59..PF-66.

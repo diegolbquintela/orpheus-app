@@ -581,7 +581,7 @@
       font-size: 2.75rem;
     }
   }
-  /* Personal finance (#84, attachments/personal-finance-spec.md §7): its own .pf-* classes (Q10: never .field /
+  /* Personal Finance (#84, attachments/personal-finance-spec.md §7): its own .pf-* classes (Q10: never .field /
      .kicker / .section). Phone: each line a block of labelled cells (Equity to cover in the wider right cell, so
      its label stays on one line at 360 px); from 1024 px one row per line in the column order, with a
      column-label row per group. Proportional figures like every dark page. */
@@ -1084,6 +1084,19 @@
   }
   .pf-filter {
     max-width: 16rem;
+  }
+  /* #113: the filter and `Rename` side by side (Rename on the field's baseline). */
+  .pf-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 1rem;
+  }
+  .pf-filter-row .pf-filter {
+    flex: 1 1 12rem;
+  }
+  .pf-rename:disabled {
+    color: var(--color-dim);
   }
   .pf-cat-row {
     display: grid;

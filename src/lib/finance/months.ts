@@ -104,8 +104,7 @@ export function openMonth(
   if (own) return { lines: own, copiedFrom: null };
   const none: Opened = { lines: { fixed: [], variable: [], people: [] }, copiedFrom: null };
   if (!canCopy) return none;
-  const source =
-    key !== current && hasLines(months[current]) ? current : latestWithLines(months);
+  const source = key !== current && hasLines(months[current]) ? current : latestWithLines(months);
   if (!source || source === key) return none;
   return { lines: months[source], copiedFrom: source };
 }
@@ -125,6 +124,21 @@ export function lineFigures(storage: StorageLike | null): Record<MonthKey, Figur
       expenses: positive(grandTotals(e, rate, household).monthly),
       income: positive(monthly(netIncomeYearly(m.people, household))),
     };
+  }
+  return out;
+}
+
+/** #113 (PF-65): category renames (in order) applied to every month's lines (categories are shared). */
+export function renameInMonths(months: Months, renames: readonly [string, string][]): Months {
+  if (!renames.length) return months;
+  const name = (c: string) => renames.reduce((acc, [from, to]) => (acc === from ? to : acc), c);
+  const out: Months = {};
+  for (const [k, m] of Object.entries(months)) {
+    const swap = (l: Line): Line => ({
+      ...l,
+      category: l.category ? name(l.category) : l.category,
+    });
+    out[k] = { ...m, fixed: m.fixed.map(swap), variable: m.variable.map(swap) };
   }
   return out;
 }

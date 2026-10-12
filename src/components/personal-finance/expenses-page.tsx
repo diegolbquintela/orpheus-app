@@ -29,6 +29,9 @@ import {
   parseAmount,
   parseRate,
   readExpenses,
+  renameCategory,
+  deleteQuestion,
+  UNNAMED_EXPENSE,
   type Totals,
   totalsOf,
   writeExpenses,
@@ -77,6 +80,7 @@ import {
   MONTH_CONTROL_LABEL,
   openMonth,
   readMonths,
+  renameInMonths,
   writeMonths,
 } from "@/lib/finance/months";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
@@ -101,7 +105,7 @@ function storage(): StoreLike | null {
 }
 
 /**
- * Personal finance (#84 v1.1, #85 v1.2, #86 v1.3, #87 v1.4, #94; spec `attachments/personal-finance-spec.md`,
+ * Personal Finance (#84 v1.1, #85 v1.2, #86 v1.3, #87 v1.4, #94; spec `attachments/personal-finance-spec.md`,
  * PF-01..32): the household currency, the income block, the equity-cover rates and Fixed and Variable expenses
  * (a line may be in a foreign currency with a typed FX rate), then (#94) `04` Overview and `05` Update. #102: the
  * five values live against the signed-in account (`loadStore`, default the account API); a failed save shows
@@ -132,6 +136,8 @@ export function PersonalFinancePage({
   const [baseline, setBaseline] = useState<string>("");
   const [saved, setSaved] = useState(0);
   const [saving, setSaving] = useState(false);
+  /** #113: category renames since the last save / month switch (applied to every stored month on Save). */
+  const [renames, setRenames] = useState<[string, string][]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -172,6 +178,7 @@ export function PersonalFinancePage({
     setOverview(o);
     setMonth(key);
     setCopiedFrom(opened.copiedFrom);
+    setRenames([]);
     setBaseline(canonical(e, i, r, h, o));
   }
 
@@ -204,7 +211,8 @@ export function PersonalFinancePage({
   async function save() {
     const store = storage();
     if (!store || !month || !expenses || !income || !rates || !household || !overview) return;
-    const months = readMonths(store);
+    // #113 (PF-65): renames reach every month (read against the old list, before it is replaced).
+    const months = renameInMonths(readMonths(store), renames);
     months[month] = { fixed: expenses.fixed, variable: expenses.variable, people: income.people };
     const legacy = { ...overview.months };
     delete legacy[month];
@@ -222,6 +230,7 @@ export function PersonalFinancePage({
     if (!ok) return;
     setOverview(nextOverview);
     setCopiedFrom(null);
+    setRenames([]);
     setBaseline(canonical(expenses, income, rates, household, nextOverview));
     setSaved((n) => n + 1);
   }
@@ -265,7 +274,7 @@ export function PersonalFinancePage({
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 pt-10 pb-20 sm:px-8 lg:gap-16 lg:pt-14 lg:pb-24">
         <header className="relative">
           <p className="pf-label">01</p>
-          <h1 className="pf-title mt-2">Personal finance.</h1>
+          <h1 className="pf-title mt-2">Personal Finance.</h1>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           <p className="pf-save" role="status" data-testid="pf-save">
             {saveFailed ? "Not saved." : ""}
@@ -329,6 +338,14 @@ export function PersonalFinancePage({
                         categories={expenses.categories}
                         value={expenses.categories.includes(filter) ? filter : ALL}
                         onChange={setFilter}
+                        onRename={(from, typed) => {
+                          const result = renameCategory(expenses, from, typed);
+                          if ("error" in result) return result.error;
+                          update(() => result.expenses);
+                          if (result.name !== from) setRenames((r) => [...r, [from, result.name]]);
+                          setFilter(result.name);
+                          return null;
+                        }}
                       />
                       <div className="flex flex-col gap-12">
                         <Groups
@@ -371,13 +388,8 @@ export function PersonalFinancePage({
 }
 
 /** #112: the saved-state fingerprint of the shown month (Save shows when the page differs from it). */
-const canonical = (
-  e: Expenses,
-  i: Income,
-  r: Rates,
-  h: Household,
-  o: Overview,
-): string => JSON.stringify([e, i, r, h, { ...o, months: {} }]);
+const canonical = (e: Expenses, i: Income, r: Rates, h: Household, o: Overview): string =>
+  JSON.stringify([e, i, r, h, { ...o, months: {} }]);
 
 /**
  * #112 (PF-48, PF-49): `Month` and a select of the last 12 months (newest first) under the title, `Save` beside it
@@ -540,6 +552,9 @@ function Groups({
                   setAdding={setAdding}
                   onChange={(patch) => updateLine(group.key, line.id, patch)}
                   onRemove={() => {
+                    // #113 (PF-61): confirm first.
+                    if (!window.confirm(deleteQuestion(line.name.trim() || UNNAMED_EXPENSE)))
+                      return;
                     if (adding === line.id) setAdding(null);
                     update((e) => ({
                       ...e,
@@ -613,32 +628,61 @@ function CategoryFilter({
   categories,
   value,
   onChange,
+  onRename,
 }: {
   categories: string[];
   value: string;
   onChange: (value: string) => void;
+  /** #113 (PF-63): rename the chosen category; a problem text, or null when done. */
+  onRename: (from: string, typed: string) => string | null;
 }) {
   const uid = useId();
+  const [renaming, setRenaming] = useState(false);
   if (categories.length === 0) return null;
   return (
-    <div className="pf-cell pf-filter" data-testid="pf-filter-cell">
-      <label htmlFor={`${uid}-filter`} className="pf-label">
-        Filter by category
-      </label>
-      <select
-        id={`${uid}-filter`}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="pf-field"
-        data-testid="pf-filter"
-      >
-        <option value={ALL}>All</option>
-        {categories.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-col gap-4">
+      <div className="pf-filter-row">
+        <div className="pf-cell pf-filter" data-testid="pf-filter-cell">
+          <label htmlFor={`${uid}-filter`} className="pf-label">
+            Filter by category
+          </label>
+          <select
+            id={`${uid}-filter`}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className="pf-field"
+            data-testid="pf-filter"
+          >
+            <option value={ALL}>All</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className="pf-cancel pf-rename"
+          disabled={value === ALL || renaming}
+          onClick={() => setRenaming(true)}
+          data-testid="pf-rename-category"
+        >
+          Rename
+        </button>
+      </div>
+      {renaming && value !== ALL ? (
+        <NewName
+          kind="rename"
+          initial={value}
+          onAdd={(typed) => {
+            const problem = onRename(value, typed);
+            if (!problem) setRenaming(false);
+            return problem;
+          }}
+          onCancel={() => setRenaming(false)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -934,19 +978,24 @@ function NewName({
   kind,
   onAdd,
   onCancel,
+  initial = "",
 }: {
-  kind: "account" | "category";
+  kind: "account" | "category" | "rename";
   onAdd: (typed: string) => string | null;
   onCancel: () => void;
+  /** #113: the rename field starts on the current name. */
+  initial?: string;
 }) {
   const uid = useId();
-  const [typed, setTyped] = useState("");
+  const [typed, setTyped] = useState(initial);
   const [problem, setProblem] = useState<string | null>(null);
   const submit = () => setProblem(onAdd(typed));
   return (
     <div className="pf-new" data-testid={`pf-new-${kind}`}>
       <label className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="pf-label">{kind === "account" ? "New account" : "New category"}</span>
+        <span className="pf-label">
+          {kind === "account" ? "New account" : kind === "category" ? "New category" : "New name"}
+        </span>
         <input
           autoFocus
           value={typed}
@@ -984,7 +1033,7 @@ function NewName({
           onClick={submit}
           data-testid={`pf-new-${kind}-add`}
         >
-          Add
+          {kind === "rename" ? "Rename" : "Add"}
         </button>
         <button
           type="button"

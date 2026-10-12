@@ -96,7 +96,7 @@ try {
     check("PFE-02 /api/personal-finance signed out: GET / PUT / DELETE → 401 JSON, POST → 405", calls.slice(0, 3).every(([, st, b]) => st === 401 && b === '{"error":"Unauthorized."}') && calls[3][1] === 405, calls);
 
     for (const [what, start, click] of [
-      ["the bar's Personal finance item", "/calculator", 'nav[aria-label="Site"] a[href="/personal-finance"]'],
+      ["the bar's Personal Finance item", "/calculator", 'nav[aria-label="Site"] a[href="/personal-finance"]'],
       ["the home Platforms line's Open", "/", '[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]'],
       ["the URL", null, null],
     ]) {
@@ -176,7 +176,7 @@ try {
       const direct = new URL(page.url()).pathname;
       await ready(page);
       const empty = await page.locator("[data-testid=pf-line], [data-testid=pf-person]").count();
-      check(`${tag} PFE-03 signed in: the bar item and the home Open open /personal-finance (Personal finance current, title); sign-in?next goes straight there; the reset account is empty`, JSON.stringify(entry) === JSON.stringify([[PATH, ["Personal finance"], "Personal finance · Orpheus Wisdom"], [PATH, ["Personal finance"], "Personal finance · Orpheus Wisdom"]]) && direct === PATH && empty === 0, { entry, direct, empty });
+      check(`${tag} PFE-03 signed in: the bar item and the home Open open /personal-finance (Personal Finance current, title); sign-in?next goes straight there; the reset account is empty`, JSON.stringify(entry) === JSON.stringify([[PATH, ["Personal Finance"], "Personal Finance · Orpheus Wisdom"], [PATH, ["Personal Finance"], "Personal Finance · Orpheus Wisdom"]]) && direct === PATH && empty === 0, { entry, direct, empty });
       await shot(page, `e2e-empty-${viewport.width}.png`);
 
       // PFE-04 / PFE-05 income.
@@ -261,8 +261,8 @@ try {
       const ov0 = (await figures(page)).ov;
       await page.getByTestId("pf-month").selectOption("2026-06");
       const note = (await txt(page.getByTestId("pf-month-note")));
-      while ((await page.getByTestId("pf-remove").count()) > 0) await page.getByTestId("pf-remove").first().click();
-      while ((await page.getByTestId("pf-remove-person").count()) > 0) await page.getByTestId("pf-remove-person").first().click();
+      while ((await page.getByTestId("pf-remove").count()) > 0) { page.once("dialog", (d) => void d.accept()); await page.getByTestId("pf-remove").first().click(); }
+      while ((await page.getByTestId("pf-remove-person").count()) > 0) { page.once("dialog", (d) => void d.accept()); await page.getByTestId("pf-remove-person").first().click(); }
       await page.getByTestId("pf-add-fixed").click();
       await line(page, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
       await page.getByTestId("pf-add-person").click();

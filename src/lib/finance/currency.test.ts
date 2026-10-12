@@ -1,4 +1,4 @@
-// Personal finance foreign currency (#87 v1.4; spec attachments/personal-finance-spec.md section 14, PF-21..25).
+// Personal Finance foreign currency (#87 v1.4; spec attachments/personal-finance-spec.md section 14, PF-21..25).
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {

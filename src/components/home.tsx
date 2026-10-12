@@ -8,7 +8,7 @@ import {
 
 /**
  * Home `/` (#69, spec §8; replaces the #46 line and cards): the Jordaens band with `01` and the title, then
- * `02` `Platforms` with exactly three lines (#97: Calculator, Dashboard, Personal finance), each `Open` a link. Nothing else between the bar and the footer.
+ * `02` `Platforms` with exactly three lines (#97: Calculator, Dashboard, Personal Finance), each `Open` a link. Nothing else between the bar and the footer.
  * Static: no price fetches, no calculator code.
  */
 export function Home() {

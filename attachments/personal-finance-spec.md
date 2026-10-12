@@ -31,6 +31,7 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 17:48 ET | **#102 kickoff (Diego via CoS; EL):** extends #87 (section 16). **(1) Rate direction changes for every FX rate on the page:** a rate is now **units of the foreign currency per 1 unit of the household (master) currency** (label e.g. `FX rate (BRL per 1 CAD)`; `3.70` means 3.70 BRL = 1 CAD); **household amount = foreign amount ÷ rate** (was × rate, Q12 superseded). **Migration:** stored v1 expense lines carry the old direction unambiguously (the key itself says v1), so they are **inverted once** (rate → 1 ÷ rate, 6 decimals, trailing zeros dropped; a bad / empty rate kept as typed) into the bumped key `orpheus.finance.expenses.v2`. **(2) Foreign income:** each person (= an income line in this model; the issue's "person or income line") gets a `Foreign` box; ticked, it shows `Currency`, `FX rate (<code> per 1 <household>)` and `Converted (yearly)` (the person's Net ÷ rate); the income table, `Net income`, `% of income` and the Overview use the converted figure. #87's expense-line `Currency` / `FX rate` stay (new direction). **(3) Sign-in required:** `/personal-finance` is for signed-in users only; signed out → 307 to `/dashboard/sign-in?next=/personal-finance` (the existing Better Auth email/password and the dashboard's server session check; no second auth system; #90 untouched). **(4) Account persistence:** the five PF values are stored against the account (`personal_finance` table, `GET` / `PUT` / `DELETE /api/personal-finance`), so another device loads the same data; this browser's old `localStorage` values are imported once into an empty account, then removed. Simplest readings, open for EL: Q24–Q31. |
 | 2026-10-12, ≈ 11:22 ET | **#112 kickoff (Diego via CoS; EL):** very high; a month control replaces `05 Update`. Business user: the CFO. Stopped and asked: per-month lines and explicit Save conflict with sections 15 / 18 (totals-only months, autosave). |
 | 2026-10-12, ≈ 11:23 ET | **EL picked option A (decisions 1–7, `attachments/pf-month-control-design.md`):** each month owns its lines; explicit Save for every month; empty past month copies the current saved lines with `Copied from [month] — edit and save.`; old totals-only months keep their totals until saved; rollover copies the latest month with lines; equity cover / FX rates follow the lines; month figure = that month's Total + Net income. Supersedes PF-28, PF-43 (Update) and the "every change saves" of PF-31 / PF-36 / PF-41 for everything but the section toggles. |
+| 2026-10-12, ≈ 14:20 ET | **#113 kickoff (Diego via CoS; EL):** medium; three usability fixes for the CFO: "Personal Finance" with a capital F (bar, home Platforms, page title); a confirmation `Delete [name]? This cannot be undone.` before anything that removes data; rename an expense category (every line using it follows; master totals unchanged). Section 20, PF-59..PF-66; open questions Q-F1..Q-F8 below (recommendations applied until EL answers). |
 
 ## 2. The brief (verbatim, issue #84)
 
@@ -772,4 +773,41 @@ the month's own tables at once, in `04` after Save).
 19.4 **Layout.** The control and `Save` on one row under the title (wrapping on a phone), the select ≥ 44 px tall and
 ≤ 16rem, `Save` the 44 px chalk text button; the note 14 px dim. Nothing moves when `Save` appears (its slot is
 reserved), strict CLS 0. No gold.
+
+## 20. Capital F, delete confirmations, rename categories (#113; PF-59..PF-66)
+
+Business user: the CFO. No calculation, currency-model, sign-in or Dashboard change.
+
+20.1 **Capital F.** Every visible "Personal finance" becomes **"Personal Finance"**: the bar item, the home `Platforms`
+line, the page title (`Personal Finance.`), the document title (`Personal Finance · Orpheus Wisdom`), and (Q-F1) the
+role and denied lines (`CFO · Personal Finance · Read`, `You don't have access to Personal Finance.`). The bar keeps
+the full words (Q21, ROLE-01) and must stay on one line at 360 / 399 (11 px) and 400 (12 px); if it did not, that
+would be raised, not fixed by shrinking (Q-F8).
+
+20.2 **Delete confirmations.** Before an item that removes data goes, the browser's own confirm (Q-F2) asks exactly
+`Delete [name]? This cannot be undone.`; Cancel keeps it, OK removes it. Items (Q-F4): an expense line (`[name]` = its
+name, or `this expense` when unnamed; Q-F3) and a person (`[name]` = the name, or `Person N` as shown). Read-only
+grantees have no remove buttons (disabled, as today); the whole-record DELETE stays owner-only (Q-D13). With the
+month control (#112) a removal is part of the unsaved month until `Save`; the wording stays as the brief has it
+(Q-F5). No instruction text is added.
+
+20.3 **Rename a category.** With a category chosen in `Filter by category`, a `Rename` button beside it opens a field
+`New name` with `Rename` and `Cancel` (Enter / Escape). The new name follows the category rules (≤ 40 characters,
+`Name the category.` when empty); a name another category already has (any case) is refused with `That category
+exists.` (no merge; Q-F6); a change of case only is allowed. Renaming updates the category list, every line of the
+shown month using it, the filter and `By category`; categories are shared across months (#112 decision 1), so on
+`Save` every stored month's lines follow (Q-F7). Master totals do not change. Read-only: `Rename` disabled.
+
+20.4 **Open questions (recommendation applied until EL answers).**
+
+| Q | Question | Recommendation |
+|---|----------|----------------|
+| Q-F1 | Capitalise the role / denied lines too? | Yes: every visible "Personal finance". |
+| Q-F2 | Confirmation UI: the browser's confirm or an in-page dialog? | The browser's confirm (as #112's discard question; accessible, no layout shift). |
+| Q-F3 | `[name]` of an unnamed item? | `this expense`; a person's shown label (`Person 2`). |
+| Q-F4 | Which items? | Expense lines and people (the only removals in Personal Finance today; accounts and categories have no delete). |
+| Q-F5 | "This cannot be undone." while a removal is still unsaved (#112)? | Keep the brief's wording exactly. |
+| Q-F6 | Rename to a name that exists? | Refuse with `That category exists.`; no merge. |
+| Q-F7 | Rename across months? | Yes, every stored month on Save (categories are shared). |
+| Q-F8 | The bar with the capital F at 360 px? | Measured on the preview (site-shell ROLE-01); raise if it no longer fits. |
 

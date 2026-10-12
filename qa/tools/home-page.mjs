@@ -16,7 +16,7 @@
 //          outlined; the figure ≥ 90% inside the band
 //   ST3-05 the wash contains the 01 / title boxes (element + text rects), hugs them (≤ 12 px a side on a phone,
 //          ≤ 24 px wide), lower left, ≤ 50% of the band at 360 / 400; the title three lines (font-independent box)
-//   ST3-03 `02` `Platforms` and exactly the three lines (#97: Calculator, Dashboard, Personal finance; name,
+//   ST3-03 `02` `Platforms` and exactly the three lines (#97: Calculator, Dashboard, Personal Finance; name,
 //          description, `Open` → href) word for word, full-width rows with a 1 px hair rule above and no box; nothing
 //          else in <main>; no #46 line or cards; the `Open` links: chalk, underlined, a 2 px chalk focus ring,
 //          and clicking the first lands on /calculator
@@ -57,7 +57,7 @@ const ALT = "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)
 const LINES = [
   ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
   ["Dashboard", "The portfolio as a business.", "Open", "/dashboard"],
-  ["Personal finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
+  ["Personal Finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
 ];
 const MAX_BYTES = 300 * 1024;
 const RUNS = Number(process.env.CLS_RUNS ?? 3); // cold loads per width for ST3-01

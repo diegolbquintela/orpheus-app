@@ -1,4 +1,4 @@
-// Personal finance page (#84–#87, #94; spec attachments/personal-finance-spec.md; PF-02..07, PF-11..31) in jsdom with the real component.
+// Personal Finance page (#84–#87, #94; spec attachments/personal-finance-spec.md; PF-02..07, PF-11..31) in jsdom with the real component.
 import { dom } from "../../test/dom-setup";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
@@ -60,6 +60,12 @@ const text = (el: ParentNode, id: string) => q(el, id).textContent;
 const lines = (el: HTMLElement, group: string) => qa(q(el, `pf-group-${group}`), "pf-line");
 // #112: `Save` writes the whole record (the shown month's lines and every shared value).
 const SAVED_KEYS = [STORAGE_KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY, MONTHS_KEY].sort();
+// #113: removals ask first; the browser confirm is answered with `answer` and every question recorded.
+const confirm = { answer: true, asked: [] as string[] };
+dom.window.confirm = (message?: string) => {
+  confirm.asked.push(String(message));
+  return confirm.answer;
+};
 // #112: nothing is stored until `Save` (shown only while something is unsaved).
 async function saveNow() {
   const button = container?.querySelector('[data-testid="pf-month-save"]');
@@ -73,7 +79,7 @@ async function persisted(key: string): Promise<string> {
 describe("personal finance page (#84)", () => {
   it("exact copy: title, section, groups, column labels, add buttons, totals (PF-02)", async () => {
     const el = await render();
-    assert.equal(el.querySelector("h1")!.textContent, "Personal finance.");
+    assert.equal(el.querySelector("h1")!.textContent, "Personal Finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
       ["Income", "Income table", "Expenses", "Fixed", "Variable", "Overview"],
@@ -156,9 +162,16 @@ describe("personal finance page (#84)", () => {
     assert.equal(q(phone, "pf-error").textContent, "Enter a number, 0 or more.");
     assert.equal(q(phone, "pf-monthly").getAttribute("aria-invalid"), "true");
     assert.deepEqual(totals("all").slice(2, 4), ["1,100", "13,200"]);
-    // Remove.
+    // Remove (#113, PF-61): asked first; Cancel keeps the line, OK removes it.
+    confirm.asked = [];
+    confirm.answer = false;
+    await click(q(phone, "pf-remove"));
+    assert.equal(lines(el, "fixed").length, 2);
+    confirm.answer = true;
     await click(q(phone, "pf-remove"));
     assert.equal(lines(el, "fixed").length, 1);
+    assert.equal(confirm.asked.length, 2);
+    assert.match(confirm.asked[0], /^Delete .+\? This cannot be undone\.$/);
     assert.equal(q(phone, "pf-remove").getAttribute("aria-label"), "Remove expense");
   });
 
@@ -362,8 +375,14 @@ describe("income block (#85)", () => {
     const again = await render();
     assert.equal((q(people(again)[1], "pf-person-wages") as HTMLInputElement).value, "lots");
     assert.equal((q(people(again)[0], "pf-person-count-wages") as HTMLInputElement).checked, false);
-    // Remove a person.
+    // Remove a person (#113, PF-62): asked first.
+    confirm.asked = [];
+    confirm.answer = false;
     await click(q(people(again)[1], "pf-remove-person"));
+    assert.equal(people(again).length, 2);
+    confirm.answer = true;
+    await click(q(people(again)[1], "pf-remove-person"));
+    assert.match(confirm.asked[0], /^Delete .+\? This cannot be undone\.$/);
     assert.equal(people(again).length, 1);
     assert.equal(
       q(people(again)[0], "pf-remove-person").getAttribute("aria-label"),
@@ -1080,5 +1099,85 @@ describe("usability (#105, PF-40..46)", () => {
       null,
       "the filter is not stored",
     );
+    // #113 (PF-63, PF-64): rename the chosen category.
+    assert.equal(q(el, "pf-rename-category").hasAttribute("disabled"), true, "nothing chosen");
+    await type(q(el, "pf-filter"), "Home");
+    await click(q(el, "pf-rename-category"));
+    assert.equal(q(el, "pf-new-rename").querySelector(".pf-label")!.textContent, "New name");
+    assert.equal((q(el, "pf-new-rename-input") as HTMLInputElement).value, "Home");
+    await type(q(el, "pf-new-rename-input"), "  ");
+    await click(q(el, "pf-new-rename-add"));
+    assert.equal(text(q(el, "pf-new-rename"), "pf-error"), "Name the category.");
+    await type(q(el, "pf-new-rename-input"), "House");
+    await click(q(el, "pf-new-rename-add"));
+    assert.equal(qa(el, "pf-new-rename").length, 0);
+    assert.equal((q(el, "pf-filter") as HTMLSelectElement).value, "House");
+    assert.deepEqual(
+      [...(q(el, "pf-filter") as HTMLSelectElement).options].map((o) => o.textContent),
+      ["All", "House"],
+    );
+    assert.deepEqual(
+      [...lines(el, "fixed"), ...lines(el, "variable")].map(
+        (l) => (q(l, "pf-category") as HTMLSelectElement).value,
+      ),
+      ["House", "House", "House"],
+    );
+    assert.equal(text(qa(el, "pf-cat-row")[0], "pf-cat-name"), "House");
+    await type(q(el, "pf-filter"), "");
+    assert.deepEqual(
+      ["fixed", "variable", "all"].map((g) =>
+        [...q(el, `pf-total-${g}`).querySelectorAll(".pf-value")].map((v) => v.textContent),
+      )[0],
+      before[0],
+      "master totals unchanged",
+    );
+    // Another category's name (any case) is refused.
+    await type(q(lines(el, "variable")[0], "pf-category"), "__add-category__");
+    await type(q(lines(el, "variable")[0], "pf-new-category-input"), "Fun");
+    await click(q(lines(el, "variable")[0], "pf-new-category-add"));
+    await type(q(el, "pf-filter"), "Fun");
+    await click(q(el, "pf-rename-category"));
+    await type(q(el, "pf-new-rename-input"), "house");
+    await click(q(el, "pf-new-rename-add"));
+    assert.equal(text(q(el, "pf-new-rename"), "pf-error"), "That category exists.");
+    await click(q(el, "pf-new-rename-cancel"));
+    assert.equal(qa(el, "pf-new-rename").length, 0);
+    // Saved: every stored month follows (PF-65).
+    const saved = JSON.parse(await persisted(MONTHS_KEY));
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).categories, ["House", "Fun"]);
+    assert.equal(saved["2026-10"].fixed[0].category, "House");
+  });
+
+  it("a rename reaches every stored month on Save (PF-65)", async () => {
+    const line = (category: string) => ({
+      id: "l1",
+      name: "Rent",
+      amount: "1,000",
+      per: "month",
+      equity: "",
+      account: "",
+      currency: "",
+      rate: "",
+      category,
+    });
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ fixed: [line("Home")], variable: [], accounts: [], categories: ["Home"] }),
+    );
+    dom.window.localStorage.setItem(
+      MONTHS_KEY,
+      JSON.stringify({
+        "2026-06": { fixed: [line("Home")], variable: [], people: [] },
+        "2026-10": { fixed: [line("Home")], variable: [], people: [] },
+      }),
+    );
+    const el = await render();
+    await type(q(el, "pf-filter"), "Home");
+    await click(q(el, "pf-rename-category"));
+    await type(q(el, "pf-new-rename-input"), "House");
+    await click(q(el, "pf-new-rename-add"));
+    const saved = JSON.parse(await persisted(MONTHS_KEY));
+    assert.equal(saved["2026-06"].fixed[0].category, "House");
+    assert.equal(saved["2026-10"].fixed[0].category, "House");
   });
 });

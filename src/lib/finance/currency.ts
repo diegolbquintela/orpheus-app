@@ -1,5 +1,5 @@
 /**
- * Personal finance household currency (#87 v1.4; spec `attachments/personal-finance-spec.md` section 14, PF-21..25).
+ * Personal Finance household currency (#87 v1.4; spec `attachments/personal-finance-spec.md` section 14, PF-21..25).
  * One household-level code from a fixed list (default `CAD`, Q13 decided: Diego): income, every total, both percentages and
  * `Equity to cover` are in it. Each expense line may be in another code with a typed `FX rate` (household units per
  * 1 unit of the line's currency, Q12; the conversion lives in `expenses.ts`). Stored in this browser's
