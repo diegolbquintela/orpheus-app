@@ -245,7 +245,7 @@ try {
     const up = await http(new Jar(), "POST", "/api/auth/sign-up/email", { email: `qa-not-invited-${Date.now()}@example.invalid`, password: secret(), name: "x" });
     check("ROLE-09 sign-up off the allow-list → 403", up.status === 403, up.status);
     const want = {
-      owner: [["You", "Password", "Email", "Who has access", "Grant access"], ["Owner"]],
+      owner: [["You", "Password", "Email", "Who has access", "Grant access", "Activity"], ["Owner"]], // #91 AUDIT-08 adds 06 Activity
       cfo: [["You", "Password", "Email", "Who has access"], ["CFO · Personal finance · Read"]],
       pm: [["You", "Password", "Email", "Who has access"], ["Portfolio Manager · Dashboard · Read and write"]],
       none: [["You", "Password", "Email", "Who has access"], ["No access"]],
@@ -381,7 +381,9 @@ try {
     check("ROLE-19 the PM sees the owner and the people on the Dashboard only", pmSees.includes(pm.email) && !pmSees.includes(cfo.email) && !pmSees.includes(none.email), pmSees.length);
     check("ROLE-19 no grant: only the owner", noneSees.length === 1 && noneSees[0] === people.owner.email.toLowerCase(), noneSees.length);
     const page = await http(O, "GET", "/account");
-    check("ROLE-19 no history / timestamps on /account", !/granted_at|updated_at|\b20\d\d-\d\d-\d\d/.test(page.text.replace(/<script[\s\S]*?<\/script>/g, "")));
+    // #91 (AUDIT-08) amends ROLE-19: the history lives only in the owner's 06 Activity; "Who has access" stays current state.
+    const whoPart = (page.text.match(/data-testid="account-who"[\s\S]*?<\/section>/) ?? [""])[0];
+    check("ROLE-19 no history / timestamps in Who has access (history only in 06 Activity, #91)", whoPart.length > 0 && !/granted_at|updated_at|\b20\d\d-\d\d-\d\d/.test(whoPart));
 
     const sites = ["cross-site", "same-site"];
     const targets = [

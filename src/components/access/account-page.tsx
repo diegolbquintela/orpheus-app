@@ -602,7 +602,7 @@ function Activity({ first }: { first: AuditPage }) {
   }
   return (
     <div className="flex flex-col gap-6">
-      <div className="account-audit-box">
+      <div className="account-audit-box" role="region" aria-labelledby="account-activity" tabIndex={0}>
         <table className="account-audit" data-testid="account-activity-table">
           <thead>
             <tr>

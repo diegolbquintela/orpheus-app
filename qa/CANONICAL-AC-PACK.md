@@ -407,3 +407,7 @@ and 1440 × 900.
 | AUDIT-11 | BLOCK | No new env var, no allow-list change; the signed-out 307s (`/personal-finance`, `/dashboard`, `/account`) and the `$313,000` calculator unchanged. |
 | AUDIT-12 | MUST | Removing a person keeps their rows (no foreign key). |
 
+Amended by #91: **ROLE-03** (the owner's `/account` also has `06` `Activity`, AUDIT-08) and **ROLE-19** ("Who has
+access" stays current state with no history; the history is only in the owner's `06 Activity`). `qa/tools/roles.mjs`
+checks both as amended.
+
