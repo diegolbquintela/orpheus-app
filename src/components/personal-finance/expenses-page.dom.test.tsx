@@ -19,11 +19,11 @@ let container: HTMLElement | undefined;
 
 // #94: a fixed "today" (11 October 2026, local) so the 12 months are known.
 const NOW = new Date(2026, 9, 11, 12);
-async function render(now: Date = NOW): Promise<HTMLElement> {
+async function render(now: Date = NOW, readOnly = false): Promise<HTMLElement> {
   container = dom.window.document.createElement("div");
   dom.window.document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => root!.render(<PersonalFinancePage now={now} loadStore={loadLocalStore} />));
+  await act(async () => root!.render(<PersonalFinancePage now={now} loadStore={loadLocalStore} readOnly={readOnly} />));
   return container;
 }
 
@@ -827,6 +827,25 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     el = await render();
     assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
     assert.equal(qa(el, "pf-error").length, 0);
+  });
+
+  it("Q-M1: a read-only CFO sees an empty month's copy preview and note, never Save (PF-57)", async () => {
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ fixed: [LINE], variable: [], accounts: [], categories: [] }),
+    );
+    dom.window.localStorage.setItem(
+      MONTHS_KEY,
+      JSON.stringify({ "2026-10": { fixed: [LINE], variable: [], people: [] } }),
+    );
+    const before = dom.window.localStorage.getItem(MONTHS_KEY);
+    const el = await render(NOW, true);
+    await type(month(el), "2026-06");
+    assert.equal(month(el).value, "2026-06");
+    assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
+    assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
+    assert.equal(hasSave(el), false);
+    assert.equal(dom.window.localStorage.getItem(MONTHS_KEY), before);
   });
 
   it("rollover: a new empty month copies the most recent month with lines (PF-56)", async () => {

@@ -43,8 +43,8 @@ lyre, footer `Orpheus Wisdom`, no gold.
   lines of the month saved last (for older tools; the page reads the months value once it exists).
 - `overview.v1` keeps `start`, `growth`, `future`, `years`; its `months` (old Update totals) are read only as the
   fallback of decision 4 and a month's entry is dropped when that month is saved with lines.
-- A Read-only grantee sees every month as saved (no copy, no Save); an empty month shows no lines.
+- A Read-only grantee sees the same copy preview and note for an empty month (Q-M1, EL 2026-10-12), never `Save`; nothing is written.
 
 ## 4. Open questions
 
-None blocking. Q-M1 (for EL later): whether Read-only grantees should see the copy preview of an empty month.
+Q-M1 answered (EL, 2026-10-12 ≈ 11:44 ET): yes, a Read-only CFO sees the copy preview and the note; `Save` stays hidden.

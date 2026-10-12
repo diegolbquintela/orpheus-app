@@ -155,11 +155,11 @@ export function PersonalFinancePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fixedNow, loadStore]);
 
-  /** #112: show a month from the saved record (its own lines, else a copy; decisions 3–5). */
+  /** #112: show a month from the saved record (its own lines, else a copy; decisions 3–5; Q-M1: read-only too). */
   function open(key: MonthKey, current: MonthKey) {
     const store = storage();
     const shared = readExpenses(store);
-    const opened = openMonth(readMonths(store), key, current, !readOnly);
+    const opened = openMonth(readMonths(store), key, current, true);
     const e = { ...shared, fixed: opened.lines.fixed, variable: opened.lines.variable };
     const i = { people: opened.lines.people };
     const r = readRates(store);
