@@ -1,6 +1,6 @@
 // Audit log of actions (#91; design attachments/audit-log-design.md, AUDIT-01..12 in qa/CANONICAL-AC-PACK.md), on a
 // preview with the #90 QA accounts. Credentials from env only, never logged or written to the out dir:
-//   the owner QA_EMAIL / QA_PASSWORD (or QA_OWNER_EMAIL / QA_OWNER_PASSWORD), QA_CFO_* (Personal Finance Read),
+//   QA_OWNER_EMAIL / QA_OWNER_PASSWORD (the owner), QA_CFO_* (Personal Finance Read),
 //   QA_PM_* (Dashboard Read and write), QA_NONE_* (no grant).
 // API: AUDIT-02 (dash.settings by the PM, sign-in rows), -03 masking (codes only; no email, no person's name from
 // Who has access), -04 detail codes, -05 a failed sign-in as anonymous, -06 denials (CFO PF PUT, no-grant Dashboard
@@ -22,7 +22,7 @@ function check(name, pass, detail) {
 }
 const env = process.env;
 const ACC = {
-  owner: [env.QA_OWNER_EMAIL ?? env.QA_EMAIL, env.QA_OWNER_PASSWORD ?? env.QA_PASSWORD],
+  owner: [env.QA_OWNER_EMAIL, env.QA_OWNER_PASSWORD],
   cfo: [env.QA_CFO_EMAIL, env.QA_CFO_PASSWORD],
   pm: [env.QA_PM_EMAIL, env.QA_PM_PASSWORD],
   none: [env.QA_NONE_EMAIL, env.QA_NONE_PASSWORD],
@@ -84,14 +84,15 @@ if (!st.json || !("signIn" in st.json) || st.json.ownerEmail !== "set") {
 }
 
 const jars = {};
-for (const k of Object.keys(ACC)) {
+async function login(k) {
   const s = await signIn(...ACC[k]);
   jars[k] = s.jar;
   check(`sign-in ${k}`, s.jar, s.status);
+  if (!s.jar) process.exit(1);
 }
-if (Object.values(jars).some((j) => !j)) process.exit(1);
-
+await login("owner");
 const top = (await http(jars.owner, "GET", "/api/account/audit?limit=1")).json?.events?.[0]?.id ?? 0;
+for (const k of ["cfo", "pm", "none"]) await login(k);
 
 // actions
 const failed = await signIn(ACC.none[0], `${ACC.none[1]}-wrong`);
@@ -117,7 +118,7 @@ check("AUDIT-07 newest first", ids.every((id, i) => i === 0 || id < ids[i - 1]),
 const fresh = events.filter((e) => e.id > top).reverse();
 const has = (f) => fresh.find(f);
 const pmIn = has((e) => e.action === "auth.sign_in" && e.outcome === "ok" && e.role === "pm");
-check("AUDIT-05 sign-in ok rows (owner, cfo, pm, person)", ["owner", "cfo", "pm", "person"].every((r) => has((e) => e.action === "auth.sign_in" && e.outcome === "ok" && e.role === r)), fresh.filter((e) => e.action === "auth.sign_in").map((e) => [e.role, e.outcome]));
+check("AUDIT-05 sign-in ok rows (cfo, pm, person)", ["cfo", "pm", "person"].every((r) => has((e) => e.action === "auth.sign_in" && e.outcome === "ok" && e.role === r)), fresh.filter((e) => e.action === "auth.sign_in").map((e) => [e.role, e.outcome]));
 check("AUDIT-05 failed sign-in as anonymous, no detail", has((e) => e.action === "auth.sign_in" && e.outcome === "failed" && e.actor === "anonymous" && e.role === "anonymous" && e.detail === null));
 const pmSet = has((e) => e.action === "dash.settings");
 check("AUDIT-02 dash.settings by the PM (same masked code as the PM's sign-in)", pmSet && pmSet.role === "pm" && pmSet.outcome === "ok" && pmSet.actor === pmIn?.actor && /^p-[0-9a-f]{8}$/.test(pmSet.actor), pmSet);
@@ -207,6 +208,8 @@ try {
   }
 } finally {
   await browser.close();
+  // Leave no QA session behind (each API sign-in above; the browser contexts reused them).
+  for (const jar of Object.values(jars)) if (jar) await http(jar, "POST", "/api/auth/sign-out", {});
 }
 const failedN = R.filter((r) => !r.pass).length;
 writeFileSync(join(CFG.out, "audit.json"), JSON.stringify(R, null, 2));

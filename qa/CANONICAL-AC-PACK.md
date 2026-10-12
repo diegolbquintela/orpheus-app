@@ -388,8 +388,8 @@ Vercel sets `VITE_AUTH_ENABLED` itself (Preview `true`, Production its own encry
 
 ## Audit log of actions (#91; design `attachments/audit-log-design.md`)
 
-Ops / debug log, not personal data. Tool: `qa/tools/audit.mjs` (a preview with the #90 QA accounts: the owner via
-`QA_EMAIL` / `QA_PASSWORD`, `QA_CFO_*`, `QA_PM_*`, `QA_NONE_*`; passwords in env only, never logged). Widths 360 × 780
+Ops / debug log, not personal data. Tool: `qa/tools/audit.mjs` (a preview with the #90 QA accounts: `QA_OWNER_*`,
+`QA_CFO_*`, `QA_PM_*`, `QA_NONE_*`; passwords in env only, never logged). Widths 360 × 780
 and 1440 × 900.
 
 | AC | Tier | Pass when |
