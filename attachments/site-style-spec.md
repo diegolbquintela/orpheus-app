@@ -732,3 +732,14 @@ Now: `/manifest.webmanifest` (`Orpheus Wisdom`, `#1e2124`, standalone, icons `/i
 `apple-mobile-web-app-*` metas are set in the root head; `twitter:card` is dropped (there is no card image any more);
 `/?install=1` is no longer special (the #46 rule sends any `/?query` to `/calculator?query`, no tutorial); `/__grok/*` → 404. Acceptance NG-01..09, tool `qa/tools/no-grok.mjs`.
 
+## 15. Remaining Grok tooling removed (#51)
+
+| When | Decision |
+|------|----------|
+| 2026-10-12, ≈ 08:46 ET | **#51 kickoff (EL):** fresh draft PR off `main` `d8ab467`; remove `.grok/`, `startup.sh`, `scripts/preview.mjs`, `screenshots/app-builder-*`, `with-app-env`, `app-env-plugin` / `check:auth`, `write-atomic`. Gate: do not cut the app-env path until Vercel is confirmed to set `VITE_AUTH_ENABLED` itself. Keep `migrations/*0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default. |
+| 2026-10-12, ≈ 08:48 ET | **EL confirmed the gate:** `VITE_AUTH_ENABLED` is set on Vercel, Preview `true`, Production its own (encrypted) value, Development `false`; removing `.grok/app-env.json` cannot change a deployed build. Also verified locally: the build output is byte-identical with the file (`"false"`), with env `true` and without the file (the flag only feeds the template's unused `gates.tsx` / `use-current-user.ts`; the server reads it at runtime). |
+
+Also removed with them (same template, only used by each other): `scripts/preview-thumbnail.mjs`,
+`scripts/browser-smoke*.mjs`, `scripts/browser-guard.mjs`. Parked (#50 N2): `src/lib/app-data/*` (`connectors.grok.me`,
+`GROK_*` env), not imported by any page or route. Acceptance TL-01..06.
+

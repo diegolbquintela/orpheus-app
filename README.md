@@ -62,8 +62,9 @@ npm ci
 npm run dev          # http://localhost:8080 (home), http://localhost:8080/calculator
 ```
 
-No database or secrets are needed to run the calculator locally. Sign-in is off by default:
-`.grok/app-env.json` sets `VITE_AUTH_ENABLED` to `"false"`, and that value is not a secret.
+No database or secrets are needed to run the calculator locally. Sign-in needs `BETTER_AUTH_SECRET` and a database;
+without them it answers "unavailable". `VITE_AUTH_ENABLED` comes from the environment only (Vercel sets it per
+environment; since #51 there is no `.grok/app-env.json`); export `VITE_AUTH_ENABLED=false` to turn auth off locally.
 
 ## Tests and checks
 
@@ -554,3 +555,8 @@ skip this.
 `icon-512.png` and `apple-touch-icon.png`, rendered from `public/favicon.svg` by `node scripts/make-icons.mjs`.
 Installing is the browser's own (Share → Add to Home Screen). noindex meta + `X-Robots-Tag` unchanged. QA:
 `node qa/tools/no-grok.mjs --base-url <preview>` (NG-01..09).
+
+**Remaining Grok tooling removed (#51).** `.grok/`, `startup.sh`, the template's preview / app-env / auth-invariant /
+write-atomic / browser-smoke scripts and `screenshots/app-builder-*` are gone; `npm run dev` / `build` / `preview` run
+Vite directly. Vercel sets `VITE_AUTH_ENABLED` itself, so deployed builds are unchanged. Test:
+`scripts/no-grok-tooling.test.mjs` (TL-01..06).

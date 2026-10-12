@@ -337,8 +337,8 @@ These rules exist so no ticket gets missed.
   `src/lib/dca/results.ts`, `format.ts` labels) is fine within the spec.
 - **Secrets.** Environment variables live only in Vercel project settings: `VITE_AUTH_ENABLED`,
   `BETTER_AUTH_SECRET`. Never commit their values, never create a `.env` file in the repo, never paste
-  values into chat, PR bodies, logs or the vault. (`.grok/app-env.json` holds only the non-secret local
-  default `VITE_AUTH_ENABLED: "false"`; a real environment value always wins.) The approved dashboard
+  values into chat, PR bodies, logs or the vault. (Vercel sets `VITE_AUTH_ENABLED` per environment; since #51 there is
+  no repo file for it, and an unset value means on.) The approved dashboard
   spec adds more Vercel-only variables as its tickets land. Variables that exist now (names only,
   never values):
   - `DASHBOARD_ENABLED`: a plain variable set on **Preview only**, not Production (since 2026-10-02).
@@ -1041,15 +1041,15 @@ lists and the empty sentence are gone (see "Dashboard book (#58)"). The excluded
 
 ## Repo leftovers from the Grok template
 
-`.grok/` (skills, references, `app-env.json`), `startup.sh`, `scripts/preview*.mjs`, `screenshots/`
-and the Grok helpers in `scripts/` and `server/` come from the Grok App Builder template. Deploying
+The Grok App Builder template's files are gone (#50: the PWA / OG middleware, `/__grok`, the preview bridge;
+#51: `.grok/`, `startup.sh`, `scripts/preview*.mjs`, `with-app-env`, `app-env-plugin`, `check-auth-invariant`,
+`write-atomic`, `browser-smoke*`, `browser-guard`, `screenshots/app-builder-*`). `dev` / `build` / `preview` run
+Vite directly; never re-add them. Deploying
 through Grok has stopped: Vercel is the only deploy path. https://island-pearl-eagle-hill.grok.me stays
 published as a frozen old copy until the Chief of Staff confirms its retirement with Diego; never deploy
 to it or treat it as production. The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
-chat rules) was replaced by this file. The leftover files are not instructions for this repo, but some are still wired
-in: `scripts/with-app-env.mjs` reads `.grok/app-env.json` for `dev`/`build`/`preview`, and
-`vite.config.ts` loads the Grok PWA and app-env plugins plus `server/` middleware. Remove them only in a
-dedicated PR that keeps CI and the Vercel build green.
+chat rules) was replaced by this file. Still from the template (parked, #50 N2): `src/lib/app-data/*`
+(the `GROK_*` connector env, `connectors.grok.me`), unused by any page.
 
 ## Template leftovers removed (#50)
 
@@ -1062,5 +1062,5 @@ dedicated PR that keeps CI and the Vercel build green.
   `twitter:card` and the Grok OG image service were dropped), `rel=manifest` → `/manifest.webmanifest`,
   `rel=apple-touch-icon` → `/icons/apple-touch-icon.png`.
 - Icons: change `public/favicon.svg`, then `node scripts/make-icons.mjs` and commit the PNGs.
-- `.grok/` (agent skills / references) stays; it is not shipped. `src/lib/app-data/*` (GROK_* connector env) is #51.
+- `.grok/` and the rest of the template tooling: removed in #51. `src/lib/app-data/*` (GROK_* connector env) parked.
 - QA: `qa/tools/no-grok.mjs` (NG-01..09 in `qa/CANONICAL-AC-PACK.md`).

@@ -12,7 +12,7 @@ export type AppUser = {
 
 /**
  * Stable fallback user, used ONLY when auth is disabled
- * (`VITE_AUTH_ENABLED=false`, the local default in `.grok/app-env.json`). Its id is
+ * (`VITE_AUTH_ENABLED=false` in the build environment). Its id is
  * `"dev-user"` — the SAME id `verify.server.ts` returns server-side — so per-user
  * rows written in that mode belong to one consistent owner.
  */
