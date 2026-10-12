@@ -18,6 +18,9 @@ import {
   shellPage,
 } from "./site.ts";
 
+// #92: the stylesheet with its shared parts (fonts, label / button) inlined, as the build sees it.
+const SITE_CSS = ["src/styles.css", "src/styles/fonts.css", "src/styles/parts.css"].map((f) => readFileSync(f, "utf8")).join("\n");
+
 describe("site shell (#46)", () => {
   it("menu: Orpheus → /, Calculator, Dashboard, Personal Finance (#97), Account (#90 ROLE-01); always listed (no flag input)", () => {
     assert.deepEqual(
@@ -150,7 +153,7 @@ describe("dark shell page (#68, spec §6 / Q13)", () => {
   });
 
   it("dark tokens added next to the old ones; no existing token value changed (the dashboard renders with them)", () => {
-    const css = readFileSync("src/styles.css", "utf8");
+    const css = SITE_CSS;
     for (const [k, v] of [
       ["paper", "#ffffff"], ["ink", "#1e2124"], ["muted", "#636363"], ["line", "#e3e3e3"], ["card", "#ffffff"],
       ["danger", "#ff4136"], ["dca", "#2b5945"], ["focus", "#2b5945"],
@@ -225,7 +228,7 @@ describe("home hero files (#69, ST3-01)", () => {
 
 describe("sign-in page (#73, spec §9, ST5b)", () => {
   const route = readFileSync("src/routes/dashboard_.sign-in.tsx", "utf8");
-  const css = readFileSync("src/styles.css", "utf8");
+  const css = SITE_CSS;
   const block = (sel: string) => {
     const m = new RegExp(`\\n  ${sel.replace(".", "\\.")} \\{([^}]*)\\}`).exec(css);
     assert.ok(m, sel);
@@ -299,7 +302,7 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
 });
 
 describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
-  const css = readFileSync("src/styles.css", "utf8");
+  const css = SITE_CSS;
   const root = readFileSync("src/routes/__root.tsx", "utf8");
 
   it("Schibsted Grotesk self-hosted (Q16, ST6-06): no Google Fonts host, every face local, optional, preloaded", async () => {
@@ -317,7 +320,8 @@ describe("leave-outs and regression (#72, spec §6, ST6-06..09)", () => {
       assert.ok(source.includes(sha), `${url} SHA-256 recorded in SOURCE.md`);
     }
     assert.match(readFileSync("public/fonts/schibsted-grotesk/OFL.txt", "utf8"), /SIL Open Font License, Version 1\.1/);
-    assert.match(root, /rel: "preload",\s*href: "\/fonts\/schibsted-grotesk\/schibsted-grotesk-latin\.woff2",\s*as: "font",\s*type: "font\/woff2",\s*crossOrigin: "anonymous"/);
+    assert.match(root, /rel: "preload",\s*href: FONT_PRELOAD,\s*as: "font",\s*type: "font\/woff2",\s*crossOrigin: "anonymous"/);
+    assert.match(readFileSync("src/lib/site/fonts.ts", "utf8"), /FONT_PRELOAD = "\/fonts\/schibsted-grotesk\/schibsted-grotesk-latin\.woff2"/);
     assert.match(css, /font-family: "Schibsted Grotesk Fallback";/, "the size-adjusted fallback stays");
   });
 

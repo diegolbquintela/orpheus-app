@@ -1,0 +1,35 @@
+/* #92 Shared page parts (site-style-spec section 16, SP-03 / SP-04): each part declared once. The page class
+   names are aliases of the shared one (markup unchanged); new code uses .ow-label / .ow-button. Change a part here
+   and every page follows. Same layer as before (base), so the cascade is unchanged. */
+@layer base {
+  /* The small uppercase label (calculator, sign-in / account, Personal Finance). */
+  .ow-label,
+  .calc-label,
+  .signin-label,
+  .pf-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-dim);
+  }
+  /* The chalk action button, 48 px (calculator, sign-in / account). */
+  .ow-button,
+  .calc-button,
+  .signin-button {
+    display: inline-flex;
+    height: 3rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    background: var(--color-chalk);
+    padding: 0 1.5rem;
+    color: var(--color-night);
+    font-size: 0.875rem;
+  }
+  .ow-button:disabled,
+  .calc-button:disabled,
+  .signin-button:disabled {
+    background: var(--color-dim);
+  }
+}
