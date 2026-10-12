@@ -274,7 +274,8 @@ function trackSaves(page) {
 }
 async function settle(page) {
   const save = page.getByTestId("pf-month-save");
-  if (await save.isVisible().catch(() => false)) await save.click();
+  if ((await save.isVisible().catch(() => false)) && (await save.isEnabled().catch(() => false))) await save.click().catch(() => {});
+  for (let i = 0; i < 100 && (await save.isVisible().catch(() => false)) && !(await save.isEnabled().catch(() => true)); i++) await page.waitForTimeout(100);
   await page.waitForTimeout(300);
   for (let i = 0; i < 100 && (saving.get(page)?.n ?? 0) > 0; i++) await page.waitForTimeout(100);
 }
@@ -418,7 +419,7 @@ try {
 
   if (!email || !password) {
     console.log("INFO PF-01..32, PF-34..39 SKIPPED: the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal finance record is reset)");
-  } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
+  } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: process.env.PF_ONLY ? VIEWPORTS.filter(([n]) => process.env.PF_ONLY.split(",").includes(n)) : VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
     const wide = viewport.width >= 1024;
     const api = [];
@@ -787,7 +788,7 @@ try {
       await ready(page);
       const fc2 = line(page, "fixed", 2);
       const back25 = { household: await page.getByTestId("pf-household").inputValue(), cur: await fc2.getByTestId("pf-currency").inputValue(), rate: await val(fc2.getByTestId("pf-fx")), all: (await totals(page, "all")).slice(2, 4) };
-      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"USD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
+      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} {"household":"USD"} (#112: Save writes every name); a reload restores both (Total 1,750 / 21,000)`, before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
       await page.getByTestId("pf-household").selectOption("BRL");
       const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await (async () => { await settle(page); return JSON.parse(((await record(page)) ?? {})[KEY]).fixed[2].rate; })() };
       await page.getByTestId("pf-household").selectOption("CAD");
@@ -811,8 +812,9 @@ try {
       const row37 = await page.locator("[data-testid=pf-income-line]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())).filter((r) => r[0].startsWith("Brazilian Dividends")));
       const yes37 = { net: await txt(bd.getByTestId("pf-person-net")), conv: await txt(bd.getByTestId("pf-person-converted")), rows: row37, total: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")), errors: await bd.getByTestId("pf-error").count() };
       check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
+      await settle(page);
       const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]").allTextContents();
-      check(`${tag} PF-37 the Overview's page income follows (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
+      check(`${tag} PF-37 the Overview's income follows after Save (#112) (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
       // Layout with the foreign person (PF-39).
       const fl = { name: await box(bd.getByTestId("pf-person-name")), share: await box(bd.getByTestId("pf-person-share")), cw: await box(bd.getByTestId("pf-person-count-wages")), box: await box(bd.getByTestId("pf-person-foreign").locator("xpath=..")), cur: await box(bd.getByTestId("pf-person-currency")), rate: await box(fxIn), conv: await box(bd.getByTestId("pf-person-converted")), net: await box(bd.getByTestId("pf-person-net")) };
       const row = viewport.width >= 640;
@@ -866,6 +868,7 @@ try {
       const failed = await txt(page.getByTestId("pf-save"));
       const failedStyle = await page.getByTestId("pf-save").evaluate((e) => ({ color: getComputedStyle(e).color, role: e.getAttribute("role") }));
       await page.unroute(`**${API}`);
+      await settle(page);
       await bd.getByTestId("pf-person-name").fill("Brazilian Dividends");
       await settle(page);
       const saveCleared = await txt(page.getByTestId("pf-save"));
@@ -983,7 +986,7 @@ try {
         check(`${tag} PF-53 June saved as October's figures: the average back to 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify(t0), { t2 });
         check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / month control)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
-        check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n").slice(0, 4).join(" | "));
       } finally {
         await p3.close().catch(() => {});
       }
