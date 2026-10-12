@@ -57,6 +57,7 @@ always: ST0-05).
 | 18 | #51 Remove remaining Grok tooling | TL-01..06 new (`.grok/`, `startup.sh`, the preview / app-env / auth-invariant / write-atomic / browser-smoke scripts and `screenshots/app-builder-*` gone; `dev` / `build` / `preview` run Vite directly; no app-env Vite plugin; the deployed auth flag unchanged because Vercel sets `VITE_AUTH_ENABLED` itself (EL ≈ 08:48 ET); kept: `migrations/*0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default); `scripts/no-grok-tooling.test.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), `qa/tools/no-grok.mjs`, release-smoke, signed-out 307s; #71 / #91–#95 untouched |
 | 19 | #91 Audit log of actions | AUDIT-01..12 new (append-only `audit_event`, the fixed action list, masked actor / target codes, no amounts / names / emails / tickers, owner-only `GET /api/account/audit` and `/account` `06 Activity`, best-effort writes, dark shell); design `attachments/audit-log-design.md`; Q-A1..Q-A4 open, built as recommended; `qa/tools/audit.mjs` | ROLE-01..22 (`roles.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), signed-out 307s; #92 / #93 / #95 / #71 untouched |
 | 20 | #112 Personal Finance month control | PF-48..PF-58 new (the month control at the top, last 12 months, per-month lines, explicit Save shown only when unsaved, empty past month copies the current saved lines with the note, rollover copy, old totals-only months, averages / Overview after Save, the control stays on the saved month, `05 Update` gone, discard / leave confirms); PF-28 and PF-43 retired; PF-27, PF-31, PF-36, PF-41 amended; design `attachments/pf-month-control-design.md` (EL option A, decisions 1–7); `qa/tools/pf-months.mjs`, `personal-finance.mjs` / `personal-finance-e2e.mjs` updated | signed-out 307, `safeNext`, roles (`roles.mjs`), audit (`audit.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), no-grok; #92 / #93 / #95 / #113 untouched |
+| 21 | #113 Personal Finance: capital F, delete confirmations, rename categories | PF-59..PF-66 new; ST1-01 / ROLE-01 / home Platforms / PFE-03 / ROLE-04 / ROLE-14 copy amended to "Personal Finance"; spec section 20 (Q-F1..Q-F8) | the bar on one line at 360 / 399 / 400, signed-out 307, roles, audit, no-grok, `$313,000`, CLS 0, PF-01..58 |
 | — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
@@ -432,4 +433,21 @@ end) with a fixed browser clock; 400 × 860 and 1440 × 900.
 | PF-56 | BLOCK | Rollover: with the clock on a new month whose month has no lines, the page shows a copy of the most recent month with lines and `Copied from <that month> — edit and save.`; `Save` shown; nothing stored until Save. |
 | PF-57 | BLOCK | Roles: a Read-only CFO can switch months (each saved month shows; Q-M1 (EL): an empty one shows the copy preview with its note), never sees `Save`, and the record is never written; section toggles still save to the person's own view. |
 | PF-58 | BLOCK | Layout and regression at 360 / 400 / 1024 / 1440: the control row under the title, select and `Save` ≥ 44 px, no gold, AA, no horizontal scroll, strict CLS 0 (empty, restored, `Save` appearing); PF-01..47 (as amended) and PFE-01..13 hold; signed-out 307 and `safeNext` unchanged; `$313,000`. |
+
+## Personal Finance: capital F, delete confirmations, rename categories (#113; spec section 20)
+
+Amends the copy of ST1-01, ROLE-01, the home Platforms line (HP), PFE-03, ROLE-04 and ROLE-14 / -15 to
+"Personal Finance". Tools: `site-shell.mjs`, `home-page.mjs`, `site.mjs`, `roles.mjs`, `personal-finance.mjs`,
+`personal-finance-e2e.mjs`.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-59 | BLOCK | The bar item, the home Platforms line, the h1 `Personal Finance.` and the document title `Personal Finance · Orpheus Wisdom` use a capital F; no visible "Personal finance" anywhere. |
+| PF-60 | BLOCK | The bar stays on one line, full words, at 360 / 399 (11 px) and 400 / 1024 / 1440 (12 px / desktop), no overlap (ROLE-01). |
+| PF-61 | BLOCK | Remove expense asks `Delete Rent? This cannot be undone.` (unnamed: `Delete this expense? …`); Cancel keeps the line, OK removes it. |
+| PF-62 | BLOCK | Remove person asks `Delete Me? This cannot be undone.` (unnamed: `Delete Person 2? …`); Cancel keeps, OK removes. |
+| PF-63 | BLOCK | With a category chosen, `Rename` opens `New name`; renaming `Home` to `House` updates the list, every line using it, the filter (still on it) and `By category`; master totals unchanged; `Save` shows. |
+| PF-64 | BLOCK | Empty → `Name the category.`; another category's name (any case) → `That category exists.`; nothing changes; Cancel / Escape leave it as it was; a case-only change is accepted. |
+| PF-65 | BLOCK | After Save, every stored month's lines carry the new name (a month saved before shows it when opened). |
+| PF-66 | BLOCK | Read-only: remove buttons and `Rename` disabled, no confirm; the controls ≥ 44 px, no gold, AA, strict CLS 0. |
 

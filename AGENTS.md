@@ -1080,3 +1080,10 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Per-month lines live in `orpheus.finance.months.v1` (`src/lib/finance/months.ts`); the page edits a draft and
   writes only on `Save`. Never reintroduce autosave; section toggles are the one immediate write.
 - QA tools that type into the page must click `Save` (`pf-month-save`) before checking the stored record.
+
+## Personal Finance usability (#113)
+
+- The product name is "Personal Finance" (capital F) in every visible string; QA tools assert it exactly.
+- Removals in Personal Finance go through `confirmDelete(name)` (`Delete [name]? This cannot be undone.`).
+- Renaming a category goes through `renameCategory` (src/lib/finance/expenses.ts); on Save the rename is applied to
+  every stored month (`renameInMonths`). Spec section 20, AC PF-59..PF-66, Q-F1..Q-F8.
