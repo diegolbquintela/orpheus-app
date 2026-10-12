@@ -36,8 +36,8 @@
  *
  * `--with-database` (manual; needs DATABASE_URL for a fresh throwaway, already migrated Postgres, never
  * a shared one): the same signed-out checks, then sign-up with the allow-list (denied 403 /
- * allowed), the signed-in /dashboard ("Signed in as", "connected · 9/9 tables"), /api/dashboard/me,
- * settings isolation between two accounts (403), holdings (T04: add KO, VOD.L and TCS.BO refused with
+ * allowed), the signed-in /dashboard ("Signed in as", "connected · 13/13 tables"), /api/dashboard/me,
+ * (#90) the owner from ORPHEUS_OWNER_EMAIL and a no-grant account (403 on the APIs, the denied page), holdings (T04: add KO, VOD.L and TCS.BO refused with
  * the calculator's messages, duplicate 409, quantity checks, edit, the row after a reload, another
  * account gets 404 on the holding id, delete), the daily close job (T05: "Run daily refresh" shown only
  * with VERCEL_ENV=preview, POST /api/dashboard/refresh stores KO's last completed close, a second run
@@ -80,7 +80,7 @@ if (WITH_DB && !keepDb) {
 }
 // Default mode never reaches a real database: storage must read "not configured".
 for (const name of Object.keys(process.env))
-  if (/DATABASE_URL|POSTGRES_URL|^BETTER_AUTH_|^VERCEL|^VITE_AUTH_ENABLED$|SIGNUP_ALLOWLIST|^CRON_SECRET$/.test(name))
+  if (/DATABASE_URL|POSTGRES_URL|^BETTER_AUTH_|^VERCEL|^VITE_AUTH_ENABLED$|SIGNUP_ALLOWLIST|^CRON_SECRET$|^ORPHEUS_OWNER_EMAIL$/.test(name))
     delete process.env[name];
 if (WITH_DB) process.env.DATABASE_URL = keepDb;
 // No VERCEL: local rules (loopback origins, per-process secret). VERCEL=1 without a secret or
@@ -89,6 +89,8 @@ else process.env.VERCEL = "1";
 // Test-only addresses.
 const ALLOWED = "qa-allowed@example.com";
 process.env.DASHBOARD_SIGNUP_ALLOWLIST = `${ALLOWED}, other@example.com`;
+// #90: the owner is the allow-listed QA address (any case); other@example.com signs up but holds no grant.
+process.env.ORPHEUS_OWNER_EMAIL = "QA-Allowed@example.com";
 const ORIGIN = "http://localhost";
 // Random per run, only for this process: never a real CRON_SECRET.
 const CRON = `check-${randomUUID()}`;
@@ -155,6 +157,14 @@ const SESSION_API_PATHS = [
   "/api/dashboard/fx",
   "/api/dashboard/columns",
   "/api/personal-finance", // #102: the account's Personal finance record
+  // #90: the account page's API and the own view toggles.
+  "/api/personal-finance/view",
+  "/api/account/me",
+  "/api/account/who",
+  "/api/account/password",
+  "/api/account/email",
+  "/api/account/access",
+  "/api/account/reset",
 ];
 // Methods each per-user route serves (anything else: 405 JSON when the flag is on).
 const SESSION_ALLOW = {
@@ -165,6 +175,13 @@ const SESSION_ALLOW = {
   "/api/dashboard/fx": ["GET", "HEAD"],
   "/api/dashboard/columns": ["GET", "HEAD", "PUT"],
   "/api/personal-finance": ["GET", "HEAD", "PUT", "DELETE"],
+  "/api/personal-finance/view": ["PUT"],
+  "/api/account/me": ["GET", "HEAD"],
+  "/api/account/who": ["GET", "HEAD"],
+  "/api/account/password": ["POST"],
+  "/api/account/email": ["POST"],
+  "/api/account/access": ["GET", "HEAD", "POST", "PUT", "DELETE"],
+  "/api/account/reset": ["POST"],
 };
 const AUTH_PATHS = ["/api/auth/get-session", "/api/auth/sign-up/email", "/api/auth/sign-in/email"];
 // T05: the cron route and the preview-only refresh button (checked separately when the flag is on).
@@ -189,7 +206,8 @@ for (const flag of [undefined, "", "false", "TRUE", "1", "true "]) {
   const label = `flag ${flag === undefined ? "unset" : JSON.stringify(flag)}`;
   const baseline = await call("GET", "/orpheus-missing-path", flag);
   check(baseline.status === 404, `${label}: baseline unknown path is ${baseline.status}`);
-  for (const path of ["/dashboard", "/dashboard/x", "/dashboard/sign-in"]) {
+  // #90: /account lives behind the flag like sign-in (the bar's Account item stays, like Dashboard).
+  for (const path of ["/dashboard", "/dashboard/x", "/dashboard/sign-in", "/account"]) {
     const r = await call("GET", path, flag);
     check(
       r.status === 404 && /text\/html/.test(r.type),
@@ -243,6 +261,9 @@ for (const flag of [undefined, "true"]) {
   check(pf.status === 307 && pfTo.pathname === "/dashboard/sign-in" && pfTo.searchParams.get("next") === "/personal-finance", `${label}: signed out, GET /personal-finance -> ${pf.status} ${pf.location} (want 307 to /dashboard/sign-in?next=/personal-finance)`);
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
   check(/href="\/personal-finance"[^>]*>Personal finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal finance item (#97)`);
+  // #90 (ROLE-01): Account last; the person glyph (phones) and the word (visually hidden below 640 px).
+  check(/<li><a href="\/account"[^>]*><svg [^>]*aria-hidden="true"[^>]*data-testid="person-glyph"[\s\S]*?<\/svg><span class="sr-only sm:not-sr-only">Account<\/span><\/a><\/li><\/ul>/.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Account item last (#90)`);
+  check(((home.body.match(SITE_MENU)?.[0] ?? "").match(/<a /g) ?? []).length === 5, `${label}: / menu is not five links (#90)`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
   const heroImg = home.body.match(/<header [^>]*data-testid="home-hero"[\s\S]*?(<img [^>]*>)/)?.[1] ?? "";
   check(/ alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(heroImg) && / width="3300"/.test(heroImg) && / height="2200"/.test(heroImg), `${label}: / lacks the Jordaens hero img (alt, width, height): ${heroImg}`);
@@ -273,6 +294,10 @@ for (const flag of [undefined, "true"]) {
     );
   }
   if (flag === "true") {
+    // #90 (ROLE-02, ROLE-03): signed out, /account → sign-in with ?next=/account.
+    const acct = await call("GET", "/account", flag);
+    const acctTo = new URL(acct.location ?? "/x", ORIGIN);
+    check(acct.status === 307 && acctTo.pathname === "/dashboard/sign-in" && acctTo.searchParams.get("next") === "/account", `${label}: signed out, GET /account -> ${acct.status} ${acct.location} (want 307 to /dashboard/sign-in?next=/account)`);
     const signIn = await call("GET", "/dashboard/sign-in", flag);
     check(JSON.stringify(menuCurrent(signIn.body)) === '["Dashboard"]', `${label}: /dashboard/sign-in current menu item ${menuCurrent(signIn.body)}`);
     check(FOOTER.test(signIn.body), `${label}: /dashboard/sign-in footer is not exactly "Orpheus Wisdom"`);
@@ -299,6 +324,8 @@ const isRedirectTo = (r, path) =>
     WITH_DB ? /data-testid="sign-in-form"/.test(signIn.body) : /Sign-in is not configured/.test(signIn.body),
     `${label}: sign-in page ${WITH_DB ? "lacks the form" : 'lacks "not configured"'}`,
   );
+  // #90 (ROLE-02, Q-D6): sign-in only; no Create account, no switch, no name field.
+  check(!/Create account|sign-up|signin-switch|data-testid="sign-in-name"/i.test(withoutMenu(signIn.body)), `${label}: sign-in page still offers Create account`);
   // #102 QA D1 (open redirect): only ?next=/personal-finance is kept; an external URL, //host or another path never
   // reaches the page or a redirect (TanStack's canonical redirect drops it: 307 to /dashboard/sign-in).
   for (const bad of ["https://evil.example", "//evil.example", "/calculator"]) {
@@ -313,7 +340,7 @@ const isRedirectTo = (r, path) =>
     const r = await call("GET", "/dashboard/sign-in?next=%2Fpersonal-finance", "true");
     check(r.status === 200 && /next:"\/personal-finance"/.test(r.body), `${label}: GET /dashboard/sign-in?next=/personal-finance -> ${r.status} (kept)`);
   }
-  for (const path of SESSION_API_PATHS) {
+  for (const path of SESSION_API_PATHS.filter((p) => SESSION_ALLOW[p].includes("GET"))) {
     const r = await call("GET", path, "true");
     check(
       r.status === 401 && /application\/json/.test(r.type) && r.body === '{"error":"Unauthorized."}',
@@ -325,13 +352,13 @@ const isRedirectTo = (r, path) =>
       const r = await call(method, path, "true", undefined, method === "GET" || method === "HEAD" ? {} : { body: {} });
       if (SESSION_ALLOW[path].includes(method))
         check(r.status === 401, `${label}: ${method} ${path} -> ${r.status} (want 401)`);
-      else check(json405(r) && r.allow === SESSION_ALLOW[path].join(", "), `${label}: ${method} ${path} -> ${r.status} allow=${r.allow}`);
+      else check((method === "HEAD" ? r.status === 405 : json405(r)) && r.allow === SESSION_ALLOW[path].join(", "), `${label}: ${method} ${path} -> ${r.status} allow=${r.allow}`);
     }
   const status = await call("GET", "/api/dashboard/status", "true");
   const SEC = process.env.SEC_CONTACT_EMAIL ? "set" : "empty";
   const expected = WITH_DB
-    ? `{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set","cronSecret":"set","secContact":"${SEC}"}`
-    : `{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set","cronSecret":"set","secContact":"${SEC}"}`;
+    ? `{"dashboard":"enabled","signIn":"ready","signUpAllowList":"set","cronSecret":"set","secContact":"${SEC}","ownerEmail":"set"}`
+    : `{"dashboard":"enabled","signIn":"not configured (BETTER_AUTH_SECRET not set)","signUpAllowList":"set","cronSecret":"set","secContact":"${SEC}","ownerEmail":"set"}`;
   check(status.status === 200 && status.body === expected, `${label}: GET status -> ${status.status} ${status.body}`);
   const prodStatus = await call("GET", "/api/dashboard/status", "true", "production");
   check(
@@ -450,10 +477,21 @@ if (!WITH_DB) {
   check(/data-testid="holdings-empty"[^>]*>Add a holding</.test(page.body), `${label}: GET /dashboard lacks the "Add a holding" empty state`);
   check(!/data-testid="holdings-(list|total-line|pie)"/.test(page.body) && !/Average cost is per share/.test(page.body), `${label}: empty /dashboard shows a list, total, chart or the old helper paragraph`);
   check(/Signed in as (<!-- -->)?qa-allowed@example\.com/.test(page.body), `${label}: GET /dashboard lacks "Signed in as"`);
-  check(/Database: connected · 11\/11 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 11/11 tables"`);
+  check(/Database: connected · 13\/13 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 13/13 tables"`);
   check(!/data-testid="preview-refresh"/.test(page.body), `${label}: refresh button shown without VERCEL_ENV=preview`);
   const me = await call("GET", "/api/dashboard/me", "true", undefined, { cookie: token });
   check(me.status === 200 && me.body.includes(`"email":"${ALLOWED}"`), `${label}: GET me -> ${me.status} ${me.body}`);
+  // #90: the owner's /account: 01–05, the owner email line, no email form; noindex, title, menu current.
+  {
+    const acct = await call("GET", "/account", "true", undefined, { cookie: token });
+    const h2 = [...acct.body.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
+    check(acct.status === 200 && JSON.stringify(h2) === JSON.stringify(["You", "Password", "Email", "Who has access", "Grant access"]), `${label}: owner GET /account -> ${acct.status} ${JSON.stringify(h2)}`);
+    check(/<title>Account · Orpheus Wisdom<\/title>/.test(acct.body) && /<meta name="robots" content="noindex, nofollow"\/>/.test(acct.body), `${label}: /account title / noindex`);
+    check(JSON.stringify(menuCurrent(acct.body)) === '["Account"]', `${label}: /account current menu item ${menuCurrent(acct.body)}`);
+    check(/Owner email can(&#x27;|')t be changed here\./.test(acct.body) && !/data-testid="account-email-form"/.test(acct.body), `${label}: owner /account email section`);
+    const nextAcct = await call("GET", "/dashboard/sign-in?next=%2Faccount", "true", undefined, { cookie: token });
+    check(isRedirectTo(nextAcct, "/account"), `${label}: signed in, GET /dashboard/sign-in?next=/account -> ${nextAcct.status} ${nextAcct.location}`);
+  }
   // #102: signed in, /personal-finance renders (h1, noindex, footer, menu, title); ?next brings a signed-in visitor
   // there; the account's record starts empty, saves, and reads back from a second session.
   {
@@ -482,16 +520,16 @@ if (!WITH_DB) {
     check(isRedirectTo(nextPf, "/personal-finance"), `${label}: signed in, GET /dashboard/sign-in?next=/personal-finance -> ${nextPf.status} ${nextPf.location}`);
     const PF = "/api/personal-finance";
     const none = await call("GET", PF, "true", undefined, { cookie: token });
-    check(none.status === 200 && none.body === '{"data":null}', `${label}: GET ${PF} (new account) -> ${none.status} ${none.body}`);
+    check(none.status === 200 && none.body === '{"data":null,"access":{"owner":true,"write":true}}', `${label}: GET ${PF} (new account) -> ${none.status} ${none.body}`);
     const data = { "orpheus.finance.currency.v1": '"CAD"' };
     const saved = await call("PUT", PF, "true", undefined, { cookie: token, body: { data } });
-    check(saved.status === 200 && saved.body === JSON.stringify({ data }), `${label}: PUT ${PF} -> ${saved.status} ${saved.body}`);
+    check(saved.status === 200 && saved.body === JSON.stringify({ data, access: { owner: true, write: true } }), `${label}: PUT ${PF} -> ${saved.status} ${saved.body}`);
     const bad = await call("PUT", PF, "true", undefined, { cookie: token, body: { data: { x: "1" } } });
     check(bad.status === 400, `${label}: PUT ${PF} unknown name -> ${bad.status} ${bad.body}`);
     const second = await call("POST", "/api/auth/sign-in/email", "true", undefined, { body: { email: ALLOWED, password: "check-password-1" } });
     const secondToken = second.cookie.split("; ").filter((c) => c.includes("session_token=")).join("; ");
     const read = await call("GET", PF, "true", undefined, { cookie: secondToken });
-    check(second.status === 200 && read.body === JSON.stringify({ data }), `${label}: second session GET ${PF} -> ${second.status} ${read.status} ${read.body}`);
+    check(second.status === 200 && read.body === JSON.stringify({ data, access: { owner: true, write: true } }), `${label}: second session GET ${PF} -> ${second.status} ${read.status} ${read.body}`);
   }
   // Base currency (T06): CAD until changed.
   check(/data-testid="base-currency-select"/.test(page.body) && /<option value="CAD" selected="">/.test(page.body), `${label}: /dashboard lacks the base-currency select with CAD selected`);
@@ -505,11 +543,23 @@ if (!WITH_DB) {
   check(peek.status === 403, `${label}: other user GET settings?userId=<first> -> ${peek.status}`);
   const poke = await call("PUT", "/api/dashboard/settings", "true", undefined, { cookie: otherToken, body: { userId: myId, baseCurrency: "EUR" } });
   check(poke.status === 403, `${label}: other user PUT settings {userId:<first>} -> ${poke.status}`);
+  // #90 (ROLE-12, ROLE-14, Q-D1, Q-D18): another account with no grant gets 403 on both surfaces' APIs and the
+  // denied page on both pages; /account still works for them (01–04, no Grant access).
   const own = await call("GET", "/api/dashboard/settings", "true", undefined, { cookie: otherToken });
-  check(own.body === '{"settings":{"baseCurrency":"CAD"}}', `${label}: other user's own settings -> ${own.body}`);
-  // #102: the Personal finance record is per account.
+  check(own.status === 403, `${label}: no-grant user GET settings -> ${own.status} ${own.body}`);
   const otherPf = await call("GET", "/api/personal-finance", "true", undefined, { cookie: otherToken });
-  check(otherPf.body === '{"data":null}', `${label}: other user's own personal finance -> ${otherPf.body}`);
+  check(otherPf.status === 403, `${label}: no-grant user GET personal-finance -> ${otherPf.status} ${otherPf.body}`);
+  for (const [path, line] of [["/personal-finance", "You don(&#x27;|')t have access to Personal finance\\."], ["/dashboard", "You don(&#x27;|')t have access to the Dashboard\\."]]) {
+    const r = await call("GET", path, "true", undefined, { cookie: otherToken });
+    check(r.status === 403 && new RegExp(`data-testid="access-denied-line"[^>]*>${line}<`).test(r.body) && !/data-testid="(holding-form|pf-|holdings-)/.test(r.body), `${label}: no-grant user GET ${path} -> ${r.status} (want 403 and the one line)`);
+  }
+  {
+    const acct = await call("GET", "/account", "true", undefined, { cookie: otherToken });
+    const h2 = [...acct.body.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
+    check(acct.status === 200 && JSON.stringify(h2) === JSON.stringify(["You", "Password", "Email", "Who has access"]), `${label}: no-grant user GET /account -> ${acct.status} ${JSON.stringify(h2)}`);
+    const grant = await call("POST", "/api/account/access", "true", undefined, { cookie: otherToken, body: { name: "x", email: "x@example.com", personal_finance: "read", dashboard: "none" } });
+    check(grant.status === 403, `${label}: no-grant user POST /api/account/access -> ${grant.status}`);
+  }
   const peekPf = await call("GET", `/api/personal-finance?userId=${encodeURIComponent(myId)}`, "true", undefined, { cookie: otherToken });
   check(peekPf.status === 403, `${label}: other user GET personal-finance?userId=<first> -> ${peekPf.status}`);
   const mine = await call("GET", "/api/dashboard/settings", "true", undefined, { cookie: token });
@@ -690,10 +740,10 @@ if (!WITH_DB) {
   }
   for (const [method, body] of [["GET"], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE"]]) {
     const r = await call(method, `${H}/${koId}`, "true", undefined, { cookie: otherToken, body });
-    check(r.status === 404, `${label}: other user ${method} first user's holding -> ${r.status}`);
+    check(r.status === 403, `${label}: no-grant user ${method} the owner's holding -> ${r.status}`);
   }
   const otherList = await call("GET", H, "true", undefined, { cookie: otherToken });
-  check(otherList.body === '{"holdings":[]}', `${label}: other user's holdings -> ${otherList.body}`);
+  check(otherList.status === 403, `${label}: no-grant user's holdings -> ${otherList.status} ${otherList.body}`);
   const stillMine = await call("GET", `${H}/${koId}`, "true", undefined, { cookie: token });
   check(stillMine.status === 200 && /"shares":"12(\.0+)?"/.test(stillMine.body), `${label}: KO after the other user's attempts -> ${stillMine.body.slice(0, 120)}`);
   // Metric columns (T08, DASH-15) and the metric cells (DASH-21 wording comes from the same component).
@@ -729,7 +779,7 @@ if (!WITH_DB) {
   }
   const badCol = await call("PUT", COLS, "true", undefined, { cookie: token, body: { columns: ["nope"] } });
   check(badCol.status === 400 && badCol.body === JSON.stringify({ error: "Unknown metric column: nope." }), `${label}: PUT unknown column -> ${badCol.status} ${badCol.body}`);
-  check(JSON.stringify(await colsOf(otherToken)) === JSON.stringify(DEFAULTS), `${label}: other user's chips -> ${JSON.stringify(await colsOf(otherToken))}`);
+  check((await colsOf(otherToken)) === "status 403", `${label}: no-grant user's chips -> ${JSON.stringify(await colsOf(otherToken))}`);
   const colPage = (await call("GET", "/dashboard", "true", undefined, { cookie: token })).body;
   const ths = [...colPage.matchAll(/data-testid="metric-th" data-key="([a-z0-9_]+)"/g)].map((m) => m[1]);
   check(JSON.stringify(ths) === JSON.stringify(["eps_1y", "roic_1y"]) && JSON.stringify(chipsOn(colPage)) === JSON.stringify(["eps_1y", "roic_1y"]), `${label}: metric headers / chips on /dashboard -> ${JSON.stringify(ths)}`);
@@ -771,6 +821,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 11/11; me; settings isolation (403); personal finance (#102: page signed in, ?next, record save / second session / per account); holdings CRUD, DASH-08 messages, duplicate, isolation (404); daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, per user, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 13/13; me; #90 owner /account, no-grant 403 (APIs, denied pages, grant API), /account for no-grant; personal finance (#102: page signed in, ?next, record save / second session / per account); holdings CRUD, DASH-08 messages, duplicate, no-grant 403; daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, no-grant 403, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home hero + Platforms lines, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

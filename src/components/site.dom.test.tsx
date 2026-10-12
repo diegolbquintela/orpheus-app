@@ -36,6 +36,7 @@ describe("site menu", () => {
     ["/calculator", "Calculator"],
     ["/dashboard", "Dashboard"],
     ["/dashboard/sign-in", "Dashboard"],
+    ["/account", "Account"],
   ] as const)
     it(`${path}: aria-current=page on ${want} only`, async () => {
       const el = await render(<SiteMenu pathname={path} />);
@@ -47,7 +48,7 @@ describe("site menu", () => {
     assert.deepEqual(current(el), []);
   });
 
-  it("Orpheus on the left → /, Calculator, Dashboard and Personal finance on the right (#97); Dashboard always shown", async () => {
+  it("Orpheus on the left → /, Calculator, Dashboard, Personal finance (#97) and Account (#90, ROLE-01) on the right; Dashboard always shown", async () => {
     const el = await render(<SiteMenu pathname="/calculator" />);
     const nav = el.querySelector("nav")!;
     assert.equal(nav.getAttribute("aria-label"), "Site");
@@ -60,9 +61,17 @@ describe("site menu", () => {
       ["Calculator", "/calculator"],
       ["Dashboard", "/dashboard"],
       ["Personal finance", "/personal-finance"],
+      ["Account", "/account"],
     ]);
-    // No icons on the right (#97): text links only.
-    assert.equal(nav.querySelectorAll("ul svg, ul img").length, 0);
+    // Text links only on the right (#97), except Account (#90, Q-D8): a decorative person glyph shown below 640 px,
+    // the word `Account` visually hidden there but still the link's accessible name.
+    const icons = [...nav.querySelectorAll("ul svg, ul img")];
+    assert.equal(icons.length, 1);
+    const account = nav.querySelector('a[href="/account"]')!;
+    assert.equal(icons[0].parentElement, account);
+    assert.equal(icons[0].getAttribute("aria-hidden"), "true");
+    assert.match(icons[0].getAttribute("class")!, /\bsm:hidden\b/);
+    assert.match(account.querySelector("span")!.className, /\bsr-only\b.*\bsm:not-sr-only\b/);
     // The lyre mark (#84, ST1-05): first in the Orpheus link, decorative.
     const lyre = nav.querySelector('a[href="/"] > svg[data-testid="lyre"]')!;
     assert.ok(lyre, "lyre inside the Orpheus link");
@@ -72,7 +81,7 @@ describe("site menu", () => {
     // Right group is one list, after the Orpheus link.
     assert.deepEqual(
       [...nav.querySelectorAll("ul a")].map((a) => a.textContent),
-      ["Calculator", "Dashboard", "Personal finance"],
+      ["Calculator", "Dashboard", "Personal finance", "Account"],
     );
   });
 
@@ -92,9 +101,9 @@ describe("site menu", () => {
     );
   });
 
-  it("no dropdowns: only four links, no buttons, popups or menus", async () => {
+  it("no dropdowns: only five links (Account is a page, #90 Q-D9), no buttons, popups or menus", async () => {
     const el = await render(<SiteMenu pathname="/" />);
-    assert.equal(el.querySelectorAll("a").length, 4);
+    assert.equal(el.querySelectorAll("a").length, 5);
     assert.equal(
       el.querySelectorAll("button, select, details, [aria-haspopup], [role=menu]").length,
       0,

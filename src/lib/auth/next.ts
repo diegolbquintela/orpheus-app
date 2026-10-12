@@ -1,10 +1,10 @@
 /**
- * #102 QA D1: where the sign-in page sends the visitor afterwards. Only the exact relative path `/personal-finance`
- * is allowed; anything else (missing, an absolute URL, protocol-relative `//host`, a backslash trick, any other path,
+ * #102 QA D1: where the sign-in page sends the visitor afterwards. Only the exact relative paths `/personal-finance`
+ * and (#90, ROLE-02) `/account` are allowed; anything else (missing, an absolute URL, protocol-relative `//host`, a backslash trick, any other path,
  * a query or fragment, a non-string) is `/dashboard`. Used on load (validateSearch, beforeLoad, loader) AND again
  * right before the post-auth navigation, so a raw `?next=` never reaches `window.location` or a redirect.
  */
-export const NEXT_ALLOWED = ["/personal-finance"] as const;
+export const NEXT_ALLOWED = ["/personal-finance", "/account"] as const;
 export type SafeNext = (typeof NEXT_ALLOWED)[number] | "/dashboard";
 export const DEFAULT_NEXT = "/dashboard" as const;
 

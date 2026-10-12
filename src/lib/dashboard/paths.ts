@@ -3,9 +3,17 @@
  * tests use these on both sides.
  */
 
-/** Page paths the dashboard owns: `/dashboard` and anything under it. */
+/**
+ * Page paths behind the flag: `/dashboard` and anything under it (sign-in included), and (#90) `/account`, which
+ * lives behind the flag like sign-in. While the flag is off each is the plain 404 (no Account or Dashboard match).
+ */
 export function isDashboardPagePath(pathname: string): boolean {
-  return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  return (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/")
+  );
 }
 
 /**

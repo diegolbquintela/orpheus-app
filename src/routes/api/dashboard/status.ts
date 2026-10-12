@@ -3,12 +3,14 @@ import { showDbStatusLine } from "@/lib/dashboard/db.server";
 import { dashboardUnsupportedMethod, guardDashboardApi } from "@/lib/dashboard/flag.server";
 import { dashboardAuthDiagnostics } from "@/lib/dashboard/session.server";
 import { secUserAgent } from "@/lib/dashboard/fundamentals.server";
+import { ownerEmailFromEnv } from "@/lib/access/access";
 
 // GET /api/dashboard/status: 404 JSON while DASHBOARD_ENABLED is off,
 // { dashboard: "enabled" } when on. Lets QA check the API gate on a preview.
 // Off production it adds sign-in diagnostics (T03): { signIn: "ready" | "not configured (<variable>)",
 // signUpAllowList: "set" | "empty" }, (T05) cronSecret: "set" | "empty" and (T08) secContact: "set" | "empty"
-// (SEC_CONTACT_EMAIL holds a usable address for the SEC User-Agent). Names and states only,
+// (SEC_CONTACT_EMAIL holds a usable address for the SEC User-Agent) and (#90) ownerEmail: "set" | "empty"
+// (ORPHEUS_OWNER_EMAIL; empty means nobody has access to Personal finance or the Dashboard). Names and states only,
 // never values.
 // HEAD is served by GET. Any other method: 404 JSON when off, 405 JSON
 // (Allow: GET, HEAD) when on; never the HTML app shell.
@@ -27,6 +29,7 @@ export const Route = createFileRoute("/api/dashboard/status")({
                   ...dashboardAuthDiagnostics(),
                   cronSecret: process.env.CRON_SECRET ? "set" : "empty",
                   secContact: secUserAgent() ? "set" : "empty",
+                  ownerEmail: ownerEmailFromEnv(process.env) ? "set" : "empty",
                 }
               : {}),
           },

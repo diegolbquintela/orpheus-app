@@ -527,7 +527,7 @@ curl -s  http://localhost:8080/api/dashboard/status
 
 ```bash
 DATABASE_URL=postgresql://user:pass@localhost:5432/db node scripts/migrate.mjs   # "applied 0002_dashboard.sql", then "up to date"
-DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 11/11 tables"
+DATABASE_URL=... DASHBOARD_ENABLED=true npm run dev     # /dashboard shows "Database: connected · 13/13 tables"
 curl -s http://localhost:8080/api/dashboard/db          # JSON status; 404 when the flag is off or VERCEL_ENV=production
 curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, Allow: GET, HEAD (flag on)
 ```

@@ -37,6 +37,19 @@ export const getDashboardViewer = createServerFn({ method: "GET" }).handler(asyn
 });
 
 /**
+ * #90: what the signed-in person may do on `/dashboard` (the owner, or a Portfolio Manager grant): `mustChange` sends
+ * them to `/account`; no read → 403 with no data (ROLE-14); read without write → read-only (ROLE-12).
+ */
+export const getDashboardAccess = createServerFn({ method: "GET" }).handler(async () => {
+  if (!dashboardEnabledFromEnv()) throw notFound();
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const { pageAccess, markDenied } = await import("../access/viewer.server");
+  const a = await pageAccess(getRequest().headers, "dashboard");
+  if (a.signedIn && !a.mustChange && !a.read) await markDenied();
+  return { mustChange: a.mustChange, read: a.read, write: a.write };
+});
+
+/**
  * The signed-in user's holdings for `/dashboard` (T04 #12), with each symbol's latest stored close or
  * "price pending" (T05 #13), the user's base currency (T06 #14), and (T07 #15) the valuation: market
  * value, cost (D8: same rate), total return, % of portfolio, totals, the "Prices as of … · FX …" dates
@@ -68,6 +81,14 @@ export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(as
   const { getDashboardDb } = await import("./db.server");
   const db = await getDashboardDb();
   if (!db) return { ...empty, storage: "not_configured" as const };
+  // #90: the owner's portfolio, and only with a Dashboard read grant (no data otherwise).
+  const { accessOf, surfaceAccess } = await import("../access/access.server");
+  const access = surfaceAccess(await accessOf(db, user, process.env), "dashboard");
+  if (!access.read || !access.dataUserId) return { ...empty, storage: "signed_out" as const };
   const { loadDashboardHoldings } = await import("./valuation.server");
-  return { ...(await loadDashboardHoldings(db, user.id, { previewRefresh })), previewRefresh, storage: "ok" as const };
+  return {
+    ...(await loadDashboardHoldings(db, access.dataUserId, { previewRefresh })),
+    previewRefresh,
+    storage: "ok" as const,
+  };
 });

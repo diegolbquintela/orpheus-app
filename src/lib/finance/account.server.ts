@@ -2,18 +2,19 @@
  * `/api/personal-finance` (#102; spec section 16.5): the signed-in account's Personal Finance record. Server-only.
  * Order (the dashboard's per-user pattern): 404 JSON while `DASHBOARD_ENABLED` is off (sign-in lives behind it),
  * 405 JSON for another method, 401 JSON without a session, 403 when `userId` names someone else, 400 / 413 for a bad
- * body, 503 without a database. The user id is the session's, never the client's.
+ * body, 503 without a database. The user id is the session's, never the client's. #90: the data is the owner's.
  */
 import {
   badRequest,
   type DashboardApiDeps,
   dashboardJson,
-  defaultGetDb,
   forbiddenResponse,
   gateDashboardRequest,
+  type GateOk,
   namesOtherUser,
-  storageUnavailable,
 } from "../dashboard/session.server.ts";
+import { readOwnView, writeOwnView } from "../access/access.server.ts";
+import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { checkRecord, type PfRecord } from "./record.ts";
 
@@ -42,13 +43,30 @@ export async function deleteRecord(db: Queryable, userId: string): Promise<void>
   await db.query("DELETE FROM personal_finance WHERE user_id = $1", [userId]);
 }
 
+/** #90 Q-D11: a non-owner's record shows their own section toggles, never the owner's. */
+async function forViewer(db: Queryable, record: PfRecord | null, g: GateOk): Promise<PfRecord | null> {
+  if (g.access.owner) return record;
+  const own = await readOwnView(db, g.viewer.id);
+  const out: PfRecord = { ...(record ?? {}) };
+  delete out[VIEW_KEY];
+  if (own !== null) out[VIEW_KEY] = own;
+  return record === null && own === null ? null : out;
+}
+
+/**
+ * `/api/personal-finance`. #90: the record is the **owner's** (Q-D1). GET needs a Personal Finance read grant, PUT
+ * Read and write, DELETE (wipe the whole record) the owner only (Q-D13). The reply carries `access` so the page knows
+ * whether it may write. A non-owner's section toggles are kept apart (Q-D11; `/api/personal-finance/view`).
+ */
 export async function handlePersonalFinanceRequest(request: Request, deps: DashboardApiDeps) {
-  const g = await gateDashboardRequest(request, PF_ALLOW, deps);
+  const g = await gateDashboardRequest(request, PF_ALLOW, deps, { surface: "personal_finance" });
   if ("response" in g) return g.response;
-  const { user } = g;
-  if (namesOtherUser(new URL(request.url).searchParams.get("userId") ?? undefined, user))
+  const { user, db } = g;
+  if (namesOtherUser(new URL(request.url).searchParams.get("userId") ?? undefined, user, g.viewer))
     return forbiddenResponse();
   const method = request.method.toUpperCase();
+  if (method === "DELETE" && !g.access.owner) return forbiddenResponse();
+  const access = { owner: g.access.owner, write: g.surface.write };
   let record: PfRecord | null = null;
   if (method === "PUT") {
     let body: { data?: unknown; userId?: unknown } | undefined;
@@ -58,21 +76,53 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
       return badRequest("Body must be JSON.");
     }
     if (!body || typeof body !== "object") return badRequest("Body must be a JSON object.");
-    if (namesOtherUser(body.userId, user)) return forbiddenResponse();
+    if (namesOtherUser(body.userId, user, g.viewer)) return forbiddenResponse();
     const checked = checkRecord(body.data);
     if (!checked.ok) return dashboardJson({ error: checked.error }, checked.status);
     record = checked.record;
   }
-  const env = deps.env ?? process.env;
-  const db = await (deps.getDb ?? defaultGetDb)(env);
-  if (!db) return storageUnavailable();
   if (method === "PUT" && record) {
+    if (!g.access.owner) {
+      // The person's toggles stay theirs; the owner's stay in the record.
+      if (VIEW_KEY in record) await writeOwnView(db, g.viewer.id, record[VIEW_KEY]);
+      const current = await readRecord(db, user.id);
+      const next: PfRecord = { ...record };
+      delete next[VIEW_KEY];
+      if (current && VIEW_KEY in current) next[VIEW_KEY] = current[VIEW_KEY];
+      await writeRecord(db, user.id, next);
+      return dashboardJson({ data: await forViewer(db, next, g), access });
+    }
     await writeRecord(db, user.id, record);
-    return dashboardJson({ data: record });
+    return dashboardJson({ data: record, access });
   }
   if (method === "DELETE") {
     await deleteRecord(db, user.id);
-    return dashboardJson({ data: null });
+    return dashboardJson({ data: null, access });
   }
-  return dashboardJson({ data: await readRecord(db, user.id) });
+  return dashboardJson({ data: await forViewer(db, await readRecord(db, user.id), g), access });
+}
+
+export const PF_VIEW_ALLOW = ["PUT"] as const;
+
+/**
+ * `PUT /api/personal-finance/view` `{ "view": "<the view JSON text>" }` (#90 Q-D11): a person's own section toggles.
+ * Needs a Personal Finance **read** grant (a Read-only CFO can still open / close sections). The owner's toggles live
+ * in the record, so for the owner this writes the record's view value.
+ */
+export async function handlePersonalFinanceViewRequest(request: Request, deps: DashboardApiDeps) {
+  const g = await gateDashboardRequest(request, PF_VIEW_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  if ("response" in g) return g.response;
+  let body: { view?: unknown } | undefined;
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return badRequest("Body must be JSON.");
+  }
+  const view = body?.view;
+  if (typeof view !== "string" || view.length > 1024) return badRequest("view must be a short string.");
+  if (g.access.owner) {
+    const current = (await readRecord(g.db, g.user.id)) ?? {};
+    await writeRecord(g.db, g.user.id, { ...current, [VIEW_KEY]: view });
+  } else await writeOwnView(g.db, g.viewer.id, view);
+  return dashboardJson({ view });
 }

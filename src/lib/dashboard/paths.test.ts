@@ -8,9 +8,9 @@ const path = (r: URL | undefined) => r?.pathname + (r?.search ?? "");
 
 describe("dashboard flag-off rewrite (server router)", () => {
   it("recognises dashboard page paths only", () => {
-    for (const p of ["/dashboard", "/dashboard/", "/dashboard/x", "/dashboard/a/b"])
+    for (const p of ["/dashboard", "/dashboard/", "/dashboard/x", "/dashboard/a/b", "/account", "/account/"])
       assert.ok(isDashboardPagePath(p), p);
-    for (const p of ["/", "/dashboards", "/api/dashboard", "/api/dashboard/status", "/x/dashboard"])
+    for (const p of ["/", "/dashboards", "/api/dashboard", "/api/dashboard/status", "/x/dashboard", "/accounts", "/api/account/me", "/personal-finance"])
       assert.equal(isDashboardPagePath(p), false, p);
   });
 

@@ -19,7 +19,7 @@ import {
 } from "./site.ts";
 
 describe("site shell (#46)", () => {
-  it("menu: Orpheus → /, Calculator, Dashboard, Personal finance (#97); Dashboard is always listed (no flag input)", () => {
+  it("menu: Orpheus → /, Calculator, Dashboard, Personal finance (#97), Account (#90 ROLE-01); always listed (no flag input)", () => {
     assert.deepEqual(
       MENU_ITEMS.map((m) => [m.label, m.href]),
       [
@@ -27,8 +27,16 @@ describe("site shell (#46)", () => {
         ["Calculator", "/calculator"],
         ["Dashboard", "/dashboard"],
         ["Personal finance", "/personal-finance"],
+        ["Account", "/account"],
       ],
     );
+    assert.equal(currentSection("/account"), "account");
+    assert.equal(currentSection("/account/"), "account");
+    assert.equal(currentSection("/accounts"), null);
+    // Below 640 px a person glyph; the word stays the link's accessible name (visually hidden there).
+    const menu = readFileSync("src/components/site-menu.tsx", "utf8");
+    assert.match(menu, /<PersonGlyph className="sm:hidden" \/>/);
+    assert.match(menu, /<span className="sr-only sm:not-sr-only">\{item\.label\}<\/span>/);
     assert.doesNotMatch(
       readFileSync("src/lib/site/site.ts", "utf8"),
       /process\.env|import\.meta\.env|flag\.server/,
@@ -228,7 +236,6 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
       "signin-label",
       "signin-field",
       "signin-button",
-      "signin-switch",
       "signin-error",
       "signin-note",
     ]) {
@@ -259,17 +266,12 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
     ]);
   });
 
-  it("exact copy (Q4): heading, Email, Password, submit, the Create an account / Sign in switch; no invite-only note", () => {
-    for (const s of [
-      '"Sign in"',
-      '"Create account"',
-      ">Email<",
-      ">Password<",
-      '"Create an account"',
-      "Sign-in is not configured on this deployment.",
-    ])
+  it("exact copy (Q4; #90 ROLE-09): heading, Email, Password, submit; no Create an account switch; no invite-only note", () => {
+    for (const s of ['"Sign in"', ">Email<", ">Password<", "Sign-in is not configured on this deployment."])
       assert.ok(route.includes(s), s);
     assert.doesNotMatch(route, /New here|Have an account|invite-only|password reset/i);
+    // Q-D6: no public create-account mode or link.
+    assert.doesNotMatch(route, /Create an account|"Create account"|signUp|sign-in-switch|setMode/);
   });
 
   // #102: the redirect and the after-sign-in target honour `?next=/personal-finance` (the only other target
@@ -284,12 +286,9 @@ describe("sign-in page (#73, spec §9, ST5b)", () => {
       "next: safeNext(context.next),",
       'await import("@/lib/auth/client")',
       "authClient.signIn.email({ email: trimmed, password })",
-      "authClient.signUp.email({",
-      'name: trimmed.split("@")[0] || trimmed,',
       "window.location.assign(safeNext(next));",
       "minLength={8}",
-      'autoComplete={mode === "sign-in" ? "current-password" : "new-password"}',
-      'setMode(mode === "sign-in" ? "sign-up" : "sign-in");',
+      'autoComplete="current-password"',
     ])
       assert.ok(route.includes(s), s);
   });
@@ -366,7 +365,7 @@ describe("personal finance route (#84)", () => {
     assert.equal(currentSection("/personal-finance"), "personal-finance");
     assert.deepEqual(
       MENU_ITEMS.map((m) => m.label),
-      ["Orpheus", "Calculator", "Dashboard", "Personal finance"],
+      ["Orpheus", "Calculator", "Dashboard", "Personal finance", "Account"],
     );
     const route = readFileSync("src/routes/personal-finance.tsx", "utf8");
     assert.match(route, /title: "Personal finance · Orpheus Wisdom"/);

@@ -15,6 +15,7 @@
  * - runs the same job server-side. It never needs or sees CRON_SECRET. The response carries counts
  *   only, so a user never learns which symbols other users track.
  */
+import { accessOf, surfaceAccess } from "../access/access.server.ts";
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { DailyCloseProvider } from "./close-provider.ts";
 import type { FxFetcher } from "./fx.server.ts";
@@ -24,6 +25,8 @@ import { dashboardEnabledFromEnv, dashboardMethodNotAllowedResponse, guardDashbo
 import {
   dashboardJson as json,
   defaultGetDb,
+  forbiddenResponse,
+  mustChangeResponse,
   storageUnavailable,
   unauthorizedResponse,
   type DashboardApiDeps,
@@ -119,5 +122,9 @@ export async function handlePreviewRefreshRequest(
   if (!user) return unauthorizedResponse();
   const db = await (deps.getDb ?? defaultGetDb)(env);
   if (!db) return storageUnavailable();
+  // #90: the button is a Dashboard write (owner, or a Portfolio Manager with Read and write).
+  const access = await accessOf(db, user, env);
+  if (access.mustChange) return mustChangeResponse();
+  if (!surfaceAccess(access, "dashboard").write) return forbiddenResponse();
   return json(publicSummary(await run(deps, db, "preview")));
 }

@@ -252,10 +252,10 @@ describe("base currency and totals (DASH-12, D8)", () => {
     assert.equal(usd.rows.find((r) => r.symbol === "KO")?.value, 861);
   });
 
-  it("the setting persists per user through /api/dashboard/settings", async () => {
+  it("the setting persists for the owner through /api/dashboard/settings; no grant → 403 (#90)", async () => {
     await hold([["alice", "KO", "USD", "US"], ["bob", "KO", "USD", "US"]]);
     const deps = (user: string) => ({
-      env: { DASHBOARD_ENABLED: "true" },
+      env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
       getUser: async () => ({ id: user, email: null }),
       getDb: async () => db,
     });
@@ -269,14 +269,30 @@ describe("base currency and totals (DASH-12, D8)", () => {
     );
     assert.equal(put.status, 200);
     assert.equal((await getUserSettings(db, "alice")).baseCurrency, "EUR");
-    assert.equal((await getUserSettings(db, "bob")).baseCurrency, "CAD", "other users keep their own");
+    assert.equal((await getUserSettings(db, "bob")).baseCurrency, "CAD", "nothing written for bob");
+    const bobPut = await handleDashboardSettingsRequest(
+      new Request("http://localhost/api/dashboard/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ baseCurrency: "USD" }),
+      }),
+      deps("bob"),
+    );
+    assert.equal(bobPut.status, 403, "bob has no Dashboard grant");
+    assert.equal((await getUserSettings(db, "alice")).baseCurrency, "EUR");
   });
 });
 
 describe("GET /api/dashboard/fx", () => {
+  // #90: alice is the owner (ORPHEUS_OWNER_EMAIL), so she may read.
+  beforeEach(async () => {
+    await pg.query(
+      `INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('alice', 'alice', 'alice@example.com', false) ON CONFLICT DO NOTHING`,
+    );
+  });
   const fx = (path: string, opts: { method?: string; signedIn?: boolean; env?: Record<string, string> } = {}) =>
     handleFxRequest(new Request(`http://localhost${path}`, { method: opts.method ?? "GET" }), {
-      env: opts.env ?? { DASHBOARD_ENABLED: "true" },
+      env: opts.env ?? { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
       getUser: async () => (opts.signedIn === false ? null : { id: "alice", email: null }),
       getDb: async () => db,
     });
@@ -296,7 +312,7 @@ describe("GET /api/dashboard/fx", () => {
     for (const date of IMPOSSIBLE) {
       let dbCalls = 0;
       const res = await handleFxRequest(new Request(`http://localhost/api/dashboard/fx?date=${date}`), {
-        env: { DASHBOARD_ENABLED: "true" },
+        env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
         getUser: async () => ({ id: "alice", email: null }),
         getDb: async () => {
           dbCalls++;

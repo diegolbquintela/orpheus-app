@@ -14,7 +14,7 @@ const clean = {
     { text: "Prices are out of date. No daily refresh has completed yet.", alert: false },
     { text: "Total 1 holding without a price excluded 1,690,149.30 CAD", alert: false },
     { text: "Total 21,749.53 CAD", alert: false },
-    { text: "Database: connected · 11/11 tables", alert: false },
+    { text: "Database: connected · 13/13 tables", alert: false },
     { text: "Shares must be greater than 0.", alert: true },
   ],
 };

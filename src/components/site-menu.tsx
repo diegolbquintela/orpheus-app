@@ -1,7 +1,11 @@
 import { Lyre } from "@/components/lyre";
+import { PersonGlyph } from "@/components/person-glyph";
 import { currentSection, MENU_ITEMS } from "@/lib/site/site";
 
 /**
+ * #90 (ROLE-01): a fifth, right-most item `Account` (to `/account`), always shown; below 640 px a person glyph whose
+ * link keeps the accessible name `Account` (the word is visually hidden), from 640 px the word.
+ *
  * The site menu (#46; dark shell, epic #66 #68; the lyre mark #84 before `Orpheus`, decorative): one thin charcoal bar that stays at the top on scroll, on
  * every page, including /dashboard, sign-in and the 404 (same markup everywhere). "Orpheus" on the left links
  * home; "Calculator", "Dashboard" and (#97) "Personal finance" on the right, text only. Below 640 px the text is 12 px
@@ -40,7 +44,14 @@ export function SiteMenu({ pathname }: { pathname: string }) {
                 aria-current={current === item.section ? "page" : undefined}
                 className={`text-dim ${link}`}
               >
-                {item.label}
+                {item.section === "account" ? (
+                  <>
+                    <PersonGlyph className="sm:hidden" />
+                    <span className="sr-only sm:not-sr-only">{item.label}</span>
+                  </>
+                ) : (
+                  item.label
+                )}
               </a>
             </li>
           ))}

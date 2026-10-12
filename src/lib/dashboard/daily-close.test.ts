@@ -435,7 +435,8 @@ describe("preview-only refresh button (DASH-10)", () => {
   const user = { id: "alice", email: "alice@example.com" };
   const refresh = (env: Record<string, string | undefined>, opts: { method?: string; signedIn?: boolean } = {}) =>
     handlePreviewRefreshRequest(new Request("http://localhost/api/dashboard/refresh", { method: opts.method ?? "POST" }), {
-      env,
+      // #90: alice is the owner (the button is a Dashboard write).
+      env: { ...env, ORPHEUS_OWNER_EMAIL: "alice@example.com" },
       getUser: async () => (opts.signedIn === false ? null : user),
       getDb: async () => db,
       provider: fakeProvider,

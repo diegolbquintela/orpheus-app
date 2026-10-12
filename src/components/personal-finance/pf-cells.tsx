@@ -65,3 +65,17 @@ export function Cell({
     </div>
   );
 }
+
+/**
+ * #90 (ROLE-10): read-only content. With `on`, the children sit in a disabled fieldset (laid out as if it weren't
+ * there), so every field, select and button inside is disabled; the section toggles stay outside it (Q-D11).
+ */
+export function Lock({ on, children }: { on: boolean; children: ReactNode }) {
+  return on ? (
+    <fieldset disabled className="pf-lock" data-testid="pf-lock">
+      {children}
+    </fieldset>
+  ) : (
+    <>{children}</>
+  );
+}

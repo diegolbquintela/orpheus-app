@@ -28,7 +28,8 @@ import type { Queryable } from "../dashboard/store.server.ts";
 const ORIGIN = "http://localhost:3000";
 // A fixed test-only value (not a real secret): Better Auth needs >= 32 chars.
 const TEST_SECRET = "test-only-secret-0123456789abcdef0123456789";
-const ON = { DASHBOARD_ENABLED: "true" };
+// #90: alice is the owner (ORPHEUS_OWNER_EMAIL, any case).
+const ON = { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "ALICE@example.com" };
 
 let pg: PGlite;
 let db: Queryable;
@@ -105,10 +106,10 @@ const userCount = async (email: string) =>
     .rows[0].n;
 
 describe("auth migrations", () => {
-  it("0001_auth.sql is applied with 0002 to 0010; a re-run is a no-op", async () => {
+  it("0001_auth.sql is applied with 0002 to 0011; a re-run is a no-op", async () => {
     // (scripts/migration-plan.test.mjs checks it stays a verbatim copy of migrations/auth/.)
     const names = (await pg.query<{ name: string }>("SELECT name FROM _migrations ORDER BY name")).rows.map((r) => r.name);
-    assert.deepEqual(names, ["0001_auth.sql", "0002_dashboard.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql", "0009_metric_chips_saved.sql", "0010_personal_finance.sql"]);
+    assert.deepEqual(names, ["0001_auth.sql", "0002_dashboard.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql", "0009_metric_chips_saved.sql", "0010_personal_finance.sql", "0011_access.sql"]);
     await pg.exec(readFileSync("migrations/0001_auth.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0003_user_settings_fk.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0004_daily_close.sql", "utf8"));
@@ -118,6 +119,7 @@ describe("auth migrations", () => {
     await pg.exec(readFileSync("migrations/0008_holdings_avg_cost_nullable.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0009_metric_chips_saved.sql", "utf8"));
     await pg.exec(readFileSync("migrations/0010_personal_finance.sql", "utf8"));
+    await pg.exec(readFileSync("migrations/0011_access.sql", "utf8"));
     const fks = await pg.query(
       "SELECT 1 FROM pg_constraint WHERE conname = 'user_settings_user_id_fkey'",
     );
@@ -131,7 +133,7 @@ describe("auth migrations", () => {
     await old.query("INSERT INTO _migrations (name) VALUES ('0002_dashboard.sql')");
     await old.exec("INSERT INTO user_settings (user_id) VALUES ('orphan-test-row')");
     await old.exec("INSERT INTO holdings (user_id, symbol, shares, avg_cost) VALUES ('orphan-test-row', 'KO', 1, 1)");
-    assert.deepEqual(await applyMigrations(old), ["0001_auth.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql", "0009_metric_chips_saved.sql", "0010_personal_finance.sql"]);
+    assert.deepEqual(await applyMigrations(old), ["0001_auth.sql", "0003_user_settings_fk.sql", "0004_daily_close.sql", "0005_fundamentals.sql", "0006_instrument_sic.sql", "0007_fundamentals_parser_version.sql", "0008_holdings_avg_cost_nullable.sql", "0009_metric_chips_saved.sql", "0010_personal_finance.sql", "0011_access.sql"]);
     assert.equal((await old.query("SELECT 1 FROM user_settings")).rows.length, 0, "orphan test row removed");
     assert.equal((await old.query("SELECT 1 FROM holdings")).rows.length, 0, "orphan holding removed (0004)");
     await assert.rejects(
@@ -357,21 +359,37 @@ describe("cross-user isolation (DASH-06)", () => {
   const settings = (cookie: string, init: RequestInit = {}, query = "") =>
     handleDashboardSettingsRequest(api(`/api/dashboard/settings${query}`, { ...init, cookie }), deps());
 
-  it("each user reads and writes only their own settings", async () => {
+  it("#90: the owner reads and writes the settings; bob without a grant gets 403 and changes nothing", async () => {
     assert.equal((await settings(alice.cookie, { method: "PUT", body: JSON.stringify({ baseCurrency: "USD" }) })).status, 200);
     assert.deepEqual(await (await settings(alice.cookie)).json(), { settings: { baseCurrency: "USD" } });
-    assert.deepEqual(await (await settings(bob.cookie)).json(), { settings: { baseCurrency: "CAD" } });
-    await settings(bob.cookie, { method: "PUT", body: JSON.stringify({ baseCurrency: "EUR" }) });
+    const read = await settings(bob.cookie);
+    assert.equal(read.status, 403);
+    assert.deepEqual(await read.json(), { error: "Forbidden." });
+    assert.equal((await settings(bob.cookie, { method: "PUT", body: JSON.stringify({ baseCurrency: "EUR" }) })).status, 403);
     assert.deepEqual(await (await settings(alice.cookie)).json(), { settings: { baseCurrency: "USD" } });
   });
 
-  it("naming the other user's id is 403, and changes nothing", async () => {
-    const read = await settings(bob.cookie, {}, `?userId=${encodeURIComponent(alice.id)}`);
+  it("#90: a Portfolio Manager grant opens the owner's settings (Read: GET only; Read and write: PUT too)", async () => {
+    await pg.query(
+      "INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES ($1, 'dashboard', true, false, $2)",
+      [bob.id, alice.id],
+    );
+    assert.deepEqual(await (await settings(bob.cookie)).json(), { settings: { baseCurrency: "USD" } });
+    assert.equal((await settings(bob.cookie, { method: "PUT", body: JSON.stringify({ baseCurrency: "EUR" }) })).status, 403);
+    await pg.query("UPDATE access_grant SET can_write = true WHERE user_id = $1", [bob.id]);
+    assert.equal((await settings(bob.cookie, { method: "PUT", body: JSON.stringify({ baseCurrency: "EUR" }) })).status, 200);
+    assert.deepEqual(await (await settings(alice.cookie)).json(), { settings: { baseCurrency: "EUR" } });
+    await settings(alice.cookie, { method: "PUT", body: JSON.stringify({ baseCurrency: "USD" }) });
+    await pg.query("DELETE FROM access_grant WHERE user_id = $1", [bob.id]);
+  });
+
+  it("naming another user's id is 403, and changes nothing", async () => {
+    const read = await settings(alice.cookie, {}, `?userId=${encodeURIComponent(bob.id)}`);
     assert.equal(read.status, 403);
     assert.deepEqual(await read.json(), { error: "Forbidden." });
-    const write = await settings(bob.cookie, {
+    const write = await settings(alice.cookie, {
       method: "PUT",
-      body: JSON.stringify({ userId: alice.id, baseCurrency: "EUR" }),
+      body: JSON.stringify({ userId: bob.id, baseCurrency: "EUR" }),
     });
     assert.equal(write.status, 403);
     assert.deepEqual(await (await settings(alice.cookie)).json(), { settings: { baseCurrency: "USD" } });

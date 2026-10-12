@@ -439,7 +439,8 @@ describe("DASH-15 → #57: metric chips persist per user (defaults, add at the e
         body: opts.body === undefined ? undefined : typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body),
       }),
       {
-        env: opts.env ?? { DASHBOARD_ENABLED: "true" },
+        // #90: diego is the owner; "other" has no Dashboard grant.
+        env: opts.env ?? { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "d@example.com" },
         getUser: async (h) => USERS[h.get("x-test-session") ?? ""] ?? null,
         getDb: async () => db,
       },
@@ -463,8 +464,9 @@ describe("DASH-15 → #57: metric chips persist per user (defaults, add at the e
     assert.deepEqual(await get(), ["rev_g_1y", "roic_1y", "share_of_book", "gross_margin_1y"]);
     await put(["rev_g_1y", "share_of_book", "gross_margin_1y"]);
     assert.deepEqual(await get(), ["rev_g_1y", "share_of_book", "gross_margin_1y"]);
-    assert.deepEqual(await get("other"), DEFAULT_CHIPS, "another user's chips are separate (still the defaults)");
-    await put(["eps_1y"], "other");
+    // #90: another account without a Dashboard grant gets 403 and changes nothing.
+    assert.equal((await call({ as: "other" })).status, 403);
+    assert.equal((await put(["eps_1y"], "other")).status, 403);
     assert.deepEqual(await get(), ["rev_g_1y", "share_of_book", "gross_margin_1y"]);
     const page = await loadDashboardHoldings(db, USER, { previewRefresh: false, nowMs: NOW });
     assert.deepEqual(page.metricColumns, ["rev_g_1y", "share_of_book", "gross_margin_1y"]);

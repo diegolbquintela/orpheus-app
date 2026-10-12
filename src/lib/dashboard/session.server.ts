@@ -16,6 +16,8 @@ import {
 } from "./flag.server.ts";
 import { allowListFromEnv, authReadiness } from "../auth/config.ts";
 import { resolveDatabaseUrl } from "../../../scripts/db-env.mjs";
+import { accessOf, surfaceAccess, type AccountAccess, type SurfaceAccess } from "../access/access.server.ts";
+import type { Surface } from "../access/access.ts";
 import {
   BASE_CURRENCIES,
   getUserSettings,
@@ -26,7 +28,7 @@ import {
 
 type Env = Record<string, string | undefined>;
 
-export type DashboardUser = { id: string; email: string | null };
+export type DashboardUser = { id: string; email: string | null; sessionId?: string | null };
 export type SessionLookup = (headers: Headers) => Promise<DashboardUser | null>;
 
 export type DashboardApiDeps = {
@@ -52,32 +54,76 @@ export const ME_ALLOW = ["GET", "HEAD"] as const;
 /** Methods `/api/dashboard/settings` serves. */
 export const SETTINGS_ALLOW = ["GET", "HEAD", "PUT"] as const;
 
-/** Flag, method and session checks shared by every per-user route (in that order). */
+/** #90: the reply while a temporary password is still in place (ROLE-08). */
+export const mustChangeResponse = () => json({ error: "Change your password first." }, 403);
+
+export type GateOptions = {
+  /** Which surface's grant applies (default the Dashboard). */
+  surface?: Surface;
+  /** `read` / `write` (default: GET / HEAD read, anything else write); `signed_in`: any signed-in person. */
+  need?: "read" | "write" | "signed_in";
+  /** Checks that need no database (e.g. a malformed query): answered after 401, before any database access. */
+  precheck?: () => Response | null;
+};
+
+export type GateOk = {
+  /** Whose data the request reads and writes: the owner (#90 Q-D1). */
+  user: DashboardUser;
+  /** Who is asking (the session's user). */
+  viewer: DashboardUser;
+  access: AccountAccess;
+  surface: SurfaceAccess;
+  db: Queryable;
+};
+
+/**
+ * Flag, method, session and (#90) access checks shared by every per-user route, in that order: 404 flag off; 405;
+ * 401 signed out; 503 no database; 403 while a temporary password is in place, without a read grant on the
+ * surface, or without a write grant for a writing method. `user` is then the owner (the data), `viewer` the person.
+ */
 export async function gateDashboardRequest(
   request: Request,
   allow: readonly string[],
   deps: DashboardApiDeps,
-): Promise<{ response: Response } | { user: DashboardUser }> {
+  opts: GateOptions = {},
+): Promise<{ response: Response } | GateOk> {
   const env = deps.env ?? process.env;
   const blocked = guardDashboardApi(env);
   if (blocked) return { response: blocked };
-  if (!allow.includes(request.method.toUpperCase()))
-    return { response: dashboardMethodNotAllowedResponse(allow) };
-  const user = await deps.getUser(request.headers);
-  if (!user) return { response: unauthorizedResponse() };
-  return { user };
+  const method = request.method.toUpperCase();
+  if (!allow.includes(method)) return { response: dashboardMethodNotAllowedResponse(allow) };
+  const viewer = await deps.getUser(request.headers);
+  if (!viewer) return { response: unauthorizedResponse() };
+  const early = opts.precheck?.();
+  if (early) return { response: early };
+  const db = await (deps.getDb ?? defaultGetDb)(env);
+  if (!db) return { response: storageUnavailable() };
+  const access = await accessOf(db, viewer, env);
+  const surface = surfaceAccess(access, opts.surface ?? "dashboard");
+  const need = opts.need ?? (method === "GET" || method === "HEAD" ? "read" : "write");
+  if (need !== "signed_in") {
+    if (access.mustChange) return { response: mustChangeResponse() };
+    if (!surface.read || (need === "write" && !surface.write) || !surface.dataUserId)
+      return { response: forbiddenResponse() };
+  }
+  const user = { id: surface.dataUserId ?? viewer.id, email: access.owner ? viewer.email : null };
+  return { user, viewer, access, surface, db };
 }
 
-/** `GET /api/dashboard/me`: the signed-in user's id and email. */
+/** `GET /api/dashboard/me`: the signed-in person's id and email, and (#90) their access. Any signed-in person. */
 export async function handleDashboardMeRequest(request: Request, deps: DashboardApiDeps) {
-  const g = await gateDashboardRequest(request, ME_ALLOW, deps);
+  const g = await gateDashboardRequest(request, ME_ALLOW, deps, { need: "signed_in" });
   if ("response" in g) return g.response;
-  return json({ user: { id: g.user.id, email: g.user.email } });
+  return json({
+    user: { id: g.viewer.id, email: g.viewer.email },
+    access: { owner: g.access.owner, mustChange: g.access.mustChange, ...g.access.grants },
+  });
 }
 
 /** A client-named user id that isn't the session's: true means answer 403. */
-export function namesOtherUser(claimed: unknown, user: DashboardUser): boolean {
-  return claimed !== undefined && claimed !== null && claimed !== user.id;
+export function namesOtherUser(claimed: unknown, user: DashboardUser, viewer?: DashboardUser): boolean {
+  // #90: naming yourself or the owner whose data you see is fine; anyone else is 403 (no widening).
+  return claimed !== undefined && claimed !== null && claimed !== user.id && claimed !== viewer?.id;
 }
 
 /**

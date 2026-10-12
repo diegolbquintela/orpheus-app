@@ -493,7 +493,7 @@ guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
   On production builds (`VERCEL_ENV=production`) it skips unless `DASHBOARD_ENABLED=true` there too.
 - With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
   The app still builds, and the calculator never touches the database.
-- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 11/11 tables" when Neon is
+- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 13/13 tables" when Neon is
   wired up. `GET /api/dashboard/db` returns the same status as JSON; other methods get 405 JSON with
   `Allow: GET, HEAD`. Both are hidden on production (the API is 404 there).
 - After a week of previews, check Neon's usage page against the Free plan limits (spec §4).

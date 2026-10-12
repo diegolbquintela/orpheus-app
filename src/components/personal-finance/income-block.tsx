@@ -31,7 +31,7 @@ import {
   shownIncomeLines,
   TABLE_COLUMNS,
 } from "@/lib/finance/income";
-import { Cell, SectionHead } from "./pf-cells";
+import { Cell, Lock, SectionHead } from "./pf-cells";
 
 /**
  * The income block (#85 v1.2; spec `attachments/personal-finance-spec.md` section 12, PF-11..16): people with
@@ -46,6 +46,7 @@ export function IncomeBlock({
   household,
   open = true,
   onToggle,
+  readOnly = false,
 }: {
   income: Income;
   update: (change: (current: Income) => Income) => void;
@@ -53,6 +54,8 @@ export function IncomeBlock({
   /** #105 (PF-40): the section is open (its body shows); `onToggle` makes the heading a toggle. */
   open?: boolean;
   onToggle?: () => void;
+  /** #90 (ROLE-10): every field and button disabled. */
+  readOnly?: boolean;
 }) {
   const people = income.people;
   const updatePerson = (id: string, patch: Partial<Person>) =>
@@ -82,7 +85,7 @@ export function IncomeBlock({
         data-testid="pf-body-income"
       >
         {open ? (
-          <>
+          <Lock on={readOnly}>
             <div className="flex flex-col gap-4">
               <div
                 className="pf-head pf-person-head"
@@ -137,7 +140,7 @@ export function IncomeBlock({
               ))}
               <TableRow label={NET_INCOME} yearly={net} testId="pf-net-income" total />
             </section>
-          </>
+          </Lock>
         ) : null}
       </div>
     </section>

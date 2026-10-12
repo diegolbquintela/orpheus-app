@@ -52,7 +52,7 @@ describe("0002_dashboard.sql", () => {
       missingTables: [],
       migrationApplied: true,
     });
-    assert.equal(describeDbStatus(status), "Database: connected · 11/11 tables");
+    assert.equal(describeDbStatus(status), "Database: connected · 13/13 tables");
     await pg.exec(MIGRATION); // IF NOT EXISTS everywhere
   });
 
@@ -255,7 +255,7 @@ describe("storage availability (no database URL = unavailable)", () => {
     const status = await checkDashboardDb({ query: async (t, p) => (await empty.query(t, p)).rows as never[] });
     await empty.close();
     assert.equal(status.state, "connected");
-    assert.match(describeDbStatus(status), /0\/11 tables, schema incomplete/);
+    assert.match(describeDbStatus(status), /0\/13 tables, schema incomplete/);
   });
 
   it("the status line never shows on production", () => {

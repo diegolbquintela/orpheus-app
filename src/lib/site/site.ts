@@ -5,14 +5,18 @@
  * itself stays gated (a 404 while the flag is off).
  */
 
-export type SiteSection = "home" | "calculator" | "dashboard" | "personal-finance";
+export type SiteSection = "home" | "calculator" | "dashboard" | "personal-finance" | "account";
 
-/** Menu items, left to right. "Orpheus" sits on the left; the other three on the right (#97: Personal finance). */
+/**
+ * Menu items, left to right. "Orpheus" sits on the left; the others on the right (#97: Personal finance; #90: Account,
+ * right-most, always shown; a person glyph below 640 px, ROLE-01).
+ */
 export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: string }[] = [
   { section: "home", label: "Orpheus", href: "/" },
   { section: "calculator", label: "Calculator", href: "/calculator" },
   { section: "dashboard", label: "Dashboard", href: "/dashboard" },
   { section: "personal-finance", label: "Personal finance", href: "/personal-finance" },
+  { section: "account", label: "Account", href: "/account" },
 ];
 
 /** Home's Platforms section (#69, spec §4 / Q11): the numeral and heading. */
@@ -89,6 +93,7 @@ export function currentSection(pathname: string): SiteSection | null {
   if (path === "/calculator") return "calculator";
   if (path === "/dashboard" || path.startsWith("/dashboard/")) return "dashboard";
   if (path === "/personal-finance") return "personal-finance";
+  if (path === "/account") return "account";
   return null;
 }
 

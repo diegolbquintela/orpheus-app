@@ -31,14 +31,16 @@ export class UnauthorizedError extends Error {
   }
 }
 
-export type VerifiedUser = { id: string; email: string | null };
+export type VerifiedUser = { id: string; email: string | null; sessionId?: string | null };
 
 /** The signed-in user for these request headers, or null (signed out, or auth not configured). */
 export async function getSessionUserFromHeaders(headers: Headers): Promise<VerifiedUser | null> {
   if (!authConfigured) return null;
-  const session = await auth.api.getSession({ headers });
+  // #90: always read the session from the database (never the 5-minute signed cookie cache), so a revoked session
+  // (Remove, Reset password, a password or email change elsewhere) stops working on the next request (ROLE-16).
+  const session = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
   if (!session?.user) return null;
-  return { id: session.user.id, email: session.user.email ?? null };
+  return { id: session.user.id, email: session.user.email ?? null, sessionId: session.session?.id ?? null };
 }
 
 /** The signed-in user for the current request, or null. Safe in server functions and loaders. */
