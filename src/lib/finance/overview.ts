@@ -103,8 +103,15 @@ export function monthFigures(
   key: MonthKey,
   current: MonthKey,
   page: PageFigures,
+  lines?: Record<MonthKey, Figures>,
 ): Figures {
   const entry = overview.months[key];
+  // #112 (decision 7): a month saved with lines uses its own figures; else its old typed totals; else none.
+  if (lines) {
+    const own = lines[key];
+    if (own) return own;
+    return { expenses: typedFigure(entry?.expenses), income: typedFigure(entry?.income) };
+  }
   const fallback = (value: number | null): number | null =>
     key === current && value !== null && value > 0 ? value : null;
   return {
@@ -140,10 +147,15 @@ const minus = (a: number | null, b: number | null): number | null =>
 export const surplusOf = (f: Figures): number | null => minus(f.income, f.expenses);
 
 /** Everything `04` shows (section 15.2). */
-export function summarize(overview: Overview, now: Date, page: PageFigures): Summary {
+export function summarize(
+  overview: Overview,
+  now: Date,
+  page: PageFigures,
+  lines?: Record<MonthKey, Figures>,
+): Summary {
   const months = lastTwelve(now);
   const current = months[months.length - 1];
-  const figures = months.map((key) => monthFigures(overview, key, current, page));
+  const figures = months.map((key) => monthFigures(overview, key, current, page, lines));
   const average: Figures = {
     expenses: mean(figures.map((f) => f.expenses)),
     income: mean(figures.map((f) => f.income)),

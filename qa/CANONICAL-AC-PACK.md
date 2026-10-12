@@ -56,6 +56,7 @@ always: ST0-05).
 | 17 | #50 Remove Grok template leftovers | NG-01..09 new (no grok.com request / script, no `.grok.com` cookie, the static Orpheus `/manifest.webmanifest` with 180 / 512 icons, `apple-touch-icon` retargeted, `/__grok/*` gone, `/?install=1` is just the old-link redirect to the calculator, noindex / X-Robots-Tag / favicon / theme-color / apple meta kept, no preview bridge); decided by EL ≈ 07:50 ET (option A + cut the preview bridge); `qa/tools/no-grok.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), release-smoke, the signed-out 307s; #51 / #71 / #91–#95 untouched |
 | 18 | #51 Remove remaining Grok tooling | TL-01..06 new (`.grok/`, `startup.sh`, the preview / app-env / auth-invariant / write-atomic / browser-smoke scripts and `screenshots/app-builder-*` gone; `dev` / `build` / `preview` run Vite directly; no app-env Vite plugin; the deployed auth flag unchanged because Vercel sets `VITE_AUTH_ENABLED` itself (EL ≈ 08:48 ET); kept: `migrations/*0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default); `scripts/no-grok-tooling.test.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), `qa/tools/no-grok.mjs`, release-smoke, signed-out 307s; #71 / #91–#95 untouched |
 | 19 | #91 Audit log of actions | AUDIT-01..12 new (append-only `audit_event`, the fixed action list, masked actor / target codes, no amounts / names / emails / tickers, owner-only `GET /api/account/audit` and `/account` `06 Activity`, best-effort writes, dark shell); design `attachments/audit-log-design.md`; Q-A1..Q-A4 open, built as recommended; `qa/tools/audit.mjs` | ROLE-01..22 (`roles.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), signed-out 307s; #92 / #93 / #95 / #71 untouched |
+| 20 | #112 Personal Finance month control | PF-48..PF-58 new (the month control at the top, last 12 months, per-month lines, explicit Save shown only when unsaved, empty past month copies the current saved lines with the note, rollover copy, old totals-only months, averages / Overview after Save, the control stays on the saved month, `05 Update` gone, discard / leave confirms); PF-28 and PF-43 retired; PF-27, PF-31, PF-36, PF-41 amended; design `attachments/pf-month-control-design.md` (EL option A, decisions 1–7); `qa/tools/pf-months.mjs`, `personal-finance.mjs` / `personal-finance-e2e.mjs` updated | signed-out 307, `safeNext`, roles (`roles.mjs`), audit (`audit.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), no-grok; #92 / #93 / #95 / #113 untouched |
 | — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
@@ -410,4 +411,25 @@ and 1440 × 900.
 Amended by #91: **ROLE-03** (the owner's `/account` also has `06` `Activity`, AUDIT-08) and **ROLE-19** ("Who has
 access" stays current state with no history; the history is only in the owner's `06 Activity`). `qa/tools/roles.mjs`
 checks both as amended.
+
+## Personal Finance month control (#112; design `attachments/pf-month-control-design.md`, spec section 19)
+
+EL option A (≈ 11:23 ET). Retires PF-28 and PF-43 (the Update section). Amends PF-27 (a month's figure, below),
+PF-31 / PF-36 (stored on Save, not on every change), PF-41 (section toggles still save at once). Tool:
+`qa/tools/pf-months.mjs` (the QA owner account `QA_EMAIL` / `QA_PASSWORD` on a preview; restores the record at the
+end) with a fixed browser clock; 400 × 860 and 1440 × 900.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-48 | BLOCK | Under the title: `Month` and a select showing the current month (`October 2026` on 2026-10-11), options exactly the last 12 months newest first; `05` `Update` (and `Update month`, its panel) gone; `04` `Overview` the last section. |
+| PF-49 | BLOCK | `Save` is hidden on load and after Save; it shows as soon as anything on the shown month or a shared value changes (a line, a person, the household currency, the equity rates, a category / account, Starting net assets, Growth, Future), and hides again if the change is undone. Section toggles never show it. |
+| PF-50 | BLOCK | No autosave: editing and reloading without Save keeps the stored record unchanged (no PUT); Save PUTs once and a reload shows the change. |
+| PF-51 | BLOCK | Switching to an empty past month shows the current month's saved lines (expenses and people, with their currency, FX rate, equity to cover, account, category) and `Copied from <current month> — edit and save.`; nothing is stored; `Save` is shown; editing changes only this month. |
+| PF-52 | BLOCK | Save on a past month stores that month's lines in `orpheus.finance.months.v1`; the control stays on that month; the note goes; the current month's lines are unchanged; `04` (This month, 12-month average, net assets, chart) updates at once. |
+| PF-53 | BLOCK | A month figure = that month's saved `Total` Monthly and `Net income` Monthly (above 0); example: current 1,750 / 11,200 and June 2026 saved with lines totalling 4,000 / 9,000 → averages **2,875** / **10,100**, surplus **7,225** (the section 15.2 example, now from lines). |
+| PF-54 | BLOCK | Switching month with unsaved changes asks `Discard unsaved changes?`; Cancel keeps the month and the edits, OK switches and drops them; leaving the page with unsaved changes asks the browser's leave-page question; nothing asked when nothing is unsaved. |
+| PF-55 | BLOCK | Existing data: a record without `months.v1` opens with its lines as the current month (no change shown, `Save` hidden); an old totals-only month keeps its two totals in the averages until saved; opened, it shows the copied current lines and the note; saving it drops its old totals. |
+| PF-56 | BLOCK | Rollover: with the clock on a new month whose month has no lines, the page shows a copy of the most recent month with lines and `Copied from <that month> — edit and save.`; `Save` shown; nothing stored until Save. |
+| PF-57 | BLOCK | Roles: a Read-only CFO can switch months (each saved month shows; Q-M1 (EL): an empty one shows the copy preview with its note), never sees `Save`, and the record is never written; section toggles still save to the person's own view. |
+| PF-58 | BLOCK | Layout and regression at 360 / 400 / 1024 / 1440: the control row under the title, select and `Save` ≥ 44 px, no gold, AA, no horizontal scroll, strict CLS 0 (empty, restored, `Save` appearing); PF-01..47 (as amended) and PFE-01..13 hold; signed-out 307 and `safeNext` unchanged; `$313,000`. |
 

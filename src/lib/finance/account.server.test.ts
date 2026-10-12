@@ -128,7 +128,7 @@ describe("/api/personal-finance (#102, #90)", () => {
     assert.equal((await pf("GET", "bob", undefined, "?userId=alice")).status, 200);
     assert.equal((await pf("GET", "bob", undefined, "?userId=bob")).status, 200);
     assert.equal((await pf("PUT", "alice", { data: { evil: "x" } })).status, 400);
-    assert.equal((await pf("PUT", "alice", { data: { [STORAGE_KEY]: "x".repeat(300000) } })).status, 413);
+    assert.equal((await pf("PUT", "alice", { data: { [STORAGE_KEY]: "x".repeat(1100000) } })).status, 413);
   });
 
   it("the owner's DELETE removes the record (owner-only)", async () => {

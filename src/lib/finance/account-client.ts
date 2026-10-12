@@ -4,7 +4,7 @@ import { VIEW_KEY } from "./view";
 
 /**
  * The page's store when signed in (#102; spec section 16.5): the account's record via `/api/personal-finance`,
- * read once; every change saves the whole record 400 ms later (and on leaving the page); last write wins. An empty
+ * read once; #112: written only on `Save` (and a section toggle), the whole record; last write wins. An empty
  * account imports this browser's old `localStorage` values once (then removes them); a v1 expenses value is
  * migrated (rates inverted). `onSaved(false)` after a failed save (the page shows `Not saved.`).
  */
@@ -12,7 +12,6 @@ export const API = "/api/personal-finance";
 export const SIGN_IN = "/dashboard/sign-in?next=/personal-finance";
 /** #90 Q-D11: a person's own section toggles (used when they may read but not write). */
 export const VIEW_API = "/api/personal-finance/view";
-const DEBOUNCE_MS = 400;
 
 function local(): Storage | null {
   try {
@@ -26,6 +25,8 @@ export type StoreLike = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
   removeItem?(key: string): void;
+  /** #112: send what was written (the account store); absent = written already (localStorage). */
+  save?(): Promise<boolean>;
 };
 export type LoadStore = (opts: { onSaved: (ok: boolean) => void }) => Promise<StoreLike>;
 
@@ -49,7 +50,6 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
     ? prepareRecord(body.data ?? null, browser)
     : { record: { ...(body.data ?? {}) }, imported: false, migrated: false };
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
   const put = async (keepalive = false): Promise<boolean> => {
     try {
       const r = write
@@ -74,23 +74,16 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
       return false;
     }
   };
-  const store = new RecordStore(prepared.record, () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = undefined;
-      void put();
-    }, DEBOUNCE_MS);
-  });
-  const flush = () => {
-    if (!timer) return;
-    clearTimeout(timer);
-    timer = undefined;
-    void put(true);
+  // #112: no autosave. The store holds the saved record; the page writes into it and calls `save()` on `Save`
+  // (and after a section toggle, which saves at once).
+  // One PUT at a time, in order (two quick section toggles must not land out of order).
+  let queue: Promise<unknown> = Promise.resolve();
+  const save = (): Promise<boolean> => {
+    const next = queue.then(() => put());
+    queue = next.catch(() => {});
+    return next;
   };
-  window.addEventListener("pagehide", flush);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") flush();
-  });
+  const store = Object.assign(new RecordStore(prepared.record), { save });
   if (write && (prepared.imported || prepared.migrated)) {
     const ok = await put();
     if (ok && prepared.imported) clearLegacy(browser);

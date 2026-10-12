@@ -24,8 +24,12 @@ export function trackSaves(page) {
   page.on("requestfailed", (q) => { if (mine(q)) s.n--; });
   return s;
 }
+// #112: no autosave. `settle` presses `Save` when it shows, then waits until no PUT is in flight.
 export async function settle(page) {
-  await page.waitForTimeout(700);
+  const save = page.getByTestId("pf-month-save");
+  if ((await save.isVisible().catch(() => false)) && (await save.isEnabled().catch(() => false))) await save.click().catch(() => {});
+  for (let i = 0; i < 100 && (await save.isVisible().catch(() => false)) && !(await save.isEnabled().catch(() => true)); i++) await page.waitForTimeout(100);
+  await page.waitForTimeout(300);
   for (let i = 0; i < 100 && (saving.get(page)?.n ?? 0) > 0; i++) await page.waitForTimeout(100);
 }
 export const ready = (page) => page.locator("[data-testid=pf-area][data-ready=true]").waitFor();

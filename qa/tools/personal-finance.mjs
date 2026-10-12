@@ -89,6 +89,9 @@ const INCOME_KEY = "orpheus.finance.income.v1";
 const EQUITY_KEY = "orpheus.finance.equity.v1";
 const CURRENCY_KEY = "orpheus.finance.currency.v1";
 const OVERVIEW_KEY = "orpheus.finance.overview.v1";
+// #112: each month's lines; `Save` writes the whole record.
+const MONTHS_KEY = "orpheus.finance.months.v1";
+const SAVED_NAMES = [KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY, MONTHS_KEY].sort();
 const CODES = ["USD", "CAD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
 // A line's Currency choices under the default household CAD (Q13): CAD first, then the other nine in list order.
 const CODES_CAD = ["CAD", "USD", "EUR", "GBP", "BRL", "MXN", "CHF", "JPY", "AUD", "CNY"];
@@ -120,6 +123,8 @@ const totalTexts = (label, wide, v = { share: "—", monthly: "0", yearly: "0", 
 const emptyTexts = (wide) => [
   "01",
   "Personal finance.",
+  // #112 (PF-48): the month control (the select's own text is not counted).
+  "Month",
   "Household currency",
   "02",
   "Income",
@@ -157,10 +162,6 @@ const emptyTexts = (wide) => [
   "Expenses",
   "Income",
   "Net assets",
-  "05",
-  "Update",
-  // #105 (PF-43): only the button until it is pressed.
-  "Update month",
 ];
 
 // In the page: WCAG contrast of every visible text node's element against its effective background.
@@ -260,7 +261,7 @@ async function acct(page, method, data, path = API) {
 const record = async (page) => (await acct(page, "GET")).body?.data ?? null;
 const reset = (page) => acct(page, "DELETE");
 const seed = (page, data) => acct(page, "PUT", data);
-// Saves are debounced (400 ms): wait past the debounce, then until no PUT is in flight.
+// #112: no autosave. `settle` presses `Save` when it shows, then waits until no PUT is in flight.
 const saving = new WeakMap();
 function trackSaves(page) {
   const s = { n: 0, puts: 0 };
@@ -272,7 +273,10 @@ function trackSaves(page) {
   return s;
 }
 async function settle(page) {
-  await page.waitForTimeout(700);
+  const save = page.getByTestId("pf-month-save");
+  if ((await save.isVisible().catch(() => false)) && (await save.isEnabled().catch(() => false))) await save.click().catch(() => {});
+  for (let i = 0; i < 100 && (await save.isVisible().catch(() => false)) && !(await save.isEnabled().catch(() => true)); i++) await page.waitForTimeout(100);
+  await page.waitForTimeout(300);
   for (let i = 0; i < 100 && (saving.get(page)?.n ?? 0) > 0; i++) await page.waitForTimeout(100);
 }
 const ready = (page) => page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
@@ -312,7 +316,7 @@ const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
 const STORED_CURRENCY = JSON.stringify({ household: "USD" });
 // #94: today is fixed at 11 October 2026 (local) for the Overview checks; June typed, Future on, 5 years.
 const TODAY = new Date(2026, 9, 11, 12);
-const STORED_OVERVIEW = JSON.stringify({ start: "10,000", growth: "5", future: true, years: 5, months: { "2026-06": { expenses: "4,000", income: "9,000" } } });
+const STORED_OVERVIEW = JSON.stringify({ start: "10,000", growth: "5", future: true, years: 5, months: {} });
 const OV_EXPENSES = JSON.stringify({ fixed: [{ id: "o1", name: "Rent", amount: "1,750", per: "month", equity: "", account: "" }], variable: [], accounts: [] });
 const OV_INCOME = JSON.stringify({ people: [{ id: "o2", name: "Me", wages: "134,400", bonus: "", tax: "", share: "100", countWages: true, countBonus: false }] });
 const STORED = JSON.stringify({
@@ -415,7 +419,7 @@ try {
 
   if (!email || !password) {
     console.log("INFO PF-01..32, PF-34..39 SKIPPED: the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal finance record is reset)");
-  } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
+  } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: process.env.PF_ONLY ? VIEWPORTS.filter(([n]) => process.env.PF_ONLY.split(",").includes(n)) : VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
     const wide = viewport.width >= 1024;
     const api = [];
@@ -698,7 +702,7 @@ try {
       const store = { names: Object.keys(rec).sort(), value: parse(KEY), income: parse(INCOME_KEY), rates: parse(EQUITY_KEY), ...(await page.evaluate(async () => ({ local: localStorage.length, session: sessionStorage.length, idb: indexedDB.databases ? (await indexedDB.databases()).length : 0 }))) };
       // Cookies on this host: only the auth session's (the builder's extensions script brings a third-party one of its own).
       const cookies = (await ctx.cookies(base)).filter((c) => !c.domain.endsWith("grok.com")).map((c) => c.name);
-      check(`${tag} PF-07 / PF-20 / PF-36 the account holds the three names only, typed values as typed; nothing in localStorage / sessionStorage / IndexedDB; only the session cookies`, JSON.stringify(store.names) === JSON.stringify([KEY, INCOME_KEY, EQUITY_KEY].sort()) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.local === 0 && store.session === 0 && store.idb === 0 && cookies.every((n) => /auth/.test(n)), { ...store, cookies });
+      check(`${tag} PF-07 / PF-20 / PF-36 the account holds the PF names only (#112: Save writes them all), typed values as typed; nothing in localStorage / sessionStorage / IndexedDB; only the session cookies`, JSON.stringify(store.names) === JSON.stringify(SAVED_NAMES) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.local === 0 && store.session === 0 && store.idb === 0 && cookies.every((n) => /auth/.test(n)), { ...store, cookies });
       await page.reload({ waitUntil: "networkidle" });
       await ready(page);
       const back = {
@@ -784,7 +788,7 @@ try {
       await ready(page);
       const fc2 = line(page, "fixed", 2);
       const back25 = { household: await page.getByTestId("pf-household").inputValue(), cur: await fc2.getByTestId("pf-currency").inputValue(), rate: await val(fc2.getByTestId("pf-fx")), all: (await totals(page, "all")).slice(2, 4) };
-      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} written only on change ({"household":"USD"}); a reload restores both (Total 1,750 / 21,000)`, before[0] === false && before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
+      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} {"household":"USD"} (#112: Save writes every name); a reload restores both (Total 1,750 / 21,000)`, before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
       await page.getByTestId("pf-household").selectOption("BRL");
       const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await (async () => { await settle(page); return JSON.parse(((await record(page)) ?? {})[KEY]).fixed[2].rate; })() };
       await page.getByTestId("pf-household").selectOption("CAD");
@@ -808,8 +812,9 @@ try {
       const row37 = await page.locator("[data-testid=pf-income-line]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())).filter((r) => r[0].startsWith("Brazilian Dividends")));
       const yes37 = { net: await txt(bd.getByTestId("pf-person-net")), conv: await txt(bd.getByTestId("pf-person-converted")), rows: row37, total: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")), errors: await bd.getByTestId("pf-error").count() };
       check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
+      await settle(page);
       const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]").allTextContents();
-      check(`${tag} PF-37 the Overview's page income follows (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
+      check(`${tag} PF-37 the Overview's income follows after Save (#112) (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
       // Layout with the foreign person (PF-39).
       const fl = { name: await box(bd.getByTestId("pf-person-name")), share: await box(bd.getByTestId("pf-person-share")), cw: await box(bd.getByTestId("pf-person-count-wages")), box: await box(bd.getByTestId("pf-person-foreign").locator("xpath=..")), cur: await box(bd.getByTestId("pf-person-currency")), rate: await box(fxIn), conv: await box(bd.getByTestId("pf-person-converted")), net: await box(bd.getByTestId("pf-person-net")) };
       const row = viewport.width >= 640;
@@ -858,14 +863,16 @@ try {
       // A failed save shows `Not saved.`; the next change (saved) clears it.
       await page.route(`**${API}`, (r) => (r.request().method() === "PUT" ? r.abort() : r.continue()));
       await bd.getByTestId("pf-person-name").fill("Brazilian Dividends 2");
+      await page.getByTestId("pf-month-save").click();
       await page.waitForTimeout(1200);
       const failed = await txt(page.getByTestId("pf-save"));
       const failedStyle = await page.getByTestId("pf-save").evaluate((e) => ({ color: getComputedStyle(e).color, role: e.getAttribute("role") }));
       await page.unroute(`**${API}`);
+      await settle(page);
       await bd.getByTestId("pf-person-name").fill("Brazilian Dividends");
       await settle(page);
       const saveCleared = await txt(page.getByTestId("pf-save"));
-      check(`${tag} PF-36 a failed save shows \`Not saved.\` (alert, role status); the next change saves and clears it`, failed === "Not saved." && failedStyle.color === ALERT && failedStyle.role === "status" && saveCleared === "", { failed, failedStyle, saveCleared });
+      check(`${tag} PF-36 a failed Save shows \`Not saved.\` (alert, role status); the next Save clears it`, failed === "Not saved." && failedStyle.color === ALERT && failedStyle.role === "status" && saveCleared === "", { failed, failedStyle, saveCleared });
       check(`${tag} PF-07 / PF-36 only /api/personal-finance requests (GET once, PUT saves); no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}`) && api.filter((a) => a === `GET ${API}`).length >= 1 && api.some((a) => a === `PUT ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
@@ -889,21 +896,25 @@ try {
         const ov = () => p3.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, [...document.querySelectorAll(`[data-testid=pf-ov-${r}] [role=cell]`)].map((c) => c.textContent.trim())])));
         const chart = () => p3.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: f.dataset.netLast, lines: [...f.querySelectorAll(".recharts-line-curve")].map((p) => p.getAttribute("stroke")), hidden: f.querySelector(".pf-chart-plot").getAttribute("aria-hidden"), legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()), h: Math.round(f.querySelector(".pf-chart-plot").getBoundingClientRect().height) }));
         const t0 = await ov();
-        // #105 (PF-43): Update month opens the panel; figures are stored on Save.
-        const opener = p3.getByTestId("pf-update-open");
-        const closedFirst = [await opener.getAttribute("aria-expanded"), await p3.getByTestId("pf-update-panel").count()];
-        await opener.click();
-        const opts = await p3.getByTestId("pf-month").evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
-        const ph0 = [await p3.getByTestId("pf-month-expenses").getAttribute("placeholder"), await p3.getByTestId("pf-month-income").getAttribute("placeholder")];
-        check(`${tag} PF-27 / PF-28 the current month takes the page (1,750 / 11,200 / 9,450, same average); Month: 12 choices October 2026 … November 2025, October chosen; placeholders = the page`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(ph0) === '["1,750","11,200"]', { t0, opts, ph0 });
-        await p3.getByTestId("pf-month").selectOption("2026-06");
-        await p3.getByTestId("pf-month-expenses").fill("4,000");
-        await p3.getByTestId("pf-month-income").fill("9,000");
+        // #112 (PF-48..53): the month control; June starts as a copy of October; stored only on Save.
+        const sel = p3.getByTestId("pf-month");
+        const saveBtn = p3.getByTestId("pf-month-save");
+        const note = () => p3.getByTestId("pf-month-note").textContent().then((t) => t.trim());
+        const opts = await sel.evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
+        const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
+        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450, same average); Month: 12 choices October 2026 … November 2025, October shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
+        await sel.selectOption("2026-06");
+        const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
+        check(`${tag} PF-51 empty June: a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
+        await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
+        await p3.getByTestId("pf-person-wages").fill("108,000");
         const draft = await ov();
-        await p3.getByTestId("pf-update-save").click();
+        const putsBefore = saving.get(p3)?.puts ?? 0;
+        await saveBtn.click();
+        await settle(p3);
         const t1 = await ov();
-        const afterSave = [await p3.getByTestId("pf-update-panel").count(), await opener.getAttribute("aria-expanded"), await opener.evaluate((e) => document.activeElement === e)];
-        check(`${tag} PF-27 / PF-43 Update month (closed at first) → June 2026 4,000 / 9,000 → nothing changes until Save; Save closes the panel, focus back on the button, average 2,875 / 10,100 / 7,225; this month unchanged`, JSON.stringify(closedFirst) === '["false",0]' && JSON.stringify(draft) === JSON.stringify(t0) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }) && JSON.stringify(afterSave) === '[0,"false",true]', { closedFirst, draft, t1, afterSave });
+        const afterSave = { month: await sel.inputValue(), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
+        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: nothing in 04 until Save; one Save (one PUT) → average 2,875 / 10,100 / 7,225, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify(t0) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
         check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 96,700.00`, ch1.months === "12" && ch1.net === "96700.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
@@ -924,12 +935,11 @@ try {
         await p3.getByTestId("pf-growth").fill("5");
         check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: 96,700 + 180 × 7,225)`, gErr === "Enter a number, 0 or more." && f15b.net === (96700 + 180 * 7225).toFixed(2), { gErr, net: f15b.net });
         await p3.locator("[data-testid=pf-year][data-years='5']").click();
-        // Layout (the panel open).
-        await opener.click();
-        const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(p3.getByTestId("pf-month")), me: await box(p3.getByTestId("pf-month-expenses")), mi: await box(p3.getByTestId("pf-month-income")), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
+        // Layout (Save shown: start / growth are unsaved).
+        const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(sel), me: await box(saveBtn), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
         const row = viewport.width >= 640;
-        const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.mi.h >= 44 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 && lb.month.y === lb.me.y && lb.me.y === lb.mi.y : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x && lb.me.y > lb.month.y && lb.mi.y > lb.me.y) && lb.table.w <= 640;
-        check(`${tag} PF-32 layout: ${row ? "fields in one row (≤ 16rem)" : "fields stacked full width"}; every control ≥ 44 px; chart plot ${wide ? 320 : 240} px; table ≤ 40rem`, okLayout, lb);
+        const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.month.w <= 256 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x) && (viewport.width < 400 ? lb.me.y > lb.month.y : Math.abs(lb.month.y + lb.month.h / 2 - (lb.me.y + lb.me.h / 2)) <= 2 && lb.me.x > lb.month.x) && lb.table.w <= 640;
+        check(`${tag} PF-32 layout: ${row ? "fields in one row (≤ 16rem)" : "fields stacked full width"}; every control ≥ 44 px; #112 the month select (≤ 16rem) and Save on one row (below 400 px Save wraps under it, spec 19.4); chart plot ${wide ? 320 : 240} px; table ≤ 40rem`, okLayout, lb);
         await p3.getByTestId("pf-growth").focus();
         await p3.keyboard.press("Tab");
         const ring = await tog.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, parseFloat(c.outlineWidth), c.outlineColor, document.activeElement === e]; });
@@ -941,13 +951,15 @@ try {
         if (AXE) {
           await p3.addScriptTag({ content: AXE });
           const v = await p3.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast", "label", "select-name", "button-name", "aria-valid-attr-value", "aria-required-children", "aria-required-parent", "label-content-name-mismatch"] } })).violations.map((x) => ({ id: x.id, nodes: x.nodes.length, html: x.nodes[0]?.html.slice(0, 80) })));
-          check(`${tag} PF-32 axe-core with Overview / Update filled, Future on and the Update panel open: no violation`, v.length === 0, v);
+          check(`${tag} PF-32 axe-core with Overview filled, Future on and Save shown (#112): no violation`, v.length === 0, v);
         }
-        // #105 (PF-43): Escape in a field closes the panel without a change.
-        await p3.getByTestId("pf-month-expenses").fill("123");
-        await p3.getByTestId("pf-month-expenses").press("Escape");
-        const esc = [await p3.getByTestId("pf-update-panel").count(), JSON.stringify(await ov()) === JSON.stringify(t1)];
-        check(`${tag} PF-43 Escape in a panel field closes it and changes nothing`, esc[0] === 0 && esc[1], esc);
+        // #112 (PF-54): switching with unsaved changes asks; Cancel keeps the month and the edits.
+        const asked = [];
+        p3.once("dialog", (d) => { asked.push([d.type(), d.message()]); void d.dismiss(); });
+        await sel.selectOption("2026-10");
+        await p3.waitForTimeout(200);
+        const kept = { asked, month: await sel.inputValue(), start: await val(p3.getByTestId("pf-start")) };
+        check(`${tag} PF-54 switching with unsaved changes asks "Discard unsaved changes?"; Cancel keeps June and the edits`, JSON.stringify(kept) === JSON.stringify({ asked: [["confirm", "Discard unsaved changes?"]], month: "2026-06", start: "10,000" }), kept);
         await p3.getByTestId("pf-overview").scrollIntoViewIfNeeded();
         const shotO = join(CFG.out, `pf-overview-${viewport.width}.png`);
         await p3.screenshot({ path: shotO, fullPage: true });
@@ -961,21 +973,20 @@ try {
         const stored = [rec3[OVERVIEW_KEY], Object.keys(rec3).sort(), await p3.evaluate(() => localStorage.length)];
         await p3.reload({ waitUntil: "networkidle" });
         await ready(p3);
-        await p3.getByTestId("pf-update-open").click();
-        await p3.getByTestId("pf-month").selectOption("2026-06");
-        const back = { t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(p3.getByTestId("pf-month-expenses")), await val(p3.getByTestId("pf-month-income"))], net: (await chart()).net };
-        check(`${tag} PF-31 / PF-36 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years / June as typed (only PF names; nothing in localStorage); a reload restores it all (average 2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify([CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, OVERVIEW_KEY].filter((k) => stored[1].includes(k)).sort()) && stored[1].includes(OVERVIEW_KEY) && stored[2] === 0 && JSON.stringify(back) === JSON.stringify({ t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "9,000"], net: "613370.68" }), { stored, back });
-        // Clearing June (and Save) empties it.
-        await p3.getByTestId("pf-month-expenses").fill("");
-        await p3.getByTestId("pf-month-income").fill("");
-        await p3.getByTestId("pf-update-save").click();
-        const t2 = await ov();
+        const onLoad = await sel.inputValue();
+        await sel.selectOption("2026-06");
+        const back = { onLoad, t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), await val(p3.getByTestId("pf-person-wages"))], note: await note(), net: (await chart()).net };
+        const monthsStored = Object.keys(JSON.parse(rec3[MONTHS_KEY] ?? "{}"));
+        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} October and June (only PF names; nothing in localStorage); a reload opens October and June restores (2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === '["2026-06","2026-10"]' && JSON.stringify(back) === JSON.stringify({ onLoad: "2026-10", t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "613370.68" }), { stored, monthsStored, back });
+        // June back to October's lines (and Save): the average returns to 1,750 / 11,200.
+        await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
+        await p3.getByTestId("pf-person-wages").fill("134,400");
         await settle(p3);
-        const months = JSON.parse(((await record(p3)) ?? {})[OVERVIEW_KEY] ?? "{}").months;
-        check(`${tag} PF-27 clearing June's fields empties the month (average back to 1,750 / 11,200; dropped from storage)`, JSON.stringify(t2) === JSON.stringify(t0) && JSON.stringify(months) === "{}", { t2, months });
-        check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / Update)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
+        const t2 = await ov();
+        check(`${tag} PF-53 June saved as October's figures: the average back to 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify(t0), { t2 });
+        check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / month control)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
-        check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n").slice(0, 4).join(" | "));
       } finally {
         await p3.close().catch(() => {});
       }
@@ -997,7 +1008,7 @@ try {
         const condo = line(p4, "fixed", 2);
         const rec4 = (await record(p4)) ?? {};
         const got = { rate: await val(condo.getByTestId("pf-fx")), all: (await totals(p4, "all")).slice(2, 4), people: await p4.getByTestId("pf-person").count(), names: Object.keys(rec4).sort(), v2rate: JSON.parse(rec4[KEY] ?? "{}").fixed?.[2]?.rate, local: await p4.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("orpheus.finance."))) };
-        check(`${tag} PF-38 the old browser record is imported into the empty account: Condo's 0.2 → 5 (Total 1,750 / 21,000), saved as ${KEY} (no v1), the browser's keys removed`, JSON.stringify(got) === JSON.stringify({ rate: "5", all: ["1,750", "21,000"], people: 2, names: [CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY].sort(), v2rate: "5", local: [] }), got);
+        check(`${tag} PF-38 the old browser record is imported into the empty account: Condo's 0.2 → 5 (Total 1,750 / 21,000), saved as ${KEY} (no v1; #112 its lines the current month's), the browser's keys removed`, JSON.stringify(got) === JSON.stringify({ rate: "5", all: ["1,750", "21,000"], people: 2, names: [CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, MONTHS_KEY].sort(), v2rate: "5", local: [] }), got);
         await p4.evaluate((kv) => localStorage.setItem(kv[0], kv[1]), [LEGACY_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [] })]);
         await p4.reload({ waitUntil: "networkidle" });
         await ready(p4);

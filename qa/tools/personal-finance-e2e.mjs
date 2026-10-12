@@ -1,4 +1,4 @@
-// Personal Finance end-to-end (#98; #105 adds PF-40..47: toggles, hidden income lines, Update month, categories; spec attachments/personal-finance-spec.md section 17, PFE-01..13): one journey a
+// Personal Finance end-to-end (#98; #105 adds PF-40..47: toggles, hidden income lines, categories; #112 the month control; spec attachments/personal-finance-spec.md section 17, PFE-01..13): one journey a
 // CFO would type, on the preview, at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900.
 //
 //   Signed out (always): PFE-01 entry points (bar item, home Platforms Open, the URL) end on the sign-in form with
@@ -7,7 +7,7 @@
 //   Signed in (QA_EMAIL / QA_PASSWORD from env, e.g. the EL-named preview account qa-pf@orpheus.test; never logged,
 //   never created; through session.mjs's eachViewport, which always signs out): PFE-03 entry points signed in; PFE-04
 //   income; PFE-05 Brazilian Dividends 37,000 BRL at 3.70 → 10,000; PFE-06 expenses incl. Condo BRL at 5; PFE-07
-//   equity cover + override; PFE-08 Overview / Update (today fixed at 11 October 2026); PFE-09 Future at growth 5;
+//   equity cover + override; PFE-08 Overview / the month control (#112; today fixed at 11 October 2026); PFE-09 Future at growth 5;
 //   PFE-10 reload / second device / ?userId 403 / Not saved.; PFE-11 style + strict CLS 0 cold load of the full
 //   budget; PFE-13 the QA account's Personal Finance record is RESET before each viewport and left empty.
 //   PFE-12 (regression) is site-style-regression.mjs's run on the same preview.
@@ -254,17 +254,26 @@ try {
       const over = { fixed: (await totals(page, "fixed"))[4], all: (await totals(page, "all"))[4] };
       check(`${tag} PFE-07 ROIC 8 → Rate used 4%: Rent 300,000, Condo 120,000, Gifts 30,000 (totals 420,000 / 30,000 / 450,000); Rent override 250,000 → Fixed 370,000, Total 400,000`, f3.used === "4%" && JSON.stringify(f3.lines.map((l) => l[7])) === '["300,000","120,000","30,000"]' && JSON.stringify([f3.totals.fixed[4], f3.totals.variable[4], f3.totals.all[4]]) === '["420,000","30,000","450,000"]' && JSON.stringify(over) === '{"fixed":"370,000","all":"400,000"}', { used: f3.used, equity: f3.lines.map((l) => l[7]), totals: [f3.totals.fixed[4], f3.totals.variable[4], f3.totals.all[4]], over });
 
-      // PFE-08 Overview / Update.
+      // PFE-08 Overview and the month control (#112): Save October; June starts as its copy; June saved with one
+      // 4,000 expense and one person netting 9,000; back on October.
+      const unsaved = (await figures(page)).ov;
+      await settle(page);
       const ov0 = (await figures(page)).ov;
-      await page.getByTestId("pf-update-open").click();
       await page.getByTestId("pf-month").selectOption("2026-06");
-      await page.getByTestId("pf-month-expenses").fill("4,000");
-      await page.getByTestId("pf-month-income").fill("9,000");
-      await page.getByTestId("pf-update-save").click();
+      const note = (await txt(page.getByTestId("pf-month-note")));
+      while ((await page.getByTestId("pf-remove").count()) > 0) await page.getByTestId("pf-remove").first().click();
+      while ((await page.getByTestId("pf-remove-person").count()) > 0) await page.getByTestId("pf-remove-person").first().click();
+      await page.getByTestId("pf-add-fixed").click();
+      await line(page, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
+      await page.getByTestId("pf-add-person").click();
+      await page.getByTestId("pf-person-wages").first().fill("108,000");
+      await settle(page);
+      const juneSaved = { month: await page.getByTestId("pf-month").inputValue(), save: await page.getByTestId("pf-month-save").count(), note: await txt(page.getByTestId("pf-month-note")) };
+      await page.getByTestId("pf-month").selectOption("2026-10");
       await page.getByTestId("pf-start").fill("10,000");
       const f4 = await figures(page);
       const ch = await page.getByTestId("pf-chart").evaluate((f) => ({ lines: f.querySelectorAll(".recharts-line-curve").length, legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()) }));
-      check(`${tag} PFE-08 this month = the page (1,500 / 12,033.33 / 10,533.33); June 2026 typed 4,000 / 9,000 → average 2,750 / 10,516.67 / 7,766.67; (Update month → Save) start 10,000 → 12 months, three lines, net assets 103,200.00`, JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "1,500"], income: ["12,033.33", "12,033.33"], surplus: ["10,533.33", "10,533.33"] }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "2,750"], income: ["12,033.33", "10,516.67"], surplus: ["10,533.33", "7,766.67"] }) && (await page.getByTestId("pf-update-panel").count()) === 0 && f4.chart.months === "12" && f4.chart.net === "103200.00" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { ov0, ov: f4.ov, chart: f4.chart, ch });
+      check(`${tag} PFE-08 (#112) 04 follows saved months (— before the first Save); this month = October saved (1,500 / 12,033.33 / 10,533.33); June copied ("Copied from October 2026 — edit and save."), saved as 4,000 / 9,000 (stays on June, note gone) → average 2,750 / 10,516.67 / 7,766.67; start 10,000 → 12 months, three lines, net assets 103,200.00`, JSON.stringify(unsaved) === JSON.stringify({ expenses: ["—", "—"], income: ["—", "—"], surplus: ["—", "—"] }) && JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "1,500"], income: ["12,033.33", "12,033.33"], surplus: ["10,533.33", "10,533.33"] }) && note === "Copied from October 2026 — edit and save." && JSON.stringify(juneSaved) === JSON.stringify({ month: "2026-06", save: 0, note: "" }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "2,750"], income: ["12,033.33", "10,516.67"], surplus: ["10,533.33", "7,766.67"] }) && f4.chart.months === "12" && f4.chart.net === "103200.00" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { unsaved, ov0, note, juneSaved, ov: f4.ov, chart: f4.chart, ch });
 
       // PFE-09 Future at a typed growth rate.
       await page.getByTestId("pf-growth").fill("5");
@@ -325,13 +334,15 @@ try {
       await ready(page);
       await page.route(`**${API}`, (rt) => (rt.request().method() === "PUT" ? rt.abort() : rt.continue()));
       await page.getByTestId("pf-person").nth(0).getByTestId("pf-person-name").fill("Me 2");
+      await page.getByTestId("pf-month-save").click();
       await page.waitForTimeout(1200);
       const failed = await txt(page.getByTestId("pf-save"));
       await page.unroute(`**${API}`);
+      await settle(page);
       await page.getByTestId("pf-person").nth(0).getByTestId("pf-person-name").fill("Me");
       await settle(page);
       const cleared = await txt(page.getByTestId("pf-save"));
-      check(`${tag} PFE-10 an aborted save shows \`Not saved.\`; the next saved change clears it`, failed === "Not saved." && cleared === "", { failed, cleared });
+      check(`${tag} PFE-10 an aborted Save shows \`Not saved.\`; the next Save clears it`, failed === "Not saved." && cleared === "", { failed, cleared });
 
       // PFE-11 strict CLS 0 on a cold load of the full budget (a new page, cache disabled).
       const coldLoads = async () => {

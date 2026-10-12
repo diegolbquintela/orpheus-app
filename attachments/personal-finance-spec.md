@@ -1,4 +1,4 @@
-# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update, #102 account + foreign income, #98 end-to-end, #105 usability)
+# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update, #102 account + foreign income, #98 end-to-end, #105 usability, #112 month control)
 
 Source of truth for the Personal Finance page, with `attachments/site-style-spec.md` for everything the shared dark
 shell already rules (bar, footer, tokens, AA, CLS 0, no painting, no instruction text). Harness first, then this
@@ -29,6 +29,8 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 21:43 ET | **EL on #105 (PR #106 at `7451f48`; docs-only, no code change): Q35–Q39 decided, all as built.** **Q35** omit the Update helper sentence (no-instruction-text wins; the brief said optional). **Q36** "Charts" = the whole `04` Overview; `05` Update and the household currency stay outside the collapse. **Q37** toggle state on the account (correct for #102). **Q38** the category filter is not persisted; subtotals include `No category`; the filter has no `No category` choice. **Q39** Update figures save on `Save` (not every keystroke); the panel always opens on the current month. |
 | 2026-10-11, ≈ 19:38 ET | **#98 kickoff (Diego via CoS; EL): full end-to-end test** of the page and its entry points after #84–#87, #97, #94, #102 (section 17, PFE-01..13). A **test** ticket: no product change (defects become follow-ups). One CFO journey typed through the UI (income incl. the foreign person, expenses incl. a foreign line, equity cover, Overview / Update, Future), then save / reload / another device / isolation / `Not saved.`, the style rules and the regression suite. Signed in as the EL-named preview account `qa-pf@orpheus.test` (throwaway; the tool resets its record) with `QA_EMAIL` / `QA_PASSWORD` from env; signed out always. Tool: `qa/tools/personal-finance-e2e.mjs` (extends the `personal-finance.mjs` helpers; runnable against the preview URL). Q32–Q34 decided by EL ≈ 20:02 ET (below). |
 | 2026-10-11, ≈ 17:48 ET | **#102 kickoff (Diego via CoS; EL):** extends #87 (section 16). **(1) Rate direction changes for every FX rate on the page:** a rate is now **units of the foreign currency per 1 unit of the household (master) currency** (label e.g. `FX rate (BRL per 1 CAD)`; `3.70` means 3.70 BRL = 1 CAD); **household amount = foreign amount ÷ rate** (was × rate, Q12 superseded). **Migration:** stored v1 expense lines carry the old direction unambiguously (the key itself says v1), so they are **inverted once** (rate → 1 ÷ rate, 6 decimals, trailing zeros dropped; a bad / empty rate kept as typed) into the bumped key `orpheus.finance.expenses.v2`. **(2) Foreign income:** each person (= an income line in this model; the issue's "person or income line") gets a `Foreign` box; ticked, it shows `Currency`, `FX rate (<code> per 1 <household>)` and `Converted (yearly)` (the person's Net ÷ rate); the income table, `Net income`, `% of income` and the Overview use the converted figure. #87's expense-line `Currency` / `FX rate` stay (new direction). **(3) Sign-in required:** `/personal-finance` is for signed-in users only; signed out → 307 to `/dashboard/sign-in?next=/personal-finance` (the existing Better Auth email/password and the dashboard's server session check; no second auth system; #90 untouched). **(4) Account persistence:** the five PF values are stored against the account (`personal_finance` table, `GET` / `PUT` / `DELETE /api/personal-finance`), so another device loads the same data; this browser's old `localStorage` values are imported once into an empty account, then removed. Simplest readings, open for EL: Q24–Q31. |
+| 2026-10-12, ≈ 11:22 ET | **#112 kickoff (Diego via CoS; EL):** very high; a month control replaces `05 Update`. Business user: the CFO. Stopped and asked: per-month lines and explicit Save conflict with sections 15 / 18 (totals-only months, autosave). |
+| 2026-10-12, ≈ 11:23 ET | **EL picked option A (decisions 1–7, `attachments/pf-month-control-design.md`):** each month owns its lines; explicit Save for every month; empty past month copies the current saved lines with `Copied from [month] — edit and save.`; old totals-only months keep their totals until saved; rollover copies the latest month with lines; equity cover / FX rates follow the lines; month figure = that month's Total + Net income. Supersedes PF-28, PF-43 (Update) and the "every change saves" of PF-31 / PF-36 / PF-41 for everything but the section toggles. |
 
 ## 2. The brief (verbatim, issue #84)
 
@@ -749,3 +751,25 @@ the Update panel stacked. From 1024 px: `Category` is the last column before rem
 | PF-45 | (#105) Filter: `Filter by category` (`All` then the categories) above the groups shows only the lines in that category in both groups; `Fixed total`, `Variable total`, `Total`, every `% of expenses` / `% of income` and `Equity to cover` stay the whole page's; a line added while filtered takes the filter's category; the filter is not stored (a reload shows `All`). |
 | PF-46 | (#105) Subtotals: when any line has a category, `By category` (`h3`) after `Total` lists each used category (in the order added), then `No category` for the rest, with `% of expenses`, `Monthly`, `Yearly` in the household currency (`—` as Q14); the rows sum to `Total`; categories and the filter never change the master totals. |
 | PF-47 | (#105) Layout and regression at 360 / 400 / 1024 / 1440: `Category` under `Account` on a phone, the last column before remove from 1024 px; the subtotal rows and the Update panel stack on a phone; 44 px controls, AA, axe, no horizontal scroll, strict CLS 0 (empty, restored, restored with a section closed); PF-01..39 and PFE-01..13 hold as amended; the signed-out 307 gate and `safeNext` unchanged. |
+
+## 19. Month control (#112; PF-48..PF-58; EL option A, decisions in `attachments/pf-month-control-design.md`)
+
+Business user: the CFO. Manual only (no Plaid). No calculation, currency-model, sign-in or roles change.
+
+19.1 **Copy (exact).** Under the title: label `Month` and a select showing `<Month> <yyyy>` (e.g. `October 2026`),
+options the last 12 months newest first. `Save` (a button) next to it only while something is unsaved. The note
+`Copied from <Month> <yyyy> — edit and save.` under the control while a copied month is shown. Switching with unsaved
+changes: the browser confirm `Discard unsaved changes?`. A failed save: `Not saved.` (as today). `05` `Update` and
+its panel are gone; `04` `Overview` is the last section.
+
+19.2 **Rules.** Section 19 of the design (decisions 1–7). The month figure (section 15.2 Q17 amended): a month saved
+with lines → its `Total` Monthly / `Net income` Monthly when above 0; else an old typed total (`overview.v1.months`);
+else empty. The averages, net assets and Future are unchanged otherwise, and use saved months only (edits show in
+the month's own tables at once, in `04` after Save).
+
+19.3 **Storage.** `orpheus.finance.months.v1` (design section 3); record limit 1 MB; 24 months kept.
+
+19.4 **Layout.** The control and `Save` on one row under the title (wrapping on a phone), the select ≥ 44 px tall and
+≤ 16rem, `Save` the 44 px chalk text button; the note 14 px dim. Nothing moves when `Save` appears (its slot is
+reserved), strict CLS 0. No gold.
+

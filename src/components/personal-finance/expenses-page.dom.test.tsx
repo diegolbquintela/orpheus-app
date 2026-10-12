@@ -10,6 +10,7 @@ import { EQUITY_KEY } from "@/lib/finance/equity";
 import { CURRENCY_KEY } from "@/lib/finance/currency";
 import { OVERVIEW_KEY } from "@/lib/finance/overview";
 import { VIEW_KEY } from "@/lib/finance/view";
+import { MONTHS_KEY } from "@/lib/finance/months";
 import { PersonalFinancePage } from "./expenses-page";
 import { loadLocalStore } from "@/lib/finance/account-client";
 
@@ -18,11 +19,11 @@ let container: HTMLElement | undefined;
 
 // #94: a fixed "today" (11 October 2026, local) so the 12 months are known.
 const NOW = new Date(2026, 9, 11, 12);
-async function render(): Promise<HTMLElement> {
+async function render(now: Date = NOW, readOnly = false): Promise<HTMLElement> {
   container = dom.window.document.createElement("div");
   dom.window.document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadLocalStore} />));
+  await act(async () => root!.render(<PersonalFinancePage now={now} loadStore={loadLocalStore} readOnly={readOnly} />));
   return container;
 }
 
@@ -57,6 +58,17 @@ const q = (el: ParentNode, id: string) => el.querySelector(`[data-testid="${id}"
 const qa = (el: ParentNode, id: string) => [...el.querySelectorAll(`[data-testid="${id}"]`)];
 const text = (el: ParentNode, id: string) => q(el, id).textContent;
 const lines = (el: HTMLElement, group: string) => qa(q(el, `pf-group-${group}`), "pf-line");
+// #112: `Save` writes the whole record (the shown month's lines and every shared value).
+const SAVED_KEYS = [STORAGE_KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY, MONTHS_KEY].sort();
+// #112: nothing is stored until `Save` (shown only while something is unsaved).
+async function saveNow() {
+  const button = container?.querySelector('[data-testid="pf-month-save"]');
+  if (button) await click(button);
+}
+async function persisted(key: string): Promise<string> {
+  await saveNow();
+  return dom.window.localStorage.getItem(key) ?? "null";
+}
 
 describe("personal finance page (#84)", () => {
   it("exact copy: title, section, groups, column labels, add buttons, totals (PF-02)", async () => {
@@ -64,7 +76,7 @@ describe("personal finance page (#84)", () => {
     assert.equal(el.querySelector("h1")!.textContent, "Personal finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
-      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Overview", "Update"],
+      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Overview"],
     );
     for (const head of qa(el, "pf-head"))
       assert.deepEqual(
@@ -92,7 +104,6 @@ describe("personal finance page (#84)", () => {
         "↳ Add expense",
         "Overview",
         "Future",
-        "Update month",
       ],
     );
     assert.deepEqual(
@@ -188,8 +199,8 @@ describe("personal finance page (#84)", () => {
     await type(q(l, "pf-account"), "__add-account__");
     await type(q(l, "pf-new-account-input"), "Visa");
     await click(q(l, "pf-new-account-add"));
-    const stored = JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!);
-    assert.deepEqual(Object.keys(dom.window.localStorage), [STORAGE_KEY]);
+    const stored = JSON.parse(await persisted(STORAGE_KEY));
+    assert.deepEqual(Object.keys(dom.window.localStorage).sort(), SAVED_KEYS);
     assert.deepEqual(stored.accounts, ["Visa"]);
     assert.deepEqual(
       { ...stored.variable[0], id: "" },
@@ -205,6 +216,7 @@ describe("personal finance page (#84)", () => {
         category: "",
       },
     );
+    await saveNow();
     await act(async () => root!.unmount());
     container!.remove();
     const again = await render();
@@ -326,7 +338,7 @@ describe("income block (#85)", () => {
     await type(q(spouse, "pf-person-wages"), "lots");
     assert.equal(q(spouse, "pf-error").textContent, "Enter a number, 0 or more.");
     // Storage and reload.
-    const stored = JSON.parse(dom.window.localStorage.getItem(INCOME_KEY)!);
+    const stored = JSON.parse(await persisted(INCOME_KEY));
     assert.deepEqual(
       { ...stored.people[0], id: "" },
       {
@@ -343,7 +355,8 @@ describe("income block (#85)", () => {
         rate: "",
       },
     );
-    assert.deepEqual(Object.keys(dom.window.localStorage).sort(), [INCOME_KEY, STORAGE_KEY].sort());
+    assert.deepEqual(Object.keys(dom.window.localStorage).sort(), SAVED_KEYS);
+    await saveNow();
     await act(async () => root!.unmount());
     container!.remove();
     const again = await render();
@@ -450,15 +463,16 @@ describe("equity cover (#86, option A)", () => {
     assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"], "Q9: a bad override falls back");
     await type(q(rent, "pf-equity"), "250,000");
     // Storage: three keys; the rates as typed.
-    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(EQUITY_KEY)!), {
+    assert.deepEqual(JSON.parse(await persisted(EQUITY_KEY)), {
       withdrawal: "",
       roic: "8",
     });
     assert.deepEqual(
       Object.keys(dom.window.localStorage).sort(),
-      [EQUITY_KEY, STORAGE_KEY].sort(),
-      "income untouched: not written",
+      SAVED_KEYS,
+      "#112: Save writes the whole record",
     );
+    await saveNow();
     await act(async () => root!.unmount());
     container!.remove();
     const again = await render();
@@ -599,12 +613,13 @@ describe("equity cover (#86, option A)", () => {
       null,
       "household untouched: not written",
     );
-    const stored = JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!);
+    const stored = JSON.parse(await persisted(STORAGE_KEY));
     assert.deepEqual([stored.fixed[2].currency, stored.fixed[2].rate], ["BRL", "5"]);
     await type(q(el, "pf-household"), "USD");
-    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(CURRENCY_KEY)!), {
+    assert.deepEqual(JSON.parse(await persisted(CURRENCY_KEY)), {
       household: "USD",
     });
+    await saveNow();
     await act(async () => root!.unmount());
     container!.remove();
     const again = await render();
@@ -619,7 +634,7 @@ describe("equity cover (#86, option A)", () => {
       ["pf-total-monthly", "pf-total-yearly"].map((f) => text(q(again, "pf-total-fixed"), f)),
       ["3,250", "39,000"],
     );
-    assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[2].rate, "5");
+    assert.equal(JSON.parse(await persisted(STORAGE_KEY)).fixed[2].rate, "5");
   });
 
   it("a v1.3 stored line restores as a household line; a malformed currency key reads as CAD (PF-25)", async () => {
@@ -641,19 +656,40 @@ describe("equity cover (#86, option A)", () => {
   });
 });
 
-describe("Overview and Update (#94, PF-26..31)", () => {
+describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () => {
   const ov = (el: HTMLElement, row: string) =>
     [q(el, `pf-ov-${row}`)].map((r) => [text(r, "pf-ov-now"), text(r, "pf-ov-avg")])[0];
-  // #105 (PF-43): Update month → the panel → Save.
-  async function updateMonth(el: HTMLElement, month: string, expenses?: string, income?: string) {
-    if (!el.querySelector('[data-testid="pf-update-panel"]')) await click(q(el, "pf-update-open"));
-    await type(q(el, "pf-month"), month);
-    if (expenses !== undefined) await type(q(el, "pf-month-expenses"), expenses);
-    if (income !== undefined) await type(q(el, "pf-month-income"), income);
-    await click(q(el, "pf-update-save"));
+  const month = (el: HTMLElement) => q(el, "pf-month") as HTMLSelectElement;
+  const hasSave = (el: HTMLElement) => qa(el, "pf-month-save").length === 1;
+  const monthly = (line: Element) =>
+    (line.querySelector('[data-testid="pf-monthly"]') as HTMLInputElement).value;
+  const LINE = {
+    id: "rent",
+    name: "Rent",
+    amount: "1,750",
+    per: "month",
+    equity: "",
+    account: "",
+    currency: "",
+    rate: "",
+    category: "",
+  };
+  async function confirmWith(answer: boolean, run: () => Promise<void>) {
+    const asked: string[] = [];
+    const before = dom.window.confirm;
+    dom.window.confirm = (message?: string) => {
+      asked.push(String(message));
+      return answer;
+    };
+    try {
+      await run();
+    } finally {
+      dom.window.confirm = before;
+    }
+    return asked;
   }
 
-  it("copy and a new page: all —, Future off, 12 months newest first (PF-26, PF-28)", async () => {
+  it("copy and a new page: all —, Future off, the month control, no Update (PF-26, PF-48)", async () => {
     const el = await render();
     const table = q(el, "pf-ov-table");
     assert.deepEqual(
@@ -670,141 +706,170 @@ describe("Overview and Update (#94, PF-26..31)", () => {
       ["Starting net assets", "Growth rate (%)"],
     );
     assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
-    assert.equal(qa(el, "pf-year").length, 0);
-    assert.deepEqual(
-      [...q(el, "pf-legend").children].map((c) => c.textContent),
-      ["Expenses", "Income", "Net assets"],
-    );
-    assert.equal(
-      q(el, "pf-chart").querySelector(".pf-chart-plot")!.getAttribute("aria-hidden"),
-      "true",
-    );
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
-    assert.deepEqual(
-      [...q(el, "pf-update").querySelectorAll("label")].map((l) => l.textContent),
-      [],
-      "#105: only the Update month button until it is pressed",
-    );
-    assert.equal(text(el, "pf-update-open"), "Update month");
-    assert.equal(q(el, "pf-update-open").getAttribute("aria-expanded"), "false");
-    await click(q(el, "pf-update-open"));
-    assert.equal(q(el, "pf-update-open").getAttribute("aria-expanded"), "true");
-    assert.deepEqual(
-      [...q(el, "pf-update").querySelectorAll("label")].map((l) => l.textContent),
-      ["Month", "Expenses", "Income"],
-    );
-    assert.deepEqual(
-      [...q(el, "pf-update-panel").querySelectorAll("button")].map((b) => b.textContent),
-      ["Save", "Cancel"],
-    );
-    const options = [...(q(el, "pf-month") as HTMLSelectElement).options].map((o) => o.textContent);
+    assert.equal(qa(el, "pf-update").length, 0, "#112: 05 Update is gone");
+    assert.equal(q(el, "pf-month-control").querySelector("label")!.textContent, "Month");
+    const options = [...month(el).options].map((o) => o.textContent);
     assert.equal(options.length, 12);
     assert.equal(options[0], "October 2026");
     assert.equal(options[4], "June 2026");
     assert.equal(options[11], "November 2025");
-    assert.equal((q(el, "pf-month") as HTMLSelectElement).value, "2026-10");
-    assert.equal(
-      dom.window.localStorage.getItem(OVERVIEW_KEY),
-      null,
-      "nothing written until a change",
-    );
+    assert.equal(month(el).value, "2026-10");
+    assert.equal(hasSave(el), false, "Save hidden when nothing changed");
+    assert.equal(text(el, "pf-month-note"), "");
+    assert.equal(dom.window.localStorage.length, 0, "nothing written");
   });
 
-  it("the page figures, a typed past month updates the average, net assets, Future (PF-27, PF-29, PF-30)", async () => {
+  it("explicit Save, a copied past month, the averages after Save, discard confirm (PF-27, PF-29, PF-30, PF-49..54)", async () => {
     const el = await render();
-    // The page: one 1,750 monthly expense, one person netting 11,200 a month (134,400 a year, no tax).
     await click(q(el, "pf-add-fixed"));
     await type(lines(el, "fixed")[0].querySelector('[data-testid="pf-monthly"]')!, "1,750");
     await click(q(el, "pf-add-person"));
     await type(q(el, "pf-person-wages"), "134,400");
+    assert.equal(hasSave(el), true, "a change shows Save");
+    assert.equal(dom.window.localStorage.length, 0, "no autosave");
+    assert.deepEqual(ov(el, "expenses"), ["—", "—"], "04 follows saved months");
+    await click(q(el, "pf-month-save"));
+    assert.equal(hasSave(el), false, "Save hides after saving");
     assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"]);
     assert.deepEqual(ov(el, "income"), ["11,200", "11,200"]);
-    // Current month: placeholders are the page figures.
-    await click(q(el, "pf-update-open"));
-    assert.equal(q(el, "pf-month-expenses").getAttribute("placeholder"), "1,750");
-    await type(q(el, "pf-month"), "2026-06");
-    assert.equal(
-      q(el, "pf-month-expenses").getAttribute("placeholder"),
-      "1,750",
-      "a past month: the average",
-    );
-    await type(q(el, "pf-month-expenses"), "4,000");
-    await type(q(el, "pf-month-income"), "9,000");
-    assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"], "#105: nothing changes before Save");
-    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
-    await click(q(el, "pf-update-save"));
-    assert.equal(qa(el, "pf-update-panel").length, 0, "Save closes the panel");
-    assert.equal(dom.window.document.activeElement, q(el, "pf-update-open"));
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    // An empty past month: a copy of the current saved lines and the note; nothing stored.
+    await type(month(el), "2026-06");
+    assert.equal(month(el).value, "2026-06");
+    assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
+    assert.equal(hasSave(el), true, "a copy is unsaved");
+    assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    await type(lines(el, "fixed")[0].querySelector('[data-testid="pf-monthly"]')!, "4,000");
+    await type(q(el, "pf-person-wages"), "108,000");
+    await click(q(el, "pf-month-save"));
+    assert.equal(month(el).value, "2026-06", "stays on the saved month");
+    assert.equal(text(el, "pf-month-note"), "");
+    assert.equal(hasSave(el), false);
     assert.deepEqual(ov(el, "expenses"), ["1,750", "2,875"]);
     assert.deepEqual(ov(el, "income"), ["11,200", "10,100"]);
     assert.deepEqual(ov(el, "surplus"), ["9,450", "7,225"]);
+    const stored = JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!);
+    assert.deepEqual(Object.keys(stored), ["2026-06", "2026-10"]);
+    assert.equal(stored["2026-10"].fixed[0].amount, "1,750", "the current month unchanged");
+    assert.equal(stored["2026-06"].fixed[0].amount, "4,000");
+    // Shared values: Starting net assets shows Save; the chart; Future.
     await type(q(el, "pf-start"), "10,000");
+    assert.equal(hasSave(el), true);
     assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "96700.00");
-    // Future.
     await type(q(el, "pf-growth"), "5");
     await click(q(el, "pf-future-toggle"));
-    assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "true");
-    assert.deepEqual(
-      qa(el, "pf-year").map((b) => [b.textContent, b.getAttribute("aria-pressed")]),
-      [
-        ["1 year", "true"],
-        ["5 years", "false"],
-        ["10 years", "false"],
-        ["15 years", "false"],
-      ],
-    );
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "24");
     assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "190204.37");
     await click(qa(el, "pf-year")[1]);
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "72");
     assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "613370.68");
-    // A bad growth rate: the check, counts as 0.
     await type(q(el, "pf-growth"), "five");
     assert.equal(text(q(el, "pf-overview"), "pf-error"), "Enter a number, 0 or more.");
-    assert.equal(
-      q(el, "pf-chart").getAttribute("data-net-last"),
-      String((96700 + 60 * 7225).toFixed(2)),
-    );
-    // A typed current month replaces the page; clearing June empties it.
-    await updateMonth(el, "2026-10", "2,000");
-    assert.deepEqual(ov(el, "expenses"), ["2,000", "3,000"]);
-    await click(q(el, "pf-update-open"));
-    await type(q(el, "pf-month"), "2026-06");
-    assert.equal((q(el, "pf-month-expenses") as HTMLInputElement).value, "4,000");
-    await updateMonth(el, "2026-06", "", "");
-    assert.deepEqual(ov(el, "expenses"), ["2,000", "2,000"]);
-    // Off again: the chart ends at the current month.
-    await click(q(el, "pf-future-toggle"));
-    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
+    // Switching with unsaved changes asks; Cancel keeps the month and the edits; OK drops them.
+    let asked = await confirmWith(false, () => type(month(el), "2026-10"));
+    assert.deepEqual(asked, ["Discard unsaved changes?"]);
+    assert.equal(month(el).value, "2026-06");
+    assert.equal((q(el, "pf-start") as HTMLInputElement).value, "10,000");
+    asked = await confirmWith(true, () => type(month(el), "2026-10"));
+    assert.equal(asked.length, 1);
+    assert.equal(month(el).value, "2026-10");
+    assert.equal((q(el, "pf-start") as HTMLInputElement).value, "", "unsaved shared edits dropped");
+    assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
+    assert.equal(hasSave(el), false);
+    // Undoing a change hides Save again; nothing unsaved → no question.
+    await type(q(el, "pf-start"), "5");
+    assert.equal(hasSave(el), true);
+    await type(q(el, "pf-start"), "");
+    assert.equal(hasSave(el), false);
+    asked = await confirmWith(false, () => type(month(el), "2026-06"));
+    assert.equal(asked.length, 0);
+    assert.equal(month(el).value, "2026-06");
+    assert.equal(monthly(lines(el, "fixed")[0]), "4,000", "a saved month shows its own lines");
+    assert.equal(text(el, "pf-month-note"), "");
   });
 
-  it("everything survives a reload from orpheus.finance.overview.v1 (PF-31)", async () => {
+  it("existing data: lines become the current month; old totals count until the month is saved (PF-31, PF-55)", async () => {
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ fixed: [LINE], variable: [], accounts: [], categories: [] }),
+    );
+    dom.window.localStorage.setItem(
+      OVERVIEW_KEY,
+      JSON.stringify({
+        start: "10,000",
+        growth: "5",
+        future: true,
+        years: 10,
+        months: { "2026-06": { expenses: "4,000", income: "" } },
+      }),
+    );
     let el = await render();
-    await type(q(el, "pf-start"), "10,000");
-    await type(q(el, "pf-growth"), "5");
-    await click(q(el, "pf-future-toggle"));
-    await click(qa(el, "pf-year")[2]);
-    await updateMonth(el, "2026-06", "4,000");
-    const saved = JSON.parse(dom.window.localStorage.getItem(OVERVIEW_KEY)!);
-    assert.deepEqual(saved, {
-      start: "10,000",
-      growth: "5",
-      future: true,
-      years: 10,
-      months: { "2026-06": { expenses: "4,000", income: "" } },
-    });
+    assert.equal(hasSave(el), false, "no change shown");
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    assert.deepEqual(ov(el, "expenses"), ["1,750", "2,875"], "the old June total still counts");
+    await type(month(el), "2026-06");
+    assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
+    assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
+    await click(q(el, "pf-month-save"));
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(OVERVIEW_KEY)!).months, {});
+    assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"]);
     await act(async () => root!.unmount());
     container!.remove();
     el = await render();
+    assert.equal(month(el).value, "2026-10", "opens on the current month");
     assert.equal((q(el, "pf-start") as HTMLInputElement).value, "10,000");
     assert.equal(qa(el, "pf-year")[2].getAttribute("aria-pressed"), "true");
-    assert.deepEqual(ov(el, "expenses"), ["—", "4,000"]);
     dom.window.localStorage.setItem(OVERVIEW_KEY, "{broken");
     await act(async () => root!.unmount());
     container!.remove();
     el = await render();
     assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
     assert.equal(qa(el, "pf-error").length, 0);
+  });
+
+  it("Q-M1: a read-only CFO sees an empty month's copy preview and note, never Save (PF-57)", async () => {
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ fixed: [LINE], variable: [], accounts: [], categories: [] }),
+    );
+    dom.window.localStorage.setItem(
+      MONTHS_KEY,
+      JSON.stringify({ "2026-10": { fixed: [LINE], variable: [], people: [] } }),
+    );
+    const before = dom.window.localStorage.getItem(MONTHS_KEY);
+    const el = await render(NOW, true);
+    await type(month(el), "2026-06");
+    assert.equal(month(el).value, "2026-06");
+    assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
+    assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
+    assert.equal(hasSave(el), false);
+    assert.equal(dom.window.localStorage.getItem(MONTHS_KEY), before);
+  });
+
+  it("rollover: a new empty month copies the most recent month with lines (PF-56)", async () => {
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }),
+    );
+    dom.window.localStorage.setItem(
+      MONTHS_KEY,
+      JSON.stringify({ "2026-10": { fixed: [LINE], variable: [], people: [] } }),
+    );
+    const el = await render(new Date(2026, 10, 1, 9));
+    assert.equal(month(el).value, "2026-11");
+    assert.equal([...month(el).options][0].textContent, "November 2026");
+    assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
+    assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
+    assert.equal(hasSave(el), true);
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    await click(q(el, "pf-month-save"));
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
+      "2026-10",
+      "2026-11",
+    ]);
+    assert.equal(text(el, "pf-month-note"), "");
   });
 });
 
@@ -855,7 +920,7 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     assert.equal(text(lines(el, "fixed")[0], "pf-income"), "10.0%");
     // Unticking keeps currency and rate stored; × 1 again.
     await click(q(p, "pf-person-foreign"));
-    const stored = JSON.parse(dom.window.localStorage.getItem(INCOME_KEY)!).people[0];
+    const stored = JSON.parse(await persisted(INCOME_KEY)).people[0];
     assert.deepEqual([stored.foreign, stored.currency, stored.rate], [false, "BRL", "3.70"]);
     assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "37,000");
   });
@@ -884,7 +949,7 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     assert.equal((q(lines(el, "fixed")[0], "pf-fx") as HTMLInputElement).value, "5");
     assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "400");
     assert.equal(dom.window.localStorage.getItem("orpheus.finance.expenses.v1"), null);
-    assert.equal(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).fixed[0].rate, "5");
+    assert.equal(JSON.parse(await persisted(STORAGE_KEY)).fixed[0].rate, "5");
   });
 });
 
@@ -913,9 +978,10 @@ describe("usability (#105, PF-40..46)", () => {
     assert.equal(qa(el, "pf-chart").length, 0);
     assert.ok(q(el, "pf-body-income").children.length > 0);
     assert.ok(el.querySelector("#pf-expenses-body"), "aria-controls target stays in the page");
-    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), {
+    assert.deepEqual(JSON.parse(await persisted(VIEW_KEY)), {
       closed: ["expenses", "overview"],
     });
+    await saveNow();
     await act(async () => root!.unmount());
     container!.remove();
     el = await render();
@@ -924,37 +990,9 @@ describe("usability (#105, PF-40..46)", () => {
     assert.equal(q(el, "pf-toggle-income").getAttribute("aria-expanded"), "true");
     await click(q(el, "pf-toggle-expenses"));
     assert.equal(qa(el, "pf-add-fixed").length, 1);
-    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), {
+    assert.deepEqual(JSON.parse(await persisted(VIEW_KEY)), {
       closed: ["overview"],
     });
-  });
-
-  it("Update month: Cancel and Escape discard; a bad amount stores nothing (PF-43)", async () => {
-    const el = await render();
-    await click(q(el, "pf-update-open"));
-    await type(q(el, "pf-month"), "2026-06");
-    await type(q(el, "pf-month-expenses"), "4,000");
-    await click(q(el, "pf-update-cancel"));
-    assert.equal(qa(el, "pf-update-panel").length, 0);
-    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
-    await click(q(el, "pf-update-open"));
-    assert.equal((q(el, "pf-month") as HTMLSelectElement).value, "2026-10", "opens on this month");
-    await type(q(el, "pf-month-income"), "9,000");
-    await act(async () => {
-      // Dispatched on the panel (its handler; jsdom + this React build drop the bubble from the input). The
-      // browser tools press Escape in a field for real.
-      q(el, "pf-update-panel").dispatchEvent(
-        new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
-    });
-    assert.equal(qa(el, "pf-update-panel").length, 0);
-    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
-    await click(q(el, "pf-update-open"));
-    await type(q(el, "pf-month-expenses"), "four");
-    await click(q(el, "pf-update-save"));
-    assert.equal(qa(el, "pf-update-panel").length, 1, "stays open");
-    assert.equal(text(q(el, "pf-update-panel"), "pf-error"), "Enter a number, 0 or more.");
-    assert.equal(dom.window.localStorage.getItem(OVERVIEW_KEY), null);
   });
 
   it("categories: add inline, filter, a new line under the filter, By category subtotals; master totals unchanged (PF-44..46)", async () => {
@@ -997,7 +1035,7 @@ describe("usability (#105, PF-40..46)", () => {
       "Home",
       "reused in any case",
     );
-    const stored = JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!);
+    const stored = JSON.parse(await persisted(STORAGE_KEY));
     assert.deepEqual(stored.categories, ["Home"]);
     assert.deepEqual(
       stored.fixed.map((l: { category: string }) => l.category),

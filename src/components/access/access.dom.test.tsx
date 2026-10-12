@@ -162,8 +162,8 @@ describe("denied and read-only (#90)", () => {
     assert.ok(controls.length > 10);
     assert.deepEqual(
       open.map((c) => c.getAttribute("data-testid")),
-      ["pf-toggle-income", "pf-toggle-expenses", "pf-toggle-overview"],
-      "only the section toggles stay enabled",
+      ["pf-month", "pf-toggle-income", "pf-toggle-expenses", "pf-toggle-overview"],
+      "only the month control (#112, PF-57) and the section toggles stay enabled",
     );
     await act(async () => (q(el, "pf-toggle-income") as HTMLButtonElement).click());
     assert.equal(q(el, "pf-toggle-income")?.getAttribute("aria-expanded"), "false");
