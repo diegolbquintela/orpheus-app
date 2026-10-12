@@ -247,7 +247,7 @@ average. Stored in `orpheus.finance.overview.v1`. Draft PR #101; EL accepted Q17
 
 **Landed: Personal Finance v1.1 and the lyre (#84, PR #88).** EL decisions: URL only; unitless amounts until #87;
 after #86 a typed `Equity to cover` overrides the calculated amount for its line (the calculated amount is the
-default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.
+default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope (since #50 replaced by the Orpheus icons).
 
 **Landed: home + top bar for Personal Finance (#97).** The bar reads Orpheus | Calculator, Dashboard, Personal
 finance (text only, the current item underlined; 12 px text below 640 px so all four fit at 360 px (#90: five items with `Account`, 11 px through 399 px); the word Orpheus kept, no sideways scroll; Q21, decided by EL). Home
@@ -546,3 +546,11 @@ skip this.
 - Never commit their values and never add a `.env` file.
 - Never paste secret values into issues, PRs, chat or notes.
 - `.vercel/output/` is build output and is git-ignored.
+
+**Template leftovers removed (#50).** The Grok app-builder template no longer ships: no
+`grok.com/grok-app-builder/extensions.js` (and so no `grok_device_id` / `__cf_bm` cookies on `.grok.com`), no
+`/__grok/*` manifest, icon or `?install=1` install page, no preview postMessage bridge. In their place a static
+`public/manifest.webmanifest` (`Orpheus Wisdom`, charcoal `#1e2124`) with `public/icons/icon-180.png`,
+`icon-512.png` and `apple-touch-icon.png`, rendered from `public/favicon.svg` by `node scripts/make-icons.mjs`.
+Installing is the browser's own (Share → Add to Home Screen). noindex meta + `X-Robots-Tag` unchanged. QA:
+`node qa/tools/no-grok.mjs --base-url <preview>` (NG-01..09).

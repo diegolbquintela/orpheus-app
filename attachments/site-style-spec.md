@@ -712,3 +712,23 @@ assumed white.
   - **EL answers (2026-10-11, ≈ 15:42 ET; docs-only commit, no code change):** Q21 and Q22 accepted as built (12 px /
     8 px below 640, 14 px / 24 px from 640, the word `Orpheus` kept, no sideways scroll; Dashboard line `The
     portfolio as a business.`).
+
+## 14. Template leftovers removed (#50)
+
+Decision log:
+
+| When | Decision |
+|------|----------|
+| 2026-10-12, ≈ 07:49 ET | **#50 kickoff (Diego via CoS; EL):** fresh draft PR off `main` `eb98e9a`; the paused PR #52 is not revived. Stop before cutting anything real (manifest, PWA install). |
+| 2026-10-12, ≈ 07:50 ET | **EL picked option A + cut the preview bridge:** remove the extensions.js injection and the whole Grok PWA / OG middleware, the `/__grok/*` assets and the `?install=1` page; replace the Grok-branded manifest (`Grok App`, black) with a static Orpheus one and icons 180 / 512 rendered from `favicon.svg`; retarget `apple-touch-icon`; delete the preview postMessage bridge. `.grok/` stays. |
+
+What existed before (production `eb98e9a`): every page loaded `https://grok.com/grok-app-builder/extensions.js`
+(which set `grok_device_id` and `__cf_bm` on `.grok.com`), linked `/__grok/manifest.webmanifest` (`Grok App`,
+black, one icon `/__grok/icon-180.png`) and `rel=apple-touch-icon` → `/__grok/icon-180.png`, had `twitter:card`
+`summary_large_image` and `og:title` injected, and `/?install=1&platform=ios` served an iOS "Add to Home Screen" tutorial.
+
+Now: `/manifest.webmanifest` (`Orpheus Wisdom`, `#1e2124`, standalone, icons `/icons/icon-180.png` and
+`/icons/icon-512.png`), `rel=apple-touch-icon` → `/icons/apple-touch-icon.png`; `og:title` and the two
+`apple-mobile-web-app-*` metas are set in the root head; `twitter:card` is dropped (there is no card image any more);
+`/?install=1` is no longer special (the #46 rule sends any `/?query` to `/calculator?query`, no tutorial); `/__grok/*` → 404. Acceptance NG-01..09, tool `qa/tools/no-grok.mjs`.
+

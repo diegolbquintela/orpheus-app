@@ -1,7 +1,6 @@
 import { Analytics } from "@vercel/analytics/react";
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteFooter } from "@/components/site-footer";
 import { NotFound } from "@/components/not-found";
 import { SiteMenu } from "@/components/site-menu";
@@ -31,7 +30,6 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body className={shellBodyClass(pathname, denied)}>
-        <PreviewHostBridge />
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
             <CurrentSiteMenu />
@@ -59,6 +57,10 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#1e2124" },
       // Keep the app out of search engines (pairs with the X-Robots-Tag route rule in vite.config.ts).
       { name: "robots", content: "noindex, nofollow" },
+      // Home Screen / installed-app chrome (#50: was injected by the removed Grok template middleware).
+      { name: "apple-mobile-web-app-title", content: "Orpheus Wisdom" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black" },
+      { property: "og:title", content: "Orpheus Wisdom" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -72,8 +74,9 @@ export const Route = createRootRoute({
         crossOrigin: "anonymous",
       },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      // #50: a static Orpheus manifest (public/manifest.webmanifest) and icons made from favicon.svg.
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
     ],
   }),
   component: RootDocument,

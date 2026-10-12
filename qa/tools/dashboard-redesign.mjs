@@ -86,12 +86,12 @@ for (const path of ["/", "/calculator", "/dashboard/sign-in"]) {
       check(`${path.split("?")[0]} one Vercel Analytics script`, scripts === 1, scripts);
     }
     await page.waitForTimeout(1500);
-    // Hosts that main already loads (not trackers): Google Fonts, and the platform head script injected at build
-    // time (scripts/grok-pwa-shared.mjs; its removal is PR #52, paused). Reported, not failed.
-    const KNOWN = /^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com)\/|^https:\/\/grok\.com\/grok-app-builder\/extensions\.js$/;
+    // Hosts that main already loads (not trackers): Google Fonts. The grok.com extensions.js is gone since #50
+    // (qa/tools/no-grok.mjs fails on it).
+    const KNOWN = /^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
     const other = foreign.filter((u) => !KNOWN.test(u));
     check("no request to any other host (no other tracker)", other.length === 0, other.slice(0, 5));
-    info("hosts loaded as on main (fonts, platform head script)", [...new Set(foreign.filter((u) => KNOWN.test(u)).map((u) => new URL(u).host))]);
+    info("hosts loaded as on main (fonts)", [...new Set(foreign.filter((u) => KNOWN.test(u)).map((u) => new URL(u).host))]);
     const custom = views.filter((b) => /"en"|\/event/.test(b));
     check("no custom analytics events", custom.length === 0, custom.length);
     if (views.length) check("page views carry no query string or hash", views.every((b) => !/\?|#|utm_source/.test(JSON.parse(b || "{}").o ?? "")), views.map((b) => JSON.parse(b || "{}").o));
