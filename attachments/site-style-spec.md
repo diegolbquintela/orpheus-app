@@ -160,6 +160,7 @@ Measured contrast (WCAG 2.x relative luminance; 4.5:1 for text, 3:1 for large te
   lyre in chalk on charcoal); see `attachments/personal-finance-spec.md` §8.
   **Tap targets (#72, QA N1 on #73):** each bar link is a 44 px tall hit area (the bar's full inner height;
   text and underline where they were), so the bar stays 45 px (44 + the 1 px `hair` rule) and ≤ 48 px (ST1-01).
+  **#90 (EL, 2026-10-12): five items with `Account`; through 399 px the bar text is 11 px (12 px from 400 to 639 px, 14 px from 640), gaps unchanged, the word `Orpheus` and `Personal finance` kept on one line (no wrap, no shortening).**
   **Four items on a phone (#97, Q21):** below 640 px the bar's text (`Orpheus` and the three links) is 12 px and the
   right links sit 8 px apart, so all four fit on one line at 360 px with the 20 px side padding (≈ 14 px left
   between `Orpheus` and `Calculator`); from 640 px 14 px text, 24 px apart (as before). **Decided (EL, Q21):** keep

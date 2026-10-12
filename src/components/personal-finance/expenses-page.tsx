@@ -58,7 +58,8 @@ import {
 import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { OverviewBlock } from "./overview-block";
-import { Cell, SectionHead } from "./pf-cells";
+import { Cell, Lock, SectionHead } from "./pf-cells";
+import { ReadOnlyLine } from "@/components/access/denied";
 
 import { type Overview, readOverview, writeOverview } from "@/lib/finance/overview";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
@@ -94,7 +95,8 @@ function storage(): StoreLike | null {
 export function PersonalFinancePage({
   now: fixedNow,
   loadStore = loadAccountStore,
-}: { now?: Date; loadStore?: LoadStore } = {}) {
+  readOnly = false,
+}: { now?: Date; loadStore?: LoadStore; readOnly?: boolean } = {}) {
   const [saveFailed, setSaveFailed] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -194,6 +196,7 @@ export function PersonalFinancePage({
         <header className="relative">
           <p className="pf-label">01</p>
           <h1 className="pf-title mt-2">Personal finance.</h1>
+          {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           <p className="pf-save" role="status" data-testid="pf-save">
             {saveFailed ? "Not saved." : ""}
           </p>
@@ -208,13 +211,16 @@ export function PersonalFinancePage({
         >
           {expenses && income && rates && household && overview && now && view ? (
             <>
-              <HouseholdCurrency value={household.household} onChange={updateHousehold} />
+              <Lock on={readOnly}>
+                <HouseholdCurrency value={household.household} onChange={updateHousehold} />
+              </Lock>
               <IncomeBlock
                 income={income}
                 update={updateIncome}
                 household={household.household}
                 open={isOpen(view, "income")}
                 onToggle={() => toggle("income")}
+                readOnly={readOnly}
               />
               <section
                 className="flex flex-col gap-8"
@@ -238,7 +244,7 @@ export function PersonalFinancePage({
                   data-testid="pf-body-expenses"
                 >
                   {isOpen(view, "expenses") ? (
-                    <>
+                    <Lock on={readOnly}>
                       <EquityRates rates={rates} update={updateRates} />
                       <CategoryFilter
                         categories={expenses.categories}
@@ -260,7 +266,7 @@ export function PersonalFinancePage({
                           updateLine={updateLine}
                         />
                       </div>
-                    </>
+                    </Lock>
                   ) : null}
                 </div>
               </section>
@@ -270,6 +276,7 @@ export function PersonalFinancePage({
                 now={now}
                 open={isOpen(view, "overview")}
                 onToggle={() => toggle("overview")}
+                readOnly={readOnly}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
                   income: monthly(netIncomeYearly(income.people, household.household)),

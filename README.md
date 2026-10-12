@@ -250,7 +250,7 @@ after #86 a typed `Equity to cover` overrides the calculated amount for its line
 default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.
 
 **Landed: home + top bar for Personal Finance (#97).** The bar reads Orpheus | Calculator, Dashboard, Personal
-finance (text only, the current item underlined; 12 px text below 640 px so all four fit at 360 px; the word Orpheus kept, no sideways scroll; Q21, decided by EL). Home
+finance (text only, the current item underlined; 12 px text below 640 px so all four fit at 360 px (#90: five items with `Account`, 11 px through 399 px); the word Orpheus kept, no sideways scroll; Q21, decided by EL). Home
 `02` Platforms has three full-width lines: Calculator, Dashboard ("The portfolio as a business.", Q22, decided by EL) and Personal
 finance ("Income, expenses, and the cover."). The finance page itself is unchanged.
 
@@ -344,6 +344,32 @@ DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@exa
   Previews derive their origin from `VERCEL_URL` / `VERCEL_BRANCH_URL`; production uses `BETTER_AUTH_URL`
   (set at the release go). Missing pieces make `/api/auth/*` answer 503 JSON ("not configured").
 - No email sender: no email verification and no password-reset email yet (spec §3).
+
+**Roles and account (#90; `attachments/roles-and-account-design.md`, ROLE-01..22).** One **owner**: the account whose
+email equals the server-only variable `ORPHEUS_OWNER_EMAIL` (case-insensitive). Personal Finance and the Dashboard
+always show the owner's data; anyone else sees it only through a grant the owner gives on `/account`: **CFO** →
+Personal Finance, **Portfolio Manager** → Dashboard, each `Read` or `Read and write` (one person may hold both).
+- **Fail closed:** with `ORPHEUS_OWNER_EMAIL` unset nobody (the owner included) can open Personal Finance or the
+  Dashboard: 403. Set it on Preview (and on Production at the release go) before anyone needs access.
+  `/api/dashboard/status` (previews only) shows `ownerEmail: "set" | "empty"`, never the value.
+- **Accounts:** the public `Create account` is gone; `DASHBOARD_SIGNUP_ALLOWLIST` is only for the owner's own
+  account (bootstrap: `POST /api/auth/sign-up/email`). Everyone else is created by the owner on `/account`
+  (`Add person`): a one-time temporary password, shown once, and a forced change at first sign-in. `Remove` revokes
+  access and sessions; accounts are never deleted. `Reset password` issues a new temporary password.
+- **Pages:** `/account` (behind the flag like sign-in; signed out → `/dashboard/sign-in?next=/account`): `01 You`,
+  `02 Password`, `03 Email` (blocked for the owner), `04 Who has access`, owner-only `05 Grant access`. Without a
+  read grant `/personal-finance` and `/dashboard` answer **403** with the dark shell and one line; `Read` shows the
+  page locked (`Read only`); the section toggles are stored per person. `DELETE /api/personal-finance` is
+  owner-only.
+- **APIs:** `GET /api/account/me`, `GET /api/account/who`, `POST /api/account/password`, `POST /api/account/email`,
+  `/api/account/access` (owner only: `GET`, `POST` add person, `PUT` grants, `DELETE ?userId=` remove),
+  `POST /api/account/reset` (owner only), `PUT /api/personal-finance/view` (own toggles). Writes refuse cross-site
+  and same-site requests (Fetch Metadata, 403). Sessions are read without the cookie cache, so a grant change or a
+  removal applies on the next request.
+- **Tables:** `access_grant` and `account_state` (`migrations/0011_access.sql`).
+- **QA:** `qa/tools/roles.mjs` (owner / CFO `Read` / Portfolio Manager `Read and write` / no grant). Locally:
+  `--bootstrap` on a throwaway database; on a preview the four accounts come from env (`QA_OWNER_*`, `QA_CFO_*`,
+  `QA_PM_*`, `QA_NONE_*`), never logged.
 
 **Dashboard holdings (T04).** Signed in, `/dashboard` lists your holdings and lets you add, edit and
 delete them. Each row shows the ticker's last stored close and its session date, or "price pending"
@@ -493,7 +519,7 @@ guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
   On production builds (`VERCEL_ENV=production`) it skips unless `DASHBOARD_ENABLED=true` there too.
 - With neither name set, dashboard storage is unavailable: `/dashboard` shows "Database: not configured".
   The app still builds, and the calculator never touches the database.
-- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 11/11 tables" when Neon is
+- On previews (flag on), `/dashboard` shows a status line, "Database: connected · 13/13 tables" when Neon is
   wired up. `GET /api/dashboard/db` returns the same status as JSON; other methods get 405 JSON with
   `Allow: GET, HEAD`. Both are hidden on production (the API is 404 there).
 - After a week of previews, check Neon's usage page against the Free plan limits (spec §4).

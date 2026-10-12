@@ -20,7 +20,7 @@ async function shell(page, path, want) {
   const nav = page.locator('nav[aria-label="Site"]');
   check(`${path}: menu visible`, await nav.isVisible());
   const links = await nav.locator('a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')]));
-  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal finance', '/personal-finance']]), links);
+  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal finance', '/personal-finance'], ['Account', '/account']]), links);
   const current = await nav.locator('[aria-current="page"]').allTextContents();
   check(`${path}: current page ${want ?? '(none)'}`, JSON.stringify(current) === JSON.stringify(want ? [want] : []), current);
   if (want) {

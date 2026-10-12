@@ -1,5 +1,6 @@
 import { migrateExpenses } from "./expenses";
 import { clearLegacy, prepareRecord, RecordStore } from "./record";
+import { VIEW_KEY } from "./view";
 
 /**
  * The page's store when signed in (#102; spec section 16.5): the account's record via `/api/personal-finance`,
@@ -9,6 +10,8 @@ import { clearLegacy, prepareRecord, RecordStore } from "./record";
  */
 export const API = "/api/personal-finance";
 export const SIGN_IN = "/dashboard/sign-in?next=/personal-finance";
+/** #90 Q-D11: a person's own section toggles (used when they may read but not write). */
+export const VIEW_API = "/api/personal-finance/view";
 const DEBOUNCE_MS = 400;
 
 function local(): Storage | null {
@@ -33,19 +36,35 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
     return new Promise<StoreLike>(() => {});
   }
   if (!res.ok) throw new Error(`load ${res.status}`);
-  const body = (await res.json()) as { data?: Record<string, string> | null };
-  const browser = local();
-  const prepared = prepareRecord(body.data ?? null, browser);
+  const body = (await res.json()) as {
+    data?: Record<string, string> | null;
+    access?: { owner?: boolean; write?: boolean };
+  };
+  // #90: the record is the owner's. Only the owner imports this browser's old values; without a write grant only
+  // the person's own section toggles are saved (`/api/personal-finance/view`, Q-D11).
+  const owner = body.access?.owner !== false;
+  const write = body.access?.write !== false;
+  const browser = owner ? local() : null;
+  const prepared = owner
+    ? prepareRecord(body.data ?? null, browser)
+    : { record: { ...(body.data ?? {}) }, imported: false, migrated: false };
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const put = async (keepalive = false): Promise<boolean> => {
     try {
-      const r = await fetch(API, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ data: store.snapshot() }),
-        keepalive,
-      });
+      const r = write
+        ? await fetch(API, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ data: store.snapshot() }),
+            keepalive,
+          })
+        : await fetch(VIEW_API, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ view: store.getItem(VIEW_KEY) ?? "" }),
+            keepalive,
+          });
       // Read the (small) reply so the request completes (an unread body keeps it open, e.g. for "network idle").
       await r.text().catch(() => "");
       onSaved(r.ok);
@@ -72,7 +91,7 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
   });
-  if (prepared.imported || prepared.migrated) {
+  if (write && (prepared.imported || prepared.migrated)) {
     const ok = await put();
     if (ok && prepared.imported) clearLegacy(browser);
   }

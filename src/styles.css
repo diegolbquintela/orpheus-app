@@ -405,6 +405,83 @@
     line-height: 1.5;
     color: var(--color-dim);
   }
+  /* #90 /account (ROLE-03, ROLE-21): the sign-in classes plus a few layout rules; dark, no gold, 44 px controls. */
+  .account-form {
+    display: flex;
+    max-width: 28rem;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .account-facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.375rem 2rem;
+    color: var(--color-chalk);
+    overflow-wrap: anywhere;
+  }
+  .account-facts dd + dt {
+    margin-top: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .account-facts {
+      grid-template-columns: 8rem minmax(0, 1fr);
+      align-items: baseline;
+    }
+    .account-facts dd + dt {
+      margin-top: 0;
+    }
+  }
+  .account-people {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-hair);
+  }
+  .account-person,
+  .account-grant-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--color-hair);
+    padding: 1rem 0;
+    color: var(--color-chalk);
+    overflow-wrap: anywhere;
+  }
+  .account-grant-row {
+    gap: 1rem;
+  }
+  .account-dim {
+    font-size: 0.875rem;
+    color: var(--color-dim);
+  }
+  .account-levels {
+    display: grid;
+    max-width: 28rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  @media (min-width: 640px) {
+    .account-levels {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .account-select {
+    cursor: pointer;
+    background-color: var(--color-night);
+  }
+  .account-temp {
+    display: flex;
+    max-width: 28rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid var(--color-hair);
+    padding: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .account-code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 1rem;
+    color: var(--color-chalk);
+  }
   /* Field checks (#78, spec §7 sizes; ST4-17): the message under its field, the underline in the alert colour. */
   .calc-error {
     display: block;
@@ -929,6 +1006,14 @@
   }
   .pf-section-body:empty {
     display: none;
+  }
+  /* #90 (ROLE-10): read-only content sits in a disabled fieldset that takes no box of its own. */
+  .pf-lock {
+    display: contents;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    min-width: 0;
   }
   /* #105 (PF-43, PF-45, PF-46): the Update panel, the category filter and the By category rows. */
   .pf-update {

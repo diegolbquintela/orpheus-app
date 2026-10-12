@@ -10,12 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as PersonalFinanceRouteImport } from './routes/personal-finance'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as ApiPersonalFinanceRouteImport } from './routes/api/personal-finance'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
+import { Route as ApiAccountAccessRouteImport } from './routes/api/account/access'
+import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
+import { Route as ApiAccountMeRouteImport } from './routes/api/account/me'
+import { Route as ApiAccountPasswordRouteImport } from './routes/api/account/password'
+import { Route as ApiAccountResetRouteImport } from './routes/api/account/reset'
+import { Route as ApiAccountWhoRouteImport } from './routes/api/account/who'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronDailyRefreshRouteImport } from './routes/api/cron/daily-refresh'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
@@ -27,11 +34,17 @@ import { Route as ApiDashboardMeRouteImport } from './routes/api/dashboard/me'
 import { Route as ApiDashboardRefreshRouteImport } from './routes/api/dashboard/refresh'
 import { Route as ApiDashboardSettingsRouteImport } from './routes/api/dashboard/settings'
 import { Route as ApiDashboardStatusRouteImport } from './routes/api/dashboard/status'
+import { Route as ApiPersonalFinanceViewRouteImport } from './routes/api/personal-finance_.view'
 import { Route as ApiDashboardHoldingsIdRouteImport } from './routes/api/dashboard/holdings_.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalculatorRoute = CalculatorRouteImport.update({
@@ -62,6 +75,36 @@ const ApiPersonalFinanceRoute = ApiPersonalFinanceRouteImport.update({
 const DashboardSignInRoute = DashboardSignInRouteImport.update({
   id: '/dashboard_/sign-in',
   path: '/dashboard/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountAccessRoute = ApiAccountAccessRouteImport.update({
+  id: '/api/account/access',
+  path: '/api/account/access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountEmailRoute = ApiAccountEmailRouteImport.update({
+  id: '/api/account/email',
+  path: '/api/account/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountMeRoute = ApiAccountMeRouteImport.update({
+  id: '/api/account/me',
+  path: '/api/account/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountPasswordRoute = ApiAccountPasswordRouteImport.update({
+  id: '/api/account/password',
+  path: '/api/account/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountResetRoute = ApiAccountResetRouteImport.update({
+  id: '/api/account/reset',
+  path: '/api/account/reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountWhoRoute = ApiAccountWhoRouteImport.update({
+  id: '/api/account/who',
+  path: '/api/account/who',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -119,6 +162,11 @@ const ApiDashboardStatusRoute = ApiDashboardStatusRouteImport.update({
   path: '/api/dashboard/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPersonalFinanceViewRoute = ApiPersonalFinanceViewRouteImport.update({
+  id: '/api/personal-finance_/view',
+  path: '/api/personal-finance/view',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDashboardHoldingsIdRoute = ApiDashboardHoldingsIdRouteImport.update({
   id: '/api/dashboard/holdings_/$id',
   path: '/api/dashboard/holdings/$id',
@@ -127,12 +175,19 @@ const ApiDashboardHoldingsIdRoute = ApiDashboardHoldingsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
+  '/api/account/access': typeof ApiAccountAccessRoute
+  '/api/account/email': typeof ApiAccountEmailRoute
+  '/api/account/me': typeof ApiAccountMeRoute
+  '/api/account/password': typeof ApiAccountPasswordRoute
+  '/api/account/reset': typeof ApiAccountResetRoute
+  '/api/account/who': typeof ApiAccountWhoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
@@ -144,16 +199,24 @@ export interface FileRoutesByFullPath {
   '/api/dashboard/refresh': typeof ApiDashboardRefreshRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
+  '/api/personal-finance/view': typeof ApiPersonalFinanceViewRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
+  '/api/account/access': typeof ApiAccountAccessRoute
+  '/api/account/email': typeof ApiAccountEmailRoute
+  '/api/account/me': typeof ApiAccountMeRoute
+  '/api/account/password': typeof ApiAccountPasswordRoute
+  '/api/account/reset': typeof ApiAccountResetRoute
+  '/api/account/who': typeof ApiAccountWhoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
@@ -165,17 +228,25 @@ export interface FileRoutesByTo {
   '/api/dashboard/refresh': typeof ApiDashboardRefreshRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
+  '/api/personal-finance/view': typeof ApiPersonalFinanceViewRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
+  '/api/account/access': typeof ApiAccountAccessRoute
+  '/api/account/email': typeof ApiAccountEmailRoute
+  '/api/account/me': typeof ApiAccountMeRoute
+  '/api/account/password': typeof ApiAccountPasswordRoute
+  '/api/account/reset': typeof ApiAccountResetRoute
+  '/api/account/who': typeof ApiAccountWhoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
@@ -187,18 +258,26 @@ export interface FileRoutesById {
   '/api/dashboard/refresh': typeof ApiDashboardRefreshRoute
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
+  '/api/personal-finance_/view': typeof ApiPersonalFinanceViewRoute
   '/api/dashboard/holdings_/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/calculator'
     | '/dashboard'
     | '/personal-finance'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard/sign-in'
+    | '/api/account/access'
+    | '/api/account/email'
+    | '/api/account/me'
+    | '/api/account/password'
+    | '/api/account/reset'
+    | '/api/account/who'
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
@@ -210,16 +289,24 @@ export interface FileRouteTypes {
     | '/api/dashboard/refresh'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
+    | '/api/personal-finance/view'
     | '/api/dashboard/holdings/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/calculator'
     | '/dashboard'
     | '/personal-finance'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard/sign-in'
+    | '/api/account/access'
+    | '/api/account/email'
+    | '/api/account/me'
+    | '/api/account/password'
+    | '/api/account/reset'
+    | '/api/account/who'
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
@@ -231,16 +318,24 @@ export interface FileRouteTypes {
     | '/api/dashboard/refresh'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
+    | '/api/personal-finance/view'
     | '/api/dashboard/holdings/$id'
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/calculator'
     | '/dashboard'
     | '/personal-finance'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard_/sign-in'
+    | '/api/account/access'
+    | '/api/account/email'
+    | '/api/account/me'
+    | '/api/account/password'
+    | '/api/account/reset'
+    | '/api/account/who'
     | '/api/auth/$'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
@@ -252,17 +347,25 @@ export interface FileRouteTypes {
     | '/api/dashboard/refresh'
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
+    | '/api/personal-finance_/view'
     | '/api/dashboard/holdings_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   CalculatorRoute: typeof CalculatorRoute
   DashboardRoute: typeof DashboardRoute
   PersonalFinanceRoute: typeof PersonalFinanceRoute
   ApiChartRoute: typeof ApiChartRoute
   ApiPersonalFinanceRoute: typeof ApiPersonalFinanceRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
+  ApiAccountAccessRoute: typeof ApiAccountAccessRoute
+  ApiAccountEmailRoute: typeof ApiAccountEmailRoute
+  ApiAccountMeRoute: typeof ApiAccountMeRoute
+  ApiAccountPasswordRoute: typeof ApiAccountPasswordRoute
+  ApiAccountResetRoute: typeof ApiAccountResetRoute
+  ApiAccountWhoRoute: typeof ApiAccountWhoRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronDailyRefreshRoute: typeof ApiCronDailyRefreshRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
@@ -274,6 +377,7 @@ export interface RootRouteChildren {
   ApiDashboardRefreshRoute: typeof ApiDashboardRefreshRoute
   ApiDashboardSettingsRoute: typeof ApiDashboardSettingsRoute
   ApiDashboardStatusRoute: typeof ApiDashboardStatusRoute
+  ApiPersonalFinanceViewRoute: typeof ApiPersonalFinanceViewRoute
   ApiDashboardHoldingsIdRoute: typeof ApiDashboardHoldingsIdRoute
 }
 
@@ -284,6 +388,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calculator': {
@@ -326,6 +437,48 @@ declare module '@tanstack/react-router' {
       path: '/dashboard/sign-in'
       fullPath: '/dashboard/sign-in'
       preLoaderRoute: typeof DashboardSignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/access': {
+      id: '/api/account/access'
+      path: '/api/account/access'
+      fullPath: '/api/account/access'
+      preLoaderRoute: typeof ApiAccountAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/email': {
+      id: '/api/account/email'
+      path: '/api/account/email'
+      fullPath: '/api/account/email'
+      preLoaderRoute: typeof ApiAccountEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/me': {
+      id: '/api/account/me'
+      path: '/api/account/me'
+      fullPath: '/api/account/me'
+      preLoaderRoute: typeof ApiAccountMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/password': {
+      id: '/api/account/password'
+      path: '/api/account/password'
+      fullPath: '/api/account/password'
+      preLoaderRoute: typeof ApiAccountPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/reset': {
+      id: '/api/account/reset'
+      path: '/api/account/reset'
+      fullPath: '/api/account/reset'
+      preLoaderRoute: typeof ApiAccountResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/who': {
+      id: '/api/account/who'
+      path: '/api/account/who'
+      fullPath: '/api/account/who'
+      preLoaderRoute: typeof ApiAccountWhoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -405,6 +558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/personal-finance_/view': {
+      id: '/api/personal-finance_/view'
+      path: '/api/personal-finance/view'
+      fullPath: '/api/personal-finance/view'
+      preLoaderRoute: typeof ApiPersonalFinanceViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dashboard/holdings_/$id': {
       id: '/api/dashboard/holdings_/$id'
       path: '/api/dashboard/holdings/$id'
@@ -417,12 +577,19 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   CalculatorRoute: CalculatorRoute,
   DashboardRoute: DashboardRoute,
   PersonalFinanceRoute: PersonalFinanceRoute,
   ApiChartRoute: ApiChartRoute,
   ApiPersonalFinanceRoute: ApiPersonalFinanceRoute,
   DashboardSignInRoute: DashboardSignInRoute,
+  ApiAccountAccessRoute: ApiAccountAccessRoute,
+  ApiAccountEmailRoute: ApiAccountEmailRoute,
+  ApiAccountMeRoute: ApiAccountMeRoute,
+  ApiAccountPasswordRoute: ApiAccountPasswordRoute,
+  ApiAccountResetRoute: ApiAccountResetRoute,
+  ApiAccountWhoRoute: ApiAccountWhoRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronDailyRefreshRoute: ApiCronDailyRefreshRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
@@ -434,6 +601,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDashboardRefreshRoute: ApiDashboardRefreshRoute,
   ApiDashboardSettingsRoute: ApiDashboardSettingsRoute,
   ApiDashboardStatusRoute: ApiDashboardStatusRoute,
+  ApiPersonalFinanceViewRoute: ApiPersonalFinanceViewRoute,
   ApiDashboardHoldingsIdRoute: ApiDashboardHoldingsIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -7,6 +7,11 @@ describe("sign-in ?next allowlist (#102 D1)", () => {
   it("keeps the exact relative path /personal-finance", () => {
     assert.equal(safeNext("/personal-finance"), "/personal-finance");
   });
+  it("#90 ROLE-02: keeps the exact relative path /account; near-misses → /dashboard", () => {
+    assert.equal(safeNext("/account"), "/account");
+    for (const v of ["/account/", "/Account", "/account?x=1", "//account", "https://evil.example/account"])
+      assert.equal(safeNext(v), "/dashboard", v);
+  });
   it("an external https URL → /dashboard", () => {
     assert.equal(safeNext("https://evil.example"), "/dashboard");
     assert.equal(safeNext("https://evil.example/personal-finance"), "/dashboard");

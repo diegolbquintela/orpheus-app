@@ -3,10 +3,10 @@ import { useState, type FormEvent } from "react";
 import { ensureDashboardEnabled, getDashboardViewer } from "@/lib/dashboard/gate";
 import { DEFAULT_NEXT, safeNext, type SafeNext } from "@/lib/auth/next";
 
-// /dashboard/sign-in (T03 #11): email/password sign-in and sign-up. Same gate as
+// /dashboard/sign-in (T03 #11): email/password sign-in. Same gate as
 // /dashboard: 404 unless DASHBOARD_ENABLED is exactly "true". Already signed in:
-// back to /dashboard. Sign-up only works for addresses on the allow-list (D12);
-// the server enforces it. #102: `?next=/personal-finance` (the only other target allowed) sends the visitor back
+// back to /dashboard. #90 (Q-D6, ROLE-09): no public `Create account`: the owner creates accounts on /account; the
+// server's sign-up stays limited to the allow-list (D12) for the owner's own account only. #102: `?next=/personal-finance` (the only other target allowed) sends the visitor back
 // there after signing in (and straight there when already signed in). QA D1: the raw `?next` is never trusted.
 // TanStack keeps unvalidated search params from the root, so `safeNext` is applied on load (validateSearch,
 // beforeLoad, loader) and again right before the post-auth navigation; anything but the exact relative path
@@ -41,11 +41,8 @@ export const Route = createFileRoute("/dashboard_/sign-in")({
   component: SignInPage,
 });
 
-type Mode = "sign-in" | "sign-up";
-
 function SignInPage() {
   const { authReady, next } = Route.useLoaderData();
-  const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -58,14 +55,7 @@ function SignInPage() {
     try {
       const { authClient } = await import("@/lib/auth/client");
       const trimmed = email.trim();
-      const result =
-        mode === "sign-in"
-          ? await authClient.signIn.email({ email: trimmed, password })
-          : await authClient.signUp.email({
-              email: trimmed,
-              password,
-              name: trimmed.split("@")[0] || trimmed,
-            });
+      const result = await authClient.signIn.email({ email: trimmed, password });
       if (result.error) {
         setError(result.error.message ?? "Something went wrong. Try again.");
         setBusy(false);
@@ -83,7 +73,7 @@ function SignInPage() {
   // dashboard's shared .field / .kicker). The auth calls, the mode switch and the redirect above are unchanged.
   return (
     <main className="signin mx-auto w-full max-w-md px-5 py-16 sm:px-8">
-      <h1 className="signin-title">{mode === "sign-in" ? "Sign in" : "Create account"}</h1>
+      <h1 className="signin-title">Sign in</h1>
       {!authReady ? (
         <p className="signin-note mt-6" data-testid="sign-in-unavailable">
           Sign-in is not configured on this deployment.
@@ -107,7 +97,7 @@ function SignInPage() {
               type="password"
               required
               minLength={8}
-              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="signin-field"
@@ -119,18 +109,7 @@ function SignInPage() {
             </p>
           ) : null}
           <button type="submit" disabled={busy} className="signin-button self-start">
-            {busy ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
-          </button>
-          <button
-            type="button"
-            className="signin-switch self-start"
-            data-testid="sign-in-switch"
-            onClick={() => {
-              setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-              setError(null);
-            }}
-          >
-            {mode === "sign-in" ? "Create an account" : "Sign in"}
+            {busy ? "Please wait…" : "Sign in"}
           </button>
         </form>
       )}

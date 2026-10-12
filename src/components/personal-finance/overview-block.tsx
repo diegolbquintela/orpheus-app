@@ -39,7 +39,7 @@ import {
   YEARS,
   yearsLabel,
 } from "@/lib/finance/overview";
-import { SectionHead } from "./pf-cells";
+import { Lock, SectionHead } from "./pf-cells";
 
 const orDash = (value: number | null): string =>
   value === null ? NOT_COMPUTED : formatAmount(value);
@@ -62,6 +62,7 @@ export function OverviewBlock({
   chartWidth,
   open = true,
   onToggle,
+  readOnly = false,
 }: {
   overview: Overview;
   update: (change: (current: Overview) => Overview) => void;
@@ -72,6 +73,8 @@ export function OverviewBlock({
   /** #105 (PF-40): `04` is open; `onToggle` makes its heading a toggle (the brief's "Charts"). */
   open?: boolean;
   onToggle?: () => void;
+  /** #90 (ROLE-10): every field and button disabled (the toggle stays). */
+  readOnly?: boolean;
 }) {
   const summary = summarize(overview, now, page);
   return (
@@ -97,18 +100,20 @@ export function OverviewBlock({
           data-testid="pf-body-overview"
         >
           {open ? (
-            <>
+            <Lock on={readOnly}>
               <OverviewTable thisMonth={summary.thisMonth} average={summary.average} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
               <OverviewChart summary={summary} width={chartWidth} />
-            </>
+            </Lock>
           ) : null}
         </div>
       </section>
       <section className="flex flex-col gap-8" aria-labelledby="pf-update" data-testid="pf-update">
         <SectionHead numeral="05" title={UPDATE_TITLE} id="pf-update" />
-        <UpdateMonth overview={overview} update={update} summary={summary} page={page} />
+        <Lock on={readOnly}>
+          <UpdateMonth overview={overview} update={update} summary={summary} page={page} />
+        </Lock>
       </section>
     </>
   );

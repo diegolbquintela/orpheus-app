@@ -33,7 +33,8 @@ for (const input of tests) {
     logLevel: "warn",
   });
   const file = join(out, relative(join(root, "src"), input).replace(/[\\/]/g, "__").replace(/\.tsx$/, ".mjs"));
-  await bundle.write({ file, format: "esm" });
+  // One file per test: a lazy import (e.g. the auth client behind Sign out) is inlined, not split.
+  await bundle.write({ file, format: "esm", codeSplitting: false });
   await bundle.close();
   files.push(file);
 }

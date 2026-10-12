@@ -78,7 +78,9 @@ const USERS: Record<string, { id: string; email: string }> = {
   alice: { id: "user-alice", email: "alice@example.com" },
   bob: { id: "user-bob", email: "bob@example.com" },
 };
-const deps = (env: Record<string, string | undefined> = { DASHBOARD_ENABLED: "true" }): HoldingsDeps => ({
+// #90: alice is the owner (ORPHEUS_OWNER_EMAIL); bob has no grant unless a test gives him one.
+const ON = { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" };
+const deps = (env: Record<string, string | undefined> = ON): HoldingsDeps => ({
   env,
   getUser: async (headers) => USERS[headers.get("x-test-session") ?? ""] ?? null,
   getDb: async () => db,
@@ -236,7 +238,8 @@ describe("DASH-07: add, edit, delete", () => {
     koId = body.holding.id;
     assert.equal((await add({ symbol: "RY.TO", shares: 3, avgCost: 0 })).status, 201, "average cost 0 is allowed");
     assert.deepEqual(await symbols(), ["KO", "RY.TO"]);
-    assert.deepEqual(await symbols("bob"), []);
+    // #90: bob has no Dashboard grant: 403, no data.
+    assert.equal((await list("bob")).status, 403);
   });
 
   it("refuses a duplicate ticker for the same user (409, clear message, no feed call)", async () => {
@@ -245,8 +248,8 @@ describe("DASH-07: add, edit, delete", () => {
     assert.equal(res.status, 409);
     assert.deepEqual(await res.json(), { error: "KO is already in your holdings.", field: "symbol" });
     assert.equal(lookups.length, before);
-    // Another user may hold the same ticker.
-    assert.equal((await add({ symbol: "KO", shares: "2", avgCost: "40" }, "bob")).status, 201);
+    // #90: someone without a Dashboard grant can't add to the owner's holdings.
+    assert.equal((await add({ symbol: "KO", shares: "2", avgCost: "40" }, "bob")).status, 403);
   });
 
   it("validates input (400 with the field) before calling the feed", async () => {
@@ -387,7 +390,11 @@ describe("DASH-07: add, edit, delete", () => {
     for (let i = 0; i < MAX_HOLDINGS; i += 1)
       await pg.query("INSERT INTO holdings (user_id, symbol, shares, avg_cost) VALUES ('user-cap', $1, 1, 1)", [`C${i}`]);
     USERS.cap = { id: "user-cap", email: "cap@example.com" };
-    const res = await add({ symbol: "KO", shares: "1", avgCost: "1" }, "cap");
+    // #90: the cap applies to the owner's book; here cap is the owner.
+    const res = await handleHoldingsRequest(
+      req("/api/dashboard/holdings", { method: "POST", as: "cap", body: { symbol: "KO", shares: "1", avgCost: "1" } }),
+      deps({ ...ON, ORPHEUS_OWNER_EMAIL: "cap@example.com" }),
+    );
     assert.equal(res.status, 400);
     assert.deepEqual(await res.json(), { error: `You can track up to ${MAX_HOLDINGS} holdings.` });
     await pg.query("DELETE FROM holdings WHERE user_id = 'user-cap'");
@@ -430,33 +437,52 @@ describe("gate: 404 flag off, 405, 401", () => {
   });
 });
 
-describe("DASH-06: one user can't read or change another's holdings", () => {
-  it("bob's session with alice's holding id: GET/PUT/DELETE are 404 and change nothing", async () => {
+describe("DASH-06 → #90: only the owner's holdings, through a Portfolio Manager grant", () => {
+  const grant = async (level: "none" | "read" | "read_write") => {
+    await pg.query("DELETE FROM access_grant WHERE user_id = 'user-bob'");
+    if (level !== "none")
+      await pg.query(
+        "INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES ('user-bob', 'dashboard', true, $1, 'user-alice')",
+        [level === "read_write"],
+      );
+  };
+
+  it("no grant (ROLE-14): bob's GET/PUT/DELETE on alice's holding are 403 and change nothing", async () => {
+    await grant("none");
     const aliceKo = ((await (await list()).json()) as { holdings: { id: number; shares: string }[] }).holdings[0];
     for (const [method, body] of [["GET", undefined], ["PUT", { shares: "999", avgCost: "1" }], ["DELETE", undefined]] as const) {
       const r = await item(aliceKo.id, { method, as: "bob", body });
-      assert.equal(r.status, 404, method);
-      assert.deepEqual(await r.json(), { error: "Holding not found." });
+      assert.equal(r.status, 403, method);
+      assert.deepEqual(await r.json(), { error: "Forbidden." });
     }
+    assert.equal((await list("bob")).status, 403);
     const after = ((await (await list()).json()) as { holdings: { id: number; shares: string }[] }).holdings[0];
     assert.deepEqual(after, aliceKo);
   });
 
-  it("naming alice's user id is 403; bob's list stays his own", async () => {
+  it("Read (ROLE-12): bob lists the owner's holdings; every write is 403", async () => {
+    await grant("read");
+    assert.deepEqual(await symbols("bob"), await symbols("alice"));
+    const aliceKo = ((await (await list()).json()) as { holdings: { id: number; shares: string }[] }).holdings[0];
+    assert.equal((await item(aliceKo.id, { as: "bob" })).status, 200);
+    assert.equal((await item(aliceKo.id, { method: "PUT", as: "bob", body: { shares: "7" } })).status, 403);
+    assert.equal((await item(aliceKo.id, { method: "DELETE", as: "bob" })).status, 403);
+    assert.equal((await add({ symbol: "ASML.AS", shares: "1", avgCost: "1" }, "bob")).status, 403);
+  });
+
+  it("Read and write (ROLE-13): bob's edit lands on the owner's book; naming anyone else is 403", async () => {
+    await grant("read_write");
+    const aliceKo = ((await (await list()).json()) as { holdings: { id: number; shares: string }[] }).holdings[0];
+    const put = await item(aliceKo.id, { method: "PUT", as: "bob", body: { shares: "11" } });
+    assert.equal(put.status, 200);
+    const after = ((await (await list()).json()) as { holdings: { id: number; shares: string }[] }).holdings[0];
+    assert.equal(trimDecimal(after.shares), "11");
     assert.equal(
-      (await handleHoldingsRequest(req("/api/dashboard/holdings?userId=user-alice", { as: "bob" }), deps())).status,
+      (await handleHoldingsRequest(req("/api/dashboard/holdings?userId=user-cap", { as: "bob" }), deps())).status,
       403,
     );
-    const post = await add({ userId: "user-alice", symbol: "ASML.AS", shares: "1", avgCost: "1" }, "bob");
+    const post = await add({ userId: "user-cap", symbol: "ASML.AS", shares: "1", avgCost: "1" }, "bob");
     assert.equal(post.status, 403);
-    assert.deepEqual(await symbols("alice"), ["KO"]);
-    assert.deepEqual(await symbols("bob"), ["KO"]);
-    const bobKo = ((await (await list("bob")).json()) as { holdings: { id: number }[] }).holdings[0];
-    const bobGet = await handleHoldingRequest(
-      req(`/api/dashboard/holdings/${bobKo.id}?userId=user-alice`, { as: "bob" }),
-      String(bobKo.id),
-      deps(),
-    );
-    assert.equal(bobGet.status, 403);
+    await grant("none");
   });
 });

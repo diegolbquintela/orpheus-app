@@ -40,6 +40,9 @@ export const DASHBOARD_TABLES = [
   "refresh_runs",
   "corporate_actions",
   "price_coverage",
+  // #90: who may see what (migrations/0011_access.sql).
+  "access_grant",
+  "account_state",
 ] as const;
 
 // ------------------------------------------------------------------ per-user: settings
