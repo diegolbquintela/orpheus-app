@@ -53,6 +53,8 @@ change a password or email.
   page `/account`, not a popover.
 - **Phone width (Q-D8 decided).** Below 640 px the item is a 44 × 44 chalk-outline person glyph (inline SVG like
   the lyre, decorative, the link's accessible name `Account`); from 640 px it is the text `Account`.
+  **Fit at 360 (EL, 2026-10-12):** the glyph alone isn't enough, so below 400 px the bar text is 11 px (Q21's
+  12 px stays from 400 to 639 px); gaps, the word `Orpheus` and `Personal finance` unchanged, one line.
 - **`/account` page.** It is a page in the shell (dark, mono numerals `01`, `02`… like PF sections, no helper
   paragraphs, noindex, title `Account · Orpheus Wisdom`). Its sections:
   - `01 You`: name, email, role labels (e.g. `CFO · Personal finance · Read and write`), `Sign out`.

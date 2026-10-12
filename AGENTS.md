@@ -96,7 +96,7 @@ affects the repo.
   without a valid override and for any total containing it; ROIC 0 or more with no cap (withdrawal rate 0–100).
   Page-only classes `.pf-*`.
   First-class since #97 (Q1 (d) superseded): the bar's fourth item `Personal finance` (current on this page,
-  ST1-01 / ST1-02) and the third home line (ST3-03); the URL still works. Bar text is 12 px below 640 px (Q21, EL-decided).
+  ST1-01 / ST1-02) and the third home line (ST3-03); the URL still works. Bar text is 12 px below 640 px (Q21, EL-decided); since #90 (five items) 11 px below 400 px (EL).
   v1.4 (#87, spec section 14; Q12–Q16 decided by EL ≈ 16:26 ET): `Household currency` (one select above `02` Income,
   ten codes, default `CAD` (Q13, Diego); key `orpheus.finance.currency.v1`, `src/lib/finance/currency.ts`); each expense line
   has `Currency` and, when foreign, a typed `FX rate` = household units per 1 unit of the line's currency

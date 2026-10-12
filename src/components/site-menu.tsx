@@ -18,17 +18,10 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
  * #90: below 640 px the glyph link keeps a 44 × 44 box but takes only the glyph's 20 px in the row: it reaches 8 px
  * back over the gap before it and 16 px into the bar's right padding, with the glyph at its right edge, so the glyph
  * still ends on the column edge (20 px from the screen) and sits 8 px from `Personal finance` like the other items.
- * That is what lets the five items keep 12 px text and 8 px gaps (Q21). From 640 px it is a plain text link.
+ * That is what lets the five items keep 8 px gaps (Q21; text 11 px below 400 px, 12 px to 640 px, EL). From 640 px it is a plain text link.
  */
+// #90 (EL, Q21 amended): below 400 px the bar text is 11 px so five items fit on one line at 360.
 const GLYPH_LINK = "-ml-2 -mr-4 justify-end pr-4 sm:m-0 sm:justify-center sm:pr-0";
-
-/**
- * #90: five items don't fit on one row below 384 px at Q21's 12 px text and 8 px gaps with the word `Orpheus`
- * (360 px is 18 px short even with the glyph), so there `Personal finance` sets on two short lines inside its 44 px
- * box; nothing else changes. An open question for EL in the #90 PR (alternatives: Q-D8 (c) `Finance` on phones, or
- * 11 px text below 400 px).
- */
-const NARROW_WRAP = "max-[383px]:w-min max-[383px]:leading-[14px]";
 
 export function SiteMenu({ pathname }: { pathname: string }) {
   const current = currentSection(pathname);
@@ -36,7 +29,7 @@ export function SiteMenu({ pathname }: { pathname: string }) {
   // Each link is a 44 px tall hit area (the bar's inner height; #72, QA N1 on #73, ST6-08): the text, its underline
   // and the current mark stay where they were, and the bar stays 45 px (44 + the 1 px rule).
   const link =
-    "inline-flex h-11 min-w-11 items-center underline-offset-[6px] decoration-1 focus-visible:outline-chalk aria-[current=page]:text-chalk aria-[current=page]:underline";
+    "inline-flex h-11 min-w-11 items-center whitespace-nowrap underline-offset-[6px] decoration-1 focus-visible:outline-chalk aria-[current=page]:text-chalk aria-[current=page]:underline";
   return (
     <nav
       aria-label="Site"
@@ -47,18 +40,18 @@ export function SiteMenu({ pathname }: { pathname: string }) {
         <a
           href={home.href}
           aria-current={current === home.section ? "page" : undefined}
-          className={`gap-2 text-xs text-chalk sm:text-sm ${link}`}
+          className={`gap-2 text-xs text-chalk max-[399px]:text-[11px] sm:text-sm ${link}`}
         >
           <Lyre className="shrink-0" />
           <span>{home.label}</span>
         </a>
-        <ul className="flex items-center gap-2 text-xs sm:gap-6 sm:text-sm">
+        <ul className="flex items-center gap-2 text-xs max-[399px]:text-[11px] sm:gap-6 sm:text-sm">
           {right.map((item) => (
             <li key={item.section}>
               <a
                 href={item.href}
                 aria-current={current === item.section ? "page" : undefined}
-                className={`text-dim ${link}${item.section === "account" ? ` ${GLYPH_LINK}` : item.section === "personal-finance" ? ` ${NARROW_WRAP}` : ""}`}
+                className={`text-dim ${link}${item.section === "account" ? ` ${GLYPH_LINK}` : ""}`}
               >
                 {item.section === "account" ? (
                   <>

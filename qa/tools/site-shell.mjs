@@ -145,7 +145,8 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
   const last = bar.links.at(-1);
   check(`${tag} ST1-01 / ROLE-01 Orpheus left, Calculator, Dashboard, Personal finance, Account right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
-  const size = viewport.width < 640 ? 12 : 14;
+  // #90 (EL, Q21 amended): 11 px below 400 px so the five items fit at 360; 12 px from 400; 14 px from 640.
+  const size = viewport.width < 400 ? 11 : viewport.width < 640 ? 12 : 14;
   // #90 (ROLE-01, Q-D8): Account is the one icon on the right (the person glyph below 640 px; the word from 640 px).
   const wantIcons = (l) => (l.href === "/account" && viewport.width < 640 ? 1 : 0);
   check(`${tag} ST1-01 / ROLE-01 text only on the right except Account's glyph below 640 px, ${size} px text (Q21), every link ≥ 44 px tall and wide`, bar.links.every((l) => l.icons === wantIcons(l) && l.size === size && l.h >= 44 && l.w >= 44), bar.links.map((l) => [l.text, l.size, l.w, l.h, l.icons]));
