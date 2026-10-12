@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId } from "react";
 import {
   CartesianGrid,
   Line,
@@ -17,7 +17,6 @@ import {
   type Figures,
   GROWTH_LABEL,
   INCOME,
-  MONTH_LABEL,
   type MonthKey,
   monthName,
   NET_ASSETS,
@@ -27,15 +26,10 @@ import {
   type Point,
   START_LABEL,
   type Summary,
-  setMonth,
   SURPLUS,
   summarize,
   surplusOf,
   THIS_MONTH,
-  UPDATE_TITLE,
-  UPDATE_MONTH,
-  SAVE,
-  CANCEL,
   YEARS,
   yearsLabel,
 } from "@/lib/finance/overview";
@@ -59,6 +53,7 @@ export function OverviewBlock({
   update,
   now,
   page,
+  lines,
   chartWidth,
   open = true,
   onToggle,
@@ -68,6 +63,8 @@ export function OverviewBlock({
   update: (change: (current: Overview) => Overview) => void;
   now: Date;
   page: PageFigures;
+  /** #112: each saved month's figures from its lines (decision 7). */
+  lines?: Record<MonthKey, Figures>;
   /** Fixed chart width (jsdom tests); the page uses a responsive container. */
   chartWidth?: number;
   /** #105 (PF-40): `04` is open; `onToggle` makes its heading a toggle (the brief's "Charts"). */
@@ -76,7 +73,7 @@ export function OverviewBlock({
   /** #90 (ROLE-10): every field and button disabled (the toggle stays). */
   readOnly?: boolean;
 }) {
-  const summary = summarize(overview, now, page);
+  const summary = summarize(overview, now, page, lines);
   return (
     <>
       <section
@@ -108,12 +105,6 @@ export function OverviewBlock({
             </Lock>
           ) : null}
         </div>
-      </section>
-      <section className="flex flex-col gap-8" aria-labelledby="pf-update" data-testid="pf-update">
-        <SectionHead numeral="05" title={UPDATE_TITLE} id="pf-update" />
-        <Lock on={readOnly}>
-          <UpdateMonth overview={overview} update={update} summary={summary} page={page} />
-        </Lock>
       </section>
     </>
   );
@@ -356,143 +347,5 @@ function OverviewChart({ summary, width }: { summary: Summary; width?: number })
         ))}
       </ul>
     </figure>
-  );
-}
-
-/**
- * #105 (PF-43): `Update month` opens a panel (Month, Expenses, Income, `Save`, `Cancel`). The two fields are a draft
- * until `Save`, which stores that month's figures, closes the panel and returns focus to the button (the `04`
- * averages and chart follow); `Cancel` / Escape discard; a bad amount keeps the panel open and stores nothing.
- */
-function UpdateMonth({
-  overview,
-  update,
-  summary,
-  page,
-}: {
-  overview: Overview;
-  update: (change: (current: Overview) => Overview) => void;
-  summary: Summary;
-  page: PageFigures;
-}) {
-  const id = useId();
-  const opener = useRef<HTMLButtonElement>(null);
-  const [panel, setPanel] = useState<{ month: MonthKey; expenses: string; income: string } | null>(
-    null,
-  );
-  const draftFor = (month: MonthKey) => {
-    const entry = overview.months[month] ?? { expenses: "", income: "" };
-    return { month, expenses: entry.expenses, income: entry.income };
-  };
-  const close = () => {
-    setPanel(null);
-    queueMicrotask(() => opener.current?.focus());
-  };
-  if (!panel)
-    return (
-      <div className="pf-update" data-testid="pf-update-fields">
-        <button
-          ref={opener}
-          type="button"
-          className="pf-button pf-update-open"
-          aria-expanded={false}
-          aria-controls={`${id}-panel`}
-          onClick={() => setPanel(draftFor(summary.current))}
-          data-testid="pf-update-open"
-        >
-          {UPDATE_MONTH}
-        </button>
-      </div>
-    );
-  const isCurrent = panel.month === summary.current;
-  const hint = (pageValue: number | null, avg: number | null): string => {
-    const value = isCurrent ? (pageValue !== null && pageValue > 0 ? pageValue : null) : avg;
-    return value === null ? "" : formatAmount(value);
-  };
-  const bad = parseAmount(panel.expenses) === null || parseAmount(panel.income) === null;
-  const save = () => {
-    if (bad) return;
-    const { month, expenses, income } = panel;
-    update((o) => setMonth(o, month, { expenses, income }));
-    close();
-  };
-  return (
-    <div className="pf-update" data-testid="pf-update-fields">
-      <button
-        ref={opener}
-        type="button"
-        className="pf-button pf-update-open"
-        aria-expanded={true}
-        aria-controls={`${id}-panel`}
-        onClick={close}
-        data-testid="pf-update-open"
-      >
-        {UPDATE_MONTH}
-      </button>
-      <div
-        id={`${id}-panel`}
-        className="pf-update-panel"
-        role="group"
-        aria-label={UPDATE_MONTH}
-        data-testid="pf-update-panel"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            close();
-          }
-        }}
-      >
-        <div className="pf-rates">
-          <div className="pf-cell">
-            <label htmlFor={`${id}-month`} className="pf-label">
-              {MONTH_LABEL}
-            </label>
-            <select
-              id={`${id}-month`}
-              autoFocus
-              className="pf-field"
-              value={panel.month}
-              onChange={(event) => setPanel(draftFor(event.target.value))}
-              data-testid="pf-month"
-            >
-              {[...summary.months].reverse().map((key) => (
-                <option key={key} value={key}>
-                  {monthName(key)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <AmountField
-            key={`${panel.month}-e`}
-            label={EXPENSES}
-            value={panel.expenses}
-            onChange={(expenses) => setPanel({ ...panel, expenses })}
-            testId="pf-month-expenses"
-            placeholder={hint(page.expenses, summary.average.expenses)}
-          />
-          <AmountField
-            key={`${panel.month}-i`}
-            label={INCOME}
-            value={panel.income}
-            onChange={(income) => setPanel({ ...panel, income })}
-            testId="pf-month-income"
-            placeholder={hint(page.income, summary.average.income)}
-          />
-        </div>
-        <div className="flex gap-4">
-          <button type="button" className="pf-button" onClick={save} data-testid="pf-update-save">
-            {SAVE}
-          </button>
-          <button
-            type="button"
-            className="pf-cancel"
-            onClick={close}
-            data-testid="pf-update-cancel"
-          >
-            {CANCEL}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

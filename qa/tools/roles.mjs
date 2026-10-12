@@ -533,7 +533,7 @@ try {
               const ctl = [...document.querySelectorAll("main input, main select, main textarea, main button")];
               return { open: ctl.filter((c) => !c.matches(":disabled")).map((c) => c.getAttribute("data-testid")), n: ctl.length, line: document.querySelector("[data-testid=read-only]")?.textContent, ana: [...document.querySelectorAll("main input")].some((i) => i.value === "Ana") || document.querySelector("main").innerText.includes("Ana") };
             });
-            check(`${tag} ROLE-10 Read only: the owner's figures (Ana), every control disabled but the section toggles`, st === 200 && lock.line === "Read only" && lock.ana && lock.n > 5 && lock.open.every((t) => /^pf-toggle-/.test(t ?? "")), lock);
+            check(`${tag} ROLE-10 Read only: the owner's figures (Ana), every control disabled but the section toggles`, st === 200 && lock.line === "Read only" && lock.ana && lock.n > 5 && lock.open.every((t) => /^pf-toggle-|^pf-month$/.test(t ?? "")), lock);
           }
           if (name.startsWith("denied")) {
             const d = await page.evaluate(() => ({ h1: document.querySelector("h1")?.textContent, line: document.querySelector("[data-testid=access-denied-line]")?.textContent, links: [...document.querySelectorAll("main a")].map((a) => a.textContent) }));

@@ -1,5 +1,5 @@
 import { Minus } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ACCOUNT_MAX,
   ACCOUNTS_MAX,
@@ -39,7 +39,6 @@ import {
   monthly,
   netIncomeYearly,
   rateLabel,
-  readIncome,
   writeIncome,
 } from "@/lib/finance/income";
 import { type Rates, rateUsed, readRates, writeRates } from "@/lib/finance/equity";
@@ -61,7 +60,25 @@ import { OverviewBlock } from "./overview-block";
 import { Cell, Lock, SectionHead } from "./pf-cells";
 import { ReadOnlyLine } from "@/components/access/denied";
 
-import { type Overview, readOverview, writeOverview } from "@/lib/finance/overview";
+import {
+  lastTwelve,
+  type MonthKey,
+  monthName,
+  type Overview,
+  readOverview,
+  SAVE,
+  writeOverview,
+} from "@/lib/finance/overview";
+import {
+  copiedNote,
+  DISCARD_CONFIRM,
+  lineFigures,
+  migrateMonths,
+  MONTH_CONTROL_LABEL,
+  openMonth,
+  readMonths,
+  writeMonths,
+} from "@/lib/finance/months";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
 import {
   isOpen,
@@ -109,6 +126,12 @@ export function PersonalFinancePage({
   const [view, setView] = useState<View | null>(null);
   /** #105 (PF-45): the category filter, this visit only; ALL shows every line. */
   const [filter, setFilter] = useState<string>(ALL);
+  /** #112: the month shown, the month its lines were copied from (unsaved), the saved state, a saved-count. */
+  const [month, setMonth] = useState<MonthKey | null>(null);
+  const [copiedFrom, setCopiedFrom] = useState<MonthKey | null>(null);
+  const [baseline, setBaseline] = useState<string>("");
+  const [saved, setSaved] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -117,7 +140,13 @@ export function PersonalFinancePage({
         if (!alive) return;
         currentStore = store;
         migrateExpenses(store);
-        fill();
+        const today = fixedNow ?? new Date();
+        const current = lastTwelve(today)[11];
+        // Decision 4: the record's lines become the current month's (stored for a writer; no change shown).
+        if (migrateMonths(store, current) && !readOnly) void store.save?.();
+        setNow(today);
+        setView(readView(store));
+        open(current, current);
       })
       .catch(() => alive && setSaveFailed(true));
     return () => {
@@ -126,65 +155,106 @@ export function PersonalFinancePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fixedNow, loadStore]);
 
-  function fill() {
-    setIncome(readIncome(storage()));
-    setRates(readRates(storage()));
-    setHousehold(readHousehold(storage()));
-    setOverview(readOverview(storage()));
-    setView(readView(storage()));
-    setNow(fixedNow ?? new Date());
-    setExpenses(readExpenses(storage()));
+  /** #112: show a month from the saved record (its own lines, else a copy; decisions 3–5). */
+  function open(key: MonthKey, current: MonthKey) {
+    const store = storage();
+    const shared = readExpenses(store);
+    const opened = openMonth(readMonths(store), key, current, !readOnly);
+    const e = { ...shared, fixed: opened.lines.fixed, variable: opened.lines.variable };
+    const i = { people: opened.lines.people };
+    const r = readRates(store);
+    const h = readHousehold(store);
+    const o = readOverview(store);
+    setExpenses(e);
+    setIncome(i);
+    setRates(r);
+    setHousehold(h);
+    setOverview(o);
+    setMonth(key);
+    setCopiedFrom(opened.copiedFrom);
+    setBaseline(canonical(e, i, r, h, o));
+  }
+
+  const dirty =
+    !readOnly &&
+    !!(expenses && income && rates && household && overview) &&
+    (copiedFrom !== null || canonical(expenses, income, rates, household, overview) !== baseline);
+
+  // Decision 2: leaving with unsaved changes asks (the browser's own question).
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const figures = useMemo(() => lineFigures(storage()), [saved, month]);
+
+  function choose(key: MonthKey) {
+    if (!now || key === month) return;
+    if (dirty && !window.confirm(DISCARD_CONFIRM)) return;
+    open(key, lastTwelve(now)[11]);
+  }
+
+  /** Decision 2 / 7: store the shown month's lines and the shared values; stay on the month. */
+  async function save() {
+    const store = storage();
+    if (!store || !month || !expenses || !income || !rates || !household || !overview) return;
+    const months = readMonths(store);
+    months[month] = { fixed: expenses.fixed, variable: expenses.variable, people: income.people };
+    const legacy = { ...overview.months };
+    delete legacy[month];
+    const nextOverview = { ...overview, months: legacy };
+    writeExpenses(store, expenses);
+    writeIncome(store, income);
+    writeRates(store, rates);
+    writeHousehold(store, household);
+    writeOverview(store, nextOverview);
+    writeMonths(store, months);
+    setSaving(true);
+    const ok = store.save ? await store.save() : true;
+    setSaving(false);
+    setSaveFailed(!ok);
+    if (!ok) return;
+    setOverview(nextOverview);
+    setCopiedFrom(null);
+    setBaseline(canonical(expenses, income, rates, household, nextOverview));
+    setSaved((n) => n + 1);
   }
 
   function updateOverview(change: (current: Overview) => Overview) {
-    setOverview((current) => {
-      if (!current) return current;
-      const next = change(current);
-      writeOverview(storage(), next);
-      return next;
-    });
+    setOverview((current) => (current ? change(current) : current));
   }
 
   function toggle(section: SectionKey) {
     setView((current) => {
       if (!current) return current;
       const next = toggleSection(current, section);
+      // Section toggles save at once (a view preference; #90 Q-D11).
       writeView(storage(), next);
+      void storage()?.save?.();
       return next;
     });
   }
 
   function updateIncome(change: (current: Income) => Income) {
-    setIncome((current) => {
-      if (!current) return current;
-      const next = change(current);
-      writeIncome(storage(), next);
-      return next;
-    });
+    setIncome((current) => (current ? change(current) : current));
   }
 
   function updateRates(patch: Partial<Rates>) {
-    setRates((current) => {
-      if (!current) return current;
-      const next = { ...current, ...patch };
-      writeRates(storage(), next);
-      return next;
-    });
+    setRates((current) => (current ? { ...current, ...patch } : current));
   }
 
   function updateHousehold(code: CurrencyCode) {
-    const next = { household: code };
-    writeHousehold(storage(), next);
-    setHousehold(next);
+    setHousehold({ household: code });
   }
 
   function update(change: (current: Expenses) => Expenses) {
-    setExpenses((current) => {
-      if (!current) return current;
-      const next = change(current);
-      writeExpenses(storage(), next);
-      return next;
-    });
+    setExpenses((current) => (current ? change(current) : current));
   }
 
   const updateLine = (group: GroupKey, id: string, patch: Partial<Line>) =>
@@ -200,6 +270,15 @@ export function PersonalFinancePage({
           <p className="pf-save" role="status" data-testid="pf-save">
             {saveFailed ? "Not saved." : ""}
           </p>
+          <MonthControl
+            now={now}
+            month={month}
+            onChoose={choose}
+            dirty={dirty}
+            saving={saving}
+            onSave={() => void save()}
+            note={copiedFrom ? copiedNote(monthName(copiedFrom)) : ""}
+          />
         </header>
 
         <div
@@ -274,6 +353,7 @@ export function PersonalFinancePage({
                 overview={overview}
                 update={updateOverview}
                 now={now}
+                lines={figures}
                 open={isOpen(view, "overview")}
                 onToggle={() => toggle("overview")}
                 readOnly={readOnly}
@@ -286,6 +366,81 @@ export function PersonalFinancePage({
           ) : null}
         </div>
       </main>
+    </div>
+  );
+}
+
+/** #112: the saved-state fingerprint of the shown month (Save shows when the page differs from it). */
+const canonical = (
+  e: Expenses,
+  i: Income,
+  r: Rates,
+  h: Household,
+  o: Overview,
+): string => JSON.stringify([e, i, r, h, { ...o, months: {} }]);
+
+/**
+ * #112 (PF-48, PF-49): `Month` and a select of the last 12 months (newest first) under the title, `Save` beside it
+ * only while something is unsaved, and the copy note under it. The row and the note line are reserved from the
+ * server render, so nothing moves (strict CLS 0).
+ */
+function MonthControl({
+  now,
+  month,
+  onChoose,
+  dirty,
+  saving,
+  onSave,
+  note,
+}: {
+  now: Date | null;
+  month: MonthKey | null;
+  onChoose: (key: MonthKey) => void;
+  dirty: boolean;
+  saving: boolean;
+  onSave: () => void;
+  note: string;
+}) {
+  const uid = useId();
+  const keys = now ? lastTwelve(now).slice().reverse() : [];
+  return (
+    <div className="pf-month mt-6" data-testid="pf-month-control">
+      <div className="pf-month-row">
+        <label htmlFor={`${uid}-month`} className="pf-label">
+          {MONTH_CONTROL_LABEL}
+        </label>
+        <select
+          id={`${uid}-month`}
+          value={month ?? ""}
+          disabled={!month}
+          onChange={(event) => onChoose(event.target.value)}
+          className="pf-field pf-month-select"
+          data-testid="pf-month"
+        >
+          {month ? null : <option value="" />}
+          {keys.map((k) => (
+            <option key={k} value={k}>
+              {monthName(k)}
+            </option>
+          ))}
+        </select>
+        <span className="pf-month-save">
+          {dirty ? (
+            <button
+              type="button"
+              className="pf-button"
+              onClick={onSave}
+              disabled={saving}
+              data-testid="pf-month-save"
+            >
+              {SAVE}
+            </button>
+          ) : null}
+        </span>
+      </div>
+      <p className="pf-month-note" data-testid="pf-month-note">
+        {note}
+      </p>
     </div>
   );
 }

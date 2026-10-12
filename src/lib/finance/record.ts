@@ -2,6 +2,7 @@ import { CURRENCY_KEY } from "./currency.ts";
 import { EQUITY_KEY } from "./equity.ts";
 import { LEGACY_EXPENSES_KEY, migrateExpenses, STORAGE_KEY } from "./expenses.ts";
 import { INCOME_KEY } from "./income.ts";
+import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
 import { VIEW_KEY } from "./view.ts";
 
@@ -19,6 +20,7 @@ export const RECORD_NAMES = [
   CURRENCY_KEY,
   OVERVIEW_KEY,
   VIEW_KEY,
+  MONTHS_KEY,
 ] as const;
 /** This browser's old (#84–#94) `localStorage` keys, imported once into an empty account. */
 export const LEGACY_LOCAL_KEYS = [
@@ -28,12 +30,12 @@ export const LEGACY_LOCAL_KEYS = [
   CURRENCY_KEY,
   OVERVIEW_KEY,
 ] as const;
-export const RECORD_MAX_BYTES = 256 * 1024;
+export const RECORD_MAX_BYTES = 1024 * 1024;
 
 export type RecordCheck =
   { ok: true; record: PfRecord } | { ok: false; status: 400 | 413; error: string };
 
-/** Whether a client-sent value is a storable record (names allowed, values strings, ≤ 256 KB). */
+/** Whether a client-sent value is a storable record (names allowed, values strings, ≤ 1 MB). */
 export function checkRecord(value: unknown): RecordCheck {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return { ok: false, status: 400, error: "data must be an object." };
