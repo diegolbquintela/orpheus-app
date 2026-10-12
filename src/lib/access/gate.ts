@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { dashboardEnabledFromEnv } from "../dashboard/flag.server";
 import type { Grants } from "./access";
 import type { Person } from "./access.server";
+import type { AuditRow } from "./audit.server";
 
 export type AccountPageData = {
   signedIn: boolean;
@@ -12,6 +13,8 @@ export type AccountPageData = {
   grants: Grants | null;
   roles: string[];
   people: Person[];
+  /** #91: the owner's first page of the audit log (null for anyone else / a temporary password). */
+  audit: { events: AuditRow[]; more: boolean } | null;
 };
 
 /**
@@ -29,6 +32,7 @@ export const getAccountPage = createServerFn({ method: "GET" }).handler(async ()
     grants: null,
     roles: [],
     people: [],
+    audit: null,
   };
   if (!dashboardEnabledFromEnv()) {
     const { notFound } = await import("@tanstack/react-router");
@@ -51,5 +55,9 @@ export const getAccountPage = createServerFn({ method: "GET" }).handler(async ()
     grants: v.access.grants,
     roles: roleLines(v.access.owner, v.access.grants),
     people: v.access.mustChange ? [] : await peopleFor(v.db, v.access),
+    audit:
+      v.access.owner && !v.access.mustChange
+        ? await (await import("./audit.server")).listAudit(v.db, { limit: 50 })
+        : null,
   };
 });

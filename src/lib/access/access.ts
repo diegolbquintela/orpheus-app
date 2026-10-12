@@ -65,6 +65,11 @@ export function ownerEmailFromEnv(env: Record<string, string | undefined>): stri
 
 // Copy (ROLE rows; exact strings).
 export const COPY = {
+  // #91 audit log (attachments/audit-log-design.md section 5).
+  activity: "Activity",
+  activityEmpty: "No activity yet.",
+  activityOlder: "Show older",
+  activityCols: ["When", "Who", "Role", "Action", "Target", "Result"] as const,
   account: "Account",
   title: "Account · Orpheus Wisdom",
   you: "You",

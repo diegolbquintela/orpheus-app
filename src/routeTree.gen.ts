@@ -18,6 +18,7 @@ import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as ApiPersonalFinanceRouteImport } from './routes/api/personal-finance'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
 import { Route as ApiAccountAccessRouteImport } from './routes/api/account/access'
+import { Route as ApiAccountAuditRouteImport } from './routes/api/account/audit'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
 import { Route as ApiAccountMeRouteImport } from './routes/api/account/me'
 import { Route as ApiAccountPasswordRouteImport } from './routes/api/account/password'
@@ -80,6 +81,11 @@ const DashboardSignInRoute = DashboardSignInRouteImport.update({
 const ApiAccountAccessRoute = ApiAccountAccessRouteImport.update({
   id: '/api/account/access',
   path: '/api/account/access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountAuditRoute = ApiAccountAuditRouteImport.update({
+  id: '/api/account/audit',
+  path: '/api/account/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAccountEmailRoute = ApiAccountEmailRouteImport.update({
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/account/access': typeof ApiAccountAccessRoute
+  '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/account/me': typeof ApiAccountMeRoute
   '/api/account/password': typeof ApiAccountPasswordRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/api/account/access': typeof ApiAccountAccessRoute
+  '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/account/me': typeof ApiAccountMeRoute
   '/api/account/password': typeof ApiAccountPasswordRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
   '/api/account/access': typeof ApiAccountAccessRoute
+  '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/account/me': typeof ApiAccountMeRoute
   '/api/account/password': typeof ApiAccountPasswordRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/api/account/access'
+    | '/api/account/audit'
     | '/api/account/email'
     | '/api/account/me'
     | '/api/account/password'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/api/account/access'
+    | '/api/account/audit'
     | '/api/account/email'
     | '/api/account/me'
     | '/api/account/password'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance'
     | '/dashboard_/sign-in'
     | '/api/account/access'
+    | '/api/account/audit'
     | '/api/account/email'
     | '/api/account/me'
     | '/api/account/password'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   ApiPersonalFinanceRoute: typeof ApiPersonalFinanceRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
   ApiAccountAccessRoute: typeof ApiAccountAccessRoute
+  ApiAccountAuditRoute: typeof ApiAccountAuditRoute
   ApiAccountEmailRoute: typeof ApiAccountEmailRoute
   ApiAccountMeRoute: typeof ApiAccountMeRoute
   ApiAccountPasswordRoute: typeof ApiAccountPasswordRoute
@@ -444,6 +457,13 @@ declare module '@tanstack/react-router' {
       path: '/api/account/access'
       fullPath: '/api/account/access'
       preLoaderRoute: typeof ApiAccountAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/audit': {
+      id: '/api/account/audit'
+      path: '/api/account/audit'
+      fullPath: '/api/account/audit'
+      preLoaderRoute: typeof ApiAccountAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/account/email': {
@@ -585,6 +605,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPersonalFinanceRoute: ApiPersonalFinanceRoute,
   DashboardSignInRoute: DashboardSignInRoute,
   ApiAccountAccessRoute: ApiAccountAccessRoute,
+  ApiAccountAuditRoute: ApiAccountAuditRoute,
   ApiAccountEmailRoute: ApiAccountEmailRoute,
   ApiAccountMeRoute: ApiAccountMeRoute,
   ApiAccountPasswordRoute: ApiAccountPasswordRoute,

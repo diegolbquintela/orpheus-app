@@ -482,6 +482,29 @@
     font-size: 1rem;
     color: var(--color-chalk);
   }
+  /* #91 06 Activity: the audit table scrolls inside its own box at 360 (AUDIT-09); dark, hairlines, no gold. */
+  .account-audit-box {
+    max-width: 100%;
+    overflow-x: auto;
+    border-top: 1px solid var(--color-hair);
+  }
+  .account-audit {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    color: var(--color-chalk);
+    white-space: nowrap;
+  }
+  .account-audit th {
+    padding: 0.75rem 1rem 0.75rem 0;
+    text-align: left;
+    font-weight: normal;
+  }
+  .account-audit td {
+    border-top: 1px solid var(--color-hair);
+    padding: 0.75rem 1rem 0.75rem 0;
+    font-variant-numeric: tabular-nums;
+  }
   /* Field checks (#78, spec §7 sizes; ST4-17): the message under its field, the underline in the alert colour. */
   .calc-error {
     display: block;

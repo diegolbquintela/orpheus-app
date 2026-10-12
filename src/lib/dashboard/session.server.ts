@@ -103,8 +103,13 @@ export async function gateDashboardRequest(
   const need = opts.need ?? (method === "GET" || method === "HEAD" ? "read" : "write");
   if (need !== "signed_in") {
     if (access.mustChange) return { response: mustChangeResponse() };
-    if (!surface.read || (need === "write" && !surface.write) || !surface.dataUserId)
+    if (!surface.read || (need === "write" && !surface.write) || !surface.dataUserId) {
+      // #91 AUDIT-06: a grant refusal is worth seeing in the audit log (masked; the surface and method only).
+      const { auditFor, deniedDetail } = await import("../access/audit.server.ts");
+      const s = opts.surface ?? "dashboard";
+      await auditFor(db, access, "access.denied", { outcome: "denied", detail: deniedDetail(s, method) });
       return { response: forbiddenResponse() };
+    }
   }
   const user = { id: surface.dataUserId ?? viewer.id, email: access.owner ? viewer.email : null };
   return { user, viewer, access, surface, db };
@@ -157,6 +162,10 @@ export async function handleDashboardSettingsRequest(request: Request, deps: Das
   const settings = body
     ? await setBaseCurrency(db, user.id, body.baseCurrency as BaseCurrency)
     : await getUserSettings(db, user.id);
+  if (body) {
+    const { auditFor } = await import("../access/audit.server.ts");
+    await auditFor(g.db, g.access, "dash.settings");
+  }
   return json({ settings: { baseCurrency: settings.baseCurrency } });
 }
 
@@ -187,6 +196,8 @@ export async function handleAuthRequest(
   request: Request,
   env: Env = process.env,
   load: () => Promise<AuthModule> = () => import("@/lib/auth/server"),
+  getDb: (env: Env) => Promise<Queryable | null> = defaultGetDb,
+  getUser: SessionLookup = sessionFromRequestHeaders,
 ): Promise<Response> {
   if (guardDashboardApi(env)) return dashboardNotFoundResponse();
   const mod = await load();
@@ -194,7 +205,45 @@ export async function handleAuthRequest(
     console.error(`[auth] sign-in unavailable: ${mod.authNotReadyReason ?? "unknown"}`);
     return json({ error: "Sign-in is not configured on this deployment." }, 503);
   }
-  return mod.auth.handler(request);
+  const path = new URL(request.url).pathname;
+  const method = request.method.toUpperCase();
+  const signIn = method === "POST" && path.endsWith("/sign-in/email");
+  const signOut = method === "POST" && path.endsWith("/sign-out");
+  if (!signIn && !signOut) return mod.auth.handler(request);
+  // #91: sign-in / sign-out in the audit log (masked; the typed email is never stored).
+  const before = signOut ? await getUser(request.headers).catch(() => null) : null;
+  const response = await mod.auth.handler(request);
+  try {
+    await auditAuth(response, env, signIn, before, getDb);
+  } catch {
+    console.error("[audit] could not record an auth event");
+  }
+  return response;
+}
+
+async function auditAuth(
+  response: Response,
+  env: Env,
+  signIn: boolean,
+  before: DashboardUser | null,
+  getDb: (env: Env) => Promise<Queryable | null>,
+) {
+  const { recordAudit, auditFor } = await import("../access/audit.server.ts");
+  const db = await getDb(env);
+  if (!db) return;
+  if (!signIn) {
+    if (before && response.ok) await auditFor(db, await accessOf(db, before, env), "auth.sign_out");
+    return;
+  }
+  if (response.status === 429 || response.status >= 500) return;
+  if (!response.ok) {
+    await recordAudit(db, { actor: "anonymous", role: "anonymous", action: "auth.sign_in", outcome: "failed" });
+    return;
+  }
+  const body = (await response.clone().json().catch(() => null)) as { user?: { id?: string; email?: string } } | null;
+  const id = body?.user?.id;
+  if (!id) return;
+  await auditFor(db, await accessOf(db, { id, email: body?.user?.email ?? null }, env), "auth.sign_in");
 }
 
 /** What `/dashboard` pages need to know about the visitor. */

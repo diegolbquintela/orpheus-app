@@ -9,12 +9,14 @@ import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import { parseAllowList } from "../auth/config.ts";
 import { createOrpheusAuth } from "../auth/instance.server.ts";
 import { pgliteDialect } from "../auth/pglite-dialect.ts";
-import { type DashboardApiDeps } from "../dashboard/session.server.ts";
+import { type DashboardApiDeps, handleAuthRequest } from "../dashboard/session.server.ts";
+import { maskCode, recordAudit } from "./audit.server.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { handlePersonalFinanceRequest } from "../finance/account.server.ts";
 import { handleHoldingsRequest } from "../dashboard/holdings.server.ts";
 import {
   handleAccountAccessRequest,
+  handleAccountAuditRequest,
   handleAccountEmailRequest,
   handleAccountMeRequest,
   handleAccountPasswordRequest,
@@ -299,5 +301,114 @@ describe("/api/account (#90)", () => {
     assert.equal((await call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: owner }, noOwner)).status, 403);
     assert.equal((await call(handleAccountAccessRequest, "/api/account/access", { cookie: owner }, noOwner)).status, 403);
     assert.deepEqual((await json(await call(handleAccountWhoRequest, "/api/account/who", { cookie: owner }, noOwner))).people, []);
+  });
+});
+
+// #91 (AUDIT-01..07, -10, -12): the audit log over the same database, after the #90 journey above wrote to it.
+describe("audit log (#91)", () => {
+  const rows = async () =>
+    (await db.query("SELECT actor, role, action, target, outcome, detail FROM audit_event ORDER BY id")) as {
+      actor: string;
+      role: string;
+      action: string;
+      target: string | null;
+      outcome: string;
+      detail: string | null;
+    }[];
+
+  it("AUDIT-01: append-only (UPDATE and DELETE refused)", async () => {
+    await assert.rejects(db.query("UPDATE audit_event SET outcome = 'ok'"), /append-only/);
+    await assert.rejects(db.query("DELETE FROM audit_event"), /append-only/);
+  });
+
+  it("AUDIT-02 / -04: the #90 actions above were recorded with the fixed codes", async () => {
+    const all = await rows();
+    const actions = new Set(all.map((r) => r.action));
+    for (const a of ["access.add", "access.grants", "access.remove", "access.reset", "account.password", "account.email", "access.denied"])
+      assert.ok(actions.has(a), a);
+    const add = all.find((r) => r.action === "access.add");
+    assert.deepEqual([add?.actor, add?.role, add?.outcome, add?.detail], ["owner", "owner", "ok", "pf:read dash:none"]);
+    assert.equal(add?.target, maskCode("p", people.cfo.id));
+    const denied = all.filter((r) => r.action === "access.denied");
+    assert.ok(denied.every((r) => r.outcome === "denied" && /^(personal_finance|dashboard) [A-Z]+$/.test(r.detail ?? "")));
+    assert.ok(denied.some((r) => r.detail === "personal_finance GET"));
+  });
+
+  it("AUDIT-03: masked: only codes, never an email, a name or a temporary password", async () => {
+    const all = await rows();
+    assert.ok(all.length > 5);
+    for (const r of all) {
+      assert.match(r.actor, /^(owner|anonymous|p-[0-9a-f]{8})$/);
+      if (r.target !== null) assert.match(r.target, /^(owner|[ph]-[0-9a-f]{8})$/);
+      const text = JSON.stringify(r);
+      assert.doesNotMatch(text, /@|example|Diego|Cfo Read|Pm Write|No Grant|Both/);
+    }
+    // stable per person
+    assert.equal(maskCode("p", people.cfo.id), maskCode("p", people.cfo.id));
+    assert.notEqual(maskCode("p", people.cfo.id), maskCode("p", people.pm.id));
+  });
+
+  it("AUDIT-05: sign-in ok / failed (no email stored) and sign-out through /api/auth", async () => {
+    const mod = async () => ({ authConfigured: true, authNotReadyReason: null, auth });
+    const getUser = deps().getUser;
+    const req = (path: string, body: unknown, cookie?: string) =>
+      new Request(`${ORIGIN}/api/auth${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN, ...(cookie ? { cookie } : {}) },
+        body: JSON.stringify(body),
+      });
+    const n = (await rows()).length;
+    const bad = await handleAuthRequest(req("/sign-in/email", { email: OWNER, password: "wrong-pass-9" }), ON, mod, async () => db, getUser);
+    assert.notEqual(bad.status, 200);
+    const good = await handleAuthRequest(req("/sign-in/email", { email: OWNER, password: OWNER_PW }), ON, mod, async () => db, getUser);
+    assert.equal(good.status, 200);
+    const cookie = cookieFrom(good);
+    const out = await handleAuthRequest(req("/sign-out", {}, cookie), ON, mod, async () => db, getUser);
+    assert.equal(out.status, 200);
+    const added = (await rows()).slice(n).map((r) => [r.action, r.outcome, r.actor]);
+    assert.deepEqual(added, [
+      ["auth.sign_in", "failed", "anonymous"],
+      ["auth.sign_in", "ok", "owner"],
+      ["auth.sign_out", "ok", "owner"],
+    ]);
+  });
+
+  it("AUDIT-07: GET /api/account/audit owner only, newest first, paging, no-store", async () => {
+    assert.equal((await call(handleAccountAuditRequest, "/api/account/audit", { cookie: owner }, {})).status, 404);
+    assert.equal((await call(handleAccountAuditRequest, "/api/account/audit")).status, 401);
+    assert.equal((await call(handleAccountAuditRequest, "/api/account/audit", { cookie: owner, method: "POST" })).status, 405);
+    assert.equal((await call(handleAccountAuditRequest, "/api/account/audit", { cookie: people.cfo.cookie })).status, 403);
+    const r = await call(handleAccountAuditRequest, "/api/account/audit?limit=3", { cookie: owner });
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("cache-control"), "no-store");
+    const page = (await r.json()) as { events: { id: number; at: string }[]; more: boolean };
+    assert.equal(page.events.length, 3);
+    assert.equal(page.more, true);
+    assert.ok(page.events[0].id > page.events[1].id && page.events[1].id > page.events[2].id);
+    const next = (await (await call(handleAccountAuditRequest, `/api/account/audit?limit=3&before=${page.events[2].id}`, { cookie: owner })).json()) as { events: { id: number }[] };
+    assert.ok(next.events[0].id < page.events[2].id);
+    const big = (await (await call(handleAccountAuditRequest, "/api/account/audit?limit=500", { cookie: owner })).json()) as { events: unknown[] };
+    assert.ok(big.events.length <= 100);
+  });
+
+  it("AUDIT-10: a failing insert never throws (best effort)", async () => {
+    const broken = { query: async () => { throw new Error("down"); } };
+    const errors: unknown[] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => errors.push(a.join(" "));
+    try {
+      await recordAudit(broken as never, { actor: "owner", role: "owner", action: "pf.save" });
+    } finally {
+      console.error = orig;
+    }
+    assert.deepEqual(errors, ["[audit] could not record pf.save"]);
+  });
+
+  it("AUDIT-12: a removed person's rows stay (no foreign key)", async () => {
+    const code = maskCode("p", people.cfo.id);
+    const before = (await rows()).filter((r) => r.actor === code || r.target === code).length;
+    await db.query('DELETE FROM "user" WHERE id = $1', [people.cfo.id]);
+    assert.equal((await rows()).filter((r) => r.actor === code || r.target === code).length, before);
+    assert.ok(before > 0);
   });
 });

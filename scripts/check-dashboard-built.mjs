@@ -36,7 +36,7 @@
  *
  * `--with-database` (manual; needs DATABASE_URL for a fresh throwaway, already migrated Postgres, never
  * a shared one): the same signed-out checks, then sign-up with the allow-list (denied 403 /
- * allowed), the signed-in /dashboard ("Signed in as", "connected · 13/13 tables"), /api/dashboard/me,
+ * allowed), the signed-in /dashboard ("Signed in as", "connected · 14/14 tables"), /api/dashboard/me,
  * (#90) the owner from ORPHEUS_OWNER_EMAIL and a no-grant account (403 on the APIs, the denied page), holdings (T04: add KO, VOD.L and TCS.BO refused with
  * the calculator's messages, duplicate 409, quantity checks, edit, the row after a reload, another
  * account gets 404 on the holding id, delete), the daily close job (T05: "Run daily refresh" shown only
@@ -477,7 +477,7 @@ if (!WITH_DB) {
   check(/data-testid="holdings-empty"[^>]*>Add a holding</.test(page.body), `${label}: GET /dashboard lacks the "Add a holding" empty state`);
   check(!/data-testid="holdings-(list|total-line|pie)"/.test(page.body) && !/Average cost is per share/.test(page.body), `${label}: empty /dashboard shows a list, total, chart or the old helper paragraph`);
   check(/Signed in as (<!-- -->)?qa-allowed@example\.com/.test(page.body), `${label}: GET /dashboard lacks "Signed in as"`);
-  check(/Database: connected · 13\/13 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 13/13 tables"`);
+  check(/Database: connected · 14\/14 tables/.test(page.body), `${label}: GET /dashboard lacks "Database: connected · 14/14 tables"`);
   check(!/data-testid="preview-refresh"/.test(page.body), `${label}: refresh button shown without VERCEL_ENV=preview`);
   const me = await call("GET", "/api/dashboard/me", "true", undefined, { cookie: token });
   check(me.status === 200 && me.body.includes(`"email":"${ALLOWED}"`), `${label}: GET me -> ${me.status} ${me.body}`);
@@ -821,6 +821,6 @@ if (failures.length) {
 }
 console.log(
   WITH_DB
-    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 13/13; me; #90 owner /account, no-grant 403 (APIs, denied pages, grant API), /account for no-grant; personal finance (#102: page signed in, ?next, record save / second session / per account); holdings CRUD, DASH-08 messages, duplicate, no-grant 403; daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, no-grant 403, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
+    ? "[check-dashboard-built] OK (with database): allow-list sign-up denied/allowed; signed-in shell, connected 14/14; me; #90 owner /account, no-grant 403 (APIs, denied pages, grant API), /account for no-grant; personal finance (#102: page signed in, ?next, record save / second session / per account); holdings CRUD, DASH-08 messages, duplicate, no-grant 403; daily refresh (preview button only, close stored, second run and cron insert nothing, reload unchanged); FX (BoC rates stored once, /api/dashboard/fx, base CAD default, USD/CAD/EUR totals re-expressed); valuation (list row + detail, cost, return, share of the book, one total, as-of line, out-of-date note); optional cost (#56: add form, blank cost saves as null, cost/return blank then filled again; #57: PUT without avgCost keeps it, null clears it; #58 N2: non-number avgCost -> number message on POST and PUT); metric chips (#57: defaults, add at the end, remove, empty sticks, 400, no-grant 403, chips / headers / cells on the page, dash alone); book (#58: donut, no pending list or empty sentence, total — before a close, Book row, share 100.0%, dash alone at 0% coverage); sign-out"
     : "[check-dashboard-built] OK: flag-off 404s match the unknown-path 404 (sign-in and auth routes too); site shell (home hero + Platforms lines, calculator, /?query redirect, menu, footer); API methods answer JSON; signed out -> sign-in redirect + 401; cron 401/405/503; refresh route preview-only; fx and columns 401/405; sign-in off without secret/database (503); status and db OK; db hidden on production",
 );

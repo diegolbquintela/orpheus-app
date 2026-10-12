@@ -1064,3 +1064,12 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Icons: change `public/favicon.svg`, then `node scripts/make-icons.mjs` and commit the PNGs.
 - `.grok/` and the rest of the template tooling: removed in #51. `src/lib/app-data/*` (GROK_* connector env) parked.
 - QA: `qa/tools/no-grok.mjs` (NG-01..09 in `qa/CANONICAL-AC-PACK.md`).
+
+## Audit log of actions (#91)
+
+- Design `attachments/audit-log-design.md`; AC AUDIT-01..12; tool `qa/tools/audit.mjs`.
+- Every new write API calls `auditFor(db, access, "<area>.<verb>", …)` from `src/lib/access/audit.server.ts` after the
+  write succeeds; add the code to `AUDIT_ACTIONS` and the design's section 3. Never pass request text: `target` is
+  `maskCode("p" | "h", id)` / `personTarget`, `detail` only `grantsDetail` / `deniedDetail` (the table's CHECKs refuse
+  anything else). Logging is best effort and must never change the action's answer.
+- `audit_event` is append-only (a trigger refuses UPDATE / DELETE); never add a foreign key or an email / name column.
