@@ -1073,3 +1073,10 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   `maskCode("p" | "h", id)` / `personTarget`, `detail` only `grantsDetail` / `deniedDetail` (the table's CHECKs refuse
   anything else). Logging is best effort and must never change the action's answer.
 - `audit_event` is append-only (a trigger refuses UPDATE / DELETE); never add a foreign key or an email / name column.
+
+## Personal Finance month control (#112)
+
+- Design `attachments/pf-month-control-design.md` (EL option A, decisions 1–7), spec section 19, AC PF-48..PF-58.
+- Per-month lines live in `orpheus.finance.months.v1` (`src/lib/finance/months.ts`); the page edits a draft and
+  writes only on `Save`. Never reintroduce autosave; section toggles are the one immediate write.
+- QA tools that type into the page must click `Save` (`pf-month-save`) before checking the stored record.

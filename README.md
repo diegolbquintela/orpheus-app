@@ -566,3 +566,9 @@ Vite directly. Vercel sets `VITE_AUTH_ENABLED` itself, so deployed builds are un
 show as `owner` or `p-xxxxxxxx` (a hash of the account id), holdings as `h-xxxxxxxx`; no email, name, amount or
 ticker is stored. The owner reads it in `/account` section `06 Activity` and at `GET /api/account/audit`. QA:
 `node qa/tools/audit.mjs --base-url <preview>` with the #90 QA accounts in env (AUDIT-01..12).
+
+**Personal Finance month control (#112).** A `Month` control at the top (the last 12 months) replaces `05 Update`:
+each month keeps its own income and expense lines (`orpheus.finance.months.v1`), an empty past month starts as a
+copy of the current month's saved lines (`Copied from … — edit and save.`), and `Save` (shown only when something is
+unsaved) writes the month; there is no autosave. Design `attachments/pf-month-control-design.md`, spec section 19,
+AC PF-48..PF-58, QA `qa/tools/pf-months.mjs`.
