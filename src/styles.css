@@ -731,8 +731,13 @@
   }
   .pf-month-select {
     min-height: 2.75rem;
-    width: 12rem;
+    width: 10rem;
     max-width: 16rem;
+  }
+  @media (min-width: 640px) {
+    .pf-month-select {
+      width: 12rem;
+    }
   }
   .pf-month-save {
     display: inline-flex;
