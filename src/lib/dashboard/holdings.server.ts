@@ -12,6 +12,7 @@
  * (`getListing`, T07), which applies the calculator's `listingError()` and its exact messages. The ticker of an existing holding can't be edited
  * (delete and add it again), so the check runs only on POST.
  */
+import { auditFor, maskCode } from "../access/audit.server.ts";
 import { waitUntil } from "@vercel/functions";
 import { TICKER } from "../dca/yahoo.server.ts";
 import { ensureCoverage } from "./daily-refresh.server.ts";
@@ -185,6 +186,7 @@ export async function handleHoldingsRequest(request: Request, deps: HoldingsDeps
     // T05: record the symbol as pending and fetch its closes in the background ("price pending").
     await ensureCoverage(db, symbol);
     (deps.scheduleBackfill ?? scheduleBackfillInBackground)(db, symbol);
+    await auditFor(g.db, g.access, "dash.holding_add", { target: maskCode("h", holding.id) });
     return json(
       { holding, listing: { exchange: listing.exchange, currency: listing.currency }, price: "pending" },
       201,
@@ -231,10 +233,16 @@ export async function handleHoldingRequest(
 
   const db = await withDb(deps);
   if (!db) return storageUnavailable();
-  if (method === "DELETE") return (await deleteHolding(db, user.id, id)) ? json({ deleted: true }) : notFound();
+  if (method === "DELETE") {
+    if (!(await deleteHolding(db, user.id, id))) return notFound();
+    await auditFor(g.db, g.access, "dash.holding_delete", { target: maskCode("h", id) });
+    return json({ deleted: true });
+  }
   if (update) {
     const holding = await updateHolding(db, user.id, id, update);
-    return holding ? json({ holding }) : notFound();
+    if (!holding) return notFound();
+    await auditFor(g.db, g.access, "dash.holding_edit", { target: maskCode("h", id) });
+    return json({ holding });
   }
   const holding = await getHolding(db, user.id, id);
   return holding ? json({ holding }) : notFound();

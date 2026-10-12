@@ -4,6 +4,7 @@
  * 405 JSON for another method, 401 JSON without a session, 403 when `userId` names someone else, 400 / 413 for a bad
  * body, 503 without a database. The user id is the session's, never the client's. #90: the data is the owner's.
  */
+import { auditFor } from "../access/audit.server.ts";
 import {
   badRequest,
   type DashboardApiDeps,
@@ -90,13 +91,16 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
       delete next[VIEW_KEY];
       if (current && VIEW_KEY in current) next[VIEW_KEY] = current[VIEW_KEY];
       await writeRecord(db, user.id, next);
+      await auditFor(db, g.access, "pf.save");
       return dashboardJson({ data: await forViewer(db, next, g), access });
     }
     await writeRecord(db, user.id, record);
+    await auditFor(db, g.access, "pf.save");
     return dashboardJson({ data: record, access });
   }
   if (method === "DELETE") {
     await deleteRecord(db, user.id);
+    await auditFor(db, g.access, "pf.delete");
     return dashboardJson({ data: null, access });
   }
   return dashboardJson({ data: await forViewer(db, await readRecord(db, user.id), g), access });
@@ -124,5 +128,6 @@ export async function handlePersonalFinanceViewRequest(request: Request, deps: D
     const current = (await readRecord(g.db, g.user.id)) ?? {};
     await writeRecord(g.db, g.user.id, { ...current, [VIEW_KEY]: view });
   } else await writeOwnView(g.db, g.viewer.id, view);
+  await auditFor(g.db, g.access, "pf.view");
   return dashboardJson({ view });
 }

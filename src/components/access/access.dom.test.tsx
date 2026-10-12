@@ -53,7 +53,7 @@ const base: AccountPageData = {
   people: [
     { id: "o", name: "Diego", email: "owner@example.com", owner: true, grants: { personal_finance: "read_write", dashboard: "read_write" } },
     { id: "c", name: "Cfo", email: "cfo@example.com", owner: false, grants: { personal_finance: "read", dashboard: "none" } },
-  ],
+  ],  audit: null,
 };
 
 describe("/account page (#90)", () => {
@@ -173,5 +173,25 @@ describe("denied and read-only (#90)", () => {
     const el = await render(<PersonalFinancePage loadStore={loadLocalStore} now={new Date(2026, 9, 11, 12)} />);
     assert.equal(q(el, "read-only"), null);
     assert.equal(q(el, "pf-lock"), null);
+  });
+
+  it("AUDIT-08 (#91): the owner's 06 Activity: columns, ET times, masked codes; empty line; Show older only with more", async () => {
+    const events = [
+      { id: 2, at: "2026-10-12T14:05:00.000Z", actor: "p-0a1b2c3d", role: "cfo", action: "access.denied", target: null, outcome: "denied", detail: "personal_finance PUT" },
+      { id: 1, at: "2026-10-12T13:00:00.000Z", actor: "owner", role: "owner", action: "access.add", target: "p-0a1b2c3d", outcome: "ok", detail: "pf:read dash:none" },
+    ];
+    const el = await render(<AccountPage data={{ ...base, audit: { events, more: true } }} />);
+    assert.equal([...el.querySelectorAll("h2")].at(-1)?.textContent, "Activity");
+    assert.equal([...el.querySelectorAll(".pf-label")].filter((p) => /^0\d$/.test(p.textContent ?? "")).at(-1)?.textContent, "06");
+    assert.deepEqual([...el.querySelectorAll("th")].map((t) => t.textContent), ["When", "Who", "Role", "Action", "Target", "Result"]);
+    const cells = [...el.querySelectorAll('[data-testid="account-activity-row"]')].map((r) => [...r.querySelectorAll("td")].map((c) => c.textContent));
+    assert.deepEqual(cells, [
+      ["2026-10-12 10:05 ET", "p-0a1b2c3d", "cfo", "access.denied (personal_finance PUT)", "—", "denied"],
+      ["2026-10-12 09:00 ET", "owner", "owner", "access.add (pf:read dash:none)", "p-0a1b2c3d", "ok"],
+    ]);
+    assert.ok(q(el, "account-activity-older"));
+    const empty = await render(<AccountPage data={{ ...base, audit: { events: [], more: false } }} />);
+    assert.equal(q(empty, "account-activity-empty")?.textContent, "No activity yet.");
+    assert.equal(q(empty, "account-activity-older"), null);
   });
 });

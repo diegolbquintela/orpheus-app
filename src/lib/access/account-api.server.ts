@@ -11,6 +11,8 @@
  *   a person (ROLE-07; the temporary password once, `no-store`); PUT `{ userId, personal_finance, dashboard }` sets
  *   grants; DELETE `?userId=` removes access (Q-D7). `POST /api/account/reset` `{ userId }` (ROLE-18).
  *
+ * - `GET /api/account/audit` (#91, owner only): the audit log of actions, masked.
+ *
  * Replies are `Cache-Control: no-store`; nothing here logs a password or a temporary password.
  */
 import {
@@ -48,6 +50,7 @@ import {
   type DashboardUser,
 } from "../dashboard/session.server.ts";
 import { dashboardMethodNotAllowedResponse, guardDashboardApi } from "../dashboard/flag.server.ts";
+import { auditFor, grantsDetail, listAudit, personTarget } from "./audit.server.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 
 /** Fetch Metadata (same rule as `assertSameSiteRequest`): only same-origin or non-browser requests may write. */
@@ -119,6 +122,7 @@ export async function handleAccountPasswordRequest(request: Request, deps: Dashb
   if (!(await checkPassword(g.db, g.viewer.id, current)))
     return json({ error: COPY.wrongPassword, field: "currentPassword" }, 400);
   await changePassword(g.db, g.viewer, next);
+  await auditFor(g.db, g.access, "account.password");
   return json({ ok: true });
 }
 
@@ -143,6 +147,7 @@ export async function handleAccountEmailRequest(request: Request, deps: Dashboar
   const ownerEmail = normaliseEmail((deps.env ?? process.env).ORPHEUS_OWNER_EMAIL);
   if (ownerEmail && email === ownerEmail) return json({ error: COPY.emailInUse, field: "newEmail" }, 409);
   await changeEmail(g.db, g.viewer, email);
+  await auditFor(g.db, g.access, "account.email");
   return json({ ok: true, email });
 }
 
@@ -170,6 +175,7 @@ export async function handleAccountAccessRequest(request: Request, deps: Dashboa
     if (!userId || userId === ownerId) return forbiddenResponse();
     if (!(await userById(g.db, userId))) return json({ error: "No such person." }, 404);
     await removeAccess(g.db, userId);
+    await auditFor(g.db, g.access, "access.remove", { target: personTarget(userId, ownerId) });
     return json({ ok: true });
   }
   const b = await body(request);
@@ -181,6 +187,7 @@ export async function handleAccountAccessRequest(request: Request, deps: Dashboa
     if (!userId || userId === ownerId) return forbiddenResponse();
     if (!(await userById(g.db, userId))) return json({ error: "No such person." }, 404);
     await setGrants(g.db, ownerId, userId, grants);
+    await auditFor(g.db, g.access, "access.grants", { target: personTarget(userId, ownerId), detail: grantsDetail(grants) });
     return json({ ok: true, people: await peopleFor(g.db, g.access) });
   }
   // POST: create a person (or grant an existing account).
@@ -191,6 +198,11 @@ export async function handleAccountAccessRequest(request: Request, deps: Dashboa
   const existing = await userByEmail(g.db, email);
   if (existing?.id === ownerId) return forbiddenResponse();
   const result = await createPerson(g.db, ownerId, { name, email, grants });
+  const added = await userByEmail(g.db, email);
+  await auditFor(g.db, g.access, "access.add", {
+    target: added ? personTarget(added.id, ownerId) : null,
+    detail: grantsDetail(grants),
+  });
   return json(
     {
       ok: true,
@@ -215,5 +227,26 @@ export async function handleAccountResetRequest(request: Request, deps: Dashboar
   const person = await userById(g.db, userId);
   if (!person) return json({ error: "No such person." }, 404);
   const temporary = await resetPassword(g.db, g.access.ownerId, userId);
+  await auditFor(g.db, g.access, "access.reset", { target: personTarget(userId, g.access.ownerId) });
   return json({ ok: true, email: person.email, temporaryPassword: temporary });
+}
+
+export const AUDIT_ALLOW = ["GET", "HEAD"] as const;
+/**
+ * `GET /api/account/audit?before=<id>&limit=<1..100>` (#91, AUDIT-07): the audit log, newest first, owner only (and
+ * never with a temporary password in place). Masked codes only (attachments/audit-log-design.md section 4).
+ */
+export async function handleAccountAuditRequest(request: Request, deps: DashboardApiDeps) {
+  const g = await gate(request, AUDIT_ALLOW, deps);
+  if (g instanceof Response) return g;
+  if (!g.access.owner || g.access.mustChange) return forbiddenResponse();
+  const q = new URL(request.url).searchParams;
+  const before = Number(q.get("before") ?? "");
+  const limit = Number(q.get("limit") ?? "50");
+  return json(
+    await listAudit(g.db, {
+      before: Number.isInteger(before) ? before : null,
+      limit: Number.isFinite(limit) ? limit : 50,
+    }),
+  );
 }

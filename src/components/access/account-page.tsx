@@ -74,6 +74,11 @@ export function AccountPage({ data }: { data: AccountPageData }) {
               <GrantAccess people={data.people.filter((p) => !p.owner)} />
             </Section>
           ) : null}
+          {data.owner && data.audit ? (
+            <Section numeral="06" title={COPY.activity} id="account-activity">
+              <Activity first={data.audit} />
+            </Section>
+          ) : null}
         </>
       )}
     </main>
@@ -552,5 +557,88 @@ function AddPerson() {
         </p>
       ) : null}
     </form>
+  );
+}
+
+type AuditPage = NonNullable<AccountPageData["audit"]>;
+
+const WHEN = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Toronto",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+/** `yyyy-mm-dd hh:mm ET` (#91: the owner's zone, the same on the server and in the browser). */
+function when(iso: string): string {
+  const p = Object.fromEntries(WHEN.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ET`;
+}
+
+/** #91 `06 Activity` (AUDIT-08): the owner's audit log, masked codes only, newest first; `Show older` appends. */
+function Activity({ first }: { first: AuditPage }) {
+  const [events, setEvents] = useState(first.events);
+  const [more, setMore] = useState(first.more);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (events.length === 0)
+    return (
+      <p className="signin-note" data-testid="account-activity-empty">
+        {COPY.activityEmpty}
+      </p>
+    );
+  async function older() {
+    setBusy(true);
+    setFailed(false);
+    const last = events[events.length - 1];
+    const r = await send(`/api/account/audit?before=${last.id}&limit=50`, "GET");
+    setBusy(false);
+    if (!r.ok) return setFailed(true);
+    const page = r.data as unknown as AuditPage;
+    setEvents((e) => [...e, ...page.events]);
+    setMore(page.more);
+  }
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="account-audit-box" role="region" aria-labelledby="account-activity" tabIndex={0}>
+        <table className="account-audit" data-testid="account-activity-table">
+          <thead>
+            <tr>
+              {COPY.activityCols.map((c) => (
+                <th key={c} scope="col" className="pf-label">
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((e) => (
+              <tr key={e.id} data-testid="account-activity-row">
+                <td>{when(e.at)}</td>
+                <td>{e.actor}</td>
+                <td>{e.role}</td>
+                <td>{e.detail ? `${e.action} (${e.detail})` : e.action}</td>
+                <td>{e.target ?? "—"}</td>
+                <td>{e.outcome}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {failed ? <p className="signin-error">{COPY.failed}</p> : null}
+      {more ? (
+        <button
+          type="button"
+          className="signin-button self-start"
+          disabled={busy}
+          onClick={older}
+          data-testid="account-activity-older"
+        >
+          {COPY.activityOlder}
+        </button>
+      ) : null}
+    </div>
   );
 }

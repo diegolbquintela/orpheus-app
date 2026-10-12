@@ -43,6 +43,8 @@ export const DASHBOARD_TABLES = [
   // #90: who may see what (migrations/0011_access.sql).
   "access_grant",
   "account_state",
+  // #91: the audit log of actions (migrations/0012_audit.sql).
+  "audit_event",
 ] as const;
 
 // ------------------------------------------------------------------ per-user: settings

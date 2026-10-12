@@ -560,3 +560,9 @@ Installing is the browser's own (Share → Add to Home Screen). noindex meta + `
 write-atomic / browser-smoke scripts and `screenshots/app-builder-*` are gone; `npm run dev` / `build` / `preview` run
 Vite directly. Vercel sets `VITE_AUTH_ENABLED` itself, so deployed builds are unchanged. Test:
 `scripts/no-grok-tooling.test.mjs` (TL-01..06).
+
+**Audit log of actions (#91).** An append-only, masked log of who did what, when, for operations and debug
+(`migrations/0012_audit.sql`, `src/lib/access/audit.server.ts`; design `attachments/audit-log-design.md`). People
+show as `owner` or `p-xxxxxxxx` (a hash of the account id), holdings as `h-xxxxxxxx`; no email, name, amount or
+ticker is stored. The owner reads it in `/account` section `06 Activity` and at `GET /api/account/audit`. QA:
+`node qa/tools/audit.mjs --base-url <preview>` with the #90 QA accounts in env (AUDIT-01..12).

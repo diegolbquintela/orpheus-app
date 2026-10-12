@@ -101,7 +101,7 @@ function app(mode, override = () => false) {
         : json(res, 200, { dashboard: "enabled", signIn: "ready" });
     if (u.pathname === "/api/dashboard/db")
       return mode === "preview"
-        ? json(res, 200, { state: "connected", tables: 13, missingTables: [] })
+        ? json(res, 200, { state: "connected", tables: 14, missingTables: [] })
         : json(res, 404, { error: "Not found." });
     if (
       [
