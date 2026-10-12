@@ -4,19 +4,19 @@
 //   ST5b-01 no white panel: charcoal page and chalk type; underline fields (1 px rule underline; no box, fill or
 //           radius; chalk text; focused: chalk underline + 2 px chalk ring); sign-in-only classes (.signin*), no
 //           .field / .kicker / bg-paper / text-ink in the page; the stylesheet's .field and .kicker as on main
-//   ST5b-02 exactly: the h1 `Sign in`, `Email`, `Password`, the submit `Sign in` and `Create an account`; nothing
-//           else in <main> (no invite-only note); the switch flips to heading and submit `Create account`, link
-//           `Sign in`, and back, without a request; the error line only after a failed attempt (role=alert,
+//   ST5b-02 (amended by #90 ROLE-09) exactly: the h1 `Sign in`, `Email`, `Password` and the submit `Sign in`;
+//           nothing else in <main> (no invite-only note, no `Create an account` link or create-account mode); the
+//           error line only after a failed attempt (role=alert,
 //           #ff8f87): ONE failed sign-in per width with a made-up @example.invalid address (never signs up)
 //   ST5b-03 the page's requests: only POST /api/auth/sign-in/email on submit (no sign-up call); signed-out
 //           /dashboard → 307 to sign-in (release-smoke covers the full matrix)
 //   ST5b-04 AA for every visible text (contrast scan; axe-core color-contrast too with AXE_PATH), submit night on
 //           chalk, error ≥ 4.5:1, underline and focus ring ≥ 3:1; color-scheme dark on <html> and <body>; the
 //           :-webkit-autofill rule keeps a night fill and chalk text
-//   ST5b-05 no horizontal scroll; fields, submit, switch ≥ 44 px tall, fields the column's width; title, noindex
+//   ST5b-05 no horizontal scroll; fields and submit ≥ 44 px tall, fields the column's width; title, noindex
 //           meta + X-Robots-Tag; one bar with Dashboard current; footer `Orpheus Wisdom`; no img / picture /
 //           background-image
-// Screenshots: signin-<w>.png, signin-create-<w>.png, signin-error-<w>.png, signin-focus-<w>.png.
+// Screenshots: signin-<w>.png, signin-error-<w>.png, signin-focus-<w>.png.
 //   node qa/tools/signin-page.mjs --base-url <url> --out <dir>
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -197,7 +197,7 @@ try {
 
       // ST5b-02 exact copy
       const texts = await mainTexts(page);
-      check(`${tag} ST5b-02 exactly heading, Email, Password, submit, Create an account`, JSON.stringify(texts) === JSON.stringify(["Sign in", "Email", "Password", "Sign in", "Create an account"]), texts);
+      check(`${tag} ST5b-02 / ROLE-09 exactly heading, Email, Password, submit (no Create an account)`, JSON.stringify(texts) === JSON.stringify(["Sign in", "Email", "Password", "Sign in"]), texts);
       check(`${tag} ST5b-02 no error line before an attempt`, (await page.locator("[role=alert], [data-testid=sign-in-error]").count()) === 0);
 
       // ST5b-01 / -04 styles
@@ -215,10 +215,9 @@ try {
       check(`${tag} ST5b-04 underline rule ≥ 3:1 on charcoal (${ratio(rgb(RULE), rgb(NIGHT))}:1)`, ratio(rgb(RULE), rgb(NIGHT)) >= 3);
       const sub = await style(page, "button[type=submit]");
       check(`${tag} ST5b-04 submit chalk fill, night text (${ratio(rgb(sub.bg), rgb(sub.color))}:1), ≥ 44 px, radius 0`, sub.bg === CHALK && sub.color === NIGHT && sub.h >= 44 && sub.radius === "0px", sub);
-      const sw = await style(page, "[data-testid=sign-in-switch]");
-      check(`${tag} ST5b-02 / -05 Create an account: chalk, underlined, ≥ 44 px tap height`, sw.color === CHALK && /underline/.test(sw.deco) && sw.h >= 44, sw);
+      check(`${tag} ROLE-09 no create-account switch`, (await page.locator("[data-testid=sign-in-switch]").count()) === 0 && !/create/i.test(await page.locator("main").innerText()));
 
-      // Focus: keyboard to the email field and the switch.
+      // Focus: keyboard to the email field and the submit.
       await page.locator("input[type=email]").focus();
       await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Tab");
@@ -227,11 +226,11 @@ try {
       const shotF = join(CFG.out, `signin-focus-${viewport.width}.png`);
       await page.screenshot({ path: shotF, fullPage: true });
       R.shots.push(shotF);
-      await page.locator("[data-testid=sign-in-switch]").focus();
+      await page.locator("button[type=submit]").focus();
       await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Tab");
-      const fs = await style(page, "[data-testid=sign-in-switch]");
-      check(`${tag} ST5b-04 focused switch: 2 px chalk ring (${ratio(rgb(CHALK), rgb(NIGHT))}:1)`, fs.outline === `solid 2px ${CHALK}`, fs.outline);
+      const fs = await style(page, "button[type=submit]");
+      check(`${tag} ST5b-04 focused submit: 2 px chalk ring (${ratio(rgb(CHALK), rgb(NIGHT))}:1)`, fs.outline === `solid 2px ${CHALK}`, fs.outline);
       await page.locator("input[type=email]").blur();
       await page.evaluate(() => document.activeElement?.blur());
 
@@ -246,22 +245,6 @@ try {
       const shot = join(CFG.out, `signin-${viewport.width}.png`);
       await page.screenshot({ path: shot, fullPage: true });
       R.shots.push(shot);
-
-      // Create-account mode mirrors it; no request; back again.
-      const before = reqs.length;
-      await page.locator("[data-testid=sign-in-switch]").click();
-      await page.waitForTimeout(150);
-      const created = await mainTexts(page);
-      check(`${tag} ST5b-02 create-account mode: Create account, Email, Password, Create account, Sign in (no note)`, JSON.stringify(created) === JSON.stringify(["Create account", "Email", "Password", "Create account", "Sign in"]), created);
-      const scan2 = await contrastScan(page);
-      check(`${tag} ST5b-04 AA in create-account mode`, scan2.bad.length === 0, scan2.bad.length ? scan2.bad : { texts: scan2.n });
-      const shotC = join(CFG.out, `signin-create-${viewport.width}.png`);
-      await page.screenshot({ path: shotC, fullPage: true });
-      R.shots.push(shotC);
-      await page.locator("[data-testid=sign-in-switch]").click();
-      await page.waitForTimeout(150);
-      check(`${tag} ST5b-03 the switch is in place (no request, same URL)`, reqs.length === before && new URL(page.url()).pathname === PATH, reqs.slice(before));
-      check(`${tag} ST5b-02 back to sign-in`, JSON.stringify(await mainTexts(page)) === JSON.stringify(["Sign in", "Email", "Password", "Sign in", "Create an account"]));
 
       // One failed sign-in (made-up address; never sign-up).
       await page.locator("input[type=email]").fill(`qa-nobody-${vp}@example.invalid`);

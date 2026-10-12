@@ -47,8 +47,8 @@ describe("0002_dashboard.sql", () => {
     const status = await checkDashboardDb(db);
     assert.deepEqual(status, {
       state: "connected",
-      tables: 11,
-      expectedTables: 11,
+      tables: 13,
+      expectedTables: 13,
       missingTables: [],
       migrationApplied: true,
     });
@@ -293,7 +293,7 @@ describe("/api/dashboard/db handler", () => {
     assert.equal(notConfigured.status, 200);
     assert.deepEqual(await notConfigured.json(), { state: "not_configured" });
     const connected = await handleDbApi("GET", on, async () => db);
-    assert.equal(((await connected.json()) as { state: string; tables: number }).tables, 11);
+    assert.equal(((await connected.json()) as { state: string; tables: number }).tables, 13);
     for (const method of OTHER) {
       const res = await handleDbApi(method, on, noDb);
       assert.equal(res.status, 405, method);

@@ -22,7 +22,7 @@
 //          and clicking the first lands on /calculator
 //   ST3-04 no price requests, no form; `/?ticker=KO` → `/calculator?ticker=KO`; noindex meta + X-Robots-Tag
 //   ST3-06 phone: name and `Open` on one row, the description under them; wide: one row per line; every text
-//          whole; no horizontal page scroll; the bar's four items on one line (ST1-01, incl. 360)
+//          whole; no horizontal page scroll; the bar's five items on one line (ST1-01 / ROLE-01, incl. 360)
 //   ST3-07 / ST0-03 AA for every visible text (contrast scan; axe-core color-contrast too when AXE_PATH points
 //          at axe.min.js, e.g. from a scratch `npm i axe-core`); color-scheme dark on <html> and <body>
 //   ST0-01 charcoal page and chalk type; ST6-01 one painting, no CSS background-image
@@ -329,7 +329,7 @@ async function pageChecks(page, tag, mobile, viewport) {
   check(`${tag} ST3-01 (Q5) no visible credit for the painting`, !p.credit);
   check(`${tag} ST6-01 one painting (the hero img), no CSS background-image`, p.imgs === 1 && p.bgImages.length === 0, { imgs: p.imgs, bg: p.bgImages });
   check(`${tag} ST3-06 no horizontal page scroll`, p.scroll[0] <= p.scroll[1], p.scroll);
-  check(`${tag} ST1-01 the bar fits on one line (${viewport.width} px)`, Math.max(...p.bar) - Math.min(...p.bar) <= 2 && p.bar.length === 4, p.bar);
+  check(`${tag} ST1-01 the bar fits on one line (${viewport.width} px)`, Math.max(...p.bar) - Math.min(...p.bar) <= 2 && p.bar.length === 5, p.bar);
   check(`${tag} ST3-04 noindex meta`, p.robots === "noindex, nofollow", p.robots);
   // Focus ring on the three Open links: Tab from the bar's last item.
   await page.locator('nav[aria-label="Site"] a').last().focus();

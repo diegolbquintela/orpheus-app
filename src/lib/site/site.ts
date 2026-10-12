@@ -63,9 +63,10 @@ export const METHOD_CAPTION =
  */
 export type ShellPage = "dark" | "dashboard";
 
-export function shellPage(pathname: string): ShellPage {
+export function shellPage(pathname: string, denied = false): ShellPage {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-  return path === "/dashboard" ? "dashboard" : "dark";
+  // #90 (ROLE-14): the Dashboard's 403 page is a shell page like the 404, so it is dark too.
+  return path === "/dashboard" && !denied ? "dashboard" : "dark";
 }
 
 /**
@@ -74,16 +75,16 @@ export function shellPage(pathname: string): ShellPage {
  * `html.scheme-dark select, option` in styles.css also gives selects charcoal and chalk. The dashboard keeps
  * main's light scheme.
  */
-export function shellHtmlClass(pathname: string): string {
-  return shellPage(pathname) === "dark" ? "antialiased scheme-dark" : "antialiased";
+export function shellHtmlClass(pathname: string, denied = false): string {
+  return shellPage(pathname, denied) === "dark" ? "antialiased scheme-dark" : "antialiased";
 }
 
 /**
  * The `<body>` classes for a page: charcoal + off-white on dark pages, plus `color-scheme: dark` (#70, EL item 6)
  * so native date pickers and select popups open dark; none (main's white body) on the dashboard.
  */
-export function shellBodyClass(pathname: string): string | undefined {
-  return shellPage(pathname) === "dark" ? "bg-night text-chalk scheme-dark" : undefined;
+export function shellBodyClass(pathname: string, denied = false): string | undefined {
+  return shellPage(pathname, denied) === "dark" ? "bg-night text-chalk scheme-dark" : undefined;
 }
 
 /** Which menu item is the current page for a pathname (null: none, e.g. a 404). */

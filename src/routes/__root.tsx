@@ -21,12 +21,16 @@ function CurrentSiteMenu() {
 // only the bar and footer change and the page around the content stays as on main (spec Q13).
 function RootDocument() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // #90 (ROLE-14): a page whose loader says `denied` (the Dashboard's 403 page) gets the dark shell.
+  const denied = useRouterState({
+    select: (state) => state.matches.some((m) => (m.loaderData as { denied?: boolean } | undefined)?.denied === true),
+  });
   return (
-    <html lang="en" className={shellHtmlClass(pathname)} suppressHydrationWarning>
+    <html lang="en" className={shellHtmlClass(pathname, denied)} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className={shellBodyClass(pathname)}>
+      <body className={shellBodyClass(pathname, denied)}>
         <PreviewHostBridge />
         <AuthProvider>
           <div className="flex min-h-screen flex-col">

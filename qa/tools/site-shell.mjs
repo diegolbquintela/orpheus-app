@@ -55,7 +55,8 @@ const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
 const WHITE = "rgb(255, 255, 255)";
 const INK = "rgb(30, 33, 36)";
-const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"]];
+// #90 (ROLE-01): Account last.
+const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal finance", "/personal-finance"], ["Account", "/account"]];
 const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
@@ -132,7 +133,7 @@ async function shell(page, { vp, path, want, kind, viewport }) {
     const links = [...n.querySelectorAll("a")].map((a) => {
       const s = getComputedStyle(a);
       const b = a.getBoundingClientRect();
-      return { text: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current"), color: s.color, deco: s.textDecorationLine, size: parseFloat(s.fontSize), x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + b.height / 2), h: Math.round(b.height), w: Math.round(b.width), icons: a.getAttribute("href") === "/" ? 0 : a.querySelectorAll("svg, img").length };
+      return { text: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current"), color: s.color, deco: s.textDecorationLine, size: parseFloat(s.fontSize), x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + b.height / 2), h: Math.round(b.height), w: Math.round(b.width), icons: a.getAttribute("href") === "/" ? 0 : [...a.querySelectorAll("svg, img")].filter((e) => getComputedStyle(e).display !== "none").length };
     });
     return { bg: cs.backgroundColor, position: cs.position, height: Math.round(r.height), links, popups: n.querySelectorAll("button, select, details, [aria-haspopup], [role=menu]").length };
   });
@@ -143,9 +144,11 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   // the 1152 px column's edge on wide screens), Calculator just before it, Orpheus at the left.
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
   const last = bar.links.at(-1);
-  check(`${tag} ST1-01 Orpheus left, Calculator, Dashboard, Personal finance right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
+  check(`${tag} ST1-01 / ROLE-01 Orpheus left, Calculator, Dashboard, Personal finance, Account right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
   const size = viewport.width < 640 ? 12 : 14;
-  check(`${tag} ST1-01 text only on the right (no icons), ${size} px text (Q21), every link ≥ 44 px tall and wide`, bar.links.every((l) => l.icons === 0 && l.size === size && l.h >= 44 && l.w >= 44), bar.links.map((l) => [l.text, l.size, l.w, l.h, l.icons]));
+  // #90 (ROLE-01, Q-D8): Account is the one icon on the right (the person glyph below 640 px; the word from 640 px).
+  const wantIcons = (l) => (l.href === "/account" && viewport.width < 640 ? 1 : 0);
+  check(`${tag} ST1-01 / ROLE-01 text only on the right except Account's glyph below 640 px, ${size} px text (Q21), every link ≥ 44 px tall and wide`, bar.links.every((l) => l.icons === wantIcons(l) && l.size === size && l.h >= 44 && l.w >= 44), bar.links.map((l) => [l.text, l.size, l.w, l.h, l.icons]));
   check(`${tag} ST1-01 no dropdowns`, bar.popups === 0);
   const current = bar.links.filter((l) => l.current === "page");
   check(`${tag} ST1-02 current page ${want ?? "(none)"}`, JSON.stringify(current.map((l) => l.text)) === JSON.stringify(want ? [want] : []), current.map((l) => l.text));
@@ -279,6 +282,10 @@ try {
   const pf = await fetch(`${base}/personal-finance`, { redirect: "manual" });
   const pfTo = new URL(pf.headers.get("location") ?? "/x", base);
   check("signed-out /personal-finance → 307 /dashboard/sign-in?next=/personal-finance (#102)", pf.status === 307 && pfTo.pathname === "/dashboard/sign-in" && pfTo.searchParams.get("next") === "/personal-finance", [pf.status, pf.headers.get("location")]);
+  // #90 (ROLE-02): /account signed out → sign-in with ?next=/account.
+  const ac = await fetch(`${base}/account`, { redirect: "manual" });
+  const acTo = new URL(ac.headers.get("location") ?? "/x", base);
+  check("signed-out /account → 307 /dashboard/sign-in?next=/account (#90 ROLE-02)", ac.status === 307 && acTo.pathname === "/dashboard/sign-in" && acTo.searchParams.get("next") === "/account", [ac.status, ac.headers.get("location")]);
   await signedOut(browser, base, false);
   if (CFG.compareUrl) await signedOut(browser, CFG.compareUrl, true);
 

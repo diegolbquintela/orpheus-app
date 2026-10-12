@@ -347,6 +347,10 @@ These rules exist so no ticket gets missed.
 
   - `DASHBOARD_SIGNUP_ALLOWLIST` (T03, #11): the sign-up email allow-list (D12, approved), server-only, for
     **Preview** (Production at the release go). Emails are personal data: never paste the value anywhere.
+    Since #90 it is for the owner's own account only (the public `Create account` is gone).
+  - `ORPHEUS_OWNER_EMAIL` (#90, Q-D12): the owner's email, server-only, set by Diego / EL on **Preview** and on
+    **Production at the release go**, never by a bot. Unset: nobody can open Personal Finance or the Dashboard
+    (fail closed, 403). Never paste the value anywhere.
 
   Still to come, each added by an owner when its ticket lands: `BETTER_AUTH_URL` (Production only, at the
   release go; previews derive their origin), `CRON_SECRET` on Production at the release go (T05, #13: set on
@@ -546,6 +550,13 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   The Grok broker (`genericOAuth`), gate-identity, popup and bearer-token paths are gone.
 - Everything is behind `DASHBOARD_ENABLED`: flag off, `/api/auth/*` is 404 JSON for every method and the
   auth module never loads; `/dashboard/sign-in` is the plain 404. The calculator doesn't import auth.
+- **Roles (#90):** `src/lib/access/` holds the rules (`access.ts`, pure, with every string in `COPY`), the server
+  helpers (`access.server.ts`: owner, grants, people, temporary passwords, password and email changes), the
+  `/api/account/*` handlers and the 403 status middleware. Every Personal Finance and Dashboard API goes through
+  `gateDashboardRequest(request, allow, deps, { surface, need })` (404 flag off → 405 → 401 → 503 → 403 forced
+  change / no grant / write needed) and works on the **owner's** user id; never take a user id from the client.
+  `ORPHEUS_OWNER_EMAIL` unset means no owner and 403 for everyone. Passwords are hashed with Better Auth's
+  `hashPassword`; a temporary password is returned once (`Cache-Control: no-store`) and never logged.
 - **Allow-list (D12):** `DASHBOARD_SIGNUP_ALLOWLIST`, emails separated by commas, semicolons or spaces,
   case-insensitive. Unset or empty: nobody can sign up (fail closed). Enforced twice: a `before` hook on
   `/sign-up/email` (runs before the existing-user check) and a `user.create.before` database hook.

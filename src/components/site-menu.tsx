@@ -14,6 +14,22 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
  * are dim). Off-white focus ring (the site's green focus colour is too dark on charcoal). Plain links (full page
  * loads), so /dashboard always goes through its server gate.
  */
+/**
+ * #90: below 640 px the glyph link keeps a 44 × 44 box but takes only the glyph's 20 px in the row: it reaches 8 px
+ * back over the gap before it and 16 px into the bar's right padding, with the glyph at its right edge, so the glyph
+ * still ends on the column edge (20 px from the screen) and sits 8 px from `Personal finance` like the other items.
+ * That is what lets the five items keep 12 px text and 8 px gaps (Q21). From 640 px it is a plain text link.
+ */
+const GLYPH_LINK = "-ml-2 -mr-4 justify-end pr-4 sm:m-0 sm:justify-center sm:pr-0";
+
+/**
+ * #90: five items don't fit on one row below 384 px at Q21's 12 px text and 8 px gaps with the word `Orpheus`
+ * (360 px is 18 px short even with the glyph), so there `Personal finance` sets on two short lines inside its 44 px
+ * box; nothing else changes. An open question for EL in the #90 PR (alternatives: Q-D8 (c) `Finance` on phones, or
+ * 11 px text below 400 px).
+ */
+const NARROW_WRAP = "max-[383px]:w-min max-[383px]:leading-[14px]";
+
 export function SiteMenu({ pathname }: { pathname: string }) {
   const current = currentSection(pathname);
   const [home, ...right] = MENU_ITEMS;
@@ -42,7 +58,7 @@ export function SiteMenu({ pathname }: { pathname: string }) {
               <a
                 href={item.href}
                 aria-current={current === item.section ? "page" : undefined}
-                className={`text-dim ${link}`}
+                className={`text-dim ${link}${item.section === "account" ? ` ${GLYPH_LINK}` : item.section === "personal-finance" ? ` ${NARROW_WRAP}` : ""}`}
               >
                 {item.section === "account" ? (
                   <>

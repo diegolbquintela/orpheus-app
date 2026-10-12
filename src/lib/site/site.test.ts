@@ -138,6 +138,10 @@ describe("dark shell page (#68, spec §6 / Q13)", () => {
     for (const p of ["/dashboard", "/dashboard/", "/dashboard//"]) assert.equal(shellPage(p), "dashboard", p);
     assert.equal(shellBodyClass("/calculator"), "bg-night text-chalk scheme-dark");
     assert.equal(shellBodyClass("/dashboard"), undefined, "/dashboard keeps main's white body around its content");
+    // #90 (ROLE-14): the Dashboard's 403 page is dark like the 404.
+    assert.equal(shellPage("/dashboard", true), "dark");
+    assert.equal(shellBodyClass("/dashboard", true), "bg-night text-chalk scheme-dark");
+    assert.equal(shellHtmlClass("/dashboard", true), "antialiased scheme-dark");
     // D2 (QA round 1): color-scheme dark on <html> too, not only on <body>.
     assert.equal(shellHtmlClass("/calculator"), "antialiased scheme-dark");
     assert.equal(shellHtmlClass("/"), "antialiased scheme-dark");

@@ -34,12 +34,16 @@ const menu = (current) =>
     ["/calculator", "Calculator"],
     ["/dashboard", "Dashboard"],
     ["/personal-finance", "Personal finance"],
+    ["/account", "Account"],
   ]
     .map(
       ([href, label]) =>
         `<a href="${href}"${label === current ? ' aria-current="page"' : ""} class="x">${
           // The Orpheus link leads with the lyre mark since #84 (ST1-05).
-          href === "/" ? `<svg viewBox="0 0 24 24" aria-hidden="true" data-testid="lyre"><path d="M6.5 8h11"></path></svg><span>${label}</span>` : label
+          href === "/" ? `<svg viewBox="0 0 24 24" aria-hidden="true" data-testid="lyre"><path d="M6.5 8h11"></path></svg><span>${label}</span>`
+          // #90: the person glyph, then the word (visually hidden below 640 px).
+          : href === "/account" ? `<svg viewBox="0 0 24 24" aria-hidden="true" class="sm:hidden" data-testid="person-glyph"><path d="M4 20"></path></svg><span class="sr-only sm:not-sr-only">${label}</span>`
+          : label
         }</a>`,
     )
     .join("") +
@@ -87,6 +91,8 @@ function app(mode, override = () => false) {
         : html(res, 404, NOT_FOUND);
     if (u.pathname === "/dashboard")
       return res.writeHead(307, { location: "/dashboard/sign-in" }).end();
+    if (u.pathname === "/account")
+      return res.writeHead(307, { location: "/dashboard/sign-in?next=%2Faccount" }).end();
     if (u.pathname === "/dashboard/sign-in")
       return html(res, 200, shell("Dashboard", "<h1>Sign in</h1>"));
     if (u.pathname === "/api/dashboard/status")
@@ -95,7 +101,7 @@ function app(mode, override = () => false) {
         : json(res, 200, { dashboard: "enabled", signIn: "ready" });
     if (u.pathname === "/api/dashboard/db")
       return mode === "preview"
-        ? json(res, 200, { state: "connected", tables: 11, missingTables: [] })
+        ? json(res, 200, { state: "connected", tables: 13, missingTables: [] })
         : json(res, 404, { error: "Not found." });
     if (
       [
@@ -103,6 +109,7 @@ function app(mode, override = () => false) {
         "/api/dashboard/columns",
         "/api/cron/daily-refresh",
         "/api/personal-finance",
+        "/api/account/me",
       ].includes(u.pathname)
     )
       return json(res, 401, { error: "Unauthorized." });

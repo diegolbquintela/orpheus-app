@@ -345,6 +345,32 @@ DASHBOARD_ENABLED=true VITE_AUTH_ENABLED=true DASHBOARD_SIGNUP_ALLOWLIST=you@exa
   (set at the release go). Missing pieces make `/api/auth/*` answer 503 JSON ("not configured").
 - No email sender: no email verification and no password-reset email yet (spec §3).
 
+**Roles and account (#90; `attachments/roles-and-account-design.md`, ROLE-01..22).** One **owner**: the account whose
+email equals the server-only variable `ORPHEUS_OWNER_EMAIL` (case-insensitive). Personal Finance and the Dashboard
+always show the owner's data; anyone else sees it only through a grant the owner gives on `/account`: **CFO** →
+Personal Finance, **Portfolio Manager** → Dashboard, each `Read` or `Read and write` (one person may hold both).
+- **Fail closed:** with `ORPHEUS_OWNER_EMAIL` unset nobody (the owner included) can open Personal Finance or the
+  Dashboard: 403. Set it on Preview (and on Production at the release go) before anyone needs access.
+  `/api/dashboard/status` (previews only) shows `ownerEmail: "set" | "empty"`, never the value.
+- **Accounts:** the public `Create account` is gone; `DASHBOARD_SIGNUP_ALLOWLIST` is only for the owner's own
+  account (bootstrap: `POST /api/auth/sign-up/email`). Everyone else is created by the owner on `/account`
+  (`Add person`): a one-time temporary password, shown once, and a forced change at first sign-in. `Remove` revokes
+  access and sessions; accounts are never deleted. `Reset password` issues a new temporary password.
+- **Pages:** `/account` (behind the flag like sign-in; signed out → `/dashboard/sign-in?next=/account`): `01 You`,
+  `02 Password`, `03 Email` (blocked for the owner), `04 Who has access`, owner-only `05 Grant access`. Without a
+  read grant `/personal-finance` and `/dashboard` answer **403** with the dark shell and one line; `Read` shows the
+  page locked (`Read only`); the section toggles are stored per person. `DELETE /api/personal-finance` is
+  owner-only.
+- **APIs:** `GET /api/account/me`, `GET /api/account/who`, `POST /api/account/password`, `POST /api/account/email`,
+  `/api/account/access` (owner only: `GET`, `POST` add person, `PUT` grants, `DELETE ?userId=` remove),
+  `POST /api/account/reset` (owner only), `PUT /api/personal-finance/view` (own toggles). Writes refuse cross-site
+  and same-site requests (Fetch Metadata, 403). Sessions are read without the cookie cache, so a grant change or a
+  removal applies on the next request.
+- **Tables:** `access_grant` and `account_state` (`migrations/0011_access.sql`).
+- **QA:** `qa/tools/roles.mjs` (owner / CFO `Read` / Portfolio Manager `Read and write` / no grant). Locally:
+  `--bootstrap` on a throwaway database; on a preview the four accounts come from env (`QA_OWNER_*`, `QA_CFO_*`,
+  `QA_PM_*`, `QA_NONE_*`), never logged.
+
 **Dashboard holdings (T04).** Signed in, `/dashboard` lists your holdings and lets you add, edit and
 delete them. Each row shows the ticker's last stored close and its session date, or "price pending"
 (T05, below), and its market value, cost, total return and % of portfolio, with totals, in your base

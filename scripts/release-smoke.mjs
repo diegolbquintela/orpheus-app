@@ -11,7 +11,7 @@
  * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard / Personal finance since
  * #97, the current page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title
  * and exactly three Platforms lines since #97 with their `Open` links), `/personal-finance` (#102: signed out, a
- * redirect to `/dashboard/sign-in?next=/personal-finance`; `/api/personal-finance` 401 with the flag on, 404 off),
+ * redirect to `/dashboard/sign-in?next=/personal-finance`; `/api/personal-finance` 401 with the flag on, 404 off), `/account` (#90: signed out, a redirect to `/dashboard/sign-in?next=/account`; `/api/account/me` 401 on, 404 off),
  * the footer (exactly "Orpheus Wisdom"),
  * the calculator at `/calculator`, `/?query` → `/calculator?query`, noindex meta + X-Robots-Tag on every
  * page, and the calculator's VOD.L refusal (GET /api/chart: 400 with the exact message).
@@ -49,6 +49,8 @@ const menuOk = (r, want) =>
   /href="\/calculator"[^>]*>Calculator</.test(menu(r)) &&
   /href="\/dashboard"[^>]*>Dashboard</.test(menu(r)) &&
   /href="\/personal-finance"[^>]*>Personal finance</.test(menu(r)) &&
+  // #90 (ROLE-01): Account last (the person glyph, then the word, visually hidden below 640 px).
+  /href="\/account"[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span[^>]*>)?Account</.test(menu(r)) &&
   JSON.stringify(current(r)) === JSON.stringify(want ? [want] : []);
 const noindex = (r) =>
   /<meta name="robots" content="noindex, nofollow"\/?>/.test(r.body) && /noindex/i.test(r.robots);
@@ -102,6 +104,20 @@ const checks = [
         '401 {"error":"Unauthorized."} signed out (#102)',
       ]
     : ["/api/personal-finance", (r) => r.status === 404, "404 (#102: behind the dashboard flag)"],
+  // #90: /account lives behind the flag like sign-in; signed out it redirects to sign-in and comes back.
+  on
+    ? [
+        "/account",
+        (r) =>
+          [302, 303, 307].includes(r.status) &&
+          new URL(r.location, base).pathname === "/dashboard/sign-in" &&
+          new URL(r.location, base).searchParams.get("next") === "/account",
+        "signed out: redirect to /dashboard/sign-in?next=/account (#90)",
+      ]
+    : ["/account", (r) => r.status === 404, "404 (#90: behind the dashboard flag)"],
+  on
+    ? ["/api/account/me", (r) => r.status === 401 && r.body === '{"error":"Unauthorized."}', '401 {"error":"Unauthorized."} signed out (#90)']
+    : ["/api/account/me", (r) => r.status === 404, "404 (#90: behind the dashboard flag)"],
   [
     "/calculator",
     (r) =>
