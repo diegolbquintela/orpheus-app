@@ -338,6 +338,7 @@ try {
       await page.waitForTimeout(1200);
       const failed = await txt(page.getByTestId("pf-save"));
       await page.unroute(`**${API}`);
+      await settle(page);
       await page.getByTestId("pf-person").nth(0).getByTestId("pf-person-name").fill("Me");
       await settle(page);
       const cleared = await txt(page.getByTestId("pf-save"));
