@@ -58,6 +58,7 @@ always: ST0-05).
 | 19 | #91 Audit log of actions | AUDIT-01..12 new (append-only `audit_event`, the fixed action list, masked actor / target codes, no amounts / names / emails / tickers, owner-only `GET /api/account/audit` and `/account` `06 Activity`, best-effort writes, dark shell); design `attachments/audit-log-design.md`; Q-A1..Q-A4 open, built as recommended; `qa/tools/audit.mjs` | ROLE-01..22 (`roles.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), signed-out 307s; #92 / #93 / #95 / #71 untouched |
 | 20 | #112 Personal Finance month control | PF-48..PF-58 new (the month control at the top, last 12 months, per-month lines, explicit Save shown only when unsaved, empty past month copies the current saved lines with the note, rollover copy, old totals-only months, averages / Overview after Save, the control stays on the saved month, `05 Update` gone, discard / leave confirms); PF-28 and PF-43 retired; PF-27, PF-31, PF-36, PF-41 amended; design `attachments/pf-month-control-design.md` (EL option A, decisions 1–7); `qa/tools/pf-months.mjs`, `personal-finance.mjs` / `personal-finance-e2e.mjs` updated | signed-out 307, `safeNext`, roles (`roles.mjs`), audit (`audit.mjs`), every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), no-grok; #92 / #93 / #95 / #113 untouched |
 | 21 | #113 Personal Finance: capital F, delete confirmations, rename categories | PF-59..PF-66 new; ST1-01 / ROLE-01 / home Platforms / PFE-03 / ROLE-04 / ROLE-14 copy amended to "Personal Finance"; spec section 20 (Q-F1..Q-F8) | the bar on one line at 360 / 399 / 400, signed-out 307, roles, audit, no-grok, `$313,000`, CLS 0, PF-01..58 |
+| 22 | #92 Shared page parts (refactor) | SP-01..SP-07 new; site-style-spec section 16 (Q-S1..Q-S4) | no visible change: site-style-regression (`$313,000`, CLS 0, noindex, PF 307), site-shell, home-page, no-grok, personal-finance, pf-months, e2e, roles, audit |
 | — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
@@ -450,4 +451,18 @@ Amends the copy of ST1-01, ROLE-01, the home Platforms line (HP), PFE-03, ROLE-0
 | PF-64 | BLOCK | Empty → `Name the category.`; another category's name (any case) → `That category exists.`; nothing changes; Cancel / Escape leave it as it was; a case-only change is accepted. |
 | PF-65 | BLOCK | After Save, every stored month's lines carry the new name (a month saved before shows it when opened). |
 | PF-66 | BLOCK | Read-only: remove buttons and `Rename` disabled, no confirm; the controls ≥ 44 px, no gold, AA, strict CLS 0. |
+
+## Shared page parts (#92; site-style-spec section 16)
+
+Refactor: no visible change. Test `scripts/shared-parts.test.mjs` (SP-01..SP-05); preview regression (SP-06, SP-07).
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| SP-01 | BLOCK | Every `@font-face` is in `src/styles/fonts.css` and nowhere else; `src/styles.css` imports it once. |
+| SP-02 | BLOCK | `FONT_PRELOAD` (src/lib/site/fonts.ts) is the root head's preload href, a `src:` of a face in `fonts.css`, and a file under `public/fonts/`. |
+| SP-03 | BLOCK | The label typography (0.75rem, 1.2, 0.14em, uppercase, dim) is declared once (`src/styles/parts.css`, `.ow-label` with `.calc-label`, `.signin-label`, `.pf-label`); no page rule redeclares it. |
+| SP-04 | BLOCK | The chalk button (`.ow-button` with `.calc-button`, `.signin-button`, and `:disabled`) is declared once in `parts.css`. |
+| SP-05 | BLOCK | The bar and footer are rendered only by `src/routes/__root.tsx` (no page imports `SiteMenu` / `SiteFooter`). |
+| SP-06 | BLOCK | Preview: site-style-regression, site-shell, home-page, no-grok all PASS (`$313,000`, strict CLS 0, noindex, signed-out PF 307, Schibsted Grotesk on every page). |
+| SP-07 | BLOCK | Preview: personal-finance, pf-months, personal-finance-e2e, roles, audit PASS (no change in any page's text, size or layout). |
 
