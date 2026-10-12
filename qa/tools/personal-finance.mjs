@@ -99,7 +99,7 @@ const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
 const ALERT = "rgb(255, 143, 135)";
-const COLUMNS = ["Name", "% of income", "% of expenses", "Monthly", "Yearly", "Currency", "FX rate", "Equity to cover", "Account"];
+const COLUMNS = ["Name", "% of income", "% of expenses", "Monthly", "Yearly", "Currency", "FX rate", "Equity to cover", "Account", "Category"];
 const CLS_RUNS = Number(process.env.CLS_RUNS ?? 2);
 const lum = ([r, g, b]) => {
   const f = (x) => ((x /= 255) <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
@@ -159,9 +159,8 @@ const emptyTexts = (wide) => [
   "Net assets",
   "05",
   "Update",
-  "Month",
-  "Expenses",
-  "Income",
+  // #105 (PF-43): only the button until it is pressed.
+  "Update month",
 ];
 
 // In the page: WCAG contrast of every visible text node's element against its effective background.
@@ -561,7 +560,7 @@ try {
       const nets = [await txt(me.getByTestId("pf-person-net")), await txt(sp.getByTestId("pf-person-net"))];
       check(`${tag} PF-13 Net (yearly) per person: 92,400 and 63,000`, JSON.stringify(nets) === '["92,400","63,000"]', nets);
       const tableNow = await page.locator("[data-testid=pf-income-line], [data-testid=pf-net-income]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())));
-      check(`${tag} PF-14 / PF-15 income table: counted × share, biweekly ÷ 26, Net income 5,169.23 / 11,200 / 134,400`, JSON.stringify(tableNow) === JSON.stringify([["Me · Wages", "3,230.77", "7,000", "84,000"], ["Me · Bonus", "0", "0", "0"], ["Spouse · Wages", "1,846.15", "4,000", "48,000"], ["Spouse · Bonus", "92.31", "200", "2,400"], ["Net income", "5,169.23", "11,200", "134,400"]]), tableNow);
+      check(`${tag} PF-14 / PF-15 / PF-42 income table (no uncounted / 0 row): counted × share, biweekly ÷ 26, Net income 5,169.23 / 11,200 / 134,400`, JSON.stringify(tableNow) === JSON.stringify([["Me · Wages", "3,230.77", "7,000", "84,000"], ["Spouse · Wages", "1,846.15", "4,000", "48,000"], ["Spouse · Bonus", "92.31", "200", "2,400"], ["Net income", "5,169.23", "11,200", "134,400"]]), tableNow);
       const ofIncome = [await txt(rent.getByTestId("pf-income")), await txt(phone.getByTestId("pf-income")), await txt(gifts.getByTestId("pf-income")), ...(await totals(page, "fixed")).slice(1, 2), ...(await totals(page, "variable")).slice(1, 2), ...(await totals(page, "all")).slice(1, 2)];
       check(`${tag} PF-04 / PF-16 % of income wired: 8.9% / 2.2% / 0.9%, totals 11.2% / 0.9% / 12.1%`, JSON.stringify(ofIncome) === JSON.stringify(["8.9%", "2.2%", "0.9%", "11.2%", "0.9%", "12.1%"]), ofIncome);
       await sp.getByTestId("pf-person-share").fill("40");
@@ -628,15 +627,15 @@ try {
 
       // PF-08 layout with lines
       const cells = {};
-      for (const id of ["pf-name", "pf-income", "pf-share", "pf-monthly", "pf-yearly", "pf-currency", "pf-fx-none", "pf-equity", "pf-account", "pf-remove"]) cells[id] = await box(rent.getByTestId(id));
+      for (const id of ["pf-name", "pf-income", "pf-share", "pf-monthly", "pf-yearly", "pf-currency", "pf-fx-none", "pf-equity", "pf-account", "pf-category", "pf-remove"]) cells[id] = await box(rent.getByTestId(id));
       const order = Object.values(cells).map((b) => b.x);
       if (wide) {
         const tops = Object.values(cells).map((b) => b.y + b.h);
         check(`${tag} PF-08 wide: one row per line, cells in column order`, order.every((x, i) => i === 0 || x > order[i - 1]) && Math.max(...tops) - Math.min(...tops) <= 1, cells);
         const head = await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-head] span").evaluateAll((s) => s.map((e) => Math.round(e.getBoundingClientRect().left)));
-        check(`${tag} PF-08 wide: the nine column labels sit over their columns`, head.length === 9 && head.every((x, i) => Math.abs(x - order[i]) <= 1), { head, cells: order.slice(0, 9) });
+        check(`${tag} PF-08 / PF-47 wide: the ten column labels (#105: Category last) sit over their columns`, head.length === 10 && head.every((x, i) => Math.abs(x - order[i]) <= 1), { head, cells: order.slice(0, 10) });
       } else {
-        check(`${tag} PF-08 / PF-25 phone: a line is a block (name; Monthly | Yearly; Currency | FX rate; % of expenses | % of income; Account | Equity to cover), remove beside the name`, cells["pf-monthly"].y > cells["pf-name"].y && cells["pf-monthly"].y === cells["pf-yearly"].y && cells["pf-currency"].y > cells["pf-monthly"].y && cells["pf-currency"].y === cells["pf-fx-none"].y && cells["pf-fx-none"].x > cells["pf-currency"].x && cells["pf-share"].y > cells["pf-currency"].y && cells["pf-equity"].y > cells["pf-share"].y && cells["pf-equity"].y === cells["pf-account"].y && cells["pf-equity"].x > cells["pf-account"].x && Math.abs(cells["pf-remove"].y + cells["pf-remove"].h - (cells["pf-name"].y + cells["pf-name"].h)) <= 1, cells);
+        check(`${tag} PF-08 / PF-25 phone: a line is a block (name; Monthly | Yearly; Currency | FX rate; % of expenses | % of income; Account | Equity to cover; #105 Category under them), remove beside the name`, cells["pf-monthly"].y > cells["pf-name"].y && cells["pf-monthly"].y === cells["pf-yearly"].y && cells["pf-currency"].y > cells["pf-monthly"].y && cells["pf-currency"].y === cells["pf-fx-none"].y && cells["pf-fx-none"].x > cells["pf-currency"].x && cells["pf-share"].y > cells["pf-currency"].y && cells["pf-equity"].y > cells["pf-share"].y && cells["pf-equity"].y === cells["pf-account"].y && cells["pf-equity"].x > cells["pf-account"].x && cells["pf-category"].y > cells["pf-account"].y && Math.abs(cells["pf-remove"].y + cells["pf-remove"].h - (cells["pf-name"].y + cells["pf-name"].h)) <= 1, cells);
       }
       const sizes = await page.evaluate(() => [...document.querySelectorAll("main input:not([type=checkbox]), main select, main button, main .pf-check")].map((e) => [e.dataset.testid, Math.round(e.getBoundingClientRect().height * 10) / 10, Math.round(e.getBoundingClientRect().width)]));
       check(`${tag} PF-08 every control ≥ 44 px tall (remove 44 × 44)`, sizes.every(([, h]) => h >= 44) && sizes.filter(([id]) => id === "pf-remove").every(([, , w]) => w >= 44), sizes.filter(([, h]) => h < 44));
@@ -808,7 +807,7 @@ try {
       await fxIn.fill("3.70");
       const row37 = await page.locator("[data-testid=pf-income-line]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())).filter((r) => r[0].startsWith("Brazilian Dividends")));
       const yes37 = { net: await txt(bd.getByTestId("pf-person-net")), conv: await txt(bd.getByTestId("pf-person-converted")), rows: row37, total: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")), errors: await bd.getByTestId("pf-error").count() };
-      check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"], ["Brazilian Dividends · Bonus", "0", "0", "0"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
+      check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
       const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]").allTextContents();
       check(`${tag} PF-37 the Overview's page income follows (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
       // Layout with the foreign person (PF-39).
@@ -890,14 +889,21 @@ try {
         const ov = () => p3.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, [...document.querySelectorAll(`[data-testid=pf-ov-${r}] [role=cell]`)].map((c) => c.textContent.trim())])));
         const chart = () => p3.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: f.dataset.netLast, lines: [...f.querySelectorAll(".recharts-line-curve")].map((p) => p.getAttribute("stroke")), hidden: f.querySelector(".pf-chart-plot").getAttribute("aria-hidden"), legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()), h: Math.round(f.querySelector(".pf-chart-plot").getBoundingClientRect().height) }));
         const t0 = await ov();
+        // #105 (PF-43): Update month opens the panel; figures are stored on Save.
+        const opener = p3.getByTestId("pf-update-open");
+        const closedFirst = [await opener.getAttribute("aria-expanded"), await p3.getByTestId("pf-update-panel").count()];
+        await opener.click();
         const opts = await p3.getByTestId("pf-month").evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
         const ph0 = [await p3.getByTestId("pf-month-expenses").getAttribute("placeholder"), await p3.getByTestId("pf-month-income").getAttribute("placeholder")];
         check(`${tag} PF-27 / PF-28 the current month takes the page (1,750 / 11,200 / 9,450, same average); Month: 12 choices October 2026 … November 2025, October chosen; placeholders = the page`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(ph0) === '["1,750","11,200"]', { t0, opts, ph0 });
         await p3.getByTestId("pf-month").selectOption("2026-06");
         await p3.getByTestId("pf-month-expenses").fill("4,000");
         await p3.getByTestId("pf-month-income").fill("9,000");
+        const draft = await ov();
+        await p3.getByTestId("pf-update-save").click();
         const t1 = await ov();
-        check(`${tag} PF-27 typing June 2026 (4,000 / 9,000) updates the average: 2,875 / 10,100 / 7,225; this month unchanged`, JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }), t1);
+        const afterSave = [await p3.getByTestId("pf-update-panel").count(), await opener.getAttribute("aria-expanded"), await opener.evaluate((e) => document.activeElement === e)];
+        check(`${tag} PF-27 / PF-43 Update month (closed at first) → June 2026 4,000 / 9,000 → nothing changes until Save; Save closes the panel, focus back on the button, average 2,875 / 10,100 / 7,225; this month unchanged`, JSON.stringify(closedFirst) === '["false",0]' && JSON.stringify(draft) === JSON.stringify(t0) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }) && JSON.stringify(afterSave) === '[0,"false",true]', { closedFirst, draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
         check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 96,700.00`, ch1.months === "12" && ch1.net === "96700.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
@@ -918,7 +924,8 @@ try {
         await p3.getByTestId("pf-growth").fill("5");
         check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: 96,700 + 180 × 7,225)`, gErr === "Enter a number, 0 or more." && f15b.net === (96700 + 180 * 7225).toFixed(2), { gErr, net: f15b.net });
         await p3.locator("[data-testid=pf-year][data-years='5']").click();
-        // Layout.
+        // Layout (the panel open).
+        await opener.click();
         const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(p3.getByTestId("pf-month")), me: await box(p3.getByTestId("pf-month-expenses")), mi: await box(p3.getByTestId("pf-month-income")), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
         const row = viewport.width >= 640;
         const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.mi.h >= 44 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 && lb.month.y === lb.me.y && lb.me.y === lb.mi.y : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x && lb.me.y > lb.month.y && lb.mi.y > lb.me.y) && lb.table.w <= 640;
@@ -934,8 +941,13 @@ try {
         if (AXE) {
           await p3.addScriptTag({ content: AXE });
           const v = await p3.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast", "label", "select-name", "button-name", "aria-valid-attr-value", "aria-required-children", "aria-required-parent", "label-content-name-mismatch"] } })).violations.map((x) => ({ id: x.id, nodes: x.nodes.length, html: x.nodes[0]?.html.slice(0, 80) })));
-          check(`${tag} PF-32 axe-core with Overview / Update filled and Future on: no violation`, v.length === 0, v);
+          check(`${tag} PF-32 axe-core with Overview / Update filled, Future on and the Update panel open: no violation`, v.length === 0, v);
         }
+        // #105 (PF-43): Escape in a field closes the panel without a change.
+        await p3.getByTestId("pf-month-expenses").fill("123");
+        await p3.getByTestId("pf-month-expenses").press("Escape");
+        const esc = [await p3.getByTestId("pf-update-panel").count(), JSON.stringify(await ov()) === JSON.stringify(t1)];
+        check(`${tag} PF-43 Escape in a panel field closes it and changes nothing`, esc[0] === 0 && esc[1], esc);
         await p3.getByTestId("pf-overview").scrollIntoViewIfNeeded();
         const shotO = join(CFG.out, `pf-overview-${viewport.width}.png`);
         await p3.screenshot({ path: shotO, fullPage: true });
@@ -949,12 +961,14 @@ try {
         const stored = [rec3[OVERVIEW_KEY], Object.keys(rec3).sort(), await p3.evaluate(() => localStorage.length)];
         await p3.reload({ waitUntil: "networkidle" });
         await ready(p3);
+        await p3.getByTestId("pf-update-open").click();
         await p3.getByTestId("pf-month").selectOption("2026-06");
         const back = { t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(p3.getByTestId("pf-month-expenses")), await val(p3.getByTestId("pf-month-income"))], net: (await chart()).net };
         check(`${tag} PF-31 / PF-36 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years / June as typed (only PF names; nothing in localStorage); a reload restores it all (average 2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify([CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, OVERVIEW_KEY].filter((k) => stored[1].includes(k)).sort()) && stored[1].includes(OVERVIEW_KEY) && stored[2] === 0 && JSON.stringify(back) === JSON.stringify({ t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "9,000"], net: "613370.68" }), { stored, back });
-        // Clearing June empties it.
+        // Clearing June (and Save) empties it.
         await p3.getByTestId("pf-month-expenses").fill("");
         await p3.getByTestId("pf-month-income").fill("");
+        await p3.getByTestId("pf-update-save").click();
         const t2 = await ov();
         await settle(p3);
         const months = JSON.parse(((await record(p3)) ?? {})[OVERVIEW_KEY] ?? "{}").months;

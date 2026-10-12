@@ -1,4 +1,4 @@
-// Personal Finance end-to-end (#98; spec attachments/personal-finance-spec.md section 17, PFE-01..13): one journey a
+// Personal Finance end-to-end (#98; #105 adds PF-40..47: toggles, hidden income lines, Update month, categories; spec attachments/personal-finance-spec.md section 17, PFE-01..13): one journey a
 // CFO would type, on the preview, at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900.
 //
 //   Signed out (always): PFE-01 entry points (bar item, home Platforms Open, the URL) end on the sign-in form with
@@ -59,9 +59,10 @@ else console.log("INFO axe-core not run (set AXE_PATH to axe.min.js); the contra
 async function figures(pg) {
   const rows = await pg.locator("[data-testid=pf-income-line], [data-testid=pf-net-income]").evaluateAll((rs) => rs.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())));
   const people = await pg.getByTestId("pf-person").evaluateAll((ps) => ps.map((p) => [p.querySelector("[data-testid=pf-person-name]").value, p.querySelector("[data-testid=pf-person-net]").textContent.trim(), p.querySelector("[data-testid=pf-person-converted]")?.textContent.trim() ?? null]));
-  const lines = await pg.locator("[data-testid=pf-line]").evaluateAll((ls) => ls.map((l) => [l.querySelector("[data-testid=pf-name]").value, l.querySelector("[data-testid=pf-monthly]").value, l.querySelector("[data-testid=pf-yearly]").value, l.querySelector("[data-testid=pf-currency]").value, l.querySelector("[data-testid=pf-fx]")?.value ?? "—", l.querySelector("[data-testid=pf-share]").textContent.trim(), l.querySelector("[data-testid=pf-income]").textContent.trim(), l.querySelector("[data-testid=pf-equity]").value || l.querySelector("[data-testid=pf-equity]").placeholder, l.querySelector("[data-testid=pf-account]").value]));
+  const lines = await pg.locator("[data-testid=pf-line]").evaluateAll((ls) => ls.map((l) => [l.querySelector("[data-testid=pf-name]").value, l.querySelector("[data-testid=pf-monthly]").value, l.querySelector("[data-testid=pf-yearly]").value, l.querySelector("[data-testid=pf-currency]").value, l.querySelector("[data-testid=pf-fx]")?.value ?? "—", l.querySelector("[data-testid=pf-share]").textContent.trim(), l.querySelector("[data-testid=pf-income]").textContent.trim(), l.querySelector("[data-testid=pf-equity]").value || l.querySelector("[data-testid=pf-equity]").placeholder, l.querySelector("[data-testid=pf-account]").value, l.querySelector("[data-testid=pf-category]").value]));
   const ov = await pg.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, ["now", "avg"].map((c) => document.querySelector(`[data-testid=pf-ov-${r}] [data-testid=pf-ov-${c}]`)?.textContent.trim())])));
   const chart = await pg.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: f.dataset.netLast }));
+  const cats = await pg.getByTestId("pf-cat-row").evaluateAll((rs) => rs.map((r) => ["pf-cat-name", "pf-cat-share", "pf-cat-monthly", "pf-cat-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())));
   return {
     household: await pg.getByTestId("pf-household").inputValue(),
     people,
@@ -74,8 +75,11 @@ async function figures(pg) {
     growth: await val(pg.getByTestId("pf-growth")),
     future: await pg.getByTestId("pf-future-toggle").getAttribute("aria-pressed"),
     chart,
+    cats,
   };
 }
+// #105 (PF-40): the three toggles' aria-expanded and whether each body has content.
+const sections = (pg) => pg.evaluate(() => ["income", "expenses", "overview"].map((k) => [k, document.querySelector(`[data-testid=pf-toggle-${k}]`)?.getAttribute("aria-expanded"), document.querySelector(`[data-testid=pf-body-${k}]`)?.children.length > 0]));
 
 const browser = await chromium.launch();
 try {
@@ -195,8 +199,8 @@ try {
       const rateLabel = await bd.locator(".pf-foreign .pf-label").allTextContents();
       await bd.getByTestId("pf-person-rate").fill("3.70");
       const f1 = await figures(page);
-      check(`${tag} PFE-04 income: Me Net 92,400, Spouse Net 63,000; table Me · Wages 84,000, Spouse · Wages 48,000, Spouse · Bonus 2,400`, JSON.stringify(f1.people.slice(0, 2)) === JSON.stringify([["Me", "92,400", null], ["Spouse", "63,000", null]]) && JSON.stringify(f1.rows.slice(0, 4).map((r) => [r[0], r[3]])) === JSON.stringify([["Me · Wages", "84,000"], ["Me · Bonus", "0"], ["Spouse · Wages", "48,000"], ["Spouse · Bonus", "2,400"]]), { people: f1.people, rows: f1.rows });
-      check(`${tag} PFE-05 Brazilian Dividends 37,000 BRL at 3.70 (FX rate (BRL per 1 CAD)) → Net 37,000, Converted 10,000; its line 384.62 / 833.33 / 10,000; Net income 5,553.85 / 12,033.33 / 144,400`, JSON.stringify(f1.people[2]) === JSON.stringify(["Brazilian Dividends", "37,000", "10,000"]) && JSON.stringify(rateLabel) === JSON.stringify(["Currency", "FX rate (BRL per 1 CAD)", "Converted (yearly)"]) && JSON.stringify(f1.rows[4]) === JSON.stringify(["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]) && JSON.stringify(f1.rows.at(-1)) === JSON.stringify(["Net income", "5,553.85", "12,033.33", "144,400"]) && f1.household === "CAD", { person: f1.people[2], rateLabel, rows: f1.rows.slice(4) });
+      check(`${tag} PFE-04 income: Me Net 92,400, Spouse Net 63,000; table Me · Wages 84,000, Spouse · Wages 48,000, Spouse · Bonus 2,400; no uncounted / 0 row (PF-42)`, JSON.stringify(f1.people.slice(0, 2)) === JSON.stringify([["Me", "92,400", null], ["Spouse", "63,000", null]]) && JSON.stringify(f1.rows.slice(0, 3).map((r) => [r[0], r[3]])) === JSON.stringify([["Me · Wages", "84,000"], ["Spouse · Wages", "48,000"], ["Spouse · Bonus", "2,400"]]) && !f1.rows.some((r) => r[3] === "0"), { people: f1.people, rows: f1.rows });
+      check(`${tag} PFE-05 Brazilian Dividends 37,000 BRL at 3.70 (FX rate (BRL per 1 CAD)) → Net 37,000, Converted 10,000; its line 384.62 / 833.33 / 10,000; Net income 5,553.85 / 12,033.33 / 144,400`, JSON.stringify(f1.people[2]) === JSON.stringify(["Brazilian Dividends", "37,000", "10,000"]) && JSON.stringify(rateLabel) === JSON.stringify(["Currency", "FX rate (BRL per 1 CAD)", "Converted (yearly)"]) && JSON.stringify(f1.rows[3]) === JSON.stringify(["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]) && f1.rows.length === 5 && JSON.stringify(f1.rows.at(-1)) === JSON.stringify(["Net income", "5,553.85", "12,033.33", "144,400"]) && f1.household === "CAD", { person: f1.people[2], rateLabel, rows: f1.rows.slice(3) });
 
       // PFE-06 expenses.
       await page.getByTestId("pf-add-fixed").click();
@@ -220,10 +224,28 @@ try {
       await gifts.getByTestId("pf-new-account-add").click();
       const f2 = await figures(page);
       const want6 = {
-        lines: [["Rent", "1,000", "12,000", "CAD", "—", "66.7%", "8.3%", "—", "Chequing"], ["Condo", "2,000", "24,000", "BRL", "5", "26.7%", "3.3%", "—", ""], ["Gifts", "100", "1,200", "CAD", "—", "6.7%", "0.8%", "—", "Visa"]],
+        lines: [["Rent", "1,000", "12,000", "CAD", "—", "66.7%", "8.3%", "—", "Chequing", ""], ["Condo", "2,000", "24,000", "BRL", "5", "26.7%", "3.3%", "—", "", ""], ["Gifts", "100", "1,200", "CAD", "—", "6.7%", "0.8%", "—", "Visa", ""]],
         totals: { fixed: ["93.3%", "11.6%", "1,400", "16,800", "—"], variable: ["6.7%", "0.8%", "100", "1,200", "—"], all: ["100.0%", "12.5%", "1,500", "18,000", "—"] },
       };
       check(`${tag} PFE-06 expenses: Rent 1,000 (Chequing), Condo 2,000 BRL ÷ 5 = 400, Gifts 1,200 a year (Visa); Fixed 1,400 / 16,800, Variable 100 / 1,200, Total 1,500 / 18,000; % of expenses / income as the spec; Condo's FX field named \`FX rate (BRL per 1 CAD), Fixed 2\``, JSON.stringify({ lines: f2.lines, totals: f2.totals }) === JSON.stringify(want6) && fxName === "FX rate (BRL per 1 CAD), Fixed 2", { lines: f2.lines, totals: f2.totals, fxName });
+
+      // PF-44..46 (#105) categories: Rent and Condo in Home (added inline, reused in any case), Gifts none.
+      await rent.getByTestId("pf-category").selectOption("__add-category__");
+      await rent.getByTestId("pf-new-category-input").fill("Home");
+      await rent.getByTestId("pf-new-category-add").click();
+      await condo.getByTestId("pf-category").selectOption("__add-category__");
+      await condo.getByTestId("pf-new-category-input").fill("home");
+      await condo.getByTestId("pf-new-category-add").click();
+      const fc = await figures(page);
+      check(`${tag} PF-44 / PF-46 categories: Rent and Condo in Home (reused in any case); By category Home 93.3% / 1,400 / 16,800, No category 6.7% / 100 / 1,200; master totals unchanged`, JSON.stringify(fc.lines.map((l) => l[9])) === '["Home","Home",""]' && JSON.stringify(fc.cats) === JSON.stringify([["Home", "93.3%", "1,400", "16,800"], ["No category", "6.7%", "100", "1,200"]]) && JSON.stringify(fc.totals) === JSON.stringify(f2.totals), { cats: fc.cats, lines: fc.lines.map((l) => l[9]), totals: fc.totals });
+      await page.getByTestId("pf-filter").selectOption("Home");
+      const shown = [await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count(), await page.locator("[data-testid=pf-group-variable] [data-testid=pf-line]").count()];
+      const tf = { fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all") };
+      await page.getByTestId("pf-filter").selectOption("");
+      const back = await page.locator("[data-testid=pf-line]").count();
+      check(`${tag} PF-45 Filter by category Home: Fixed shows Rent and Condo, Variable none; every total unchanged; All shows the three again`, JSON.stringify(shown) === "[2,0]" && JSON.stringify(tf) === JSON.stringify(f2.totals) && back === 3, { shown, tf, back });
+      const cb = await page.evaluate(() => { const r = (sel) => { const b = document.querySelector(`[data-testid=pf-group-fixed] [data-testid=pf-line] ${sel}`).getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), h: Math.round(b.height) }; }; return { acct: r("[data-testid=pf-account]"), cat: r("[data-testid=pf-category]"), rm: r("[data-testid=pf-remove]") }; });
+      check(`${tag} PF-47 layout: Category ${wide ? "the last column before remove" : "on its own row under Account"}; 44 px`, cb.cat.h >= 44 && (wide ? cb.cat.y === cb.acct.y && cb.cat.x > cb.acct.x && cb.rm.x > cb.cat.x : cb.cat.y > cb.acct.y), cb);
 
       // PFE-07 equity cover.
       await page.getByTestId("pf-roic").fill("8");
@@ -234,13 +256,15 @@ try {
 
       // PFE-08 Overview / Update.
       const ov0 = (await figures(page)).ov;
+      await page.getByTestId("pf-update-open").click();
       await page.getByTestId("pf-month").selectOption("2026-06");
       await page.getByTestId("pf-month-expenses").fill("4,000");
       await page.getByTestId("pf-month-income").fill("9,000");
+      await page.getByTestId("pf-update-save").click();
       await page.getByTestId("pf-start").fill("10,000");
       const f4 = await figures(page);
       const ch = await page.getByTestId("pf-chart").evaluate((f) => ({ lines: f.querySelectorAll(".recharts-line-curve").length, legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()) }));
-      check(`${tag} PFE-08 this month = the page (1,500 / 12,033.33 / 10,533.33); June 2026 typed 4,000 / 9,000 → average 2,750 / 10,516.67 / 7,766.67; start 10,000 → 12 months, three lines, net assets 103,200.00`, JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "1,500"], income: ["12,033.33", "12,033.33"], surplus: ["10,533.33", "10,533.33"] }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "2,750"], income: ["12,033.33", "10,516.67"], surplus: ["10,533.33", "7,766.67"] }) && f4.chart.months === "12" && f4.chart.net === "103200.00" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { ov0, ov: f4.ov, chart: f4.chart, ch });
+      check(`${tag} PFE-08 this month = the page (1,500 / 12,033.33 / 10,533.33); June 2026 typed 4,000 / 9,000 → average 2,750 / 10,516.67 / 7,766.67; (Update month → Save) start 10,000 → 12 months, three lines, net assets 103,200.00`, JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "1,500"], income: ["12,033.33", "12,033.33"], surplus: ["10,533.33", "10,533.33"] }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "2,750"], income: ["12,033.33", "10,516.67"], surplus: ["10,533.33", "7,766.67"] }) && (await page.getByTestId("pf-update-panel").count()) === 0 && f4.chart.months === "12" && f4.chart.net === "103200.00" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { ov0, ov: f4.ov, chart: f4.chart, ch });
 
       // PFE-09 Future at a typed growth rate.
       await page.getByTestId("pf-growth").fill("5");
@@ -310,25 +334,58 @@ try {
       check(`${tag} PFE-10 an aborted save shows \`Not saved.\`; the next saved change clears it`, failed === "Not saved." && cleared === "", { failed, cleared });
 
       // PFE-11 strict CLS 0 on a cold load of the full budget (a new page, cache disabled).
-      const runs = [];
-      for (let i = 0; i < Number(process.env.CLS_RUNS ?? 2); i++) {
-        const p3 = await ctx.newPage();
-        try {
-          const cdp = await ctx.newCDPSession(p3);
-          await cdp.send("Network.enable");
-          await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-          await p3.addInitScript(() => {
-            window.__shifts = [];
-            new PerformanceObserver((list) => { for (const e of list.getEntries()) window.__shifts.push(e.value); }).observe({ type: "layout-shift", buffered: true });
-          });
-          await p3.goto(`${base}${PATH}`, { waitUntil: "load" });
-          await p3.waitForTimeout(1500);
-          runs.push(await p3.evaluate(() => ({ cls: window.__shifts.reduce((a, b) => a + b, 0), lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length })));
-        } finally {
-          await p3.close().catch(() => {});
+      const coldLoads = async () => {
+        const runs = [];
+        for (let i = 0; i < Number(process.env.CLS_RUNS ?? 2); i++) {
+          const p3 = await ctx.newPage();
+          try {
+            await p3.clock.setFixedTime(TODAY);
+            const cdp = await ctx.newCDPSession(p3);
+            await cdp.send("Network.enable");
+            await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+            await p3.addInitScript(() => {
+              window.__shifts = [];
+              new PerformanceObserver((list) => { for (const e of list.getEntries()) window.__shifts.push(e.value); }).observe({ type: "layout-shift", buffered: true });
+            });
+            await p3.goto(`${base}${PATH}`, { waitUntil: "load" });
+            await p3.waitForTimeout(1500);
+            runs.push(await p3.evaluate(() => ({ cls: window.__shifts.reduce((a, b) => a + b, 0), lines: document.querySelectorAll("[data-testid=pf-line], [data-testid=pf-person]").length })));
+          } finally {
+            await p3.close().catch(() => {});
+          }
         }
-      }
+        return runs;
+      };
+      const runs = await coldLoads();
       check(`${tag} PFE-11 page CLS exactly 0 on cold loads of the full budget (3 lines, 3 people)`, runs.length > 0 && runs.every((r) => r.cls === 0 && r.lines === 6), runs);
+
+      // PF-40 / PF-41 (#105) section toggles: close Income and Overview from their headings; stored on the account;
+      // a reload and another device show them closed; CLS 0 with them closed; figures untouched.
+      const open0 = await sections(page);
+      await page.getByTestId("pf-toggle-income").click();
+      await page.getByTestId("pf-toggle-overview").press("Enter");
+      const closed = await sections(page);
+      const tb = await page.getByTestId("pf-toggle-expenses").evaluate((e) => Math.round(e.getBoundingClientRect().height));
+      await settle(page);
+      const rec = (await acct(page, base, "GET")).body?.data ?? {};
+      await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+      await ready(page);
+      const afterReload = await sections(page);
+      const want = [["income", "false", false], ["expenses", "true", true], ["overview", "false", false]];
+      check(`${tag} PF-40 / PF-41 Income and Overview closed from their headings (click / Enter; Expenses open; heading buttons ≥ 44 px); stored as orpheus.finance.view.v1 {closed:[income,overview]}; a reload keeps them closed`, JSON.stringify(open0) === JSON.stringify([["income", "true", true], ["expenses", "true", true], ["overview", "true", true]]) && JSON.stringify(closed) === JSON.stringify(want) && tb >= 44 && rec["orpheus.finance.view.v1"] === '{"closed":["income","overview"]}' && JSON.stringify(afterReload) === JSON.stringify(want) && (await page.evaluate(() => localStorage.length)) === 0, { open0, closed, tb, view: rec["orpheus.finance.view.v1"], afterReload });
+      let other2 = null;
+      await eachViewport({ browser, baseUrl: base, email, password, check: (n, ok, d) => check(`${tag} PF-41 second device ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: p2 }) => {
+        await p2.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(p2);
+        other2 = await sections(p2);
+      });
+      check(`${tag} PF-41 a second signed-in device shows Income and Overview closed`, JSON.stringify(other2) === JSON.stringify(want), other2);
+      const runs2 = await coldLoads();
+      check(`${tag} PF-41 / PF-47 page CLS exactly 0 on cold loads with Income and Overview restored closed (3 lines, no person shown)`, runs2.length > 0 && runs2.every((r) => r.cls === 0 && r.lines === 3), runs2);
+      await shot(page, `e2e-closed-${viewport.width}.png`);
+      await page.getByTestId("pf-toggle-income").click();
+      await page.getByTestId("pf-toggle-overview").click();
+      await settle(page);
       check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);

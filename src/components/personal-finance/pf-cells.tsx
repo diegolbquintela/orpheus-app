@@ -1,20 +1,40 @@
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
-/** A section head: the numeral (12 px dim) and the `h2`. */
+/**
+ * A section head: the numeral (12 px dim) and the `h2`. #105 (PF-40): with `toggle`, the heading text is a button
+ * that opens / closes the section body (`aria-expanded`, `aria-controls`; a chevron, hidden from assistive tech).
+ */
 export function SectionHead({
   numeral,
   title,
   id,
+  toggle,
 }: {
   numeral: string;
   title: string;
   id: string;
+  toggle?: { open: boolean; controls: string; onToggle: () => void; testId: string };
 }) {
   return (
     <div>
       <p className="pf-label">{numeral}</p>
       <h2 id={id} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
-        {title}
+        {toggle ? (
+          <button
+            type="button"
+            className="pf-section-toggle"
+            aria-expanded={toggle.open}
+            aria-controls={toggle.controls}
+            onClick={toggle.onToggle}
+            data-testid={toggle.testId}
+          >
+            {title}
+            <ChevronDown className="pf-chevron size-5" aria-hidden="true" />
+          </button>
+        ) : (
+          title
+        )}
       </h2>
     </div>
   );

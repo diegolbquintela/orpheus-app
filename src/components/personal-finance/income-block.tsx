@@ -14,7 +14,6 @@ import {
   CONVERTED_LABEL,
   FOREIGN_LABEL,
   type Income,
-  incomeLines,
   monthly,
   NET_INCOME,
   netIncomeYearly,
@@ -29,6 +28,7 @@ import {
   personLabel,
   personNet,
   rateLabel,
+  shownIncomeLines,
   TABLE_COLUMNS,
 } from "@/lib/finance/income";
 import { Cell, SectionHead } from "./pf-cells";
@@ -44,15 +44,20 @@ export function IncomeBlock({
   income,
   update,
   household,
+  open = true,
+  onToggle,
 }: {
   income: Income;
   update: (change: (current: Income) => Income) => void;
   household: CurrencyCode;
+  /** #105 (PF-40): the section is open (its body shows); `onToggle` makes the heading a toggle. */
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const people = income.people;
   const updatePerson = (id: string, patch: Partial<Person>) =>
     update((i) => ({ people: i.people.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
-  const lines = incomeLines(people, household);
+  const lines = shownIncomeLines(people, household);
   const net = netIncomeYearly(people, household);
 
   return (
@@ -61,50 +66,80 @@ export function IncomeBlock({
       aria-labelledby="pf-income-title"
       data-testid="pf-income-block"
     >
-      <SectionHead numeral="02" title="Income" id="pf-income-title" />
-      <div className="flex flex-col gap-4">
-        <div className="pf-head pf-person-head" aria-hidden="true" data-testid="pf-person-head">
-          {PERSON_COLUMNS.map((c) => (
-            <span key={c} className="pf-label">
-              {c}
-            </span>
-          ))}
-        </div>
-        {people.map((person, index) => (
-          <PersonRow
-            key={person.id}
-            person={person}
-            label={personLabel(person, index)}
-            household={household}
-            onChange={(patch) => updatePerson(person.id, patch)}
-            onRemove={() => update((i) => ({ people: i.people.filter((p) => p.id !== person.id) }))}
-          />
-        ))}
-        <button
-          type="button"
-          className="pf-add"
-          disabled={people.length >= PEOPLE_MAX}
-          onClick={() => update((i) => ({ people: [...i.people, newPerson()] }))}
-          data-testid="pf-add-person"
-        >
-          ↳ Add person
-        </button>
-      </div>
+      <SectionHead
+        numeral="02"
+        title="Income"
+        id="pf-income-title"
+        toggle={
+          onToggle
+            ? { open, controls: "pf-income-body", onToggle, testId: "pf-toggle-income" }
+            : undefined
+        }
+      />
+      <div
+        id="pf-income-body"
+        className="pf-section-body flex flex-col gap-8"
+        data-testid="pf-body-income"
+      >
+        {open ? (
+          <>
+            <div className="flex flex-col gap-4">
+              <div
+                className="pf-head pf-person-head"
+                aria-hidden="true"
+                data-testid="pf-person-head"
+              >
+                {PERSON_COLUMNS.map((c) => (
+                  <span key={c} className="pf-label">
+                    {c}
+                  </span>
+                ))}
+              </div>
+              {people.map((person, index) => (
+                <PersonRow
+                  key={person.id}
+                  person={person}
+                  label={personLabel(person, index)}
+                  household={household}
+                  onChange={(patch) => updatePerson(person.id, patch)}
+                  onRemove={() =>
+                    update((i) => ({ people: i.people.filter((p) => p.id !== person.id) }))
+                  }
+                />
+              ))}
+              <button
+                type="button"
+                className="pf-add"
+                disabled={people.length >= PEOPLE_MAX}
+                onClick={() => update((i) => ({ people: [...i.people, newPerson()] }))}
+                data-testid="pf-add-person"
+              >
+                ↳ Add person
+              </button>
+            </div>
 
-      <section className="flex flex-col gap-4" data-testid="pf-income-table">
-        <h3 className="pf-group">Income table</h3>
-        <div className="pf-head pf-table-head" aria-hidden="true" data-testid="pf-table-head">
-          {TABLE_COLUMNS.map((c) => (
-            <span key={c} className="pf-label">
-              {c}
-            </span>
-          ))}
-        </div>
-        {lines.map((line) => (
-          <TableRow key={line.id} label={line.label} yearly={line.yearly} testId="pf-income-line" />
-        ))}
-        <TableRow label={NET_INCOME} yearly={net} testId="pf-net-income" total />
-      </section>
+            <section className="flex flex-col gap-4" data-testid="pf-income-table">
+              <h3 className="pf-group">Income table</h3>
+              <div className="pf-head pf-table-head" aria-hidden="true" data-testid="pf-table-head">
+                {TABLE_COLUMNS.map((c) => (
+                  <span key={c} className="pf-label">
+                    {c}
+                  </span>
+                ))}
+              </div>
+              {lines.map((line) => (
+                <TableRow
+                  key={line.id}
+                  label={line.label}
+                  yearly={line.yearly}
+                  testId="pf-income-line"
+                />
+              ))}
+              <TableRow label={NET_INCOME} yearly={net} testId="pf-net-income" total />
+            </section>
+          </>
+        ) : null}
+      </div>
     </section>
   );
 }

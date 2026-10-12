@@ -229,6 +229,14 @@ converted once (→ `5`). Each person has a `Foreign` box: tick it, pick the `Cu
 person's `Converted (yearly)` (their Net ÷ rate) is what the income table, `Net income`, `% of income` and the
 Overview use (Brazilian Dividends 37,000 BRL at 3.70 → 10,000 CAD). No live rates. Q24–Q31 open for EL (spec section 9).
 
+**Toggles, a cleaner income table, Update month and categories (#105).** Click the `Income`, `Expenses` or
+`Overview` heading to fold that section away (and again to open it); which ones are closed is saved to your account,
+so a refresh or another device shows the same. The income table now lists only incomes that are counted and not 0.
+Under `05 Update`, press `Update month`, pick the month, type Expenses and Income and press `Save` (the 12-month
+average and the chart update and the panel closes; `Cancel` or Escape leaves everything as it was). Each expense line
+can have a `Category` (pick one or `Add category…`); `Filter by category` shows one category's lines, and `By category`
+under `Total` gives each category's monthly / yearly subtotal. The filter and categories never change the totals.
+
 **Overview and Update (#94).** Under `04 Overview`: this month against the 12-month average (Expenses, Income,
 Surplus), a chart of the three lines Expenses, Income and Net assets, a typed `Starting net assets` and `Growth rate (%)`,
 and a `Future` toggle (1, 5, 10 or 15 years) where net assets keep compounding at that rate with the average surplus

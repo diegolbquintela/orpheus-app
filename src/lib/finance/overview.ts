@@ -23,6 +23,10 @@ export const START_LABEL = "Starting net assets";
 export const GROWTH_LABEL = "Growth rate (%)";
 export const FUTURE_LABEL = "Future";
 export const MONTH_LABEL = "Month";
+/** #105 (PF-43): the Update panel. */
+export const UPDATE_MONTH = "Update month";
+export const SAVE = "Save";
+export const CANCEL = "Cancel";
 export const CHART_CAPTION = "Expenses, income and net assets by month";
 export const YEARS = [1, 5, 10, 15] as const;
 export type Years = (typeof YEARS)[number];

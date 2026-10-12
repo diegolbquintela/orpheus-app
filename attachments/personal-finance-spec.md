@@ -1,4 +1,4 @@
-# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update, #102 account + foreign income, #98 end-to-end)
+# Personal Finance spec (#84 v1.1, #85 v1.2 income, #86 v1.3 equity cover, #87 v1.4 foreign currency, #94 Overview and Update, #102 account + foreign income, #98 end-to-end, #105 usability)
 
 Source of truth for the Personal Finance page, with `attachments/site-style-spec.md` for everything the shared dark
 shell already rules (bar, footer, tokens, AA, CLS 0, no painting, no instruction text). Harness first, then this
@@ -25,6 +25,8 @@ later); Engineering Lead owns the tech loop.
 | 2026-10-11, ≈ 17:16 ET | **EL on #94 Q19 (PR #101 at `ad8970d`; docs-only, no code change): option A.** Net assets may go negative over time when expenses exceed income; the `Starting net assets` field stays 0 or more (as built). The earlier "negatives allowed" note is resolved; nothing pending on Q17–Q23. |
 | 2026-10-11, ≈ 18:42 ET | **#102 QA D1 (BLOCKING, Phase 1 FAIL): open redirect via `?next=`.** `https://evil.example`, `//evil.example` and `/calculator` reached the page and, after sign-in, the browser (the router keeps unvalidated search params, so the route's own check was bypassed). Fixed: `safeNext` allowlist (exactly `/personal-finance`, else `/dashboard`) on load and post-auth; section 16.4 and PF-34 made exact; tests: `next.test.ts`, check-dashboard-built, personal-finance.mjs (faked sign-in). |
 | 2026-10-11, ≈ 20:02 ET | **EL on #98 (PR #104 at `749ac07`; docs-only):** Q32 the preview password for `qa-pf@orpheus.test` provided in env only; **Q33 decided: enough as built** (`?userId` → 403 + second device on the preview; two-account isolation stays local `--with-database`; no second preview QA account); **Q34 decided:** the e2e writes / resets on previews only, never production. Preview signed-in e2e 93/93. |
+| 2026-10-11, ≈ 21:04 ET | **#105 kickoff (Diego via CoS; EL): usability** (section 18, PF-40..47). (1) **Section toggles** on `02` Income, `03` Expenses and `04` Overview (the brief's "Charts" = the Overview section, the page's only chart; `05` Update stays open). **Storage choice: the account** (`orpheus.finance.view.v1`, a sixth record value): it survives a refresh *and* another device, keeps PF-36 (nothing PF in browser storage) and loads with the rest, so the page still fills once (CLS 0). (2) **Hide empty income lines** (not counted or 0). (3) **`Update month`** button → panel (Month + Expenses + Income, `Save` / `Cancel`); stored on Save. The optional helper sentence is **left out** (ST6-02 / section 4: no instruction text; Q35). (4) **Expense categories** (per line, inline `Add category…` like accounts), a session-only filter, `By category` subtotals; master totals unchanged. No calculation, sign-in or currency change. Q35–Q39 open at kickoff, simplest readings as built (decided ≈ 21:43 ET, next row). |
+| 2026-10-11, ≈ 21:43 ET | **EL on #105 (PR #106 at `7451f48`; docs-only, no code change): Q35–Q39 decided, all as built.** **Q35** omit the Update helper sentence (no-instruction-text wins; the brief said optional). **Q36** "Charts" = the whole `04` Overview; `05` Update and the household currency stay outside the collapse. **Q37** toggle state on the account (correct for #102). **Q38** the category filter is not persisted; subtotals include `No category`; the filter has no `No category` choice. **Q39** Update figures save on `Save` (not every keystroke); the panel always opens on the current month. |
 | 2026-10-11, ≈ 19:38 ET | **#98 kickoff (Diego via CoS; EL): full end-to-end test** of the page and its entry points after #84–#87, #97, #94, #102 (section 17, PFE-01..13). A **test** ticket: no product change (defects become follow-ups). One CFO journey typed through the UI (income incl. the foreign person, expenses incl. a foreign line, equity cover, Overview / Update, Future), then save / reload / another device / isolation / `Not saved.`, the style rules and the regression suite. Signed in as the EL-named preview account `qa-pf@orpheus.test` (throwaway; the tool resets its record) with `QA_EMAIL` / `QA_PASSWORD` from env; signed out always. Tool: `qa/tools/personal-finance-e2e.mjs` (extends the `personal-finance.mjs` helpers; runnable against the preview URL). Q32–Q34 decided by EL ≈ 20:02 ET (below). |
 | 2026-10-11, ≈ 17:48 ET | **#102 kickoff (Diego via CoS; EL):** extends #87 (section 16). **(1) Rate direction changes for every FX rate on the page:** a rate is now **units of the foreign currency per 1 unit of the household (master) currency** (label e.g. `FX rate (BRL per 1 CAD)`; `3.70` means 3.70 BRL = 1 CAD); **household amount = foreign amount ÷ rate** (was × rate, Q12 superseded). **Migration:** stored v1 expense lines carry the old direction unambiguously (the key itself says v1), so they are **inverted once** (rate → 1 ÷ rate, 6 decimals, trailing zeros dropped; a bad / empty rate kept as typed) into the bumped key `orpheus.finance.expenses.v2`. **(2) Foreign income:** each person (= an income line in this model; the issue's "person or income line") gets a `Foreign` box; ticked, it shows `Currency`, `FX rate (<code> per 1 <household>)` and `Converted (yearly)` (the person's Net ÷ rate); the income table, `Net income`, `% of income` and the Overview use the converted figure. #87's expense-line `Currency` / `FX rate` stay (new direction). **(3) Sign-in required:** `/personal-finance` is for signed-in users only; signed out → 307 to `/dashboard/sign-in?next=/personal-finance` (the existing Better Auth email/password and the dashboard's server session check; no second auth system; #90 untouched). **(4) Account persistence:** the five PF values are stored against the account (`personal_finance` table, `GET` / `PUT` / `DELETE /api/personal-finance`), so another device loads the same data; this browser's old `localStorage` values are imported once into an empty account, then removed. Simplest readings, open for EL: Q24–Q31. |
 
@@ -77,6 +79,9 @@ later); Engineering Lead owns the tech loop.
 | Foreign income (#102, section 16) | `Foreign` (a box per person); ticked: `Currency`, `FX rate (<code> per 1 <household>)`, `Converted (yearly)` |
 | Expense-line FX rate's accessible name (#102) | `FX rate (<code> per 1 <household>)` (the visible column label stays `FX rate`) |
 | Save failure (#102, only when a save fails) | `Not saved.` |
+| Section toggles (#105, section 18) | the `02` / `03` / `04` headings themselves (`Income`, `Expenses`, `Overview`) as buttons; no other text |
+| Update (#105) | button `Update month`; panel `Month`, `Expenses`, `Income`, buttons `Save`, `Cancel` |
+| Categories (#105) | column `Category`; choices `—`, the user's categories, `Add category…`; adding: `New category`, `Add`, `Cancel`; check `Name the category.`; filter label `Filter by category`, first choice `All`; subtotals `h3` `By category`, rows the category names then `No category` |
 
 No other text on the page (site-style ST6-02: no instruction text, no notes, no empty-state copy).
 
@@ -168,7 +173,7 @@ key names are the value names inside the account's record, and `orpheus.finance.
   (`public/__grok/icon-180.png`) is the builder's default, not the geometric mark; untouched (EL, Q4: Grok builder
   assets are out of scope for #84).
 
-## 9. Questions for EL (Q1–Q11 answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET; Q12–Q16 ≈ 16:26 ET, #87; Q17–Q23 ≈ 17:14 ET, #94)
+## 9. Questions for EL (Q1–Q11 answered: Q1–Q4 ≈ 12:05 ET; Q5–Q8 ≈ 13:11 ET; #86 formula option A ≈ 13:57 ET; Q9–Q11 ≈ 14:12 ET; Q12–Q16 ≈ 16:26 ET, #87; Q17–Q23 ≈ 17:14 ET, #94; Q35–Q39 ≈ 21:43 ET, #105)
 
 - **Q1. Navigation. Decided: (d) URL only, as built. Superseded by #97 (2026-10-11): a bar item and a home line.** Not a fourth bar item (ST1-01 stays three items), not a
   third home Platforms line (ST3-03: home stays the hero + two lines).
@@ -249,6 +254,16 @@ key names are the value names inside the account's record, and `orpheus.finance.
   No sign-out control on this page (#90's account menu). Or a Personal-Finance-only flag?
 - **Q31. Household currency label (#102). Open; default as built:** the brief's "master currency" is the existing
   `Household currency` field (label unchanged). Or relabel `Master currency`?
+- **Q35. The optional Update helper (#105). Decided (EL ≈ 21:43 ET): omit it.** The no-instruction-text rule
+  (ST6-02 / section 4) wins; the brief called the sentence optional. No helper text on the page.
+- **Q36. "Charts" (#105). Decided (EL ≈ 21:43 ET): as built.** "Charts" = the whole `04` Overview section (its table,
+  fields, Future and the chart), collapsing as one; `05` Update and the household currency stay outside the collapse.
+- **Q37. Toggle storage (#105). Decided (EL ≈ 21:43 ET): the account, as built** (`orpheus.finance.view.v1`), correct
+  for #102 (nothing PF in browser storage; survives refresh and devices).
+- **Q38. Filter and the uncategorised (#105). Decided (EL ≈ 21:43 ET): OK as built.** The category filter is not
+  persisted (`All` after a reload); subtotals include `No category`; the filter has no `No category` choice.
+- **Q39. Update saves on `Save` (#105). Decided (EL ≈ 21:43 ET): OK as built.** Month figures are stored on `Save`
+  (not every keystroke); the panel always opens on the current month.
 
 ## 10. Acceptance (PF rows; QA at 360 × 780, 400 × 860, 1024 × 800, 1440 × 900)
 
@@ -272,7 +287,7 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-12 | (#85) People: add and remove; Name, Wages (yearly), Bonus rating (%), Average tax (%) and Share (%) are inputs with accessible labels, Count wages / Count bonus checkboxes (on by default; Share `100` by default); typed values stay as typed; a bad Wages or Bonus rating shows `Enter a number, 0 or more.`, a bad Average tax or Share `Enter a percent from 0 to 100.`, and counts as 0. |
 | PF-13 | (#85) Net: each person's `Net (yearly)` = (wages + wages × bonus rating) × (1 − average tax) (e.g. 120,000, 10%, 30% → `92,400`; 80,000, 5%, 25% → `63,000`), shown whatever is counted. |
 | PF-14 | (#85) Counted and share: each income line counts its net × the person's share when its box is ticked, 0 when not; the section 12 example (own bonus excluded, spouse at 80%) gives the table `84,000` / `0` / `48,000` / `2,400` yearly and `Net income` `134,400` yearly, `11,200` monthly, `5,169.23` biweekly. |
-| PF-15 | (#85) Income table: one row per person per line (Wages, then Bonus) in people order, Biweekly = yearly ÷ 26, Monthly = yearly ÷ 12, Yearly; `Net income` sums them; up to two decimals, no currency symbol (Q2). |
+| PF-15 | (#85; #105 PF-42: only counted, non-zero lines) Income table: one row per person per line (Wages, then Bonus) in people order, Biweekly = yearly ÷ 26, Monthly = yearly ÷ 12, Yearly; `Net income` sums them; up to two decimals, no currency symbol (Q2). |
 | PF-16 | (#85) `% of income` wired: changing a share, a box, a tax or wages updates every expense line's and total's `% of income` at once (PF-04); with no counted income they show `—`; income survives a reload from `orpheus.finance.income.v1` (malformed → no people, no error); layout, AA, 44 px controls (checkbox rows included) and CLS as PF-08 / PF-09. |
 | PF-17 | (#86) Equity cover copy and inputs (section 13): under `03` `Expenses`, before `Fixed`: `Withdrawal rate (%)` and `Portfolio ROIC (%)` (inputs, visible labels, empty on a new page) and `Rate used` (computed: `—` on a new page); typed values stay as typed; a bad or out-of-range withdrawal rate shows `Enter a percent from 0 to 100.`, a bad or negative ROIC `Enter a number, 0 or more.` (alert, `aria-invalid`; Q11: ROIC above 100 is valid, e.g. `150` → `Rate used` `75%`); an invalid rate is no rate (`—`). |
 | PF-18 | (#86) Formula A: rate used = the typed withdrawal rate, else ROIC ÷ 2; a typed withdrawal rate is used as typed (never halved) and wins when both are typed; calculated `Equity to cover` = the line's yearly amount ÷ (rate ÷ 100); e.g. ROIC `8` → `Rate used` `4%`, Rent 1,000 a month → `300,000`, Phone 250 a month → `75,000`, Gifts 1,200 a year → `30,000`; then withdrawal rate `5` → `5%`, `240,000` / `60,000` / `24,000`; neither typed, or a rate of 0 → `—`. |
@@ -297,6 +312,14 @@ ST6 checks now include `/personal-finance` and the lyre on every page, then ever
 | PF-37 | (#102) Foreign income: a person's `Foreign` box (off by default); ticked: `Currency` (nine codes, not the household's), `FX rate (BRL per 1 CAD)`, `Converted (yearly)`. Example: `Brazilian Dividends`, Wages 37,000, tax 0, `Foreign` BRL `3.70` → Net 37,000, Converted **10,000**; with the section 12 people the table's lines and `Net income` use 10,000 for it; % of income and the Overview's income follow; no valid rate → the check, Converted `—`, `Net income` `—`, `% of income` `—`. Unticking keeps the typed currency and rate stored. |
 | PF-38 | (#102) Migration: an old browser record (localStorage v1 keys; Condo BRL at the old `0.2`) is imported into an empty account on the first signed-in visit with the rate inverted to `5` (Condo still 400), saved as `orpheus.finance.expenses.v2`, and the old keys are removed from the browser; an account that already has a record ignores the browser's values. |
 | PF-39 | (#102) Layout and the shell with a foreign person: phone the `Foreign` box on its own row under `Count wages` | `Count bonus`, the three foreign cells stacked under it (one row from 640 px), `Net (yearly)` last; wide the box as the last person column and the three cells in a row under the person; 44 px controls, chalk focus ring, AA, axe, no horizontal scroll, strict CLS 0 signed in (empty and restored from the account), no gold. |
+| PF-40 | (#105) Section toggles: the `02` `Income`, `03` `Expenses` and `04` `Overview` (the brief's "Charts": the table, `Starting net assets` / `Growth rate (%)`, `Future` and the chart) headings are each a button (`aria-expanded`, `aria-controls`, the heading text unchanged, a chevron `aria-hidden`); a click / Enter / Space collapses the section's body (only the numeral and heading stay) and expands it again; open by default; the household currency, `01` and `05` `Update` are not collapsible; 44 px tap target, chalk focus ring. |
+| PF-41 | (#105) Toggle state survives a refresh: stored against the **account** in `orpheus.finance.view.v1` (`{"closed":["income"|"expenses"|"overview"]}`; malformed → all open); a reload and a second signed-in device show the same sections closed; nothing PF in `localStorage`; strict CLS 0 on a cold load with a section restored closed; closing a section changes no figure. |
+| PF-42 | (#105) Hide empty income lines: the income table lists a person's `Wages` / `Bonus` line only when it is counted (`Count wages` / `Count bonus` ticked) **and** its yearly amount is not 0; no row reads 0 (a counted foreign line without a valid rate still shows `—`); `Net income` always shows and is unchanged. Amends PF-15. |
+| PF-43 | (#105) Clearer Update: `05` `Update` shows one button `Update month` (`aria-expanded`); it opens a panel with `Month` (the last 12 months, newest first, default this month), `Expenses`, `Income` (the stored figures for that month; placeholders as #94), `Save` and `Cancel`. Nothing is stored or recomputed until `Save`; `Save` stores both fields for that month, closes the panel, returns focus to `Update month`, and the `04` averages and chart refresh; `Cancel` / Escape closes without a change; a bad amount shows the field check and `Save` stores nothing. No helper text (Q35 decided: omitted). Amends PF-27 / PF-31 (the figures are stored on `Save`). |
+| PF-44 | (#105) Expense categories: a `Category` column after `Account` on every expense line (choices `—`, the user's categories in the order added, `Add category…`); adding: label `New category`, `Add` / `Cancel`, check `Name the category.`, ≤ 40 characters, ≤ 50 categories, an existing name reused in any case; stored in `orpheus.finance.expenses.v2` (`categories` + each line's `category`; older values read as no category). |
+| PF-45 | (#105) Filter: `Filter by category` (`All` then the categories) above the groups shows only the lines in that category in both groups; `Fixed total`, `Variable total`, `Total`, every `% of expenses` / `% of income` and `Equity to cover` stay the whole page's; a line added while filtered takes the filter's category; the filter is not stored (a reload shows `All`). |
+| PF-46 | (#105) Subtotals: when any line has a category, `By category` (`h3`) after `Total` lists each used category (in the order added), then `No category` for the rest, with `% of expenses`, `Monthly`, `Yearly` in the household currency (`—` as Q14); the rows sum to `Total`; categories and the filter never change the master totals. |
+| PF-47 | (#105) Layout and regression at 360 / 400 / 1024 / 1440: `Category` under `Account` on a phone, the last column before remove from 1024 px; the subtotal rows and the Update panel stack on a phone; 44 px controls, AA, axe, no horizontal scroll, strict CLS 0 (empty, restored, restored with a section closed); PF-01..39 and PFE-01..13 hold as amended; the signed-out 307 gate and `safeNext` unchanged. |
 
 ## 11. Landed
 
@@ -688,3 +711,41 @@ Questions for EL (Q32–Q34 answered by EL, 2026-10-11 ≈ 20:02 ET):
   QA account.
 - **Q34. Where it runs. Decided:** the e2e writes to and resets the QA account's record **on previews only, never
   production** (the tool refuses the production host).
+
+## 18. Usability (#105; PF-40..47; Q35–Q39 decided by EL ≈ 21:43 ET, as built)
+
+Business user: the CFO. No calculation, sign-in or currency-model change; #102's gate and `safeNext` stay.
+
+18.1 **Section toggles.** `02` Income, `03` Expenses and `04` Overview ("Charts") collapse and expand from their
+heading (a button inside the `h2`, `aria-expanded` / `aria-controls`, a chevron that turns; text unchanged). Open by
+default. Closed sections are stored against the **account** as `orpheus.finance.view.v1` =
+`{"closed":[...]}` (names `income`, `expenses`, `overview`): the sixth record value, saved like the others (PUT the
+whole record), so a refresh or another device shows the same state and nothing PF goes back into browser storage. The
+page still fills once after the record loads (CLS 0).
+
+18.2 **Income table.** Only lines that are counted and whose yearly amount is not 0; `Net income` always.
+
+18.3 **Update month.** `05` shows `Update month`; it opens a panel under it (Month, Expenses, Income, `Save`, `Cancel`).
+The fields are a draft: `Save` writes that month's two figures (empty clears it), closes the panel and focuses the
+button; `04`'s averages and chart follow. `Cancel` or Escape discard. No helper sentence (Q35 decided: omitted).
+
+18.4 **Categories.** Per expense line, like `Account`: `Category` (`—`, categories, `Add category…`), inline `New
+category` with `Add` / `Cancel`; ≤ 40 characters, ≤ 50, case-insensitive reuse; stored in `expenses.v2`
+(`categories`, `line.category`). `Filter by category` (`All`, categories) above the groups hides other lines (session
+only; a line added while filtered gets the category). `By category` after `Total`: one row per used category then
+`No category`, `% of expenses` / `Monthly` / `Yearly` in the household currency. Master totals, percentages and
+equity cover always use every line.
+
+18.5 **Layout.** Phone: `Category` under `Account` (its own row), subtotal rows name over Monthly | Yearly | share,
+the Update panel stacked. From 1024 px: `Category` is the last column before remove; subtotal rows one line.
+
+| AC | Pass when |
+|----|-----------|
+| PF-40 | (#105) Section toggles: the `02` `Income`, `03` `Expenses` and `04` `Overview` (the brief's "Charts": the table, `Starting net assets` / `Growth rate (%)`, `Future` and the chart) headings are each a button (`aria-expanded`, `aria-controls`, the heading text unchanged, a chevron `aria-hidden`); a click / Enter / Space collapses the section's body (only the numeral and heading stay) and expands it again; open by default; the household currency, `01` and `05` `Update` are not collapsible; 44 px tap target, chalk focus ring. |
+| PF-41 | (#105) Toggle state survives a refresh: stored against the **account** in `orpheus.finance.view.v1` (`{"closed":["income"|"expenses"|"overview"]}`; malformed → all open); a reload and a second signed-in device show the same sections closed; nothing PF in `localStorage`; strict CLS 0 on a cold load with a section restored closed; closing a section changes no figure. |
+| PF-42 | (#105) Hide empty income lines: the income table lists a person's `Wages` / `Bonus` line only when it is counted (`Count wages` / `Count bonus` ticked) **and** its yearly amount is not 0; no row reads 0 (a counted foreign line without a valid rate still shows `—`); `Net income` always shows and is unchanged. Amends PF-15. |
+| PF-43 | (#105) Clearer Update: `05` `Update` shows one button `Update month` (`aria-expanded`); it opens a panel with `Month` (the last 12 months, newest first, default this month), `Expenses`, `Income` (the stored figures for that month; placeholders as #94), `Save` and `Cancel`. Nothing is stored or recomputed until `Save`; `Save` stores both fields for that month, closes the panel, returns focus to `Update month`, and the `04` averages and chart refresh; `Cancel` / Escape closes without a change; a bad amount shows the field check and `Save` stores nothing. No helper text (Q35 decided: omitted). Amends PF-27 / PF-31 (the figures are stored on `Save`). |
+| PF-44 | (#105) Expense categories: a `Category` column after `Account` on every expense line (choices `—`, the user's categories in the order added, `Add category…`); adding: label `New category`, `Add` / `Cancel`, check `Name the category.`, ≤ 40 characters, ≤ 50 categories, an existing name reused in any case; stored in `orpheus.finance.expenses.v2` (`categories` + each line's `category`; older values read as no category). |
+| PF-45 | (#105) Filter: `Filter by category` (`All` then the categories) above the groups shows only the lines in that category in both groups; `Fixed total`, `Variable total`, `Total`, every `% of expenses` / `% of income` and `Equity to cover` stay the whole page's; a line added while filtered takes the filter's category; the filter is not stored (a reload shows `All`). |
+| PF-46 | (#105) Subtotals: when any line has a category, `By category` (`h3`) after `Total` lists each used category (in the order added), then `No category` for the rest, with `% of expenses`, `Monthly`, `Yearly` in the household currency (`—` as Q14); the rows sum to `Total`; categories and the filter never change the master totals. |
+| PF-47 | (#105) Layout and regression at 360 / 400 / 1024 / 1440: `Category` under `Account` on a phone, the last column before remove from 1024 px; the subtotal rows and the Update panel stack on a phone; 44 px controls, AA, axe, no horizontal scroll, strict CLS 0 (empty, restored, restored with a section closed); PF-01..39 and PFE-01..13 hold as amended; the signed-out 307 gate and `safeNext` unchanged. |
