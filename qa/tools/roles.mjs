@@ -95,10 +95,18 @@ async function http(jar, method, path, body, extra = {}) {
   return { status: r.status, location: r.headers.get("location"), cc: r.headers.get("cache-control"), robots: r.headers.get("x-robots-tag"), text, json };
 }
 const err = (r) => r.json?.error;
+// Better Auth rate-limits sign-in (a few per 10 s per IP on Vercel): wait and retry on 429.
 async function signIn(email, password) {
-  const jar = new Jar();
-  const r = await http(jar, "POST", "/api/auth/sign-in/email", { email, password });
-  return r.status === 200 ? jar : null;
+  for (let i = 0; i < 6; i++) {
+    const jar = new Jar();
+    const r = await http(jar, "POST", "/api/auth/sign-in/email", { email, password });
+    if (r.status === 429) {
+      await new Promise((ok) => setTimeout(ok, 11000));
+      continue;
+    }
+    return r.status === 200 ? jar : null;
+  }
+  return null;
 }
 const h2s = (html) => [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1]);
 const roleLines = (html) => [...html.matchAll(/data-testid="account-role"[^>]*>([^<]*)</g)].map((m) => m[1]);
@@ -461,7 +469,12 @@ try {
         page.setDefaultTimeout(30000);
         try {
           if (person) {
-            const login = await page.request.post(`${base}/api/auth/sign-in/email`, { data: { email: person.email, password: person.password }, headers: { origin: base } });
+            let login;
+            for (let i = 0; i < 6; i++) {
+              login = await page.request.post(`${base}/api/auth/sign-in/email`, { data: { email: person.email, password: person.password }, headers: { origin: base } });
+              if (login.status() !== 429) break;
+              await page.waitForTimeout(11000);
+            }
             if (!login.ok()) {
               check(`${tag} sign-in`, false, login.status());
               continue;
