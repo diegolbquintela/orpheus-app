@@ -18,9 +18,9 @@ import { currentSection, MENU_ITEMS } from "@/lib/site/site";
  * #90: below 640 px the glyph link keeps a 44 × 44 box but takes only the glyph's 20 px in the row: it reaches 8 px
  * back over the gap before it and 16 px into the bar's right padding, with the glyph at its right edge, so the glyph
  * still ends on the column edge (20 px from the screen) and sits 8 px from `Personal finance` like the other items.
- * That is what lets the five items keep 8 px gaps (Q21; text 11 px below 400 px, 12 px to 640 px, EL). From 640 px it is a plain text link.
+ * That is what lets the five items keep 8 px gaps (Q21; text 11 px through 399 px, 12 px to 640 px, EL). From 640 px it is a plain text link.
  */
-// #90 (EL, Q21 amended): below 400 px the bar text is 11 px so five items fit on one line at 360.
+// #90 (EL, Q21 amended): through 399 px the bar text is 11 px so five items fit on one line at 360.
 const GLYPH_LINK = "-ml-2 -mr-4 justify-end pr-4 sm:m-0 sm:justify-center sm:pr-0";
 
 export function SiteMenu({ pathname }: { pathname: string }) {
@@ -40,12 +40,12 @@ export function SiteMenu({ pathname }: { pathname: string }) {
         <a
           href={home.href}
           aria-current={current === home.section ? "page" : undefined}
-          className={`gap-2 text-xs text-chalk max-[399px]:text-[11px] sm:text-sm ${link}`}
+          className={`gap-2 text-xs text-chalk max-[400px]:text-[11px] sm:text-sm ${link}`}
         >
           <Lyre className="shrink-0" />
           <span>{home.label}</span>
         </a>
-        <ul className="flex items-center gap-2 text-xs max-[399px]:text-[11px] sm:gap-6 sm:text-sm">
+        <ul className="flex items-center gap-2 text-xs max-[400px]:text-[11px] sm:gap-6 sm:text-sm">
           {right.map((item) => (
             <li key={item.section}>
               <a

@@ -145,7 +145,7 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
   const last = bar.links.at(-1);
   check(`${tag} ST1-01 / ROLE-01 Orpheus left, Calculator, Dashboard, Personal finance, Account right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
-  // #90 (EL, Q21 amended): 11 px below 400 px so the five items fit at 360; 12 px from 400; 14 px from 640.
+  // #90 (EL, Q21 amended): 11 px through 399 px so the five items fit at 360; 12 px from 400 px; 14 px from 640.
   const size = viewport.width < 400 ? 11 : viewport.width < 640 ? 12 : 14;
   // #90 (ROLE-01, Q-D8): Account is the one icon on the right (the person glyph below 640 px; the word from 640 px).
   const wantIcons = (l) => (l.href === "/account" && viewport.width < 640 ? 1 : 0);
@@ -287,6 +287,19 @@ try {
   const ac = await fetch(`${base}/account`, { redirect: "manual" });
   const acTo = new URL(ac.headers.get("location") ?? "/x", base);
   check("signed-out /account → 307 /dashboard/sign-in?next=/account (#90 ROLE-02)", ac.status === 307 && acTo.pathname === "/dashboard/sign-in" && acTo.searchParams.get("next") === "/account", [ac.status, ac.headers.get("location")]);
+  // #90 D1 (ROLE-01): the 11 px edge: 11 px at 399 px, 12 px at 400 px; `Personal finance` on one line at both.
+  for (const [w, want] of [[399, 11], [400, 12]]) {
+    const pg = await browser.newPage({ viewport: { width: w, height: 800 } });
+    await pg.goto(`${base}/`);
+    const m = await pg.locator('nav[aria-label="Site"]').evaluate((n) => {
+      const pf = n.querySelector('a[href="/personal-finance"]');
+      const r = document.createRange();
+      r.selectNodeContents(pf);
+      return { sizes: [...n.querySelectorAll("a")].map((a) => parseFloat(getComputedStyle(a).fontSize)), pfLines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
+    });
+    check(`[${w}] ROLE-01 bar text ${want} px, Personal finance on one line`, m.sizes.every((s) => s === want) && m.pfLines === 1, m);
+    await pg.close();
+  }
   await signedOut(browser, base, false);
   if (CFG.compareUrl) await signedOut(browser, CFG.compareUrl, true);
 

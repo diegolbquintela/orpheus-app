@@ -250,7 +250,7 @@ after #86 a typed `Equity to cover` overrides the calculated amount for its line
 default when the field is empty); the builder's app icon (`__grok/icon-180.png`) is out of scope.
 
 **Landed: home + top bar for Personal Finance (#97).** The bar reads Orpheus | Calculator, Dashboard, Personal
-finance (text only, the current item underlined; 12 px text below 640 px so all four fit at 360 px (#90: five items with `Account`, 11 px below 400 px); the word Orpheus kept, no sideways scroll; Q21, decided by EL). Home
+finance (text only, the current item underlined; 12 px text below 640 px so all four fit at 360 px (#90: five items with `Account`, 11 px through 399 px); the word Orpheus kept, no sideways scroll; Q21, decided by EL). Home
 `02` Platforms has three full-width lines: Calculator, Dashboard ("The portfolio as a business.", Q22, decided by EL) and Personal
 finance ("Income, expenses, and the cover."). The finance page itself is unchanged.
 
