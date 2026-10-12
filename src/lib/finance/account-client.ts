@@ -76,7 +76,14 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
   };
   // #112: no autosave. The store holds the saved record; the page writes into it and calls `save()` on `Save`
   // (and after a section toggle, which saves at once).
-  const store = Object.assign(new RecordStore(prepared.record), { save: () => put() });
+  // One PUT at a time, in order (two quick section toggles must not land out of order).
+  let queue: Promise<unknown> = Promise.resolve();
+  const save = (): Promise<boolean> => {
+    const next = queue.then(() => put());
+    queue = next.catch(() => {});
+    return next;
+  };
+  const store = Object.assign(new RecordStore(prepared.record), { save });
   if (write && (prepared.imported || prepared.migrated)) {
     const ok = await put();
     if (ok && prepared.imported) clearLegacy(browser);
