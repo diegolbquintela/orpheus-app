@@ -73,7 +73,7 @@ describe("QA N4: qa/tools sessions always sign out", () => {
   it("every qa/tools script that signs in uses eachViewport, with no sign-out or context of its own", () => {
     const dir = join(import.meta.dirname, "..", "qa", "tools");
     const tools = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "dashboard-redesign.mjs" /* spawns the tools; own test below */ && f !== "site-style-regression.mjs" /* #72 runner: spawns site-shell.mjs; own test below */ && readFileSync(join(dir, f), "utf8").includes("QA_PASSWORD"));
-    assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "personal-finance.mjs", "site-shell.mjs"]);
+    assert.deepEqual(tools.sort(), ["dashboard-add.mjs", "dashboard-book.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "site-shell.mjs"]);
     for (const f of tools) {
       const src = readFileSync(join(dir, f), "utf8");
       assert.match(src, /import \{ eachViewport \} from "\.\/session\.mjs";/, f);
@@ -81,6 +81,14 @@ describe("QA N4: qa/tools sessions always sign out", () => {
       assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|newContext\(|ctx\.close\(/, `${f} must leave sign-in / sign-out to eachViewport`);
       assert.match(src, /\} finally \{\n\s*await browser\.close\(\);/, `${f} closes the browser in a finally`);
     }
+  });
+
+  it("#98: the Personal Finance e2e signs in only on a preview, never logs the password, and leaves the QA record empty", () => {
+    const src = readFileSync(join(import.meta.dirname, "..", "qa", "tools", "personal-finance-e2e.mjs"), "utf8");
+    assert.match(src, /const prod = new URL\(base\)\.hostname === new URL\(DEFAULT_BASE_URL\)\.hostname;/);
+    assert.match(src, /else if \(prod\) check\(/);
+    assert.doesNotMatch(src, /console\.\w+\([^)]*password/i);
+    assert.match(src, /\} finally \{\n\s*const end = await acct\(page, base, "DELETE"\)/);
   });
 
   it("#59: QA_VIEWPORTS picks phone / wide (1024) / desktop; the default stays phone + desktop", async () => {

@@ -116,6 +116,10 @@ affects the repo.
   `src/components/personal-finance/overview-block.tsx`; the page takes an optional `now` (tests).
   Amounts stay unitless (Q2, kept by #87, Q15). For #86: a typed `Equity to cover` overrides the calculated amount for that
   line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
+  E2E (#98, spec section 17, PFE-01..13): `qa/tools/personal-finance-e2e.mjs` (helpers `qa/tools/pf-helpers.mjs`): one CFO
+  journey at 360 / 400 / 1024 / 1440 (signed out always; signed in with QA_EMAIL / QA_PASSWORD, the preview account
+  `qa-pf@orpheus.test`; RESETS its record, refuses production); PFE-12 = `site-style-regression.mjs` on the same preview.
+  A local server must pass every `Set-Cookie` through (`headers.getSetCookie()`), or only the last auth cookie survives.
   QA: `qa/tools/personal-finance.mjs` (#102: signed in with QA_EMAIL / QA_PASSWORD through `session.mjs`; it RESETS
   that account's Personal finance record; without them only the signed-out PF-33 checks run). Locally: sign up an
   allow-listed address on a throwaway database (PGLite `pglite-server -m 20`: one connection is not enough).
