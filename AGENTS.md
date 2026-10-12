@@ -121,7 +121,7 @@ affects the repo.
   the income table hides uncounted / 0 lines (`shownIncomeLines`); `05` Update is a `Update month` button → panel
   (draft until `Save`; `Cancel` / Escape discard); expense lines have a `Category` (inline add like accounts),
   a session-only `Filter by category` and `By category` subtotals (`categoryTotals`); master totals never change.
-  No helper sentence (no instruction text; Q35).
+  No helper sentence (no instruction text). EL decided Q35–Q39 as built (≈ 21:43 ET).
   E2E (#98, spec section 17, PFE-01..13): `qa/tools/personal-finance-e2e.mjs` (helpers `qa/tools/pf-helpers.mjs`): one CFO
   journey at 360 / 400 / 1024 / 1440 (signed out always; signed in with QA_EMAIL / QA_PASSWORD, the preview account
   `qa-pf@orpheus.test`; RESETS its record, refuses production); PFE-12 = `site-style-regression.mjs` on the same preview.
