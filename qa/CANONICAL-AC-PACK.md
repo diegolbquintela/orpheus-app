@@ -54,6 +54,7 @@ always: ST0-05).
 | 15 | #105 Personal Finance usability | PF-40..47 new (section toggles on Income / Expenses / Overview stored against the account `orpheus.finance.view.v1`; hide uncounted / zero income lines; `Update month` panel with Save / Cancel; expense categories, filter, `By category` subtotals, master totals unchanged; layout + CLS 0); PF-15 amended by PF-42, PF-27 / PF-31 by PF-43; `qa/tools/personal-finance.mjs` + `personal-finance-e2e.mjs` updated; Q35–Q39 decided by EL ≈ 21:43 ET, all as built (Q35 helper sentence omitted; Q36 Charts = whole Overview; Q37 account; Q38 filter not persisted, `No category` subtotal; Q39 save on Save, opens on the current month) | signed-out 307 + `safeNext`, `$313,000`, shell / home, CLS 0, noindex (`site-style-regression.mjs`) |
 | 16 | #90 Roles and account | ROLE-01..22 new (the `Account` bar item (person glyph below 640 px) and `/account` in the dark shell; password / email change; Diego-only grant UI with a temporary password shown once; forced password change; public `Create account` removed; one owner (`ORPHEUS_OWNER_EMAIL`), grantees see the owner's data: CFO → Personal Finance, Portfolio Manager → Dashboard, `Read` or `Read and write`; the 403 shell page, read-only pages and API 403s; PF `DELETE` owner-only); ST1-01 (five items), ST5b-02 (no `Create an account` link) and PF-34 (`next` also allows `/account`) amended; Q-D1..Q-D18 decided by Diego via CoS ≈ 23:55 ET exactly as recommended; `qa/tools/roles.mjs` (locally on a throwaway database: owner / CFO-read / PM-write / no-grant; on a preview only once EL sets `ORPHEUS_OWNER_EMAIL` and the four QA accounts, passwords in env only) | PF-01..47 and PFE-01..13 as the owner, every shipped page (`site-style-regression.mjs`, `$313,000`), the signed-out 307s, `safeNext`; #91 / #92 / #93 / #71 untouched |
 | 17 | #50 Remove Grok template leftovers | NG-01..09 new (no grok.com request / script, no `.grok.com` cookie, the static Orpheus `/manifest.webmanifest` with 180 / 512 icons, `apple-touch-icon` retargeted, `/__grok/*` gone, `/?install=1` is just the old-link redirect to the calculator, noindex / X-Robots-Tag / favicon / theme-color / apple meta kept, no preview bridge); decided by EL ≈ 07:50 ET (option A + cut the preview bridge); `qa/tools/no-grok.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), release-smoke, the signed-out 307s; #51 / #71 / #91–#95 untouched |
+| 18 | #51 Remove remaining Grok tooling | TL-01..06 new (`.grok/`, `startup.sh`, the preview / app-env / auth-invariant / write-atomic / browser-smoke scripts and `screenshots/app-builder-*` gone; `dev` / `build` / `preview` run Vite directly; no app-env Vite plugin; the deployed auth flag unchanged because Vercel sets `VITE_AUTH_ENABLED` itself (EL ≈ 08:48 ET); kept: `migrations/*0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default); `scripts/no-grok-tooling.test.mjs` | every shipped page (`site-style-regression.mjs`, `$313,000`, CLS 0), `qa/tools/no-grok.mjs`, release-smoke, signed-out 307s; #71 / #91–#95 untouched |
 | — | #71 dashboard (on hold) | ST5a deferred | n/a |
 
 ### ST0: tokens and the decision
@@ -367,4 +368,20 @@ icon, the OG head injection, the preview postMessage bridge) and replace the man
 | NG-07 | BLOCK | Unchanged: `robots` meta and `X-Robots-Tag` `noindex, nofollow`, `favicon.svg`, `theme-color` `#1e2124`, `apple-mobile-web-app-title` `Orpheus Wisdom`, `apple-mobile-web-app-status-bar-style` `black`. |
 | NG-08 | MUST | No preview postMessage bridge in the app (`grok-preview-bridge` absent from the HTML and the source). |
 | NG-09 | BLOCK | Nothing else moves: shell, home, lyre, footer, `$313,000`, CLS 0 (`site-style-regression.mjs`), release-smoke, signed-out 307 on `/personal-finance`, `/dashboard`, `/account`. |
+
+## Remaining Grok tooling removed (#51; decision log `attachments/site-style-spec.md` § 15)
+
+Follow-up to #50. Removes the Grok App Builder workspace tooling (none of it touches grok.com). Gate (EL ≈ 08:48 ET):
+Vercel sets `VITE_AUTH_ENABLED` itself (Preview `true`, Production its own encrypted value), so dropping
+`.grok/app-env.json` and `scripts/with-app-env.mjs` does not change a deployed build. Test: `scripts/no-grok-tooling.test.mjs`
+(in `npm test`).
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| TL-01 | BLOCK | Gone: `.grok/` (app-env.json, skills, references, logs, status, project_memory), `startup.sh`, `scripts/preview.mjs` (+ test), `scripts/preview-thumbnail.mjs`, `scripts/with-app-env.mjs` (+ test), `scripts/app-env-plugin.mjs`, `scripts/check-auth-invariant.mjs` (+ test), `scripts/write-atomic.mjs` (+ test), `scripts/browser-smoke*.mjs`, `scripts/browser-guard.mjs`, `screenshots/app-builder-*`. |
+| TL-02 | BLOCK | `package.json`: `dev`, `build`, `build:dev`, `preview` run `vite` directly; `preview:restart`, `preview:stop` and `check:auth` gone. |
+| TL-03 | BLOCK | `vite.config.ts` loads no app-env plugin (no `/__app-env`). |
+| TL-04 | BLOCK | Deployed behaviour unchanged: the client bundle does not depend on `VITE_AUTH_ENABLED` from a file (an identical build with the file `"false"`, with env `true` and without the file); Preview sign-in still works; signed-out 307s on `/personal-finance`, `/dashboard`, `/account`. |
+| TL-05 | BLOCK | Kept: `migrations/0001_auth.sql`, `migrations/auth/0001_auth.sql`, `qa/runs/**`, the frozen-copy compare default in `qa/tools/config.mjs`. |
+| TL-06 | BLOCK | Nothing else moves: `qa/tools/no-grok.mjs` (no grok.com request / cookie), `site-style-regression.mjs` (`$313,000`, CLS 0, noindex, shell / home), release-smoke, CI green. |
 

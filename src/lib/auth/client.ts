@@ -12,8 +12,8 @@ export const authClient = createAuthClient();
 
 /**
  * True when the template's signed-in UI (`gates.tsx`, `use-current-user.ts`) should use real
- * sessions: whenever `VITE_AUTH_ENABLED` is not `"false"` at build time. `.grok/app-env.json`
- * sets `"false"` for local runs; a Vercel value wins. The dashboard does not read this: its
+ * sessions: whenever `VITE_AUTH_ENABLED` is not `"false"` at build time. Vercel sets it per
+ * environment (#51: the old `.grok/app-env.json` local default is gone; unset means on). The dashboard does not read this: its
  * server gate decides (`src/lib/dashboard/session.server.ts`).
  */
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
