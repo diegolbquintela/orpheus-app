@@ -115,7 +115,7 @@ affects the repo.
   average surplus monthly. Key `orpheus.finance.overview.v1`, `src/lib/finance/overview.ts`,
   `src/components/personal-finance/overview-block.tsx`; the page takes an optional `now` (tests).
   Amounts stay unitless (Q2, kept by #87, Q15). For #86: a typed `Equity to cover` overrides the calculated amount for that
-  line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4).
+  line; calculated is the default when empty (Q3). `__grok/*` builder assets are out of scope (Q4; since #50 they are gone, see "Template leftovers removed").
   #105 (spec section 18, PF-40..47): `02` Income / `03` Expenses / `04` Overview collapse from their heading
   (`SectionHead` `toggle`; closed list stored against the ACCOUNT as `orpheus.finance.view.v1`, `src/lib/finance/view.ts`);
   the income table hides uncounted / 0 lines (`shownIncomeLines`); `05` Update is a `Update month` button → panel
@@ -1050,3 +1050,17 @@ chat rules) was replaced by this file. The leftover files are not instructions f
 in: `scripts/with-app-env.mjs` reads `.grok/app-env.json` for `dev`/`build`/`preview`, and
 `vite.config.ts` loads the Grok PWA and app-env plugins plus `server/` middleware. Remove them only in a
 dedicated PR that keeps CI and the Vercel build green.
+
+## Template leftovers removed (#50)
+
+- Gone, never re-add: `scripts/grok-pwa-*`, `scripts/install-page.html`, `server/` (the `grok-pwa` middleware and the
+  `virtual:grok-og-identity` types; `vite.config.ts` no longer sets Nitro `serverDir`), `public/__grok/`,
+  `scripts/brand-check.mjs`, `src/lib/preview-embedder-origin.ts`, `src/lib/preview-host-bridge.ts`,
+  `src/components/preview-host-bridge.tsx`. No page may load anything from `grok.com` or set a `.grok.com` cookie.
+- The head (`src/routes/__root.tsx`) now carries what the middleware used to inject: `apple-mobile-web-app-title`
+  `Orpheus Wisdom`, `apple-mobile-web-app-status-bar-style` `black`, `og:title` `Orpheus Wisdom` (the
+  `twitter:card` and the Grok OG image service were dropped), `rel=manifest` → `/manifest.webmanifest`,
+  `rel=apple-touch-icon` → `/icons/apple-touch-icon.png`.
+- Icons: change `public/favicon.svg`, then `node scripts/make-icons.mjs` and commit the PNGs.
+- `.grok/` (agent skills / references) stays; it is not shipped. `src/lib/app-data/*` (GROK_* connector env) is #51.
+- QA: `qa/tools/no-grok.mjs` (NG-01..09 in `qa/CANONICAL-AC-PACK.md`).

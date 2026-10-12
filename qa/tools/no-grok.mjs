@@ -9,7 +9,8 @@
 //         icons 180 and 512 PNG off /__grok, each served as image/png with the declared size.
 //   NG-04 <link rel=manifest> → /manifest.webmanifest; <link rel=apple-touch-icon> → the 180 PNG (not /__grok).
 //   NG-05 /__grok/* gone: the old manifest, manifest.json, icon-180.png and install styles → 404; nothing links it.
-//   NG-06 /?install=1 is no longer special: the home page (200, same as /), no Grok install page.
+//   NG-06 /?install=1 is no longer special: like any /?query it goes to /calculator?… (the #46 old-link rule), no
+//         Grok install page.
 //   NG-07 noindex, nofollow meta + X-Robots-Tag unchanged; favicon.svg, theme-color #1e2124 and the
 //         apple-mobile-web-app title/status-bar meta still there.
 //   NG-08 no preview-bridge postMessage hooks left: the HTML has no `grok-preview-bridge` string.
@@ -67,7 +68,7 @@ try {
     }
     const inst = await page.goto(`${baseUrl}/?install=1`, { waitUntil: "load" });
     const instHtml = await page.content();
-    check(`${tag} NG-06 /?install=1 is the home page (200, no install tutorial)`, inst?.status() === 200 && new URL(page.url()).pathname === "/" && !/Add to Home Screen|__grok\/install/i.test(instHtml) && (await page.locator("h1").count()) >= 1, { status: inst?.status(), url: page.url() });
+    check(`${tag} NG-06 /?install=1 follows the old-link rule (/?… → /calculator?…), the calculator 200, no install tutorial`, inst?.status() === 200 && new URL(page.url()).pathname === "/calculator" && !/Add to Home Screen|__grok\/install/i.test(instHtml) && (await page.locator("h1").count()) >= 1, { status: inst?.status(), url: page.url() });
     check(`${tag} NG-01 no request to grok.com on any page`, hits.length === 0, hits);
     const ck = (await ctx.cookies()).filter((c) => /grok/i.test(c.domain));
     check(`${tag} NG-02 no .grok.com cookies (context + Set-Cookie)`, ck.length === 0 && grokCookies.length === 0, { context: ck.map((c) => `${c.name}@${c.domain}`), setCookie: grokCookies });
