@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { NotFound } from "@/components/not-found";
 import { SiteMenu } from "@/components/site-menu";
 import { analyticsBeforeSend } from "@/lib/site/analytics";
+import { FONT_PRELOAD } from "@/lib/site/fonts";
 import { shellBodyClass, shellHtmlClass } from "@/lib/site/site";
 import appCss from "../styles.css?url";
 
@@ -68,7 +69,7 @@ export const Route = createRootRoute({
       // first; preloaded so it is ready inside font-display: optional's window (see src/styles.css).
       {
         rel: "preload",
-        href: "/fonts/schibsted-grotesk/schibsted-grotesk-latin.woff2",
+        href: FONT_PRELOAD,
         as: "font",
         type: "font/woff2",
         crossOrigin: "anonymous",

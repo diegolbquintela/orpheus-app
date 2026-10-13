@@ -60,10 +60,14 @@ const RUN: DeskRun = {
   ],
   missedContributions: 0,
 };
-const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8"); // run from the repo root (bundled)
+// #92: the stylesheet with its shared parts (fonts, label / button), run from the repo root (bundled).
+const css = ["src/styles/fonts.css", "src/styles.css", "src/styles/parts.css"]
+  .map((f) => readFileSync(join(process.cwd(), f), "utf8"))
+  .join("\n");
 const rule = (selector: string) => {
-  const at = css.indexOf(`  ${selector} {`);
-  assert.ok(at >= 0, `${selector} rule in styles.css`);
+  const m = new RegExp(`\\n  ${selector.replace(/[.:]/g, "\\$&")}( \\{|,\\n)`).exec(css);
+  const at = m ? m.index : -1;
+  assert.ok(at >= 0, `${selector} rule in the stylesheet`);
   return css.slice(at, css.indexOf("}", at));
 };
 

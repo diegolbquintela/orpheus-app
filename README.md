@@ -576,3 +576,8 @@ AC PF-48..PF-58, QA `qa/tools/pf-months.mjs`.
 **Personal Finance usability (#113).** "Personal Finance" with a capital F everywhere; removing an expense line or a
 person asks `Delete [name]? This cannot be undone.`; a chosen category can be renamed (every line and month follows).
 Spec section 20, AC PF-59..PF-66.
+
+
+**Shared page parts (#92).** Fonts live in `src/styles/fonts.css`, the shared label and button in
+`src/styles/parts.css` (both imported by `src/styles.css`); the bar and footer wrap every page from `__root.tsx`.
+Change a shared part there and every page follows. Site-style-spec section 16, AC SP-01..SP-07.

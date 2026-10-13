@@ -1,96 +1,10 @@
 @import "tailwindcss";
+/* #92: shared page parts (site-style-spec section 16): fonts, then the parts every page uses. */
+@import "./styles/fonts.css";
+@import "./styles/parts.css";
 
 /* QA run logs, fixtures and tools are not app source: keep their class-like strings out of the CSS. */
 @source not "../qa";
-
-/* Schibsted Grotesk, self-hosted (#72, Q16; spec §6 Font, ST6-06): Google Fonts' own files, unmodified, in
-   public/fonts/schibsted-grotesk/ (SOURCE.md, OFL.txt), with Google's exact declarations (weights 400 / 500 on
-   the variable upright file, italic 400, the latin and latin-ext unicode-ranges), so the glyphs on every page
-   are the ones before #72. font-display: optional plus the preload in __root.tsx: the font renders from the
-   first paint, or (if it misses the short block period) the size-adjusted fallback below stays for that page
-   view. Never a swap, so the page CLS is a strict 0. */
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  src: url("/fonts/schibsted-grotesk/schibsted-grotesk-latin-ext.woff2") format("woff2");
-  unicode-range:
-    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
-    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  src: url("/fonts/schibsted-grotesk/schibsted-grotesk-latin.woff2") format("woff2");
-  unicode-range:
-    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
-    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 500;
-  font-display: optional;
-  src: url("/fonts/schibsted-grotesk/schibsted-grotesk-latin-ext.woff2") format("woff2");
-  unicode-range:
-    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
-    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 500;
-  font-display: optional;
-  src: url("/fonts/schibsted-grotesk/schibsted-grotesk-latin.woff2") format("woff2");
-  unicode-range:
-    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
-    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: italic;
-  font-weight: 400;
-  font-display: optional;
-  src: url("/fonts/schibsted-grotesk/schibsted-grotesk-italic-latin-ext.woff2") format("woff2");
-  unicode-range:
-    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
-    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: italic;
-  font-weight: 400;
-  font-display: optional;
-  src: url("/fonts/schibsted-grotesk/schibsted-grotesk-italic-latin.woff2") format("woff2");
-  unicode-range:
-    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
-    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* Size-adjusted local fallback for the web font (#70, QA round 1, D1; spec §7, ST4-01). If Schibsted Grotesk
-   misses its optional window (#72; Google Fonts and display=swap before), text renders in a local Arial-metric face scaled to Schibsted's
-   average glyph width (size-adjust) with Schibsted's own vertical metrics (ascent 2000, descent 528, line gap 0
-   on 2048 units, divided by the size adjust). Line boxes, baselines and text widths then barely change at the
-   swap, so nothing moves by the 3 px a layout shift needs. Liberation Sans and Arimo share Arial's metrics.
-   #72 keeps it: it is the face shown whenever the self-hosted font misses its window. */
-@font-face {
-  font-family: "Schibsted Grotesk Fallback";
-  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
-  size-adjust: 105.24%;
-  ascent-override: 92.8%;
-  descent-override: 24.5%;
-  line-gap-override: 0%;
-  /* Only the characters the web font covers (Google's latin + latin-ext subsets): anything else (→, ↳, …) still
-     falls through to the system fonts below, exactly as before, so no glyph outside the web font changes. */
-  unicode-range:
-    U+0000-00FF, U+0100-02BA, U+02BB-02BC, U+02BD-02C5, U+02C6, U+02C7-02CC, U+02CE-02D7, U+02DA, U+02DC,
-    U+02DD-02FF, U+0131, U+0152-0153, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
-    U+2000-206F, U+20A0-20AB, U+20AC, U+20AD-20C4, U+2113, U+2122, U+2191, U+2193, U+2212, U+2215, U+2C60-2C7F,
-    U+A720-A7FF, U+FEFF, U+FFFD;
-}
 
 @theme {
   --font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -196,13 +110,6 @@
     outline: 2px solid var(--color-chalk);
     outline-offset: 2px;
   }
-  .calc-label {
-    font-size: 0.75rem;
-    line-height: 1.2;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--color-dim);
-  }
   .calc-field {
     height: 2.75rem;
     width: 100%;
@@ -245,20 +152,6 @@
   }
   .calc-row > .calc-remove {
     grid-area: remove;
-  }
-  .calc-button {
-    display: inline-flex;
-    height: 3rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0;
-    background: var(--color-chalk);
-    padding: 0 1.5rem;
-    color: var(--color-night);
-    font-size: 0.875rem;
-  }
-  .calc-button:disabled {
-    background: var(--color-dim);
   }
   .calc-note {
     font-size: 0.8125rem;
@@ -340,13 +233,6 @@
     font-weight: 400;
     color: var(--color-chalk);
   }
-  .signin-label {
-    font-size: 0.75rem;
-    line-height: 1.2;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--color-dim);
-  }
   .signin-field {
     height: 2.75rem;
     width: 100%;
@@ -370,20 +256,6 @@
     caret-color: var(--color-chalk);
     box-shadow: 0 0 0 1000px var(--color-night) inset;
     transition: background-color 600000s 0s;
-  }
-  .signin-button {
-    display: inline-flex;
-    height: 3rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0;
-    background: var(--color-chalk);
-    padding: 0 1.5rem;
-    color: var(--color-night);
-    font-size: 0.875rem;
-  }
-  .signin-button:disabled {
-    background: var(--color-dim);
   }
   .signin-switch {
     display: inline-flex;
@@ -588,13 +460,6 @@
   .pf :focus-visible {
     outline: 2px solid var(--color-chalk);
     outline-offset: 2px;
-  }
-  .pf-label {
-    font-size: 0.75rem;
-    line-height: 1.2;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--color-dim);
   }
   .pf-title {
     font-size: 2rem;

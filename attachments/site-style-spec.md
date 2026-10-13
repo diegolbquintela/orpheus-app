@@ -743,3 +743,37 @@ Also removed with them (same template, only used by each other): `scripts/previe
 `scripts/browser-smoke*.mjs`, `scripts/browser-guard.mjs`. Parked (#50 N2): `src/lib/app-data/*` (`connectors.grok.me`,
 `GROK_*` env), not imported by any page or route. Acceptance TL-01..06.
 
+## 16. Shared page parts (#92; SP-01..SP-07)
+
+Kickoff EL 2026-10-12 ≈ 18:57 ET (brief: Diego via CoS, 2026-10-11, low). A refactor: **no visible change** on any
+page. Goal: one source of truth for the shared chrome and type, so a style change on the parent reaches every page.
+
+16.1 **Already shared (unchanged):** the bar (`SiteMenu`), the footer (`SiteFooter`) and the dark shell classes wrap
+every page once in `src/routes/__root.tsx`; the colour tokens live in `@theme` (`src/styles.css`).
+
+16.2 **Moved:**
+- **Fonts** → `src/styles/fonts.css`: every `@font-face` (Schibsted Grotesk and its size-adjusted fallback), imported
+  once by `src/styles.css`. The preloaded file's path is one constant (`FONT_PRELOAD`, `src/lib/site/fonts.ts`) used
+  by the root head; a test ties it to a face in `fonts.css` and a file in `public/fonts/`.
+- **Shared parts** → `src/styles/parts.css`: the small uppercase label (`.ow-label`; the page names `.calc-label`,
+  `.signin-label`, `.pf-label` are the same rule) and the chalk action button (`.ow-button`; `.calc-button`,
+  `.signin-button`, with `:disabled`). Each declaration lives once; markup is unchanged (Q-S1).
+
+16.3 **Not moved:** `.home-label` (not uppercase), `.pf-button` (44 px, not 48 px), the page titles (different sizes):
+merging them would change pixels (Q-S2). Dashboard content (#71 on hold) is untouched (Q-S3).
+
+16.4 **Decision log.**
+
+| When | Decision |
+|------|----------|
+| 2026-10-12 ≈ 18:57 ET | #92 kickoff (EL): shared page parts, fonts in scope, refactor only. Q-S1..Q-S4 recommendations applied until EL answers. |
+
+16.5 **Open questions (recommendation applied).**
+
+| Q | Question | Recommendation |
+|---|----------|----------------|
+| Q-S1 | Share by CSS (one rule, grouped page names) or rename classes in every page's markup? | CSS: one rule per part, page class names kept as aliases; zero markup diff, zero pixel risk. New code uses `.ow-label` / `.ow-button`. |
+| Q-S2 | Merge near-twins (`.home-label`, `.pf-button`, page titles)? | No: they differ visibly; a later style ticket can align them in `parts.css`. |
+| Q-S3 | Dashboard content? | Untouched (#71 on hold). |
+| Q-S4 | Fonts: any change to files, `font-display: optional` or the preload? | None: same files, same declarations, moved only. |
+

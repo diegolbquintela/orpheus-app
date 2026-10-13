@@ -1087,3 +1087,10 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Removals in Personal Finance go through `confirmDelete(name)` (`Delete [name]? This cannot be undone.`).
 - Renaming a category goes through `renameCategory` (src/lib/finance/expenses.ts); on Save the rename is applied to
   every stored month (`renameInMonths`). Spec section 20, AC PF-59..PF-66, Q-F1..Q-F8.
+
+
+## Shared page parts (#92)
+
+- New page code uses `.ow-label` / `.ow-button` (`src/styles/parts.css`); do not copy their declarations into a page
+  rule. Fonts only in `src/styles/fonts.css`; the preload path only in `src/lib/site/fonts.ts`.
+- `scripts/shared-parts.test.mjs` enforces it (SP-01..SP-05). Site-style-spec section 16.
