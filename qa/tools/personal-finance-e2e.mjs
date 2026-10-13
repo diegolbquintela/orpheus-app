@@ -276,12 +276,12 @@ try {
         check(`${tag} PF-68 / PF-76 Expenses collapsed: its body empty, the Summary still open with 3 account + 2 category rows; toggle ≥ 44 px; no horizontal scroll`, col.exp === "false" && col.expBody === 0 && col.sum === "true" && col.rows === 5 && col.h > 0 && col.th >= 44 && col.sw, col);
         await page.getByTestId("pf-toggle-summary").click();
         await page.getByTestId("pf-toggle-expenses").click();
-        await settle(page);
+        await page.waitForTimeout(1500); // the toggle saves itself; settle() would click Save (#112) early
         const view = (await acct(page, base, "GET")).body?.data?.["orpheus.finance.view.v1"];
         const st = await page.evaluate(() => ({ exp: document.querySelector("[data-testid=pf-toggle-expenses]").getAttribute("aria-expanded"), sum: document.querySelector("[data-testid=pf-toggle-summary]").getAttribute("aria-expanded"), sumBody: document.querySelector("[data-testid=pf-body-summary]").children.length, lines: document.querySelectorAll("[data-testid=pf-line]").length }));
         check(`${tag} PF-68 Summary closed alone (Expenses open, 3 lines); stored as {closed:[summary]}`, st.exp === "true" && st.sum === "false" && st.sumBody === 0 && st.lines === 3 && view === '{"closed":["summary"]}', { st, view });
         await page.getByTestId("pf-toggle-summary").click();
-        await settle(page);
+        await page.waitForTimeout(1500); // the toggle saves itself; settle() would click Save (#112) early
       }
 
       // PFE-07 equity cover.
