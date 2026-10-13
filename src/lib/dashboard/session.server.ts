@@ -95,14 +95,14 @@ export async function gateDashboardRequest(
   if (blocked) return { response: blocked };
   const method = request.method.toUpperCase();
   if (!allow.includes(method)) return { response: dashboardMethodNotAllowedResponse(allow) };
-  // #93 (ENC-05): no key, no sensitive read or write (fail closed; the reason names variables only, in the log).
+  const viewer = await deps.getUser(request.headers);
+  if (!viewer) return { response: unauthorizedResponse() };
+  // #93 (ENC-05): no key, no sensitive read or write; signed out stays 401 (fail closed; the reason names variables only, in the log).
   const enc = encryptionReadiness(env);
   if (!enc.ready) {
     console.error(`[encryption] unavailable: ${enc.reason}`);
     return { response: encryptionUnavailable() };
   }
-  const viewer = await deps.getUser(request.headers);
-  if (!viewer) return { response: unauthorizedResponse() };
   const early = opts.precheck?.();
   if (early) return { response: early };
   const db = await (deps.getDb ?? defaultGetDb)(env);

@@ -72,14 +72,14 @@ async function gate(request: Request, allow: readonly string[], deps: DashboardA
   if (blocked) return blocked;
   if (!allow.includes(request.method.toUpperCase())) return dashboardMethodNotAllowedResponse(allow);
   if (crossSiteWrite(request)) return forbiddenResponse();
-  // #93 (ENC-05): no key, no sensitive read or write (fail closed).
+  const viewer = await deps.getUser(request.headers);
+  if (!viewer) return unauthorizedResponse();
+  // #93 (ENC-05): no key, no sensitive read or write; signed out stays 401 (fail closed).
   const enc = encryptionReadiness(env);
   if (!enc.ready) {
     console.error(`[encryption] unavailable: ${enc.reason}`);
     return encryptionUnavailable();
   }
-  const viewer = await deps.getUser(request.headers);
-  if (!viewer) return unauthorizedResponse();
   const db = await (deps.getDb ?? defaultGetDb)(env);
   if (!db) return storageUnavailable();
   return { viewer, db, access: await accessOf(db, viewer, env) };

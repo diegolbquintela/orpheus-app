@@ -80,6 +80,7 @@ const PW = "owner-test-pass-1";
 let pg: PGlite;
 let db: Queryable;
 let env: Record<string, string | undefined> = {};
+let lastViewer: { id: string; email: string; sessionId: string } | null = null;
 /** The app reads keys from process.env (src/lib/crypto/sealed.server.ts); handlers get the same values. */
 function setEnv(next: Record<string, string>) {
   env = next;
@@ -109,7 +110,10 @@ const cookieOf = (r: Response) =>
 const deps = (a: ReturnType<typeof auth>): DashboardApiDeps => ({
   env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: OWNER, ...env },
   getUser: async (headers) => {
+    // Without a key Better Auth cannot read the session table; the gate is then checked with the last viewer.
+    if (!env.ORPHEUS_ENCRYPTION_KEY) return lastViewer;
     const s = await a.api.getSession({ headers, query: { disableCookieCache: true } });
+    if (s?.user) lastViewer = { id: s.user.id, email: s.user.email, sessionId: s.session.id };
     return s?.user ? { id: s.user.id, email: s.user.email, sessionId: s.session.id } : null;
   },
   getDb: async () => db,
