@@ -16,6 +16,7 @@ import {
 } from "./flag.server.ts";
 import { allowListFromEnv, authReadiness } from "../auth/config.ts";
 import { resolveDatabaseUrl } from "../../../scripts/db-env.mjs";
+import { encryptionReadiness } from "../crypto/keys.server.ts";
 import { accessOf, surfaceAccess, type AccountAccess, type SurfaceAccess } from "../access/access.server.ts";
 import type { Surface } from "../access/access.ts";
 import {
@@ -47,6 +48,8 @@ export const dashboardJson = json;
 export const unauthorizedResponse = () => json({ error: "Unauthorized." }, 401);
 export const forbiddenResponse = () => json({ error: "Forbidden." }, 403);
 export const storageUnavailable = () => json({ error: "Storage not configured." }, 503);
+/** #93: the encryption key is missing or malformed here (design section 7). */
+export const encryptionUnavailable = () => json({ error: "encryption_unavailable" }, 503);
 export const badRequest = (error: string) => json({ error }, 400);
 
 /** Methods `/api/dashboard/me` serves (HEAD answered by GET). */
@@ -94,6 +97,12 @@ export async function gateDashboardRequest(
   if (!allow.includes(method)) return { response: dashboardMethodNotAllowedResponse(allow) };
   const viewer = await deps.getUser(request.headers);
   if (!viewer) return { response: unauthorizedResponse() };
+  // #93 (ENC-05): no key, no sensitive read or write; signed out stays 401 (fail closed; the reason names variables only, in the log).
+  const enc = encryptionReadiness(env);
+  if (!enc.ready) {
+    console.error(`[encryption] unavailable: ${enc.reason}`);
+    return { response: encryptionUnavailable() };
+  }
   const early = opts.precheck?.();
   if (early) return { response: early };
   const db = await (deps.getDb ?? defaultGetDb)(env);

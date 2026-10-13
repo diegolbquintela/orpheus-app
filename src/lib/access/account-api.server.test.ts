@@ -8,6 +8,9 @@ import { PGlite } from "@electric-sql/pglite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import { parseAllowList } from "../auth/config.ts";
 import { createOrpheusAuth } from "../auth/instance.server.ts";
+import { sealedAuthDatabase } from "../crypto/kysely-plugin.ts";
+import { appKeyring } from "../crypto/keys.server.ts";
+import { candidates } from "../crypto/sealed.server.ts";
 import { pgliteDialect } from "../auth/pglite-dialect.ts";
 import { type DashboardApiDeps, handleAuthRequest } from "../dashboard/session.server.ts";
 import { maskCode, recordAudit } from "./audit.server.ts";
@@ -42,7 +45,7 @@ before(async () => {
     await pg.exec(readFileSync(`migrations/${name}`, "utf8"));
   db = { query: async (text, params) => (await pg.query(text, params)).rows as never[] };
   auth = createOrpheusAuth({
-    database: { dialect: pgliteDialect(() => pg), type: "postgres" },
+    database: sealedAuthDatabase(pgliteDialect(() => pg), () => appKeyring()),
     secret: TEST_SECRET,
     baseURL: ORIGIN,
     trustedOrigins: [ORIGIN],
@@ -146,7 +149,7 @@ describe("/api/account (#90)", () => {
       const b = await json(r);
       assert.equal(typeof b.temporaryPassword, "string");
       assert.equal((b.temporaryPassword as string).length, 18);
-      const row = (await pg.query<{ id: string }>('SELECT id FROM "user" WHERE email = $1', [`${key}@example.com`])).rows[0];
+      const row = (await pg.query<{ id: string }>('SELECT id FROM "user" WHERE email = ANY($1)', [candidates("user", "email", `${key}@example.com`)])).rows[0];
       people[key] = { id: row.id, temp: b.temporaryPassword as string };
     }
     const again = await call(handleAccountAccessRequest, "/api/account/access", {
@@ -159,6 +162,8 @@ describe("/api/account (#90)", () => {
     // Only a hash is stored.
     const stored = await pg.query<{ password: string }>(`SELECT password FROM "account" WHERE "userId" = $1`, [people.cfo.id]);
     assert.notEqual(stored.rows[0].password, people.cfo.temp);
+    // #93 ENC-03: the hash itself is stored sealed.
+    assert.match(stored.rows[0].password, /^enc:v1:/);
     for (const bad of [{ name: "", email: "a@b.co" }, { name: "A", email: "nope" }, { name: "A", email: "a@b.co", dashboard: "write" }])
       assert.equal((await call(handleAccountAccessRequest, "/api/account/access", { cookie: owner, method: "POST", body: bad })).status, 400);
   });
@@ -241,7 +246,7 @@ describe("/api/account (#90)", () => {
       assert.equal(r.status, 403, method);
     }
     assert.equal((await call(handleAccountResetRequest, "/api/account/reset", { cookie: people.both.cookie, method: "POST", body: { userId: people.cfo.id } })).status, 403);
-    const ownerId = (await pg.query<{ id: string }>('SELECT id FROM "user" WHERE email = $1', [OWNER])).rows[0].id;
+    const ownerId = (await pg.query<{ id: string }>('SELECT id FROM "user" WHERE email = ANY($1)', [candidates("user", "email", OWNER)])).rows[0].id;
     assert.equal((await call(handleAccountAccessRequest, "/api/account/access", { cookie: owner, method: "PUT", body: { userId: ownerId, personal_finance: "none" } })).status, 403);
     assert.equal((await call(handleAccountAccessRequest, `/api/account/access?userId=${ownerId}`, { cookie: owner, method: "DELETE" })).status, 403);
   });

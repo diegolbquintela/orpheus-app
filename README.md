@@ -581,3 +581,8 @@ Spec section 20, AC PF-59..PF-66.
 **Shared page parts (#92).** Fonts live in `src/styles/fonts.css`, the shared label and button in
 `src/styles/parts.css` (both imported by `src/styles.css`); the bar and footer wrap every page from `__root.tsx`.
 Change a shared part there and every page follows. Site-style-spec section 16, AC SP-01..SP-07.
+
+**Encryption at rest (#93).** Sign-in data (users, sessions, accounts, verification) and the Personal Finance record
+are stored encrypted (AES-256-GCM). Key from `ORPHEUS_ENCRYPTION_KEY` (`k1:<base64 32 bytes>`), old keys in
+`ORPHEUS_ENCRYPTION_KEYS_OLD`; missing key = sign-in off. Migrate / rotate with `node scripts/data-encryption.mjs
+status|encrypt|reencrypt|decrypt`. Design `attachments/encryption-at-rest-design.md`, AC ENC-01..ENC-13.

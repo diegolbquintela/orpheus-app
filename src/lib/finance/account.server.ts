@@ -18,6 +18,7 @@ import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { checkRecord, type PfRecord } from "./record.ts";
+import { open, seal } from "../crypto/sealed.server.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
 
@@ -27,7 +28,9 @@ export async function readRecord(db: Queryable, userId: string): Promise<PfRecor
     [userId],
   );
   if (!rows[0]) return null;
-  const raw = typeof rows[0].data === "string" ? JSON.parse(rows[0].data) : rows[0].data;
+  // #93: the record is stored sealed, as a JSON string scalar "enc:v1:…" (legacy rows: the JSON object itself).
+  const stored = open<unknown>("personal_finance", "data", rows[0].data);
+  const raw = typeof stored === "string" ? JSON.parse(stored) : stored;
   const checked = checkRecord(raw);
   return checked.ok ? checked.record : {};
 }
@@ -36,7 +39,7 @@ export async function writeRecord(db: Queryable, userId: string, record: PfRecor
   await db.query(
     `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
-    [userId, JSON.stringify(record)],
+    [userId, JSON.stringify(seal("personal_finance", "data", JSON.stringify(record)))],
   );
 }
 

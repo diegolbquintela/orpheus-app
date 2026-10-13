@@ -23,6 +23,9 @@ import { allowListFromEnv, authOrigins, authReadiness } from "./config";
 import { emailAndPasswordEnabled } from "./email-password";
 import { createOrpheusAuth } from "./instance.server";
 import { pgliteDialect } from "./pglite-dialect";
+import { PostgresDialect } from "kysely";
+import { appKeyring } from "../crypto/keys.server";
+import { sealedAuthDatabase } from "../crypto/kysely-plugin";
 
 export { SESSION_TOKEN_COOKIE } from "./instance.server";
 
@@ -50,10 +53,14 @@ function localAuthSecret(): string {
 const origins = authOrigins(process.env);
 
 export const auth = createOrpheusAuth({
-  database: databaseUrl
-    ? new Pool({ connectionString: databaseUrl })
-    : // Local only. Loaded on first query, so a deployment where sign-in is off never boots PGLite.
-      { dialect: pgliteDialect(async () => (await import("../db")).getPglite()), type: "postgres" },
+  // #93: sensitive columns are sealed / opened by the Kysely plugin (attachments/encryption-at-rest-design.md).
+  database: sealedAuthDatabase(
+    databaseUrl
+      ? new PostgresDialect({ pool: new Pool({ connectionString: databaseUrl }) })
+      : // Local only. Loaded on first query, so a deployment where sign-in is off never boots PGLite.
+        pgliteDialect(async () => (await import("../db")).getPglite()),
+    () => appKeyring(),
+  ),
   secret: process.env.BETTER_AUTH_SECRET?.trim() || localAuthSecret(),
   // Unused when not ready (the route answers 503 first); a loopback value keeps construction valid.
   baseURL: origins.baseURL ?? "http://localhost:8080",

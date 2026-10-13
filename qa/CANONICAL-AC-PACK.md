@@ -466,3 +466,24 @@ Refactor: no visible change. Test `scripts/shared-parts.test.mjs` (SP-01..SP-05)
 | SP-06 | BLOCK | Preview: site-style-regression, site-shell, home-page, no-grok all PASS (`$313,000`, strict CLS 0, noindex, signed-out PF 307, Schibsted Grotesk on every page). |
 | SP-07 | BLOCK | Preview: personal-finance, pf-months, personal-finance-e2e, roles, audit PASS (no change in any page's text, size or layout). |
 
+
+## Sign-in and call data encrypted at rest (#93; attachments/encryption-at-rest-design.md)
+
+Unit / in-process tests (`src/lib/crypto/*.test.ts`) cover ENC-01..ENC-07; `qa/tools/encryption.mjs` covers ENC-08..ENC-12;
+the existing preview suites cover ENC-13.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| ENC-01 | BLOCK | Round trip: every column in design section 3 decrypts to the value written; deterministic columns give the same ciphertext for the same value and column, randomized ones differ each write. |
+| ENC-02 | BLOCK | A ciphertext moved to another column, tampered, or under an unknown kid fails to decrypt (error, never plaintext or empty). |
+| ENC-03 | BLOCK | Sign-up, sign-in, session read and sign-out work through Better Auth with the plugin; the `user`, `session`, `account` rows hold `enc:v1:` values, not the email, name, token, IP, user agent or hash. |
+| ENC-04 | BLOCK | The Personal Finance record is stored as `"enc:v1:…"` in `personal_finance.data` and reads back identical. |
+| ENC-05 | BLOCK | Missing or malformed `ORPHEUS_ENCRYPTION_KEY` with a database URL (or on Vercel): auth readiness false with the variable name as reason; Personal Finance writes refuse (`encryption_unavailable`); nothing written in plaintext. |
+| ENC-06 | BLOCK | Rotation: with k2 current and k1 old, k1 rows still sign in and read; `reencrypt` moves every value to k2; with k1 removed everything still works. |
+| ENC-07 | BLOCK | Migration: `encrypt` turns legacy plaintext rows into ciphertext with no change in decrypted values; a second run changes 0 rows; `decrypt` restores the plaintext exactly. |
+| ENC-08 | BLOCK | Preview: owner `GET /api/account/encryption` answers 200 with per-column counts and the current kid (no values, no key); anyone else 403/401. |
+| ENC-09 | BLOCK | Preview: after `encrypt`, status shows 0 plaintext values in every column of section 3. |
+| ENC-10 | BLOCK | Preview round trip: owner signs in, saves and reloads Personal Finance, the values are unchanged. |
+| ENC-11 | BLOCK | In-process (QA tool, PGLite): missing key → fail closed (ENC-05) on the real handlers. |
+| ENC-12 | BLOCK | In-process (QA tool, PGLite): rotation k1 → k2 (ENC-06) on the real handlers. |
+| ENC-13 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, no-grok, roles, audit, personal-finance, pf-months, personal-finance-e2e all PASS. |
