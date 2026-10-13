@@ -90,6 +90,13 @@ describe("company view (CV-01..CV-06)", () => {
     assert.equal(nr.roic.text, "Not covered");
     assert.equal(nc.sections[0].note, "No SEC filings for this listing.");
     assert.ok(nc.last && nc.chart.length > 0, "price and chart still shown");
+    // #121 (NC-01..NC-03): one plain line and an honest source line.
+    assert.equal(nc.coverage, "Not covered: no SEC filings");
+    assert.equal(nc.source, "Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing");
+    assert.ok(nc.sections.slice(0, 5).every((s) => s.rows.every((r) => r.status === "not_covered")));
+    assert.equal(companyView({ ...BASE, checked: false }).coverage, null, "pending: no line");
+    assert.equal(v.coverage, null);
+    assert.match(v.source, /^SEC filings/);
     assert.equal(rows(companyView({ ...BASE, checked: false })).revenue.text, "Pending");
     const mm = rows(companyView({ ...BASE, currency: "CAD" }));
     assert.equal(mm.market_cap.text, "— (currency mismatch)");
