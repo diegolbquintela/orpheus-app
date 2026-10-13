@@ -8,7 +8,11 @@ import {
   AMOUNT_ERROR,
   CATEGORIES_MAX,
   CATEGORY_MAX,
+  accountTotals,
   categoryTotals,
+  matchesFilters,
+  NO_ACCOUNT,
+  newFilteredLine,
   calculatedEquity,
   COLUMNS,
   type Expenses,
@@ -23,7 +27,6 @@ import {
   type Line,
   LINES_MAX,
   NAME_MAX,
-  newLine,
   NO_CATEGORY,
   NOT_COMPUTED,
   parseAmount,
@@ -130,6 +133,8 @@ export function PersonalFinancePage({
   const [view, setView] = useState<View | null>(null);
   /** #105 (PF-45): the category filter, this visit only; ALL shows every line. */
   const [filter, setFilter] = useState<string>(ALL);
+  /** #119 (PF-71): the account filter, this visit only; ALL shows every line. */
+  const [acctFilter, setAcctFilter] = useState<string>(ALL);
   /** #112: the month shown, the month its lines were copied from (unsaved), the saved state, a saved-count. */
   const [month, setMonth] = useState<MonthKey | null>(null);
   const [copiedFrom, setCopiedFrom] = useState<MonthKey | null>(null);
@@ -332,12 +337,19 @@ export function PersonalFinancePage({
                   data-testid="pf-body-expenses"
                 >
                   {isOpen(view, "expenses") ? (
-                    <Lock on={readOnly}>
-                      <EquityRates rates={rates} update={updateRates} />
+                    <>
+                      <Lock on={readOnly}>
+                        <EquityRates rates={rates} update={updateRates} />
+                      </Lock>
+                      {/* #119 S7 (amended, EL 07:51): filters are view-only, so read-only grantees can use them. */}
                       <CategoryFilter
+                        readOnly={readOnly}
                         categories={expenses.categories}
                         value={expenses.categories.includes(filter) ? filter : ALL}
                         onChange={setFilter}
+                        accounts={expenses.accounts}
+                        account={expenses.accounts.includes(acctFilter) ? acctFilter : ALL}
+                        onAccount={setAcctFilter}
                         onRename={(from, typed) => {
                           const result = renameCategory(expenses, from, typed);
                           if ("error" in result) return result.error;
@@ -347,25 +359,37 @@ export function PersonalFinancePage({
                           return null;
                         }}
                       />
-                      <div className="flex flex-col gap-12">
-                        <Groups
-                          expenses={expenses}
-                          rate={rateUsed(rates)}
-                          household={household.household}
-                          incomeMonthly={monthly(
-                            netIncomeYearly(income.people, household.household),
-                          )}
-                          filter={expenses.categories.includes(filter) ? filter : ALL}
-                          adding={adding}
-                          setAdding={setAdding}
-                          update={update}
-                          updateLine={updateLine}
-                        />
-                      </div>
-                    </Lock>
+                      <Lock on={readOnly}>
+                        <div className="flex flex-col gap-12">
+                          <Groups
+                            expenses={expenses}
+                            rate={rateUsed(rates)}
+                            household={household.household}
+                            incomeMonthly={monthly(
+                              netIncomeYearly(income.people, household.household),
+                            )}
+                            filter={expenses.categories.includes(filter) ? filter : ALL}
+                            account={expenses.accounts.includes(acctFilter) ? acctFilter : ALL}
+                            adding={adding}
+                            setAdding={setAdding}
+                            update={update}
+                            updateLine={updateLine}
+                          />
+                        </div>
+                      </Lock>
+                    </>
                   ) : null}
                 </div>
               </section>
+              <ExpensesSummary
+                expenses={expenses}
+                rate={rateUsed(rates)}
+                household={household.household}
+                category={expenses.categories.includes(filter) ? filter : ALL}
+                account={expenses.accounts.includes(acctFilter) ? acctFilter : ALL}
+                open={isOpen(view, "summary")}
+                onToggle={() => toggle("summary")}
+              />
               <OverviewBlock
                 overview={overview}
                 update={updateOverview}
@@ -496,12 +520,15 @@ function Groups({
   household,
   incomeMonthly,
   filter,
+  account,
   adding,
   setAdding,
   update,
   updateLine,
 }: {
   expenses: Expenses;
+  /** #119 (PF-71): show only this account's lines (ALL: every line); combines with `filter`. */
+  account: string;
   /** #105 (PF-45): show only this category's lines (ALL: every line); totals always use every line. */
   filter: string;
   /** The rate used (#86), a percent, or null: each line's calculated `Equity to cover` divides by it. */
@@ -535,7 +562,7 @@ function Groups({
               ))}
             </div>
             {lines.map((line, index) =>
-              filter !== ALL && line.category !== filter ? null : (
+              !matchesFilters(line, filter, account) ? null : (
                 <LineRow
                   key={line.id}
                   line={line}
@@ -595,7 +622,10 @@ function Groups({
               className="pf-add"
               disabled={lines.length >= LINES_MAX}
               onClick={() =>
-                update((e) => ({ ...e, [group.key]: [...e[group.key], newLine(filter)] }))
+                update((e) => ({
+                  ...e,
+                  [group.key]: [...e[group.key], newFilteredLine(filter, account)],
+                }))
               }
               data-testid={`pf-add-${group.key}`}
             >
@@ -618,7 +648,6 @@ function Groups({
         incomeMonthly={incomeMonthly}
         testId="all"
       />
-      <CategorySubtotals rows={categoryTotals(expenses, rate, household)} whole={grand.monthly} />
     </>
   );
 }
@@ -629,49 +658,84 @@ function CategoryFilter({
   value,
   onChange,
   onRename,
+  accounts,
+  account,
+  onAccount,
+  readOnly = false,
 }: {
+  /** #119 S7: read-only grantees filter, but `Rename` (a write) stays disabled. */
+  readOnly?: boolean;
   categories: string[];
   value: string;
   onChange: (value: string) => void;
+  /** #119 (PF-71): `Filter by account`, beside the category filter; shown once there is an account. */
+  accounts: string[];
+  account: string;
+  onAccount: (value: string) => void;
   /** #113 (PF-63): rename the chosen category; a problem text, or null when done. */
   onRename: (from: string, typed: string) => string | null;
 }) {
   const uid = useId();
   const [renaming, setRenaming] = useState(false);
-  if (categories.length === 0) return null;
+  if (categories.length === 0 && accounts.length === 0) return null;
   return (
     <div className="flex flex-col gap-4">
       <div className="pf-filter-row">
-        <div className="pf-cell pf-filter" data-testid="pf-filter-cell">
-          <label htmlFor={`${uid}-filter`} className="pf-label">
-            Filter by category
-          </label>
-          <select
-            id={`${uid}-filter`}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            className="pf-field"
-            data-testid="pf-filter"
-          >
-            <option value={ALL}>All</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="button"
-          className="pf-cancel pf-rename"
-          disabled={value === ALL || renaming}
-          onClick={() => setRenaming(true)}
-          data-testid="pf-rename-category"
-        >
-          Rename
-        </button>
+        {accounts.length > 0 ? (
+          <div className="pf-cell pf-filter" data-testid="pf-acct-filter-cell">
+            <label htmlFor={`${uid}-acct-filter`} className="pf-label">
+              Filter by account
+            </label>
+            <select
+              id={`${uid}-acct-filter`}
+              value={account}
+              onChange={(event) => onAccount(event.target.value)}
+              className="pf-field"
+              data-testid="pf-acct-filter"
+            >
+              <option value={ALL}>All</option>
+              {accounts.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        {categories.length > 0 ? (
+          <>
+            <div className="pf-cell pf-filter" data-testid="pf-filter-cell">
+              <label htmlFor={`${uid}-filter`} className="pf-label">
+                Filter by category
+              </label>
+              <select
+                id={`${uid}-filter`}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                className="pf-field"
+                data-testid="pf-filter"
+              >
+                <option value={ALL}>All</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="pf-cancel pf-rename"
+              disabled={readOnly || value === ALL || renaming}
+              onClick={() => setRenaming(true)}
+              data-testid="pf-rename-category"
+            >
+              Rename
+            </button>
+          </>
+        ) : null}
       </div>
-      {renaming && value !== ALL ? (
+      {renaming && !readOnly && value !== ALL ? (
         <NewName
           kind="rename"
           initial={value}
@@ -687,54 +751,132 @@ function CategoryFilter({
   );
 }
 
-/** #105 (PF-46): `By category`: each used category, then `No category`; household currency; master totals unchanged. */
-function CategorySubtotals({
+/**
+ * #119 (PF-67..PF-72): `Expenses summary`, its own section after `03` Expenses (numeral `03`, Q-S1) with its own
+ * toggle: `By account` then `By category` (moved from the Expenses body), each once used; household currency; the
+ * chosen account / category row is marked (Q-S6), every row stays listed. Totals use every line of the month.
+ */
+function ExpensesSummary({
+  expenses,
+  rate,
+  household,
+  category,
+  account,
+  open,
+  onToggle,
+}: {
+  expenses: Expenses;
+  rate: number | null;
+  household: CurrencyCode;
+  category: string;
+  account: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const whole = grandTotals(expenses, rate, household).monthly;
+  return (
+    <section
+      className="flex flex-col gap-8"
+      aria-labelledby="pf-summary"
+      data-testid="pf-summary-block"
+    >
+      <SectionHead
+        numeral="03"
+        title="Expenses summary"
+        id="pf-summary"
+        toggle={{ open, controls: "pf-summary-body", onToggle, testId: "pf-toggle-summary" }}
+      />
+      <div
+        id="pf-summary-body"
+        className="pf-section-body flex flex-col gap-12"
+        data-testid="pf-body-summary"
+      >
+        {open ? (
+          <>
+            <Subtotals
+              kind="account"
+              rows={accountTotals(expenses, rate, household)}
+              whole={whole}
+              selected={account}
+            />
+            <Subtotals
+              kind="category"
+              rows={categoryTotals(expenses, rate, household)}
+              whole={whole}
+              selected={category}
+            />
+          </>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * #105 (PF-46) `By category` / #119 (PF-69) `By account`: each used name, then `No category` / `No account`;
+ * household currency; master totals unchanged.
+ */
+function Subtotals({
+  kind,
   rows,
   whole,
+  selected,
 }: {
+  kind: "account" | "category";
   rows: { name: string; totals: Totals }[];
   whole: number | null;
+  selected: string;
 }) {
   if (rows.length === 0) return null;
+  const k = kind === "account" ? "acct" : "cat";
+  const title = kind === "account" ? "Account" : "Category";
   return (
-    <section className="flex flex-col gap-4" data-testid="pf-categories">
-      <h3 className="pf-group">By category</h3>
+    <section
+      className="flex flex-col gap-4"
+      data-testid={kind === "account" ? "pf-accounts" : "pf-categories"}
+    >
+      <h3 className="pf-group">{kind === "account" ? "By account" : "By category"}</h3>
       <div className="pf-head pf-cat-head" aria-hidden="true">
-        {["Category", "% of expenses", "Monthly", "Yearly"].map((c) => (
+        {[title, "% of expenses", "Monthly", "Yearly"].map((c) => (
           <span key={c} className="pf-label">
             {c}
           </span>
         ))}
       </div>
-      {rows.map((row) => (
-        <div
-          key={row.name || "-"}
-          className="pf-cat-row"
-          data-testid="pf-cat-row"
-          data-category={row.name}
-        >
-          <div className="pf-cell pf-name">
-            <span className="pf-row-label" data-testid="pf-cat-name">
-              {row.name || NO_CATEGORY}
-            </span>
+      {rows.map((row) => {
+        const on = selected !== ALL && row.name === selected;
+        return (
+          <div
+            key={row.name || "-"}
+            className={on ? "pf-cat-row pf-sum-selected" : "pf-cat-row"}
+            data-testid={`pf-${k}-row`}
+            {...{ [`data-${kind}`]: row.name }}
+            data-selected={on ? "true" : undefined}
+            aria-current={on ? "true" : undefined}
+          >
+            <div className="pf-cell pf-name">
+              <span className="pf-row-label" data-testid={`pf-${k}-name`}>
+                {row.name || (kind === "account" ? NO_ACCOUNT : NO_CATEGORY)}
+              </span>
+            </div>
+            <Cell label="% of expenses" area="share">
+              <span className="pf-value" data-testid={`pf-${k}-share`}>
+                {formatShare(row.totals.monthly, whole)}
+              </span>
+            </Cell>
+            <Cell label="Monthly" area="monthly">
+              <span className="pf-value" data-testid={`pf-${k}-monthly`}>
+                {orDash(row.totals.monthly)}
+              </span>
+            </Cell>
+            <Cell label="Yearly" area="yearly">
+              <span className="pf-value" data-testid={`pf-${k}-yearly`}>
+                {orDash(row.totals.yearly)}
+              </span>
+            </Cell>
           </div>
-          <Cell label="% of expenses" area="share">
-            <span className="pf-value" data-testid="pf-cat-share">
-              {formatShare(row.totals.monthly, whole)}
-            </span>
-          </Cell>
-          <Cell label="Monthly" area="monthly">
-            <span className="pf-value" data-testid="pf-cat-monthly">
-              {orDash(row.totals.monthly)}
-            </span>
-          </Cell>
-          <Cell label="Yearly" area="yearly">
-            <span className="pf-value" data-testid="pf-cat-yearly">
-              {orDash(row.totals.yearly)}
-            </span>
-          </Cell>
-        </div>
-      ))}
+        );
+      })}
     </section>
   );
 }

@@ -135,6 +135,16 @@ const OWNER_EMAIL = process.env.QA_OWNER_EMAIL ?? "qa-owner@orpheus.test";
 const PF_RECORD = {
   "orpheus.finance.income.v1": JSON.stringify({ people: [{ id: "p1", name: "Ana", wages: "100000", bonus: "", tax: "30", share: "100", countWages: true, countBonus: true }] }),
   "orpheus.finance.currency.v1": JSON.stringify("CAD"),
+  // #119 (ROLE-10 amendment): two accounts and a category so the read-only filters can be exercised.
+  "orpheus.finance.expenses.v2": JSON.stringify({
+    fixed: [
+      { id: "r1", name: "Rent", amount: "1000", per: "month", equity: "", account: "Chase", currency: "", rate: "", category: "Home" },
+      { id: "r2", name: "Car", amount: "300", per: "month", equity: "", account: "Amex", currency: "", rate: "", category: "" },
+    ],
+    variable: [{ id: "r3", name: "Food", amount: "200", per: "month", equity: "", account: "", currency: "", rate: "", category: "" }],
+    accounts: ["Chase", "Amex"],
+    categories: ["Home"],
+  }),
 };
 let restore = null;
 
@@ -533,7 +543,27 @@ try {
               const ctl = [...document.querySelectorAll("main input, main select, main textarea, main button")];
               return { open: ctl.filter((c) => !c.matches(":disabled")).map((c) => c.getAttribute("data-testid")), n: ctl.length, line: document.querySelector("[data-testid=read-only]")?.textContent, ana: [...document.querySelectorAll("main input")].some((i) => i.value === "Ana") || document.querySelector("main").innerText.includes("Ana") };
             });
-            check(`${tag} ROLE-10 Read only: the owner's figures (Ana), every control disabled but the section toggles`, st === 200 && lock.line === "Read only" && lock.ana && lock.n > 5 && lock.open.every((t) => /^pf-toggle-|^pf-month$/.test(t ?? "")), lock);
+            check(`${tag} ROLE-10 Read only: the owner's figures (Ana), every control disabled but the section toggles`, st === 200 && lock.line === "Read only" && lock.ana && lock.n > 5 && lock.open.every((t) => /^pf-toggle-|^pf-month$|^pf-filter$|^pf-acct-filter$/.test(t ?? "")), lock);
+            // #119 ROLE-10 amendment (S7, EL 07:51): both filters are enabled and work; totals unchanged; writes locked.
+            {
+              const tot = () => page.evaluate(() => ["fixed", "variable", "all"].map((g) => [...document.querySelectorAll(`[data-testid=pf-total-${g}] .pf-value`)].map((v) => v.textContent.trim())));
+              const count = () => page.evaluate(() => ["fixed", "variable"].map((g) => document.querySelectorAll(`[data-testid=pf-group-${g}] [data-testid=pf-line]`).length));
+              const t0 = await tot();
+              const en = await page.evaluate(() => ["pf-filter", "pf-acct-filter"].map((id) => document.querySelector(`[data-testid=${id}]`)?.matches(":disabled")));
+              await page.getByTestId("pf-acct-filter").selectOption("Amex");
+              const amex = await count();
+              const mark = await page.locator("[data-testid=pf-acct-row][aria-current=true]").getAttribute("data-account").catch(() => null);
+              await page.getByTestId("pf-filter").selectOption("Home");
+              const both = await count();
+              await page.getByTestId("pf-acct-filter").selectOption("");
+              const home = await count();
+              const t1 = await tot();
+              await page.getByTestId("pf-filter").selectOption("");
+              const writes = await page.evaluate(() => ["pf-add-fixed", "pf-add-variable", "pf-rename-category", "pf-remove", "pf-name", "pf-monthly", "pf-account", "pf-category", "pf-roic", "pf-household"].map((id) => [id, document.querySelector(`[data-testid=${id}]`)?.matches(":disabled") ?? "absent"]));
+              const save = await page.getByTestId("pf-month-save").count();
+              check(`${tag} ROLE-10a (#119 S7) read-only filters enabled and work: Amex → 1 line (marked), Amex+Home → 0, Home → 1; totals unchanged`, JSON.stringify(en) === "[false,false]" && JSON.stringify(amex) === "[1,0]" && mark === "Amex" && JSON.stringify(both) === "[0,0]" && JSON.stringify(home) === "[1,0]" && JSON.stringify(t0) === JSON.stringify(t1), { en, amex, mark, both, home, t0, t1 });
+              check(`${tag} ROLE-10a (#119 S7) every write stays locked (add incl. the S4 filtered-account path, rename, remove, fields); no Save`, writes.every(([, d]) => d === true) && save === 0, { writes, save });
+            }
           }
           if (name.startsWith("denied")) {
             const d = await page.evaluate(() => ({ h1: document.querySelector("h1")?.textContent, line: document.querySelector("[data-testid=access-denied-line]")?.textContent, links: [...document.querySelectorAll("main a")].map((a) => a.textContent) }));

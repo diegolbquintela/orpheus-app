@@ -289,6 +289,35 @@ export function categoryTotals(
     .map((g) => ({ name: g.name, totals: totalsOf(g.lines, rate, household) }));
 }
 
+/**
+ * #119 (PF-69): subtotals by account, household currency: each account with a line (in the order added), then
+ * `No account` (name "") for the rest; empty when no line has an account. They sum to the grand totals.
+ */
+export function accountTotals(
+  expenses: Expenses,
+  rate: number | null = null,
+  household: CurrencyCode = DEFAULT_HOUSEHOLD,
+): { name: string; totals: Totals }[] {
+  const all = [...expenses.fixed, ...expenses.variable];
+  if (!all.some((l) => l.account)) return [];
+  const names = [...expenses.accounts.filter((a) => all.some((l) => l.account === a)), ""];
+  return names
+    .map((name) => ({ name, lines: all.filter((l) => l.account === name) }))
+    .filter((g) => g.lines.length > 0)
+    .map((g) => ({ name: g.name, totals: totalsOf(g.lines, rate, household) }));
+}
+
+export const NO_ACCOUNT = "No account";
+
+/** #119 (PF-71): a line shows when it matches both filters ("" = every line). */
+export const matchesFilters = (line: Line, category: string, account: string): boolean =>
+  (category === "" || line.category === category) && (account === "" || line.account === account);
+
+/** #105 / #119: a new line starts on the chosen category and account. */
+export function newFilteredLine(category = "", account = ""): Line {
+  return { ...newLine(category), account };
+}
+
 let counter = 0;
 export function newLine(category = ""): Line {
   counter += 1;

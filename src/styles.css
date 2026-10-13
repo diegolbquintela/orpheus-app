@@ -960,6 +960,11 @@
   .pf-filter-row .pf-filter {
     flex: 1 1 12rem;
   }
+  /* #119 (PF-72): the chosen account / category row in the Summary (chalk rule, no gold). */
+  .pf-cat-row.pf-sum-selected {
+    box-shadow: inset 2px 0 0 var(--color-chalk);
+    padding-left: 0.75rem;
+  }
   .pf-rename:disabled {
     color: var(--color-dim);
   }

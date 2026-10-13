@@ -1103,3 +1103,13 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Formulas live in `src/lib/dashboard/company.ts` (pure, tested); a new concept goes into `CONCEPTS` with a
   `FUNDAMENTALS_PARSER_VERSION` bump. Section titles use `.ow-label`; no gold.
 - Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15, Q-C1..Q-C7.
+
+
+## Personal Finance expenses summary (#119)
+
+- `Expenses summary` is its own section (`summary` in `src/lib/finance/view.ts` `SECTIONS`); `By account` and
+  `By category` live there, not in the Expenses body. Totals by account: `accountTotals` (pure, tested).
+- Filters (category, account) are per visit and never change a total. Design `attachments/pf-expenses-summary-design.md`,
+  AC PF-67..PF-78, Q-S1..Q-S8 (CFO).
+- #119 S7 (EL 07:51): read-only may filter (filters sit outside `Lock`); anything that writes stays inside `Lock`
+  or is disabled for read-only (ROLE-10a).
