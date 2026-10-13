@@ -10,7 +10,7 @@ export type CompanyResult = { status: "ok"; view: CompanyView } | { status: "not
 /** `PLTR`, `SHOP.TO`, `ASML.AS`, `BRK-B`: upper-case letters, digits, `.` and `-`, 1–15 characters. */
 export const normalizeSymbol = (raw: string): string | null => {
   const s = decodeURIComponent(raw).trim().toUpperCase();
-  return /^[A-Z0-9][A-Z0-9.\-]{0,14}$/.test(s) ? s : null;
+  return /^[A-Z0-9][A-Z0-9.-]{0,14}$/.test(s) ? s : null;
 };
 
 export async function loadCompany(db: Queryable, dataUserId: string, symbol: string, today: string): Promise<CompanyResult> {
