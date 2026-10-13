@@ -36,6 +36,8 @@ import { Route as ApiDashboardRefreshRouteImport } from './routes/api/dashboard/
 import { Route as ApiDashboardSettingsRouteImport } from './routes/api/dashboard/settings'
 import { Route as ApiDashboardStatusRouteImport } from './routes/api/dashboard/status'
 import { Route as ApiPersonalFinanceViewRouteImport } from './routes/api/personal-finance_.view'
+import { Route as DashboardCompanySymbolRouteImport } from './routes/dashboard_.company.$symbol'
+import { Route as ApiDashboardCompanySymbolRouteImport } from './routes/api/dashboard/company.$symbol'
 import { Route as ApiDashboardHoldingsIdRouteImport } from './routes/api/dashboard/holdings_.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -173,6 +175,17 @@ const ApiPersonalFinanceViewRoute = ApiPersonalFinanceViewRouteImport.update({
   path: '/api/personal-finance/view',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardCompanySymbolRoute = DashboardCompanySymbolRouteImport.update({
+  id: '/dashboard_/company/$symbol',
+  path: '/dashboard/company/$symbol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDashboardCompanySymbolRoute =
+  ApiDashboardCompanySymbolRouteImport.update({
+    id: '/api/dashboard/company/$symbol',
+    path: '/api/dashboard/company/$symbol',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiDashboardHoldingsIdRoute = ApiDashboardHoldingsIdRouteImport.update({
   id: '/api/dashboard/holdings_/$id',
   path: '/api/dashboard/holdings/$id',
@@ -207,6 +220,8 @@ export interface FileRoutesByFullPath {
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
   '/api/personal-finance/view': typeof ApiPersonalFinanceViewRoute
+  '/dashboard/company/$symbol': typeof DashboardCompanySymbolRoute
+  '/api/dashboard/company/$symbol': typeof ApiDashboardCompanySymbolRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRoutesByTo {
@@ -237,6 +252,8 @@ export interface FileRoutesByTo {
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
   '/api/personal-finance/view': typeof ApiPersonalFinanceViewRoute
+  '/dashboard/company/$symbol': typeof DashboardCompanySymbolRoute
+  '/api/dashboard/company/$symbol': typeof ApiDashboardCompanySymbolRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRoutesById {
@@ -268,6 +285,8 @@ export interface FileRoutesById {
   '/api/dashboard/settings': typeof ApiDashboardSettingsRoute
   '/api/dashboard/status': typeof ApiDashboardStatusRoute
   '/api/personal-finance_/view': typeof ApiPersonalFinanceViewRoute
+  '/dashboard_/company/$symbol': typeof DashboardCompanySymbolRoute
+  '/api/dashboard/company/$symbol': typeof ApiDashboardCompanySymbolRoute
   '/api/dashboard/holdings_/$id': typeof ApiDashboardHoldingsIdRoute
 }
 export interface FileRouteTypes {
@@ -300,6 +319,8 @@ export interface FileRouteTypes {
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
     | '/api/personal-finance/view'
+    | '/dashboard/company/$symbol'
+    | '/api/dashboard/company/$symbol'
     | '/api/dashboard/holdings/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -330,6 +351,8 @@ export interface FileRouteTypes {
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
     | '/api/personal-finance/view'
+    | '/dashboard/company/$symbol'
+    | '/api/dashboard/company/$symbol'
     | '/api/dashboard/holdings/$id'
   id:
     | '__root__'
@@ -360,6 +383,8 @@ export interface FileRouteTypes {
     | '/api/dashboard/settings'
     | '/api/dashboard/status'
     | '/api/personal-finance_/view'
+    | '/dashboard_/company/$symbol'
+    | '/api/dashboard/company/$symbol'
     | '/api/dashboard/holdings_/$id'
   fileRoutesById: FileRoutesById
 }
@@ -391,6 +416,8 @@ export interface RootRouteChildren {
   ApiDashboardSettingsRoute: typeof ApiDashboardSettingsRoute
   ApiDashboardStatusRoute: typeof ApiDashboardStatusRoute
   ApiPersonalFinanceViewRoute: typeof ApiPersonalFinanceViewRoute
+  DashboardCompanySymbolRoute: typeof DashboardCompanySymbolRoute
+  ApiDashboardCompanySymbolRoute: typeof ApiDashboardCompanySymbolRoute
   ApiDashboardHoldingsIdRoute: typeof ApiDashboardHoldingsIdRoute
 }
 
@@ -585,6 +612,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPersonalFinanceViewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard_/company/$symbol': {
+      id: '/dashboard_/company/$symbol'
+      path: '/dashboard/company/$symbol'
+      fullPath: '/dashboard/company/$symbol'
+      preLoaderRoute: typeof DashboardCompanySymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dashboard/company/$symbol': {
+      id: '/api/dashboard/company/$symbol'
+      path: '/api/dashboard/company/$symbol'
+      fullPath: '/api/dashboard/company/$symbol'
+      preLoaderRoute: typeof ApiDashboardCompanySymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dashboard/holdings_/$id': {
       id: '/api/dashboard/holdings_/$id'
       path: '/api/dashboard/holdings/$id'
@@ -623,6 +664,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDashboardSettingsRoute: ApiDashboardSettingsRoute,
   ApiDashboardStatusRoute: ApiDashboardStatusRoute,
   ApiPersonalFinanceViewRoute: ApiPersonalFinanceViewRoute,
+  DashboardCompanySymbolRoute: DashboardCompanySymbolRoute,
+  ApiDashboardCompanySymbolRoute: ApiDashboardCompanySymbolRoute,
   ApiDashboardHoldingsIdRoute: ApiDashboardHoldingsIdRoute,
 }
 export const routeTree = rootRouteImport

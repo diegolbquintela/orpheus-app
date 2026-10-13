@@ -581,3 +581,7 @@ Spec section 20, AC PF-59..PF-66.
 **Shared page parts (#92).** Fonts live in `src/styles/fonts.css`, the shared label and button in
 `src/styles/parts.css` (both imported by `src/styles.css`); the bar and footer wrap every page from `__root.tsx`.
 Change a shared part there and every page follows. Site-style-spec section 16, AC SP-01..SP-07.
+
+**Dashboard company view (#95).** Open a holding, then `Open company view`: `/dashboard/company/<SYMBOL>` shows
+Profile, Margins, Returns, Valuation, Growth, Dividends and a price chart from SEC filings and the stored daily closes.
+Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15.

@@ -121,6 +121,10 @@ describe("holdings list (#55, DR2)", () => {
     const labels = $$("dt", detail).map(text);
     assert.deepEqual(labels, ["Ticker", "Name", "Shares", "Average cost", "Last close", "Value (CAD)", "Cost (CAD)", "Return", "Share of the book"]);
     assert.equal(text($('[data-testid="holding-avg-cost"]', detail)), "60 USD");
+    // #95 CV-07: the company view link, in the detail only.
+    assert.equal($('[data-testid="holding-company-link"]', detail)?.getAttribute("href"), "/dashboard/company/KO");
+    assert.equal(text($('[data-testid="holding-company-link"]', detail)), "Open company view");
+    assert.equal($('[data-testid="holding-company-link"]', toggle), null);
     assert.match(text($('[data-testid="holding-close"]', detail)), /^70 USD ?2026-10-01 close$/);
     assert.match(text($('[data-testid="holding-detail-value"]', detail)), /^997\.01 CAD ?FX USD 1\.4243 · 2026-10-01$/);
     assert.equal(text($('[data-testid="holding-cost"]', detail)), "854.58 CAD");

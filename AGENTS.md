@@ -1094,3 +1094,12 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - New page code uses `.ow-label` / `.ow-button` (`src/styles/parts.css`); do not copy their declarations into a page
   rule. Fonts only in `src/styles/fonts.css`; the preload path only in `src/lib/site/fonts.ts`.
 - `scripts/shared-parts.test.mjs` enforces it (SP-01..SP-05). Site-style-spec section 16.
+
+
+## Dashboard company view (#95)
+
+- `/dashboard/company/<SYMBOL>` reads the database only (SEC companyfacts + stored closes / dividends); never call a
+  price or fundamentals feed from a page or API request. Holdings only (Q-C1).
+- Formulas live in `src/lib/dashboard/company.ts` (pure, tested); a new concept goes into `CONCEPTS` with a
+  `FUNDAMENTALS_PARSER_VERSION` bump. Section titles use `.ow-label`; no gold.
+- Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15, Q-C1..Q-C7.
