@@ -534,3 +534,23 @@ Unit / DOM tests cover NC-01..NC-04; `qa/tools/dashboard-company.mjs --seed` cov
 | NC-06 | BLOCK | Preview: dark shell, `.ow-label`, no gold, no K / M / B, phone 400 and desktop 1440, no horizontal scroll. |
 | NC-07 | BLOCK | Preview: the seeded RMS.PA holding is deleted again; CV-08..CV-14 still PASS for PLTR. |
 | NC-08 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok, roles, audit, PF suites PASS. |
+
+## Dashboard: EU fundamentals from ESEF (#123; dashboard-spec section 17)
+
+Unit tests (recorded fixture, no live call) cover ES-01..ES-08; `qa/tools/dashboard-company.mjs --seed` covers
+ES-09..ES-11 on the preview.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| ES-01 | BLOCK | Fixture: Hermès FY2024 revenue 15,170,000,000 EUR, gross profit 10,660,000,000, EBIT 6,150,000,000, net income 4,603,000,000, diluted EPS 43.87. |
+| ES-02 | BLOCK | N6: fiscal year from the figures (the FY2025 filing indexed `2026-12-31` gives FY end 2025-12-31); newest filing per fiscal year; restated comparatives from the newer filing. |
+| ES-03 | BLOCK | Dimensional facts ignored; durations outside 335–395 days ignored; instants only on a fiscal year end. |
+| ES-04 | BLOCK | Diluted shares = net income ÷ diluted EPS when no share tag (Q-E1); capex from the broad IFRS purchase tag (Q-E5). |
+| ES-05 | BLOCK | Ticker → LEI: pinned RMS.PA; GLEIF accepted only on same company + venue country; otherwise not covered. |
+| ES-06 | BLOCK | The job stores `fundamentals_source = 'esef'`, `lei`, facts and metrics; US symbols still go to SEC; no ESEF call for non-EU. |
+| ES-07 | BLOCK | Parser version 4: a covered symbol (SEC or ESEF) stored by version 3 is refetched once. |
+| ES-08 | BLOCK | Company view for an ESEF listing: figures in EUR, source line `ESEF annual reports via filings.xbrl.org · daily closes as stored by the Dashboard`, no coverage line; valuation shown when price currency = reporting currency, else `— (currency mismatch)`. |
+| ES-09 | BLOCK | Preview: RMS.PA (seeded) API and page show Revenue €15,170,000,000-era figures for the latest FY (non-`Not covered`), margins in %, the ESEF source line. |
+| ES-10 | BLOCK | Preview: dark shell, `.ow-label`, no gold, no K / M / B, phone 400 and desktop 1440. |
+| ES-11 | BLOCK | Preview: the seeded holdings are deleted again; PLTR (SEC) still passes CV-08..CV-14. |
+| ES-12 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok, roles, audit, PF suites PASS. |

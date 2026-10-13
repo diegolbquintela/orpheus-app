@@ -1120,3 +1120,11 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - An uncovered listing gets `coverage` (`Not covered: no SEC filings`) and its own source line; never add a feed call
   for it from a request. Source decision pending (Q-N1 ESEF free; Q-N3 paid needs Diego). Design
   `attachments/dashboard-non-sec-coverage-design.md`, AC NC-01..NC-08.
+
+
+## EU fundamentals from ESEF (#123)
+
+- EU listings SEC does not cover get facts from filings.xbrl.org (xBRL-JSON) via LEI (`PINNED_LEI`, then GLEIF), in
+  the daily job only (`src/lib/dashboard/esef.server.ts`); polite UA, ≥ 1 s between requests, ≤ 6 documents a
+  symbol. Parse with `annualFactsFromEsef` (pure); tests use `src/lib/dashboard/fixtures/esef-hermes.json`, never a
+  live call. Design `attachments/dashboard-esef-fundamentals-design.md`, AC ES-01..ES-12, Q-E1..Q-E8.
