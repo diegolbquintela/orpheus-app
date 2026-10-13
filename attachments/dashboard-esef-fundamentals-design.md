@@ -92,3 +92,15 @@ between requests to each host; ≤ 6 filing documents per symbol per refresh; 7-
 - Parser version 4 also rechecks, once, an EU listing stored as `none` by parser 3 (RMS.PA on the shared preview database), since ESEF may now cover it. US / CA `none` rows are not rechecked early.
 - Without `SEC_CONTACT_EMAIL` the job still runs ESEF for EU listings; US / CA listings are left as they are (not marked not covered).
 - Live smoke (box, 2026-10-13): RMS.PA pinned LEI, 7 requests in 6.4 s; FY2019–FY2025; FY2024 revenue 15,170,000,000; FY2025 revenue 16,002,000,000, net income 4,524,000,000, diluted EPS 43.07 (EUR).
+
+### Follow-up: derived marker (EL 2026-10-13 19:10, PM E1 / E5)
+
+- **What is marked.** A dim `derived` label goes next to a row's label (`.ow-label`, `company-derived-<key>`), with a `title` and `aria-label` giving the method. It appears only when the fallback actually ran for the latest fiscal year, and only on rows that show a figure (`ok`).
+  - **E1, diluted shares = net income ÷ diluted EPS:** Shares (diluted), Market cap, Enterprise value, EV/EBIT, P/FCF.
+  - **E5, capex from the broad IFRS line:** FCF margin, P/FCF. Capex has no row of its own, so it is marked through the rows computed from it.
+- **What is not marked.** P/E, EPS growth and Dividends use reported EPS / DPS. ROIC, the growth rows and the Holdings metric columns do not use these inputs. Every SEC figure is reported.
+- **How the flag travels.**
+  - **Parser:** `AnnualFact.sourceTag` is `derived:net_income/eps_diluted` for derived shares, or the broad IFRS capex tag.
+  - **Storage:** the existing `fundamentals_annual.source_tag` column. No migration and no refetch.
+  - **API and page:** `derivedMethod()` in `company.server.ts` → `CompanyYear.derived` → `CompanyRow.derived` (the explanation text) in the API → the company page.
+- **AC:** ES-13..ES-16.

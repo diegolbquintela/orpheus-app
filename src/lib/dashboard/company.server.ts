@@ -2,7 +2,8 @@
  * #95: loads one held symbol's stored data for the company view (attachments/dashboard-company-view-design.md
  * section 3). Server-only, database only: never calls a price or fundamentals feed.
  */
-import { companyView, type CompanyInput, type CompanyView, type CompanyYear, type StoredMetric } from "./company.ts";
+import { companyView, type CompanyInput, type CompanyView, type CompanyYear, type DerivedMethod, type StoredMetric } from "./company.ts";
+import { DERIVED_SHARES_TAG, ESEF_EXTRA_TAGS } from "./esef.server.ts";
 import type { Queryable } from "./store.server.ts";
 
 export type CompanyResult = { status: "ok"; view: CompanyView } | { status: "not_held" };
@@ -27,8 +28,8 @@ export async function loadCompany(db: Queryable, dataUserId: string, symbol: str
     "SELECT session_date::text AS date, close, currency FROM daily_closes WHERE symbol = $1 ORDER BY session_date",
     [symbol],
   );
-  const facts = await db.query<{ end: string; concept: string; value: string | number; unit: string }>(
-    `SELECT fiscal_year_end::text AS end, concept, value, unit FROM fundamentals_annual
+  const facts = await db.query<{ end: string; concept: string; value: string | number; unit: string; tag: string }>(
+    `SELECT fiscal_year_end::text AS end, concept, value, unit, source_tag AS tag FROM fundamentals_annual
       WHERE symbol = $1 ORDER BY fiscal_year_end DESC`,
     [symbol],
   );
@@ -45,6 +46,9 @@ export async function loadCompany(db: Queryable, dataUserId: string, symbol: str
     const y = byEnd.get(f.end) ?? { end: f.end, values: {}, units: {} };
     y.values[f.concept] = Number(f.value);
     y.units[f.concept] = f.unit;
+    // #123 (E1 / E5): the stored source tag says whether a fallback produced the value.
+    const method = derivedMethod(f.concept, f.tag);
+    if (method) (y.derived ??= {})[f.concept] = method;
     byEnd.set(f.end, y);
   }
   const input: CompanyInput = {
@@ -65,4 +69,11 @@ export async function loadCompany(db: Queryable, dataUserId: string, symbol: str
     today,
   };
   return { status: "ok", view: companyView(input) };
+}
+
+/** #123 (ES-13): the fallback behind a stored fact, from its source tag, or null for a reported figure. */
+export function derivedMethod(concept: string, tag: string | null | undefined): DerivedMethod | null {
+  if (concept === "diluted_shares" && tag === DERIVED_SHARES_TAG) return "shares_from_eps";
+  if (concept === "capex" && tag && (ESEF_EXTRA_TAGS.capex ?? []).includes(tag)) return "capex_broad_ifrs";
+  return null;
 }

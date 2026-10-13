@@ -251,6 +251,11 @@ try {
     console.log(`[dashboard-company] ${UNCOVERED} FY ${u?.fiscalYear} sample ${JSON.stringify(sample)}`);
     const ok = rowsAll.filter((r) => r.status === "ok").length;
     check(`ES-09 ${UNCOVERED} API 200: no coverage line, ESEF source line, fiscal year, figures (not Not covered), margins in %`, ua.status === 200 && !u?.coverage && u?.source === "ESEF annual reports via filings.xbrl.org · daily closes as stored by the Dashboard" && /^FY20\d\d/.test(u?.fiscalYear ?? "") && ok >= 8 && !rowsAll.some((r) => r.status === "not_covered") && rowsAll.filter((r) => /margin/.test(r.key) && r.status === "ok").every((r) => /%$/.test(r.text)), { status: ua.status, coverage: u?.coverage, source: u?.source, fy: u?.fiscalYear, ok, statuses: rowsAll.map((r) => `${r.key}:${r.status}`).join(",") });
+    // #123 follow-up (ES-15): the E1 / E5 fallbacks are marked on the rows computed from them, and only there.
+    const DERIVABLE = ["shares", "market_cap", "ev", "ev_ebit", "fcf_margin", "p_fcf"];
+    const flagged = rowsAll.filter((r) => r.derived).map((r) => r.key);
+    console.log(`[dashboard-company] ${UNCOVERED} derived rows ${JSON.stringify(flagged)}`);
+    check(`ES-15 ${UNCOVERED} API: Shares (diluted) and FCF margin carry derived (E1 / E5), only derivable rows do, revenue does not`, row("shares")?.derived?.includes("net income ÷ diluted EPS") && row("fcf_margin")?.derived?.includes("broad IFRS line") && flagged.every((k) => DERIVABLE.includes(k)) && !row("revenue")?.derived && !row("pe")?.derived, { flagged, shares: row("shares")?.derived, fcf: row("fcf_margin")?.derived });
     check(`ES-10 ${UNCOVERED} no K / M / B`, !rowsOf(u).some(([, t]) => /\d[KMBT]\b/.test(t)));
     for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
       const ctx = await browser.newContext({ viewport });
@@ -267,12 +272,24 @@ try {
         okRows: [...document.querySelectorAll('[data-testid^="company-row-"][data-status="ok"]')].length,
         notCovered: [...document.querySelectorAll('[data-testid^="company-row-"][data-status="not_covered"]')].length,
         revenue: document.querySelector('[data-testid="company-row-revenue"] dd')?.textContent ?? null,
+        marks: [...document.querySelectorAll('[data-testid^="company-derived-"]')].map((e) => ({
+          key: e.getAttribute("data-testid").replace("company-derived-", ""),
+          text: e.textContent,
+          cls: e.className,
+          title: e.getAttribute("title") ?? "",
+          aria: e.getAttribute("aria-label") ?? "",
+          color: getComputedStyle(e).color,
+          size: parseFloat(getComputedStyle(e).fontSize),
+          rowColor: getComputedStyle(e.closest("[data-testid^='company-row-']").querySelector("dd")).color,
+        })),
         source: document.querySelector('[data-testid="company-source"]')?.textContent,
         bg: getComputedStyle(document.body).backgroundColor,
         scroll: document.scrollingElement.scrollWidth - window.innerWidth,
       }));
       await page.screenshot({ path: join(CFG.out, `esef-${vp}.png`), fullPage: true });
       check(`[${vp}] ES-09 ${UNCOVERED} page 200, no page error, no coverage line, chart, six sections, figures, ESEF source line`, resp?.status() === 200 && errors.length === 0 && m.line === null && m.svg && m.titles.length === 6 && m.okRows >= 8 && m.notCovered === 0 && /^ESEF annual reports via filings\.xbrl\.org/.test(m.source ?? ""), { status: resp?.status(), errors, ...m });
+      const mk = (k) => m.marks.find((x) => x.key === k);
+      check(`[${vp}] ES-15 ${UNCOVERED} page: "derived" marker on Shares (diluted) and FCF margin, .ow-label, dim and small, title + aria-label explain the method; no marker on Revenue`, !!mk("shares") && !!mk("fcf_margin") && !mk("revenue") && m.marks.every((x) => x.text === "derived" && x.cls.split(" ").includes("ow-label") && /^Derived: /.test(x.title) && x.aria.startsWith("derived: Derived: ") && x.size <= 13 && x.color !== x.rowColor) && /net income ÷ diluted EPS/.test(mk("shares")?.title ?? "") && /broad IFRS line/.test(mk("fcf_margin")?.title ?? ""), m.marks.map(({ key, color, size, cls }) => ({ key, color, size, cls })));
       check(`[${vp}] ES-10 ${UNCOVERED} dark shell, .ow-label, no horizontal scroll`, m.bg === NIGHT && m.labels && m.scroll <= 0, { bg: m.bg, labels: m.labels, scroll: m.scroll });
       await ctx.close();
     }

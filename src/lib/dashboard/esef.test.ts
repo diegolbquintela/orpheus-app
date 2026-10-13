@@ -7,7 +7,7 @@ import { after, before, beforeEach, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
 import { NOT_COVERED_LINE, SOURCE_LINE_ESEF } from "./company.ts";
-import { loadCompany } from "./company.server.ts";
+import { derivedMethod, loadCompany } from "./company.server.ts";
 import {
   annualFactsFromEsef,
   createEsefSource,
@@ -159,6 +159,25 @@ describe("ES-07, ES-08: the job stores ESEF facts; the view labels them", () => 
     assert.equal(s.checked, 1);
     const rows = await db.query<{ symbol: string; fundamentals_source: string }>("SELECT symbol, fundamentals_source FROM instruments ORDER BY symbol");
     assert.deepEqual(rows, [{ symbol: "KO", fundamentals_source: "none" }, { symbol: "RMS.PA", fundamentals_source: "esef" }]);
+  });
+  it("ES-13: Hermès diluted shares (untagged) and capex (broad IFRS tag) are flagged derived from parser to API rows", async () => {
+    const rows = annualFactsFromEsef(docs());
+    assert.equal(at(rows, "diluted_shares", "2024-12-31")?.sourceTag, "derived:net_income/eps_diluted");
+    assert.equal(derivedMethod("diluted_shares", at(rows, "diluted_shares", "2024-12-31")?.sourceTag), "shares_from_eps");
+    assert.equal(derivedMethod("capex", at(rows, "capex", "2024-12-31")?.sourceTag), "capex_broad_ifrs");
+    assert.equal(derivedMethod("capex", "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"), null, "reported capex");
+    assert.equal(derivedMethod("diluted_shares", "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding"), null, "reported shares");
+    assert.equal(derivedMethod("revenue", "ifrs-full:Revenue"), null);
+    await refreshFundamentals(db, createCompositeSource(null, fakeGet().source), { nowMs: Date.UTC(2026, 9, 13) });
+    const r = await loadCompany(db, "u1", "RMS.PA", "2026-10-13");
+    assert.equal(r.status, "ok");
+    if (r.status !== "ok") return;
+    const all = r.view.sections.flatMap((x) => x.rows);
+    const flagged = all.filter((x) => x.derived).map((x) => x.key).sort();
+    assert.ok(["fcf_margin", "shares"].every((k) => flagged.includes(k)), JSON.stringify(flagged));
+    assert.ok(flagged.every((k) => ["shares", "market_cap", "ev", "ev_ebit", "fcf_margin", "p_fcf"].includes(k)), JSON.stringify(flagged));
+    assert.ok(all.filter((x) => x.derived).every((x) => x.status === "ok"));
+    assert.ok(!all.find((x) => x.key === "revenue")?.derived);
   });
   it("ES-08: the company view shows the ESEF source line and no coverage line", async () => {
     await refreshFundamentals(db, createCompositeSource(null, fakeGet().source), { nowMs: Date.UTC(2026, 9, 13) });

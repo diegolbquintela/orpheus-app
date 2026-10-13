@@ -4,7 +4,7 @@
  * (the API returns the same). Dark shell tokens, shared `.ow-label`; no gold.
  */
 import { useState } from "react";
-import { pct, RANGES, rangeOf, type CompanyView, type ChartPoint, type RangeKey } from "@/lib/dashboard/company";
+import { DERIVED_MARKER, pct, RANGES, rangeOf, type CompanyView, type ChartPoint, type RangeKey } from "@/lib/dashboard/company";
 
 const W = 640;
 const H = 220;
@@ -108,7 +108,21 @@ export function CompanyViewPage({ view }: { view: CompanyView }) {
                   data-testid={`company-row-${row.key}`}
                   data-status={row.status}
                 >
-                  <dt className="text-dim">{row.label}</dt>
+                  <dt className="text-dim">
+                    {row.label}
+                    {row.derived ? (
+                      // #123 (ES-13): a figure from a fallback (E1 / E5), dim small label; the title explains how.
+                      <span
+                        className="ow-label ml-2"
+                        data-testid={`company-derived-${row.key}`}
+                        title={row.derived}
+                        aria-label={`${DERIVED_MARKER}: ${row.derived}`}
+                        role="note"
+                      >
+                        {DERIVED_MARKER}
+                      </span>
+                    ) : null}
+                  </dt>
                   <dd className={`tabular-nums ${row.status === "ok" ? "" : "text-dim"}`}>{row.text}</dd>
                 </div>
               ))}

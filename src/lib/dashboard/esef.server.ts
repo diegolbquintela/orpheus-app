@@ -44,6 +44,9 @@ const dayBefore = (iso: string) => {
 const days = (a: string, b: string) => (Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000;
 const unitOf = (u: string | undefined) => (u ?? "").replace(/iso4217:/g, "").replace(/xbrli:/g, "");
 
+/** Q-E1: the source tag stored for diluted shares derived as net income ÷ diluted EPS. */
+export const DERIVED_SHARES_TAG = "derived:net_income/eps_diluted";
+
 /** Q-E5: ESEF-only fallback tags (last in their concept), e.g. Hermès tags only the broad IFRS purchase line. */
 export const ESEF_EXTRA_TAGS: Record<string, string[]> = {
   capex: ["ifrs-full:PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets"],
@@ -120,7 +123,7 @@ export function annualFactsFromEsef(docs: EsefDocument[]): AnnualFact[] {
     if (at("diluted_shares", ni.fiscalYearEnd)) continue;
     const eps = at("eps_diluted", ni.fiscalYearEnd);
     if (!eps || !(Number(eps.value) > 0)) continue;
-    out.push({ ...ni, concept: "diluted_shares", value: String(Math.round(Number(ni.value) / Number(eps.value))), unit: "shares", sourceTag: "derived:net_income/eps_diluted" });
+    out.push({ ...ni, concept: "diluted_shares", value: String(Math.round(Number(ni.value) / Number(eps.value))), unit: "shares", sourceTag: DERIVED_SHARES_TAG });
   }
   return out.sort((a, b) => a.concept.localeCompare(b.concept) || a.fiscalYearEnd.localeCompare(b.fiscalYearEnd));
 }

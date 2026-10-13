@@ -554,3 +554,7 @@ ES-09..ES-11 on the preview.
 | ES-10 | BLOCK | Preview: dark shell, `.ow-label`, no gold, no K / M / B, phone 400 and desktop 1440. |
 | ES-11 | BLOCK | Preview: the seeded holdings are deleted again; PLTR (SEC) still passes CV-08..CV-14. |
 | ES-12 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok, roles, audit, PF suites PASS. |
+| ES-13 | BLOCK | Unit (`esef.test.ts`): Hermès FY2024 diluted shares are derived (`source_tag` `derived:net_income/eps_diluted`) and capex comes from the broad IFRS tag; `derivedMethod()` returns `shares_from_eps` / `capex_broad_ifrs` for them and null for reported tags; the API rows flag `shares` and `fcf_margin`, only derivable rows are flagged, all flagged rows are `ok`, `revenue` is not flagged. |
+| ES-14 | BLOCK | Unit (DOM): a derived row shows `derived` in a `.ow-label` span next to the label (`company-derived-<key>`), `title` and `aria-label` explain the method; the value text is unchanged; Revenue / P/E / margins without a derived input and every SEC (reported) view show no marker. |
+| ES-15 | BLOCK | Preview (`dashboard-company --seed`): RMS.PA API rows `shares` (net income ÷ diluted EPS) and `fcf_margin` (broad IFRS line) carry `derived`, only rows from {shares, market_cap, ev, ev_ebit, fcf_margin, p_fcf}; page phone 400 and desktop 1440 shows the marker dim, small, `.ow-label`, with title and aria-label; none on Revenue. |
+| ES-16 | BLOCK | Preview: ES-09..ES-12 still PASS with the marker (the seeded holdings are deleted, PLTR shows no marker). |
