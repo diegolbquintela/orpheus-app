@@ -1,6 +1,7 @@
 // Dashboard company view (#95; design attachments/dashboard-company-view-design.md, CV-08..CV-14 in
 // qa/CANONICAL-AC-PACK.md), on a preview with the #90 QA accounts. Credentials from env only, never logged or written:
 //   QA_OWNER_EMAIL / QA_OWNER_PASSWORD (the owner), QA_PM_* (Dashboard Read and write), QA_NONE_* (no grant).
+// #121: --seed also adds 1 RMS.PA (no SEC filings) when not held, checks NC-05 / NC-06 and deletes it at the end.
 // Read-only unless --seed: then, when the owner holds no PLTR, the tool adds 1 PLTR share as the owner, runs the
 // preview-only daily refresh (closes, SEC companyfacts, metrics) and deletes that holding again at the end. The symbol
 // is PLTR when held, else the first holding (reported).
@@ -92,10 +93,23 @@ for (const k of Object.keys(ACC)) {
 let holdingsRes = await http(jars.owner, "GET", "/api/dashboard/holdings");
 let held = (holdingsRes.json?.holdings ?? []).map((h) => h.symbol);
 let seededId = null;
-if (process.argv.includes("--seed") && !held.includes("PLTR")) {
+// #121 (NC-05..NC-07): an uncovered listing (no SEC filings), seeded like PLTR and deleted at the end.
+const UNCOVERED = "RMS.PA";
+let uncoveredId = null;
+const SEED = process.argv.includes("--seed");
+if (SEED && !held.includes(UNCOVERED)) {
+  const add = await http(jars.owner, "POST", "/api/dashboard/holdings", { symbol: UNCOVERED, shares: "1", avgCost: "" });
+  uncoveredId = add.json?.holding?.id ?? null;
+  check(`seed: owner adds 1 ${UNCOVERED} (removed at the end)`, add.status === 201 || add.status === 200, [add.status, add.json?.error]);
+}
+const addPltr = SEED && !held.includes("PLTR");
+const addedUncovered = SEED && !held.includes(UNCOVERED);
+if (addPltr || addedUncovered) {
+  if (addPltr) {
   const add = await http(jars.owner, "POST", "/api/dashboard/holdings", { symbol: "PLTR", shares: "1", avgCost: "" });
   seededId = add.json?.holding?.id ?? null;
   check("seed: owner adds 1 PLTR (removed at the end)", add.status === 201 || add.status === 200, [add.status, add.json?.error]);
+  }
   for (let i = 0; i < 3; i++) {
     const run = await http(jars.owner, "POST", "/api/dashboard/refresh", {});
     console.log(`[dashboard-company] refresh ${run.status} ${run.json?.status ?? ""}`);
@@ -104,7 +118,9 @@ if (process.argv.includes("--seed") && !held.includes("PLTR")) {
   }
   holdingsRes = await http(jars.owner, "GET", "/api/dashboard/holdings");
   held = (holdingsRes.json?.holdings ?? []).map((h) => h.symbol);
-  seededId ??= (holdingsRes.json?.holdings ?? []).find((h) => h.symbol === "PLTR")?.id ?? null;
+  const idOf = (sym) => (holdingsRes.json?.holdings ?? []).find((h) => h.symbol === sym)?.id ?? null;
+  if (addPltr) seededId ??= idOf("PLTR");
+  if (addedUncovered) uncoveredId ??= idOf(UNCOVERED);
 }
 const SYMBOL = held.includes("PLTR") ? "PLTR" : held[0];
 check("a held symbol to open (PLTR when held)", SYMBOL, { symbol: SYMBOL, pltr: held.includes("PLTR"), held: held.length });
@@ -223,8 +239,43 @@ try {
     check(`[${vp}] CV-10 not held → "Not in your holdings."`, (await op.locator('[data-testid="company-not-held"]').textContent()) === "Not in your holdings.");
     await octx.close();
   }
+  // ---------------------------------------------------------------- #121 an uncovered listing (NC-05, NC-06)
+  if (held.includes(UNCOVERED)) {
+    const ua = await http(jars.owner, "GET", `/api/dashboard/company/${encodeURIComponent(UNCOVERED)}`);
+    const u = ua.json?.company;
+    const fund = (u?.sections ?? []).filter((x) => x.key !== "dividends");
+    check(`NC-05 ${UNCOVERED} API 200: coverage line, fundamentals rows Not covered, source line, last close`, ua.status === 200 && u?.coverage === "Not covered: no SEC filings" && fund.every((x) => x.rows.every((r) => r.status === "not_covered" && r.text === "Not covered")) && u?.source === "Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing" && !!u?.last, { status: ua.status, coverage: u?.coverage, source: u?.source, last: u?.last, chart: u?.chart?.length });
+    check(`NC-06 ${UNCOVERED} no K / M / B`, !rowsOf(u).some(([, t]) => /\d[KMBT]\b/.test(t)));
+    for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
+      const ctx = await browser.newContext({ viewport });
+      await ctx.addCookies(toCookies(jars.owner));
+      const page = await ctx.newPage();
+      const errors = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      const resp = await page.goto(`${base}/dashboard/company/${encodeURIComponent(UNCOVERED)}`, { waitUntil: "networkidle" });
+      const m = await page.evaluate(() => ({
+        line: document.querySelector('[data-testid="company-coverage"]')?.textContent,
+        lineColor: document.querySelector('[data-testid="company-coverage"]') ? getComputedStyle(document.querySelector('[data-testid="company-coverage"]')).color : null,
+        svg: !!document.querySelector('[data-testid="company-chart-svg"]'),
+        titles: [...document.querySelectorAll('[data-testid^="company-section-"] h2')].map((h) => h.textContent),
+        labels: [...document.querySelectorAll('[data-testid^="company-section-"] h2')].every((h) => h.classList.contains("ow-label")),
+        notCovered: [...document.querySelectorAll('[data-testid^="company-row-"][data-status="not_covered"]')].length,
+        source: document.querySelector('[data-testid="company-source"]')?.textContent,
+        bg: getComputedStyle(document.body).backgroundColor,
+        scroll: document.scrollingElement.scrollWidth - window.innerWidth,
+      }));
+      await page.screenshot({ path: join(CFG.out, `uncovered-${vp}.png`), fullPage: true });
+      check(`[${vp}] NC-05 ${UNCOVERED} page 200, no page error, "Not covered: no SEC filings", chart, six sections, Not covered rows, source line`, resp?.status() === 200 && errors.length === 0 && m.line === "Not covered: no SEC filings" && m.svg && m.titles.length === 6 && m.notCovered >= 20 && /no SEC filings for this listing$/.test(m.source ?? ""), { status: resp?.status(), errors, ...m });
+      check(`[${vp}] NC-06 ${UNCOVERED} dark shell, .ow-label, no horizontal scroll`, m.bg === NIGHT && m.labels && m.scroll <= 0, { bg: m.bg, labels: m.labels, scroll: m.scroll });
+      await ctx.close();
+    }
+  } else console.log(`INFO ${UNCOVERED} not held and --seed not given: NC-05 / NC-06 skipped`);
 } finally {
   await browser.close();
+  if (uncoveredId !== null) {
+    const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${uncoveredId}`);
+    check(`NC-07 seed: the added ${UNCOVERED} holding is deleted again`, del.status === 200 || del.status === 204, del.status);
+  }
   if (seededId !== null) {
     const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${seededId}`);
     check("seed: the added PLTR holding is deleted again", del.status === 200 || del.status === 204, del.status);

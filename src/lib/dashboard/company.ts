@@ -48,6 +48,8 @@ export type CompanyView = {
   reportingCurrency: string | null;
   chart: ChartPoint[];
   sections: CompanySection[];
+  /** #121 (NC-01): `Not covered: no SEC filings` for a checked listing without SEC filings, else null. */
+  coverage: string | null;
   source: string;
 };
 
@@ -60,6 +62,9 @@ export type RangeKey = (typeof RANGES)[number]["key"];
 
 export const SECTION_TITLES = ["Profile", "Margins", "Returns", "Valuation", "Growth", "Dividends"] as const;
 export const SOURCE_LINE = "SEC filings (companyfacts) · daily closes as stored by the Dashboard";
+/** #121 (NC-01, NC-03): an uncovered listing's top line and source line. */
+export const NOT_COVERED_LINE = "Not covered: no SEC filings";
+export const SOURCE_LINE_UNCOVERED = "Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing";
 
 // ---------------------------------------------------------------- formatting
 
@@ -279,6 +284,7 @@ export function companyView(input: CompanyInput): CompanyView {
       { key: "growth", title: "Growth", note, rows: growth },
       { key: "dividends", title: "Dividends", note: "Trailing twelve months", rows: dividends },
     ],
-    source: SOURCE_LINE,
+    coverage: gap === "not_covered" ? NOT_COVERED_LINE : null,
+    source: gap === "not_covered" ? SOURCE_LINE_UNCOVERED : SOURCE_LINE,
   };
 }

@@ -1561,3 +1561,11 @@ A per-holding company page at `/dashboard/company/<SYMBOL>` (Profile, Margins, R
 price chart) for the Portfolio Manager, behind this spec's gate and data rules (database only; SEC companyfacts +
 stored daily closes). Adds seven companyfacts concepts (parser version 3, section 7). Design, decision log and
 Q-C1..Q-C7: [`attachments/dashboard-company-view-design.md`](dashboard-company-view-design.md); AC CV-01..CV-15.
+
+## 16. Company view without SEC filings (#121)
+
+For a held listing with no SEC filings (`fundamentals_source` not `sec` once checked, e.g. RMS.PA, VDY.TO) the
+company view shows one line `Not covered: no SEC filings` under the header; fundamentals rows stay `Not covered`;
+price, chart and dividends show when stored; the source line reads `Daily closes and dividends as stored by the
+Dashboard · no SEC filings for this listing`. Never a blank or error page. Source comparison and Q-N1..Q-N8:
+[`attachments/dashboard-non-sec-coverage-design.md`](dashboard-non-sec-coverage-design.md); AC NC-01..NC-08.

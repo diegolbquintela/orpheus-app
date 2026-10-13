@@ -59,6 +59,11 @@ export function CompanyViewPage({ view }: { view: CompanyView }) {
             <span className="text-dim">Price pending</span>
           )}
         </p>
+        {view.coverage ? (
+          <p className="mt-2 text-sm text-dim" data-testid="company-coverage">
+            {view.coverage}
+          </p>
+        ) : null}
       </header>
 
       <section className="mt-8" aria-label="Price chart" data-testid="company-chart">

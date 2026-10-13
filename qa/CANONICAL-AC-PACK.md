@@ -519,3 +519,18 @@ suites cover CV-15.
 | CV-13 | BLOCK | Preview: phone 400 × 860 one column, desktop 1440 × 900 two columns, no horizontal scroll, strict CLS 0. |
 | CV-14 | BLOCK | Preview: a Read-only Portfolio Manager sees the same page. |
 | CV-15 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok, roles, audit, personal-finance, pf-months, personal-finance-e2e all PASS. |
+
+## Dashboard: company view without SEC filings (#121; dashboard-spec section 16)
+
+Unit / DOM tests cover NC-01..NC-04; `qa/tools/dashboard-company.mjs --seed` covers NC-05..NC-07 on the preview.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| NC-01 | BLOCK | An uncovered, checked listing: `coverage` = `Not covered: no SEC filings`; covered or pending: `null`. |
+| NC-02 | BLOCK | Uncovered: every Profile / Margins / Returns / Valuation / Growth row `Not covered`; Dividends and the last close from stored data. |
+| NC-03 | BLOCK | Uncovered source line `Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing`; covered keeps the #95 line. |
+| NC-04 | BLOCK | The page shows `company-coverage` under the header (dim, no instruction text) and the chart when there are ≥ 2 closes. |
+| NC-05 | BLOCK | Preview: RMS.PA held (seeded) → API 200 with NC-01..NC-03; the page 200, no error, the line and the chart shown. |
+| NC-06 | BLOCK | Preview: dark shell, `.ow-label`, no gold, no K / M / B, phone 400 and desktop 1440, no horizontal scroll. |
+| NC-07 | BLOCK | Preview: the seeded RMS.PA holding is deleted again; CV-08..CV-14 still PASS for PLTR. |
+| NC-08 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok, roles, audit, PF suites PASS. |
