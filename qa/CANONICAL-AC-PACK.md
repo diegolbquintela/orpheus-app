@@ -466,3 +466,26 @@ Refactor: no visible change. Test `scripts/shared-parts.test.mjs` (SP-01..SP-05)
 | SP-06 | BLOCK | Preview: site-style-regression, site-shell, home-page, no-grok all PASS (`$313,000`, strict CLS 0, noindex, signed-out PF 307, Schibsted Grotesk on every page). |
 | SP-07 | BLOCK | Preview: personal-finance, pf-months, personal-finance-e2e, roles, audit PASS (no change in any page's text, size or layout). |
 
+
+## Dashboard: company view (#95; attachments/dashboard-company-view-design.md)
+
+Unit / DOM tests cover CV-01..CV-07; `qa/tools/dashboard-company.mjs` covers CV-08..CV-14 on the preview; the existing
+suites cover CV-15.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| CV-01 | BLOCK | Profile: market cap = last close × diluted shares; EV = market cap + debt − cash; revenue; employees `Not reported`. |
+| CV-02 | BLOCK | Margins: gross, operating, net, FCF = ÷ revenue, one decimal %; zero / negative revenue → `n/m`. |
+| CV-03 | BLOCK | Returns: ROA, ROE, ROCE on averages of the two latest year ends (one year alone when only one), ROIC the stored value. |
+| CV-04 | BLOCK | Valuation: P/E, EV/EBIT, P/FCF as `12.3×`; a negative or zero denominator → `n/m`. |
+| CV-05 | BLOCK | Growth: revenue 1y / CAGR 3y / 5y / 10y from the stored metrics, EPS 1y; dividends TTM per share, yield, last ex-date, or `No dividends`. |
+| CV-06 | BLOCK | No SEC coverage → `Not covered` on fundamentals rows, price / chart / dividends still shown; nothing fetched (database only). |
+| CV-07 | BLOCK | The expanded holding row links `Open company view` to `/dashboard/company/<SYMBOL>`; the collapsed row is unchanged. |
+| CV-08 | BLOCK | Preview: the page for a held symbol (PLTR when held) shows the header, chart, Profile, Margins, Returns, Valuation, Growth, Dividends in that order. |
+| CV-09 | BLOCK | Preview: 1Y / 5Y / Max switch the chart (1Y default, `aria-pressed`), the change line follows. |
+| CV-10 | BLOCK | Preview: gate: signed out → `/dashboard/sign-in`; no grant → 403 page; a symbol not held → `Not in your holdings.`; API 401 / 403 / 404 / 405 as designed. |
+| CV-11 | BLOCK | Preview: the API values equal the page's (same rows, same text). |
+| CV-12 | BLOCK | Preview: dark shell, lyre, footer `Orpheus Wisdom`, no gold, section labels `.ow-label`, noindex. |
+| CV-13 | BLOCK | Preview: phone 400 × 860 one column, desktop 1440 × 900 two columns, no horizontal scroll, strict CLS 0. |
+| CV-14 | BLOCK | Preview: a Read-only Portfolio Manager sees the same page. |
+| CV-15 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok, roles, audit, personal-finance, pf-months, personal-finance-e2e all PASS. |

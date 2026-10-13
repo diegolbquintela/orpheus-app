@@ -1554,3 +1554,10 @@ dashboard ticket (#9–#24) changes, because they all go through `DailyCloseProv
   Stooq): linked inline in section 14. Nasdaq Data Link: no live source (facts marked unverified).
 - Data vendors: [FMP pricing](https://site.financialmodelingprep.com/developer/docs/pricing) · [EODHD pricing](https://eodhd.com/pricing) ·
   [Yahoo Terms of Service](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html)
+
+## 15. Company view (#95)
+
+A per-holding company page at `/dashboard/company/<SYMBOL>` (Profile, Margins, Returns, Valuation, Growth, Dividends,
+price chart) for the Portfolio Manager, behind this spec's gate and data rules (database only; SEC companyfacts +
+stored daily closes). Adds seven companyfacts concepts (parser version 3, section 7). Design, decision log and
+Q-C1..Q-C6: [`attachments/dashboard-company-view-design.md`](dashboard-company-view-design.md); AC CV-01..CV-15.
