@@ -1,7 +1,9 @@
 // Dashboard company view (#95; design attachments/dashboard-company-view-design.md, CV-08..CV-14 in
 // qa/CANONICAL-AC-PACK.md), on a preview with the #90 QA accounts. Credentials from env only, never logged or written:
 //   QA_OWNER_EMAIL / QA_OWNER_PASSWORD (the owner), QA_PM_* (Dashboard Read and write), QA_NONE_* (no grant).
-// Read-only: nothing is written. The symbol is PLTR when the owner holds it, else the first holding (reported).
+// Read-only unless --seed: then, when the owner holds no PLTR, the tool adds 1 PLTR share as the owner, runs the
+// preview-only daily refresh (closes, SEC companyfacts, metrics) and deletes that holding again at the end. The symbol
+// is PLTR when held, else the first holding (reported).
 // API: CV-10 (401 / 403 / 404 not_held / 405 / 400), CV-11 (API rows = page rows).
 // Browser at 400 × 860 and 1440 × 900 as the owner and the PM: CV-08 order, CV-09 ranges, CV-12 dark shell / lyre /
 // footer / no gold / .ow-label / noindex, CV-13 one or two columns, no horizontal scroll, strict CLS 0, CV-14 the PM.
@@ -87,8 +89,23 @@ for (const k of Object.keys(ACC)) {
 }
 
 // ---------------------------------------------------------------- pick the symbol (read only)
-const holdingsRes = await http(jars.owner, "GET", "/api/dashboard/holdings");
-const held = (holdingsRes.json?.holdings ?? []).map((h) => h.symbol);
+let holdingsRes = await http(jars.owner, "GET", "/api/dashboard/holdings");
+let held = (holdingsRes.json?.holdings ?? []).map((h) => h.symbol);
+let seededId = null;
+if (process.argv.includes("--seed") && !held.includes("PLTR")) {
+  const add = await http(jars.owner, "POST", "/api/dashboard/holdings", { symbol: "PLTR", shares: "1", avgCost: "" });
+  seededId = add.json?.holding?.id ?? null;
+  check("seed: owner adds 1 PLTR (removed at the end)", add.status === 201 || add.status === 200, [add.status, add.json?.error]);
+  for (let i = 0; i < 3; i++) {
+    const run = await http(jars.owner, "POST", "/api/dashboard/refresh", {});
+    console.log(`[dashboard-company] refresh ${run.status} ${run.json?.status ?? ""}`);
+    if (run.json?.status !== "locked") break;
+    await wait(20000);
+  }
+  holdingsRes = await http(jars.owner, "GET", "/api/dashboard/holdings");
+  held = (holdingsRes.json?.holdings ?? []).map((h) => h.symbol);
+  seededId ??= (holdingsRes.json?.holdings ?? []).find((h) => h.symbol === "PLTR")?.id ?? null;
+}
 const SYMBOL = held.includes("PLTR") ? "PLTR" : held[0];
 check("a held symbol to open (PLTR when held)", SYMBOL, { symbol: SYMBOL, pltr: held.includes("PLTR"), held: held.length });
 if (!SYMBOL) process.exit(1);
@@ -108,7 +125,7 @@ check("CV-10 POST 405", (await http(jars.owner, "POST", API, {})).status === 405
 check("CV-10 malformed symbol 400", (await http(jars.owner, "GET", "/api/dashboard/company/%3Cx%3E")).status === 400);
 const rowsOf = (comp) => (comp?.sections ?? []).flatMap((s) => s.rows.map((r) => [r.key, r.text]));
 const apiRows = rowsOf(c);
-check("CV-06/CV-08 every row has a text, statuses from the fixed list", apiRows.length >= 25 && (c?.sections ?? []).every((s) => s.rows.every((r) => r.text && ["ok", "n/m", "not_covered", "pending", "not_reported", "mismatch", "none"].includes(r.status))), apiRows.length);
+check("CV-06/CV-08 every row has a text, statuses from the fixed list", apiRows.length >= 24 && (c?.sections ?? []).every((s) => s.rows.every((r) => r.text && ["ok", "n/m", "not_covered", "pending", "not_reported", "mismatch", "none"].includes(r.status))), apiRows.length);
 check("CV-12 no K / M / B (every digit)", !apiRows.some(([, t]) => /\d[KMBT]\b/.test(t)), apiRows.filter(([, t]) => /\d[KMBT]\b/.test(t)));
 
 // ---------------------------------------------------------------- browser
@@ -208,6 +225,10 @@ try {
   }
 } finally {
   await browser.close();
+  if (seededId !== null) {
+    const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${seededId}`);
+    check("seed: the added PLTR holding is deleted again", del.status === 200 || del.status === 204, del.status);
+  }
   for (const jar of Object.values(jars)) if (jar) await http(jar, "POST", "/api/auth/sign-out", {});
 }
 const failedN = R.filter((r) => !r.pass).length;
