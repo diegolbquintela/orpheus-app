@@ -92,3 +92,29 @@ export const getDashboardHoldings = createServerFn({ method: "GET" }).handler(as
     storage: "ok" as const,
   };
 });
+
+/**
+ * #95: one held company's view for `/dashboard/company/<SYMBOL>` (database only; attachments/dashboard-company-view-
+ * design.md). 404 while the flag is off. `not_held` for a symbol outside the owner's holdings or a malformed one;
+ * `signed_out` / `not_configured` like the holdings loader (the route redirects or denies first).
+ */
+export const getDashboardCompany = createServerFn({ method: "GET" })
+  .inputValidator((d: { symbol: string }) => ({ symbol: String(d?.symbol ?? "") }))
+  .handler(async ({ data }) => {
+    if (!dashboardEnabledFromEnv()) throw notFound();
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { sessionFromRequestHeaders } = await import("./session.server");
+    const user = await sessionFromRequestHeaders(getRequest().headers);
+    if (!user) return { status: "signed_out" as const };
+    const { getDashboardDb } = await import("./db.server");
+    const db = await getDashboardDb();
+    if (!db) return { status: "not_configured" as const };
+    const { accessOf, surfaceAccess } = await import("../access/access.server");
+    const access = surfaceAccess(await accessOf(db, user, process.env), "dashboard");
+    if (!access.read || !access.dataUserId) return { status: "signed_out" as const };
+    const { loadCompany, normalizeSymbol } = await import("./company.server");
+    const symbol = normalizeSymbol(data.symbol);
+    if (!symbol) return { status: "not_held" as const, symbol: data.symbol.slice(0, 16) };
+    const r = await loadCompany(db, access.dataUserId, symbol, new Date().toISOString().slice(0, 10));
+    return r.status === "ok" ? { status: "ok" as const, view: r.view } : { status: "not_held" as const, symbol };
+  });

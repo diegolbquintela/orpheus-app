@@ -1102,4 +1102,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   price or fundamentals feed from a page or API request. Holdings only (Q-C1).
 - Formulas live in `src/lib/dashboard/company.ts` (pure, tested); a new concept goes into `CONCEPTS` with a
   `FUNDAMENTALS_PARSER_VERSION` bump. Section titles use `.ow-label`; no gold.
-- Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15, Q-C1..Q-C6.
+- Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15, Q-C1..Q-C7.

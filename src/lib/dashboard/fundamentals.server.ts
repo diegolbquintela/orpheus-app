@@ -93,8 +93,10 @@ const liveGet: SecGet = async (url, headers) => {
  * covered symbol stored by an older version is refetched regardless of the 7-day window, and metrics that
  * need newer concepts are not computed from its rows until then (T10 QA F2).
  * 1 = T08 (null in the database). 2 = T10: lease-inclusive debt fallbacks, debt tags ranked before filing date.
+ * 3 = #95 company view: net income, total assets, current liabilities, operating cash flow, capex, diluted shares,
+ *     dividends paid.
  */
-export const FUNDAMENTALS_PARSER_VERSION = 2;
+export const FUNDAMENTALS_PARSER_VERSION = 3;
 
 /** `rankFirst`: the tag order beats the filing date (T10 F1: fallback-only tags never replace a primary tag). */
 export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: string[]; rankFirst?: boolean }> = {
@@ -153,6 +155,33 @@ export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: stri
   },
   current_borrowings_total: { kind: "instant", tags: ["ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings"] },
   cash: { kind: "instant", tags: ["us-gaap:CashAndCashEquivalentsAtCarryingValue", "ifrs-full:CashAndCashEquivalents"] },
+  // #95 company view (attachments/dashboard-company-view-design.md section 3).
+  net_income: {
+    kind: "duration",
+    tags: ["us-gaap:NetIncomeLoss", "us-gaap:ProfitLoss", "ifrs-full:ProfitLossAttributableToOwnersOfParent", "ifrs-full:ProfitLoss"],
+  },
+  total_assets: { kind: "instant", tags: ["us-gaap:Assets", "ifrs-full:Assets"] },
+  current_liabilities: { kind: "instant", tags: ["us-gaap:LiabilitiesCurrent", "ifrs-full:CurrentLiabilities"] },
+  operating_cash_flow: {
+    kind: "duration",
+    tags: [
+      "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+      "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+      "ifrs-full:CashFlowsFromUsedInOperatingActivities",
+    ],
+  },
+  capex: {
+    kind: "duration",
+    tags: ["us-gaap:PaymentsToAcquirePropertyPlantAndEquipment", "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
+  },
+  diluted_shares: {
+    kind: "duration",
+    tags: ["us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding", "ifrs-full:WeightedAverageNumberOfSharesOutstandingDiluted"],
+  },
+  dividends_paid: {
+    kind: "duration",
+    tags: ["us-gaap:PaymentsOfDividendsCommonStock", "us-gaap:PaymentsOfDividends", "ifrs-full:DividendsPaidClassifiedAsFinancingActivities"],
+  },
 };
 
 const ANNUAL_FORMS = new Set(["10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT"]);

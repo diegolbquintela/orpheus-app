@@ -348,6 +348,16 @@ function Row({
             {ok && valued.weight !== null ? <span data-testid="holding-detail-weight">{weightPct(valued.weight)}</span> : <Pending testId="holding-detail-weight" />}
           </Field>
         </dl>
+        {/* #95 (CV-07): the company view for this holding. */}
+        <div className="mt-3">
+          <a
+            href={`/dashboard/company/${encodeURIComponent(holding.symbol)}`}
+            className="underline underline-offset-4"
+            data-testid="holding-company-link"
+          >
+            Open company view
+          </a>
+        </div>
         <div className="mt-4 text-sm">
           {editing ? (
             <>

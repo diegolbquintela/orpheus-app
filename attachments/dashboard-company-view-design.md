@@ -35,7 +35,8 @@ Manager).
 - Averages use the latest and prior fiscal year ends; one missing → the latest alone (labelled `(year end)` in help).
 - Every value shows `—` with a reason when it can't be computed: `Not covered` (no SEC filings: most EU / CA
   listings), `n/m` (negative or zero denominator), `Pending` (data not fetched yet).
-- Money in the company's reporting / listing currency, compact (`$412.3B`); percentages one decimal; multiples
+- Money in the company's reporting / listing currency with every digit (`$412,345,678,901`; the Dashboard
+  leave-out rule DR6: no K / M / B; Q-C7); percentages one decimal; multiples
   one decimal with `×`. Market cap / EV use the listing currency only when it equals the reporting currency;
   otherwise `—` (`currency mismatch`, Q-C4).
 - Fiscal year shown under the section titles (`FY2025`), and the sources line at the bottom: `SEC filings
@@ -95,5 +96,7 @@ CV-01..CV-14 in `qa/CANONICAL-AC-PACK.md`.
 - **Q-C4 (PM)** Foreign filers report in another currency than the listing (e.g. ADRs). → Show per-share ratios only when
   the currencies match; otherwise `—` (`currency mismatch`); no FX conversion in #95.
 - **Q-C5 (PM)** Which chart ranges? → 1Y / 5Y / Max, default 1Y.
+- **Q-C7 (PM)** Fiscal.ai shows `$412.3B`; the Dashboard's leave-out rule (DR6, #59) says no K / M / B. → Keep the
+  rule: every digit (`$412,345,678,901`); a PM go can switch the company view to compact.
 - **Q-C6** EU / CA listings without SEC filings show only price, chart and dividends (`Not covered` elsewhere). → Accept
   (dashboard-spec §7 "The EU and CA gap").
