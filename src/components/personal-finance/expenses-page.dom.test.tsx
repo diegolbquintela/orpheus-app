@@ -1308,32 +1308,50 @@ describe("#119 Expenses summary", () => {
     assert.deepEqual(JSON.parse(await persisted(VIEW_KEY)), { closed: ["summary"] });
   });
 
-  it("read-only: the Summary toggles; the filters stay locked (ROLE-10)", async () => {
+  it("read-only (S7 amended): filters work, totals unchanged; every write stays locked", async () => {
+    const L = (id: string, amount: string, account: string, category: string) => ({
+      id,
+      name: id,
+      amount,
+      per: "month",
+      equity: "",
+      account,
+      currency: "",
+      rate: "",
+      category,
+    });
     dom.window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        fixed: [
-          {
-            id: "a",
-            name: "Rent",
-            amount: "5",
-            per: "month",
-            equity: "",
-            account: "Chase",
-            currency: "",
-            rate: "",
-            category: "",
-          },
-        ],
-        variable: [],
-        accounts: ["Chase"],
-        categories: [],
+        fixed: [L("Rent", "1000", "Chase", "Home"), L("Car", "300", "Amex", "")],
+        variable: [L("Food", "200", "", "")],
+        accounts: ["Chase", "Amex"],
+        categories: ["Home"],
       }),
     );
     const el = await render(NOW, true);
-    assert.equal(qa(el, "pf-acct-row").length, 1);
-    assert.equal(q(el, "pf-acct-filter").matches(":disabled"), true);
-    assert.equal(q(el, "pf-toggle-summary").matches(":disabled"), false);
+    const before = vals(el);
+    assert.equal(q(el, "pf-acct-filter").matches(":disabled"), false);
+    assert.equal(q(el, "pf-filter").matches(":disabled"), false);
+    await type(q(el, "pf-acct-filter"), "Amex");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [1, 0]);
+    assert.equal(qa(el, "pf-acct-row")[1].getAttribute("aria-current"), "true");
+    await type(q(el, "pf-acct-filter"), "");
+    await type(q(el, "pf-filter"), "Home");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [1, 0]);
+    assert.deepEqual(vals(el), before, "filters never change a total");
+    // Every write stays locked: add (S4 path), rename, remove, fields, no Save.
+    for (const id of [
+      "pf-add-fixed",
+      "pf-add-variable",
+      "pf-rename-category",
+      "pf-remove",
+      "pf-monthly",
+      "pf-account",
+      "pf-roic",
+    ])
+      assert.equal(q(el, id).matches(":disabled"), true, id);
+    assert.equal(qa(el, "pf-month-save").length, 0);
     await click(q(el, "pf-toggle-summary"));
     assert.equal(qa(el, "pf-acct-row").length, 0);
   });

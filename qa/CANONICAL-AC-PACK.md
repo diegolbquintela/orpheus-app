@@ -474,6 +474,14 @@ Unit / DOM tests cover PF-67..PF-75; `qa/tools/personal-finance-e2e.mjs` covers 
 
 PF-77 as built (design section 7): read-only toggles the Summary; both filters stay locked (ROLE-10 unchanged).
 
+Amendment rows (EL 07:51 ET, Diego approved; supersede PF-77 and the note above, and amend ROLE-10):
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-77a | BLOCK | Read-only: both filters enabled and work (Amex → its lines, marked; combined with a category); totals unchanged; nothing saved. |
+| PF-77b | BLOCK | Read-only: every write stays locked: `↳ Add expense` (incl. a new line taking the filtered account), `Save`, `Rename`, remove, fields, rates, household currency. |
+| ROLE-10a | BLOCK | Amends ROLE-10: a read-only grantee's enabled controls are the section toggles, the month select and the two expense filters; every other control disabled (roles.mjs). |
+
 ## Shared page parts (#92; site-style-spec section 16)
 
 Refactor: no visible change. Test `scripts/shared-parts.test.mjs` (SP-01..SP-05); preview regression (SP-06, SP-07).

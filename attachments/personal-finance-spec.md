@@ -826,3 +826,7 @@ digits), then `No account`; same style as `By category`. Subtotals sum to `Total
 21.3 **Account filter.** `Filter by account` (`All` + accounts) shows only that account's lines; it combines with
 `Filter by category`. The Summary keeps every account's and category's total and marks the chosen ones. The master
 totals (`Total`, `% of income`, `Equity to cover`) are unchanged and stay in the household currency.
+
+21.4 **Read-only and decisions (EL 07:51 ET).** Read-only grantees can use both filters (view only; totals unchanged);
+every write stays locked (add, including a new line under an account filter, `Save`, `Rename`, remove, fields).
+ROLE-10 is amended accordingly (ROLE-10a). Q-S1..Q-S6 and Q-S8 accepted by the CFO; Q-S7 changed as stated here.

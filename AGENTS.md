@@ -1111,3 +1111,5 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   `By category` live there, not in the Expenses body. Totals by account: `accountTotals` (pure, tested).
 - Filters (category, account) are per visit and never change a total. Design `attachments/pf-expenses-summary-design.md`,
   AC PF-67..PF-78, Q-S1..Q-S8 (CFO).
+- #119 S7 (EL 07:51): read-only may filter (filters sit outside `Lock`); anything that writes stays inside `Lock`
+  or is disabled for read-only (ROLE-10a).

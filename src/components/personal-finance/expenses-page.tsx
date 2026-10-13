@@ -337,9 +337,13 @@ export function PersonalFinancePage({
                   data-testid="pf-body-expenses"
                 >
                   {isOpen(view, "expenses") ? (
-                    <Lock on={readOnly}>
-                      <EquityRates rates={rates} update={updateRates} />
+                    <>
+                      <Lock on={readOnly}>
+                        <EquityRates rates={rates} update={updateRates} />
+                      </Lock>
+                      {/* #119 S7 (amended, EL 07:51): filters are view-only, so read-only grantees can use them. */}
                       <CategoryFilter
+                        readOnly={readOnly}
                         categories={expenses.categories}
                         value={expenses.categories.includes(filter) ? filter : ALL}
                         onChange={setFilter}
@@ -355,23 +359,25 @@ export function PersonalFinancePage({
                           return null;
                         }}
                       />
-                      <div className="flex flex-col gap-12">
-                        <Groups
-                          expenses={expenses}
-                          rate={rateUsed(rates)}
-                          household={household.household}
-                          incomeMonthly={monthly(
-                            netIncomeYearly(income.people, household.household),
-                          )}
-                          filter={expenses.categories.includes(filter) ? filter : ALL}
-                          account={expenses.accounts.includes(acctFilter) ? acctFilter : ALL}
-                          adding={adding}
-                          setAdding={setAdding}
-                          update={update}
-                          updateLine={updateLine}
-                        />
-                      </div>
-                    </Lock>
+                      <Lock on={readOnly}>
+                        <div className="flex flex-col gap-12">
+                          <Groups
+                            expenses={expenses}
+                            rate={rateUsed(rates)}
+                            household={household.household}
+                            incomeMonthly={monthly(
+                              netIncomeYearly(income.people, household.household),
+                            )}
+                            filter={expenses.categories.includes(filter) ? filter : ALL}
+                            account={expenses.accounts.includes(acctFilter) ? acctFilter : ALL}
+                            adding={adding}
+                            setAdding={setAdding}
+                            update={update}
+                            updateLine={updateLine}
+                          />
+                        </div>
+                      </Lock>
+                    </>
                   ) : null}
                 </div>
               </section>
@@ -655,7 +661,10 @@ function CategoryFilter({
   accounts,
   account,
   onAccount,
+  readOnly = false,
 }: {
+  /** #119 S7: read-only grantees filter, but `Rename` (a write) stays disabled. */
+  readOnly?: boolean;
   categories: string[];
   value: string;
   onChange: (value: string) => void;
@@ -717,7 +726,7 @@ function CategoryFilter({
             <button
               type="button"
               className="pf-cancel pf-rename"
-              disabled={value === ALL || renaming}
+              disabled={readOnly || value === ALL || renaming}
               onClick={() => setRenaming(true)}
               data-testid="pf-rename-category"
             >
@@ -726,7 +735,7 @@ function CategoryFilter({
           </>
         ) : null}
       </div>
-      {renaming && value !== ALL ? (
+      {renaming && !readOnly && value !== ALL ? (
         <NewName
           kind="rename"
           initial={value}

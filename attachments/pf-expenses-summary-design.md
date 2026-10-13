@@ -76,3 +76,20 @@ be disabled for a read-only grantee. So, as built: read-only grantees toggle `Ex
 but both filters stay locked like the category filter today. Q-S7 (CFO) recommendation becomes **toggle only;
 filters locked (ROLE-10 unchanged)**; PF-77 is read that way. Opening the filters to read-only would be a ROLE-10
 change for EL to decide.
+
+## 8. S7 changed and CFO acceptance (EL 07:51 ET, Diego approved; supersedes section 7 and the S7 / Q-S7 rows)
+
+- **S7 (new):** read-only grantees CAN use both filters (`Filter by account`, `Filter by category`). Filtering is
+  view-only: nothing is written to the record, and totals do not change. The filters sit outside the read-only lock;
+  everything that writes stays locked: `↳ Add expense` (including the S4 path, where a new line takes the filtered
+  account), `Save`, `Rename`, remove, every field and select on a line, the rates and the household currency.
+  `Rename` is disabled for read-only even with a category chosen.
+- **ROLE-10 amended** (AC pack, ROLE-10a): the enabled controls for read-only are the section toggles, the month
+  select and the two filters.
+- **Accepted by the CFO:** S1 (numeral `03`), S2 (toggle remembered, filters per visit), S3 (AND), S4 (new line takes
+  the filtered account, writers only), S5 (no placeholder), S6 (mark the chosen row, keep all), S8 (`No account`).
+  Q-S1..Q-S6 and Q-S8 are closed as recommended; Q-S7 is closed as above.
+
+| # | Decision | Why |
+|---|----------|-----|
+| S7' | Read-only can filter; every write locked | Filtering is a view; EL / Diego 07:51 ET. |
