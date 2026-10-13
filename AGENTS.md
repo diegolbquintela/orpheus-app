@@ -1094,3 +1094,14 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - New page code uses `.ow-label` / `.ow-button` (`src/styles/parts.css`); do not copy their declarations into a page
   rule. Fonts only in `src/styles/fonts.css`; the preload path only in `src/lib/site/fonts.ts`.
 - `scripts/shared-parts.test.mjs` enforces it (SP-01..SP-05). Site-style-spec section 16.
+
+
+## Encryption at rest (#93)
+
+- Sensitive columns (design section 3: `user.email/name/image`, `session.token/ipAddress/userAgent`, `account`
+  password and tokens, `verification`, `personal_finance.data`) are always written as `enc:v1:` ciphertext. Raw SQL
+  on them goes through `src/lib/crypto` (`sealValue` / `openValue` / `lookupCandidates`); never compare, sort or
+  `lower()` them in SQL.
+- Keys only from `ORPHEUS_ENCRYPTION_KEY` (+ `ORPHEUS_ENCRYPTION_KEYS_OLD`); never log, print or commit a key or a
+  decrypted value. Missing key = fail closed, never a plaintext fallback.
+- Design `attachments/encryption-at-rest-design.md`, AC ENC-01..ENC-13, Q-E1..Q-E6.
