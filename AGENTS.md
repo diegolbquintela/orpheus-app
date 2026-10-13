@@ -1113,3 +1113,10 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   AC PF-67..PF-78, Q-S1..Q-S8 (CFO).
 - #119 S7 (EL 07:51): read-only may filter (filters sit outside `Lock`); anything that writes stays inside `Lock`
   or is disabled for read-only (ROLE-10a).
+
+
+## Company view without SEC filings (#121)
+
+- An uncovered listing gets `coverage` (`Not covered: no SEC filings`) and its own source line; never add a feed call
+  for it from a request. Source decision pending (Q-N1 ESEF free; Q-N3 paid needs Diego). Design
+  `attachments/dashboard-non-sec-coverage-design.md`, AC NC-01..NC-08.
