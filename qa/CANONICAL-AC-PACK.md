@@ -452,6 +452,26 @@ Amends the copy of ST1-01, ROLE-01, the home Platforms line (HP), PFE-03, ROLE-0
 | PF-65 | BLOCK | After Save, every stored month's lines carry the new name (a month saved before shows it when opened). |
 | PF-66 | BLOCK | Read-only: remove buttons and `Rename` disabled, no confirm; the controls ≥ 44 px, no gold, AA, strict CLS 0. |
 
+
+## Personal Finance: Expenses summary, account filter, totals by account (#119; spec section 21)
+
+Unit / DOM tests cover PF-67..PF-75; `qa/tools/personal-finance-e2e.mjs` covers PF-76..PF-78 on the preview.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-67 | BLOCK | `Expenses summary` (numeral `03`) is its own section after `03` Expenses with a toggle (`aria-expanded`); 04–06 keep their numerals. |
+| PF-68 | BLOCK | Closing `Expenses` leaves the Summary open and visible; closing the Summary leaves `Expenses` open; both remembered after reload. |
+| PF-69 | BLOCK | `By account` lists each used account then `No account`: `% of expenses`, `Monthly`, `Yearly`, full digits; the rows sum to `Total`. |
+| PF-70 | BLOCK | `By category` is in the Summary (not the Expenses body), same values as before. |
+| PF-71 | BLOCK | `Filter by account` (`All` + accounts) shows only that account's lines; with a category chosen too, only lines matching both. |
+| PF-72 | BLOCK | With an account chosen, its Summary row is marked (`aria-current`) and every other account's total is still listed; same for a chosen category. |
+| PF-73 | BLOCK | Filters change no total: group totals, `Total`, `% of income`, `% of expenses`, `Equity to cover` equal the unfiltered values. |
+| PF-74 | BLOCK | `↳ Add expense` with an account chosen starts the line on that account; `Save` (#112) appears, nothing saved before it. |
+| PF-75 | BLOCK | A foreign line without a valid rate makes its account's figures `—`; master totals behave as before (Q14). |
+| PF-76 | BLOCK | Preview: account filter, totals by account and the Summary staying visible with `Expenses` collapsed, phone 400 and desktop 1440. |
+| PF-77 | BLOCK | Preview: Read-only CFO can toggle and filter; inputs locked; no `Save`. |
+| PF-78 | BLOCK | Preview: dark style, lyre, footer `Orpheus Wisdom`, no gold, controls ≥ 44 px, strict CLS 0; the other PF suites, roles, audit PASS. |
+
 ## Shared page parts (#92; site-style-spec section 16)
 
 Refactor: no visible change. Test `scripts/shared-parts.test.mjs` (SP-01..SP-05); preview regression (SP-06, SP-07).

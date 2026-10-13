@@ -811,3 +811,18 @@ shown month using it, the filter and `By category`; categories are shared across
 | Q-F7 | Rename across months? | Yes, every stored month on Save (categories are shared). |
 | Q-F8 | The bar with the capital F at 360 px? | Measured on the preview (site-shell ROLE-01); raise if it no longer fits. |
 
+
+## 21. Expenses summary, account filter, totals by account (#119; PF-67..PF-78)
+
+Business user: the CFO. Design `attachments/pf-expenses-summary-design.md` (decisions S1–S7, Q-S1..Q-S8). No
+calculation, currency-model, month-control (#112), sign-in, rename (#113) or Dashboard change.
+
+21.1 **Expenses summary.** A section of its own after `03` `Expenses` (numeral `03`, title `Expenses summary`) with its
+own toggle; closing `Expenses` leaves it visible. It holds `By account` and `By category`, each once used.
+
+21.2 **Totals by account.** Each account's subtotal (`% of expenses`, `Monthly`, `Yearly`, household currency, full
+digits), then `No account`; same style as `By category`. Subtotals sum to `Total`.
+
+21.3 **Account filter.** `Filter by account` (`All` + accounts) shows only that account's lines; it combines with
+`Filter by category`. The Summary keeps every account's and category's total and marks the chosen ones. The master
+totals (`Total`, `% of income`, `Equity to cover`) are unchanged and stay in the household currency.
