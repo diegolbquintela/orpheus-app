@@ -25,6 +25,8 @@ export const AUDIT_ACTIONS = [
   "dash.holding_edit",
   "dash.holding_delete",
   "dash.settings",
+  // #93: the owner ran the encryption migration (detail: encrypt / reencrypt).
+  "account.encryption",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditOutcome = "ok" | "denied" | "failed";

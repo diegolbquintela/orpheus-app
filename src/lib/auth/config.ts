@@ -9,7 +9,10 @@
  *   `VERCEL_URL` / `VERCEL_BRANCH_URL`; local runs use `BETTER_AUTH_URL` or loopback hosts.
  * - Readiness: on Vercel, sign-in needs `BETTER_AUTH_SECRET`, a database URL and an origin.
  *   `VITE_AUTH_ENABLED=false` turns it off everywhere.
+ * - #93: wherever a database URL is set (and always on Vercel), sign-in also needs a valid
+ *   `ORPHEUS_ENCRYPTION_KEY` (fail closed; scripts/data-crypto.mjs). Server-only: imports node:crypto.
  */
+import { keyringFromEnv } from "../../../scripts/data-crypto.mjs";
 
 type Env = Record<string, string | undefined>;
 
@@ -128,6 +131,11 @@ export function authReadiness(env: Env, databaseConfigured: boolean): AuthReadin
   if (value(env, "VERCEL")) {
     if (!value(env, "BETTER_AUTH_SECRET")) return { ready: false, reason: "BETTER_AUTH_SECRET not set" };
     if (!databaseConfigured) return { ready: false, reason: "no database URL set" };
+  }
+  // #93: sensitive columns are encrypted; without a key nothing may be read or written (no plaintext fallback).
+  if (databaseConfigured || value(env, "VERCEL")) {
+    const keys = keyringFromEnv(env);
+    if (!keys.ok) return { ready: false, reason: keys.reason };
   }
   return { ready: true };
 }

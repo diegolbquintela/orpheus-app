@@ -44,6 +44,7 @@ import {
   type DashboardApiDeps,
   dashboardJson as json,
   defaultGetDb,
+  encryptionUnavailable,
   forbiddenResponse,
   storageUnavailable,
   unauthorizedResponse,
@@ -52,6 +53,8 @@ import {
 import { dashboardMethodNotAllowedResponse, guardDashboardApi } from "../dashboard/flag.server.ts";
 import { auditFor, grantsDetail, listAudit, personTarget } from "./audit.server.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
+import { appKeyring, encryptionReadiness } from "../crypto/keys.server.ts";
+import { encryptionStatus, migrateColumns } from "../../../scripts/data-migrate.mjs";
 
 /** Fetch Metadata (same rule as `assertSameSiteRequest`): only same-origin or non-browser requests may write. */
 export function crossSiteWrite(request: Request): boolean {
@@ -69,6 +72,12 @@ async function gate(request: Request, allow: readonly string[], deps: DashboardA
   if (blocked) return blocked;
   if (!allow.includes(request.method.toUpperCase())) return dashboardMethodNotAllowedResponse(allow);
   if (crossSiteWrite(request)) return forbiddenResponse();
+  // #93 (ENC-05): no key, no sensitive read or write (fail closed).
+  const enc = encryptionReadiness(env);
+  if (!enc.ready) {
+    console.error(`[encryption] unavailable: ${enc.reason}`);
+    return encryptionUnavailable();
+  }
   const viewer = await deps.getUser(request.headers);
   if (!viewer) return unauthorizedResponse();
   const db = await (deps.getDb ?? defaultGetDb)(env);
@@ -249,4 +258,25 @@ export async function handleAccountAuditRequest(request: Request, deps: Dashboar
       limit: Number.isFinite(limit) ? limit : 50,
     }),
   );
+}
+
+export const ENCRYPTION_ALLOW = ["GET", "HEAD", "POST"] as const;
+/**
+ * `/api/account/encryption` (#93; attachments/encryption-at-rest-design.md section 6), owner only, `no-store`.
+ * GET: per-column counts (current key / old key / unknown key / plaintext) and the key ids; never a value or a key.
+ * POST `{ "action": "encrypt" | "reencrypt", "dryRun"?: boolean }`: runs the migration and answers the counts.
+ * There is no decrypt over the web (CLI only). 503 `encryption_unavailable` without a valid key.
+ */
+export async function handleAccountEncryptionRequest(request: Request, deps: DashboardApiDeps) {
+  const g = await gate(request, ENCRYPTION_ALLOW, deps);
+  if (g instanceof Response) return g;
+  if (!g.access.owner || g.access.mustChange) return forbiddenResponse();
+  const ring = appKeyring(deps.env ?? process.env);
+  if (request.method.toUpperCase() !== "POST") return json(await encryptionStatus(g.db, ring));
+  const b = await body(request);
+  if (b instanceof Response) return b;
+  if (b.action !== "encrypt" && b.action !== "reencrypt") return badRequest("action must be encrypt or reencrypt.");
+  const result = await migrateColumns(g.db, ring, b.action, { dryRun: b.dryRun === true });
+  if (!result.dryRun) await auditFor(g.db, g.access, "account.encryption", { detail: b.action });
+  return json({ result, status: await encryptionStatus(g.db, ring) });
 }

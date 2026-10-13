@@ -20,6 +20,7 @@ import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in
 import { Route as ApiAccountAccessRouteImport } from './routes/api/account/access'
 import { Route as ApiAccountAuditRouteImport } from './routes/api/account/audit'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
+import { Route as ApiAccountEncryptionRouteImport } from './routes/api/account/encryption'
 import { Route as ApiAccountMeRouteImport } from './routes/api/account/me'
 import { Route as ApiAccountPasswordRouteImport } from './routes/api/account/password'
 import { Route as ApiAccountResetRouteImport } from './routes/api/account/reset'
@@ -91,6 +92,11 @@ const ApiAccountAuditRoute = ApiAccountAuditRouteImport.update({
 const ApiAccountEmailRoute = ApiAccountEmailRouteImport.update({
   id: '/api/account/email',
   path: '/api/account/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAccountEncryptionRoute = ApiAccountEncryptionRouteImport.update({
+  id: '/api/account/encryption',
+  path: '/api/account/encryption',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAccountMeRoute = ApiAccountMeRouteImport.update({
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
+  '/api/account/encryption': typeof ApiAccountEncryptionRoute
   '/api/account/me': typeof ApiAccountMeRoute
   '/api/account/password': typeof ApiAccountPasswordRoute
   '/api/account/reset': typeof ApiAccountResetRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
+  '/api/account/encryption': typeof ApiAccountEncryptionRoute
   '/api/account/me': typeof ApiAccountMeRoute
   '/api/account/password': typeof ApiAccountPasswordRoute
   '/api/account/reset': typeof ApiAccountResetRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
+  '/api/account/encryption': typeof ApiAccountEncryptionRoute
   '/api/account/me': typeof ApiAccountMeRoute
   '/api/account/password': typeof ApiAccountPasswordRoute
   '/api/account/reset': typeof ApiAccountResetRoute
@@ -284,6 +293,7 @@ export interface FileRouteTypes {
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
+    | '/api/account/encryption'
     | '/api/account/me'
     | '/api/account/password'
     | '/api/account/reset'
@@ -314,6 +324,7 @@ export interface FileRouteTypes {
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
+    | '/api/account/encryption'
     | '/api/account/me'
     | '/api/account/password'
     | '/api/account/reset'
@@ -344,6 +355,7 @@ export interface FileRouteTypes {
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
+    | '/api/account/encryption'
     | '/api/account/me'
     | '/api/account/password'
     | '/api/account/reset'
@@ -375,6 +387,7 @@ export interface RootRouteChildren {
   ApiAccountAccessRoute: typeof ApiAccountAccessRoute
   ApiAccountAuditRoute: typeof ApiAccountAuditRoute
   ApiAccountEmailRoute: typeof ApiAccountEmailRoute
+  ApiAccountEncryptionRoute: typeof ApiAccountEncryptionRoute
   ApiAccountMeRoute: typeof ApiAccountMeRoute
   ApiAccountPasswordRoute: typeof ApiAccountPasswordRoute
   ApiAccountResetRoute: typeof ApiAccountResetRoute
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       path: '/api/account/email'
       fullPath: '/api/account/email'
       preLoaderRoute: typeof ApiAccountEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/account/encryption': {
+      id: '/api/account/encryption'
+      path: '/api/account/encryption'
+      fullPath: '/api/account/encryption'
+      preLoaderRoute: typeof ApiAccountEncryptionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/account/me': {
@@ -607,6 +627,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAccountAccessRoute: ApiAccountAccessRoute,
   ApiAccountAuditRoute: ApiAccountAuditRoute,
   ApiAccountEmailRoute: ApiAccountEmailRoute,
+  ApiAccountEncryptionRoute: ApiAccountEncryptionRoute,
   ApiAccountMeRoute: ApiAccountMeRoute,
   ApiAccountPasswordRoute: ApiAccountPasswordRoute,
   ApiAccountResetRoute: ApiAccountResetRoute,

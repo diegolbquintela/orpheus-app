@@ -16,6 +16,9 @@ import {
 } from "./config.ts";
 import { createOrpheusAuth, SESSION_TOKEN_COOKIE, SIGNUP_NOT_ALLOWED_MESSAGE } from "./instance.server.ts";
 import { pgliteDialect } from "./pglite-dialect.ts";
+import { sealedAuthDatabase } from "../crypto/kysely-plugin.ts";
+import { appKeyring } from "../crypto/keys.server.ts";
+import { candidates } from "../crypto/sealed.server.ts";
 import {
   dashboardAuthDiagnostics,
   handleAuthRequest,
@@ -57,7 +60,7 @@ before(async () => {
   await applyMigrations(pg);
   db = { query: async (text, params) => (await pg.query(text, params)).rows as never[] };
   auth = createOrpheusAuth({
-    database: { dialect: pgliteDialect(() => pg), type: "postgres" },
+    database: sealedAuthDatabase(pgliteDialect(() => pg), () => appKeyring()),
     secret: TEST_SECRET,
     baseURL: ORIGIN,
     trustedOrigins: [ORIGIN],
@@ -102,7 +105,7 @@ const api = (path: string, init: RequestInit & { cookie?: string } = {}) => {
 };
 
 const userCount = async (email: string) =>
-  (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM "user" WHERE lower(email) = lower($1)`, [email]))
+  (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM "user" WHERE email = ANY($1)`, [candidates("user", "email", email)]))
     .rows[0].n;
 
 describe("auth migrations", () => {
@@ -191,7 +194,12 @@ describe("config", () => {
   });
 
   it("readiness names what is missing, never values", () => {
-    const vercel = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_URL: "x.vercel.app" };
+    const vercel = {
+      VERCEL: "1",
+      VERCEL_ENV: "preview",
+      VERCEL_URL: "x.vercel.app",
+      ORPHEUS_ENCRYPTION_KEY: `t1:${Buffer.alloc(32, 7).toString("base64")}`,
+    };
     assert.deepEqual(authReadiness({ ...vercel, BETTER_AUTH_SECRET: "s".repeat(40) }, true), { ready: true });
     assert.deepEqual(authReadiness(vercel, true), { ready: false, reason: "BETTER_AUTH_SECRET not set" });
     assert.deepEqual(authReadiness({ ...vercel, BETTER_AUTH_SECRET: "s".repeat(40) }, false), {
@@ -207,12 +215,32 @@ describe("config", () => {
       reason: "BETTER_AUTH_URL not set",
     });
     assert.deepEqual(authReadiness({}, false), { ready: true }, "local runs use PGLite and a per-process secret");
+    // #93 ENC-05: the encryption key is required wherever a database URL is set, and always on Vercel.
+    const ready = { ...vercel, BETTER_AUTH_SECRET: "s".repeat(40) };
+    assert.deepEqual(authReadiness({ ...ready, ORPHEUS_ENCRYPTION_KEY: "" }, true), {
+      ready: false,
+      reason: "ORPHEUS_ENCRYPTION_KEY not set",
+    });
+    assert.deepEqual(authReadiness({ ...ready, ORPHEUS_ENCRYPTION_KEY: "k1:short" }, true), {
+      ready: false,
+      reason: "ORPHEUS_ENCRYPTION_KEY malformed",
+    });
+    assert.deepEqual(authReadiness({ ...ready, ORPHEUS_ENCRYPTION_KEYS_OLD: "bad" }, true), {
+      ready: false,
+      reason: "ORPHEUS_ENCRYPTION_KEYS_OLD malformed",
+    });
+    assert.deepEqual(authReadiness({}, true), { ready: false, reason: "ORPHEUS_ENCRYPTION_KEY not set" });
   });
 });
 
 describe("preview diagnostics", () => {
   it("names the missing piece and whether the allow-list is set, never values", () => {
-    const vercel = { VERCEL: "1", VERCEL_ENV: "preview", VERCEL_URL: "x.vercel.app" };
+    const vercel = {
+      VERCEL: "1",
+      VERCEL_ENV: "preview",
+      VERCEL_URL: "x.vercel.app",
+      ORPHEUS_ENCRYPTION_KEY: `t1:${Buffer.alloc(32, 7).toString("base64")}`,
+    };
     assert.deepEqual(dashboardAuthDiagnostics({ ...vercel, VITE_AUTH_ENABLED: "false" }), {
       signIn: "not configured (VITE_AUTH_ENABLED=false)",
       signUpAllowList: "empty",
@@ -249,7 +277,7 @@ describe("sign-up allow-list (D12)", () => {
 
   it("refuses everyone when the list is empty (fail closed)", async () => {
     const closed = createOrpheusAuth({
-      database: { dialect: pgliteDialect(() => pg), type: "postgres" },
+      database: sealedAuthDatabase(pgliteDialect(() => pg), () => appKeyring()),
       secret: TEST_SECRET,
       baseURL: ORIGIN,
       trustedOrigins: [ORIGIN],

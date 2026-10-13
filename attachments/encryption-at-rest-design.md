@@ -91,7 +91,8 @@ One code path, two entry points: `scripts/data-encryption.mjs <status|encrypt|re
 
 - **Safe / no data loss:** per row, the new value is decrypted again and compared with the original before it is
   written; the UPDATE is conditional (`WHERE id = $1 AND col IS NOT DISTINCT FROM $old`), so a row changed meanwhile
-  is skipped and picked up by the next run. One transaction per table.
+  is skipped and picked up by the next run. Each row is its own atomic UPDATE, so a stop mid-run leaves every row
+  either old or new, never half-written.
 - **Idempotent:** values already under the current kid are skipped; a second run changes 0 rows.
 - **Reversible:** `decrypt` (CLI only, needs `--confirm-plaintext`) writes plaintext back with the same checks;
   the app reads plaintext as legacy, so rolling the code back after `decrypt` is clean.
@@ -120,7 +121,10 @@ One code path, two entry points: `scripts/data-encryption.mjs <status|encrypt|re
 - `src/lib/access/access.server.ts`, `src/lib/finance/account.server.ts`: the raw SQL on those columns goes through
   the same helpers.
 - `src/lib/crypto/migrate.ts` + `scripts/data-encryption.mjs`; `src/lib/crypto/encryption-api.server.ts`.
-- QA: `qa/tools/encryption.mjs` (ENC-08..ENC-10 on the preview; ENC-11/ENC-12 in-process on PGLite).
+- QA: `qa/tools/encryption.mjs` (ENC-08..ENC-10 on the preview; ENC-09 only with `--migrate`, Q-E4; ENC-11 /
+  ENC-12 in-process on PGLite; `--local-only` runs those without a preview).
+- Diagnostics: `/api/dashboard/status` (off production) already shows `signIn: "not configured (ORPHEUS_ENCRYPTION_KEY
+  not set)"` when the key is missing; the owner's `/api/account/encryption` shows the counts.
 
 ## 9. Decision log
 

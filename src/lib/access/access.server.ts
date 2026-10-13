@@ -10,6 +10,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import type { Queryable } from "../dashboard/store.server.ts";
+import { candidates, open, seal } from "../crypto/sealed.server.ts";
 import {
   canRead,
   canWrite,
@@ -40,7 +41,11 @@ export type SurfaceAccess = { read: boolean; write: boolean; owner: boolean; dat
 export async function ownerIdOf(db: Queryable, env: Env): Promise<string | null> {
   const email = ownerEmailFromEnv(env);
   if (!email) return null;
-  const rows = await db.query<{ id: string }>('SELECT id FROM "user" WHERE lower(email) = $1', [email]);
+  // #93: email is sealed deterministically; legacy plaintext rows still match by lower(email).
+  const rows = await db.query<{ id: string }>('SELECT id FROM "user" WHERE email = ANY($1) OR lower(email) = $2', [
+    candidates("user", "email", email),
+    email.toLowerCase(),
+  ]);
   return rows[0]?.id ?? null;
 }
 
@@ -90,9 +95,14 @@ export type Person = { id: string; name: string; email: string; owner: boolean; 
  */
 export async function peopleFor(db: Queryable, acc: AccountAccess): Promise<Person[]> {
   if (!acc.ownerId) return [];
-  const users = await db.query<{ id: string; name: string; email: string }>(
-    'SELECT id, name, email FROM "user" ORDER BY "createdAt", email',
-  );
+  // #93: name / email are sealed, so they are opened and sorted here, never in SQL.
+  const users = (
+    await db.query<{ id: string; name: string; email: string; createdAt: unknown }>(
+      'SELECT id, name, email, "createdAt" FROM "user" ORDER BY "createdAt"',
+    )
+  )
+    .map(openUser)
+    .sort((a, b) => order(a.createdAt) - order(b.createdAt) || (a.email < b.email ? -1 : a.email > b.email ? 1 : 0));
   const grantRows = await db.query<{ user_id: string; surface: Surface; can_read: boolean; can_write: boolean }>(
     "SELECT user_id, surface, can_read, can_write FROM access_grant",
   );
@@ -143,16 +153,23 @@ export async function userById(db: Queryable, id: string) {
     'SELECT id, name, email FROM "user" WHERE id = $1',
     [id],
   );
-  return rows[0] ?? null;
+  return rows[0] ? openUser(rows[0]) : null;
 }
 
 export async function userByEmail(db: Queryable, email: string) {
   const rows = await db.query<{ id: string; name: string; email: string }>(
-    'SELECT id, name, email FROM "user" WHERE lower(email) = $1',
-    [email.toLowerCase()],
+    'SELECT id, name, email FROM "user" WHERE email = ANY($1) OR lower(email) = $2',
+    [candidates("user", "email", email), email.toLowerCase()],
   );
-  return rows[0] ?? null;
+  return rows[0] ? openUser(rows[0]) : null;
 }
+
+/** #93: a user row with its sealed name / email opened. */
+function openUser<T extends { name: string; email: string }>(u: T): T {
+  return { ...u, name: open("user", "name", u.name), email: open("user", "email", u.email) };
+}
+
+const order = (v: unknown) => (v instanceof Date ? v.getTime() : new Date(String(v)).getTime());
 
 /** Signs a person out everywhere (or everywhere but `keepSessionId`). */
 export async function revokeSessions(db: Queryable, userId: string, keepSessionId?: string | null) {
@@ -207,12 +224,12 @@ export async function createPerson(
   await db.query(
     `INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
      VALUES ($1, $2, $3, false, now(), now())`,
-    [id, input.name, input.email],
+    [id, seal("user", "name", input.name), seal("user", "email", input.email.toLowerCase())],
   );
   await db.query(
     `INSERT INTO "account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
      VALUES ($1, $2, 'credential', $2, $3, now(), now())`,
-    [randomUUID().replace(/-/g, ""), id, hash],
+    [randomUUID().replace(/-/g, ""), id, seal("account", "password", hash)],
   );
   await setMustChange(db, id, true, ownerId);
   await setGrants(db, ownerId, id, input.grants);
@@ -224,7 +241,7 @@ export async function resetPassword(db: Queryable, ownerId: string, userId: stri
   const password = temporaryPassword();
   await db.query(
     `UPDATE "account" SET password = $1, "updatedAt" = now() WHERE "userId" = $2 AND "providerId" = 'credential'`,
-    [await hashPassword(password), userId],
+    [seal("account", "password", await hashPassword(password)), userId],
   );
   await setMustChange(db, userId, true, ownerId);
   await revokeSessions(db, userId);
@@ -236,7 +253,7 @@ export async function checkPassword(db: Queryable, userId: string, password: str
     `SELECT password FROM "account" WHERE "userId" = $1 AND "providerId" = 'credential'`,
     [userId],
   );
-  const hash = rows[0]?.password;
+  const hash = open<string | null>("account", "password", rows[0]?.password ?? null);
   if (!hash || !password) return false;
   try {
     return await verifyPassword({ hash, password });
@@ -249,7 +266,7 @@ export async function checkPassword(db: Queryable, userId: string, password: str
 export async function changePassword(db: Queryable, viewer: Viewer, newPassword: string) {
   await db.query(
     `UPDATE "account" SET password = $1, "updatedAt" = now() WHERE "userId" = $2 AND "providerId" = 'credential'`,
-    [await hashPassword(newPassword), viewer.id],
+    [seal("account", "password", await hashPassword(newPassword)), viewer.id],
   );
   await db.query(
     "UPDATE account_state SET must_change_password = false, updated_at = now() WHERE user_id = $1",
@@ -260,7 +277,10 @@ export async function changePassword(db: Queryable, viewer: Viewer, newPassword:
 
 /** ROLE-06: the person's own new email; other sessions signed out. */
 export async function changeEmail(db: Queryable, viewer: Viewer, newEmail: string) {
-  await db.query('UPDATE "user" SET email = $1, "updatedAt" = now() WHERE id = $2', [newEmail, viewer.id]);
+  await db.query('UPDATE "user" SET email = $1, "updatedAt" = now() WHERE id = $2', [
+    seal("user", "email", newEmail.toLowerCase()),
+    viewer.id,
+  ]);
   await revokeSessions(db, viewer.id, viewer.sessionId);
 }
 
