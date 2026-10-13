@@ -52,7 +52,8 @@ export async function loadCompany(db: Queryable, dataUserId: string, symbol: str
     name: inst?.name ?? null,
     exchange: inst?.exchange ?? null,
     currency: inst?.currency ?? closes.at(-1)?.currency ?? "USD",
-    covered: inst?.source === "sec",
+    covered: inst?.source === "sec" || inst?.source === "esef",
+    fundamentalsSource: inst?.source === "esef" ? "esef" : "sec",
     checked: Boolean(inst?.checked),
     closes: closes.map((c) => ({ date: c.date, close: Number(c.close) })),
     // Fiscal years with revenue or net income only (balance-sheet-only dates are kept for averages).

@@ -2,6 +2,7 @@
 // qa/CANONICAL-AC-PACK.md), on a preview with the #90 QA accounts. Credentials from env only, never logged or written:
 //   QA_OWNER_EMAIL / QA_OWNER_PASSWORD (the owner), QA_PM_* (Dashboard Read and write), QA_NONE_* (no grant).
 // #121: --seed also adds 1 RMS.PA (no SEC filings) when not held, checks NC-05 / NC-06 and deletes it at the end.
+// #123: RMS.PA is now covered by ESEF (filings.xbrl.org): ES-09 / ES-10 replace NC-05 / NC-06, ES-11 the cleanup.
 // Read-only unless --seed: then, when the owner holds no PLTR, the tool adds 1 PLTR share as the owner, runs the
 // preview-only daily refresh (closes, SEC companyfacts, metrics) and deletes that holding again at the end. The symbol
 // is PLTR when held, else the first holding (reported).
@@ -93,7 +94,7 @@ for (const k of Object.keys(ACC)) {
 let holdingsRes = await http(jars.owner, "GET", "/api/dashboard/holdings");
 let held = (holdingsRes.json?.holdings ?? []).map((h) => h.symbol);
 let seededId = null;
-// #121 (NC-05..NC-07): an uncovered listing (no SEC filings), seeded like PLTR and deleted at the end.
+// #121 (NC-05..NC-07) / #123 (ES-09..ES-11): RMS.PA (no SEC filings; ESEF since #123), seeded like PLTR, deleted at the end.
 const UNCOVERED = "RMS.PA";
 let uncoveredId = null;
 const SEED = process.argv.includes("--seed");
@@ -239,13 +240,18 @@ try {
     check(`[${vp}] CV-10 not held → "Not in your holdings."`, (await op.locator('[data-testid="company-not-held"]').textContent()) === "Not in your holdings.");
     await octx.close();
   }
-  // ---------------------------------------------------------------- #121 an uncovered listing (NC-05, NC-06)
+  // ---------------------------------------------------------------- #123 RMS.PA covered by ESEF (ES-09, ES-10)
+  // (#121 NC-05 / NC-06 checked RMS.PA as uncovered; #123 covers it from ESEF annual reports.)
   if (held.includes(UNCOVERED)) {
     const ua = await http(jars.owner, "GET", `/api/dashboard/company/${encodeURIComponent(UNCOVERED)}`);
     const u = ua.json?.company;
-    const fund = (u?.sections ?? []).filter((x) => x.key !== "dividends");
-    check(`NC-05 ${UNCOVERED} API 200: coverage line, fundamentals rows Not covered, source line, last close`, ua.status === 200 && u?.coverage === "Not covered: no SEC filings" && fund.every((x) => x.rows.every((r) => r.status === "not_covered" && r.text === "Not covered")) && u?.source === "Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing" && !!u?.last, { status: ua.status, coverage: u?.coverage, source: u?.source, last: u?.last, chart: u?.chart?.length });
-    check(`NC-06 ${UNCOVERED} no K / M / B`, !rowsOf(u).some(([, t]) => /\d[KMBT]\b/.test(t)));
+    const rowsAll = (u?.sections ?? []).flatMap((x) => x.rows);
+    const row = (k) => rowsAll.find((r) => r.key === k);
+    const sample = Object.fromEntries(["revenue", "gross_margin", "operating_margin", "net_margin", "roe", "roic", "pe", "eps", "rev_g_1y", "fcf_margin"].map((k) => [k, row(k)?.text]).filter(([, v]) => v !== undefined));
+    console.log(`[dashboard-company] ${UNCOVERED} FY ${u?.fiscalYear} sample ${JSON.stringify(sample)}`);
+    const ok = rowsAll.filter((r) => r.status === "ok").length;
+    check(`ES-09 ${UNCOVERED} API 200: no coverage line, ESEF source line, fiscal year, figures (not Not covered), margins in %`, ua.status === 200 && !u?.coverage && u?.source === "ESEF annual reports via filings.xbrl.org · daily closes as stored by the Dashboard" && /^20\d\d/.test(u?.fiscalYear ?? "") && ok >= 8 && !rowsAll.some((r) => r.status === "not_covered") && rowsAll.filter((r) => /margin/.test(r.key) && r.status === "ok").every((r) => /%$/.test(r.text)), { status: ua.status, coverage: u?.coverage, source: u?.source, fy: u?.fiscalYear, ok, statuses: rowsAll.map((r) => `${r.key}:${r.status}`).join(",") });
+    check(`ES-10 ${UNCOVERED} no K / M / B`, !rowsOf(u).some(([, t]) => /\d[KMBT]\b/.test(t)));
     for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
       const ctx = await browser.newContext({ viewport });
       await ctx.addCookies(toCookies(jars.owner));
@@ -254,27 +260,28 @@ try {
       page.on("pageerror", (e) => errors.push(String(e)));
       const resp = await page.goto(`${base}/dashboard/company/${encodeURIComponent(UNCOVERED)}`, { waitUntil: "networkidle" });
       const m = await page.evaluate(() => ({
-        line: document.querySelector('[data-testid="company-coverage"]')?.textContent,
-        lineColor: document.querySelector('[data-testid="company-coverage"]') ? getComputedStyle(document.querySelector('[data-testid="company-coverage"]')).color : null,
+        line: document.querySelector('[data-testid="company-coverage"]')?.textContent ?? null,
         svg: !!document.querySelector('[data-testid="company-chart-svg"]'),
         titles: [...document.querySelectorAll('[data-testid^="company-section-"] h2')].map((h) => h.textContent),
         labels: [...document.querySelectorAll('[data-testid^="company-section-"] h2')].every((h) => h.classList.contains("ow-label")),
+        okRows: [...document.querySelectorAll('[data-testid^="company-row-"][data-status="ok"]')].length,
         notCovered: [...document.querySelectorAll('[data-testid^="company-row-"][data-status="not_covered"]')].length,
+        revenue: document.querySelector('[data-testid="company-row-revenue"] dd')?.textContent ?? null,
         source: document.querySelector('[data-testid="company-source"]')?.textContent,
         bg: getComputedStyle(document.body).backgroundColor,
         scroll: document.scrollingElement.scrollWidth - window.innerWidth,
       }));
-      await page.screenshot({ path: join(CFG.out, `uncovered-${vp}.png`), fullPage: true });
-      check(`[${vp}] NC-05 ${UNCOVERED} page 200, no page error, "Not covered: no SEC filings", chart, six sections, Not covered rows, source line`, resp?.status() === 200 && errors.length === 0 && m.line === "Not covered: no SEC filings" && m.svg && m.titles.length === 6 && m.notCovered >= 20 && /no SEC filings for this listing$/.test(m.source ?? ""), { status: resp?.status(), errors, ...m });
-      check(`[${vp}] NC-06 ${UNCOVERED} dark shell, .ow-label, no horizontal scroll`, m.bg === NIGHT && m.labels && m.scroll <= 0, { bg: m.bg, labels: m.labels, scroll: m.scroll });
+      await page.screenshot({ path: join(CFG.out, `esef-${vp}.png`), fullPage: true });
+      check(`[${vp}] ES-09 ${UNCOVERED} page 200, no page error, no coverage line, chart, six sections, figures, ESEF source line`, resp?.status() === 200 && errors.length === 0 && m.line === null && m.svg && m.titles.length === 6 && m.okRows >= 8 && m.notCovered === 0 && /^ESEF annual reports via filings\.xbrl\.org/.test(m.source ?? ""), { status: resp?.status(), errors, ...m });
+      check(`[${vp}] ES-10 ${UNCOVERED} dark shell, .ow-label, no horizontal scroll`, m.bg === NIGHT && m.labels && m.scroll <= 0, { bg: m.bg, labels: m.labels, scroll: m.scroll });
       await ctx.close();
     }
-  } else console.log(`INFO ${UNCOVERED} not held and --seed not given: NC-05 / NC-06 skipped`);
+  } else console.log(`INFO ${UNCOVERED} not held and --seed not given: ES-09 / ES-10 skipped`);
 } finally {
   await browser.close();
   if (uncoveredId !== null) {
     const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${uncoveredId}`);
-    check(`NC-07 seed: the added ${UNCOVERED} holding is deleted again`, del.status === 200 || del.status === 204, del.status);
+    check(`ES-11 seed: the added ${UNCOVERED} holding is deleted again`, del.status === 200 || del.status === 204, del.status);
   }
   if (seededId !== null) {
     const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${seededId}`);

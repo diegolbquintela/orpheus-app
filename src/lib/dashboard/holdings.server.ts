@@ -65,9 +65,9 @@ export function scheduleBackfillInBackground(db: Queryable, symbol: string): voi
     const { createFxFetcher, refreshFx } = await import("./fx.server.ts");
     const fx = await refreshFx(db, createFxFetcher(), { today: new Date().toISOString().slice(0, 10) });
     if (fx.errors.length) console.error(`[backfill] FX: ${fx.errors.join("; ")}`);
-    // T08: SEC coverage and annual facts for the new symbol (skipped without SEC_CONTACT_EMAIL).
-    const { refreshFundamentals, secSourceFromEnv } = await import("./fundamentals.server.ts");
-    const f = await refreshFundamentals(db, secSourceFromEnv(), { only: [symbol] });
+    // T08: SEC coverage and annual facts for the new symbol (SEC skipped without SEC_CONTACT_EMAIL); #123: ESEF for EU.
+    const { refreshFundamentals, fundamentalsSourceFromEnv } = await import("./fundamentals.server.ts");
+    const f = await refreshFundamentals(db, await fundamentalsSourceFromEnv(), { only: [symbol] });
     if (f.errors.length) console.error(`[backfill] fundamentals: ${f.errors.map((e) => e.error).join("; ")}`);
   })().catch(() => console.error(`[backfill] ${symbol} failed`));
   try {

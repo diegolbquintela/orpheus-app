@@ -21,6 +21,8 @@ export type CompanyInput = {
   currency: string;
   /** SEC companyfacts coverage (`instruments.fundamentals_source = 'sec'`). */
   covered: boolean;
+  /** #123: which filings cover it (`'esef'` = ESEF annual reports via filings.xbrl.org); default SEC. */
+  fundamentalsSource?: "sec" | "esef";
   /** Fundamentals checked yet (`fundamentals_checked_at` not null). */
   checked: boolean;
   /** Daily closes, oldest first. */
@@ -62,6 +64,8 @@ export type RangeKey = (typeof RANGES)[number]["key"];
 
 export const SECTION_TITLES = ["Profile", "Margins", "Returns", "Valuation", "Growth", "Dividends"] as const;
 export const SOURCE_LINE = "SEC filings (companyfacts) · daily closes as stored by the Dashboard";
+/** #123 (ES-08): an ESEF-covered listing's source line (figures in the filing currency). */
+export const SOURCE_LINE_ESEF = "ESEF annual reports via filings.xbrl.org · daily closes as stored by the Dashboard";
 /** #121 (NC-01, NC-03): an uncovered listing's top line and source line. */
 export const NOT_COVERED_LINE = "Not covered: no SEC filings";
 export const SOURCE_LINE_UNCOVERED = "Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing";
@@ -285,6 +289,6 @@ export function companyView(input: CompanyInput): CompanyView {
       { key: "dividends", title: "Dividends", note: "Trailing twelve months", rows: dividends },
     ],
     coverage: gap === "not_covered" ? NOT_COVERED_LINE : null,
-    source: gap === "not_covered" ? SOURCE_LINE_UNCOVERED : SOURCE_LINE,
+    source: gap === "not_covered" ? SOURCE_LINE_UNCOVERED : input.fundamentalsSource === "esef" ? SOURCE_LINE_ESEF : SOURCE_LINE,
   };
 }

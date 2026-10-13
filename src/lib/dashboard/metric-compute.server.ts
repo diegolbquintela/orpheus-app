@@ -313,7 +313,7 @@ export async function computeStoredMetrics(db: Queryable, symbol: string): Promi
 export async function symbolsMissingMetrics(db: Queryable): Promise<string[]> {
   const rows = await db.query<{ symbol: string }>(
     `SELECT i.symbol FROM instruments i
-     WHERE i.fundamentals_source = 'sec'
+     WHERE i.fundamentals_source IN ('sec', 'esef')
        AND i.symbol IN (SELECT DISTINCT symbol FROM holdings)
        AND ((SELECT count(*) FROM metric_values m WHERE m.symbol = i.symbol AND m.metric_key = ANY($1::text[])) < $2
          OR EXISTS (SELECT 1 FROM metric_values m, jsonb_each_text($3::jsonb) AS need(k, v)

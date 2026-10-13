@@ -1128,3 +1128,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   the daily job only (`src/lib/dashboard/esef.server.ts`); polite UA, ≥ 1 s between requests, ≤ 6 documents a
   symbol. Parse with `annualFactsFromEsef` (pure); tests use `src/lib/dashboard/fixtures/esef-hermes.json`, never a
   live call. Design `attachments/dashboard-esef-fundamentals-design.md`, AC ES-01..ES-12, Q-E1..Q-E8.
+- #123 build note: the ESEF fixture is `test-fixtures/esef/hermes-2026-10-13-subset.json` (not under `src/lib/dashboard/`; DASH-00 scans that folder). Unit tests inject fake fetches (`createEsefSource({ get })`, `deps.fundamentals`); no live SEC / ESEF / GLEIF calls.

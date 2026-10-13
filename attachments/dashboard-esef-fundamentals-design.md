@@ -84,3 +84,11 @@ between requests to each host; ≤ 6 filing documents per symbol per refresh; 7-
 | Q-E6 | Ticker → LEI without ISIN? | Pinned table + GLEIF name/country; store an ISIN later if the price feed gives one. |
 | Q-E7 (PM) | Employees? | Still `Not reported` (no standard ESEF tag). |
 | Q-E8 | filings.xbrl.org down or rate-limited? | Keep stored facts, record the error, retry next run. |
+
+### Build notes (#123 code commit)
+
+- The recorded fixture lives with the other recorded sources: `test-fixtures/esef/hermes-2026-10-13-subset.json` (filings list + FY2023 / FY2024 / FY2025 documents, trimmed to the mapped tags plus a few dimensional facts; facts verbatim). It replaces the `src/lib/dashboard/fixtures/esef-hermes.json` path named above (DASH-00 scans every file under `src/lib/dashboard/`).
+- The broad IFRS capex tag (Q-E5) is an ESEF-only fallback (`ESEF_EXTRA_TAGS` in `esef.server.ts`), so SEC filers' capex is unchanged.
+- Parser version 4 also rechecks, once, an EU listing stored as `none` by parser 3 (RMS.PA on the shared preview database), since ESEF may now cover it. US / CA `none` rows are not rechecked early.
+- Without `SEC_CONTACT_EMAIL` the job still runs ESEF for EU listings; US / CA listings are left as they are (not marked not covered).
+- Live smoke (box, 2026-10-13): RMS.PA pinned LEI, 7 requests in 6.4 s; FY2019–FY2025; FY2024 revenue 15,170,000,000; FY2025 revenue 16,002,000,000, net income 4,524,000,000, diluted EPS 43.07 (EUR).
