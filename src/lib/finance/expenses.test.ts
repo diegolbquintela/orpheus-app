@@ -200,3 +200,60 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
     );
   });
 });
+
+// #119 (PF-69, PF-71, PF-75): totals by account and the combined filter.
+import { accountTotals, matchesFilters, newFilteredLine } from "./expenses.ts";
+describe("#119 accountTotals / matchesFilters", () => {
+  const ln = (id: string, amount: string, account: string, category = "", extra = {}) => ({
+    ...newFilteredLine(category, account),
+    id,
+    amount,
+    ...extra,
+  });
+  it("each used account in order, then No account; sums to the grand total", () => {
+    const e = {
+      fixed: [ln("a", "1000", "Chase"), ln("b", "500", "Amex")],
+      variable: [ln("c", "100", ""), ln("d", "50", "Chase")],
+      accounts: ["Amex", "Chase", "Unused"],
+      categories: [],
+    };
+    const rows = accountTotals(e);
+    assert.deepEqual(
+      rows.map((r) => [r.name, r.totals.monthly]),
+      [
+        ["Amex", 500],
+        ["Chase", 1050],
+        ["", 100],
+      ],
+    );
+    assert.equal(
+      rows.reduce((t, r) => t + (r.totals.monthly ?? 0), 0),
+      1650,
+    );
+  });
+  it("empty when no line has an account", () => {
+    assert.deepEqual(
+      accountTotals({ fixed: [ln("a", "1", "")], variable: [], accounts: ["X"], categories: [] }),
+      [],
+    );
+  });
+  it("a foreign line without a rate makes its account —", () => {
+    const e = {
+      fixed: [ln("a", "100", "Wise", "", { currency: "BRL", rate: "" }), ln("b", "10", "Chase")],
+      variable: [],
+      accounts: ["Wise", "Chase"],
+      categories: [],
+    };
+    const rows = accountTotals(e, null, "USD");
+    assert.equal(rows[0].totals.monthly, null);
+    assert.equal(rows[1].totals.monthly, 10);
+  });
+  it("filters combine with AND; '' is every line", () => {
+    const l = ln("a", "1", "Chase", "Home");
+    assert.equal(matchesFilters(l, "", ""), true);
+    assert.equal(matchesFilters(l, "Home", "Chase"), true);
+    assert.equal(matchesFilters(l, "Home", "Amex"), false);
+    assert.equal(matchesFilters(l, "Food", ""), false);
+    assert.equal(newFilteredLine("Home", "Chase").account, "Chase");
+  });
+});

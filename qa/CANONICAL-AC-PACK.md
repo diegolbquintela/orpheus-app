@@ -472,6 +472,8 @@ Unit / DOM tests cover PF-67..PF-75; `qa/tools/personal-finance-e2e.mjs` covers 
 | PF-77 | BLOCK | Preview: Read-only CFO can toggle and filter; inputs locked; no `Save`. |
 | PF-78 | BLOCK | Preview: dark style, lyre, footer `Orpheus Wisdom`, no gold, controls ≥ 44 px, strict CLS 0; the other PF suites, roles, audit PASS. |
 
+PF-77 as built (design section 7): read-only toggles the Summary; both filters stay locked (ROLE-10 unchanged).
+
 ## Shared page parts (#92; site-style-spec section 16)
 
 Refactor: no visible change. Test `scripts/shared-parts.test.mjs` (SP-01..SP-05); preview regression (SP-06, SP-07).

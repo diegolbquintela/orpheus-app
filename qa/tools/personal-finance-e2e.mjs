@@ -1,4 +1,4 @@
-// Personal Finance end-to-end (#98; #105 adds PF-40..47: toggles, hidden income lines, categories; #112 the month control; spec attachments/personal-finance-spec.md section 17, PFE-01..13): one journey a
+// Personal Finance end-to-end (#98; #105 adds PF-40..47: toggles, hidden income lines, categories; #112 the month control; #119 PF-67..PF-73, PF-76 the Expenses summary / account filter; spec attachments/personal-finance-spec.md section 17, PFE-01..13): one journey a
 // CFO would type, on the preview, at 360 × 780, 400 × 860, 1024 × 800 and 1440 × 900.
 //
 //   Signed out (always): PFE-01 entry points (bar item, home Platforms Open, the URL) end on the sign-in form with
@@ -246,6 +246,43 @@ try {
       check(`${tag} PF-45 Filter by category Home: Fixed shows Rent and Condo, Variable none; every total unchanged; All shows the three again`, JSON.stringify(shown) === "[2,0]" && JSON.stringify(tf) === JSON.stringify(f2.totals) && back === 3, { shown, tf, back });
       const cb = await page.evaluate(() => { const r = (sel) => { const b = document.querySelector(`[data-testid=pf-group-fixed] [data-testid=pf-line] ${sel}`).getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), h: Math.round(b.height) }; }; return { acct: r("[data-testid=pf-account]"), cat: r("[data-testid=pf-category]"), rm: r("[data-testid=pf-remove]") }; });
       check(`${tag} PF-47 layout: Category ${wide ? "the last column before remove" : "on its own row under Account"}; 44 px`, cb.cat.h >= 44 && (wide ? cb.cat.y === cb.acct.y && cb.cat.x > cb.acct.x && cb.rm.x > cb.cat.x : cb.cat.y > cb.acct.y), cb);
+
+      // #119 (PF-67..PF-73, PF-76): Expenses summary, totals by account, account filter.
+      {
+        const sumRows = (id) => page.getByTestId(`pf-${id}-row`).evaluateAll((rs, k) => rs.map((r) => [...["name", "share", "monthly", "yearly"].map((c) => r.querySelector(`[data-testid=pf-${k}-${c}]`).textContent.trim()), r.getAttribute("aria-current")]), id);
+        const head = await page.getByTestId("pf-summary-block").evaluate((b) => ({ num: b.querySelector(".pf-label")?.textContent, title: b.querySelector("h2")?.textContent, prev: b.previousElementSibling?.getAttribute("data-testid"), next: b.nextElementSibling?.querySelector(".pf-label")?.textContent, inBody: !!document.querySelector("[data-testid=pf-body-expenses] [data-testid=pf-categories]"), inSum: !!b.querySelector("[data-testid=pf-categories]") && !!b.querySelector("[data-testid=pf-accounts]") }));
+        check(`${tag} PF-67 / PF-70 Expenses summary: numeral 03, after 03 Expenses, before 04; By account and By category inside it (not in the Expenses body)`, head.num === "03" && head.title === "Expenses summary" && head.prev === "pf-expenses-block" && head.next === "04" && !head.inBody && head.inSum, head);
+        const acc0 = await sumRows("acct");
+        const wantAcc = [["Chequing", "66.7%", "1,000", "12,000", null], ["Visa", "6.7%", "100", "1,200", null], ["No account", "26.7%", "400", "4,800", null]];
+        check(`${tag} PF-69 By account: Chequing 66.7% / 1,000 / 12,000, Visa 6.7% / 100 / 1,200, No account 26.7% / 400 / 4,800 (sum = Total 1,500)`, JSON.stringify(acc0) === JSON.stringify(wantAcc), acc0);
+        const opts = await page.getByTestId("pf-acct-filter").evaluate((s) => [...s.options].map((o) => o.textContent));
+        await page.getByTestId("pf-acct-filter").selectOption("Visa");
+        const shownA = [await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count(), await page.locator("[data-testid=pf-group-variable] [data-testid=pf-line]").count()];
+        const tA = { fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all") };
+        const accA = await sumRows("acct");
+        const mark = await page.locator("[data-testid=pf-acct-row][aria-current=true]").evaluate((r) => ({ shadow: getComputedStyle(r).boxShadow, name: getComputedStyle(r.querySelector("[data-testid=pf-acct-name]")).color }));
+        check(`${tag} PF-71 / PF-73 Filter by account (All, Chequing, Visa) → Visa: only Gifts shows; every total unchanged`, JSON.stringify(opts) === '["All","Chequing","Visa"]' && JSON.stringify(shownA) === "[0,1]" && JSON.stringify(tA) === JSON.stringify(f2.totals), { opts, shownA, tA });
+        check(`${tag} PF-72 Visa's Summary row marked (aria-current, chalk rule, no gold); Chequing and No account still listed with their totals`, JSON.stringify(accA.map((r) => r.slice(0, 4))) === JSON.stringify(wantAcc.map((r) => r.slice(0, 4))) && JSON.stringify(accA.map((r) => r[4])) === '[null,"true",null]' && mark.shadow.includes(CHALK) && mark.name === CHALK, { accA, mark });
+        await page.getByTestId("pf-filter").selectOption("Home");
+        const both = await page.locator("[data-testid=pf-line]").count();
+        const catMark = await page.locator("[data-testid=pf-cat-row][aria-current=true]").getAttribute("data-category").catch(() => null);
+        await page.getByTestId("pf-filter").selectOption("");
+        await page.getByTestId("pf-acct-filter").selectOption("");
+        check(`${tag} PF-71 / PF-72 Visa + Home combine (no line); the Home category row marked; All / All shows the three again`, both === 0 && catMark === "Home" && (await page.locator("[data-testid=pf-line]").count()) === 3, { both, catMark });
+        // PF-68 / PF-76: Summary stays visible with Expenses collapsed; toggles alone; stored.
+        await page.getByTestId("pf-toggle-expenses").click();
+        const col = await page.evaluate(() => { const b = document.querySelector("[data-testid=pf-body-summary]"); const r = b.getBoundingClientRect(); return { exp: document.querySelector("[data-testid=pf-toggle-expenses]").getAttribute("aria-expanded"), expBody: document.querySelector("[data-testid=pf-body-expenses]").children.length, sum: document.querySelector("[data-testid=pf-toggle-summary]").getAttribute("aria-expanded"), rows: b.querySelectorAll("[data-testid=pf-acct-row], [data-testid=pf-cat-row]").length, h: Math.round(r.height), sw: document.documentElement.scrollWidth <= innerWidth, th: Math.round(document.querySelector("[data-testid=pf-toggle-summary]").getBoundingClientRect().height) }; });
+        await shot(page, `e2e-summary-${viewport.width}.png`);
+        check(`${tag} PF-68 / PF-76 Expenses collapsed: its body empty, the Summary still open with 3 account + 2 category rows; toggle ≥ 44 px; no horizontal scroll`, col.exp === "false" && col.expBody === 0 && col.sum === "true" && col.rows === 5 && col.h > 0 && col.th >= 44 && col.sw, col);
+        await page.getByTestId("pf-toggle-summary").click();
+        await page.getByTestId("pf-toggle-expenses").click();
+        await settle(page);
+        const view = (await acct(page, base, "GET")).body?.data?.["orpheus.finance.view.v1"];
+        const st = await page.evaluate(() => ({ exp: document.querySelector("[data-testid=pf-toggle-expenses]").getAttribute("aria-expanded"), sum: document.querySelector("[data-testid=pf-toggle-summary]").getAttribute("aria-expanded"), sumBody: document.querySelector("[data-testid=pf-body-summary]").children.length, lines: document.querySelectorAll("[data-testid=pf-line]").length }));
+        check(`${tag} PF-68 Summary closed alone (Expenses open, 3 lines); stored as {closed:[summary]}`, st.exp === "true" && st.sum === "false" && st.sumBody === 0 && st.lines === 3 && view === '{"closed":["summary"]}', { st, view });
+        await page.getByTestId("pf-toggle-summary").click();
+        await settle(page);
+      }
 
       // PFE-07 equity cover.
       await page.getByTestId("pf-roic").fill("8");

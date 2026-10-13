@@ -148,6 +148,9 @@ const emptyTexts = (wide) => [
   "↳ Add expense",
   ...totalTexts("Variable total", wide),
   ...totalTexts("Total", wide),
+  // #119 (PF-67): Expenses summary, numeral 03, empty until an account / category is used.
+  "03",
+  "Expenses summary",
   // #94: 04 Overview and 05 Update (the chart's plot is aria-hidden and skipped; its legend counts).
   "04",
   "Overview",

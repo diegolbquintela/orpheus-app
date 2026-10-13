@@ -23,7 +23,9 @@ async function render(now: Date = NOW, readOnly = false): Promise<HTMLElement> {
   container = dom.window.document.createElement("div");
   dom.window.document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => root!.render(<PersonalFinancePage now={now} loadStore={loadLocalStore} readOnly={readOnly} />));
+  await act(async () =>
+    root!.render(<PersonalFinancePage now={now} loadStore={loadLocalStore} readOnly={readOnly} />),
+  );
   return container;
 }
 
@@ -59,7 +61,14 @@ const qa = (el: ParentNode, id: string) => [...el.querySelectorAll(`[data-testid
 const text = (el: ParentNode, id: string) => q(el, id).textContent;
 const lines = (el: HTMLElement, group: string) => qa(q(el, `pf-group-${group}`), "pf-line");
 // #112: `Save` writes the whole record (the shown month's lines and every shared value).
-const SAVED_KEYS = [STORAGE_KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY, MONTHS_KEY].sort();
+const SAVED_KEYS = [
+  STORAGE_KEY,
+  INCOME_KEY,
+  EQUITY_KEY,
+  CURRENCY_KEY,
+  OVERVIEW_KEY,
+  MONTHS_KEY,
+].sort();
 // #113: removals ask first; the browser confirm is answered with `answer` and every question recorded.
 const confirm = { answer: true, asked: [] as string[] };
 dom.window.confirm = (message?: string) => {
@@ -82,7 +91,7 @@ describe("personal finance page (#84)", () => {
     assert.equal(el.querySelector("h1")!.textContent, "Personal Finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
-      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Overview"],
+      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Expenses summary", "Overview"],
     );
     for (const head of qa(el, "pf-head"))
       assert.deepEqual(
@@ -108,6 +117,7 @@ describe("personal finance page (#84)", () => {
         "Expenses",
         "↳ Add expense",
         "↳ Add expense",
+        "Expenses summary", // #119 (PF-67)
         "Overview",
         "Future",
       ],
@@ -289,7 +299,7 @@ describe("income block (#85)", () => {
         .filter((l) => /^0[1-3]$/.test(l.textContent!))
         .map((l) => l.textContent)
         .join(" "),
-      "01 02 03",
+      "01 02 03 03", // #119 (PF-67): Expenses summary is numbered 03 (Q-S1)
     );
     assert.equal(dom.window.localStorage.getItem(INCOME_KEY), null);
   });
@@ -752,14 +762,18 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(hasSave(el), false, "Save hides after saving");
     assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"]);
     assert.deepEqual(ov(el, "income"), ["11,200", "11,200"]);
-    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
+      "2026-10",
+    ]);
     // An empty past month: a copy of the current saved lines and the note; nothing stored.
     await type(month(el), "2026-06");
     assert.equal(month(el).value, "2026-06");
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(hasSave(el), true, "a copy is unsaved");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
-    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
+      "2026-10",
+    ]);
     await type(lines(el, "fixed")[0].querySelector('[data-testid="pf-monthly"]')!, "4,000");
     await type(q(el, "pf-person-wages"), "108,000");
     await click(q(el, "pf-month-save"));
@@ -826,7 +840,9 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     );
     let el = await render();
     assert.equal(hasSave(el), false, "no change shown");
-    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
+      "2026-10",
+    ]);
     assert.deepEqual(ov(el, "expenses"), ["1,750", "2,875"], "the old June total still counts");
     await type(month(el), "2026-06");
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
@@ -882,7 +898,9 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
     assert.equal(hasSave(el), true);
-    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"]);
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
+      "2026-10",
+    ]);
     await click(q(el, "pf-month-save"));
     assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
       "2026-10",
@@ -1144,7 +1162,10 @@ describe("usability (#105, PF-40..46)", () => {
     assert.equal(qa(el, "pf-new-rename").length, 0);
     // Saved: every stored month follows (PF-65).
     const saved = JSON.parse(await persisted(MONTHS_KEY));
-    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).categories, ["House", "Fun"]);
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(STORAGE_KEY)!).categories, [
+      "House",
+      "Fun",
+    ]);
     assert.equal(saved["2026-10"].fixed[0].category, "House");
   });
 
@@ -1179,5 +1200,141 @@ describe("usability (#105, PF-40..46)", () => {
     const saved = JSON.parse(await persisted(MONTHS_KEY));
     assert.equal(saved["2026-06"].fixed[0].category, "House");
     assert.equal(saved["2026-10"].fixed[0].category, "House");
+  });
+});
+
+// #119 (PF-67..PF-74): Expenses summary, account filter, totals by account.
+describe("#119 Expenses summary", () => {
+  async function account(line: Element, name: string) {
+    await type(q(line, "pf-account"), "__add-account__");
+    await type(q(line, "pf-new-account-input"), name);
+    await click(q(line, "pf-new-account-add"));
+  }
+  const vals = (el: ParentNode) =>
+    ["fixed", "variable", "all"].map((g) =>
+      [...q(el, `pf-total-${g}`).querySelectorAll(".pf-value")].map((v) => v.textContent),
+    );
+  it("its own section and toggle; By account / By category; filter by account; totals unchanged", async () => {
+    const el = await render();
+    const block = q(el, "pf-summary-block");
+    assert.equal(block.querySelector(".pf-label")!.textContent, "03");
+    assert.equal(block.querySelector("h2")!.textContent, "Expenses summary");
+    assert.equal(
+      block.previousElementSibling!.getAttribute("data-testid"),
+      "pf-expenses-block",
+      "right after 03 Expenses",
+    );
+    assert.equal(qa(el, "pf-accounts").length, 0, "nothing before an account is used");
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-variable"));
+    const [rent, car] = lines(el, "fixed");
+    const [food] = lines(el, "variable");
+    await type(q(rent, "pf-monthly"), "1,000");
+    await type(q(car, "pf-monthly"), "300");
+    await type(q(food, "pf-yearly"), "2,400");
+    await account(rent, "Chase");
+    await account(car, "Amex");
+    await type(q(rent, "pf-category"), "__add-category__");
+    await type(q(rent, "pf-new-category-input"), "Home");
+    await click(q(rent, "pf-new-category-add"));
+    // By category moved into the Summary.
+    assert.equal(qa(q(el, "pf-body-expenses"), "pf-categories").length, 0);
+    assert.equal(qa(block, "pf-categories").length, 1);
+    const acct = q(block, "pf-accounts");
+    assert.equal(acct.querySelector("h3")!.textContent, "By account");
+    const rows = () =>
+      qa(el, "pf-acct-row").map((r) => [
+        text(r, "pf-acct-name"),
+        text(r, "pf-acct-share"),
+        text(r, "pf-acct-monthly"),
+        text(r, "pf-acct-yearly"),
+        r.getAttribute("aria-current"),
+      ]);
+    assert.deepEqual(rows(), [
+      ["Chase", "66.7%", "1,000", "12,000", null],
+      ["Amex", "20.0%", "300", "3,600", null],
+      ["No account", "13.3%", "200", "2,400", null],
+    ]);
+    // Account filter.
+    assert.equal(
+      q(el, "pf-acct-filter-cell").querySelector("label")!.textContent,
+      "Filter by account",
+    );
+    assert.deepEqual(
+      [...(q(el, "pf-acct-filter") as HTMLSelectElement).options].map((o) => o.textContent),
+      ["All", "Chase", "Amex"],
+    );
+    const before = vals(el);
+    await type(q(el, "pf-acct-filter"), "Amex");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [1, 0]);
+    assert.deepEqual(vals(el), before, "the filter never changes a total");
+    assert.deepEqual(
+      rows().map((r) => [r[0], r[4]]),
+      [
+        ["Chase", null],
+        ["Amex", "true"],
+        ["No account", null],
+      ],
+    );
+    // Combined with the category filter: Amex ∧ Home = nothing.
+    await type(q(el, "pf-filter"), "Home");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [0, 0]);
+    assert.equal(qa(el, "pf-cat-row")[0].getAttribute("aria-current"), "true");
+    await type(q(el, "pf-filter"), "");
+    // New line under the account filter starts on it.
+    await click(q(el, "pf-add-variable"));
+    assert.equal((q(lines(el, "variable")[0], "pf-account") as HTMLSelectElement).value, "Amex");
+    assert.equal(qa(el, "pf-month-save").length, 1, "unsaved until Save (#112)");
+    await type(q(el, "pf-acct-filter"), "");
+    assert.deepEqual([lines(el, "fixed").length, lines(el, "variable").length], [2, 2]);
+  });
+
+  it("collapsing Expenses leaves the Summary; each toggles alone; remembered", async () => {
+    const el = await render();
+    await click(q(el, "pf-add-fixed"));
+    const [rent] = lines(el, "fixed");
+    await type(q(rent, "pf-monthly"), "10");
+    await account(rent, "Chase");
+    await click(q(el, "pf-toggle-expenses"));
+    assert.equal(q(el, "pf-toggle-expenses").getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-toggle-summary").getAttribute("aria-expanded"), "true");
+    assert.equal(qa(el, "pf-acct-row").length, 1, "Summary still visible");
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(qa(el, "pf-acct-row").length, 0);
+    await click(q(el, "pf-toggle-expenses"));
+    assert.equal(lines(el, "fixed").length, 1);
+    assert.equal(q(el, "pf-toggle-summary").getAttribute("aria-expanded"), "false");
+    assert.deepEqual(JSON.parse(await persisted(VIEW_KEY)), { closed: ["summary"] });
+  });
+
+  it("read-only: the Summary toggles; the filters stay locked (ROLE-10)", async () => {
+    dom.window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        fixed: [
+          {
+            id: "a",
+            name: "Rent",
+            amount: "5",
+            per: "month",
+            equity: "",
+            account: "Chase",
+            currency: "",
+            rate: "",
+            category: "",
+          },
+        ],
+        variable: [],
+        accounts: ["Chase"],
+        categories: [],
+      }),
+    );
+    const el = await render(NOW, true);
+    assert.equal(qa(el, "pf-acct-row").length, 1);
+    assert.equal(q(el, "pf-acct-filter").matches(":disabled"), true);
+    assert.equal(q(el, "pf-toggle-summary").matches(":disabled"), false);
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(qa(el, "pf-acct-row").length, 0);
   });
 });

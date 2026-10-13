@@ -68,3 +68,11 @@ categories). No calculation, currency-model, month-control, sign-in or Dashboard
 | Q-S6 (CFO) | How is the selected account shown? | Chalk left rule + `aria-current`; all accounts still listed; same for a chosen category. |
 | Q-S7 (CFO) | Read-only roles? | May toggle and filter; nothing saved. |
 | Q-S8 (CFO) | Lines with no account? | A `No account` row (as `No category`). |
+
+## 7. Amendment while building (supersedes the Q-S7 reading above)
+
+ROLE-10 (roles.mjs, accepted) requires every Personal Finance control but the section toggles and the month select to
+be disabled for a read-only grantee. So, as built: read-only grantees toggle `Expenses summary` and see every total,
+but both filters stay locked like the category filter today. Q-S7 (CFO) recommendation becomes **toggle only;
+filters locked (ROLE-10 unchanged)**; PF-77 is read that way. Opening the filters to read-only would be a ROLE-10
+change for EL to decide.
