@@ -141,6 +141,8 @@ export const windowRange = (window: MonthKey[]): string =>
   `${MONTH_ABBR.format(toDate(window[0]))}\u2013${MONTH_ABBR.format(toDate(window[window.length - 1]))}`;
 /** C7: `3-month average (Jul–Sep)`, on the column and the coverage line. */
 export const average3Label = (window: MonthKey[]): string => `${AVERAGE_3} (${windowRange(window)})`;
+/** #132 (PF-115..PF-117): `12-month average (Nov–Oct)` over `summary.months` (household month + 11 before), the 3-month style. */
+export const average12Label = (months: MonthKey[]): string => `${AVERAGE} (${windowRange(months)})`;
 
 /** The month after `key`. */
 export function nextMonth(key: MonthKey): MonthKey {

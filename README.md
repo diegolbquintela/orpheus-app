@@ -611,3 +611,5 @@ Since the CFO's answers (2026-10-14) line 2 reads `* 12.5% yearly, covers 0.50% 
 **Withdrawal rate description (#131).** Directly above `Withdrawal rate (%)` under Expenses, a two-line
 note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. Design
 `attachments/pf-withdrawal-description-design.md`.
+
+**12-month average month range (#132).** The Overview's 12-month column names its months the same way as the 3-month one, e.g. `12-month average (Nov–Oct)` on Oct 14, rolling over on the 1st in Toronto. Spec section 25, PF-115..PF-120.

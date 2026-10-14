@@ -20,6 +20,12 @@ import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { API, PATH, acct, contrastScan, line, ready, settle, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
+const avg12Label = (now = new Date()) => {
+  // #132 (PF-115): the household month and the 11 before it, in America/Toronto, the 3-month label style.
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
+  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
+  return `12-month average (${name(11)}\u2013${name(0)})`;
+};
 const avg3Label = (now = new Date()) => {
   // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
@@ -336,7 +342,7 @@ try {
       const scroll = await page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
       check(`${tag} PF-104 (#129) coverage lines 2–3 in a smaller font than line 1 (${covFont.join(" / ")} px)`, covFont.length === 3 && covFont[1] < covFont[0] && covFont[2] < covFont[0], { covFont });
       check(`${tag} PF-89 (#126) Equity coverage directly under the table: start 10,000 × rate used ${rateNow}% → ${wantCov.join(" / ")}`, JSON.stringify(cv) === JSON.stringify(wantCov) && order === "pf-coverage", { cv, wantCov, order });
-      check(`${tag} PF-89 (#126) This month · 3-month average · 12-month average; C7: ${avg3Label()} = 2,750 / 10,516.67 / 7,766.67 (Jul, Aug, Sep empty take the 12-month average); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), "12-month average"]) && JSON.stringify(avg3) === JSON.stringify(["2,750", "10,516.67", "7,766.67"]) && scroll <= 0, { heads, avg3, scroll });
+      check(`${tag} PF-89 (#126) / PF-120 (#132) This month · 3-month average · ${avg12Label()}; C7: ${avg3Label()} = 2,750 / 10,516.67 / 7,766.67 (Jul, Aug, Sep empty take the 12-month average); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label()]) && JSON.stringify(avg3) === JSON.stringify(["2,750", "10,516.67", "7,766.67"]) && scroll <= 0, { heads, avg3, scroll });
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 

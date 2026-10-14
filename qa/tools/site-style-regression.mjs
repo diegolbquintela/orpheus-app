@@ -36,6 +36,12 @@ import { mkdirSync, readFileSync, writeFileSync, createWriteStream } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
+const avg12Label = (now = new Date()) => {
+  // #132 (PF-115): the household month and the 11 before it, in America/Toronto, the 3-month label style.
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
+  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
+  return `12-month average (${name(11)}\u2013${name(0)})`;
+};
 const avg3Label = (now = new Date()) => {
   // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
@@ -90,7 +96,7 @@ const PAGES = [
       // #126: + the 3-month column and the Equity coverage line (no rate yet → — and its note).
       // #94: 04 Overview (the table all —, the two fields, the Future toggle; the chart's plot aria-hidden, its legend
       // visible) and 05 Update (Month, Expenses, Income).
-      const overview = ["04", "Overview", "This month", avg3Label(), "12-month average", "Expenses", "—", "—", "—", "Income", "—", "—", "—", "Surplus", "—", "—", "—", "Equity coverage:", "—", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", "Starting net assets", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
+      const overview = ["04", "Overview", "This month", avg3Label(), avg12Label(), "Expenses", "—", "—", "—", "Income", "—", "—", "—", "Surplus", "—", "—", "—", "Equity coverage:", "—", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", "Starting net assets", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
       // #131 (Q-W7): the two Withdrawal rate description lines before `Withdrawal rate (%)`.
       // #87: the Household currency select (its label; a closed select's options are not on screen) above Income.
       return ["01", "Personal Finance.", "Household currency", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate used to calculate how much equity can cover expenses.", "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total"), ...overview];
