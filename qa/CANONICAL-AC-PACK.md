@@ -653,3 +653,33 @@ Unit / DOM tests cover PF-115..PF-119; the preview suites cover PF-120.
 | PF-118 | BLOCK | The 3-month average, its label and window (PF-91..PF-95) are unchanged. |
 | PF-119 | BLOCK | Equity coverage text (#129, PF-98..PF-107) and the Withdrawal rate description (#131) are unchanged; read-only sees the same header. |
 | PF-120 | BLOCK | Preview: personal-finance (empty page), site-style-regression (PF copy list) and personal-finance-e2e show the dated header; dark style, lyre, footer `Orpheus Wisdom`, no gold; no horizontal scroll at 400 px. |
+
+## Personal Finance: 12-month average over 12 complete months (#140; spec section 26)
+
+Unit / DOM tests cover PF-121..PF-127; the preview suites cover PF-128. Supersedes the 12-month window of PF-26..31 / Q18 and PF-116, and the `Nov–Oct` header of PF-115 (rows stay as the record).
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-121 | BLOCK | The 12-month average is the mean over the last 12 COMPLETE household months (America/Toronto), the current partial month excluded; on 2026-10-14: Oct 2025..Sep 2026; header `12-month average (Oct–Sep)` (`pf-ov-avg-head`). Supersedes PF-116 and the PF-115 example. |
+| PF-122 | BLOCK | Rollover / timezone: 2026-10-31T23:59-04:00 → `Oct–Sep`; 2026-11-01T00:00-04:00 → `Nov–Oct`; 2026-11-01T03:30Z → `Oct–Sep`; January 2027 → `Jan–Dec`. Unit under TZ=UTC and America/Los_Angeles. |
+| PF-123 | BLOCK | Q-T1 / Q-T2: fewer than 12 complete months with a figure → the mean of those; empty months left out; the label still names the full window. |
+| PF-124 | BLOCK | Q-T3 / Q-T5: no complete month with a figure → 12-month average `—`; the 3-month average is the mean of its months with a figure else `—`; Future and Future-on coverage not computed; the current month's figure never enters the 12-month average. |
+| PF-125 | BLOCK | C8 fill and Future use the new average: an empty 3-month / chart month takes it; future points' expenses = it (supersedes the PF-107 value), so Future-on coverage (PF-106) divides by it. |
+| PF-126 | BLOCK | Unchanged: `This month`, the chart's 12 months (current + 11 before), the 3-month window / label, Future-off coverage (÷ 3-month average), coverage layout (#129), Withdrawal rate (#131). |
+| PF-127 | BLOCK | DOM: the header, the 12-month and 3-month figures and Future-on coverage follow the new window on 2026-10-14, and roll over at Nov 1 00:30 ET. |
+| PF-128 | BLOCK | Preview: personal-finance (empty page `emptyTexts`), site-style-regression PF copy list and personal-finance-e2e (12-month = June only 4,000 / 9,000 / 5,000; net assets 75,533.33) show the new header and figures; dark style, lyre, footer `Orpheus Wisdom`, no gold. |
+
+### #141 Q-T1 (CFO-changed): 12-month label count (spec section 27)
+| ID | Acceptance criterion |
+|---|---|
+| PF-129 | All 12 complete months have data (expenses or income): the 12-month header is dated, `12-month average (Oct–Sep)` on Oct 14, 2026, and rolls over at 00:00 on the 1st in Toronto (`Nov–Oct`). |
+| PF-130 | Fewer than 12 have data: the header reads `12-month average (N of 12 months)`, e.g. `(8 of 12 months)` (the CFO's example), with no range. An income-only month counts. The figures are unchanged. The e2e (June alone) reads `(1 of 12 months)`. |
+| PF-131 | None has data: `12-month average (0 of 12 months)` and the figures are `—` (Q-T3). The empty-page QA copy lists read `(0 of 12 months)`. |
+
+PF-129..PF-131 supersede the PF-115/PF-121 header example and PF-123's "full-window label" when fewer than 12 months have data. The Future-on coverage note names no range and is unchanged.
+
+| ID | Acceptance criterion (#141 addendum, CFO via EL) |
+|---|---|
+| PF-132 | For the 12-month expense average and the N-of-12 count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0: 8 expense months + 1 income-only month give `12-month average (8 of 12 months)` and an expense average over 8. The fill, Future and coverage use that average. The income average keeps its own months. This supersedes PF-130's "an income-only month counts". |
+
+PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated label too, a month has data only if it has expense entries.

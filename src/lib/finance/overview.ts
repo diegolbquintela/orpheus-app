@@ -129,10 +129,14 @@ export function previousMonth(key: MonthKey): MonthKey {
  * C7 (approved 2026-10-13): the last 3 COMPLETE months, oldest first, excluding the current partial month of
  * `today` in the household timezone. Oct 13 2026 → 2026-07, 2026-08, 2026-09; Jan → Oct–Dec of the year before.
  */
+export function completeMonths(today: Date, n: number, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
+  const out: MonthKey[] = [previousMonth(householdMonth(today, timeZone))];
+  while (out.length < n) out.unshift(previousMonth(out[0]));
+  return out;
+}
+
 export function completeMonths3(today: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
-  const m1 = previousMonth(householdMonth(today, timeZone));
-  const m2 = previousMonth(m1);
-  return [previousMonth(m2), m2, m1];
+  return completeMonths(today, 3, timeZone);
 }
 
 const MONTH_ABBR = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
@@ -143,6 +147,13 @@ export const windowRange = (window: MonthKey[]): string =>
 export const average3Label = (window: MonthKey[]): string => `${AVERAGE_3} (${windowRange(window)})`;
 /** #132 (PF-115..PF-117): `12-month average (Nov–Oct)` over `summary.months` (household month + 11 before), the 3-month style. */
 export const average12Label = (months: MonthKey[]): string => `${AVERAGE} (${windowRange(months)})`;
+/**
+ * #141 Q-T1 (CFO-changed, PF-129..PF-131): all 12 complete months with data → the dated label
+ * (`12-month average (Oct–Sep)`); fewer → the count replaces the range, `12-month average (8 of 12 months)`
+ * (the CFO's example format); 0 → `12-month average (0 of 12 months)` with the figures `—` (Q-T3).
+ */
+export const average12CountLabel = (window12: MonthKey[], withData: number): string =>
+  withData >= window12.length ? average12Label(window12) : `${AVERAGE} (${withData} of ${window12.length} months)`;
 
 /** The month after `key`. */
 export function nextMonth(key: MonthKey): MonthKey {
@@ -211,6 +222,10 @@ export type Summary = {
   average3: Figures;
   /** C7: the 3 complete months behind `average3`, oldest first. */
   window3: MonthKey[];
+  /** #140 (PF-121): the 12 complete months behind `average`, oldest first. */
+  window12: MonthKey[];
+  /** #141 Q-T1 / PF-132: how many of `window12` have an expenses figure (income-only months excluded). */
+  window12WithData: number;
   points: Point[];
 };
 
@@ -229,9 +244,16 @@ export function summarize(
   const months = lastTwelve(now, timeZone);
   const current = months[months.length - 1];
   const figures = months.map((key) => monthFigures(overview, key, current, page, lines));
+  // #140 (PF-121..PF-125): the 12-month average is over the last 12 COMPLETE household months (current month
+  // excluded, as C7 for the 3-month); empty months are left out (Q-T2); none with a figure → null (Q-T3).
+  const window12 = completeMonths(now, 12, timeZone);
+  const figures12 = window12.map((key) => monthFigures(overview, key, current, page, lines));
+  // #141 (CFO via EL, PF-132): a month has data only with expense entries; an income-only month is neither counted
+  // nor averaged as $0 (its expenses are null, so the expense mean already leaves it out).
+  const window12WithData = figures12.filter((f) => f.expenses !== null).length;
   const average: Figures = {
-    expenses: mean(figures.map((f) => f.expenses)),
-    income: mean(figures.map((f) => f.income)),
+    expenses: mean(figures12.map((f) => f.expenses)),
+    income: mean(figures12.map((f) => f.income)),
   };
   let net: number | null = orZero(overview.start);
   const points: Point[] = months.map((key, i) => {
@@ -264,7 +286,7 @@ export function summarize(
     expenses: mean(last3.map((f) => f.expenses ?? average.expenses)),
     income: mean(last3.map((f) => f.income ?? average.income)),
   };
-  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, points };
+  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, window12, window12WithData, points };
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);

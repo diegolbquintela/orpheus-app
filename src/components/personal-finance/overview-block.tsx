@@ -12,7 +12,7 @@ import { AMOUNT_ERROR, formatAmount, NOT_COMPUTED, parseAmount } from "@/lib/fin
 import { formatRate } from "@/lib/finance/equity";
 import {
   average3Label,
-  average12Label,
+  average12CountLabel,
   COVERAGE_SOURCE_NOTE,
   coverageRateNote,
   type Coverage,
@@ -114,7 +114,7 @@ export function OverviewBlock({
         >
           {open ? (
             <Lock on={readOnly}>
-              <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12Label(summary.months)} />
+              <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12CountLabel(summary.window12, summary.window12WithData)} />
               <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
