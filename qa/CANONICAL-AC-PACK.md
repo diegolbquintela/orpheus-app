@@ -681,3 +681,5 @@ PF-129..PF-131 supersede the PF-115/PF-121 header example and PF-123's "full-win
 | ID | Acceptance criterion (#141 addendum, CFO via EL) |
 |---|---|
 | PF-132 | For the 12-month expense average and the N-of-12 count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0: 8 expense months + 1 income-only month give `12-month average (8 of 12 months)` and an expense average over 8. The fill, Future and coverage use that average. The income average keeps its own months. This supersedes PF-130's "an income-only month counts". |
+
+PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated label too, a month has data only if it has expense entries.

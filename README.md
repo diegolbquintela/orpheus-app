@@ -617,3 +617,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **12-month average uses complete months (#140).** The 12-month average now covers the last 12 complete Toronto months, leaving out the current partial month, the same rule as the 3-month average: on Oct 14, 2026 it reads `12-month average (Oct–Sep)`. The empty-month fill, the Future projection and Future-on coverage follow it; fewer than 12 months average what exists; with no complete month it shows `—`. Spec section 26, PF-121..PF-128 (supersede PF-115's example, PF-116 and the PF-107 value).
 
 **12-month label count (#141).** If fewer than 12 complete months have data, the header reads `12-month average (8 of 12 months)` (the CFO's format) instead of the range. With 0 it reads `(0 of 12 months)` and the figures are `—`. Labelling only. Spec section 27, PF-129..PF-131.
+
+**12-month count: expense months only (#141, PF-132).** For the 12-month expense average and its `(N of 12 months)` count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0; the income average keeps its own months.
