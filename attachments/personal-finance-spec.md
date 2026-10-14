@@ -891,3 +891,20 @@ All six Q-L answers are confirmed by the CFO (Q-L2, Q-L3, Q-L5, Q-L6 as recommen
 - Future off: `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (the window follows the date).
 - Future on: `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).` The share divides by the horizon-end point's expenses (EL, option b); the projection holds expenses at the 12-month average, so the figure is unchanged. Growing expenses are out of scope.
 - AC PF-105..PF-107 (supersede the PF-100 / PF-103 wording and the PF-84 expenses term).
+
+## 24. Expenses: Withdrawal rate description (#131; PF-108..PF-114)
+
+Directly above `Withdrawal rate (%)` under `03` `Expenses`, a two-line description in the note style (0.875rem, dim,
+sentence text; not a title, heading or label), `pf-withdrawal-desc`:
+
+```
+Withdrawal rate used to calculate how much equity can cover expenses.
+Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.
+```
+
+- Line 2 differs from the brief (`… the lower of your Withdrawal Rate or half of Portfolio ROIC.`) because Rate used is
+  the typed withdrawal rate, else ROIC ÷ 2 (section 13, PF-18; both typed, the withdrawal rate wins). The formula does
+  not change in #131 (Q-W1).
+- Shown to read-only grantees; the withdrawal input is `aria-describedby` it. An approved exception to PF-02's "no
+  other text". Design and Q-W1..Q-W7: `attachments/pf-withdrawal-description-design.md`.
+

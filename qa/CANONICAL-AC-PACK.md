@@ -624,3 +624,19 @@ Unit / DOM tests cover PF-98..PF-103; `qa/tools/personal-finance-e2e.mjs` covers
 | PF-105 | BLOCK | Change (Q-L1 CFO-confirmed, 2026-10-14; supersedes the PF-100 line-2 wording): Future off line 2 reads `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (window from the date); expenses missing / 0 → `covers — of …`. Unit + DOM. |
 | PF-106 | BLOCK | Change (Q-L4 CFO-confirmed as option b, 2026-10-14; supersedes the PF-103 line-2 wording and the PF-84 expenses term): Future on, the share divides by the horizon-end point's expenses (`summary.points.at(-1).expenses`); no point → `none` as before; line 2 reads `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).` Unit + DOM. |
 | PF-107 | BLOCK | The projection holds expenses flat: the horizon-end point's expenses equal the 12-month average today, so the PF-106 figure equals the earlier one; growing expenses are out of scope. Unit. |
+
+## Personal Finance: Expenses Withdrawal rate description (#131; spec section 24)
+
+Unit / DOM tests cover PF-108..PF-112; `qa/tools/personal-finance.mjs` (signed in, QA credentials) covers PF-113 on the
+preview; PF-114 is the regression set. Copy and style only: PF-18 (Rate used) is unchanged.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-108 | BLOCK | `pf-withdrawal-desc` has exactly two `<p>` lines: `Withdrawal rate used to calculate how much equity can cover expenses.` and `Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.` (Q-W1). |
+| PF-109 | BLOCK | Placement: under `03` `Expenses`, the description is the element immediately before `pf-rates` (nothing between), so it precedes the `Withdrawal rate (%)` label; the rates row itself is unchanged (PF-17 labels and order). |
+| PF-110 | BLOCK | Description style: no `h1`–`h6`, no `role="heading"`, not `.pf-label` / `.ow-label`; class `pf-desc` (0.875rem, dim, no uppercase). |
+| PF-111 | BLOCK | The withdrawal input's `aria-describedby` includes the description's id; with a bad rate it also includes the error id. |
+| PF-112 | BLOCK | Read-only: the description shows inside the locked block; Rate used unchanged (withdrawal 5 + ROIC 8 → `5%`; ROIC 8 alone → `4%`). |
+| PF-113 | BLOCK | Preview (`personal-finance`, signed in, 360 / 400 / 1024 / 1440): both lines visible, bottom of the block above the top of the `Withdrawal rate (%)` label, font size smaller than the body text and not uppercase, dim colour, no horizontal scroll; dark style, lyre, footer `Orpheus Wisdom`, no gold. |
+| PF-114 | BLOCK | Preview: site-style-regression (258 with axe), home-page (154 with axe), site-shell, no-grok, personal-finance, pf-months, personal-finance-e2e PASS (font-load flakes noted as intermittent). |
+

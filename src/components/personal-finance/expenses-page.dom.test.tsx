@@ -1498,3 +1498,43 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   });
 });
 
+
+describe("#131 Withdrawal rate description (PF-108..PF-112)", () => {
+  const LINES = [
+    "Withdrawal rate used to calculate how much equity can cover expenses.",
+    "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
+  ];
+  it("PF-108 / PF-109 / PF-110: two description lines right before the rates row, note style, not a title", async () => {
+    const el = await render();
+    const desc = q(el, "pf-withdrawal-desc");
+    assert.deepEqual([...desc.querySelectorAll("p")].map((p) => p.textContent), LINES);
+    assert.equal(desc.children.length, 2);
+    assert.equal(desc.nextElementSibling, q(el, "pf-rates"), "nothing between the description and the rates row");
+    const label = q(el, "pf-rates").querySelector(".pf-label")!;
+    assert.equal(label.textContent, "Withdrawal rate (%)");
+    assert.ok(desc.compareDocumentPosition(label) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    assert.ok(desc.classList.contains("pf-desc"));
+    assert.equal(desc.querySelectorAll("h1, h2, h3, h4, h5, h6, [role=heading], .pf-label, .ow-label").length, 0);
+    assert.ok(!desc.matches("h1, h2, h3, h4, h5, h6, [role=heading], .pf-label, .ow-label"));
+  });
+  it("PF-111: the withdrawal input is described by the description, plus the error when bad", async () => {
+    const el = await render();
+    const desc = q(el, "pf-withdrawal-desc");
+    const wd = q(el, "pf-withdrawal");
+    assert.equal(wd.getAttribute("aria-describedby"), desc.id);
+    assert.equal(q(el, "pf-roic").getAttribute("aria-describedby"), null);
+    await type(wd, "150");
+    const ids = (wd.getAttribute("aria-describedby") ?? "").split(" ");
+    const err = q(el, "pf-rates").querySelector('[data-testid="pf-error"][data-field="withdrawal"]')!;
+    assert.deepEqual(ids, [desc.id, err.id]);
+    assert.equal(wd.getAttribute("aria-invalid"), "true");
+  });
+  it("PF-112: read-only sees the description inside the lock; Rate used as before (5 + ROIC 8 → 5%)", async () => {
+    dom.window.localStorage.setItem(EQUITY_KEY, JSON.stringify({ withdrawal: "5", roic: "8" }));
+    const el = await render(NOW, true);
+    const desc = q(el, "pf-withdrawal-desc");
+    assert.deepEqual([...desc.querySelectorAll("p")].map((p) => p.textContent), LINES);
+    assert.ok(desc.closest('[data-testid="pf-lock"]'));
+    assert.equal(text(q(el, "pf-rates"), "pf-rate-used"), "5%");
+  });
+});

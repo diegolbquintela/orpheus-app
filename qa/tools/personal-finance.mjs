@@ -141,6 +141,9 @@ const emptyTexts = (wide) => [
   ...(wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"]),
   "03",
   "Expenses",
+  // #131 (Q-W7): the Withdrawal rate description, an approved exception to "no other text".
+  "Withdrawal rate used to calculate how much equity can cover expenses.",
+  "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
   "Withdrawal rate (%)",
   "Portfolio ROIC (%)",
   "Rate used",
@@ -518,6 +521,27 @@ try {
       const rateLabels = await page.getByTestId("pf-rates").evaluate((r) => [...r.querySelectorAll(".pf-label")].map((l) => ({ t: l.textContent.trim(), vis: l.getBoundingClientRect().width > 1 })));
       const names = [await wd.evaluate((e) => e.labels?.[0]?.textContent), await roic.evaluate((e) => e.labels?.[0]?.textContent)];
       check(`${tag} PF-17 Withdrawal rate (%) / Portfolio ROIC (%) inputs with visible labels, Rate used —, before Fixed`, JSON.stringify(rateLabels) === JSON.stringify([{ t: "Withdrawal rate (%)", vis: true }, { t: "Portfolio ROIC (%)", vis: true }, { t: "Rate used", vis: true }]) && JSON.stringify(names) === '["Withdrawal rate (%)","Portfolio ROIC (%)"]' && (await used()) === "—" && (await page.getByTestId("pf-rates").evaluate((r) => !!(r.compareDocumentPosition(document.querySelector("[data-testid=pf-group-fixed]")) & Node.DOCUMENT_POSITION_FOLLOWING))), { rateLabels, names });
+      // #131 (PF-108..PF-113): the Withdrawal rate description above the rates row.
+      const descM = await page.getByTestId("pf-withdrawal-desc").evaluate((d) => {
+        const rates = document.querySelector("[data-testid=pf-rates]");
+        const label = rates?.querySelector(".pf-label");
+        const s = getComputedStyle(d);
+        const r = d.getBoundingClientRect();
+        const lr = label?.getBoundingClientRect();
+        return {
+          lines: [...d.querySelectorAll("p")].map((p) => p.textContent.trim()),
+          nextIsRates: d.nextElementSibling === rates,
+          headings: d.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading],.pf-label,.ow-label").length,
+          size: parseFloat(s.fontSize),
+          transform: s.textTransform,
+          color: s.color,
+          above: lr ? r.bottom <= lr.top + 1 : false,
+          scroll: document.scrollingElement.scrollWidth - window.innerWidth,
+        };
+      });
+      const DESC = ["Withdrawal rate used to calculate how much equity can cover expenses.", "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set."];
+      check(`${tag} PF-108 / PF-109 / PF-110 / PF-113 Withdrawal rate description: two lines, right before pf-rates, above the Withdrawal rate label, note style (smaller, dim, not uppercase, no heading), no horizontal scroll`, JSON.stringify(descM.lines) === JSON.stringify(DESC) && descM.nextIsRates && descM.headings === 0 && descM.size <= 15 && descM.transform === "none" && descM.color === "rgb(168, 174, 180)" /* --color-dim */ && descM.above && descM.scroll <= 0, descM);
+
       const h0 = await holders();
       await roic.fill("8");
       const a8 = { used: await used(), holders: await holders(), totals: await eqTotals() };
