@@ -2,6 +2,7 @@
  * #95 Dashboard company view (attachments/dashboard-company-view-design.md sections 2 and 4): header, price chart with
  * 1Y / 5Y / Max, then Profile, Margins, Returns, Valuation, Growth, Dividends. Renders `companyView()` output only
  * (the API returns the same). Dark shell tokens, shared `.ow-label`; no gold.
+ * #124: a fund shows `company-fund` (the fund line) in place of the five company sections; Dividends stay.
  */
 import { useState } from "react";
 import { DERIVED_MARKER, pct, RANGES, rangeOf, type CompanyView, type ChartPoint, type RangeKey } from "@/lib/dashboard/company";
@@ -92,6 +93,19 @@ export function CompanyViewPage({ view }: { view: CompanyView }) {
       </section>
 
       <div className="mt-10 grid gap-x-12 gap-y-10 lg:grid-cols-2">
+        {view.fund ? (
+          // #124 (FD-09): a fund: one line in place of the Profile / Margins / Returns / Valuation / Growth sections.
+          <section data-testid="company-fund" aria-labelledby="company-h-fund">
+            <div className="border-b border-hair pb-2">
+              <h2 id="company-h-fund" className="ow-label">
+                Fund
+              </h2>
+            </div>
+            <p className="py-2 text-sm text-dim" data-testid="company-fund-line">
+              {view.fund}
+            </p>
+          </section>
+        ) : null}
         {view.sections.map((s) => (
           <section key={s.key} data-testid={`company-section-${s.key}`} aria-labelledby={`company-h-${s.key}`}>
             <div className="flex items-baseline justify-between gap-3 border-b border-hair pb-2">

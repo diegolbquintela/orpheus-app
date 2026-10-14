@@ -584,3 +584,26 @@ Unit / DOM tests cover PF-79..PF-88; `qa/tools/personal-finance-e2e.mjs` covers 
 | PF-95 | BLOCK | Change (C7, approved 2026-10-13): the window is computed at render time from the current date in the household timezone (America/Toronto), never hardcoded: Oct 31 → Jul–Sep, Nov 1 → Aug–Oct; the UTC instant 2026-11-01T03:30Z (still Oct 31 in Toronto) → Jul–Sep, 2026-11-01T04:30Z → Aug–Oct. Unit + DOM. |
 | PF-96 | BLOCK | Change (N1, 2026-10-13): `This month` and the 12 months (`lastTwelve`) use the household month (`householdMonth()`, America/Toronto), the same as the 3-month window; a UTC server or a browser west of Toronto never shows next month early or counts a month twice. 2026-10-31T20:00 / 20:30 / 23:59 ET (already Nov 1 in UTC) → This month = Oct, window Jul–Sep; 2026-11-01T00:00 ET → Nov, Aug–Oct. Unit (TZ=UTC and America/Los_Angeles) + DOM. |
 | PF-97 | BLOCK | Change (PF-84 confirmed by the CFO, 2026-10-13): beside the coverage % a dim basis label (`pf-coverage-basis`): `basis: 3-mo avg (Jul–Sep)` with Future off (window computed from the date), `basis: projection` with Future on. Unit + DOM. |
+
+## Dashboard: funds / ETFs on the company view (#124; dashboard-spec section 18)
+
+Unit tests (`src/lib/dashboard/openfigi.test.ts`, recorded fixture `test-fixtures/openfigi/mapping-2026-10-14.json`, no
+live call) cover FD-01..FD-08; the DOM test (`company-view.dom.test.tsx`) covers FD-09..FD-10;
+`qa/tools/dashboard-company.mjs --seed` covers FD-11..FD-14 on the preview.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| FD-01 | BLOCK | `figiJob`: `VDY.TO` → TICKER `VDY` / `CN`; `RMS.PA` → `RMS` / `FP`; `PLTR` → `PLTR` / `US`; `BRK-B` → `BRK/B` / `US`; an unmapped suffix (e.g. `X.ZZ`) → null (no request). |
+| FD-02 | BLOCK | `classifyFigi` on the recorded answers: VDY, XEQT, SPY (ETP), PDI (Closed-End Fund), VFIAX (Open-End Fund) → `fund`; RMS, PLTR, RY, BRK/B (Common Stock), O (REIT) → `company`; `No identifier found.` → `unknown`. |
+| FD-03 | BLOCK | The job stores `provider_ids.openfigi` `{kind, securityType, securityType2, figi, checkedAt}` for held symbols and keeps the other provider ids. |
+| FD-04 | BLOCK | Refresh: a stored fund / company result is not asked again before 30 days, an unknown one before 7 days; older ones are asked again. |
+| FD-05 | BLOCK | Limits: ≤ 10 jobs a request, ≥ 2,500 ms between requests, ≤ 3 requests a run; no API key header is sent. |
+| FD-06 | BLOCK | Failure (HTTP 429 / 500, thrown error, bad JSON): nothing stored, the run stops asking, the error is in the summary; the next run asks again. |
+| FD-07 | BLOCK | `companyView` for a fund: `kind` `fund`, `fund` = `Fund: company figures do not apply`, sections = Dividends only, `coverage` null, source `Daily closes and dividends as stored by the Dashboard · fund type from OpenFIGI`; last close, chart and dividend rows as for a company. |
+| FD-08 | BLOCK | `companyView` for a company / unknown / unclassified listing is unchanged (six sections; #121 / #123 coverage and source lines as before); `loadCompany` reads the stored kind. |
+| FD-09 | BLOCK | DOM: a fund shows `company-fund` with the line in place of the five company sections (none of `company-section-profile/margins/returns/valuation/growth`), `company-section-dividends`, the chart and range buttons, and no `company-coverage`. |
+| FD-10 | BLOCK | DOM: a company view renders exactly as before (six sections, no `company-fund`). |
+| FD-11 | BLOCK | Preview (`dashboard-company --seed`): VDY.TO (seeded) API 200 with `kind` `fund`, `securityType` `ETP`, the fund line, Dividends only; page 200 shows `company-fund`, the chart, Dividends, no company sections, no coverage line. |
+| FD-12 | BLOCK | Preview: the fund page is dark shell, `.ow-label`, no gold, phone 400 and desktop 1440, no horizontal scroll. |
+| FD-13 | BLOCK | Preview: PLTR (SEC) and RMS.PA (ESEF) are not funds (`kind` `company`), CV-08..CV-14 and ES-09..ES-11 still PASS; the seeded holdings are deleted again. |
+| FD-14 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok PASS. |

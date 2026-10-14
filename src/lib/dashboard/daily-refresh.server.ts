@@ -15,12 +15,15 @@
  * - Fundamentals (T08 #16): last, `refreshFundamentals()` stores SEC companyfacts for held symbols that
  *   are unchecked or older than 7 days when the caller passes a source (`fundamentals`; null = no SEC
  *   contact configured, reported as skipped). Metric values belong to T09+.
+ * - Fund detection (#124): then `refreshClassification()` asks OpenFIGI (keyless) for held symbols not classified
+ *   yet or classified long ago, when the caller passes `classification`.
  */
 import type { DailyClose, DailyCloseProvider } from "./close-provider.ts";
 import { addDays, dateInZone } from "./close-provider.ts";
 import { BACKFILL_FROM } from "./yahoo-closes.server.ts";
 import { refreshFx, type FxFetcher, type FxSummary } from "./fx.server.ts";
 import { refreshFundamentals, type FundamentalsSource, type FundamentalsSummary } from "./fundamentals.server.ts";
+import { refreshClassification, type ClassificationSummary, type OpenFigiSource } from "./openfigi.server.ts";
 import type { Queryable } from "./store.server.ts";
 
 /** A run that has been "running" longer than this is treated as crashed and can be taken over. */
@@ -56,6 +59,8 @@ export type RefreshSummary =
       latest: Record<string, string | null>;
       fx?: FxSummary;
       fundamentals?: FundamentalsSummary;
+      /** #124: OpenFIGI fund / company classification of held symbols. */
+      classification?: ClassificationSummary;
     };
 
 type Coverage = {
@@ -201,6 +206,8 @@ export type RunOptions = {
   fx?: FxFetcher;
   /** Fundamentals source (T08). Undefined: not run. Null: no SEC contact configured (skipped, reported). */
   fundamentals?: FundamentalsSource | null;
+  /** #124: OpenFIGI source for the fund / company classification. Undefined or null: not run. */
+  classification?: OpenFigiSource | null;
 };
 
 /** Overall cap for the whole run, fundamentals included (Hobby functions stop at 300 s). */
@@ -255,6 +262,14 @@ export async function runDailyRefresh(
         now,
         timeBudgetMs: Math.max(5_000, Math.min(60_000, RUN_DEADLINE_MS - (now() - started))),
       });
+    // #124 (FD-06): a failed classification stores nothing and does not change the run status; next run retries.
+    if (options.classification) {
+      try {
+        summary.classification = await refreshClassification(db, options.classification, { nowMs: now() });
+      } catch (err) {
+        summary.classification = { checked: 0, funds: 0, unmapped: 0, deferred: 0, errors: [message(err)] };
+      }
+    }
     const fxFailed = Boolean(summary.fx?.errors.length) || Boolean(summary.fundamentals?.errors.length);
     summary.status =
       summary.symbols > 0 && summary.errors.length === summary.symbols

@@ -1578,3 +1578,14 @@ refresh, parser version 4. Figures stay in the source currency with the source l
 filings.xbrl.org`; valuation ratios follow the currency-mismatch rule. Design, N6 rules and Q-E1..Q-E8:
 [`attachments/dashboard-esef-fundamentals-design.md`](dashboard-esef-fundamentals-design.md); AC ES-01..ES-12.
 - #123 follow-up (PM E1 / E5): a figure that came from a fallback carries a dim `derived` marker (`.ow-label`, with a title and aria-label explaining the method), only when the fallback ran. Marked rows: Shares (diluted), Market cap, Enterprise value, EV/EBIT (diluted shares derived as net income ÷ diluted EPS); FCF margin and P/FCF (capex from the broad IFRS line, and P/FCF also on derived shares). AC ES-13..ES-16.
+
+## 18. Funds / ETFs on the company view (#124)
+
+A held listing that OpenFIGI (mapping API, free, keyless) types as a fund (`ETP`, `ETF`, `Open-End Fund`,
+`Closed-End Fund`, `Mutual Fund`, `Fund of Funds`, `Unit Trust`, or `securityType2` `Mutual Fund`; e.g. VDY.TO) shows
+`Fund: company figures do not apply` in place of the Profile, Margins, Returns, Valuation and Growth sections. Header,
+price chart and Dividends stay; the #121 coverage line is not shown; the source line reads `Daily closes and dividends
+as stored by the Dashboard · fund type from OpenFIGI`. Classification runs in the daily job and the new-holding
+backfill only (stored on `instruments.provider_ids.openfigi`, rechecked after 30 days, not-found after 7), never from
+a page. OpenFIGI down or unknown → the company view as before. Design and Q-F1..Q-F8:
+[`attachments/etf-detection-design.md`](etf-detection-design.md); AC FD-01..FD-14.

@@ -4,6 +4,8 @@
  * the same output. No I/O, no feed.
  */
 
+import { FUND_LINE, SOURCE_LINE_FUND, type InstrumentKind } from "./fund.ts";
+
 export type CompanyYear = {
   /** Fiscal year end, YYYY-MM-DD. */
   end: string;
@@ -45,6 +47,10 @@ export type CompanyInput = {
   dividends: { exDate: string; cash: number }[];
   /** Today (YYYY-MM-DD), for the trailing twelve months. */
   today: string;
+  /** #124: OpenFIGI classification (`instruments.provider_ids.openfigi.kind`); missing = not classified yet. */
+  kind?: InstrumentKind | null;
+  /** #124: OpenFIGI `securityType` (e.g. `ETP`), when classified. */
+  securityType?: string | null;
 };
 
 export type RowStatus = "ok" | "n/m" | "not_covered" | "pending" | "not_reported" | "mismatch" | "none";
@@ -73,6 +79,11 @@ export type CompanyView = {
   /** #121 (NC-01): `Not covered: no SEC filings` for a checked listing without SEC filings, else null. */
   coverage: string | null;
   source: string;
+  /** #124 (FD-07): `fund` when OpenFIGI types it as a fund; `unknown` when not classified or not found. */
+  kind: InstrumentKind;
+  /** #124 (FD-07): `Fund: company figures do not apply` for a fund, else null. */
+  fund: string | null;
+  securityType: string | null;
 };
 
 export const RANGES = [
@@ -295,6 +306,9 @@ export function companyView(input: CompanyInput): CompanyView {
       ];
   const fy = latest ? `FY${latest.end.slice(0, 4)}` : null;
   const note = gap === "not_covered" ? "No SEC filings for this listing." : fy;
+  const kind: InstrumentKind = input.kind ?? "unknown";
+  const isFund = kind === "fund";
+  const dividendsSection: CompanySection = { key: "dividends", title: "Dividends", note: "Trailing twelve months", rows: dividends };
   return {
     symbol: input.symbol,
     name: input.name || input.symbol,
@@ -304,15 +318,28 @@ export function companyView(input: CompanyInput): CompanyView {
     fiscalYear: fy,
     reportingCurrency: reporting,
     chart: chartPoints(input.closes, input.today),
-    sections: [
-      { key: "profile", title: "Profile", note, rows: profile },
-      { key: "margins", title: "Margins", note, rows: margins },
-      { key: "returns", title: "Returns", note, rows: returns },
-      { key: "valuation", title: "Valuation", note: lastClose ? `Price as of ${lastClose.date}` : null, rows: valuation },
-      { key: "growth", title: "Growth", note, rows: growth },
-      { key: "dividends", title: "Dividends", note: "Trailing twelve months", rows: dividends },
-    ],
-    coverage: gap === "not_covered" ? NOT_COVERED_LINE : null,
-    source: gap === "not_covered" ? SOURCE_LINE_UNCOVERED : input.fundamentalsSource === "esef" ? SOURCE_LINE_ESEF : SOURCE_LINE,
+    // #124 (FD-07): a fund shows the fund line in place of the five company sections; Dividends stay.
+    sections: isFund
+      ? [dividendsSection]
+      : [
+          { key: "profile", title: "Profile", note, rows: profile },
+          { key: "margins", title: "Margins", note, rows: margins },
+          { key: "returns", title: "Returns", note, rows: returns },
+          { key: "valuation", title: "Valuation", note: lastClose ? `Price as of ${lastClose.date}` : null, rows: valuation },
+          { key: "growth", title: "Growth", note, rows: growth },
+          dividendsSection,
+        ],
+    // #124 (Q-F5): the #121 coverage line and the SEC / ESEF source line are not shown for a fund.
+    coverage: !isFund && gap === "not_covered" ? NOT_COVERED_LINE : null,
+    source: isFund
+      ? SOURCE_LINE_FUND
+      : gap === "not_covered"
+        ? SOURCE_LINE_UNCOVERED
+        : input.fundamentalsSource === "esef"
+          ? SOURCE_LINE_ESEF
+          : SOURCE_LINE,
+    kind,
+    fund: isFund ? FUND_LINE : null,
+    securityType: input.securityType ?? null,
   };
 }
