@@ -830,3 +830,38 @@ totals (`Total`, `% of income`, `Equity to cover`) are unchanged and stay in the
 21.4 **Read-only and decisions (EL 07:51 ET).** Read-only grantees can use both filters (view only; totals unchanged);
 every write stays locked (add, including a new line under an account filter, `Save`, `Rename`, remove, fields).
 ROLE-10 is amended accordingly (ROLE-10a). Q-S1..Q-S6 and Q-S8 accepted by the CFO; Q-S7 changed as stated here.
+
+## 22. Overview: Equity coverage and 3-month average (#126; PF-79..PF-90)
+
+Business user: the CFO. Design `attachments/pf-equity-coverage-design.md` (decisions C1–C5, Q-C1..Q-C9, recommendations built). No change to the currency model, month control (#112), sign-in, the Expenses summary (#119) or the Dashboard. Nothing new is stored.
+
+22.1 **Equity coverage.**
+- Annual = `Starting net assets` × (`Rate used` ÷ 100); monthly = annual ÷ 12; % = monthly ÷ this month's expenses (else the 12-month average).
+- Shown under the comparison table, above the fields and the chart, in the household currency with full digits: `Equity coverage: 43.75 CAD/mo · 0.53% of expenses`, with a dim `525 CAD/yr` underneath.
+- Missing rate: `—` and `Set rate under Expenses`. Missing start: `—` and `Set starting net assets`.
+- With `Future` on: projected net assets at the horizon end and the average expenses, labelled `Equity coverage in N years`.
+
+22.2 **3-month average.**
+- The comparison table reads `This month` · `3-month average` · `12-month average`.
+- The 3-month window is the current month and the 2 before it. Empty months take the 12-month average (the existing fill rule).
+- The chart keeps the 12-month series.
+
+22.3 **Copy added** (section 15.1): `3-month average`, `Equity coverage:`, `Equity coverage in <N> years:`, `/mo`, `/yr`, `of expenses`, `Set rate under Expenses`, `Set starting net assets`.
+
+
+### Change (C7/C2, approved 2026-10-13)
+
+Approved by the CFO (Diego via EL), 2026-10-13. Supersedes the window in 22.2 and the "this month's expenses" basis of the coverage %; the lines above stay as the record of the original reading.
+
+- **C7 window:** the 3-month average (`pf-ov-avg3`) uses the last 3 **complete** months and excludes the current partial month. On 2026-10-13 that is Jul, Aug and Sep; in January it is Oct–Dec of the year before.
+- **Rollover:** the window is computed at render time from the current date in the household timezone (America/Toronto), never hardcoded, so it rolls over on the 1st: Oct 31 → Jul–Sep, Nov 1 → Aug–Oct. A UTC instant that is still Oct 31 in Toronto (e.g. 2026-11-01T03:30Z) gives Jul–Sep.
+- **C8 kept:** an empty complete month takes the 12-month average.
+- **C2 coverage:** the equity coverage % (`pf-coverage`, Future off) is computed against that 3-month average of complete months, not the current month. Future on is unchanged (projected net assets, average expenses).
+- **Labels:** the column reads `3-month average (Jul–Sep)` and the coverage line `… of 3-month average (Jul–Sep) expenses`; the months follow the window.
+- **AC:** PF-91..PF-95 (`qa/CANONICAL-AC-PACK.md`).
+
+### Change (N1 and basis label, 2026-10-13)
+
+- **N1:** `This month` and the 12-month list use the household month (America/Toronto), the same as the 3-month window: Oct 31 20:00–23:59 ET (already Nov 1 in UTC) still shows October and Jul–Sep, on a UTC server or in a browser west of Toronto.
+- **Basis label:** the CFO confirms PF-84. A dim label beside the coverage %: `basis: 3-mo avg (Jul–Sep)` (Future off; the window follows the date) or `basis: projection` (Future on).
+- **AC:** PF-96, PF-97.

@@ -66,6 +66,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+const avg3Label = (now = new Date()) => {
+  // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
+  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
+  return `3-month average (${name(3)}\u2013${name(1)})`;
+};
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -155,10 +161,14 @@ const emptyTexts = (wide) => [
   "04",
   "Overview",
   "This month",
+  avg3Label(), // #126; C7: names the complete-month window
   "12-month average",
-  "Expenses", "—", "—",
-  "Income", "—", "—",
-  "Surplus", "—", "—",
+  "Expenses", "—", "—", "—",
+  "Income", "—", "—", "—",
+  "Surplus", "—", "—", "—",
+  // #126 (PF-82): the Equity coverage line with no rate yet.
+  "Equity coverage:", "—",
+  "Set rate under Expenses",
   "Starting net assets",
   "Growth rate (%)",
   "Future",
@@ -826,7 +836,7 @@ try {
       const yes37 = { net: await txt(bd.getByTestId("pf-person-net")), conv: await txt(bd.getByTestId("pf-person-converted")), rows: row37, total: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")), errors: await bd.getByTestId("pf-error").count() };
       check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
       await settle(page);
-      const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]").allTextContents();
+      const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]:not([data-testid=pf-ov-avg3])").allTextContents();
       check(`${tag} PF-37 the Overview's income follows after Save (#112) (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
       // Layout with the foreign person (PF-39).
       const fl = { name: await box(bd.getByTestId("pf-person-name")), share: await box(bd.getByTestId("pf-person-share")), cw: await box(bd.getByTestId("pf-person-count-wages")), box: await box(bd.getByTestId("pf-person-foreign").locator("xpath=..")), cur: await box(bd.getByTestId("pf-person-currency")), rate: await box(fxIn), conv: await box(bd.getByTestId("pf-person-converted")), net: await box(bd.getByTestId("pf-person-net")) };
@@ -906,7 +916,7 @@ try {
         api3.length = 0;
         await p3.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
         await ready(p3);
-        const ov = () => p3.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, [...document.querySelectorAll(`[data-testid=pf-ov-${r}] [role=cell]`)].map((c) => c.textContent.trim())])));
+        const ov = () => p3.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, [...document.querySelectorAll(`[data-testid=pf-ov-${r}] [role=cell]:not([data-testid=pf-ov-avg3])`)].map((c) => c.textContent.trim())])));
         const chart = () => p3.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: f.dataset.netLast, lines: [...f.querySelectorAll(".recharts-line-curve")].map((p) => p.getAttribute("stroke")), hidden: f.querySelector(".pf-chart-plot").getAttribute("aria-hidden"), legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()), h: Math.round(f.querySelector(".pf-chart-plot").getBoundingClientRect().height) }));
         const t0 = await ov();
         // #112 (PF-48..53): the month control; June starts as a copy of October; stored only on Save.

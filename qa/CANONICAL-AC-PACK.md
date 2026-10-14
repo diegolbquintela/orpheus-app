@@ -558,3 +558,29 @@ ES-09..ES-11 on the preview.
 | ES-14 | BLOCK | Unit (DOM): a derived row shows `derived` in a `.ow-label` span next to the label (`company-derived-<key>`), `title` and `aria-label` explain the method; the value text is unchanged; Revenue / P/E / margins without a derived input and every SEC (reported) view show no marker. |
 | ES-15 | BLOCK | Preview (`dashboard-company --seed`): RMS.PA API rows `shares` (net income ÷ diluted EPS) and `fcf_margin` (broad IFRS line) carry `derived`, only rows from {shares, market_cap, ev, ev_ebit, fcf_margin, p_fcf}; page phone 400 and desktop 1440 shows the marker dim, small, `.ow-label`, with title and aria-label; none on Revenue. |
 | ES-16 | BLOCK | Preview: ES-09..ES-12 still PASS with the marker (the seeded holdings are deleted, PLTR shows no marker). |
+
+## Personal Finance: Overview equity coverage and 3-month average (#126; spec section 22)
+
+Unit / DOM tests cover PF-79..PF-88; `qa/tools/personal-finance-e2e.mjs` covers PF-89; the preview suites cover PF-90.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-79 | BLOCK | `pf-coverage` sits directly after the comparison table (`pf-ov-table`) and before the fields, `Future` and the chart. |
+| PF-80 | BLOCK | Math: start 13,125, rate used 4, this month's expenses 8,254.72 → `Equity coverage: 43.75 CAD/mo · 0.53% of expenses` and `525 CAD/yr` (annual = start × rate ÷ 100; monthly ÷ 12; % of this month's expenses). |
+| PF-81 | BLOCK | Rate from ROIC ÷ 2 (withdrawal empty) is used; a typed withdrawal rate wins (the #86 rule); household currency code shown (USD household → `USD`). |
+| PF-82 | BLOCK | No rate: `Equity coverage: —` and `Set rate under Expenses`; rate set but start empty / 0 / invalid: `—` and `Set starting net assets`; expenses missing or 0: the % is `—`. |
+| PF-83 | BLOCK | This month without a figure: the % uses the 12-month average expenses. |
+| PF-84 | BLOCK | `Future` on: coverage uses the projected net assets at the horizon end and the average expenses; label `Equity coverage in N years:`; toggling off restores the current figures. |
+| PF-85 | BLOCK | The table columns are `This month`, `3-month average`, `12-month average` (`pf-ov-now`, `pf-ov-avg3`, `pf-ov-avg`) for Expenses, Income and Surplus. |
+| PF-86 | BLOCK | 3-month average = mean over the current and 2 previous months, each month's figure else the 12-month average; no figure in 12 months → `—`. |
+| PF-87 | BLOCK | The chart is unchanged (12 points, + Future months); #112 per-month lines feed both averages and coverage. |
+| PF-88 | BLOCK | Read-only: coverage and both averages visible; no new control; ROLE-10a unchanged; nothing is saved by viewing (explicit `Save` unchanged). |
+| PF-89 | BLOCK | Preview (`personal-finance-e2e`): seeded rate, start and months show the expected coverage line, yearly line and 3-month average; phone 400 and desktop 1440, no horizontal scroll. |
+| PF-90 | BLOCK | Preview: dark style, lyre, footer `Orpheus Wisdom`, no gold, full digits, strict CLS 0; personal-finance, pf-months, site-style regression ($313,000), site-shell, home, roles, audit, no-grok, dashboard-company PASS. |
+| PF-91 | BLOCK | Change (C7/C2, approved 2026-10-13; supersedes the PF-86 window and the PF-85 column label): the 3-month average (`pf-ov-avg3`) is the mean of the last 3 COMPLETE months, excluding the current partial month; on 2026-10-13 that is Jul, Aug, Sep. The column header reads `3-month average (Jul–Sep)`. Unit + DOM. |
+| PF-92 | BLOCK | Change (C7, approved 2026-10-13): year boundary: any day in January → Oct, Nov, Dec of the previous year, label `3-month average (Oct–Dec)`. Unit. |
+| PF-93 | BLOCK | Change (C7/C8, approved 2026-10-13): the C8 rule applies to complete months: an empty complete month takes the 12-month average; no figure in 12 months → `—`; the current month's figure never enters the 3-month average. Unit. |
+| PF-94 | BLOCK | Change (C2, approved 2026-10-13; supersedes the "this month's expenses" basis of PF-80 / PF-83): the equity coverage % (`pf-coverage`, Future off) is monthly coverage ÷ the 3-month average of complete months, and the line names it: `… · 20.00% of 3-month average (Jul–Sep) expenses`. Future on keeps PF-84. Unit + DOM. |
+| PF-95 | BLOCK | Change (C7, approved 2026-10-13): the window is computed at render time from the current date in the household timezone (America/Toronto), never hardcoded: Oct 31 → Jul–Sep, Nov 1 → Aug–Oct; the UTC instant 2026-11-01T03:30Z (still Oct 31 in Toronto) → Jul–Sep, 2026-11-01T04:30Z → Aug–Oct. Unit + DOM. |
+| PF-96 | BLOCK | Change (N1, 2026-10-13): `This month` and the 12 months (`lastTwelve`) use the household month (`householdMonth()`, America/Toronto), the same as the 3-month window; a UTC server or a browser west of Toronto never shows next month early or counts a month twice. 2026-10-31T20:00 / 20:30 / 23:59 ET (already Nov 1 in UTC) → This month = Oct, window Jul–Sep; 2026-11-01T00:00 ET → Nov, Aug–Oct. Unit (TZ=UTC and America/Los_Angeles) + DOM. |
+| PF-97 | BLOCK | Change (PF-84 confirmed by the CFO, 2026-10-13): beside the coverage % a dim basis label (`pf-coverage-basis`): `basis: 3-mo avg (Jul–Sep)` with Future off (window computed from the date), `basis: projection` with Future on. Unit + DOM. |

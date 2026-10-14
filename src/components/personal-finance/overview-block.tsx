@@ -11,6 +11,14 @@ import {
 import { AMOUNT_ERROR, formatAmount, NOT_COMPUTED, parseAmount } from "@/lib/finance/expenses";
 import {
   AVERAGE,
+  average3Label,
+  coverageBasis,
+  type Coverage,
+  COVERAGE_RATE_NOTE,
+  COVERAGE_START_NOTE,
+  coverageLabel,
+  formatCoverageShare,
+  overviewCoverage,
   CHART_CAPTION,
   EXPENSES,
   FUTURE_LABEL,
@@ -58,6 +66,8 @@ export function OverviewBlock({
   open = true,
   onToggle,
   readOnly = false,
+  rate = null,
+  currency = "",
 }: {
   overview: Overview;
   update: (change: (current: Overview) => Overview) => void;
@@ -72,8 +82,13 @@ export function OverviewBlock({
   onToggle?: () => void;
   /** #90 (ROLE-10): every field and button disabled (the toggle stays). */
   readOnly?: boolean;
+  /** #126: the #86 rate used (a percent, null when none), live from the page. */
+  rate?: number | null;
+  /** #126: the household (master) currency code. */
+  currency?: string;
 }) {
   const summary = summarize(overview, now, page, lines);
+  const coverage = overviewCoverage(overview, summary, rate);
   return (
     <>
       <section
@@ -98,7 +113,8 @@ export function OverviewBlock({
         >
           {open ? (
             <Lock on={readOnly}>
-              <OverviewTable thisMonth={summary.thisMonth} average={summary.average} />
+              <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} />
+              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} label3={average3Label(summary.window3)} basis={coverageBasis(overview.future, summary.window3)} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
               <OverviewChart summary={summary} width={chartWidth} />
@@ -110,11 +126,11 @@ export function OverviewBlock({
   );
 }
 
-function OverviewTable({ thisMonth, average }: { thisMonth: Figures; average: Figures }) {
-  const rows: [string, string, number | null, number | null][] = [
-    [EXPENSES, "expenses", thisMonth.expenses, average.expenses],
-    [INCOME, "income", thisMonth.income, average.income],
-    [SURPLUS, "surplus", surplusOf(thisMonth), surplusOf(average)],
+function OverviewTable({ thisMonth, average3, average, label3 }: { thisMonth: Figures; average3: Figures; average: Figures; label3: string }) {
+  const rows: [string, string, number | null, number | null, number | null][] = [
+    [EXPENSES, "expenses", thisMonth.expenses, average3.expenses, average.expenses],
+    [INCOME, "income", thisMonth.income, average3.income, average.income],
+    [SURPLUS, "surplus", surplusOf(thisMonth), surplusOf(average3), surplusOf(average)],
   ];
   return (
     <div className="pf-ov-table" role="table" aria-label={OVERVIEW_TITLE} data-testid="pf-ov-table">
@@ -125,11 +141,14 @@ function OverviewTable({ thisMonth, average }: { thisMonth: Figures; average: Fi
         <span role="columnheader" className="pf-label">
           {THIS_MONTH}
         </span>
+        <span role="columnheader" className="pf-label" data-testid="pf-ov-avg3-head">
+          {label3}
+        </span>
         <span role="columnheader" className="pf-label">
           {AVERAGE}
         </span>
       </div>
-      {rows.map(([label, key, now, avg]) => (
+      {rows.map(([label, key, now, avg3, avg]) => (
         <div key={key} className="pf-ov-row" role="row" data-testid={`pf-ov-${key}`}>
           <span role="rowheader" className="pf-ov-name">
             {label}
@@ -137,11 +156,65 @@ function OverviewTable({ thisMonth, average }: { thisMonth: Figures; average: Fi
           <span role="cell" className="pf-ov-value" data-testid="pf-ov-now">
             {orDash(now)}
           </span>
+          <span role="cell" className="pf-ov-value" data-testid="pf-ov-avg3">
+            {orDash(avg3)}
+          </span>
           <span role="cell" className="pf-ov-value" data-testid="pf-ov-avg">
             {orDash(avg)}
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * #126 (PF-79..PF-84): `Equity coverage: 43.75 CAD/mo · 0.53% of expenses`, then `525 CAD/yr` (dim); `—` and a
+ * short note when the rate or the starting net assets are missing. Household currency, full digits.
+ */
+function CoverageLine({
+  coverage,
+  currency,
+  years,
+  label3,
+  basis,
+}: {
+  coverage: Coverage;
+  currency: string;
+  years: (typeof YEARS)[number] | null;
+  /** C7/C2: today's share is of the 3-month average of complete months, named with its window. */
+  label3: string;
+  /** PF-97: `basis: projection` (Future on) or `basis: 3-mo avg (Jul–Sep)`. */
+  basis: string;
+}) {
+  const basisText = years === null ? `${label3} expenses` : "expenses";
+  const unit = currency ? ` ${currency}` : "";
+  const note = coverage.status === "no_rate" ? COVERAGE_RATE_NOTE : coverage.status === "no_start" ? COVERAGE_START_NOTE : null;
+  return (
+    <div className="pf-coverage" data-testid="pf-coverage" data-status={coverage.status}>
+      <p>
+        {coverageLabel(years)}{" "}
+        {coverage.status === "ok" ? (
+          <>
+            <span data-testid="pf-coverage-monthly">{`${formatAmount(coverage.monthly)}${unit}/mo`}</span>
+            {" · "}
+            <span data-testid="pf-coverage-share">{`${formatCoverageShare(coverage.share)} of ${basisText}`}</span>
+            {" · "}
+            <span className="pf-coverage-basis text-dim" data-testid="pf-coverage-basis">
+              {basis}
+            </span>
+          </>
+        ) : (
+          <span data-testid="pf-coverage-monthly">{NOT_COMPUTED}</span>
+        )}
+      </p>
+      {coverage.status === "ok" ? (
+        <p className="pf-coverage-sub" data-testid="pf-coverage-yearly">{`${formatAmount(coverage.yearly)}${unit}/yr`}</p>
+      ) : note ? (
+        <p className="pf-coverage-sub" data-testid="pf-coverage-note">
+          {note}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,22 @@ export const OVERVIEW_TITLE = "Overview";
 export const UPDATE_TITLE = "Update";
 export const THIS_MONTH = "This month";
 export const AVERAGE = "12-month average";
+/** #126 (PF-85): the 3-month column. */
+export const AVERAGE_3 = "3-month average";
+/**
+ * C7/C2 (approved 2026-10-13, PF-91+): the household's timezone. The 3-complete-month window is read from the
+ * current date in this zone at render time (never hardcoded), so it rolls over on the 1st (Nov 1 → Aug–Oct).
+ */
+export const HOUSEHOLD_TIME_ZONE = "America/Toronto";
+/** #126 (PF-79..PF-84): the equity coverage line. */
+export const COVERAGE_LABEL = "Equity coverage";
+export const COVERAGE_RATE_NOTE = "Set rate under Expenses";
+export const COVERAGE_START_NOTE = "Set starting net assets";
+/** C7/C2 + PF-84 (PF-97): the dim basis label beside the coverage %. */
+export const coverageBasis = (future: boolean, window: MonthKey[]): string =>
+  future ? "basis: projection" : `basis: 3-mo avg (${windowRange(window)})`;
+export const coverageLabel = (years: Years | null): string =>
+  years === null ? `${COVERAGE_LABEL}:` : `${COVERAGE_LABEL} in ${yearsLabel(years)}:`;
 export const EXPENSES = "Expenses";
 export const INCOME = "Income";
 export const SURPLUS = "Surplus";
@@ -50,13 +66,14 @@ export const NO_OVERVIEW: Overview = { start: "", growth: "", future: false, yea
 const pad = (n: number): string => String(n).padStart(2, "0");
 export const monthKey = (year: number, month0: number): MonthKey => `${year}-${pad(month0 + 1)}`;
 
-/** The 12 months, oldest → current, for a local date. */
-export function lastTwelve(now: Date): MonthKey[] {
-  const out: MonthKey[] = [];
-  for (let back = 11; back >= 0; back--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
-    out.push(monthKey(d.getFullYear(), d.getMonth()));
-  }
+/**
+ * The 12 months, oldest → current. N1 (2026-10-13, PF-96): the current month is `householdMonth(now)` in the
+ * household timezone, the same as the 3-month window, so a UTC server or a browser west of Toronto never shows next
+ * month early (2026-10-31T20:30-04:00 is already Nov 1 in UTC but still October here).
+ */
+export function lastTwelve(now: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
+  const out: MonthKey[] = [householdMonth(now, timeZone)];
+  while (out.length < 12) out.unshift(previousMonth(out[0]));
   return out;
 }
 
@@ -78,6 +95,37 @@ const toDate = (key: MonthKey): Date => {
 export const monthName = (key: MonthKey): string => MONTH_NAME.format(toDate(key));
 /** `Oct 26` (chart ticks). */
 export const monthShort = (key: MonthKey): string => MONTH_SHORT.format(toDate(key));
+
+/** The household month (`yyyy-mm`) of an instant, read in `timeZone` (C7: an instant still Oct 31 in Toronto is October). */
+export function householdMonth(today: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric" }).formatToParts(today);
+  const year = Number(parts.find((p) => p.type === "year")!.value);
+  const month = Number(parts.find((p) => p.type === "month")!.value);
+  return monthKey(year, month - 1);
+}
+
+/** The month before `key`. */
+export function previousMonth(key: MonthKey): MonthKey {
+  const [y, m] = key.split("-").map(Number);
+  return m === 1 ? monthKey(y - 1, 11) : monthKey(y, m - 2);
+}
+
+/**
+ * C7 (approved 2026-10-13): the last 3 COMPLETE months, oldest first, excluding the current partial month of
+ * `today` in the household timezone. Oct 13 2026 → 2026-07, 2026-08, 2026-09; Jan → Oct–Dec of the year before.
+ */
+export function completeMonths3(today: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
+  const m1 = previousMonth(householdMonth(today, timeZone));
+  const m2 = previousMonth(m1);
+  return [previousMonth(m2), m2, m1];
+}
+
+const MONTH_ABBR = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
+/** `Jul–Sep` for a window. */
+export const windowRange = (window: MonthKey[]): string =>
+  `${MONTH_ABBR.format(toDate(window[0]))}\u2013${MONTH_ABBR.format(toDate(window[window.length - 1]))}`;
+/** C7: `3-month average (Jul–Sep)`, on the column and the coverage line. */
+export const average3Label = (window: MonthKey[]): string => `${AVERAGE_3} (${windowRange(window)})`;
 
 /** The month after `key`. */
 export function nextMonth(key: MonthKey): MonthKey {
@@ -139,6 +187,13 @@ export type Summary = {
   current: MonthKey;
   thisMonth: Figures;
   average: Figures;
+  /**
+   * C7 (approved 2026-10-13; was PF-86): the last 3 complete months (current partial month excluded), an empty
+   * complete month taking the 12-month average (C8).
+   */
+  average3: Figures;
+  /** C7: the 3 complete months behind `average3`, oldest first. */
+  window3: MonthKey[];
   points: Point[];
 };
 
@@ -152,8 +207,9 @@ export function summarize(
   now: Date,
   page: PageFigures,
   lines?: Record<MonthKey, Figures>,
+  timeZone: string = HOUSEHOLD_TIME_ZONE,
 ): Summary {
-  const months = lastTwelve(now);
+  const months = lastTwelve(now, timeZone);
   const current = months[months.length - 1];
   const figures = months.map((key) => monthFigures(overview, key, current, page, lines));
   const average: Figures = {
@@ -184,7 +240,14 @@ export function summarize(
       });
     }
   }
-  return { months, current, thisMonth: figures[figures.length - 1], average, points };
+  // C7: the window comes from `now` in the household timezone, at render time; complete months only (C8 kept).
+  const window3 = completeMonths3(now, timeZone);
+  const last3 = window3.map((key) => monthFigures(overview, key, current, page, lines));
+  const average3: Figures = {
+    expenses: mean(last3.map((f) => f.expenses ?? average.expenses)),
+    income: mean(last3.map((f) => f.income ?? average.income)),
+  };
+  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, points };
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);
@@ -248,3 +311,39 @@ export function writeOverview(storage: StorageLike | null, overview: Overview): 
     // Storage full or blocked: the page keeps working for this visit.
   }
 }
+
+/** #126: the equity coverage line's figures (spec section 22.1). */
+export type Coverage =
+  | { status: "ok"; yearly: number; monthly: number; share: number | null }
+  | { status: "no_rate" | "no_start" | "none" };
+
+/**
+ * Equity coverage (PF-80..PF-84): annual = net assets × (rate ÷ 100), monthly = annual ÷ 12, share = monthly ÷
+ * expenses (null when expenses are missing or 0). `rate` is the #86 rate used (a percent, null when none).
+ */
+export function equityCoverage(netAssets: number | null, rate: number | null, expenses: number | null): Coverage {
+  if (rate === null || !(rate > 0)) return { status: "no_rate" };
+  if (netAssets === null || !(netAssets > 0)) return { status: "no_start" };
+  const yearly = netAssets * (rate / 100);
+  const monthly = yearly / 12;
+  return { status: "ok", yearly, monthly, share: expenses !== null && expenses > 0 ? monthly / expenses : null };
+}
+
+/**
+ * The coverage for the Overview: today's net assets against the 3-month average of complete months (C2, approved
+ * 2026-10-13; was this month), or with Future on the projected net assets at the horizon end (PF-84, unchanged).
+ */
+export function overviewCoverage(overview: Overview, summary: Summary, rate: number | null): Coverage {
+  if (!overview.future) {
+    const start = typedFigure(overview.start);
+    return equityCoverage(start, rate, summary.average3.expenses);
+  }
+  const c = equityCoverage(typedFigure(overview.start), rate, summary.average.expenses);
+  if (c.status !== "ok") return c;
+  const projected = summary.points.at(-1)?.net ?? null;
+  return projected === null || projected <= 0 ? { status: "none" } : equityCoverage(projected, rate, summary.average.expenses);
+}
+
+/** `0.53%`: two decimals (Q-C3). */
+export const formatCoverageShare = (share: number | null): string =>
+  share === null ? "—" : `${(share * 100).toFixed(2)}%`;

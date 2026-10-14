@@ -589,8 +589,14 @@ Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15.
 **Personal Finance expenses summary (#119).** `Expenses summary` (its own toggle) shows totals `By account` and
 `By category`; `Filter by account` narrows the expense lines. Design `attachments/pf-expenses-summary-design.md`, AC PF-67..PF-78.
 
+**Personal Finance Overview: Equity coverage and 3-month average (#126).** Under the Overview table, `Equity coverage`
+= starting net assets × rate used, per month and as a % of expenses (household currency; projected under `Future`); the
+table adds a `3-month average` beside the 12-month one. Design `attachments/pf-equity-coverage-design.md`, AC PF-79..PF-90.
+
 **Company view without SEC filings (#121).** EU / Canadian holdings (e.g. RMS.PA, VDY.TO) show `Not covered: no SEC
 filings` with price, chart and dividends. Source comparison: `attachments/dashboard-non-sec-coverage-design.md`.
 
 **EU fundamentals from ESEF (#123).** EU holdings without SEC filings (RMS.PA first) get annual figures from the free
 ESEF filings at filings.xbrl.org, shown in the source currency. Design `attachments/dashboard-esef-fundamentals-design.md`.
+
+**Change (C7/C2, approved 2026-10-13).** The Overview's 3-month average uses the last 3 complete months (e.g. `3-month average (Jul–Sep)` on Oct 13), computed from today in the household timezone, and the equity coverage % is against it. See `attachments/pf-equity-coverage-design.md`, PF-91..PF-95.
