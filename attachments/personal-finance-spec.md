@@ -848,3 +848,14 @@ Business user: the CFO. Design `attachments/pf-equity-coverage-design.md` (decis
 
 22.3 **Copy added** (section 15.1): `3-month average`, `Equity coverage:`, `Equity coverage in <N> years:`, `/mo`, `/yr`, `of expenses`, `Set rate under Expenses`, `Set starting net assets`.
 
+
+### Change (C7/C2, approved 2026-10-13)
+
+Approved by the CFO (Diego via EL), 2026-10-13. Supersedes the window in 22.2 and the "this month's expenses" basis of the coverage %; the lines above stay as the record of the original reading.
+
+- **C7 window:** the 3-month average (`pf-ov-avg3`) uses the last 3 **complete** months and excludes the current partial month. On 2026-10-13 that is Jul, Aug and Sep; in January it is Oct–Dec of the year before.
+- **Rollover:** the window is computed at render time from the current date in the household timezone (America/Toronto), never hardcoded, so it rolls over on the 1st: Oct 31 → Jul–Sep, Nov 1 → Aug–Oct. A UTC instant that is still Oct 31 in Toronto (e.g. 2026-11-01T03:30Z) gives Jul–Sep.
+- **C8 kept:** an empty complete month takes the 12-month average.
+- **C2 coverage:** the equity coverage % (`pf-coverage`, Future off) is computed against that 3-month average of complete months, not the current month. Future on is unchanged (projected net assets, average expenses).
+- **Labels:** the column reads `3-month average (Jul–Sep)` and the coverage line `… of 3-month average (Jul–Sep) expenses`; the months follow the window.
+- **AC:** PF-91..PF-95 (`qa/CANONICAL-AC-PACK.md`).

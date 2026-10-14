@@ -17,6 +17,11 @@ export const THIS_MONTH = "This month";
 export const AVERAGE = "12-month average";
 /** #126 (PF-85): the 3-month column. */
 export const AVERAGE_3 = "3-month average";
+/**
+ * C7/C2 (approved 2026-10-13, PF-91+): the household's timezone. The 3-complete-month window is read from the
+ * current date in this zone at render time (never hardcoded), so it rolls over on the 1st (Nov 1 → Aug–Oct).
+ */
+export const HOUSEHOLD_TIME_ZONE = "America/Toronto";
 /** #126 (PF-79..PF-84): the equity coverage line. */
 export const COVERAGE_LABEL = "Equity coverage";
 export const COVERAGE_RATE_NOTE = "Set rate under Expenses";
@@ -87,6 +92,37 @@ export const monthName = (key: MonthKey): string => MONTH_NAME.format(toDate(key
 /** `Oct 26` (chart ticks). */
 export const monthShort = (key: MonthKey): string => MONTH_SHORT.format(toDate(key));
 
+/** The household month (`yyyy-mm`) of an instant, read in `timeZone` (C7: an instant still Oct 31 in Toronto is October). */
+export function householdMonth(today: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric" }).formatToParts(today);
+  const year = Number(parts.find((p) => p.type === "year")!.value);
+  const month = Number(parts.find((p) => p.type === "month")!.value);
+  return monthKey(year, month - 1);
+}
+
+/** The month before `key`. */
+export function previousMonth(key: MonthKey): MonthKey {
+  const [y, m] = key.split("-").map(Number);
+  return m === 1 ? monthKey(y - 1, 11) : monthKey(y, m - 2);
+}
+
+/**
+ * C7 (approved 2026-10-13): the last 3 COMPLETE months, oldest first, excluding the current partial month of
+ * `today` in the household timezone. Oct 13 2026 → 2026-07, 2026-08, 2026-09; Jan → Oct–Dec of the year before.
+ */
+export function completeMonths3(today: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
+  const m1 = previousMonth(householdMonth(today, timeZone));
+  const m2 = previousMonth(m1);
+  return [previousMonth(m2), m2, m1];
+}
+
+const MONTH_ABBR = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
+/** `Jul–Sep` for a window. */
+export const windowRange = (window: MonthKey[]): string =>
+  `${MONTH_ABBR.format(toDate(window[0]))}\u2013${MONTH_ABBR.format(toDate(window[window.length - 1]))}`;
+/** C7: `3-month average (Jul–Sep)`, on the column and the coverage line. */
+export const average3Label = (window: MonthKey[]): string => `${AVERAGE_3} (${windowRange(window)})`;
+
 /** The month after `key`. */
 export function nextMonth(key: MonthKey): MonthKey {
   const [y, m] = key.split("-").map(Number);
@@ -147,8 +183,13 @@ export type Summary = {
   current: MonthKey;
   thisMonth: Figures;
   average: Figures;
-  /** #126 (PF-86): the current and 2 previous months, an empty month taking the 12-month average. */
+  /**
+   * C7 (approved 2026-10-13; was PF-86): the last 3 complete months (current partial month excluded), an empty
+   * complete month taking the 12-month average (C8).
+   */
   average3: Figures;
+  /** C7: the 3 complete months behind `average3`, oldest first. */
+  window3: MonthKey[];
   points: Point[];
 };
 
@@ -162,6 +203,7 @@ export function summarize(
   now: Date,
   page: PageFigures,
   lines?: Record<MonthKey, Figures>,
+  timeZone: string = HOUSEHOLD_TIME_ZONE,
 ): Summary {
   const months = lastTwelve(now);
   const current = months[months.length - 1];
@@ -194,12 +236,14 @@ export function summarize(
       });
     }
   }
-  const last3 = figures.slice(-3);
+  // C7: the window comes from `now` in the household timezone, at render time; complete months only (C8 kept).
+  const window3 = completeMonths3(now, timeZone);
+  const last3 = window3.map((key) => monthFigures(overview, key, current, page, lines));
   const average3: Figures = {
     expenses: mean(last3.map((f) => f.expenses ?? average.expenses)),
     income: mean(last3.map((f) => f.income ?? average.income)),
   };
-  return { months, current, thisMonth: figures[figures.length - 1], average, average3, points };
+  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, points };
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);
@@ -281,12 +325,14 @@ export function equityCoverage(netAssets: number | null, rate: number | null, ex
   return { status: "ok", yearly, monthly, share: expenses !== null && expenses > 0 ? monthly / expenses : null };
 }
 
-/** The coverage for the Overview: today's figures, or with Future on the projected net assets at the horizon end. */
+/**
+ * The coverage for the Overview: today's net assets against the 3-month average of complete months (C2, approved
+ * 2026-10-13; was this month), or with Future on the projected net assets at the horizon end (PF-84, unchanged).
+ */
 export function overviewCoverage(overview: Overview, summary: Summary, rate: number | null): Coverage {
-  const expensesNow = summary.thisMonth.expenses ?? summary.average.expenses;
   if (!overview.future) {
     const start = typedFigure(overview.start);
-    return equityCoverage(start, rate, expensesNow);
+    return equityCoverage(start, rate, summary.average3.expenses);
   }
   const c = equityCoverage(typedFigure(overview.start), rate, summary.average.expenses);
   if (c.status !== "ok") return c;

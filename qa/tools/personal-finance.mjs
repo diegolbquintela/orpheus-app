@@ -66,6 +66,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+const avg3Label = (now = new Date()) => {
+  // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
+  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
+  return `3-month average (${name(3)}\u2013${name(1)})`;
+};
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -155,7 +161,7 @@ const emptyTexts = (wide) => [
   "04",
   "Overview",
   "This month",
-  "3-month average", // #126
+  avg3Label(), // #126; C7: names the complete-month window
   "12-month average",
   "Expenses", "—", "—", "—",
   "Income", "—", "—", "—",

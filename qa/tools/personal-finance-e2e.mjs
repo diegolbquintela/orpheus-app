@@ -20,6 +20,12 @@ import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { API, PATH, acct, contrastScan, line, ready, settle, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
+const avg3Label = (now = new Date()) => {
+  // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
+  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
+  return `3-month average (${name(3)}\u2013${name(1)})`;
+};
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -312,21 +318,21 @@ try {
       const ch = await page.getByTestId("pf-chart").evaluate((f) => ({ lines: f.querySelectorAll(".recharts-line-curve").length, legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()) }));
       check(`${tag} PFE-08 (#112) 04 follows saved months (— before the first Save); this month = October saved (1,500 / 12,033.33 / 10,533.33); June copied ("Copied from October 2026 — edit and save."), saved as 4,000 / 9,000 (stays on June, note gone) → average 2,750 / 10,516.67 / 7,766.67; start 10,000 → 12 months, three lines, net assets 103,200.00`, JSON.stringify(unsaved) === JSON.stringify({ expenses: ["—", "—"], income: ["—", "—"], surplus: ["—", "—"] }) && JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "1,500"], income: ["12,033.33", "12,033.33"], surplus: ["10,533.33", "10,533.33"] }) && note === "Copied from October 2026 — edit and save." && JSON.stringify(juneSaved) === JSON.stringify({ month: "2026-06", save: 0, note: "" }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "2,750"], income: ["12,033.33", "10,516.67"], surplus: ["10,533.33", "7,766.67"] }) && f4.chart.months === "12" && f4.chart.net === "103200.00" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { unsaved, ov0, note, juneSaved, ov: f4.ov, chart: f4.chart, ch });
 
-      // #126 PF-89: Equity coverage (start 10,000 × rate used, ÷ this month's expenses 1,500) and the 3-month average
-      // (Aug / Sep empty → the 12-month average; Oct 1,500 / 12,033.33).
+      // #126 PF-89 + C7/C2 (approved 2026-10-13, PF-91..PF-95): Equity coverage (start 10,000 × rate used, ÷ the
+      // 3-month average of complete months Jul–Sep, all empty → the 12-month average 2,750) and that 3-month average.
       const NUM = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
       const rateNow = Number(((await txt(page.getByTestId("pf-rate-used"))) ?? "").replace("%", ""));
       const cov = async () => page.getByTestId("pf-coverage").evaluate((c) => [...c.querySelectorAll("p")].map((p) => p.textContent.trim()));
       const hh = await page.getByTestId("pf-household").inputValue();
       const cv = await cov();
       const yr = (10000 * rateNow) / 100;
-      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo · ${((yr / 12 / 1500) * 100).toFixed(2)}% of expenses`, `${NUM.format(yr)} ${hh}/yr`] : ["Equity coverage: —", "Set rate under Expenses"];
+      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo · ${((yr / 12 / 2750) * 100).toFixed(2)}% of ${avg3Label()} expenses`, `${NUM.format(yr)} ${hh}/yr`] : ["Equity coverage: —", "Set rate under Expenses"];
       const avg3 = await page.evaluate(() => ["expenses", "income", "surplus"].map((r) => document.querySelector(`[data-testid=pf-ov-${r}] [data-testid=pf-ov-avg3]`)?.textContent.trim()));
       const heads = await page.getByTestId("pf-ov-table").locator("[role=columnheader]").allTextContents();
       const order = await page.evaluate(() => { const t = document.querySelector("[data-testid=pf-ov-table]"); return t.nextElementSibling?.getAttribute("data-testid"); });
       const scroll = await page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
       check(`${tag} PF-89 (#126) Equity coverage directly under the table: start 10,000 × rate used ${rateNow}% → ${wantCov.join(" / ")}`, JSON.stringify(cv) === JSON.stringify(wantCov) && order === "pf-coverage", { cv, wantCov, order });
-      check(`${tag} PF-89 (#126) This month · 3-month average · 12-month average; 3-month = 2,333.33 / 11,022.22 / 8,688.89 (Aug, Sep take the 12-month average); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", "3-month average", "12-month average"]) && JSON.stringify(avg3) === JSON.stringify(["2,333.33", "11,022.22", "8,688.89"]) && scroll <= 0, { heads, avg3, scroll });
+      check(`${tag} PF-89 (#126) This month · 3-month average · 12-month average; C7: ${avg3Label()} = 2,750 / 10,516.67 / 7,766.67 (Jul, Aug, Sep empty take the 12-month average); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), "12-month average"]) && JSON.stringify(avg3) === JSON.stringify(["2,750", "10,516.67", "7,766.67"]) && scroll <= 0, { heads, avg3, scroll });
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 

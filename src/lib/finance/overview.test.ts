@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   asOverview,
+  average3Label,
+  completeMonths3,
+  householdMonth,
   equityCoverage,
   formatCoverageShare,
   overviewCoverage,
@@ -195,7 +198,7 @@ describe("#126 equity coverage and 3-month average (PF-80..PF-86)", () => {
     assert.equal(c.status === "ok" && c.share, null);
     assert.equal(formatCoverageShare(null), "—");
   });
-  it("PF-86: 3-month average = mean of the last 3 months, empty months taking the 12-month average", () => {
+  it("PF-86 → C7: 3-month average = mean of the last 3 complete months (Jul–Sep on Oct 11), empty months taking the 12-month average", () => {
     const s = summarize(ov({ months: { "2026-01": { expenses: "7,000", income: "" }, "2026-09": { expenses: "1,000", income: "" }, "2026-10": { expenses: "4,000", income: "" } } }), NOW, { expenses: null, income: null });
     assert.equal(s.average.expenses, 4000);
     assert.equal(s.average3.expenses, 3000);
@@ -214,3 +217,54 @@ describe("#126 equity coverage and 3-month average (PF-80..PF-86)", () => {
   });
 });
 
+
+describe("C7/C2 (approved 2026-10-13): the 3-month average of complete months, coverage against it", () => {
+  const TZ = "America/Toronto";
+  it("PF-91: mid-month Oct 13 2026 → Jul, Aug, Sep (the current partial month excluded)", () => {
+    assert.deepEqual(completeMonths3(new Date(2026, 9, 13, 12), TZ), ["2026-07", "2026-08", "2026-09"]);
+  });
+  it("PF-92: year boundary: any day in January 2027 → Oct, Nov, Dec 2026; Feb → Nov–Jan", () => {
+    assert.deepEqual(completeMonths3(new Date(2027, 0, 1, 12), TZ), ["2026-10", "2026-11", "2026-12"]);
+    assert.deepEqual(completeMonths3(new Date(2027, 0, 31, 12), TZ), ["2026-10", "2026-11", "2026-12"]);
+    assert.deepEqual(completeMonths3(new Date(2027, 1, 15, 12), TZ), ["2026-11", "2026-12", "2027-01"]);
+    assert.equal(average3Label(completeMonths3(new Date(2027, 0, 5, 12), TZ)), "3-month average (Oct\u2013Dec)");
+  });
+  it("PF-95: month rollover: Oct 31 → Jul–Sep, Nov 1 → Aug–Oct; computed from the date, never hardcoded", () => {
+    assert.deepEqual(completeMonths3(new Date(2026, 9, 31, 23, 59), TZ), ["2026-07", "2026-08", "2026-09"]);
+    assert.deepEqual(completeMonths3(new Date(2026, 10, 1, 0, 1), TZ), ["2026-08", "2026-09", "2026-10"]);
+  });
+  it("PF-95: timezone edge: 2026-11-01T03:30Z is still Oct 31 in Toronto → Jul–Sep; 04:30Z (00:30 Nov 1 EDT) → Aug–Oct", () => {
+    const lateOct = new Date("2026-11-01T03:30:00Z");
+    assert.equal(householdMonth(lateOct, TZ), "2026-10");
+    assert.equal(householdMonth(lateOct, "UTC"), "2026-11", "UTC alone would already say November");
+    assert.deepEqual(completeMonths3(lateOct, TZ), ["2026-07", "2026-08", "2026-09"]);
+    assert.equal(average3Label(completeMonths3(lateOct, TZ)), "3-month average (Jul\u2013Sep)");
+    const nov1 = new Date("2026-11-01T04:30:00Z");
+    assert.deepEqual(completeMonths3(nov1, TZ), ["2026-08", "2026-09", "2026-10"]);
+    assert.equal(average3Label(completeMonths3(nov1, TZ)), "3-month average (Aug\u2013Oct)");
+    // summarize() takes the same instant and household zone at render time.
+    assert.deepEqual(summarize(NO_OVERVIEW, lateOct, { expenses: null, income: null }, undefined, TZ).window3, ["2026-07", "2026-08", "2026-09"]);
+    assert.deepEqual(summarize(NO_OVERVIEW, nov1, { expenses: null, income: null }, undefined, TZ).window3, ["2026-08", "2026-09", "2026-10"]);
+  });
+  it("PF-93: C8 on complete months: an empty complete month takes the 12-month average; the current month is ignored", () => {
+    // Jul 3,000, Aug empty, Sep 6,000, Oct (partial) 30,000. 12-month avg = 13,000; 3-month = (3,000 + 13,000 + 6,000) / 3.
+    const o = ov({ months: { "2026-07": { expenses: "3,000", income: "" }, "2026-09": { expenses: "6,000", income: "" }, "2026-10": { expenses: "30,000", income: "" } } });
+    const s = summarize(o, new Date(2026, 9, 13, 12), { expenses: null, income: null });
+    assert.deepEqual(s.window3, ["2026-07", "2026-08", "2026-09"]);
+    assert.equal(s.average.expenses, 13000);
+    assert.equal(round2(s.average3.expenses), round2(22000 / 3));
+    assert.equal(s.thisMonth.expenses, 30000, "This month still shows the partial month");
+    // The page's own figure only fills the current month, never a complete one.
+    assert.equal(summarize(NO_OVERVIEW, new Date(2026, 9, 13, 12), PAGE).average3.expenses, 1750, "all 3 empty → the 12-month average (Oct only)");
+  });
+  it("PF-94: C2: coverage % against the 3-month average of complete months, not this month", () => {
+    const o = ov({ start: "120,000", months: { "2026-07": { expenses: "1,000", income: "" }, "2026-08": { expenses: "2,000", income: "" }, "2026-09": { expenses: "3,000", income: "" }, "2026-10": { expenses: "10,000", income: "" } } });
+    const s = summarize(o, new Date(2026, 9, 13, 12), { expenses: null, income: null });
+    const c = overviewCoverage(o, s, 4); // 120,000 × 4% = 4,800/yr = 400/mo; ÷ 2,000 (Jul–Sep) = 20%
+    assert.equal(c.status === "ok" && c.share, 0.2);
+  });
+  it("PF-91: the label names the window: 3-month average (Jul–Sep)", () => {
+    assert.equal(average3Label(["2026-07", "2026-08", "2026-09"]), "3-month average (Jul\u2013Sep)");
+    assert.equal(average3Label(["2026-07", "2026-08", "2026-09"]), "3-month average (Jul–Sep)");
+  });
+});

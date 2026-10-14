@@ -723,7 +723,7 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     const table = q(el, "pf-ov-table");
     assert.deepEqual(
       [...table.querySelectorAll("[role=columnheader]")].map((c) => c.textContent),
-      ["Overview", "This month", "3-month average", "12-month average"],
+      ["Overview", "This month", "3-month average (Jul–Sep)", "12-month average"],
     );
     assert.deepEqual(
       [...table.querySelectorAll("[role=rowheader]")].map((c) => c.textContent),
@@ -1372,7 +1372,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-79 / PF-80: under the table, above the fields and chart; 13,125 × 4% → 43.75 CAD/mo · 0.53% of expenses, 525 CAD/yr", async () => {
     seed({ start: "13,125", withdrawal: "4", months: { "2026-10": { expenses: "8,254.72", income: "10,000" } } });
     const el = await render();
-    assert.deepEqual(covText(el), ["Equity coverage: 43.75 CAD/mo · 0.53% of expenses", "525 CAD/yr"]);
+    assert.deepEqual(covText(el), ["Equity coverage: 43.75 CAD/mo · 0.53% of 3-month average (Jul–Sep) expenses", "525 CAD/yr"]);
     const after = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
     assert.ok(after(q(el, "pf-ov-table"), cov(el)));
     assert.equal(q(el, "pf-ov-table").nextElementSibling, cov(el), "directly under the comparison table");
@@ -1382,7 +1382,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-81: ROIC ÷ 2 when no withdrawal rate; the household currency code", async () => {
     seed({ start: "120,000", roic: "8", household: "USD", months: { "2026-10": { expenses: "2,000", income: "" } } });
     const el = await render();
-    assert.deepEqual(covText(el), ["Equity coverage: 400 USD/mo · 20.00% of expenses", "4,800 USD/yr"]);
+    assert.deepEqual(covText(el), ["Equity coverage: 400 USD/mo · 20.00% of 3-month average (Jul–Sep) expenses", "4,800 USD/yr"]);
   });
   it("PF-82: no rate → — and Set rate under Expenses; no start → — and Set starting net assets", async () => {
     seed({ start: "13,125" });
@@ -1394,11 +1394,11 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     el = await render();
     assert.deepEqual(covText(el), ["Equity coverage: —", "Set starting net assets"]);
     await type(q(el, "pf-start"), "24,000");
-    assert.deepEqual(covText(el), ["Equity coverage: 80 CAD/mo · — of expenses", "960 CAD/yr"], "live, no expenses → %: —");
+    assert.deepEqual(covText(el), ["Equity coverage: 80 CAD/mo · — of 3-month average (Jul–Sep) expenses", "960 CAD/yr"], "live, no expenses → %: —");
     assert.equal(qa(el, "pf-month-save").length, 1, "the typed start is unsaved until Save (#112)");
   });
   it("PF-83 / PF-85 / PF-86: empty this month uses the 12-month average; 3-month average fills empty months with it", async () => {
-    // Aug 1,000 / Sep 3,000 typed; Oct empty; Jun 2,000. 12-month avg = 2,000; 3-month = (1,000 + 3,000 + 2,000) / 3.
+    // Aug 1,000 / Sep 3,000 typed; Oct empty; Jun 2,000. 12-month avg = 2,000; C7: 3-month (Jul–Sep) = (2,000 + 1,000 + 3,000) / 3.
     seed({
       start: "24,000",
       withdrawal: "5",
@@ -1409,7 +1409,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     assert.deepEqual(row("expenses"), ["—", "2,000", "2,000"]);
     assert.deepEqual(row("income"), ["—", "4,000", "4,000"]);
     assert.deepEqual(row("surplus"), ["—", "2,000", "2,000"]);
-    assert.deepEqual(covText(el), ["Equity coverage: 100 CAD/mo · 5.00% of expenses", "1,200 CAD/yr"], "÷ 12-month average 2,000");
+    assert.deepEqual(covText(el), ["Equity coverage: 100 CAD/mo · 5.00% of 3-month average (Jul–Sep) expenses", "1,200 CAD/yr"], "C2: ÷ 3-month average (Jul–Sep) 2,000");
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12", "PF-87: chart still 12 months");
   });
   it("PF-86: a different 3-month window: Aug empty, Sep 1,000, Oct 4,000; Jan 7,000 → 12-mo 4,000, 3-mo 3,000", async () => {
@@ -1426,12 +1426,29 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const fmt = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
     assert.deepEqual(covText(el), [`Equity coverage in 1 year: ${fmt(yearly / 12)} CAD/mo · ${((yearly / 12 / 1000) * 100).toFixed(2)}% of expenses`, `${fmt(yearly)} CAD/yr`]);
     await click(q(el, "pf-future-toggle"));
-    assert.deepEqual(covText(el), ["Equity coverage: 333.33 CAD/mo · 33.33% of expenses", "4,000 CAD/yr"]);
+    assert.deepEqual(covText(el), ["Equity coverage: 333.33 CAD/mo · 33.33% of 3-month average (Jul–Sep) expenses", "4,000 CAD/yr"]);
+  });
+  it("C7/C2 (PF-91, PF-94): the 3-month column and the coverage % use Jul–Sep, not the partial current month", async () => {
+    seed({
+      start: "120,000",
+      withdrawal: "4",
+      months: { "2026-07": { expenses: "1,000", income: "" }, "2026-08": { expenses: "2,000", income: "" }, "2026-09": { expenses: "3,000", income: "" }, "2026-10": { expenses: "10,000", income: "" } },
+    });
+    const el = await render(new Date(2026, 9, 13, 12));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)");
+    assert.deepEqual(["pf-ov-now", "pf-ov-avg3"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["10,000", "2,000"]);
+    assert.deepEqual(covText(el), ["Equity coverage: 400 CAD/mo · 20.00% of 3-month average (Jul–Sep) expenses", "4,800 CAD/yr"]);
+  });
+  it("C7 (PF-95): the window rolls over on Nov 1 in the household timezone (Aug–Oct)", async () => {
+    seed({ months: { "2026-08": { expenses: "1,000", income: "" }, "2026-09": { expenses: "2,000", income: "" }, "2026-10": { expenses: "3,000", income: "" } } });
+    const el = await render(new Date("2026-11-01T04:30:00Z")); // 00:30 Nov 1 in Toronto
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Aug–Oct)");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "2,000");
   });
   it("PF-88: read-only sees the coverage and the 3-month column; no new control", async () => {
     seed({ start: "13,125", withdrawal: "4", months: { "2026-10": { expenses: "8,254.72", income: "" } } });
     const el = await render(NOW, true);
-    assert.equal(covText(el)[0], "Equity coverage: 43.75 CAD/mo · 0.53% of expenses");
+    assert.equal(covText(el)[0], "Equity coverage: 43.75 CAD/mo · 0.53% of 3-month average (Jul–Sep) expenses");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "8,254.72");
     assert.equal(cov(el).querySelectorAll("input, button, select").length, 0);
   });

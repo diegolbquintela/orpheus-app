@@ -69,3 +69,16 @@ What the household's starting net assets would pay each month at the rate used, 
 - **Q-C7 window:** the current month plus the 2 before it.
 - **Q-C8 fill:** empty months in the window take the 12-month average.
 - **Q-C9 second line:** show `525 CAD/yr` (the brief says optional).
+
+## Change (C7/C2, approved 2026-10-13)
+
+The CFO approved (Diego via EL, 2026-10-13) a change to Q-C7 and Q-C2 above; Q-C8 is kept. The earlier recommendation stays above as the record.
+
+| Item | Change |
+|------|--------|
+| C7 window | `completeMonths3(today, timeZone)` in `src/lib/finance/overview.ts`: the last 3 complete months, current partial month excluded (2026-10-13 → Jul, Aug, Sep; January → Oct–Dec). |
+| Timezone / rollover | The month of `today` is read in the household timezone (`HOUSEHOLD_TIME_ZONE` = America/Toronto) at render time, never hardcoded: Oct 31 → Jul–Sep, Nov 1 → Aug–Oct; 2026-11-01T03:30Z (still Oct 31 in Toronto) → Jul–Sep. `today` is injected (`summarize(…, now, …, timeZone)`), so tests pin it. |
+| C8 | Unchanged rule, now on complete months: an empty complete month takes the 12-month average. |
+| C2 coverage | `overviewCoverage()` (Future off) divides by `summary.average3.expenses` (complete months), not this month. Future on unchanged (PF-84). |
+| Labels | `average3Label(window)` → `3-month average (Jul–Sep)` on the column header (`pf-ov-avg3-head`) and in the coverage line (`… of 3-month average (Jul–Sep) expenses`). |
+| AC | PF-91..PF-95 in `qa/CANONICAL-AC-PACK.md`; spec section 22 change note. |
