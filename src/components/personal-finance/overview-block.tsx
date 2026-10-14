@@ -172,7 +172,9 @@ function OverviewTable({ thisMonth, average3, average, label3 }: { thisMonth: Fi
 /**
  * #129 (PF-98..PF-103; was the #126 one-liner): three lines under the table:
  *   `Equity coverage: 41.67 CAD/mo (500 CAD/yr)`
- *   `* 12.5% yearly, or 0.50% monthly on 3-month average (Jul–Sep) expenses.` (smaller, dim)
+ *   `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (smaller, dim; PF-105)
+ *     Future on: `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).`
+ *     (PF-106: ÷ the horizon-end point's expenses)
  *   `** Coverage rate is derived from Rate Used under Expenses section.` (smaller, dim)
  * `—` and the short note when the rate or the starting net assets are missing. Math unchanged (#126, C7/C2, PF-84).
  */
