@@ -4,6 +4,7 @@ import {
   asOverview,
   average3Label,
   completeMonths3,
+  coverageBasis,
   householdMonth,
   equityCoverage,
   formatCoverageShare,
@@ -266,5 +267,35 @@ describe("C7/C2 (approved 2026-10-13): the 3-month average of complete months, c
   it("PF-91: the label names the window: 3-month average (Jul–Sep)", () => {
     assert.equal(average3Label(["2026-07", "2026-08", "2026-09"]), "3-month average (Jul\u2013Sep)");
     assert.equal(average3Label(["2026-07", "2026-08", "2026-09"]), "3-month average (Jul–Sep)");
+  });
+});
+
+describe("N1 (PF-96) and the basis label (PF-97), 2026-10-13", () => {
+  const TZ = "America/Toronto";
+  const P = { expenses: null, income: null };
+  for (const at of ["2026-10-31T20:00:00-04:00", "2026-10-31T20:30:00-04:00", "2026-10-31T23:59:00-04:00"]) {
+    it(`PF-96: ${at} (already Nov 1 in UTC) → This month = Oct, window Jul–Sep, no month counted twice`, () => {
+      const now = new Date(at);
+      assert.equal(now.getUTCMonth(), 10, "November in UTC");
+      const months = lastTwelve(now, TZ);
+      assert.equal(months[11], "2026-10");
+      assert.equal(months[0], "2025-11");
+      assert.equal(new Set(months).size, 12);
+      const s = summarize(ov({ months: { "2026-10": { expenses: "5,000", income: "" }, "2026-11": { expenses: "9,999", income: "" } } }), now, P, undefined, TZ);
+      assert.equal(s.current, "2026-10");
+      assert.equal(s.thisMonth.expenses, 5000);
+      assert.deepEqual(s.window3, ["2026-07", "2026-08", "2026-09"]);
+      assert.ok(!s.window3.includes(s.current));
+    });
+  }
+  it("PF-96: 00:00 Nov 1 ET → This month = Nov, window Aug–Oct", () => {
+    const s = summarize(NO_OVERVIEW, new Date("2026-11-01T00:00:00-04:00"), P, undefined, TZ);
+    assert.equal(s.current, "2026-11");
+    assert.deepEqual(s.window3, ["2026-08", "2026-09", "2026-10"]);
+  });
+  it("PF-97: basis label: 3-mo avg (window) with Future off, projection with Future on", () => {
+    assert.equal(coverageBasis(false, ["2026-07", "2026-08", "2026-09"]), "basis: 3-mo avg (Jul\u2013Sep)");
+    assert.equal(coverageBasis(false, ["2026-10", "2026-11", "2026-12"]), "basis: 3-mo avg (Oct\u2013Dec)");
+    assert.equal(coverageBasis(true, ["2026-07", "2026-08", "2026-09"]), "basis: projection");
   });
 });

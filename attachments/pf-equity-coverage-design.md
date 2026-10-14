@@ -82,3 +82,10 @@ The CFO approved (Diego via EL, 2026-10-13) a change to Q-C7 and Q-C2 above; Q-C
 | C2 coverage | `overviewCoverage()` (Future off) divides by `summary.average3.expenses` (complete months), not this month. Future on unchanged (PF-84). |
 | Labels | `average3Label(window)` → `3-month average (Jul–Sep)` on the column header (`pf-ov-avg3-head`) and in the coverage line (`… of 3-month average (Jul–Sep) expenses`). |
 | AC | PF-91..PF-95 in `qa/CANONICAL-AC-PACK.md`; spec section 22 change note. |
+
+## Change (N1 and basis label, 2026-10-13)
+
+| Item | Change |
+|------|--------|
+| N1 | `lastTwelve(now, timeZone)` starts from `householdMonth(now, timeZone)` (America/Toronto), so `This month`, the 12 months and the 3-month window share one month; Oct 31 20:00–23:59 ET (Nov 1 UTC) → October, Jul–Sep. PF-96. |
+| Basis label | PF-84 confirmed by the CFO. `coverageBasis(future, window)` → `basis: projection` / `basis: 3-mo avg (Jul–Sep)`, shown dim (`pf-coverage-basis`) after the %. PF-97. |

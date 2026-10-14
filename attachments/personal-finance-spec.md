@@ -859,3 +859,9 @@ Approved by the CFO (Diego via EL), 2026-10-13. Supersedes the window in 22.2 an
 - **C2 coverage:** the equity coverage % (`pf-coverage`, Future off) is computed against that 3-month average of complete months, not the current month. Future on is unchanged (projected net assets, average expenses).
 - **Labels:** the column reads `3-month average (Jul–Sep)` and the coverage line `… of 3-month average (Jul–Sep) expenses`; the months follow the window.
 - **AC:** PF-91..PF-95 (`qa/CANONICAL-AC-PACK.md`).
+
+### Change (N1 and basis label, 2026-10-13)
+
+- **N1:** `This month` and the 12-month list use the household month (America/Toronto), the same as the 3-month window: Oct 31 20:00–23:59 ET (already Nov 1 in UTC) still shows October and Jul–Sep, on a UTC server or in a browser west of Toronto.
+- **Basis label:** the CFO confirms PF-84. A dim label beside the coverage %: `basis: 3-mo avg (Jul–Sep)` (Future off; the window follows the date) or `basis: projection` (Future on).
+- **AC:** PF-96, PF-97.

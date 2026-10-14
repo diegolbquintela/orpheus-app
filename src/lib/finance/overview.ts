@@ -26,6 +26,9 @@ export const HOUSEHOLD_TIME_ZONE = "America/Toronto";
 export const COVERAGE_LABEL = "Equity coverage";
 export const COVERAGE_RATE_NOTE = "Set rate under Expenses";
 export const COVERAGE_START_NOTE = "Set starting net assets";
+/** C7/C2 + PF-84 (PF-97): the dim basis label beside the coverage %. */
+export const coverageBasis = (future: boolean, window: MonthKey[]): string =>
+  future ? "basis: projection" : `basis: 3-mo avg (${windowRange(window)})`;
 export const coverageLabel = (years: Years | null): string =>
   years === null ? `${COVERAGE_LABEL}:` : `${COVERAGE_LABEL} in ${yearsLabel(years)}:`;
 export const EXPENSES = "Expenses";
@@ -63,13 +66,14 @@ export const NO_OVERVIEW: Overview = { start: "", growth: "", future: false, yea
 const pad = (n: number): string => String(n).padStart(2, "0");
 export const monthKey = (year: number, month0: number): MonthKey => `${year}-${pad(month0 + 1)}`;
 
-/** The 12 months, oldest → current, for a local date. */
-export function lastTwelve(now: Date): MonthKey[] {
-  const out: MonthKey[] = [];
-  for (let back = 11; back >= 0; back--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
-    out.push(monthKey(d.getFullYear(), d.getMonth()));
-  }
+/**
+ * The 12 months, oldest → current. N1 (2026-10-13, PF-96): the current month is `householdMonth(now)` in the
+ * household timezone, the same as the 3-month window, so a UTC server or a browser west of Toronto never shows next
+ * month early (2026-10-31T20:30-04:00 is already Nov 1 in UTC but still October here).
+ */
+export function lastTwelve(now: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
+  const out: MonthKey[] = [householdMonth(now, timeZone)];
+  while (out.length < 12) out.unshift(previousMonth(out[0]));
   return out;
 }
 
@@ -205,7 +209,7 @@ export function summarize(
   lines?: Record<MonthKey, Figures>,
   timeZone: string = HOUSEHOLD_TIME_ZONE,
 ): Summary {
-  const months = lastTwelve(now);
+  const months = lastTwelve(now, timeZone);
   const current = months[months.length - 1];
   const figures = months.map((key) => monthFigures(overview, key, current, page, lines));
   const average: Figures = {

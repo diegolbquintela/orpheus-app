@@ -12,6 +12,7 @@ import { AMOUNT_ERROR, formatAmount, NOT_COMPUTED, parseAmount } from "@/lib/fin
 import {
   AVERAGE,
   average3Label,
+  coverageBasis,
   type Coverage,
   COVERAGE_RATE_NOTE,
   COVERAGE_START_NOTE,
@@ -113,7 +114,7 @@ export function OverviewBlock({
           {open ? (
             <Lock on={readOnly}>
               <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} />
-              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} label3={average3Label(summary.window3)} />
+              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} label3={average3Label(summary.window3)} basis={coverageBasis(overview.future, summary.window3)} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
               <OverviewChart summary={summary} width={chartWidth} />
@@ -176,14 +177,17 @@ function CoverageLine({
   currency,
   years,
   label3,
+  basis,
 }: {
   coverage: Coverage;
   currency: string;
   years: (typeof YEARS)[number] | null;
   /** C7/C2: today's share is of the 3-month average of complete months, named with its window. */
   label3: string;
+  /** PF-97: `basis: projection` (Future on) or `basis: 3-mo avg (Jul–Sep)`. */
+  basis: string;
 }) {
-  const basis = years === null ? `${label3} expenses` : "expenses";
+  const basisText = years === null ? `${label3} expenses` : "expenses";
   const unit = currency ? ` ${currency}` : "";
   const note = coverage.status === "no_rate" ? COVERAGE_RATE_NOTE : coverage.status === "no_start" ? COVERAGE_START_NOTE : null;
   return (
@@ -194,7 +198,11 @@ function CoverageLine({
           <>
             <span data-testid="pf-coverage-monthly">{`${formatAmount(coverage.monthly)}${unit}/mo`}</span>
             {" · "}
-            <span data-testid="pf-coverage-share">{`${formatCoverageShare(coverage.share)} of ${basis}`}</span>
+            <span data-testid="pf-coverage-share">{`${formatCoverageShare(coverage.share)} of ${basisText}`}</span>
+            {" · "}
+            <span className="pf-coverage-basis text-dim" data-testid="pf-coverage-basis">
+              {basis}
+            </span>
           </>
         ) : (
           <span data-testid="pf-coverage-monthly">{NOT_COMPUTED}</span>
