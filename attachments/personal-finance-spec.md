@@ -918,3 +918,17 @@ Brief (#132, MEDIUM): show the 12-month average's month range the same way the 3
 25.2 **Window.** The 12 months the average is computed over today (`lastTwelve(now)`): the current household month (America/Toronto, N1) and the 11 before it, computed at render time, never hardcoded. The figures do not change. It rolls over on the 1st in Toronto: Oct 31 23:59 ET → `Nov–Oct`, Nov 1 00:00 ET → `Dec–Nov`; a UTC instant still Oct 31 in Toronto (2026-11-01T03:30Z) → `Nov–Oct`.
 
 25.3 Q-M1..Q-M4: `attachments/pf-12mo-range-design.md`.
+
+## 26. Overview: the 12-month average uses 12 complete months (#140; PF-121..PF-128)
+
+Brief (#140, HIGH; approved by Diego in the Engineering Lead chat, 2026-10-14; business user CFO): the 12-month average leaves out the partial current month, as the 3-month average does since C7 (#126). Supersedes the 12-month window of section 15 / Q18, PF-116 and the `Nov–Oct` example of section 25 (those lines stay as the record).
+
+26.1 **Window.** The last 12 complete household months (America/Toronto), computed at render time: on 2026-10-14, Oct 2025..Sep 2026, label `12-month average (Oct–Sep)`. Oct 31 23:59 ET → `Oct–Sep`; Nov 1 00:00 ET → `Nov–Oct`; 2026-11-01T03:30Z (still Oct 31 in Toronto) → `Oct–Sep`; any day in January 2027 → `Jan–Dec` (Jan 2026..Dec 2026).
+
+26.2 **Mean.** The mean of the complete months in the window that have a figure (an empty month is left out, as today). Fewer than 12 complete months with data: the mean of those, and the label still names the full window (Q-T1). No complete month with a figure: `—` (Q-T3).
+
+26.3 **Uses of the 12-month average** (all follow the new window): the empty-month fill (C8) for the 3-month average and the 12 chart months; the Future projection (each future month's expenses and income held at it, PF-107); the Future-on coverage (÷ the horizon-end point's expenses, PF-106). When it is `—`, the filled months, Future and the Future-on coverage are `—` / `none` as today.
+
+26.4 **Unchanged:** `This month` (the current household month, its own figure); the chart's 12 months (current + 11 before, `lastTwelve`); the 3-month average and label; Future-off coverage (÷ the 3-month average); Equity coverage layout (#129), Withdrawal rate description (#131), #138.
+
+26.5 Q-T1..Q-T5: `attachments/pf-12mo-complete-design.md`.

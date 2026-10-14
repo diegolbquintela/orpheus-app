@@ -653,3 +653,18 @@ Unit / DOM tests cover PF-115..PF-119; the preview suites cover PF-120.
 | PF-118 | BLOCK | The 3-month average, its label and window (PF-91..PF-95) are unchanged. |
 | PF-119 | BLOCK | Equity coverage text (#129, PF-98..PF-107) and the Withdrawal rate description (#131) are unchanged; read-only sees the same header. |
 | PF-120 | BLOCK | Preview: personal-finance (empty page), site-style-regression (PF copy list) and personal-finance-e2e show the dated header; dark style, lyre, footer `Orpheus Wisdom`, no gold; no horizontal scroll at 400 px. |
+
+## Personal Finance: 12-month average over 12 complete months (#140; spec section 26)
+
+Unit / DOM tests cover PF-121..PF-127; the preview suites cover PF-128. Supersedes the 12-month window of PF-26..31 / Q18 and PF-116, and the `Nov–Oct` header of PF-115 (rows stay as the record).
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-121 | BLOCK | The 12-month average is the mean over the last 12 COMPLETE household months (America/Toronto), the current partial month excluded; on 2026-10-14: Oct 2025..Sep 2026; header `12-month average (Oct–Sep)` (`pf-ov-avg-head`). Supersedes PF-116 and the PF-115 example. |
+| PF-122 | BLOCK | Rollover / timezone: 2026-10-31T23:59-04:00 → `Oct–Sep`; 2026-11-01T00:00-04:00 → `Nov–Oct`; 2026-11-01T03:30Z → `Oct–Sep`; January 2027 → `Jan–Dec`. Unit under TZ=UTC and America/Los_Angeles. |
+| PF-123 | BLOCK | Q-T1 / Q-T2: fewer than 12 complete months with a figure → the mean of those; empty months left out; the label still names the full window. |
+| PF-124 | BLOCK | Q-T3 / Q-T5: no complete month with a figure → 12-month average `—`; the 3-month average is the mean of its months with a figure else `—`; Future and Future-on coverage not computed; the current month's figure never enters the 12-month average. |
+| PF-125 | BLOCK | C8 fill and Future use the new average: an empty 3-month / chart month takes it; future points' expenses = it (supersedes the PF-107 value), so Future-on coverage (PF-106) divides by it. |
+| PF-126 | BLOCK | Unchanged: `This month`, the chart's 12 months (current + 11 before), the 3-month window / label, Future-off coverage (÷ 3-month average), coverage layout (#129), Withdrawal rate (#131). |
+| PF-127 | BLOCK | DOM: the header, the 12-month and 3-month figures and Future-on coverage follow the new window on 2026-10-14, and roll over at Nov 1 00:30 ET. |
+| PF-128 | BLOCK | Preview: personal-finance (empty page `emptyTexts`), site-style-regression PF copy list and personal-finance-e2e (12-month = June only 4,000 / 9,000 / 5,000; net assets 75,533.33) show the new header and figures; dark style, lyre, footer `Orpheus Wisdom`, no gold. |
