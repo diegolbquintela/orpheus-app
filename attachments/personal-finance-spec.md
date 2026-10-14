@@ -908,3 +908,13 @@ Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal 
 - Shown to read-only grantees; the withdrawal input is `aria-describedby` it. An approved exception to PF-02's "no
   other text". Design and Q-W1..Q-W7: `attachments/pf-withdrawal-description-design.md`.
 
+
+## 25. Overview: month range under the 12-month average (#132; PF-115..PF-120)
+
+Brief (#132, MEDIUM): show the 12-month average's month range the same way the 3-month average shows it (`3-month average (Jul–Sep)`). The 3-month behaviour is unchanged; Equity coverage (#129), the Withdrawal rate description (#131) and the currency model are out of scope.
+
+25.1 **Label.** The column header reads `12-month average (<first>–<last>)`, e.g. `12-month average (Nov–Oct)` on 2026-10-14: the same format as the 3-month label (short month names, en dash, no years). Header test id `pf-ov-avg-head`.
+
+25.2 **Window.** The 12 months the average is computed over today (`lastTwelve(now)`): the current household month (America/Toronto, N1) and the 11 before it, computed at render time, never hardcoded. The figures do not change. It rolls over on the 1st in Toronto: Oct 31 23:59 ET → `Nov–Oct`, Nov 1 00:00 ET → `Dec–Nov`; a UTC instant still Oct 31 in Toronto (2026-11-01T03:30Z) → `Nov–Oct`.
+
+25.3 Q-M1..Q-M4: `attachments/pf-12mo-range-design.md`.

@@ -640,3 +640,16 @@ preview; PF-114 is the regression set. Copy and style only: PF-18 (Rate used) is
 | PF-113 | BLOCK | Preview (`personal-finance`, signed in, 360 / 400 / 1024 / 1440): both lines visible, bottom of the block above the top of the `Withdrawal rate (%)` label, font size smaller than the body text and not uppercase, dim colour, no horizontal scroll; dark style, lyre, footer `Orpheus Wisdom`, no gold. |
 | PF-114 | BLOCK | Preview: site-style-regression (258 with axe), home-page (154 with axe), site-shell, no-grok, personal-finance, pf-months, personal-finance-e2e PASS (font-load flakes noted as intermittent). |
 
+
+## Personal Finance: month range under the 12-month average (#132; spec section 25)
+
+Unit / DOM tests cover PF-115..PF-119; the preview suites cover PF-120.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-115 | BLOCK | The `04` Overview table header reads `This month`, `3-month average (Jul–Sep)`, `12-month average (Nov–Oct)` on 2026-10-14 (`pf-ov-avg-head`): short months, en dash, no years, the 3-month label style. |
+| PF-116 | BLOCK | The 12-month range is the months the 12-month average is computed over: the current household month (America/Toronto) and the 11 before it; the 12-month figures are unchanged. |
+| PF-117 | BLOCK | Rollover in the household timezone, never hardcoded: 2026-10-31T23:59-04:00 → `Nov–Oct`; 2026-11-01T00:00-04:00 → `Dec–Nov`; 2026-11-01T03:30Z (still Oct 31 in Toronto) → `Nov–Oct`; January 2027 → `Feb–Jan`. Unit under TZ=UTC and America/Los_Angeles. |
+| PF-118 | BLOCK | The 3-month average, its label and window (PF-91..PF-95) are unchanged. |
+| PF-119 | BLOCK | Equity coverage text (#129, PF-98..PF-107) and the Withdrawal rate description (#131) are unchanged; read-only sees the same header. |
+| PF-120 | BLOCK | Preview: personal-finance (empty page), site-style-regression (PF copy list) and personal-finance-e2e show the dated header; dark style, lyre, footer `Orpheus Wisdom`, no gold; no horizontal scroll at 400 px. |
