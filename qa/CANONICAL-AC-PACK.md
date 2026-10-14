@@ -683,3 +683,15 @@ PF-129..PF-131 supersede the PF-115/PF-121 header example and PF-123's "full-win
 | PF-132 | For the 12-month expense average and the N-of-12 count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0: 8 expense months + 1 income-only month give `12-month average (8 of 12 months)` and an expense average over 8. The fill, Future and coverage use that average. The income average keeps its own months. This supersedes PF-130's "an income-only month counts". |
 
 PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated label too, a month has data only if it has expense entries.
+
+### #143 Save blocked while a field has an error; API refuses invalid values (spec section 28)
+| ID | Acceptance criterion |
+|---|---|
+| PF-133 | With October saved (This month 2,950), typing `-5` in Rent shows `Enter a number, 0 or more.`. Pressing Save sends no PUT and shows `Fix the fields marked in red before saving.`; focus moves to Rent. After a reload, This month is still 2,950. |
+| PF-134 | The same for a bad tax (`-1` or `101`: `Enter a percent from 0 to 100.`), wages, bonus, share, `Equity to cover`, `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Starting net assets`, growth, and a foreign line's FX rate. |
+| PF-135 | 0 and blank are valid: `0` in Rent saves (one PUT), and This month counts it as 0. |
+| PF-136 | Fixing the field clears the note, and Save then saves (one PUT). |
+| PF-137 | API: a PUT whose record holds a negative amount, a non-number, a percent above 100, or an FX rate of 0 or less (in any month's lines or the shared values) gets 400 `{ "error": "Invalid value.", "field": "<path>" }`. Nothing is stored and nothing is clamped to 0. A valid record still saves. A blank FX rate is accepted by the API. |
+| PF-138 | A refused PUT shows `Not saved.`, and the edits stay unsaved (Save shown). |
+| PF-139 | A record already holding `-5` opens with the error shown on that field, and Save is blocked until it's fixed. |
+| PF-140 | Read-only is unchanged: no Save and no PUT. |
