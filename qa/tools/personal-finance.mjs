@@ -141,6 +141,9 @@ const emptyTexts = (wide) => [
   ...(wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"]),
   "03",
   "Expenses",
+  // #131 (Q-W7): the Withdrawal rate description, an approved exception to "no other text".
+  "Withdrawal rate used to calculate how much equity can cover expenses.",
+  "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
   "Withdrawal rate (%)",
   "Portfolio ROIC (%)",
   "Rate used",
