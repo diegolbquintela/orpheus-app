@@ -18,6 +18,7 @@ import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { checkRecord, type PfRecord } from "./record.ts";
+import { INVALID_VALUE, recordFieldError } from "./field-errors.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
 
@@ -81,6 +82,9 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     const checked = checkRecord(body.data);
     if (!checked.ok) return dashboardJson({ error: checked.error }, checked.status);
     record = checked.record;
+    // #143 (PF-137, Q-S4): an invalid value is refused, never clamped; nothing is stored.
+    const field = recordFieldError(record);
+    if (field) return dashboardJson({ error: INVALID_VALUE, field }, 400);
   }
   if (method === "PUT" && record) {
     if (!g.access.owner) {

@@ -312,6 +312,21 @@ try {
       const unsaved = (await figures(page)).ov;
       await settle(page);
       const ov0 = (await figures(page)).ov;
+      // #143 (PF-133): with October saved, -5 in Rent blocks Save (no PUT, the note, focus on Rent); restored after.
+      {
+        const amt = rent.getByTestId("pf-monthly");
+        const was = await val(amt);
+        let puts143 = 0;
+        const onReq = (r) => { if (r.method() === "PUT" && new URL(r.url()).pathname === API) puts143++; };
+        page.on("request", onReq);
+        await amt.fill("-5");
+        await page.getByTestId("pf-month-save").click();
+        await page.waitForTimeout(800);
+        const blocked = { note: await txt(page.getByTestId("pf-month-note")), focus: await amt.evaluate((e) => e === document.activeElement), puts: puts143, now: (await figures(page)).ov.expenses[0] };
+        page.off("request", onReq);
+        await amt.fill(was);
+        check(`${tag} PF-133 (#143) -5 in Rent: Save sends no PUT, shows "Fix the fields marked in red before saving.", focus on Rent; This month stays 1,500`, JSON.stringify(blocked) === JSON.stringify({ note: "Fix the fields marked in red before saving.", focus: true, puts: 0, now: "1,500" }), blocked);
+      }
       await page.getByTestId("pf-month").selectOption("2026-06");
       const note = (await txt(page.getByTestId("pf-month-note")));
       while ((await page.getByTestId("pf-remove").count()) > 0) { page.once("dialog", (d) => void d.accept()); await page.getByTestId("pf-remove").first().click(); }

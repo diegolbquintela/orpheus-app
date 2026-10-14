@@ -1,5 +1,6 @@
 import { Minus } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { fieldErrors, SAVE_BLOCKED } from "@/lib/finance/field-errors";
 import {
   ACCOUNT_MAX,
   ACCOUNTS_MAX,
@@ -141,6 +142,8 @@ export function PersonalFinancePage({
   const [baseline, setBaseline] = useState<string>("");
   const [saved, setSaved] = useState(0);
   const [saving, setSaving] = useState(false);
+  /** #143 (Q-S1): Save was pressed while a field showed an error. */
+  const [blocked, setBlocked] = useState(false);
   /** #113: category renames since the last save / month switch (applied to every stored month on Save). */
   const [renames, setRenames] = useState<[string, string][]>([]);
 
@@ -184,6 +187,7 @@ export function PersonalFinancePage({
     setMonth(key);
     setCopiedFrom(opened.copiedFrom);
     setRenames([]);
+    setBlocked(false);
     setBaseline(canonical(e, i, r, h, o));
   }
 
@@ -203,6 +207,10 @@ export function PersonalFinancePage({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
+  const hasErrors =
+    !!(expenses && income && rates && household && overview) &&
+    fieldErrors({ expenses, income, rates, overview, household: household.household }).length > 0;
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const figures = useMemo(() => lineFigures(storage()), [saved, month]);
 
@@ -216,6 +224,13 @@ export function PersonalFinancePage({
   async function save() {
     const store = storage();
     if (!store || !month || !expenses || !income || !rates || !household || !overview) return;
+    // #143 (PF-133, Q-S1): any field in error → nothing written, no PUT; the note and focus on the first such field.
+    if (fieldErrors({ expenses, income, rates, overview, household: household.household }).length) {
+      setBlocked(true);
+      document.querySelector<HTMLElement>(".pf [aria-invalid=true]")?.focus();
+      return;
+    }
+    setBlocked(false);
     // #113 (PF-65): renames reach every month (read against the old list, before it is replaced).
     const months = renameInMonths(readMonths(store), renames);
     months[month] = { fixed: expenses.fixed, variable: expenses.variable, people: income.people };
@@ -291,7 +306,13 @@ export function PersonalFinancePage({
             dirty={dirty}
             saving={saving}
             onSave={() => void save()}
-            note={copiedFrom ? copiedNote(monthName(copiedFrom)) : ""}
+            note={
+              blocked && hasErrors
+                ? SAVE_BLOCKED
+                : copiedFrom
+                  ? copiedNote(monthName(copiedFrom))
+                  : ""
+            }
           />
         </header>
 
