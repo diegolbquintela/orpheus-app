@@ -4,6 +4,8 @@ import {
   asOverview,
   average3Label,
   completeMonths3,
+  COVERAGE_SOURCE_NOTE,
+  coverageRateNote,
   coverageBasis,
   householdMonth,
   equityCoverage,
@@ -297,5 +299,24 @@ describe("N1 (PF-96) and the basis label (PF-97), 2026-10-13", () => {
     assert.equal(coverageBasis(false, ["2026-07", "2026-08", "2026-09"]), "basis: 3-mo avg (Jul\u2013Sep)");
     assert.equal(coverageBasis(false, ["2026-10", "2026-11", "2026-12"]), "basis: 3-mo avg (Oct\u2013Dec)");
     assert.equal(coverageBasis(true, ["2026-07", "2026-08", "2026-09"]), "basis: projection");
+  });
+});
+
+describe("#129 coverage layout notes (PF-99..PF-101, PF-103)", () => {
+  const W = ["2026-07", "2026-08", "2026-09"];
+  it("PF-99 / PF-100: the brief's example: 4,000 × 12.5% = 41.67/mo, ÷ 8,333.33 → 0.50% on Jul–Sep", () => {
+    const c = equityCoverage(4000, 12.5, 8333.33);
+    assert.ok(c.status === "ok");
+    assert.equal(round2(c.monthly), 41.67);
+    assert.equal(c.yearly, 500);
+    assert.equal(coverageRateNote("12.5%", c.share, false, W), "* 12.5% yearly, or 0.50% monthly on 3-month average (Jul\u2013Sep) expenses.");
+    assert.equal(coverageRateNote("12.5%", null, false, W), "* 12.5% yearly, or — monthly on 3-month average (Jul\u2013Sep) expenses.");
+    assert.equal(coverageRateNote("4%", 0.2, false, ["2026-10", "2026-11", "2026-12"]), "* 4% yearly, or 20.00% monthly on 3-month average (Oct\u2013Dec) expenses.");
+  });
+  it("PF-103: Future on → 12-month average expenses (projection)", () => {
+    assert.equal(coverageRateNote("4%", 0.1234, true, W), "* 4% yearly, or 12.34% monthly on 12-month average expenses (projection).");
+  });
+  it("PF-101: the source note text", () => {
+    assert.equal(COVERAGE_SOURCE_NOTE, "** Coverage rate is derived from Rate Used under Expenses section.");
   });
 });

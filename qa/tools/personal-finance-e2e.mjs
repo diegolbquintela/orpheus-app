@@ -326,11 +326,15 @@ try {
       const hh = await page.getByTestId("pf-household").inputValue();
       const cv = await cov();
       const yr = (10000 * rateNow) / 100;
-      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo · ${((yr / 12 / 2750) * 100).toFixed(2)}% of ${avg3Label()} expenses · basis: 3-mo avg (${avg3Label().slice(17, -1)})`, `${NUM.format(yr)} ${hh}/yr`] : ["Equity coverage: —", "Set rate under Expenses"];
+      // #129 (PF-104): three lines: amounts, the rate note (smaller) and the source note (smaller).
+      const rateTxt = (await txt(page.getByTestId("pf-rate-used"))) ?? "";
+      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, or ${((yr / 12 / 2750) * 100).toFixed(2)}% monthly on ${avg3Label()} expenses.`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+      const covFont = await page.getByTestId("pf-coverage").evaluate((c) => [...c.querySelectorAll("p")].map((p) => parseFloat(getComputedStyle(p).fontSize)));
       const avg3 = await page.evaluate(() => ["expenses", "income", "surplus"].map((r) => document.querySelector(`[data-testid=pf-ov-${r}] [data-testid=pf-ov-avg3]`)?.textContent.trim()));
       const heads = await page.getByTestId("pf-ov-table").locator("[role=columnheader]").allTextContents();
       const order = await page.evaluate(() => { const t = document.querySelector("[data-testid=pf-ov-table]"); return t.nextElementSibling?.getAttribute("data-testid"); });
       const scroll = await page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
+      check(`${tag} PF-104 (#129) coverage lines 2–3 in a smaller font than line 1 (${covFont.join(" / ")} px)`, covFont.length === 3 && covFont[1] < covFont[0] && covFont[2] < covFont[0], { covFont });
       check(`${tag} PF-89 (#126) Equity coverage directly under the table: start 10,000 × rate used ${rateNow}% → ${wantCov.join(" / ")}`, JSON.stringify(cv) === JSON.stringify(wantCov) && order === "pf-coverage", { cv, wantCov, order });
       check(`${tag} PF-89 (#126) This month · 3-month average · 12-month average; C7: ${avg3Label()} = 2,750 / 10,516.67 / 7,766.67 (Jul, Aug, Sep empty take the 12-month average); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), "12-month average"]) && JSON.stringify(avg3) === JSON.stringify(["2,750", "10,516.67", "7,766.67"]) && scroll <= 0, { heads, avg3, scroll });
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
@@ -347,7 +351,7 @@ try {
         // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets and the average expenses 2,750.
         const cf = await cov();
         const y = (y5.net * rateNow) / 100;
-        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo · ${((y / 12 / 2750) * 100).toFixed(2)}% of expenses · basis: projection`, `${NUM.format(y)} ${hh}/yr`] : ["Equity coverage in 5 years: —", "Set rate under Expenses"];
+        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, or ${((y / 12 / 2750) * 100).toFixed(2)}% monthly on 12-month average expenses (projection).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
         check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the projected net assets ${y5.net.toFixed(2)} and the 12-month average expenses`, JSON.stringify(cf) === JSON.stringify(want), { cf, want });
       }
       check(`${tag} PFE-09 growth 5: 1 year 24 points ≈ ${w1.toFixed(2)}, 5 years 72 points ≈ ${w5.toFixed(2)} (± 0.01)`, y1.months === "24" && Math.abs(y1.net - w1) <= 0.011 && y5.months === "72" && Math.abs(y5.net - w5) <= 0.011, { y1, y5, w1, w5 });

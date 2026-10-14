@@ -168,7 +168,7 @@ const emptyTexts = (wide) => [
   "Surplus", "—", "—", "—",
   // #126 (PF-82): the Equity coverage line with no rate yet.
   "Equity coverage:", "—",
-  "Set rate under Expenses",
+  "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", // #129 PF-101
   "Starting net assets",
   "Growth rate (%)",
   "Future",

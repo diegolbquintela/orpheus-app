@@ -26,6 +26,16 @@ export const HOUSEHOLD_TIME_ZONE = "America/Toronto";
 export const COVERAGE_LABEL = "Equity coverage";
 export const COVERAGE_RATE_NOTE = "Set rate under Expenses";
 export const COVERAGE_START_NOTE = "Set starting net assets";
+/** #129 (PF-101): line 3 of the coverage block, in every state. */
+export const COVERAGE_SOURCE_NOTE = "** Coverage rate is derived from Rate Used under Expenses section.";
+/**
+ * #129 (PF-100, PF-103; Q-L1..Q-L4): line 2, `* 12.5% yearly, or 0.50% monthly on 3-month average (Jul–Sep) expenses.`
+ * `rateText` is the Rate used as shown (`formatRate`); Future on: `… on 12-month average expenses (projection).`
+ */
+export const coverageRateNote = (rateText: string, share: number | null, future: boolean, window: MonthKey[]): string =>
+  `* ${rateText} yearly, or ${formatCoverageShare(share)} monthly on ${
+    future ? "12-month average expenses (projection)" : `${average3Label(window)} expenses`
+  }.`;
 /** C7/C2 + PF-84 (PF-97): the dim basis label beside the coverage %. */
 export const coverageBasis = (future: boolean, window: MonthKey[]): string =>
   future ? "basis: projection" : `basis: 3-mo avg (${windowRange(window)})`;

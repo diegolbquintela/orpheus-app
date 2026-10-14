@@ -604,3 +604,5 @@ company figures do not apply` in place of the company sections; price, chart and
 new-holding backfill classify; pages never call OpenFIGI. Design `attachments/etf-detection-design.md`.
 
 **Change (C7/C2, approved 2026-10-13).** The Overview's 3-month average uses the last 3 complete months (e.g. `3-month average (Jul–Sep)` on Oct 13), computed from today in the household timezone, and the equity coverage % is against it. See `attachments/pf-equity-coverage-design.md`, PF-91..PF-95.
+
+**Equity coverage layout (#129).** The Overview's coverage reads on three lines: `Equity coverage: 41.67 CAD/mo (500 CAD/yr)`, then in a smaller font the rate note (`* 12.5% yearly, or 0.50% monthly on 3-month average (Jul–Sep) expenses.`) and the source note (`** Coverage rate is derived from Rate Used under Expenses section.`). Spec section 23, PF-98..PF-104.
