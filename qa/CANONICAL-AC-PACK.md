@@ -668,3 +668,12 @@ Unit / DOM tests cover PF-121..PF-127; the preview suites cover PF-128. Supersed
 | PF-126 | BLOCK | Unchanged: `This month`, the chart's 12 months (current + 11 before), the 3-month window / label, Future-off coverage (÷ 3-month average), coverage layout (#129), Withdrawal rate (#131). |
 | PF-127 | BLOCK | DOM: the header, the 12-month and 3-month figures and Future-on coverage follow the new window on 2026-10-14, and roll over at Nov 1 00:30 ET. |
 | PF-128 | BLOCK | Preview: personal-finance (empty page `emptyTexts`), site-style-regression PF copy list and personal-finance-e2e (12-month = June only 4,000 / 9,000 / 5,000; net assets 75,533.33) show the new header and figures; dark style, lyre, footer `Orpheus Wisdom`, no gold. |
+
+### #141 Q-T1 (CFO-changed): 12-month label count (spec section 27)
+| ID | Acceptance criterion |
+|---|---|
+| PF-129 | All 12 complete months have data (expenses or income): the 12-month header is dated, `12-month average (Oct–Sep)` on Oct 14, 2026, and rolls over at 00:00 on the 1st in Toronto (`Nov–Oct`). |
+| PF-130 | Fewer than 12 have data: the header reads `12-month average (N of 12 months)`, e.g. `(8 of 12 months)` (the CFO's example), with no range. An income-only month counts. The figures are unchanged. The e2e (June alone) reads `(1 of 12 months)`. |
+| PF-131 | None has data: `12-month average (0 of 12 months)` and the figures are `—` (Q-T3). The empty-page QA copy lists read `(0 of 12 months)`. |
+
+PF-129..PF-131 supersede the PF-115/PF-121 header example and PF-123's "full-window label" when fewer than 12 months have data. The Future-on coverage note names no range and is unchanged.

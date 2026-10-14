@@ -21,3 +21,8 @@ Brief: issue #140 (HIGH; approved by Diego, 2026-10-14). Spec section 26, AC PF-
 - **Q-T3 no complete month with a figure** (e.g. a first-month user with only the current month typed): the 12-month average is `—`; the fill, Future and Future-on coverage are `—` / not computed, as today when nothing is typed. Alternative: fall back to the current month's figure until a month completes.
 - **Q-T4 This month and the chart:** unchanged. `This month` is the current month; the chart keeps the current month + 11 before (it shows the current month's own figure). Alternative: move the chart to the 12 complete months too.
 - **Q-T5 the 3-month fill when the 12-month average is empty:** stays empty, so the 3-month average is the mean of its months with a figure, else `—` (follows Q-T3).
+
+## Q-T1 changed by the CFO (#141); Q-T2..Q-T5 accepted
+- Q-T1 (CFO-changed, labelling only): with 12 of 12 complete months with data, the label is dated (`12-month average (Oct–Sep)`). With fewer, it shows `12-month average (N of 12 months)` in the CFO's example format, and the range is not shown. With 0, it reads `(0 of 12 months)` and the figures are `—`.
+- Built as `average12CountLabel(window12, window12WithData)`. `Summary.window12WithData` counts the months that have expenses or income. The mean stays the same.
+- Q-T2, Q-T3, Q-T4 and Q-T5 were accepted by the CFO as recommended.

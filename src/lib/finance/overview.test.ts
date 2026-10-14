@@ -4,6 +4,7 @@ import {
   asOverview,
   average3Label,
   average12Label,
+  average12CountLabel,
   completeMonths,
   completeMonths3,
   COVERAGE_SOURCE_NOTE,
@@ -421,5 +422,34 @@ describe("#140 the 12-month average over 12 complete months (PF-121..PF-125)", (
     const c = overviewCoverage(o, s, 4);
     assert.ok(c.status === "ok");
     assert.equal(round2(c.share), round2((s.points.at(-1)!.net! * 0.04) / 12 / 4000));
+  });
+});
+
+describe("#141 Q-T1 (CFO-changed): the 12-month label shows the count when fewer than 12 months have data (PF-129..PF-131)", () => {
+  const TZ = "America/Toronto";
+  const P = { expenses: null, income: null };
+  const NOW = new Date("2026-10-14T12:00:00-04:00");
+  const months = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, { expenses: "1,000", income: "" }]));
+  const W = completeMonths(NOW, 12, TZ);
+  it("PF-129: 12 of 12 → the dated label 12-month average (Oct–Sep)", () => {
+    const s = summarize(ov({ months: months(W) }), NOW, P, undefined, TZ);
+    assert.equal(s.window12WithData, 12);
+    assert.equal(average12CountLabel(s.window12, s.window12WithData), "12-month average (Oct\u2013Sep)");
+    const nov = summarize(ov({ months: months([...W.slice(1), "2026-10"]) }), new Date("2026-11-01T00:00:00-04:00"), P, undefined, TZ);
+    assert.equal(average12CountLabel(nov.window12, nov.window12WithData), "12-month average (Nov\u2013Oct)");
+  });
+  it("PF-130: 8 of 12 → 12-month average (8 of 12 months), no range; an income-only month counts", () => {
+    const m = months(W.slice(4, 11));
+    m["2026-09"] = { expenses: "", income: "2,000" };
+    const s = summarize(ov({ months: m }), NOW, P, undefined, TZ);
+    assert.equal(s.window12WithData, 8);
+    assert.equal(average12CountLabel(s.window12, s.window12WithData), "12-month average (8 of 12 months)");
+    assert.equal(s.average.expenses, 1000, "calculation unchanged (Q-T1 is labelling only)");
+  });
+  it("PF-131: 0 of 12 (only the current month) → 12-month average (0 of 12 months), figures null (Q-T3)", () => {
+    const s = summarize(ov({ months: { "2026-10": { expenses: "1,000", income: "2,000" } } }), NOW, P, undefined, TZ);
+    assert.equal(s.window12WithData, 0);
+    assert.equal(average12CountLabel(s.window12, 0), "12-month average (0 of 12 months)");
+    assert.deepEqual(s.average, { expenses: null, income: null });
   });
 });

@@ -66,7 +66,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
-const avg12Label = (now = new Date()) => {
+// #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
+const avg12Label = (withData = 12, now = new Date()) => {
+  if (withData < 12) return `12-month average (${withData} of 12 months)`;
   // #132 (PF-115) / #140 (PF-121): the 12 complete household months (America/Toronto), the 3-month label style.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
   const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
@@ -171,7 +173,7 @@ const emptyTexts = (wide) => [
   "Overview",
   "This month",
   avg3Label(), // #126; C7: names the complete-month window
-  avg12Label(), // #132 PF-115
+  avg12Label(0), // #132 PF-115; #141 Q-T1 / PF-131: empty page → 0 of 12 months
   "Expenses", "—", "—", "—",
   "Income", "—", "—", "—",
   "Surplus", "—", "—", "—",

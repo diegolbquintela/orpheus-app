@@ -723,7 +723,7 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     const table = q(el, "pf-ov-table");
     assert.deepEqual(
       [...table.querySelectorAll("[role=columnheader]")].map((c) => c.textContent),
-      ["Overview", "This month", "3-month average (Jul–Sep)", "12-month average (Oct–Sep)"],
+      ["Overview", "This month", "3-month average (Jul–Sep)", "12-month average (0 of 12 months)"], // #141 Q-T1 / PF-131: no complete month with data
     );
     assert.deepEqual(
       [...table.querySelectorAll("[role=rowheader]")].map((c) => c.textContent),
@@ -1494,19 +1494,19 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("#140 PF-121 / PF-122 / PF-126 / PF-127 (was #132 PF-115..PF-119): 12 complete months, header Oct–Sep; the current month is excluded; rolls over in Toronto", async () => {
     seed({ start: "120,000", withdrawal: "4", months: { "2025-11": { expenses: "1,200", income: "" }, "2026-09": { expenses: "2,400", income: "" }, "2026-10": { expenses: "50,000", income: "" } } });
     let el = await render(new Date("2026-10-14T12:00:00-04:00"));
-    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Oct–Sep)");
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (2 of 12 months)", "#141 Q-T1: Nov 2025 and Sep 2026 of Oct–Sep");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)");
     assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["50,000", "2,000", "1,800"], "Oct 50,000 is This month only; 12-month = (1,200 + 2,400) / 2; 3-month: Jul, Aug take 1,800, Sep 2,400");
     assert.equal(text(cov(el), "pf-coverage-rate-note"), "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Jul–Sep).", "PF-126: Future-off coverage unchanged");
     await act(async () => root?.unmount());
     container?.remove();
     el = await render(new Date("2026-11-01T04:30:00Z")); // 00:30 Nov 1 in Toronto: October completes
-    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Nov–Oct)");
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (3 of 12 months)");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "17,866.67", "(1,200 + 2,400 + 50,000) / 3");
     await act(async () => root?.unmount());
     container?.remove();
     el = await render(new Date("2026-11-01T03:30:00Z"), true); // still Oct 31 in Toronto; read-only
-    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Oct–Sep)");
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (2 of 12 months)");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "1,800");
   });
   it("#140 PF-125 / PF-127: Future on holds expenses at the 12-complete-month average; Future-on coverage divides by it", async () => {
@@ -1522,6 +1522,45 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["1,000", "—", "—"]);
     assert.deepEqual(covText(el), ["Equity coverage in 1 year: —", "** Coverage rate is derived from Rate Used under Expenses section."]);
+  });
+  // #141 Q-T1 (CFO-changed): 12 of 12 → dated label; fewer → "(N of 12 months)", the CFO's example format.
+  const allMonths = (from: [number, number], n: number, value = "1,000") => {
+    const out: Record<string, { expenses: string; income: string }> = {};
+    for (let i = 0; i < n; i++) {
+      const m = from[1] - 1 + i;
+      out[`${from[0] + Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, "0")}`] = { expenses: value, income: "3,000" };
+    }
+    return out;
+  };
+  it("#141 PF-129: all 12 complete months with data → the dated label (Oct–Sep), rolling over to Nov–Oct in Toronto", async () => {
+    seed({ start: "10,000", withdrawal: "4", future: true, years: 1, months: allMonths([2025, 10], 13) });
+    let el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Oct–Sep)");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "1,000");
+    assert.equal(text(cov(el), "pf-coverage-rate-note").includes("(held at 12-month average)."), true, "the Future-on note names no range or count");
+    await act(async () => root?.unmount());
+    container?.remove();
+    el = await render(new Date("2026-11-01T04:30:00Z"));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Nov–Oct)");
+    await act(async () => root?.unmount());
+    container?.remove();
+    el = await render(new Date("2026-11-01T03:30:00Z"), true);
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Oct–Sep)");
+  });
+  it("#141 PF-130: 8 of 12 complete months with data → \"12-month average (8 of 12 months)\", no range", async () => {
+    seed({ start: "10,000", withdrawal: "4", months: allMonths([2026, 2], 8, "2,000") });
+    const el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    const head = text(q(el, "pf-ov-table"), "pf-ov-avg-head");
+    assert.equal(head, "12-month average (8 of 12 months)");
+    assert.doesNotMatch(head, /\u2013/);
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "2,000");
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)", "the 3-month label is unchanged");
+  });
+  it("#141 PF-131: 0 complete months with data → \"12-month average (0 of 12 months)\" and — (Q-T3)", async () => {
+    seed({ start: "10,000", withdrawal: "4", months: { "2026-10": { expenses: "1,000", income: "2,000" } } });
+    const el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (0 of 12 months)");
+    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["—", "—", "—"]);
   });
   it("PF-88: read-only sees the coverage and the 3-month column; no new control", async () => {
     /* #140: Sep, a complete month, so the 12-month average has it */ seed({ start: "13,125", withdrawal: "4", months: { "2026-09": { expenses: "8,254.72", income: "" } } });

@@ -147,6 +147,13 @@ export const windowRange = (window: MonthKey[]): string =>
 export const average3Label = (window: MonthKey[]): string => `${AVERAGE_3} (${windowRange(window)})`;
 /** #132 (PF-115..PF-117): `12-month average (Nov–Oct)` over `summary.months` (household month + 11 before), the 3-month style. */
 export const average12Label = (months: MonthKey[]): string => `${AVERAGE} (${windowRange(months)})`;
+/**
+ * #141 Q-T1 (CFO-changed, PF-129..PF-131): all 12 complete months with data → the dated label
+ * (`12-month average (Oct–Sep)`); fewer → the count replaces the range, `12-month average (8 of 12 months)`
+ * (the CFO's example format); 0 → `12-month average (0 of 12 months)` with the figures `—` (Q-T3).
+ */
+export const average12CountLabel = (window12: MonthKey[], withData: number): string =>
+  withData >= window12.length ? average12Label(window12) : `${AVERAGE} (${withData} of ${window12.length} months)`;
 
 /** The month after `key`. */
 export function nextMonth(key: MonthKey): MonthKey {
@@ -217,6 +224,8 @@ export type Summary = {
   window3: MonthKey[];
   /** #140 (PF-121): the 12 complete months behind `average`, oldest first. */
   window12: MonthKey[];
+  /** #141 Q-T1: how many of `window12` have a figure (expenses or income). */
+  window12WithData: number;
   points: Point[];
 };
 
@@ -239,6 +248,7 @@ export function summarize(
   // excluded, as C7 for the 3-month); empty months are left out (Q-T2); none with a figure → null (Q-T3).
   const window12 = completeMonths(now, 12, timeZone);
   const figures12 = window12.map((key) => monthFigures(overview, key, current, page, lines));
+  const window12WithData = figures12.filter((f) => f.expenses !== null || f.income !== null).length;
   const average: Figures = {
     expenses: mean(figures12.map((f) => f.expenses)),
     income: mean(figures12.map((f) => f.income)),
@@ -274,7 +284,7 @@ export function summarize(
     expenses: mean(last3.map((f) => f.expenses ?? average.expenses)),
     income: mean(last3.map((f) => f.income ?? average.income)),
   };
-  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, window12, points };
+  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, window12, window12WithData, points };
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);

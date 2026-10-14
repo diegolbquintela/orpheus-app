@@ -1158,3 +1158,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   header `pf-ov-avg-head`. Spec section 25, design `attachments/pf-12mo-range-design.md`, AC PF-115..PF-120, Q-M1..Q-M4.
 - #140 (PF 12-month average over complete months): `completeMonths(today, 12, tz)` → `summary.window12` drives `average`
   (fill, Future, Future-on coverage) and `average12Label`. Spec section 26, design `attachments/pf-12mo-complete-design.md`, AC PF-121..PF-128, Q-T1..Q-T5.
+- #141 Q-T1 (CFO-changed): the 12-month header shows `(N of 12 months)` when fewer than 12 complete months have data, and the dated range only at 12 of 12. Spec 27, PF-129..PF-131.

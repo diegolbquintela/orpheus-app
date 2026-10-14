@@ -932,3 +932,11 @@ Brief (#140, HIGH; approved by Diego in the Engineering Lead chat, 2026-10-14; b
 26.4 **Unchanged:** `This month` (the current household month, its own figure); the chart's 12 months (current + 11 before, `lastTwelve`); the 3-month average and label; Future-off coverage (÷ the 3-month average); Equity coverage layout (#129), Withdrawal rate description (#131), #138.
 
 26.5 Q-T1..Q-T5: `attachments/pf-12mo-complete-design.md`.
+
+## 27. Overview: the 12-month label shows the count with fewer than 12 months (#141 Q-T1, CFO-changed; PF-129..PF-131)
+This is a labelling change only: the 12-month calculation in section 26 stays the same. A month "has data" when it has an expenses or an income figure.
+- 27.1 All 12 complete months have data: the header keeps the dated label, e.g. `12-month average (Oct–Sep)` on Oct 14, 2026, rolling over on the 1st in Toronto (PF-129).
+- 27.2 Fewer than 12 have data: the count replaces the range, e.g. `12-month average (8 of 12 months)`. This follows the CFO's example exactly. No range is shown (PF-130).
+- 27.3 None has data: `12-month average (0 of 12 months)`, with the figures `—` per Q-T3 (PF-131).
+- 27.4 Other places: the Future-on coverage note says `(held at 12-month average)` and names no range, so it stays as it is. The 3-month label is unchanged. Nothing else shows the 12-month label.
+- This supersedes section 26's Q-T1 "label names the full window" and the PF-115 header example when fewer than 12 months have data.
