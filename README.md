@@ -613,3 +613,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 `attachments/pf-withdrawal-description-design.md`.
 
 **12-month average month range (#132).** The Overview's 12-month column names its months the same way as the 3-month one, e.g. `12-month average (Nov–Oct)` on Oct 14, rolling over on the 1st in Toronto. Spec section 25, PF-115..PF-120.
+
+**12-month average uses complete months (#140).** The 12-month average now covers the last 12 complete Toronto months, leaving out the current partial month, the same rule as the 3-month average: on Oct 14, 2026 it reads `12-month average (Oct–Sep)`. The empty-month fill, the Future projection and Future-on coverage follow it; fewer than 12 months average what exists; with no complete month it shows `—`. Spec section 26, PF-121..PF-128 (supersede PF-115's example, PF-116 and the PF-107 value).

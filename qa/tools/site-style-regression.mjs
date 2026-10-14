@@ -37,10 +37,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
 const avg12Label = (now = new Date()) => {
-  // #132 (PF-115): the household month and the 11 before it, in America/Toronto, the 3-month label style.
+  // #132 (PF-115) / #140 (PF-121): the 12 complete household months (America/Toronto), the 3-month label style.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
   const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
-  return `12-month average (${name(11)}\u2013${name(0)})`;
+  return `12-month average (${name(12)}\u2013${name(1)})`; // #140 (PF-121): 12 complete months
 };
 const avg3Label = (now = new Date()) => {
   // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.

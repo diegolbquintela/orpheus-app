@@ -79,7 +79,7 @@ try {
       check(`${tag} PF-48 Month: 12 choices October 2026 … November 2025, October shown; no Save, no note; 05 Update gone (04 Overview last)`, opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === JSON.stringify({ label: "Month", save: 0, note: "", update: 0, updateText: 0, last: "Overview" }), { opts, first });
       const rec0 = await stored();
       const t0 = await ov();
-      check(`${tag} PF-55 the old lines became October (stored once, no change shown); June's old total still counts (average 2,875 / 10,100)`, JSON.stringify(Object.keys(JSON.parse(rec0[MONTHS_KEY] ?? "{}"))) === '["2026-10"]' && JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }), { months: rec0[MONTHS_KEY] ?? null, t0 });
+      check(`${tag} PF-55 the old lines became October (stored once, no change shown); June's old total still counts (#140 12-month average = June alone 4,000 / 9,000)`, JSON.stringify(Object.keys(JSON.parse(rec0[MONTHS_KEY] ?? "{}"))) === '["2026-10"]' && JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }), { months: rec0[MONTHS_KEY] ?? null, t0 });
       const cls = await page.evaluate(() => window.__shifts);
 
       // PF-49 / PF-50: a change shows Save; no PUT until Save.
@@ -117,7 +117,7 @@ try {
       const rec1 = await stored();
       const months1 = JSON.parse(rec1[MONTHS_KEY] ?? "{}");
       const legacy = JSON.parse(rec1[OVERVIEW_KEY] ?? "{}").months;
-      check(`${tag} PF-52 / PF-53 Save: one PUT; stays on June; note gone; Save hidden; average 2,875 / 10,100 / 7,225 from June's lines; June's old totals dropped; October unchanged`, JSON.stringify({ month: after.month, note: after.note, save: after.save, puts: after.puts }) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }) && JSON.stringify(after.ov) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }) && months1["2026-06"]?.fixed?.[0]?.amount === "4,000" && months1["2026-10"]?.fixed?.[0]?.amount === "1,750" && JSON.stringify(legacy) === "{}", { after, months: Object.keys(months1), legacy });
+      check(`${tag} PF-52 / PF-53 Save: one PUT; stays on June; note gone; Save hidden; #140 average 4,000 / 9,000 / 5,000 from June's lines; June's old totals dropped; October unchanged`, JSON.stringify({ month: after.month, note: after.note, save: after.save, puts: after.puts }) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }) && JSON.stringify(after.ov) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && months1["2026-06"]?.fixed?.[0]?.amount === "4,000" && months1["2026-10"]?.fixed?.[0]?.amount === "1,750" && JSON.stringify(legacy) === "{}", { after, months: Object.keys(months1), legacy });
 
       // PF-54 switching with unsaved changes: Cancel keeps; OK drops.
       await page.getByTestId("pf-growth").fill("5");

@@ -21,10 +21,10 @@ import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { API, PATH, acct, contrastScan, line, ready, settle, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
 const avg12Label = (now = new Date()) => {
-  // #132 (PF-115): the household month and the 11 before it, in America/Toronto, the 3-month label style.
+  // #132 (PF-115) / #140 (PF-121): the 12 complete household months (America/Toronto), the 3-month label style.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
   const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
-  return `12-month average (${name(11)}\u2013${name(0)})`;
+  return `12-month average (${name(12)}\u2013${name(1)})`; // #140 (PF-121): 12 complete months
 };
 const avg3Label = (now = new Date()) => {
   // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
@@ -61,7 +61,9 @@ const future = (x, surplus, months, g = 5) => {
   for (let i = 0; i < months; i++) x = x * r + surplus;
   return x;
 };
-const AVG_SURPLUS = (10533 + 1 / 3 + 5000) / 2;
+// #140 (PF-128): the 12-month average is over 12 complete months, so June alone (October is the current month).
+const AVG_SURPLUS = 5000;
+const NET_12 = 10000 + 10 * 5000 + 5000 + 10533 + 1 / 3; // 75,533.33
 
 let AXE = null;
 if (process.env.AXE_PATH) AXE = readFileSync(process.env.AXE_PATH, "utf8");
@@ -322,10 +324,10 @@ try {
       await page.getByTestId("pf-start").fill("10,000");
       const f4 = await figures(page);
       const ch = await page.getByTestId("pf-chart").evaluate((f) => ({ lines: f.querySelectorAll(".recharts-line-curve").length, legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()) }));
-      check(`${tag} PFE-08 (#112) 04 follows saved months (— before the first Save); this month = October saved (1,500 / 12,033.33 / 10,533.33); June copied ("Copied from October 2026 — edit and save."), saved as 4,000 / 9,000 (stays on June, note gone) → average 2,750 / 10,516.67 / 7,766.67; start 10,000 → 12 months, three lines, net assets 103,200.00`, JSON.stringify(unsaved) === JSON.stringify({ expenses: ["—", "—"], income: ["—", "—"], surplus: ["—", "—"] }) && JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "1,500"], income: ["12,033.33", "12,033.33"], surplus: ["10,533.33", "10,533.33"] }) && note === "Copied from October 2026 — edit and save." && JSON.stringify(juneSaved) === JSON.stringify({ month: "2026-06", save: 0, note: "" }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "2,750"], income: ["12,033.33", "10,516.67"], surplus: ["10,533.33", "7,766.67"] }) && f4.chart.months === "12" && f4.chart.net === "103200.00" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { unsaved, ov0, note, juneSaved, ov: f4.ov, chart: f4.chart, ch });
+      check(`${tag} PFE-08 (#112) 04 follows saved months (— before the first Save); this month = October saved (1,500 / 12,033.33 / 10,533.33); June copied ("Copied from October 2026 — edit and save."), saved as 4,000 / 9,000 (stays on June, note gone) → #140 12-month average (12 complete months: June alone) 4,000 / 9,000 / 5,000, — while only October is saved; start 10,000 → 12 months, three lines, net assets 75,533.33`, JSON.stringify(unsaved) === JSON.stringify({ expenses: ["—", "—"], income: ["—", "—"], surplus: ["—", "—"] }) && JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "—"], income: ["12,033.33", "—"], surplus: ["10,533.33", "—"] }) && note === "Copied from October 2026 — edit and save." && JSON.stringify(juneSaved) === JSON.stringify({ month: "2026-06", save: 0, note: "" }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "4,000"], income: ["12,033.33", "9,000"], surplus: ["10,533.33", "5,000"] }) && f4.chart.months === "12" && f4.chart.net === "75533.33" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { unsaved, ov0, note, juneSaved, ov: f4.ov, chart: f4.chart, ch });
 
       // #126 PF-89 + C7/C2 (approved 2026-10-13, PF-91..PF-95): Equity coverage (start 10,000 × rate used, ÷ the
-      // 3-month average of complete months Jul–Sep, all empty → the 12-month average 2,750) and that 3-month average.
+      // 3-month average of complete months Jul–Sep, all empty → the 12-month average 4,000 (#140)) and that 3-month average.
       const NUM = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
       const rateNow = Number(((await txt(page.getByTestId("pf-rate-used"))) ?? "").replace("%", ""));
       const cov = async () => page.getByTestId("pf-coverage").evaluate((c) => [...c.querySelectorAll("p")].map((p) => p.textContent.trim()));
@@ -334,7 +336,7 @@ try {
       const yr = (10000 * rateNow) / 100;
       // #129 (PF-104): three lines: amounts, the rate note (smaller) and the source note (smaller).
       const rateTxt = (await txt(page.getByTestId("pf-rate-used"))) ?? "";
-      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((yr / 12 / 2750) * 100).toFixed(2)}% of monthly expenses (3-month average, ${avg3Label().slice(17, -1)}).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((yr / 12 / 4000) * 100).toFixed(2)}% of monthly expenses (3-month average, ${avg3Label().slice(17, -1)}).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
       const covFont = await page.getByTestId("pf-coverage").evaluate((c) => [...c.querySelectorAll("p")].map((p) => parseFloat(getComputedStyle(p).fontSize)));
       const avg3 = await page.evaluate(() => ["expenses", "income", "surplus"].map((r) => document.querySelector(`[data-testid=pf-ov-${r}] [data-testid=pf-ov-avg3]`)?.textContent.trim()));
       const heads = await page.getByTestId("pf-ov-table").locator("[role=columnheader]").allTextContents();
@@ -342,7 +344,7 @@ try {
       const scroll = await page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
       check(`${tag} PF-104 (#129) coverage lines 2–3 in a smaller font than line 1 (${covFont.join(" / ")} px)`, covFont.length === 3 && covFont[1] < covFont[0] && covFont[2] < covFont[0], { covFont });
       check(`${tag} PF-89 (#126) Equity coverage directly under the table: start 10,000 × rate used ${rateNow}% → ${wantCov.join(" / ")}`, JSON.stringify(cv) === JSON.stringify(wantCov) && order === "pf-coverage", { cv, wantCov, order });
-      check(`${tag} PF-89 (#126) / PF-120 (#132) This month · 3-month average · ${avg12Label()}; C7: ${avg3Label()} = 2,750 / 10,516.67 / 7,766.67 (Jul, Aug, Sep empty take the 12-month average); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label()]) && JSON.stringify(avg3) === JSON.stringify(["2,750", "10,516.67", "7,766.67"]) && scroll <= 0, { heads, avg3, scroll });
+      check(`${tag} PF-89 (#126) / PF-120 (#132) / PF-128 (#140) This month · 3-month average · ${avg12Label()}; C7: ${avg3Label()} = 4,000 / 9,000 / 5,000 (Jul, Aug, Sep empty take the 12-complete-month average, #140 PF-125); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label()]) && JSON.stringify(avg3) === JSON.stringify(["4,000", "9,000", "5,000"]) && scroll <= 0, { heads, avg3, scroll });
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 
@@ -352,12 +354,12 @@ try {
       const y1 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
       await page.locator("[data-testid=pf-year][data-years='5']").click();
       const y5 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
-      const [w1, w5] = [future(103200, AVG_SURPLUS, 12), future(103200, AVG_SURPLUS, 60)];
+      const [w1, w5] = [future(NET_12, AVG_SURPLUS, 12), future(NET_12, AVG_SURPLUS, 60)];
       {
-        // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets and the average expenses 2,750.
+        // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets and the average expenses 4,000 (#140: 12 complete months).
         const cf = await cov();
         const y = (y5.net * rateNow) / 100;
-        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((y / 12 / 2750) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((y / 12 / 4000) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
         check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the projected net assets ${y5.net.toFixed(2)} and the 12-month average expenses`, JSON.stringify(cf) === JSON.stringify(want), { cf, want });
       }
       check(`${tag} PFE-09 growth 5: 1 year 24 points ≈ ${w1.toFixed(2)}, 5 years 72 points ≈ ${w5.toFixed(2)} (± 0.01)`, y1.months === "24" && Math.abs(y1.net - w1) <= 0.011 && y5.months === "72" && Math.abs(y5.net - w5) <= 0.011, { y1, y5, w1, w5 });

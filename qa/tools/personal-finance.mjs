@@ -67,10 +67,10 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 const avg12Label = (now = new Date()) => {
-  // #132 (PF-115): the household month and the 11 before it, in America/Toronto, the 3-month label style.
+  // #132 (PF-115) / #140 (PF-121): the 12 complete household months (America/Toronto), the 3-month label style.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
   const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
-  return `12-month average (${name(11)}\u2013${name(0)})`;
+  return `12-month average (${name(12)}\u2013${name(1)})`; // #140 (PF-121): 12 complete months
 };
 const avg3Label = (now = new Date()) => {
   // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
@@ -955,7 +955,7 @@ try {
         const note = () => p3.getByTestId("pf-month-note").textContent().then((t) => t.trim());
         const opts = await sel.evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
         const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
-        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450, same average); Month: 12 choices October 2026 … November 2025, October shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
+        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); Month: 12 choices October 2026 … November 2025, October shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "—"], income: ["11,200", "—"], surplus: ["9,450", "—"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
         await sel.selectOption("2026-06");
         const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
         check(`${tag} PF-51 empty June: a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
@@ -967,10 +967,10 @@ try {
         await settle(p3);
         const t1 = await ov();
         const afterSave = { month: await sel.inputValue(), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
-        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: nothing in 04 until Save; one Save (one PUT) → average 2,875 / 10,100 / 7,225, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify(t0) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "2,875"], income: ["11,200", "10,100"], surplus: ["9,450", "7,225"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
+        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: nothing in 04 until Save; one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify(t0) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
-        check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 96,700.00`, ch1.months === "12" && ch1.net === "96700.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
+        check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 74,450.00 (#140)`, ch1.months === "12" && ch1.net === "74450.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
         await p3.getByTestId("pf-growth").fill("5");
         const tog = p3.getByTestId("pf-future-toggle");
         const off = [await tog.getAttribute("aria-pressed"), await p3.getByTestId("pf-year").count()];
@@ -981,12 +981,12 @@ try {
         const f5 = await chart();
         await p3.locator("[data-testid=pf-year][data-years='15']").click();
         const f15 = await chart();
-        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: 1 year 24 points → 190,204.37; 5 years 72 → 613,370.68; 15 years 192`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "24" && f1.net === "190204.37" && f5.months === "72" && f5.net === "613370.68" && f15.months === "192", { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: f15.months });
+        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: 1 year 24 points → 139,535.39; 5 years 72 → 434,087.85 (#140); 15 years 192`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "24" && f1.net === "139535.39" && f5.months === "72" && f5.net === "434087.85" && f15.months === "192", { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: f15.months });
         await p3.getByTestId("pf-growth").fill("five");
         const gErr = await p3.getByTestId("pf-ov-fields").getByTestId("pf-error").textContent().catch(() => null);
         const f15b = await chart();
         await p3.getByTestId("pf-growth").fill("5");
-        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: 96,700 + 180 × 7,225)`, gErr === "Enter a number, 0 or more." && f15b.net === (96700 + 180 * 7225).toFixed(2), { gErr, net: f15b.net });
+        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: 74,450 + 180 × 5,000, #140)`, gErr === "Enter a number, 0 or more." && f15b.net === (74450 + 180 * 5000).toFixed(2), { gErr, net: f15b.net });
         await p3.locator("[data-testid=pf-year][data-years='5']").click();
         // Layout (Save shown: start / growth are unsaved).
         const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(sel), me: await box(saveBtn), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
@@ -1030,13 +1030,13 @@ try {
         await sel.selectOption("2026-06");
         const back = { onLoad, t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), await val(p3.getByTestId("pf-person-wages"))], note: await note(), net: (await chart()).net };
         const monthsStored = Object.keys(JSON.parse(rec3[MONTHS_KEY] ?? "{}"));
-        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} October and June (only PF names; nothing in localStorage); a reload opens October and June restores (2,875 / 10,100, net 613,370.68)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === '["2026-06","2026-10"]' && JSON.stringify(back) === JSON.stringify({ onLoad: "2026-10", t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "613370.68" }), { stored, monthsStored, back });
+        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} October and June (only PF names; nothing in localStorage); a reload opens October and June restores (#140: 4,000 / 9,000, net 434,087.85)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === '["2026-06","2026-10"]' && JSON.stringify(back) === JSON.stringify({ onLoad: "2026-10", t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "434087.85" }), { stored, monthsStored, back });
         // June back to October's lines (and Save): the average returns to 1,750 / 11,200.
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
         await p3.getByTestId("pf-person-wages").fill("134,400");
         await settle(p3);
         const t2 = await ov();
-        check(`${tag} PF-53 June saved as October's figures: the average back to 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify(t0), { t2 });
+        check(`${tag} PF-53 June saved as October's figures: the 12-month average (June alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }), { t2 });
         check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / month control)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
         check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n").slice(0, 4).join(" | "));

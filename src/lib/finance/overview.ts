@@ -129,10 +129,14 @@ export function previousMonth(key: MonthKey): MonthKey {
  * C7 (approved 2026-10-13): the last 3 COMPLETE months, oldest first, excluding the current partial month of
  * `today` in the household timezone. Oct 13 2026 → 2026-07, 2026-08, 2026-09; Jan → Oct–Dec of the year before.
  */
+export function completeMonths(today: Date, n: number, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
+  const out: MonthKey[] = [previousMonth(householdMonth(today, timeZone))];
+  while (out.length < n) out.unshift(previousMonth(out[0]));
+  return out;
+}
+
 export function completeMonths3(today: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): MonthKey[] {
-  const m1 = previousMonth(householdMonth(today, timeZone));
-  const m2 = previousMonth(m1);
-  return [previousMonth(m2), m2, m1];
+  return completeMonths(today, 3, timeZone);
 }
 
 const MONTH_ABBR = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
@@ -211,6 +215,8 @@ export type Summary = {
   average3: Figures;
   /** C7: the 3 complete months behind `average3`, oldest first. */
   window3: MonthKey[];
+  /** #140 (PF-121): the 12 complete months behind `average`, oldest first. */
+  window12: MonthKey[];
   points: Point[];
 };
 
@@ -229,9 +235,13 @@ export function summarize(
   const months = lastTwelve(now, timeZone);
   const current = months[months.length - 1];
   const figures = months.map((key) => monthFigures(overview, key, current, page, lines));
+  // #140 (PF-121..PF-125): the 12-month average is over the last 12 COMPLETE household months (current month
+  // excluded, as C7 for the 3-month); empty months are left out (Q-T2); none with a figure → null (Q-T3).
+  const window12 = completeMonths(now, 12, timeZone);
+  const figures12 = window12.map((key) => monthFigures(overview, key, current, page, lines));
   const average: Figures = {
-    expenses: mean(figures.map((f) => f.expenses)),
-    income: mean(figures.map((f) => f.income)),
+    expenses: mean(figures12.map((f) => f.expenses)),
+    income: mean(figures12.map((f) => f.income)),
   };
   let net: number | null = orZero(overview.start);
   const points: Point[] = months.map((key, i) => {
@@ -264,7 +274,7 @@ export function summarize(
     expenses: mean(last3.map((f) => f.expenses ?? average.expenses)),
     income: mean(last3.map((f) => f.income ?? average.income)),
   };
-  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, points };
+  return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, window12, points };
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);

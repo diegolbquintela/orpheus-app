@@ -4,6 +4,7 @@ import {
   asOverview,
   average3Label,
   average12Label,
+  completeMonths,
   completeMonths3,
   COVERAGE_SOURCE_NOTE,
   coverageRateNote,
@@ -69,7 +70,8 @@ describe("#94 this month and the 12-month average (Q17, Q18)", () => {
   it("the current month takes the page figures; a `—` page expense is no figure", () => {
     const s = summarize(NO_OVERVIEW, NOW, PAGE);
     assert.deepEqual(s.thisMonth, PAGE);
-    assert.deepEqual(s.average, PAGE);
+    // #140 (PF-124): the current month never enters the 12-month average (12 complete months only).
+    assert.deepEqual(s.average, { expenses: null, income: null });
     assert.equal(
       summarize(NO_OVERVIEW, NOW, { expenses: null, income: 5 }).thisMonth.expenses,
       null,
@@ -80,13 +82,14 @@ describe("#94 this month and the 12-month average (Q17, Q18)", () => {
       income: "9000",
     });
     const s = summarize({ ...o, start: "10,000" }, NOW, PAGE);
-    assert.deepEqual(s.average, { expenses: 2875, income: 10100 });
+    // #140: the 12-month average is over Oct 2025..Sep 2026, so June alone (the current month is excluded).
+    assert.deepEqual(s.average, { expenses: 4000, income: 9000 });
     assert.equal(surplusOf(s.thisMonth), 9450);
-    assert.equal(surplusOf(s.average), 7225);
-    // Net assets: 10,000 + 10 × 7,225 + 5,000 + 9,450.
-    assert.equal(s.points[11].net, 96700);
+    assert.equal(surplusOf(s.average), 5000);
+    // Net assets: 10,000 + 10 × 5,000 + 5,000 + 9,450.
+    assert.equal(s.points[11].net, 74450);
     // Empty months plot the average.
-    assert.equal(s.points[0].expenses, 2875);
+    assert.equal(s.points[0].expenses, 4000);
     assert.equal(s.points[7].expenses, 4000);
   });
   it("a typed current month replaces the page; a bad value is not used; clearing empties", () => {
@@ -97,9 +100,10 @@ describe("#94 this month and the 12-month average (Q17, Q18)", () => {
     o = setMonth(o, "2026-10", { expenses: "" });
     assert.deepEqual(o.months, {});
   });
-  it("months outside the last 12 are kept but unused", () => {
-    const o = setMonth(NO_OVERVIEW, "2025-10", { expenses: "99" });
-    assert.deepEqual(summarize(o, NOW, PAGE).average, PAGE);
+  it("months outside the 12 complete months are kept but unused (#140: Oct 2025 is now inside)", () => {
+    const o = setMonth(NO_OVERVIEW, "2025-09", { expenses: "99" });
+    assert.deepEqual(summarize(o, NOW, PAGE).average, { expenses: null, income: null });
+    assert.equal(summarize(setMonth(NO_OVERVIEW, "2025-10", { expenses: "99" }), NOW, PAGE).average.expenses, 99);
   });
 });
 
@@ -116,16 +120,17 @@ describe("#94 Future (Q20, Q21)", () => {
     );
     assert.equal(s1.points.length, 24);
     assert.equal(s1.points[12].key, "2026-11");
-    assert.equal(s1.points[23].expenses, 2875);
-    assert.equal(s1.points[23].income, 10100);
-    assert.equal(round2(s1.points[23].net), 190204.37);
+    // #140 (PF-125): future months are held at the 12-complete-month average (June alone).
+    assert.equal(s1.points[23].expenses, 4000);
+    assert.equal(s1.points[23].income, 9000);
+    assert.equal(round2(s1.points[23].net), 139535.39);
     const s5 = summarize(
       { ...base, start: "10,000", growth: "5", future: true, years: 5 },
       NOW,
       PAGE,
     );
     assert.equal(s5.points.length, 72);
-    assert.equal(round2(s5.points[71].net), 613370.68);
+    assert.equal(round2(s5.points[71].net), 434087.85);
   });
   it("growth 0 or bad: the surplus only", () => {
     const s = summarize(
@@ -133,7 +138,7 @@ describe("#94 Future (Q20, Q21)", () => {
       NOW,
       PAGE,
     );
-    assert.equal(s.points[23].net, 96700 + 12 * 7225);
+    assert.equal(s.points[23].net, 74450 + 12 * 5000);
   });
 });
 
@@ -251,15 +256,15 @@ describe("C7/C2 (approved 2026-10-13): the 3-month average of complete months, c
     assert.deepEqual(summarize(NO_OVERVIEW, nov1, { expenses: null, income: null }, undefined, TZ).window3, ["2026-08", "2026-09", "2026-10"]);
   });
   it("PF-93: C8 on complete months: an empty complete month takes the 12-month average; the current month is ignored", () => {
-    // Jul 3,000, Aug empty, Sep 6,000, Oct (partial) 30,000. 12-month avg = 13,000; 3-month = (3,000 + 13,000 + 6,000) / 3.
+    // Jul 3,000, Aug empty, Sep 6,000, Oct (partial) 30,000. #140: 12-month avg = 4,500 (Oct excluded); 3-month = (3,000 + 4,500 + 6,000) / 3.
     const o = ov({ months: { "2026-07": { expenses: "3,000", income: "" }, "2026-09": { expenses: "6,000", income: "" }, "2026-10": { expenses: "30,000", income: "" } } });
     const s = summarize(o, new Date("2026-10-13T12:00:00-04:00"), { expenses: null, income: null });
     assert.deepEqual(s.window3, ["2026-07", "2026-08", "2026-09"]);
-    assert.equal(s.average.expenses, 13000);
-    assert.equal(round2(s.average3.expenses), round2(22000 / 3));
+    assert.equal(s.average.expenses, 4500);
+    assert.equal(s.average3.expenses, 4500);
     assert.equal(s.thisMonth.expenses, 30000, "This month still shows the partial month");
     // The page's own figure only fills the current month, never a complete one.
-    assert.equal(summarize(NO_OVERVIEW, new Date("2026-10-13T12:00:00-04:00"), PAGE).average3.expenses, 1750, "all 3 empty → the 12-month average (Oct only)");
+    assert.equal(summarize(NO_OVERVIEW, new Date("2026-10-13T12:00:00-04:00"), PAGE).average3.expenses, null, "#140 Q-T3/Q-T5: only the current month → 12-month average empty → 3-month —");
   });
   it("PF-94: C2: coverage % against the 3-month average of complete months, not this month", () => {
     const o = ov({ start: "120,000", months: { "2026-07": { expenses: "1,000", income: "" }, "2026-08": { expenses: "2,000", income: "" }, "2026-09": { expenses: "3,000", income: "" }, "2026-10": { expenses: "10,000", income: "" } } });
@@ -323,7 +328,8 @@ describe("#129 coverage layout notes (PF-99..PF-101, PF-103)", () => {
 });
 
 describe("#129 Q-L4 option b (PF-106, PF-107): Future on divides by the horizon-end point's expenses", () => {
-  const o = ov({ start: "120,000", future: true, years: 5, months: { "2026-07": { expenses: "1,000", income: "3,000" }, "2026-08": { expenses: "2,000", income: "3,000" }, "2026-09": { expenses: "3,000", income: "3,000" }, "2026-10": { expenses: "10,000", income: "3,000" } } });
+  // #140: Jan 10,000 (not Oct) so the 12-complete-month average (4,000) differs from the 3-month (2,000).
+  const o = ov({ start: "120,000", future: true, years: 5, months: { "2026-01": { expenses: "10,000", income: "3,000" }, "2026-07": { expenses: "1,000", income: "3,000" }, "2026-08": { expenses: "2,000", income: "3,000" }, "2026-09": { expenses: "3,000", income: "3,000" } } });
   const s = summarize(o, new Date("2026-10-13T12:00:00-04:00"), { expenses: null, income: null });
   it("PF-107: today the horizon-end point's expenses equal the 12-month average (held flat); 3-month average differs", () => {
     const end = s.points.at(-1)!;
@@ -365,5 +371,55 @@ describe("#132 the 12-month range (PF-115..PF-118)", () => {
   });
   it("PF-118: the 3-month label is unchanged", () => {
     assert.equal(average3Label(completeMonths3(new Date("2026-10-14T12:00:00-04:00"), TZ)), "3-month average (Jul\u2013Sep)");
+  });
+});
+
+describe("#140 the 12-month average over 12 complete months (PF-121..PF-125)", () => {
+  const TZ = "America/Toronto";
+  const P = { expenses: null, income: null };
+  const at = (iso: string) => new Date(iso);
+  it("PF-121: Oct 14 2026 → Oct 2025..Sep 2026, label Oct–Sep; the current month is excluded", () => {
+    const s = summarize(ov({ months: { "2025-10": { expenses: "1,000", income: "" }, "2026-09": { expenses: "3,000", income: "" }, "2026-10": { expenses: "50,000", income: "" } } }), at("2026-10-14T12:00:00-04:00"), P, undefined, TZ);
+    assert.deepEqual([s.window12[0], s.window12[11], s.window12.length], ["2025-10", "2026-09", 12]);
+    assert.equal(average12Label(s.window12), "12-month average (Oct\u2013Sep)");
+    assert.equal(s.average.expenses, 2000);
+    assert.equal(s.thisMonth.expenses, 50000, "This month unchanged");
+    assert.deepEqual([s.months[0], s.months[11]], ["2025-11", "2026-10"], "PF-126: chart months unchanged");
+  });
+  it("PF-122: rollover / timezone edges", () => {
+    const label = (iso: string) => average12Label(completeMonths(at(iso), 12, TZ));
+    assert.equal(label("2026-10-31T23:59:00-04:00"), "12-month average (Oct\u2013Sep)");
+    assert.equal(label("2026-11-01T00:00:00-04:00"), "12-month average (Nov\u2013Oct)");
+    assert.equal(label("2026-11-01T03:30:00Z"), "12-month average (Oct\u2013Sep)");
+    assert.equal(label("2027-01-15T12:00:00-05:00"), "12-month average (Jan\u2013Dec)");
+    assert.deepEqual(completeMonths(at("2027-01-15T12:00:00-05:00"), 12, TZ), ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]);
+    const o = ov({ months: { "2025-10": { expenses: "1,200", income: "" }, "2026-10": { expenses: "2,400", income: "" } } });
+    assert.equal(summarize(o, at("2026-10-31T23:59:00-04:00"), P, undefined, TZ).average.expenses, 1200);
+    assert.equal(summarize(o, at("2026-11-01T00:00:00-04:00"), P, undefined, TZ).average.expenses, 2400, "Oct 2026 completes, Oct 2025 leaves");
+    assert.equal(summarize(o, at("2026-11-01T03:30:00Z"), P, undefined, TZ).average.expenses, 1200);
+  });
+  it("PF-123: fewer than 12 complete months with data → their mean; empty months left out; full-window label", () => {
+    const s = summarize(ov({ months: { "2026-08": { expenses: "1,000", income: "500" }, "2026-09": { expenses: "2,000", income: "" } } }), at("2026-10-14T12:00:00-04:00"), P, undefined, TZ);
+    assert.deepEqual(s.average, { expenses: 1500, income: 500 });
+    assert.equal(average12Label(s.window12), "12-month average (Oct\u2013Sep)");
+  });
+  it("PF-124: no complete month with a figure → — ; 3-month —; Future not computed", () => {
+    const o = ov({ start: "10,000", future: true, years: 1, months: { "2026-10": { expenses: "1,000", income: "2,000" } } });
+    const s = summarize(o, at("2026-10-14T12:00:00-04:00"), P, undefined, TZ);
+    assert.deepEqual(s.average, { expenses: null, income: null });
+    assert.deepEqual(s.average3, { expenses: null, income: null });
+    assert.equal(s.points.at(-1)!.net, null);
+    assert.equal(overviewCoverage(o, s, 4).status, "none");
+  });
+  it("PF-125: the C8 fill and Future use the new average; Future-on coverage divides by it", () => {
+    const o = ov({ start: "120,000", future: true, years: 1, months: { "2025-10": { expenses: "6,000", income: "9,000" }, "2026-09": { expenses: "2,000", income: "9,000" }, "2026-10": { expenses: "40,000", income: "9,000" } } });
+    const s = summarize(o, at("2026-10-14T12:00:00-04:00"), P, undefined, TZ);
+    assert.equal(s.average.expenses, 4000);
+    assert.equal(round2(s.average3.expenses), round2((4000 + 4000 + 2000) / 3), "Jul, Aug take 4,000");
+    assert.equal(s.points[0].expenses, 4000, "Nov 2025 (empty) plots the new average");
+    assert.equal(s.points.at(-1)!.expenses, 4000);
+    const c = overviewCoverage(o, s, 4);
+    assert.ok(c.status === "ok");
+    assert.equal(round2(c.share), round2((s.points.at(-1)!.net! * 0.04) / 12 / 4000));
   });
 });
