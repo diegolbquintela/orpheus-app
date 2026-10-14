@@ -699,3 +699,8 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | ID | Acceptance criterion (#143 addendum: the CFO's condition on Q-S6, via EL) |
 |---|---|
 | PF-141 | When an automatic save on section open/close is refused (e.g. a record already holding a bad value), `Not saved.` shows and **stays** visible: it doesn't flash away; it clears only on a later successful save. The user's unsaved edits stay on screen, not reverted (field errors still shown, Save still shown). Already true at 8ecd2fc; pinned by a DOM test. |
+
+| ID | Acceptance criterion (#143 addendum after QA's fail at f307e46) |
+|---|---|
+| PF-142 | Correction to PF-141's "Already true at 8ecd2fc": that claim was wrong. At 8ecd2fc / f307e46 a section toggle sent its PUT (the stored record plus the view) with no field check, so it returned 200 and `Not saved.` never showed. Now, with a field in error on screen (e.g. `-5` in Rent, `520,000` in Starting net assets), closing or reopening a section still toggles it on screen, and the view is kept and sent with the next successful Save. **No PUT is sent.** `Not saved.` shows and stays until a save succeeds. The edits stay on screen. PF-141 still covers a server refusal of a valid on-screen state. |
+| PF-133 note | The signed-in e2e check uses its own fixture, whose October This month is **1,500** (PFE-08). PF-133's 2,950 is the issue's repro. Both mean the same thing: This month is unchanged after the blocked Save. |

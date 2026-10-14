@@ -260,12 +260,17 @@ export function PersonalFinancePage({
   }
 
   function toggle(section: SectionKey) {
+    // #143 PF-142 (Q-S6 condition): with a field in error on screen, the section still opens / closes and its view is
+    // kept in the store (sent with the next successful Save), but no PUT is sent; `Not saved.` shows and stays until
+    // a save succeeds; the edits stay on screen.
+    const blockedNow = hasErrors && !readOnly;
+    if (blockedNow) setSaveFailed(true);
     setView((current) => {
       if (!current) return current;
       const next = toggleSection(current, section);
       // Section toggles save at once (a view preference; #90 Q-D11).
       writeView(storage(), next);
-      void storage()?.save?.();
+      if (!blockedNow) void storage()?.save?.();
       return next;
     });
   }
