@@ -26,3 +26,4 @@ Brief: issue #140 (HIGH; approved by Diego, 2026-10-14). Spec section 26, AC PF-
 - Q-T1 (CFO-changed, labelling only): with 12 of 12 complete months with data, the label is dated (`12-month average (Oct–Sep)`). With fewer, it shows `12-month average (N of 12 months)` in the CFO's example format, and the range is not shown. With 0, it reads `(0 of 12 months)` and the figures are `—`.
 - Built as `average12CountLabel(window12, window12WithData)`. `Summary.window12WithData` counts the months that have expenses or income. The mean stays the same.
 - Q-T2, Q-T3, Q-T4 and Q-T5 were accepted by the CFO as recommended.
+- Q-T1 sub-points resolved by the CFO via EL: `(0 of 12 months)` is accepted. A month counts only if it has expense entries, so `window12WithData` counts `expenses !== null`; income-only months are excluded (PF-132). The expense mean already skipped null expenses, so no figure changes. The income mean is a separate per-row mean and is unchanged.

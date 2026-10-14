@@ -677,3 +677,7 @@ Unit / DOM tests cover PF-121..PF-127; the preview suites cover PF-128. Supersed
 | PF-131 | None has data: `12-month average (0 of 12 months)` and the figures are `—` (Q-T3). The empty-page QA copy lists read `(0 of 12 months)`. |
 
 PF-129..PF-131 supersede the PF-115/PF-121 header example and PF-123's "full-window label" when fewer than 12 months have data. The Future-on coverage note names no range and is unchanged.
+
+| ID | Acceptance criterion (#141 addendum, CFO via EL) |
+|---|---|
+| PF-132 | For the 12-month expense average and the N-of-12 count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0: 8 expense months + 1 income-only month give `12-month average (8 of 12 months)` and an expense average over 8. The fill, Future and coverage use that average. The income average keeps its own months. This supersedes PF-130's "an income-only month counts". |

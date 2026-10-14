@@ -438,13 +438,27 @@ describe("#141 Q-T1 (CFO-changed): the 12-month label shows the count when fewer
     const nov = summarize(ov({ months: months([...W.slice(1), "2026-10"]) }), new Date("2026-11-01T00:00:00-04:00"), P, undefined, TZ);
     assert.equal(average12CountLabel(nov.window12, nov.window12WithData), "12-month average (Nov\u2013Oct)");
   });
-  it("PF-130: 8 of 12 → 12-month average (8 of 12 months), no range; an income-only month counts", () => {
-    const m = months(W.slice(4, 11));
-    m["2026-09"] = { expenses: "", income: "2,000" };
-    const s = summarize(ov({ months: m }), NOW, P, undefined, TZ);
+  it("PF-130: 8 of 12 → 12-month average (8 of 12 months), no range", () => {
+    const s = summarize(ov({ months: months(W.slice(4)) }), NOW, P, undefined, TZ);
     assert.equal(s.window12WithData, 8);
     assert.equal(average12CountLabel(s.window12, s.window12WithData), "12-month average (8 of 12 months)");
     assert.equal(s.average.expenses, 1000, "calculation unchanged (Q-T1 is labelling only)");
+  });
+  it("PF-132: 8 expense months + 1 income-only month → 8 of 12; the expense average divides by 8; income average keeps its own months", () => {
+    const m: Record<string, { expenses: string; income: string }> = {};
+    W.slice(4).forEach((k, i) => (m[k] = { expenses: String((i + 1) * 100), income: "" }));
+    m["2026-01"] = { expenses: "", income: "9,000" };
+    const s = summarize(ov({ start: "0", months: m }), NOW, P, undefined, TZ);
+    assert.equal(s.window12WithData, 8);
+    assert.equal(average12CountLabel(s.window12, s.window12WithData), "12-month average (8 of 12 months)");
+    assert.equal(s.average.expenses, 3600 / 8, "(100+…+800) / 8 = 450, not / 9");
+    assert.equal(s.average.income, 9000, "income average: the income-only month is its one income month");
+    const jan = s.points.find((p) => p.key === "2026-01")!;
+    assert.equal(jan.expenses, 450, "the chart fill gives the income-only month the expense average (C8), not $0");
+    const only = summarize(ov({ months: { "2026-05": { expenses: "", income: "5,000" } } }), NOW, P, undefined, TZ);
+    assert.equal(only.window12WithData, 0);
+    assert.equal(only.average.expenses, null);
+    assert.equal(average12CountLabel(only.window12, 0), "12-month average (0 of 12 months)");
   });
   it("PF-131: 0 of 12 (only the current month) → 12-month average (0 of 12 months), figures null (Q-T3)", () => {
     const s = summarize(ov({ months: { "2026-10": { expenses: "1,000", income: "2,000" } } }), NOW, P, undefined, TZ);

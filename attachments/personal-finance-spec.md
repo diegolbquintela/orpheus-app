@@ -940,3 +940,8 @@ This is a labelling change only: the 12-month calculation in section 26 stays th
 - 27.3 None has data: `12-month average (0 of 12 months)`, with the figures `—` per Q-T3 (PF-131).
 - 27.4 Other places: the Future-on coverage note says `(held at 12-month average)` and names no range, so it stays as it is. The 3-month label is unchanged. Nothing else shows the 12-month label.
 - This supersedes section 26's Q-T1 "label names the full window" and the PF-115 header example when fewer than 12 months have data.
+- 27.5 (CFO via EL, PF-132; supersedes 27's "expenses or income") A month has data for the 12-month expense average and the N-of-12 count only if it has expense entries. An income-only month is left out entirely: it is not counted and not averaged as $0. Example: 8 expense months and 1 income-only month give `(8 of 12 months)`, and the expense average divides by 8.
+  - The empty-month fill (C8) gives an income-only month's expenses the 12-month expense average, in the chart and in the 3-month average, never $0.
+  - The Future projection and Future-on coverage use that expense average; Future-off coverage uses the 3-month average.
+  - The income average is a separate mean over months with an income figure, so an income-only month still counts there. Surplus is the income average minus the expense average.
+- 27.6 `(0 of 12 months)` is accepted as built (CFO via EL).

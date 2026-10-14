@@ -224,7 +224,7 @@ export type Summary = {
   window3: MonthKey[];
   /** #140 (PF-121): the 12 complete months behind `average`, oldest first. */
   window12: MonthKey[];
-  /** #141 Q-T1: how many of `window12` have a figure (expenses or income). */
+  /** #141 Q-T1 / PF-132: how many of `window12` have an expenses figure (income-only months excluded). */
   window12WithData: number;
   points: Point[];
 };
@@ -248,7 +248,9 @@ export function summarize(
   // excluded, as C7 for the 3-month); empty months are left out (Q-T2); none with a figure → null (Q-T3).
   const window12 = completeMonths(now, 12, timeZone);
   const figures12 = window12.map((key) => monthFigures(overview, key, current, page, lines));
-  const window12WithData = figures12.filter((f) => f.expenses !== null || f.income !== null).length;
+  // #141 (CFO via EL, PF-132): a month has data only with expense entries; an income-only month is neither counted
+  // nor averaged as $0 (its expenses are null, so the expense mean already leaves it out).
+  const window12WithData = figures12.filter((f) => f.expenses !== null).length;
   const average: Figures = {
     expenses: mean(figures12.map((f) => f.expenses)),
     income: mean(figures12.map((f) => f.income)),

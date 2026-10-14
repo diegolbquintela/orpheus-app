@@ -1556,6 +1556,17 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "2,000");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)", "the 3-month label is unchanged");
   });
+  it("#141 PF-132: 8 expense months + 1 income-only month → \"(8 of 12 months)\"; the expense average divides by 8, not 9", async () => {
+    const m: Record<string, { expenses: string; income: string }> = {};
+    ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].forEach((k, i) => (m[k] = { expenses: String((i + 1) * 100), income: "" }));
+    m["2026-01"] = { expenses: "", income: "6,000" };
+    seed({ start: "10,000", withdrawal: "4", months: m });
+    const el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (8 of 12 months)");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "450", "(100 + … + 800) / 8; / 9 would be 400");
+    assert.equal(text(q(el, "pf-ov-income"), "pf-ov-avg"), "6,000", "income average unchanged: its own months");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "700", "Jul–Sep 600 / 700 / 800");
+  });
   it("#141 PF-131: 0 complete months with data → \"12-month average (0 of 12 months)\" and — (Q-T3)", async () => {
     seed({ start: "10,000", withdrawal: "4", months: { "2026-10": { expenses: "1,000", income: "2,000" } } });
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));

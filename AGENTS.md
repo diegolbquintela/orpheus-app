@@ -1159,3 +1159,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - #140 (PF 12-month average over complete months): `completeMonths(today, 12, tz)` → `summary.window12` drives `average`
   (fill, Future, Future-on coverage) and `average12Label`. Spec section 26, design `attachments/pf-12mo-complete-design.md`, AC PF-121..PF-128, Q-T1..Q-T5.
 - #141 Q-T1 (CFO-changed): the 12-month header shows `(N of 12 months)` when fewer than 12 complete months have data, and the dated range only at 12 of 12. Spec 27, PF-129..PF-131.
+- #141 PF-132: the 12-month count/expense average counts only months with expense entries (income-only months excluded); `(0 of 12 months)` accepted.
