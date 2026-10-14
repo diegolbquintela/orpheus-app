@@ -1143,3 +1143,5 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Tests replay `test-fixtures/openfigi/mapping-2026-10-14.json` through `createOpenFigiSource({ post })`; no live call.
   `refresh-api.server.ts` turns classification off when a test injects `provider`. Design
   `attachments/etf-detection-design.md`, AC FD-01..FD-14, Q-F1..Q-F8.
+- #129 (PF Overview coverage layout): three lines in `CoverageLine` (`overview-block.tsx`): amounts, `coverageRateNote()` and
+  `COVERAGE_SOURCE_NOTE` (`overview.ts`), notes in `.pf-coverage-sub`. Math unchanged. Spec section 23, AC PF-98..PF-104, Q-L1..Q-L6.
