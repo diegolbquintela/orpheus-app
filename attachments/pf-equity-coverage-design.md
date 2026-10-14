@@ -111,3 +111,12 @@ Brief: issue #129 (HIGH). Numbers unchanged; the one-line display (PF-80 / PF-94
 - **Q-L4 Future on:** line 2 reads `on 12-month average expenses (projection).` (PF-84 basis); line 1 `Equity coverage in N years:`. The PF-97 `basis: …` label is folded into line 2.
 - **Q-L5 missing rate / start:** line 1 `—`, line 2 the existing note, line 3 always shown (it says where the rate comes from).
 - **Q-L6 markers:** the literal `*` and `**` from the brief, as text (no footnote links).
+
+### Change (Q-L1 / Q-L4 CFO-confirmed, 2026-10-14)
+
+| Item | Change |
+|------|--------|
+| Q-L1 | Confirmed with new wording: the monthly figure is a coverage share. `coverageRateNote()` → `* <rate> yearly, covers <share> of monthly expenses (3-month average, <window>).` PF-105. |
+| Q-L4 | EL option (b) with (a)'s wording: `overviewCoverage()` (Future on) divides by `summary.points.at(-1)?.expenses` (horizon-end point; no point → `none`); line 2 `… covers X% of projected monthly expenses at horizon end (held at 12-month average).` PF-106. |
+| Held flat | The projection sets each future month's expenses to the 12-month average, so today the horizon-end expenses = the 12-month average and the number is unchanged (pinned by PF-107). Growing expenses (option c) out of scope. |
+| Q-L2, Q-L3, Q-L5, Q-L6 | Confirmed by the CFO as recommended. |

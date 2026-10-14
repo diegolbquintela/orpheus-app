@@ -328,7 +328,7 @@ try {
       const yr = (10000 * rateNow) / 100;
       // #129 (PF-104): three lines: amounts, the rate note (smaller) and the source note (smaller).
       const rateTxt = (await txt(page.getByTestId("pf-rate-used"))) ?? "";
-      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, or ${((yr / 12 / 2750) * 100).toFixed(2)}% monthly on ${avg3Label()} expenses.`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+      const wantCov = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage: ${NUM.format(yr / 12)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((yr / 12 / 2750) * 100).toFixed(2)}% of monthly expenses (3-month average, ${avg3Label().slice(17, -1)}).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
       const covFont = await page.getByTestId("pf-coverage").evaluate((c) => [...c.querySelectorAll("p")].map((p) => parseFloat(getComputedStyle(p).fontSize)));
       const avg3 = await page.evaluate(() => ["expenses", "income", "surplus"].map((r) => document.querySelector(`[data-testid=pf-ov-${r}] [data-testid=pf-ov-avg3]`)?.textContent.trim()));
       const heads = await page.getByTestId("pf-ov-table").locator("[role=columnheader]").allTextContents();
@@ -351,7 +351,7 @@ try {
         // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets and the average expenses 2,750.
         const cf = await cov();
         const y = (y5.net * rateNow) / 100;
-        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, or ${((y / 12 / 2750) * 100).toFixed(2)}% monthly on 12-month average expenses (projection).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((y / 12 / 2750) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
         check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the projected net assets ${y5.net.toFixed(2)} and the 12-month average expenses`, JSON.stringify(cf) === JSON.stringify(want), { cf, want });
       }
       check(`${tag} PFE-09 growth 5: 1 year 24 points ≈ ${w1.toFixed(2)}, 5 years 72 points ≈ ${w5.toFixed(2)} (± 0.01)`, y1.months === "24" && Math.abs(y1.net - w1) <= 0.011 && y5.months === "72" && Math.abs(y5.net - w5) <= 0.011, { y1, y5, w1, w5 });

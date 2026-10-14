@@ -883,3 +883,11 @@ Equity coverage: 41.67 CAD/mo (500 CAD/yr)
 - Line 3 (`pf-coverage-source`, smaller, dim): `** Coverage rate is derived from Rate Used under Expenses section.` Always shown.
 - Missing rate / start: line 1 `Equity coverage: —`, line 2 the existing note (`Set rate under Expenses` / `Set starting net assets`), line 3 unchanged. Future projected net assets ≤ 0: line 1 `—`, line 3 only.
 - Q-L1..Q-L6: `attachments/pf-equity-coverage-design.md` section "Layout (#129)".
+
+### Change (Q-L1 / Q-L4 CFO-confirmed, 2026-10-14)
+
+All six Q-L answers are confirmed by the CFO (Q-L2, Q-L3, Q-L5, Q-L6 as recommended; Q-L1 and Q-L4 changed as below). Line 2 becomes:
+
+- Future off: `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (the window follows the date).
+- Future on: `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).` The share divides by the horizon-end point's expenses (EL, option b); the projection holds expenses at the 12-month average, so the figure is unchanged. Growing expenses are out of scope.
+- AC PF-105..PF-107 (supersede the PF-100 / PF-103 wording and the PF-84 expenses term).
