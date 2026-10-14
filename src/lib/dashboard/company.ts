@@ -9,7 +9,19 @@ export type CompanyYear = {
   end: string;
   values: Partial<Record<string, number>>;
   units: Partial<Record<string, string>>;
+  /** #123 (E1 / E5): concepts whose value came from a fallback, not a reported tag: concept → method. */
+  derived?: Partial<Record<string, DerivedMethod>>;
 };
+
+/** #123 (ES-13): how a derived figure was obtained (only set when the fallback actually ran). */
+export type DerivedMethod = "shares_from_eps" | "capex_broad_ifrs";
+export const DERIVED_TITLE: Record<DerivedMethod, string> = {
+  shares_from_eps: "Derived: diluted shares = net income ÷ diluted EPS (the filing reports no diluted share count).",
+  capex_broad_ifrs:
+    "Derived: capex from the broad IFRS line (purchases of property, plant and equipment, intangible assets and other non-current assets); the filing reports no PPE-only capex.",
+};
+/** #123: the marker text shown next to a derived row's label. */
+export const DERIVED_MARKER = "derived";
 
 export type StoredMetric = { value: number | null; status: string };
 
@@ -21,6 +33,8 @@ export type CompanyInput = {
   currency: string;
   /** SEC companyfacts coverage (`instruments.fundamentals_source = 'sec'`). */
   covered: boolean;
+  /** #123: which filings cover it (`'esef'` = ESEF annual reports via filings.xbrl.org); default SEC. */
+  fundamentalsSource?: "sec" | "esef";
   /** Fundamentals checked yet (`fundamentals_checked_at` not null). */
   checked: boolean;
   /** Daily closes, oldest first. */
@@ -34,7 +48,15 @@ export type CompanyInput = {
 };
 
 export type RowStatus = "ok" | "n/m" | "not_covered" | "pending" | "not_reported" | "mismatch" | "none";
-export type CompanyRow = { key: string; label: string; text: string; status: RowStatus; value: number | null };
+export type CompanyRow = {
+  key: string;
+  label: string;
+  text: string;
+  status: RowStatus;
+  value: number | null;
+  /** #123 (ES-13): set only on a shown figure computed from a derived input; the accessible explanation. */
+  derived?: string;
+};
 export type CompanySection = { key: string; title: string; note: string | null; rows: CompanyRow[] };
 export type ChartPoint = [date: string, close: number];
 
@@ -62,6 +84,8 @@ export type RangeKey = (typeof RANGES)[number]["key"];
 
 export const SECTION_TITLES = ["Profile", "Margins", "Returns", "Valuation", "Growth", "Dividends"] as const;
 export const SOURCE_LINE = "SEC filings (companyfacts) · daily closes as stored by the Dashboard";
+/** #123 (ES-08): an ESEF-covered listing's source line (figures in the filing currency). */
+export const SOURCE_LINE_ESEF = "ESEF annual reports via filings.xbrl.org · daily closes as stored by the Dashboard";
 /** #121 (NC-01, NC-03): an uncovered listing's top line and source line. */
 export const NOT_COVERED_LINE = "Not covered: no SEC filings";
 export const SOURCE_LINE_UNCOVERED = "Daily closes and dividends as stored by the Dashboard · no SEC filings for this listing";
@@ -183,15 +207,19 @@ export function companyView(input: CompanyInput): CompanyView {
     label: string,
     value: number | "n/m" | undefined,
     fmt: (n: number) => string,
-    opts: { needsPrice?: boolean; needsSameCurrency?: boolean } = {},
+    opts: { needsPrice?: boolean; needsSameCurrency?: boolean; uses?: string[] } = {},
   ): CompanyRow => {
     if (gap) return off(key, label, gap);
     if (opts.needsPrice && !lastClose) return off(key, label, "pending");
     if (opts.needsSameCurrency && !sameCurrency) return off(key, label, "mismatch");
     if (value === "n/m") return off(key, label, "n/m");
     if (value === undefined || !Number.isFinite(value)) return off(key, label, "n/m");
-    return ok(key, label, value, fmt(value));
+    const methods = [...new Set((opts.uses ?? []).map((c) => latest?.derived?.[c]).filter((m): m is DerivedMethod => !!m))];
+    const r = ok(key, label, value, fmt(value));
+    return methods.length ? { ...r, derived: methods.map((m) => DERIVED_TITLE[m]).join(" ") } : r;
   };
+  // #123 (ES-13): which latest-year inputs each derived-capable figure uses (FCF needs capex only when capex exists).
+  const FCF = v.capex !== undefined ? ["capex"] : [];
 
   const price = lastClose?.close;
   const shares = v.diluted_shares;
@@ -217,9 +245,9 @@ export function companyView(input: CompanyInput): CompanyView {
   const epsG = epsNow !== undefined && epsPrev !== undefined ? (epsPrev <= 0 ? "n/m" : epsNow / epsPrev - 1) : undefined;
 
   const profile: CompanyRow[] = [
-    row("market_cap", "Market cap", marketCap, fmtMoney, { needsPrice: true, needsSameCurrency: true }),
-    row("ev", "Enterprise value", ev, fmtMoney, { needsPrice: true, needsSameCurrency: true }),
-    row("shares", "Shares (diluted)", shares, count),
+    row("market_cap", "Market cap", marketCap, fmtMoney, { needsPrice: true, needsSameCurrency: true, uses: ["diluted_shares"] }),
+    row("ev", "Enterprise value", ev, fmtMoney, { needsPrice: true, needsSameCurrency: true, uses: ["diluted_shares"] }),
+    row("shares", "Shares (diluted)", shares, count, { uses: ["diluted_shares"] }),
     row("revenue", "Revenue", revenue, fmtMoney),
     gap ? off("employees", "Employees", gap) : off("employees", "Employees", "not_reported"),
   ];
@@ -227,7 +255,7 @@ export function companyView(input: CompanyInput): CompanyView {
     row("gross_margin", "Gross margin", ratio(gross, revenue), pct),
     row("operating_margin", "Operating margin (EBIT)", ratio(ebit, revenue), pct),
     row("net_margin", "Net margin", ratio(ni, revenue), pct),
-    row("fcf_margin", "Free cash flow margin", ratio(fcf, revenue), pct),
+    row("fcf_margin", "Free cash flow margin", ratio(fcf, revenue), pct, { uses: FCF }),
   ];
   const returns = [
     row("roa", "ROA", ratio(ni, avg(input.years, (y) => y.values.total_assets)), pct),
@@ -237,8 +265,8 @@ export function companyView(input: CompanyInput): CompanyView {
   ];
   const valuation = [
     row("pe", "P/E", price === undefined ? undefined : ratio(price, epsNow), multiple, { needsPrice: true, needsSameCurrency: true }),
-    row("ev_ebit", "EV/EBIT", ratio(ev, ebit), multiple, { needsPrice: true, needsSameCurrency: true }),
-    row("p_fcf", "P/FCF", ratio(marketCap, fcf), multiple, { needsPrice: true, needsSameCurrency: true }),
+    row("ev_ebit", "EV/EBIT", ratio(ev, ebit), multiple, { needsPrice: true, needsSameCurrency: true, uses: ["diluted_shares"] }),
+    row("p_fcf", "P/FCF", ratio(marketCap, fcf), multiple, { needsPrice: true, needsSameCurrency: true, uses: ["diluted_shares", ...FCF] }),
   ];
   const growth = [
     row("rev_g_1y", "Revenue growth 1y", metric("rev_g_1y"), pct),
@@ -285,6 +313,6 @@ export function companyView(input: CompanyInput): CompanyView {
       { key: "dividends", title: "Dividends", note: "Trailing twelve months", rows: dividends },
     ],
     coverage: gap === "not_covered" ? NOT_COVERED_LINE : null,
-    source: gap === "not_covered" ? SOURCE_LINE_UNCOVERED : SOURCE_LINE,
+    source: gap === "not_covered" ? SOURCE_LINE_UNCOVERED : input.fundamentalsSource === "esef" ? SOURCE_LINE_ESEF : SOURCE_LINE,
   };
 }

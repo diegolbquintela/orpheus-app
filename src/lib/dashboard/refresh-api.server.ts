@@ -91,7 +91,7 @@ async function run(deps: RefreshDeps, db: Queryable, trigger: "cron" | "preview"
   const fx = deps.fx ? deps.fx() : (await import("./fx.server.ts")).createFxFetcher();
   const fundamentals = deps.fundamentals
     ? deps.fundamentals()
-    : (await import("./fundamentals.server.ts")).secSourceFromEnv(deps.env ?? process.env);
+    : await (await import("./fundamentals.server.ts")).fundamentalsSourceFromEnv(deps.env ?? process.env); // #123: SEC + ESEF
   return runDailyRefresh(db, provider, { trigger, now: deps.now, fx, fundamentals });
 }
 

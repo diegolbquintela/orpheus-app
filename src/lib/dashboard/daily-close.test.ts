@@ -392,6 +392,7 @@ describe("cron route (DASH-10)", () => {
       getDb: async () => db,
       provider: fakeProvider,
       fx: noFx,
+      fundamentals: () => null, // #123: no live SEC / ESEF calls in unit tests
       now: () => at("2026-10-01", [23, 0]),
     });
 
@@ -441,6 +442,7 @@ describe("preview-only refresh button (DASH-10)", () => {
       getDb: async () => db,
       provider: fakeProvider,
       fx: noFx,
+      fundamentals: () => null, // #123: no live SEC / ESEF calls in unit tests
       now: () => at("2026-10-01", [23, 0]),
     });
 

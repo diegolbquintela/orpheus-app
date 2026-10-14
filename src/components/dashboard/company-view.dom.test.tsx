@@ -54,6 +54,49 @@ describe("CompanyViewPage", () => {
     assert.match(q('[data-testid="company-change"]')?.textContent ?? "", /^\+\d+\.\d% over Max$/);
     assert.match(q('[data-testid="company-source"]')?.textContent ?? "", /SEC filings/);
   });
+  it("#123 ES-14: derived rows carry a dim 'derived' marker (.ow-label) with an accessible explanation; reported rows none", () => {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.append(container);
+    root = createRoot(container);
+    const derivedView = companyView({
+      symbol: "RMS.PA",
+      name: "Hermès International",
+      exchange: "Paris",
+      currency: "EUR",
+      covered: true,
+      fundamentalsSource: "esef",
+      checked: true,
+      closes,
+      years: [
+        {
+          end: "2024-12-31",
+          values: { revenue: 15.17e9, net_income: 4.603e9, diluted_shares: 104924778, operating_cash_flow: 5.139e9, capex: 1.067e9, operating_income: 6.15e9 },
+          units: { revenue: "EUR" },
+          derived: { diluted_shares: "shares_from_eps", capex: "capex_broad_ifrs" },
+        },
+      ],
+      metrics: {},
+      dividends: [],
+      today: closes.at(-1)!.date,
+    });
+    act(() => root.render(<CompanyViewPage view={derivedView} />));
+    const mark = (k: string) => container.querySelector(`[data-testid="company-derived-${k}"]`);
+    for (const k of ["shares", "market_cap", "ev", "ev_ebit", "fcf_margin", "p_fcf"]) {
+      assert.equal(mark(k)?.textContent, "derived", k);
+      assert.equal(mark(k)?.className, "ow-label ml-2", k);
+      assert.match(mark(k)?.getAttribute("title") ?? "", /^Derived: /, k);
+      assert.match(mark(k)?.getAttribute("aria-label") ?? "", /^derived: Derived: /, k);
+    }
+    assert.match(mark("shares")?.getAttribute("title") ?? "", /net income ÷ diluted EPS/);
+    assert.match(mark("fcf_margin")?.getAttribute("title") ?? "", /broad IFRS line/);
+    assert.match(mark("p_fcf")?.getAttribute("title") ?? "", /net income ÷ diluted EPS.*broad IFRS line/);
+    for (const k of ["revenue", "net_margin", "pe", "gross_margin"]) assert.equal(mark(k), null, k);
+    // The figure itself is unchanged (the marker sits with the label, not in the value).
+    assert.equal(container.querySelector('[data-testid="company-row-revenue"] dd')?.textContent, "€15,170,000,000");
+    // A reported view (PLTR above) has no marker.
+    act(() => root.render(<CompanyViewPage view={view} />));
+    assert.equal(container.querySelectorAll('[data-testid^="company-derived-"]').length, 0);
+  });
   it("#121 NC-04: an uncovered listing shows the coverage line, Not covered rows, the chart", () => {
     container = dom.window.document.createElement("div");
     dom.window.document.body.append(container);

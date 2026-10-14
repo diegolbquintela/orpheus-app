@@ -1569,3 +1569,12 @@ company view shows one line `Not covered: no SEC filings` under the header; fund
 price, chart and dividends show when stored; the source line reads `Daily closes and dividends as stored by the
 Dashboard · no SEC filings for this listing`. Never a blank or error page. Source comparison and Q-N1..Q-N8:
 [`attachments/dashboard-non-sec-coverage-design.md`](dashboard-non-sec-coverage-design.md); AC NC-01..NC-08.
+
+## 17. EU fundamentals from ESEF (#123)
+
+EU listings that SEC does not cover get annual figures from ESEF xBRL-JSON at filings.xbrl.org (free), mapped by LEI
+(pinned table, then GLEIF). Same concepts and storage as SEC (`fundamentals_source = 'esef'`), daily job only, 7-day
+refresh, parser version 4. Figures stay in the source currency with the source line `ESEF annual reports via
+filings.xbrl.org`; valuation ratios follow the currency-mismatch rule. Design, N6 rules and Q-E1..Q-E8:
+[`attachments/dashboard-esef-fundamentals-design.md`](dashboard-esef-fundamentals-design.md); AC ES-01..ES-12.
+- #123 follow-up (PM E1 / E5): a figure that came from a fallback carries a dim `derived` marker (`.ow-label`, with a title and aria-label explaining the method), only when the fallback ran. Marked rows: Shares (diluted), Market cap, Enterprise value, EV/EBIT (diluted shares derived as net income ÷ diluted EPS); FCF margin and P/FCF (capex from the broad IFRS line, and P/FCF also on derived shares). AC ES-13..ES-16.

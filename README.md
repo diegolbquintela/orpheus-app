@@ -591,3 +591,6 @@ Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15.
 
 **Company view without SEC filings (#121).** EU / Canadian holdings (e.g. RMS.PA, VDY.TO) show `Not covered: no SEC
 filings` with price, chart and dividends. Source comparison: `attachments/dashboard-non-sec-coverage-design.md`.
+
+**EU fundamentals from ESEF (#123).** EU holdings without SEC filings (RMS.PA first) get annual figures from the free
+ESEF filings at filings.xbrl.org, shown in the source currency. Design `attachments/dashboard-esef-fundamentals-design.md`.

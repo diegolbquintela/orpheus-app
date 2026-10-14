@@ -41,12 +41,14 @@ export type AnnualFact = {
 export type ListingForCoverage = { symbol: string; region: "US" | "EU" | "CA"; name: string | null };
 
 export interface FundamentalsSource {
-  /** "sec" (stored in instruments.fundamentals_source). */
-  id: "sec";
+  /** "sec" / "esef" (#123) / "composite" (SEC first, ESEF for EU); the hit's `source` is stored. */
+  id: "sec" | "esef" | "composite";
+  /** #123: false when this source cannot check the listing at all (then it is left as it is, not marked). */
+  covers?(listing: ListingForCoverage): boolean;
   /** The source's company id for a listing, or null when the source doesn't cover it. */
-  resolve(listing: ListingForCoverage): Promise<{ id: string; name: string } | null>;
+  resolve(listing: ListingForCoverage): Promise<{ id: string; name: string; source?: "sec" | "esef" } | null>;
   /** Annual facts for a covered company; null when the source has no facts for it (not covered). */
-  annualFacts(id: string): Promise<AnnualFact[] | null>;
+  annualFacts(id: string, source?: "sec" | "esef"): Promise<AnnualFact[] | null>;
   /** The filer's SIC code (T10), or null when unknown. */
   sic?(id: string): Promise<number | null>;
 }
@@ -95,8 +97,9 @@ const liveGet: SecGet = async (url, headers) => {
  * 1 = T08 (null in the database). 2 = T10: lease-inclusive debt fallbacks, debt tags ranked before filing date.
  * 3 = #95 company view: net income, total assets, current liabilities, operating cash flow, capex, diluted shares,
  *     dividends paid.
+ * 4 = #123: ESEF source for EU listings (the broad IFRS capex fallback tag is ESEF-only, in esef.server.ts).
  */
-export const FUNDAMENTALS_PARSER_VERSION = 3;
+export const FUNDAMENTALS_PARSER_VERSION = 4;
 
 /** `rankFirst`: the tag order beats the filing date (T10 F1: fallback-only tags never replace a primary tag). */
 export const CONCEPTS: Record<string, { kind: "duration" | "instant"; tags: string[]; rankFirst?: boolean }> = {
@@ -380,6 +383,34 @@ export function secSourceFromEnv(env: Record<string, string | undefined> = proce
   return userAgent ? createSecFundamentalsSource({ userAgent }) : null;
 }
 
+/**
+ * #123: SEC first (unchanged); an EU listing SEC does not cover goes to ESEF. Without an SEC contact only EU listings
+ * can be checked (`covers`), so US / CA symbols are left untouched rather than marked not covered.
+ */
+export function createCompositeSource(sec: FundamentalsSource | null, esef: FundamentalsSource | null): FundamentalsSource {
+  return {
+    id: "composite",
+    covers: (l) => sec !== null || (esef !== null && l.region === "EU"),
+    async resolve(listing) {
+      const hit = sec ? await sec.resolve(listing) : null;
+      if (hit) return { ...hit, source: "sec" };
+      if (esef && listing.region === "EU") {
+        const e = await esef.resolve(listing);
+        if (e) return { ...e, source: "esef" };
+      }
+      return null;
+    },
+    annualFacts: (id, source) => (source === "esef" ? (esef?.annualFacts(id) ?? Promise.resolve(null)) : (sec?.annualFacts(id) ?? Promise.resolve(null))),
+    sic: sec?.sic ? (id) => sec.sic!(id) : undefined,
+  };
+}
+
+/** #123: the job's source: SEC (when SEC_CONTACT_EMAIL is set) + ESEF (free, no key). */
+export async function fundamentalsSourceFromEnv(env: Record<string, string | undefined> = process.env): Promise<FundamentalsSource> {
+  const { createEsefSource } = await import("./esef.server.ts");
+  return createCompositeSource(secSourceFromEnv(env), createEsefSource());
+}
+
 // ------------------------------------------------------------------ the job
 
 export type FundamentalsSummary = {
@@ -473,7 +504,9 @@ export async function refreshFundamentals(
         return false;
       }
       // Covered symbols stored by an older parser are refetched now (T10 QA F2), not after 7 days.
-      const stale = h.source === "sec" && (h.parser ?? 1) < FUNDAMENTALS_PARSER_VERSION;
+      // #123: an EU listing marked not covered before ESEF existed (parser < 4) is rechecked once too.
+      const stale =
+        (h.source === "sec" || h.source === "esef" || (h.source === "none" && h.region === "EU")) && (h.parser ?? 1) < FUNDAMENTALS_PARSER_VERSION;
       return h.checked === null || stale || nowMs - Date.parse(h.checked) >= FUNDAMENTALS_MAX_AGE_MS;
     });
     // T09+: covered symbols stored before their metrics existed get them now (Postgres only, no SEC call).
@@ -496,13 +529,17 @@ export async function refreshFundamentals(
         summary.deferred += 1;
         continue;
       }
+      const listing = { symbol: h.symbol, region: h.region as "US" | "EU" | "CA", name: h.name };
+      // #123: a source that cannot check this listing (e.g. US without an SEC contact) leaves it as it is.
+      if (source.covers && !source.covers(listing)) continue;
       try {
-        const hit = await source.resolve({ symbol: h.symbol, region: h.region as "US" | "EU" | "CA", name: h.name });
-        const facts = hit ? await source.annualFacts(hit.id) : null;
+        const hit = await source.resolve(listing);
+        const kind = hit?.source ?? (source.id === "esef" ? "esef" : "sec");
+        const facts = hit ? await source.annualFacts(hit.id, kind) : null;
         const at = new Date(nowMs).toISOString();
         if (!hit || !facts) {
           await db.query(
-            `UPDATE instruments SET fundamentals_source = 'none', sec_cik = NULL, fundamentals_checked_at = $2,
+            `UPDATE instruments SET fundamentals_source = 'none', sec_cik = NULL, lei = NULL, fundamentals_checked_at = $2,
                fundamentals_error = NULL, fundamentals_parser_version = $3 WHERE symbol = $1`,
             [h.symbol, at, FUNDAMENTALS_PARSER_VERSION],
           );
@@ -518,6 +555,21 @@ export async function refreshFundamentals(
           // Replace, not merge, in one statement (atomic): rows from an older parser must not survive,
           // and an interrupted refetch must never leave a partial set for the metrics to read.
           await replaceFundamentals(db, h.symbol, facts);
+          if (kind === "esef") {
+            // #123: ESEF (EU, IFRS): the LEI is stored; no SIC.
+            await db.query(
+              `UPDATE instruments SET fundamentals_source = 'esef', sec_cik = NULL, lei = $2, fundamentals_checked_at = $3,
+                 fundamentals_error = NULL, fundamentals_parser_version = $4 WHERE symbol = $1`,
+              [h.symbol, hit.id, at, FUNDAMENTALS_PARSER_VERSION],
+            );
+            await db.query("DELETE FROM metric_values WHERE symbol = $1 AND status = 'not_covered'", [h.symbol]);
+            await computeStoredMetrics(db, h.symbol);
+            summary.computed += 1;
+            summary.covered += 1;
+            summary.rows += facts.length;
+            summary.checked += 1;
+            continue;
+          }
           // SIC (T10, ROIC's bank/insurer rule). A failed profile request keeps the stored code.
           let sic: number | null | undefined;
           try {
@@ -526,7 +578,7 @@ export async function refreshFundamentals(
             sic = undefined;
           }
           await db.query(
-            `UPDATE instruments SET fundamentals_source = 'sec', sec_cik = $2, fundamentals_checked_at = $3,
+            `UPDATE instruments SET fundamentals_source = 'sec', sec_cik = $2, lei = NULL, fundamentals_checked_at = $3,
                fundamentals_error = NULL, sic = CASE WHEN $4::boolean THEN $5::int ELSE sic END,
                fundamentals_parser_version = $6 WHERE symbol = $1`,
             [h.symbol, hit.id, at, sic !== undefined, sic ?? null, FUNDAMENTALS_PARSER_VERSION],
@@ -567,7 +619,7 @@ export async function metricViews(db: Queryable, symbols: string[]): Promise<Rec
   const out: Record<string, MetricView> = {};
   for (const r of inst)
     out[r.symbol] = {
-      coverage: r.checked === null ? "pending" : r.source === "sec" ? "covered" : "not_covered",
+      coverage: r.checked === null ? "pending" : r.source === "sec" || r.source === "esef" ? "covered" : "not_covered",
       metrics: {},
     };
   const vals = await db.query<{

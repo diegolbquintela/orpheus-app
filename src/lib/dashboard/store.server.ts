@@ -255,7 +255,7 @@ export interface Instrument {
   region: Region;
   currency: string;
   secCik: string | null;
-  fundamentalsSource: "sec" | "none";
+  fundamentalsSource: "sec" | "esef" | "none";
 }
 
 export async function upsertInstrument(db: Queryable, i: Instrument): Promise<void> {
@@ -277,7 +277,7 @@ export async function getInstruments(db: Queryable, symbols: string[]): Promise<
     region: Region;
     currency: string;
     sec_cik: string | null;
-    fundamentals_source: "sec" | "none";
+    fundamentals_source: "sec" | "esef" | "none";
   }>(
     `SELECT symbol, name, exchange, region, currency, sec_cik, fundamentals_source
      FROM instruments WHERE symbol = ANY($1::text[]) ORDER BY symbol`,
