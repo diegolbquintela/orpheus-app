@@ -81,9 +81,10 @@ const PAGES = [
       // #85: the income block first (`02` Income; its column-label rows aria-hidden), then `03` Expenses; #86: the
       // equity-cover rates (visible labels) before Fixed.
       const net = wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"];
+      // #126: + the 3-month column and the Equity coverage line (no rate yet → — and its note).
       // #94: 04 Overview (the table all —, the two fields, the Future toggle; the chart's plot aria-hidden, its legend
       // visible) and 05 Update (Month, Expenses, Income).
-      const overview = ["04", "Overview", "This month", "12-month average", "Expenses", "—", "—", "Income", "—", "—", "Surplus", "—", "—", "Starting net assets", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
+      const overview = ["04", "Overview", "This month", "3-month average", "12-month average", "Expenses", "—", "—", "—", "Income", "—", "—", "—", "Surplus", "—", "—", "—", "Equity coverage:", "—", "Set rate under Expenses", "Starting net assets", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
       // #87: the Household currency select (its label; a closed select's options are not on screen) above Income.
       return ["01", "Personal Finance.", "Household currency", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total"), ...overview];
     },

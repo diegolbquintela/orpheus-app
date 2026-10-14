@@ -398,6 +398,8 @@ export function PersonalFinancePage({
                 open={isOpen(view, "overview")}
                 onToggle={() => toggle("overview")}
                 readOnly={readOnly}
+                rate={rateUsed(rates)}
+                currency={household.household}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
                   income: monthly(netIncomeYearly(income.people, household.household)),

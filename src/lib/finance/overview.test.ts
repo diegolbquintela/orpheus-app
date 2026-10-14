@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   asOverview,
+  equityCoverage,
+  formatCoverageShare,
+  overviewCoverage,
   lastTwelve,
   monthName,
   NO_OVERVIEW,
@@ -173,3 +176,41 @@ describe("#94 storage", () => {
     assert.ok(!keys.includes("2020-01"));
   });
 });
+
+describe("#126 equity coverage and 3-month average (PF-80..PF-86)", () => {
+  it("PF-80: annual = start × rate ÷ 100, monthly ÷ 12, share of expenses (two decimals)", () => {
+    const c = equityCoverage(13125, 4, 8254.72);
+    assert.equal(c.status, "ok");
+    if (c.status !== "ok") return;
+    assert.equal(c.yearly, 525);
+    assert.equal(c.monthly, 43.75);
+    assert.equal(formatCoverageShare(c.share), "0.53%");
+  });
+  it("PF-82: no rate, no start, no expenses", () => {
+    assert.deepEqual(equityCoverage(13125, null, 1000), { status: "no_rate" });
+    assert.deepEqual(equityCoverage(13125, 0, 1000), { status: "no_rate" });
+    assert.deepEqual(equityCoverage(null, 4, 1000), { status: "no_start" });
+    assert.deepEqual(equityCoverage(0, 4, 1000), { status: "no_start" });
+    const c = equityCoverage(12000, 4, 0);
+    assert.equal(c.status === "ok" && c.share, null);
+    assert.equal(formatCoverageShare(null), "—");
+  });
+  it("PF-86: 3-month average = mean of the last 3 months, empty months taking the 12-month average", () => {
+    const s = summarize(ov({ months: { "2026-01": { expenses: "7,000", income: "" }, "2026-09": { expenses: "1,000", income: "" }, "2026-10": { expenses: "4,000", income: "" } } }), NOW, { expenses: null, income: null });
+    assert.equal(s.average.expenses, 4000);
+    assert.equal(s.average3.expenses, 3000);
+    assert.equal(s.average3.income, null);
+    assert.equal(summarize(NO_OVERVIEW, NOW, { expenses: null, income: null }).average3.expenses, null);
+  });
+  it("PF-83 / PF-84: today uses this month else the average; Future uses the projected net assets", () => {
+    const o = ov({ start: "100,000", months: { "2026-09": { expenses: "2,000", income: "3,000" } } });
+    const s = summarize(o, NOW, { expenses: null, income: null });
+    const now = overviewCoverage(o, s, 6);
+    assert.equal(now.status === "ok" && now.share, 500 / 2000);
+    const f = { ...o, future: true, years: 5 as const };
+    const sf = summarize(f, NOW, { expenses: null, income: null });
+    const fut = overviewCoverage(f, sf, 6);
+    assert.equal(fut.status === "ok" && round2(fut.yearly), round2(sf.points.at(-1)!.net! * 0.06));
+  });
+});
+

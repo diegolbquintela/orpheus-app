@@ -15,6 +15,14 @@ export const OVERVIEW_TITLE = "Overview";
 export const UPDATE_TITLE = "Update";
 export const THIS_MONTH = "This month";
 export const AVERAGE = "12-month average";
+/** #126 (PF-85): the 3-month column. */
+export const AVERAGE_3 = "3-month average";
+/** #126 (PF-79..PF-84): the equity coverage line. */
+export const COVERAGE_LABEL = "Equity coverage";
+export const COVERAGE_RATE_NOTE = "Set rate under Expenses";
+export const COVERAGE_START_NOTE = "Set starting net assets";
+export const coverageLabel = (years: Years | null): string =>
+  years === null ? `${COVERAGE_LABEL}:` : `${COVERAGE_LABEL} in ${yearsLabel(years)}:`;
 export const EXPENSES = "Expenses";
 export const INCOME = "Income";
 export const SURPLUS = "Surplus";
@@ -139,6 +147,8 @@ export type Summary = {
   current: MonthKey;
   thisMonth: Figures;
   average: Figures;
+  /** #126 (PF-86): the current and 2 previous months, an empty month taking the 12-month average. */
+  average3: Figures;
   points: Point[];
 };
 
@@ -184,7 +194,12 @@ export function summarize(
       });
     }
   }
-  return { months, current, thisMonth: figures[figures.length - 1], average, points };
+  const last3 = figures.slice(-3);
+  const average3: Figures = {
+    expenses: mean(last3.map((f) => f.expenses ?? average.expenses)),
+    income: mean(last3.map((f) => f.income ?? average.income)),
+  };
+  return { months, current, thisMonth: figures[figures.length - 1], average, average3, points };
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);
@@ -248,3 +263,37 @@ export function writeOverview(storage: StorageLike | null, overview: Overview): 
     // Storage full or blocked: the page keeps working for this visit.
   }
 }
+
+/** #126: the equity coverage line's figures (spec section 22.1). */
+export type Coverage =
+  | { status: "ok"; yearly: number; monthly: number; share: number | null }
+  | { status: "no_rate" | "no_start" | "none" };
+
+/**
+ * Equity coverage (PF-80..PF-84): annual = net assets × (rate ÷ 100), monthly = annual ÷ 12, share = monthly ÷
+ * expenses (null when expenses are missing or 0). `rate` is the #86 rate used (a percent, null when none).
+ */
+export function equityCoverage(netAssets: number | null, rate: number | null, expenses: number | null): Coverage {
+  if (rate === null || !(rate > 0)) return { status: "no_rate" };
+  if (netAssets === null || !(netAssets > 0)) return { status: "no_start" };
+  const yearly = netAssets * (rate / 100);
+  const monthly = yearly / 12;
+  return { status: "ok", yearly, monthly, share: expenses !== null && expenses > 0 ? monthly / expenses : null };
+}
+
+/** The coverage for the Overview: today's figures, or with Future on the projected net assets at the horizon end. */
+export function overviewCoverage(overview: Overview, summary: Summary, rate: number | null): Coverage {
+  const expensesNow = summary.thisMonth.expenses ?? summary.average.expenses;
+  if (!overview.future) {
+    const start = typedFigure(overview.start);
+    return equityCoverage(start, rate, expensesNow);
+  }
+  const c = equityCoverage(typedFigure(overview.start), rate, summary.average.expenses);
+  if (c.status !== "ok") return c;
+  const projected = summary.points.at(-1)?.net ?? null;
+  return projected === null || projected <= 0 ? { status: "none" } : equityCoverage(projected, rate, summary.average.expenses);
+}
+
+/** `0.53%`: two decimals (Q-C3). */
+export const formatCoverageShare = (share: number | null): string =>
+  share === null ? "—" : `${(share * 100).toFixed(2)}%`;
