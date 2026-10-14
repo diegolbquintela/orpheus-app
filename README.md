@@ -599,4 +599,8 @@ filings` with price, chart and dividends. Source comparison: `attachments/dashbo
 **EU fundamentals from ESEF (#123).** EU holdings without SEC filings (RMS.PA first) get annual figures from the free
 ESEF filings at filings.xbrl.org, shown in the source currency. Design `attachments/dashboard-esef-fundamentals-design.md`.
 
+**Funds / ETFs (#124).** A holding that OpenFIGI (free, keyless) types as a fund, e.g. VDY.TO (`ETP`), shows `Fund:
+company figures do not apply` in place of the company sections; price, chart and dividends stay. The daily job and the
+new-holding backfill classify; pages never call OpenFIGI. Design `attachments/etf-detection-design.md`.
+
 **Change (C7/C2, approved 2026-10-13).** The Overview's 3-month average uses the last 3 complete months (e.g. `3-month average (Jul–Sep)` on Oct 13), computed from today in the household timezone, and the equity coverage % is against it. See `attachments/pf-equity-coverage-design.md`, PF-91..PF-95.

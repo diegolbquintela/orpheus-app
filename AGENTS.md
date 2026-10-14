@@ -1131,3 +1131,15 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - #123 build note: the ESEF fixture is `test-fixtures/esef/hermes-2026-10-13-subset.json` (not under `src/lib/dashboard/`; DASH-00 scans that folder). Unit tests inject fake fetches (`createEsefSource({ get })`, `deps.fundamentals`); no live SEC / ESEF / GLEIF calls.
 - #123 follow-up: derived figures (E1 shares from EPS, E5 broad IFRS capex) are flagged via `fundamentals_annual.source_tag` → `derivedMethod()` (`company.server.ts`) → `CompanyRow.derived`; the page shows a dim `.ow-label` "derived" marker with title / aria-label. Only mark when the fallback ran.
 - #126 (PF Overview): `equityCoverage()` and `summarize().average3` in `src/lib/finance/overview.ts`; design `attachments/pf-equity-coverage-design.md`, spec section 22, AC PF-79..PF-90. Coverage and the 3-month average are computed, never stored.
+
+
+## Funds / ETFs on the company view (#124)
+
+- OpenFIGI mapping API, keyless (25 requests / min, ≤ 10 jobs a request), in the daily job and the new-holding backfill
+  only (`refreshClassification` in `src/lib/dashboard/openfigi.server.ts`); never from a page or API request. Never
+  add an OpenFIGI key or sign up.
+- Stored on `instruments.provider_ids.openfigi` (`kind` fund / company / unknown; no migration). Fund rule (Q-F3) in
+  `src/lib/dashboard/fund.ts`; suffix → exchCode table `SUFFIX_EXCH` (Q-F4). Failure = company view (Q-F2).
+- Tests replay `test-fixtures/openfigi/mapping-2026-10-14.json` through `createOpenFigiSource({ post })`; no live call.
+  `refresh-api.server.ts` turns classification off when a test injects `provider`. Design
+  `attachments/etf-detection-design.md`, AC FD-01..FD-14, Q-F1..Q-F8.

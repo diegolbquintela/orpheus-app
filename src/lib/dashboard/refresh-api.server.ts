@@ -20,6 +20,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { DailyCloseProvider } from "./close-provider.ts";
 import type { FxFetcher } from "./fx.server.ts";
 import type { FundamentalsSource } from "./fundamentals.server.ts";
+import type { OpenFigiSource } from "./openfigi.server.ts";
 import { runDailyRefresh, type RefreshSummary } from "./daily-refresh.server.ts";
 import { dashboardEnabledFromEnv, dashboardMethodNotAllowedResponse, guardDashboardApi } from "./flag.server.ts";
 import {
@@ -46,6 +47,8 @@ export type RefreshDeps = {
   fx?: () => FxFetcher;
   /** Fundamentals source (T08); default: SEC EDGAR when SEC_CONTACT_EMAIL is set, else null (skipped). */
   fundamentals?: () => FundamentalsSource | null;
+  /** #124: OpenFIGI source; default the live keyless API, except when a test injects `provider` (then off). */
+  classification?: () => OpenFigiSource | null;
   now?: () => number;
 };
 
@@ -92,7 +95,12 @@ async function run(deps: RefreshDeps, db: Queryable, trigger: "cron" | "preview"
   const fundamentals = deps.fundamentals
     ? deps.fundamentals()
     : await (await import("./fundamentals.server.ts")).fundamentalsSourceFromEnv(deps.env ?? process.env); // #123: SEC + ESEF
-  return runDailyRefresh(db, provider, { trigger, now: deps.now, fx, fundamentals });
+  const classification = deps.classification
+    ? deps.classification()
+    : deps.provider
+      ? null
+      : (await import("./openfigi.server.ts")).createOpenFigiSource();
+  return runDailyRefresh(db, provider, { trigger, now: deps.now, fx, fundamentals, classification });
 }
 
 export async function handleCronRequest(request: Request, deps: RefreshDeps = {}): Promise<Response> {

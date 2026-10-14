@@ -69,6 +69,10 @@ export function scheduleBackfillInBackground(db: Queryable, symbol: string): voi
     const { refreshFundamentals, fundamentalsSourceFromEnv } = await import("./fundamentals.server.ts");
     const f = await refreshFundamentals(db, await fundamentalsSourceFromEnv(), { only: [symbol] });
     if (f.errors.length) console.error(`[backfill] fundamentals: ${f.errors.map((e) => e.error).join("; ")}`);
+    // #124: fund / company type from OpenFIGI (keyless) for the new symbol.
+    const { createOpenFigiSource, refreshClassification } = await import("./openfigi.server.ts");
+    const c = await refreshClassification(db, createOpenFigiSource(), { only: [symbol] });
+    if (c.errors.length) console.error(`[backfill] classification: ${c.errors.join("; ")}`);
   })().catch(() => console.error(`[backfill] ${symbol} failed`));
   try {
     waitUntil(job);

@@ -1,0 +1,318 @@
+{
+ "recordedAt": "2026-10-14T09:50:00Z",
+ "endpoint": "POST https://api.openfigi.com/v3/mapping (no API key)",
+ "headers": {
+  "ratelimit-policy": "25;w=60"
+ },
+ "answers": [
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "VDY",
+    "exchCode": "CN"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG003M5XN19",
+      "name": "VANGUARD FTSE CANADIAN HIGH",
+      "ticker": "VDY",
+      "exchCode": "CN",
+      "compositeFIGI": "BBG003M5XN19",
+      "securityType": "ETP",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG003M5XNP3",
+      "securityType2": "Mutual Fund",
+      "securityDescription": "VDY"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "RMS",
+    "exchCode": "FP"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000BDYY97",
+      "name": "HERMES INTERNATIONAL",
+      "ticker": "RMS",
+      "exchCode": "FP",
+      "compositeFIGI": "BBG000BDYXR9",
+      "securityType": "Common Stock",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S7CH28",
+      "securityType2": "Common Stock",
+      "securityDescription": "RMS"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "PLTR",
+    "exchCode": "US"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000N7QR55",
+      "name": "PALANTIR TECHNOLOGIES INC-A",
+      "ticker": "PLTR",
+      "exchCode": "US",
+      "compositeFIGI": "BBG000N7QR55",
+      "securityType": "Common Stock",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001T53796",
+      "securityType2": "Common Stock",
+      "securityDescription": "PLTR"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "SPY",
+    "exchCode": "US"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000BDTBL9",
+      "name": "SS SPDR S&P 500 ETF TRUST-US",
+      "ticker": "SPY",
+      "exchCode": "US",
+      "compositeFIGI": "BBG000BDTBL9",
+      "securityType": "ETP",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S72SM3",
+      "securityType2": "Mutual Fund",
+      "securityDescription": "SPY"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "RY",
+    "exchCode": "CN"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000BCJG31",
+      "name": "ROYAL BANK OF CANADA",
+      "ticker": "RY",
+      "exchCode": "CN",
+      "compositeFIGI": "BBG000BCJG31",
+      "securityType": "Common Stock",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S60869",
+      "securityType2": "Common Stock",
+      "securityDescription": "RY"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "ZZZQQQ",
+    "exchCode": "US"
+   },
+   "result": {
+    "warning": "No identifier found."
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "PDI",
+    "exchCode": "US"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG002Q8P7Z8",
+      "name": "PIMCO DYNAMIC INCOME FUND",
+      "ticker": "PDI",
+      "exchCode": "US",
+      "compositeFIGI": "BBG002Q8P7Z8",
+      "securityType": "Closed-End Fund",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG002Q8P804",
+      "securityType2": "Mutual Fund",
+      "securityDescription": "PDI"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "VFIAX",
+    "exchCode": "US"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000BSRLX3",
+      "name": "VANGUARD 500 INDEX-ADM",
+      "ticker": "VFIAX",
+      "exchCode": "US",
+      "compositeFIGI": "BBG000BSRLX3",
+      "securityType": "Open-End Fund",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001SGFBH2",
+      "securityType2": "Mutual Fund",
+      "securityDescription": "VFIAX"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "BRK/B",
+    "exchCode": "US"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000DWG505",
+      "name": "BERKSHIRE HATHAWAY INC-CL B",
+      "ticker": "BRK/B",
+      "exchCode": "US",
+      "compositeFIGI": "BBG000DWG505",
+      "securityType": "Common Stock",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S90346",
+      "securityType2": "Common Stock",
+      "securityDescription": "BRK/B"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "VDY",
+    "exchCode": "CT"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG003M5XN37",
+      "name": "VANGUARD FTSE CANADIAN HIGH",
+      "ticker": "VDY",
+      "exchCode": "CT",
+      "compositeFIGI": "BBG003M5XN19",
+      "securityType": "ETP",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG003M5XNP3",
+      "securityType2": "Mutual Fund",
+      "securityDescription": "VDY"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "O",
+    "exchCode": "US"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000DHPN63",
+      "name": "REALTY INCOME CORP",
+      "ticker": "O",
+      "exchCode": "US",
+      "compositeFIGI": "BBG000DHPN63",
+      "securityType": "REIT",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S884K0",
+      "securityType2": "REIT",
+      "securityDescription": "O"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "ASML",
+    "exchCode": "NA"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000C1HT47",
+      "name": "ASML HOLDING NV",
+      "ticker": "ASML",
+      "exchCode": "NA",
+      "compositeFIGI": "BBG000C1HSN8",
+      "securityType": "Common Stock",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S7Q066",
+      "securityType2": "Common Stock",
+      "securityDescription": "ASML"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "SAP",
+    "exchCode": "GY"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG000BG7GX2",
+      "name": "SAP SE",
+      "ticker": "SAP",
+      "exchCode": "GY",
+      "compositeFIGI": "BBG000BG7DY8",
+      "securityType": "Common Stock",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG001S6RK27",
+      "securityType2": "Common Stock",
+      "securityDescription": "SAP"
+     }
+    ]
+   }
+  },
+  {
+   "job": {
+    "idType": "TICKER",
+    "idValue": "XEQT",
+    "exchCode": "CN"
+   },
+   "result": {
+    "data": [
+     {
+      "figi": "BBG00PPX3Y15",
+      "name": "ISHARES CORE EQUITY ETF PORT",
+      "ticker": "XEQT",
+      "exchCode": "CN",
+      "compositeFIGI": "BBG00PPX3Y15",
+      "securityType": "ETP",
+      "marketSector": "Equity",
+      "shareClassFIGI": "BBG00PPX3Z67",
+      "securityType2": "Mutual Fund",
+      "securityDescription": "XEQT"
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -18,8 +18,9 @@ export async function loadCompany(db: Queryable, dataUserId: string, symbol: str
   const held = await db.query<{ symbol: string }>("SELECT symbol FROM holdings WHERE user_id = $1 AND symbol = $2", [dataUserId, symbol]);
   if (!held.length) return { status: "not_held" };
   const inst = (
-    await db.query<{ name: string | null; exchange: string | null; currency: string | null; source: string | null; checked: string | null }>(
-      `SELECT name, exchange, currency, fundamentals_source AS source, fundamentals_checked_at::text AS checked
+    await db.query<{ name: string | null; exchange: string | null; currency: string | null; source: string | null; checked: string | null; figi: { kind?: string; securityType?: string | null } | null }>(
+      `SELECT name, exchange, currency, fundamentals_source AS source, fundamentals_checked_at::text AS checked,
+              provider_ids -> 'openfigi' AS figi
          FROM instruments WHERE symbol = $1`,
       [symbol],
     )
@@ -67,6 +68,9 @@ export async function loadCompany(db: Queryable, dataUserId: string, symbol: str
     ),
     dividends: divs.map((d) => ({ exDate: d.ex, cash: Number(d.cash) })),
     today,
+    // #124: the stored OpenFIGI classification (the daily job writes it; never fetched here).
+    kind: inst?.figi?.kind === "fund" || inst?.figi?.kind === "company" ? inst.figi.kind : "unknown",
+    securityType: inst?.figi?.securityType ?? null,
   };
   return { status: "ok", view: companyView(input) };
 }

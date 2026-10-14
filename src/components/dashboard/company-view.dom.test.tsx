@@ -130,3 +130,50 @@ describe("CompanyViewPage", () => {
     assert.equal(container.querySelector('[data-testid="company-coverage"]'), null);
   });
 });
+
+describe("CompanyViewPage: funds (#124)", () => {
+  const fundInput = {
+    symbol: "VDY.TO",
+    name: "Vanguard FTSE Canadian High Dividend Yield Index ETF",
+    exchange: "Toronto",
+    currency: "CAD",
+    covered: false,
+    checked: true,
+    closes,
+    years: [],
+    metrics: {},
+    dividends: [{ exDate: closes.at(-30)!.date, cash: 0.55 }],
+    today: closes.at(-1)!.date,
+  };
+  const mount = (v: ReturnType<typeof companyView>) => {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.append(container);
+    root = createRoot(container);
+    act(() => root.render(<CompanyViewPage view={v} />));
+    return (s: string) => container.querySelector(s);
+  };
+  const COMPANY = ["profile", "margins", "returns", "valuation", "growth"];
+  it("FD-09: a fund shows the fund line in place of the five company sections; chart and Dividends stay; no coverage line", () => {
+    const q = mount(companyView({ ...fundInput, kind: "fund", securityType: "ETP" }));
+    assert.equal(q('[data-testid="company-fund-line"]')?.textContent, "Fund: company figures do not apply");
+    assert.equal(q('[data-testid="company-fund"] h2')?.className, "ow-label");
+    for (const k of COMPANY) assert.equal(q(`[data-testid="company-section-${k}"]`), null, k);
+    assert.ok(q('[data-testid="company-section-dividends"]'));
+    assert.ok(q('[data-testid="company-chart-svg"]'));
+    assert.ok(q('[data-testid="company-range-1y"]'));
+    assert.equal(q('[data-testid="company-coverage"]'), null);
+    assert.equal(q('[data-testid="company-source"]')?.textContent, "Daily closes and dividends as stored by the Dashboard · fund type from OpenFIGI");
+  });
+  it("FD-10: a company (or unclassified) view renders as before: six sections, no fund block", () => {
+    for (const kind of ["company", undefined] as const) {
+      const q = mount(companyView({ ...fundInput, kind }));
+      assert.equal(q('[data-testid="company-fund"]'), null);
+      assert.deepEqual([...container.querySelectorAll("section h2")].map((h) => h.textContent), ["Profile", "Margins", "Returns", "Valuation", "Growth", "Dividends"]);
+      assert.equal(q('[data-testid="company-coverage"]')?.textContent, "Not covered: no SEC filings");
+      act(() => root.unmount());
+      container.remove();
+    }
+    // afterEach unmounts once more: give it a fresh root.
+    mount(companyView({ ...fundInput, kind: "company" }));
+  });
+});

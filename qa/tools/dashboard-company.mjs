@@ -3,6 +3,7 @@
 //   QA_OWNER_EMAIL / QA_OWNER_PASSWORD (the owner), QA_PM_* (Dashboard Read and write), QA_NONE_* (no grant).
 // #121: --seed also adds 1 RMS.PA (no SEC filings) when not held, checks NC-05 / NC-06 and deletes it at the end.
 // #123: RMS.PA is now covered by ESEF (filings.xbrl.org): ES-09 / ES-10 replace NC-05 / NC-06, ES-11 the cleanup.
+// #124: --seed also adds 1 VDY.TO (an ETF; OpenFIGI securityType ETP) when not held, checks FD-11..FD-13 and deletes it.
 // Read-only unless --seed: then, when the owner holds no PLTR, the tool adds 1 PLTR share as the owner, runs the
 // preview-only daily refresh (closes, SEC companyfacts, metrics) and deletes that holding again at the end. The symbol
 // is PLTR when held, else the first holding (reported).
@@ -103,9 +104,18 @@ if (SEED && !held.includes(UNCOVERED)) {
   uncoveredId = add.json?.holding?.id ?? null;
   check(`seed: owner adds 1 ${UNCOVERED} (removed at the end)`, add.status === 201 || add.status === 200, [add.status, add.json?.error]);
 }
+// #124 (FD-11..FD-13): VDY.TO, a fund, seeded the same way and deleted at the end.
+const FUND = "VDY.TO";
+let fundId = null;
+const addedFund = SEED && !held.includes(FUND);
+if (addedFund) {
+  const add = await http(jars.owner, "POST", "/api/dashboard/holdings", { symbol: FUND, shares: "1", avgCost: "" });
+  fundId = add.json?.holding?.id ?? null;
+  check(`seed: owner adds 1 ${FUND} (removed at the end)`, add.status === 201 || add.status === 200, [add.status, add.json?.error]);
+}
 const addPltr = SEED && !held.includes("PLTR");
 const addedUncovered = SEED && !held.includes(UNCOVERED);
-if (addPltr || addedUncovered) {
+if (addPltr || addedUncovered || addedFund) {
   if (addPltr) {
   const add = await http(jars.owner, "POST", "/api/dashboard/holdings", { symbol: "PLTR", shares: "1", avgCost: "" });
   seededId = add.json?.holding?.id ?? null;
@@ -122,6 +132,7 @@ if (addPltr || addedUncovered) {
   const idOf = (sym) => (holdingsRes.json?.holdings ?? []).find((h) => h.symbol === sym)?.id ?? null;
   if (addPltr) seededId ??= idOf("PLTR");
   if (addedUncovered) uncoveredId ??= idOf(UNCOVERED);
+  if (addedFund) fundId ??= idOf(FUND);
 }
 const SYMBOL = held.includes("PLTR") ? "PLTR" : held[0];
 check("a held symbol to open (PLTR when held)", SYMBOL, { symbol: SYMBOL, pltr: held.includes("PLTR"), held: held.length });
@@ -294,11 +305,56 @@ try {
       await ctx.close();
     }
   } else console.log(`INFO ${UNCOVERED} not held and --seed not given: ES-09 / ES-10 skipped`);
+  // ---------------------------------------------------------------- #124 funds (FD-11..FD-13)
+  {
+    const sym = await http(jars.owner, "GET", API);
+    const rms = held.includes(UNCOVERED) ? await http(jars.owner, "GET", `/api/dashboard/company/${encodeURIComponent(UNCOVERED)}`) : null;
+    check(`FD-13 ${SYMBOL} (and ${UNCOVERED} when held) not funds: kind company, fund null, six sections`, sym.json?.company?.kind === "company" && sym.json?.company?.fund === null && sym.json?.company?.sections?.length === 6 && (!rms || (rms.json?.company?.kind === "company" && rms.json?.company?.sections?.length === 6)), { [SYMBOL]: sym.json?.company?.kind, [UNCOVERED]: rms?.json?.company?.kind ?? "not held" });
+  }
+  if (held.includes(FUND)) {
+    let fa;
+    // The new-holding backfill classifies in the background; give it a moment.
+    for (let i = 0; i < 6; i++) {
+      fa = await http(jars.owner, "GET", `/api/dashboard/company/${encodeURIComponent(FUND)}`);
+      if (fa.json?.company?.kind === "fund") break;
+      await wait(5000);
+    }
+    const f = fa.json?.company;
+    console.log(`[dashboard-company] ${FUND} kind ${f?.kind} securityType ${f?.securityType} sections ${JSON.stringify((f?.sections ?? []).map((x) => x.key))}`);
+    check(`FD-11 ${FUND} API 200: kind fund, securityType ETP, the fund line, Dividends only, no coverage line, fund source line`, fa.status === 200 && f?.kind === "fund" && f?.securityType === "ETP" && f?.fund === "Fund: company figures do not apply" && JSON.stringify((f?.sections ?? []).map((x) => x.key)) === '["dividends"]' && !f?.coverage && f?.source === "Daily closes and dividends as stored by the Dashboard · fund type from OpenFIGI", { status: fa.status, kind: f?.kind, type: f?.securityType, fund: f?.fund, coverage: f?.coverage, source: f?.source });
+    for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
+      const ctx = await browser.newContext({ viewport });
+      await ctx.addCookies(toCookies(jars.owner));
+      const page = await ctx.newPage();
+      const errors = [];
+      page.on("pageerror", (e) => errors.push(String(e)));
+      const resp = await page.goto(`${base}/dashboard/company/${encodeURIComponent(FUND)}`, { waitUntil: "networkidle" });
+      const m = await page.evaluate(() => ({
+        fund: document.querySelector('[data-testid="company-fund-line"]')?.textContent ?? null,
+        fundLabel: document.querySelector('[data-testid="company-fund"] h2')?.classList.contains("ow-label") ?? false,
+        coverage: document.querySelector('[data-testid="company-coverage"]')?.textContent ?? null,
+        svg: !!document.querySelector('[data-testid="company-chart-svg"]'),
+        sections: [...document.querySelectorAll('[data-testid^="company-section-"]')].map((e) => e.getAttribute("data-testid")),
+        labels: [...document.querySelectorAll("article h2")].every((h) => h.classList.contains("ow-label")),
+        gold: [...document.querySelectorAll("article *")].map((e) => getComputedStyle(e).color).some((c) => { const x = c.match(/rgba?\((\d+), (\d+), (\d+)/); if (!x) return false; const [r, g, b] = x.slice(1).map(Number); return r > 150 && g > 110 && b < 90 && r - b > 90; }),
+        bg: getComputedStyle(document.body).backgroundColor,
+        scroll: document.scrollingElement.scrollWidth - window.innerWidth,
+      }));
+      await page.screenshot({ path: join(CFG.out, `fund-${vp}.png`), fullPage: true });
+      check(`[${vp}] FD-11 ${FUND} page 200, no page error, fund line, chart, Dividends only, no coverage line`, resp?.status() === 200 && errors.length === 0 && m.fund === "Fund: company figures do not apply" && m.svg && JSON.stringify(m.sections) === '["company-section-dividends"]' && m.coverage === null, { status: resp?.status(), errors, ...m });
+      check(`[${vp}] FD-12 ${FUND} dark shell, .ow-label, no gold, no horizontal scroll`, m.bg === NIGHT && m.labels && m.fundLabel && !m.gold && m.scroll <= 0, { bg: m.bg, labels: m.labels, gold: m.gold, scroll: m.scroll });
+      await ctx.close();
+    }
+  } else console.log(`INFO ${FUND} not held and --seed not given: FD-11 / FD-12 skipped`);
 } finally {
   await browser.close();
   if (uncoveredId !== null) {
     const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${uncoveredId}`);
     check(`ES-11 seed: the added ${UNCOVERED} holding is deleted again`, del.status === 200 || del.status === 204, del.status);
+  }
+  if (fundId !== null) {
+    const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${fundId}`);
+    check(`FD-13 seed: the added ${FUND} holding is deleted again`, del.status === 200 || del.status === 204, del.status);
   }
   if (seededId !== null) {
     const del = await http(jars.owner, "DELETE", `/api/dashboard/holdings/${seededId}`);
