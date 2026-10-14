@@ -830,3 +830,21 @@ totals (`Total`, `% of income`, `Equity to cover`) are unchanged and stay in the
 21.4 **Read-only and decisions (EL 07:51 ET).** Read-only grantees can use both filters (view only; totals unchanged);
 every write stays locked (add, including a new line under an account filter, `Save`, `Rename`, remove, fields).
 ROLE-10 is amended accordingly (ROLE-10a). Q-S1..Q-S6 and Q-S8 accepted by the CFO; Q-S7 changed as stated here.
+
+## 22. Overview: Equity coverage and 3-month average (#126; PF-79..PF-90)
+
+Business user: the CFO. Design `attachments/pf-equity-coverage-design.md` (decisions C1–C5, Q-C1..Q-C9, recommendations built). No change to the currency model, month control (#112), sign-in, the Expenses summary (#119) or the Dashboard. Nothing new is stored.
+
+22.1 **Equity coverage.**
+- Annual = `Starting net assets` × (`Rate used` ÷ 100); monthly = annual ÷ 12; % = monthly ÷ this month's expenses (else the 12-month average).
+- Shown under the comparison table, above the fields and the chart, in the household currency with full digits: `Equity coverage: 43.75 CAD/mo · 0.53% of expenses`, with a dim `525 CAD/yr` underneath.
+- Missing rate: `—` and `Set rate under Expenses`. Missing start: `—` and `Set starting net assets`.
+- With `Future` on: projected net assets at the horizon end and the average expenses, labelled `Equity coverage in N years`.
+
+22.2 **3-month average.**
+- The comparison table reads `This month` · `3-month average` · `12-month average`.
+- The 3-month window is the current month and the 2 before it. Empty months take the 12-month average (the existing fill rule).
+- The chart keeps the 12-month series.
+
+22.3 **Copy added** (section 15.1): `3-month average`, `Equity coverage:`, `Equity coverage in <N> years:`, `/mo`, `/yr`, `of expenses`, `Set rate under Expenses`, `Set starting net assets`.
+

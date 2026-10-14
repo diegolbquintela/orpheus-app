@@ -558,3 +558,22 @@ ES-09..ES-11 on the preview.
 | ES-14 | BLOCK | Unit (DOM): a derived row shows `derived` in a `.ow-label` span next to the label (`company-derived-<key>`), `title` and `aria-label` explain the method; the value text is unchanged; Revenue / P/E / margins without a derived input and every SEC (reported) view show no marker. |
 | ES-15 | BLOCK | Preview (`dashboard-company --seed`): RMS.PA API rows `shares` (net income ÷ diluted EPS) and `fcf_margin` (broad IFRS line) carry `derived`, only rows from {shares, market_cap, ev, ev_ebit, fcf_margin, p_fcf}; page phone 400 and desktop 1440 shows the marker dim, small, `.ow-label`, with title and aria-label; none on Revenue. |
 | ES-16 | BLOCK | Preview: ES-09..ES-12 still PASS with the marker (the seeded holdings are deleted, PLTR shows no marker). |
+
+## Personal Finance: Overview equity coverage and 3-month average (#126; spec section 22)
+
+Unit / DOM tests cover PF-79..PF-88; `qa/tools/personal-finance-e2e.mjs` covers PF-89; the preview suites cover PF-90.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-79 | BLOCK | `pf-coverage` sits directly after the comparison table (`pf-ov-table`) and before the fields, `Future` and the chart. |
+| PF-80 | BLOCK | Math: start 13,125, rate used 4, this month's expenses 8,254.72 → `Equity coverage: 43.75 CAD/mo · 0.53% of expenses` and `525 CAD/yr` (annual = start × rate ÷ 100; monthly ÷ 12; % of this month's expenses). |
+| PF-81 | BLOCK | Rate from ROIC ÷ 2 (withdrawal empty) is used; a typed withdrawal rate wins (the #86 rule); household currency code shown (USD household → `USD`). |
+| PF-82 | BLOCK | No rate: `Equity coverage: —` and `Set rate under Expenses`; rate set but start empty / 0 / invalid: `—` and `Set starting net assets`; expenses missing or 0: the % is `—`. |
+| PF-83 | BLOCK | This month without a figure: the % uses the 12-month average expenses. |
+| PF-84 | BLOCK | `Future` on: coverage uses the projected net assets at the horizon end and the average expenses; label `Equity coverage in N years:`; toggling off restores the current figures. |
+| PF-85 | BLOCK | The table columns are `This month`, `3-month average`, `12-month average` (`pf-ov-now`, `pf-ov-avg3`, `pf-ov-avg`) for Expenses, Income and Surplus. |
+| PF-86 | BLOCK | 3-month average = mean over the current and 2 previous months, each month's figure else the 12-month average; no figure in 12 months → `—`. |
+| PF-87 | BLOCK | The chart is unchanged (12 points, + Future months); #112 per-month lines feed both averages and coverage. |
+| PF-88 | BLOCK | Read-only: coverage and both averages visible; no new control; ROLE-10a unchanged; nothing is saved by viewing (explicit `Save` unchanged). |
+| PF-89 | BLOCK | Preview (`personal-finance-e2e`): seeded rate, start and months show the expected coverage line, yearly line and 3-month average; phone 400 and desktop 1440, no horizontal scroll. |
+| PF-90 | BLOCK | Preview: dark style, lyre, footer `Orpheus Wisdom`, no gold, full digits, strict CLS 0; personal-finance, pf-months, site-style regression ($313,000), site-shell, home, roles, audit, no-grok, dashboard-company PASS. |
