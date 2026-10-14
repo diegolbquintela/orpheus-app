@@ -174,3 +174,21 @@ describe("personal finance equity cover (#86, option A, PF-17..20)", () => {
     writeRates(throwing, rates("4", ""));
   });
 });
+
+describe("#131 Withdrawal rate description (PF-108, PF-112)", () => {
+  it("PF-108: the two lines; line 2 matches rateUsed (Q-W1)", async () => {
+    const { WITHDRAWAL_DESC_LINES } = await import("./equity.ts");
+    assert.deepEqual(
+      [...WITHDRAWAL_DESC_LINES],
+      [
+        "Withdrawal rate used to calculate how much equity can cover expenses.",
+        "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
+      ],
+    );
+  });
+  it("PF-112: Rate used unchanged: withdrawal wins when typed (5 + ROIC 8 → 5), else ROIC ÷ 2 (8 → 4)", () => {
+    assert.equal(rateUsed({ withdrawal: "5", roic: "8" }), 5);
+    assert.equal(rateUsed({ withdrawal: "", roic: "8" }), 4);
+    assert.equal(rateUsed({ withdrawal: "3", roic: "8" }), 3);
+  });
+});

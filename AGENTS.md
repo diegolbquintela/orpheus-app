@@ -1145,3 +1145,12 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   `attachments/etf-detection-design.md`, AC FD-01..FD-14, Q-F1..Q-F8.
 - #129 (PF Overview coverage layout): three lines in `CoverageLine` (`overview-block.tsx`): amounts, `coverageRateNote()` and
   `COVERAGE_SOURCE_NOTE` (`overview.ts`), notes in `.pf-coverage-sub`. Math unchanged. Spec section 23, AC PF-98..PF-104, Q-L1..Q-L6.
+
+
+## Personal Finance: Withdrawal rate description (#131)
+
+- Under `03` Expenses, right above the rates row: `pf-withdrawal-desc` (two `<p>`, class `pf-desc` = the #129 note
+  style). Copy `WITHDRAWAL_DESC_LINES` in `src/lib/finance/equity.ts`. Line 2 follows `rateUsed()` (withdrawal when
+  typed, else ROIC ÷ 2), not the brief's "the lower of" (Q-W1). Formula unchanged.
+- Design `attachments/pf-withdrawal-description-design.md`, spec section 24, AC PF-108..PF-114, Q-W1..Q-W7.
+

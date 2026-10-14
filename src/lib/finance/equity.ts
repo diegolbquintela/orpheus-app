@@ -12,6 +12,14 @@ export const EQUITY_KEY = "orpheus.finance.equity.v1";
 export const WITHDRAWAL_LABEL = "Withdrawal rate (%)";
 export const ROIC_LABEL = "Portfolio ROIC (%)";
 export const RATE_USED_LABEL = "Rate used";
+/**
+ * #131 (spec section 24, PF-108): the description above `Withdrawal rate (%)`, one string per line. Line 2 follows
+ * `rateUsed()` (withdrawal rate when typed, else ROIC ÷ 2), not the brief's "the lower of" (Q-W1).
+ */
+export const WITHDRAWAL_DESC_LINES = [
+  "Withdrawal rate used to calculate how much equity can cover expenses.",
+  "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
+] as const;
 
 export type Rates = {
   /** Withdrawal rate percent as typed (empty: use ROIC ÷ 2). */
