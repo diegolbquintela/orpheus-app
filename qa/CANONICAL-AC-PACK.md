@@ -695,3 +695,7 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | PF-138 | A refused PUT shows `Not saved.`, and the edits stay unsaved (Save shown). |
 | PF-139 | A record already holding `-5` opens with the error shown on that field, and Save is blocked until it's fixed. |
 | PF-140 | Read-only is unchanged: no Save and no PUT. |
+
+| ID | Acceptance criterion (#143 addendum: the CFO's condition on Q-S6, via EL) |
+|---|---|
+| PF-141 | When an automatic save on section open/close is refused (e.g. a record already holding a bad value), `Not saved.` shows and **stays** visible: it doesn't flash away; it clears only on a later successful save. The user's unsaved edits stay on screen, not reverted (field errors still shown, Save still shown). Already true at 8ecd2fc; pinned by a DOM test. |

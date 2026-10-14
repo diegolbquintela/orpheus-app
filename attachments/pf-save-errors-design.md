@@ -13,3 +13,4 @@
 - **Q-S4 API shape and message:** 400 `{ "error": "Invalid value.", "field": "<path>" }`. It never clamps and nothing is stored. A blank FX rate is accepted (it isn't a typed bad value; Q14).
 - **Q-S5 Refused PUT on the page:** the existing `Not saved.` status, and the edits stay unsaved.
 - **Q-S6 Records already holding a bad value:** the page shows the error and blocks Save; the API refuses the record until it's fixed. That also refuses a section toggle's save for such a record. A follow-up could name the month in the note when the bad value is in a month other than the one shown.
+- Q-S1..Q-S5 accepted by the CFO via EL. Q-S6 accepted on condition that a refused section-toggle save shows a persistent `Not saved.` and keeps the edits (PF-141). 8ecd2fc already did both: `saveFailed` changes only when a save resolves, and the toggle saves the stored record without touching the page state. Pinned by a DOM test.

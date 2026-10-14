@@ -1768,6 +1768,23 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     assert.equal(puts.n, 0);
     assert.equal(note(again), "Fix the fields marked in red before saving.");
   });
+  it("PF-141 (Q-S6 condition): a blocked automatic save on section open/close shows Not saved. and it stays; the edits stay on screen", async () => {
+    const el = await october();
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "-5");
+    await type(q(lines(el, "fixed")[1], "pf-monthly"), "800");
+    puts.ok = false; // the API refuses the record (e.g. one already holding a bad value)
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(puts.n, 1, "the toggle's own save was sent");
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    await act(async () => new Promise((r) => setTimeout(r, 2500))); // time passes: the note does not flash away
+    await click(q(el, "pf-toggle-summary")); // another blocked toggle and a re-render
+    await act(async () => new Promise((r) => setTimeout(r, 500)));
+    assert.equal(text(el, "pf-save"), "Not saved.", "still shown");
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "-5", "edit not reverted");
+    assert.equal((q(lines(el, "fixed")[1], "pf-monthly") as HTMLInputElement).value, "800", "edit not reverted");
+    assert.equal(q(lines(el, "fixed")[0], "pf-error").textContent, "Enter a number, 0 or more.");
+    assert.ok(q(el, "pf-month-save"), "still unsaved (Save shown)");
+  });
   it("PF-140: read-only: no Save, no PUT", async () => {
     await october();
     const ro = await reopen(true);
