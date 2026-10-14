@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   asOverview,
   average3Label,
+  average12Label,
   completeMonths3,
   COVERAGE_SOURCE_NOTE,
   coverageRateNote,
@@ -344,5 +345,25 @@ describe("#129 Q-L4 option b (PF-106, PF-107): Future on divides by the horizon-
   it("PF-105 / PF-106: line 2 wording", () => {
     assert.equal(coverageRateNote("12.5%", 0.005, false, ["2026-07", "2026-08", "2026-09"]), "* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul\u2013Sep).");
     assert.equal(coverageRateNote("12.5%", 0.005, true, ["2026-07", "2026-08", "2026-09"]), "* 12.5% yearly, covers 0.50% of projected monthly expenses at horizon end (held at 12-month average).");
+  });
+});
+
+describe("#132 the 12-month range (PF-115..PF-118)", () => {
+  const TZ = "America/Toronto";
+  const label = (at: string) => average12Label(lastTwelve(new Date(at), TZ));
+  it("PF-115 / PF-116: Oct 14 2026 → 12-month average (Nov–Oct), the months the average uses", () => {
+    assert.equal(label("2026-10-14T12:00:00-04:00"), "12-month average (Nov\u2013Oct)");
+    const s = summarize(NO_OVERVIEW, new Date("2026-10-14T12:00:00-04:00"), { expenses: null, income: null }, undefined, TZ);
+    assert.equal(average12Label(s.months), "12-month average (Nov\u2013Oct)");
+    assert.deepEqual([s.months[0], s.months[11]], ["2025-11", "2026-10"]);
+  });
+  it("PF-117: rollover in Toronto: Oct 31 23:59 ET → Nov–Oct; Nov 1 00:00 ET → Dec–Nov; 2026-11-01T03:30Z → Nov–Oct; Jan → Feb–Jan", () => {
+    assert.equal(label("2026-10-31T23:59:00-04:00"), "12-month average (Nov\u2013Oct)");
+    assert.equal(label("2026-11-01T00:00:00-04:00"), "12-month average (Dec\u2013Nov)");
+    assert.equal(label("2026-11-01T03:30:00Z"), "12-month average (Nov\u2013Oct)");
+    assert.equal(label("2027-01-15T12:00:00-05:00"), "12-month average (Feb\u2013Jan)");
+  });
+  it("PF-118: the 3-month label is unchanged", () => {
+    assert.equal(average3Label(completeMonths3(new Date("2026-10-14T12:00:00-04:00"), TZ)), "3-month average (Jul\u2013Sep)");
   });
 });

@@ -66,6 +66,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+const avg12Label = (now = new Date()) => {
+  // #132 (PF-115): the household month and the 11 before it, in America/Toronto, the 3-month label style.
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
+  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
+  return `12-month average (${name(11)}\u2013${name(0)})`;
+};
 const avg3Label = (now = new Date()) => {
   // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
   const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
@@ -165,7 +171,7 @@ const emptyTexts = (wide) => [
   "Overview",
   "This month",
   avg3Label(), // #126; C7: names the complete-month window
-  "12-month average",
+  avg12Label(), // #132 PF-115
   "Expenses", "—", "—", "—",
   "Income", "—", "—", "—",
   "Surplus", "—", "—", "—",

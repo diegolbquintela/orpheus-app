@@ -11,8 +11,8 @@ import {
 import { AMOUNT_ERROR, formatAmount, NOT_COMPUTED, parseAmount } from "@/lib/finance/expenses";
 import { formatRate } from "@/lib/finance/equity";
 import {
-  AVERAGE,
   average3Label,
+  average12Label,
   COVERAGE_SOURCE_NOTE,
   coverageRateNote,
   type Coverage,
@@ -114,7 +114,7 @@ export function OverviewBlock({
         >
           {open ? (
             <Lock on={readOnly}>
-              <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} />
+              <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12Label(summary.months)} />
               <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
@@ -127,7 +127,20 @@ export function OverviewBlock({
   );
 }
 
-function OverviewTable({ thisMonth, average3, average, label3 }: { thisMonth: Figures; average3: Figures; average: Figures; label3: string }) {
+function OverviewTable({
+  thisMonth,
+  average3,
+  average,
+  label3,
+  label12,
+}: {
+  thisMonth: Figures;
+  average3: Figures;
+  average: Figures;
+  label3: string;
+  /** #132: `12-month average (Nov–Oct)`. */
+  label12: string;
+}) {
   const rows: [string, string, number | null, number | null, number | null][] = [
     [EXPENSES, "expenses", thisMonth.expenses, average3.expenses, average.expenses],
     [INCOME, "income", thisMonth.income, average3.income, average.income],
@@ -145,8 +158,8 @@ function OverviewTable({ thisMonth, average3, average, label3 }: { thisMonth: Fi
         <span role="columnheader" className="pf-label" data-testid="pf-ov-avg3-head">
           {label3}
         </span>
-        <span role="columnheader" className="pf-label">
-          {AVERAGE}
+        <span role="columnheader" className="pf-label" data-testid="pf-ov-avg-head">
+          {label12}
         </span>
       </div>
       {rows.map(([label, key, now, avg3, avg]) => (

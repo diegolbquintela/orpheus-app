@@ -1154,3 +1154,5 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   typed, else ROIC ÷ 2), not the brief's "the lower of" (Q-W1). Formula unchanged.
 - Design `attachments/pf-withdrawal-description-design.md`, spec section 24, AC PF-108..PF-114, Q-W1..Q-W7.
 
+- #132 (PF Overview 12-month range): `average12Label()` in `src/lib/finance/overview.ts` on `summary.months` (household month + 11 before);
+  header `pf-ov-avg-head`. Spec section 25, design `attachments/pf-12mo-range-design.md`, AC PF-115..PF-120, Q-M1..Q-M4.
