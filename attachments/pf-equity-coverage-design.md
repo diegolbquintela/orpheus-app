@@ -89,3 +89,34 @@ The CFO approved (Diego via EL, 2026-10-13) a change to Q-C7 and Q-C2 above; Q-C
 |------|--------|
 | N1 | `lastTwelve(now, timeZone)` starts from `householdMonth(now, timeZone)` (America/Toronto), so `This month`, the 12 months and the 3-month window share one month; Oct 31 20:00–23:59 ET (Nov 1 UTC) → October, Jul–Sep. PF-96. |
 | Basis label | PF-84 confirmed by the CFO. `coverageBasis(future, window)` → `basis: projection` / `basis: 3-mo avg (Jul–Sep)`, shown dim (`pf-coverage-basis`) after the %. PF-97. |
+
+## Layout (#129, multi-line with notes; PF-98..PF-104)
+
+Brief: issue #129 (HIGH). Numbers unchanged; the one-line display (PF-80 / PF-94 / PF-97) becomes three lines (spec section 23).
+
+| Item | Design |
+|------|--------|
+| Line 1 | `<coverageLabel> <monthly> <CUR>/mo (<yearly> <CUR>/yr)` in `<p data-testid="pf-coverage-amounts">`; spans `pf-coverage-monthly`, `pf-coverage-yearly`. |
+| Line 2 | `* <formatRate(rate)> yearly, or <formatCoverageShare(share)> monthly on <basis> expenses.` in `<p class="pf-coverage-sub" data-testid="pf-coverage-rate-note">`; span `pf-coverage-share`. Built by `coverageRateNote()` in `overview.ts`. |
+| Line 3 | `** Coverage rate is derived from Rate Used under Expenses section.` (`COVERAGE_SOURCE_NOTE`) in `<p class="pf-coverage-sub" data-testid="pf-coverage-source">`. |
+| Smaller font | `.pf-coverage-sub` (0.875rem, dim) for lines 2–3; line 1 stays 1rem chalk. Each line is its own block and wraps (`overflow-wrap: anywhere`), no horizontal scroll at 400 px. |
+| Basis | Folded into line 2 (`3-month average (Jul–Sep)` / `12-month average … (projection)`); the separate `pf-coverage-basis` label (PF-97) is removed. |
+| Missing | No rate / no start: `Equity coverage: —`, note line (`pf-coverage-note`), line 3. Future projection ≤ 0 (`none`): `—`, line 3. |
+
+### Questions for the CFO (via EL; recommendation built)
+
+- **Q-L1 what the two percentages are:** the brief's `12.5% yearly` is the Rate used (the yearly rate the coverage is computed at); `0.5% monthly` is monthly coverage ÷ the basis expenses (the #126 share). Alternative: `monthly` = rate ÷ 12 (but 12.5 ÷ 12 ≠ 0.5, so the brief's numbers fit the recommendation).
+- **Q-L2 digits:** the rate as `Rate used` shows it (`12.5%`, `4%`); the share keeps two decimals (`0.50%`, Q-C3, "numbers stay the same"). Alternative: the brief's `0.5%` (trimmed zeros).
+- **Q-L3 window:** line 2 names the window, `on 3-month average (Jul–Sep) expenses` (C7: label the window wherever referenced). Alternative: the brief's bare `3-month average expenses`.
+- **Q-L4 Future on:** line 2 reads `on 12-month average expenses (projection).` (PF-84 basis); line 1 `Equity coverage in N years:`. The PF-97 `basis: …` label is folded into line 2.
+- **Q-L5 missing rate / start:** line 1 `—`, line 2 the existing note, line 3 always shown (it says where the rate comes from).
+- **Q-L6 markers:** the literal `*` and `**` from the brief, as text (no footnote links).
+
+### Change (Q-L1 / Q-L4 CFO-confirmed, 2026-10-14)
+
+| Item | Change |
+|------|--------|
+| Q-L1 | Confirmed with new wording: the monthly figure is a coverage share. `coverageRateNote()` → `* <rate> yearly, covers <share> of monthly expenses (3-month average, <window>).` PF-105. |
+| Q-L4 | EL option (b) with (a)'s wording: `overviewCoverage()` (Future on) divides by `summary.points.at(-1)?.expenses` (horizon-end point; no point → `none`); line 2 `… covers X% of projected monthly expenses at horizon end (held at 12-month average).` PF-106. |
+| Held flat | The projection sets each future month's expenses to the 12-month average, so today the horizon-end expenses = the 12-month average and the number is unchanged (pinned by PF-107). Growing expenses (option c) out of scope. |
+| Q-L2, Q-L3, Q-L5, Q-L6 | Confirmed by the CFO as recommended. |

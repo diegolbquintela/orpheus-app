@@ -4,6 +4,8 @@ import {
   asOverview,
   average3Label,
   completeMonths3,
+  COVERAGE_SOURCE_NOTE,
+  coverageRateNote,
   coverageBasis,
   householdMonth,
   equityCoverage,
@@ -297,5 +299,50 @@ describe("N1 (PF-96) and the basis label (PF-97), 2026-10-13", () => {
     assert.equal(coverageBasis(false, ["2026-07", "2026-08", "2026-09"]), "basis: 3-mo avg (Jul\u2013Sep)");
     assert.equal(coverageBasis(false, ["2026-10", "2026-11", "2026-12"]), "basis: 3-mo avg (Oct\u2013Dec)");
     assert.equal(coverageBasis(true, ["2026-07", "2026-08", "2026-09"]), "basis: projection");
+  });
+});
+
+describe("#129 coverage layout notes (PF-99..PF-101, PF-103)", () => {
+  const W = ["2026-07", "2026-08", "2026-09"];
+  it("PF-99 / PF-100: the brief's example: 4,000 × 12.5% = 41.67/mo, ÷ 8,333.33 → 0.50% on Jul–Sep", () => {
+    const c = equityCoverage(4000, 12.5, 8333.33);
+    assert.ok(c.status === "ok");
+    assert.equal(round2(c.monthly), 41.67);
+    assert.equal(c.yearly, 500);
+    assert.equal(coverageRateNote("12.5%", c.share, false, W), "* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul\u2013Sep).");
+    assert.equal(coverageRateNote("12.5%", null, false, W), "* 12.5% yearly, covers — of monthly expenses (3-month average, Jul\u2013Sep).");
+    assert.equal(coverageRateNote("4%", 0.2, false, ["2026-10", "2026-11", "2026-12"]), "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Oct\u2013Dec).");
+  });
+  it("PF-103: Future on → 12-month average expenses (projection)", () => {
+    assert.equal(coverageRateNote("4%", 0.1234, true, W), "* 4% yearly, covers 12.34% of projected monthly expenses at horizon end (held at 12-month average).");
+  });
+  it("PF-101: the source note text", () => {
+    assert.equal(COVERAGE_SOURCE_NOTE, "** Coverage rate is derived from Rate Used under Expenses section.");
+  });
+});
+
+describe("#129 Q-L4 option b (PF-106, PF-107): Future on divides by the horizon-end point's expenses", () => {
+  const o = ov({ start: "120,000", future: true, years: 5, months: { "2026-07": { expenses: "1,000", income: "3,000" }, "2026-08": { expenses: "2,000", income: "3,000" }, "2026-09": { expenses: "3,000", income: "3,000" }, "2026-10": { expenses: "10,000", income: "3,000" } } });
+  const s = summarize(o, new Date("2026-10-13T12:00:00-04:00"), { expenses: null, income: null });
+  it("PF-107: today the horizon-end point's expenses equal the 12-month average (held flat); 3-month average differs", () => {
+    const end = s.points.at(-1)!;
+    assert.equal(end.future, true);
+    assert.equal(s.average.expenses, 4000);
+    assert.equal(end.expenses, s.average.expenses);
+    assert.equal(s.average3.expenses, 2000);
+  });
+  it("PF-106: the share = horizon-end monthly coverage ÷ the horizon-end point's expenses", () => {
+    const c = overviewCoverage(o, s, 4);
+    const end = s.points.at(-1)!;
+    assert.ok(c.status === "ok");
+    assert.equal(round2(c.share), round2((end.net! * 0.04) / 12 / end.expenses!));
+    assert.equal(round2(c.share), round2((end.net! * 0.04) / 12 / 4000));
+  });
+  it("PF-106: a missing horizon point → none, as before", () => {
+    assert.deepEqual(overviewCoverage(o, { ...s, points: [] }, 4), { status: "none" });
+  });
+  it("PF-105 / PF-106: line 2 wording", () => {
+    assert.equal(coverageRateNote("12.5%", 0.005, false, ["2026-07", "2026-08", "2026-09"]), "* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul\u2013Sep).");
+    assert.equal(coverageRateNote("12.5%", 0.005, true, ["2026-07", "2026-08", "2026-09"]), "* 12.5% yearly, covers 0.50% of projected monthly expenses at horizon end (held at 12-month average).");
   });
 });

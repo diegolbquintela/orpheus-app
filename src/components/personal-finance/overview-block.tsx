@@ -9,15 +9,16 @@ import {
   YAxis,
 } from "recharts";
 import { AMOUNT_ERROR, formatAmount, NOT_COMPUTED, parseAmount } from "@/lib/finance/expenses";
+import { formatRate } from "@/lib/finance/equity";
 import {
   AVERAGE,
   average3Label,
-  coverageBasis,
+  COVERAGE_SOURCE_NOTE,
+  coverageRateNote,
   type Coverage,
   COVERAGE_RATE_NOTE,
   COVERAGE_START_NOTE,
   coverageLabel,
-  formatCoverageShare,
   overviewCoverage,
   CHART_CAPTION,
   EXPENSES,
@@ -114,7 +115,7 @@ export function OverviewBlock({
           {open ? (
             <Lock on={readOnly}>
               <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} />
-              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} label3={average3Label(summary.window3)} basis={coverageBasis(overview.future, summary.window3)} />
+              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
               <OverviewChart summary={summary} width={chartWidth} />
@@ -169,52 +170,56 @@ function OverviewTable({ thisMonth, average3, average, label3 }: { thisMonth: Fi
 }
 
 /**
- * #126 (PF-79..PF-84): `Equity coverage: 43.75 CAD/mo · 0.53% of expenses`, then `525 CAD/yr` (dim); `—` and a
- * short note when the rate or the starting net assets are missing. Household currency, full digits.
+ * #129 (PF-98..PF-103; was the #126 one-liner): three lines under the table:
+ *   `Equity coverage: 41.67 CAD/mo (500 CAD/yr)`
+ *   `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (smaller, dim; PF-105)
+ *     Future on: `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).`
+ *     (PF-106: ÷ the horizon-end point's expenses)
+ *   `** Coverage rate is derived from Rate Used under Expenses section.` (smaller, dim)
+ * `—` and the short note when the rate or the starting net assets are missing. Math unchanged (#126, C7/C2, PF-84).
  */
 function CoverageLine({
   coverage,
   currency,
   years,
-  label3,
-  basis,
+  window3,
+  rate,
 }: {
   coverage: Coverage;
   currency: string;
   years: (typeof YEARS)[number] | null;
-  /** C7/C2: today's share is of the 3-month average of complete months, named with its window. */
-  label3: string;
-  /** PF-97: `basis: projection` (Future on) or `basis: 3-mo avg (Jul–Sep)`. */
-  basis: string;
+  /** C7: the 3 complete months behind the Future-off basis. */
+  window3: MonthKey[];
+  /** The #86 Rate used (a percent), as shown under Expenses. */
+  rate: number | null;
 }) {
-  const basisText = years === null ? `${label3} expenses` : "expenses";
   const unit = currency ? ` ${currency}` : "";
   const note = coverage.status === "no_rate" ? COVERAGE_RATE_NOTE : coverage.status === "no_start" ? COVERAGE_START_NOTE : null;
   return (
     <div className="pf-coverage" data-testid="pf-coverage" data-status={coverage.status}>
-      <p>
+      <p data-testid="pf-coverage-amounts">
         {coverageLabel(years)}{" "}
         {coverage.status === "ok" ? (
           <>
-            <span data-testid="pf-coverage-monthly">{`${formatAmount(coverage.monthly)}${unit}/mo`}</span>
-            {" · "}
-            <span data-testid="pf-coverage-share">{`${formatCoverageShare(coverage.share)} of ${basisText}`}</span>
-            {" · "}
-            <span className="pf-coverage-basis text-dim" data-testid="pf-coverage-basis">
-              {basis}
-            </span>
+            <span data-testid="pf-coverage-monthly">{`${formatAmount(coverage.monthly)}${unit}/mo`}</span>{" "}
+            <span data-testid="pf-coverage-yearly">{`(${formatAmount(coverage.yearly)}${unit}/yr)`}</span>
           </>
         ) : (
           <span data-testid="pf-coverage-monthly">{NOT_COMPUTED}</span>
         )}
       </p>
       {coverage.status === "ok" ? (
-        <p className="pf-coverage-sub" data-testid="pf-coverage-yearly">{`${formatAmount(coverage.yearly)}${unit}/yr`}</p>
+        <p className="pf-coverage-sub" data-testid="pf-coverage-rate-note">
+          {coverageRateNote(formatRate(rate), coverage.share, years !== null, window3)}
+        </p>
       ) : note ? (
         <p className="pf-coverage-sub" data-testid="pf-coverage-note">
           {note}
         </p>
       ) : null}
+      <p className="pf-coverage-sub" data-testid="pf-coverage-source">
+        {COVERAGE_SOURCE_NOTE}
+      </p>
     </div>
   );
 }

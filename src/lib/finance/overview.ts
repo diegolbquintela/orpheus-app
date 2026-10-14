@@ -26,6 +26,21 @@ export const HOUSEHOLD_TIME_ZONE = "America/Toronto";
 export const COVERAGE_LABEL = "Equity coverage";
 export const COVERAGE_RATE_NOTE = "Set rate under Expenses";
 export const COVERAGE_START_NOTE = "Set starting net assets";
+/** #129 (PF-101): line 3 of the coverage block, in every state. */
+export const COVERAGE_SOURCE_NOTE = "** Coverage rate is derived from Rate Used under Expenses section.";
+/**
+ * #129 line 2 (PF-105 / PF-106, CFO-confirmed Q-L1 / Q-L4; supersede the PF-100 / PF-103 wording):
+ * Future off `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).`
+ * Future on  `* 12.5% yearly, covers 0.50% of projected monthly expenses at horizon end (held at 12-month average).`
+ * `rateText` is the Rate used as shown (`formatRate`).
+ */
+export const coverageRateNote = (rateText: string, share: number | null, future: boolean, window: MonthKey[]): string =>
+  `* ${rateText} yearly, covers ${formatCoverageShare(share)} of ${
+    future
+      ? "projected monthly expenses at horizon end (held at 12-month average)"
+      : `monthly expenses (3-month average, ${windowRange(window)})`
+  }.`;
+
 /** C7/C2 + PF-84 (PF-97): the dim basis label beside the coverage %. */
 export const coverageBasis = (future: boolean, window: MonthKey[]): string =>
   future ? "basis: projection" : `basis: 3-mo avg (${windowRange(window)})`;
@@ -340,8 +355,11 @@ export function overviewCoverage(overview: Overview, summary: Summary, rate: num
   }
   const c = equityCoverage(typedFigure(overview.start), rate, summary.average.expenses);
   if (c.status !== "ok") return c;
-  const projected = summary.points.at(-1)?.net ?? null;
-  return projected === null || projected <= 0 ? { status: "none" } : equityCoverage(projected, rate, summary.average.expenses);
+  // #129 Q-L4 (EL, option b): the share divides by the horizon-end point's own expenses (held at the 12-month
+  // average by the projection today, so the figure is unchanged); a missing point is `none`, as before.
+  const horizon = summary.points.at(-1);
+  const projected = horizon?.net ?? null;
+  return projected === null || projected <= 0 ? { status: "none" } : equityCoverage(projected, rate, horizon?.expenses ?? null);
 }
 
 /** `0.53%`: two decimals (Q-C3). */

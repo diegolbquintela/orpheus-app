@@ -607,3 +607,20 @@ live call) cover FD-01..FD-08; the DOM test (`company-view.dom.test.tsx`) covers
 | FD-12 | BLOCK | Preview: the fund page is dark shell, `.ow-label`, no gold, phone 400 and desktop 1440, no horizontal scroll. |
 | FD-13 | BLOCK | Preview: PLTR (SEC) and RMS.PA (ESEF) are not funds (`kind` `company`), CV-08..CV-14 and ES-09..ES-11 still PASS; the seeded holdings are deleted again. |
 | FD-14 | BLOCK | Preview: site-style-regression ($313,000, strict CLS 0), site-shell, home-page, no-grok PASS. |
+
+## Personal Finance: Overview equity coverage layout, multi-line with notes (#129; spec section 23)
+
+Unit / DOM tests cover PF-98..PF-103; `qa/tools/personal-finance-e2e.mjs` covers PF-104 on preview. Supersedes the one-line display of PF-80 / PF-94 / PF-97 (math unchanged).
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-98 | BLOCK | `pf-coverage` has three lines in order: amounts (`pf-coverage-amounts`), rate note (`pf-coverage-rate-note`), source note (`pf-coverage-source`); still directly after `pf-ov-table` and before `Starting net assets`. |
+| PF-99 | BLOCK | Line 1: start 4,000, Rate used 12.5 → `Equity coverage: 41.67 CAD/mo (500 CAD/yr)`; household currency code; full digits. |
+| PF-100 | BLOCK | Line 2, Future off: `* 12.5% yearly, or 0.50% monthly on 3-month average (Jul–Sep) expenses.` (3-month average of complete months 8,333.33; window from the date); expenses missing / 0 → `* 12.5% yearly, or — monthly on 3-month average (Jul–Sep) expenses.` |
+| PF-101 | BLOCK | Line 3 is exactly `** Coverage rate is derived from Rate Used under Expenses section.`, in every state. |
+| PF-102 | BLOCK | Lines 2 and 3 use `.pf-coverage-sub` (smaller font, 0.875rem, dim) and line 1 does not; no `pf-coverage-basis` element. |
+| PF-103 | BLOCK | Future on: line 1 `Equity coverage in N years: …`, line 2 `… monthly on 12-month average expenses (projection).`, numbers as PF-84; no rate → `Equity coverage: —` / `Set rate under Expenses` / line 3; no start → `—` / `Set starting net assets` / line 3. |
+| PF-104 | BLOCK | Preview (`personal-finance-e2e`, phone 400 and desktop 1440): the three lines with the seeded figures, line 2–3 font smaller than line 1, no horizontal scroll; dark style, lyre, footer `Orpheus Wisdom`, no gold. |
+| PF-105 | BLOCK | Change (Q-L1 CFO-confirmed, 2026-10-14; supersedes the PF-100 line-2 wording): Future off line 2 reads `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (window from the date); expenses missing / 0 → `covers — of …`. Unit + DOM. |
+| PF-106 | BLOCK | Change (Q-L4 CFO-confirmed as option b, 2026-10-14; supersedes the PF-103 line-2 wording and the PF-84 expenses term): Future on, the share divides by the horizon-end point's expenses (`summary.points.at(-1).expenses`); no point → `none` as before; line 2 reads `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).` Unit + DOM. |
+| PF-107 | BLOCK | The projection holds expenses flat: the horizon-end point's expenses equal the 12-month average today, so the PF-106 figure equals the earlier one; growing expenses are out of scope. Unit. |

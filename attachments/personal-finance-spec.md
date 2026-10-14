@@ -865,3 +865,29 @@ Approved by the CFO (Diego via EL), 2026-10-13. Supersedes the window in 22.2 an
 - **N1:** `This month` and the 12-month list use the household month (America/Toronto), the same as the 3-month window: Oct 31 20:00–23:59 ET (already Nov 1 in UTC) still shows October and Jul–Sep, on a UTC server or in a browser west of Toronto.
 - **Basis label:** the CFO confirms PF-84. A dim label beside the coverage %: `basis: 3-mo avg (Jul–Sep)` (Future off; the window follows the date) or `basis: projection` (Future on).
 - **AC:** PF-96, PF-97.
+
+## 23. Overview: Equity coverage layout, multi-line with notes (#129; PF-98..PF-104)
+
+Brief (#129, HIGH): the coverage line is one long line, hard to read on a phone. Same place (under the averages table, above `Starting net assets`), same numbers (#126 math, C7/C2, PF-84, N1); only the layout and copy change. Supersedes the one-line display of PF-80 / PF-94 / PF-97 (those rows stay as the record).
+
+23.1 **Layout** (three lines, `pf-coverage`):
+
+```
+Equity coverage: 41.67 CAD/mo (500 CAD/yr)
+* 12.5% yearly, or 0.50% monthly on 3-month average (Jul–Sep) expenses.
+** Coverage rate is derived from Rate Used under Expenses section.
+```
+
+- Line 1 (`pf-coverage-amounts`, body size): `Equity coverage:` (or `Equity coverage in N years:` with Future on), the monthly amount `<x> <CUR>/mo` and the yearly amount in brackets `(<y> <CUR>/yr)`. Full digits, household currency code.
+- Line 2 (`pf-coverage-rate-note`, smaller, dim): `* <Rate used> yearly, or <share> monthly on <basis> expenses.` Rate used as shown under Expenses (`formatRate`: `4%`, `12.5%`); share = monthly coverage ÷ basis expenses, two decimals (Q-C3), `—` when the expenses are missing or 0. Basis: `3-month average (Jul–Sep)` with Future off (window from the date, C7/N1); `12-month average` + ` (projection)` with Future on (PF-84).
+- Line 3 (`pf-coverage-source`, smaller, dim): `** Coverage rate is derived from Rate Used under Expenses section.` Always shown.
+- Missing rate / start: line 1 `Equity coverage: —`, line 2 the existing note (`Set rate under Expenses` / `Set starting net assets`), line 3 unchanged. Future projected net assets ≤ 0: line 1 `—`, line 3 only.
+- Q-L1..Q-L6: `attachments/pf-equity-coverage-design.md` section "Layout (#129)".
+
+### Change (Q-L1 / Q-L4 CFO-confirmed, 2026-10-14)
+
+All six Q-L answers are confirmed by the CFO (Q-L2, Q-L3, Q-L5, Q-L6 as recommended; Q-L1 and Q-L4 changed as below). Line 2 becomes:
+
+- Future off: `* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).` (the window follows the date).
+- Future on: `* 12.5% yearly, covers X% of projected monthly expenses at horizon end (held at 12-month average).` The share divides by the horizon-end point's expenses (EL, option b); the projection holds expenses at the 12-month average, so the figure is unchanged. Growing expenses are out of scope.
+- AC PF-105..PF-107 (supersede the PF-100 / PF-103 wording and the PF-84 expenses term).
