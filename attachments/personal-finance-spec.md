@@ -1003,3 +1003,5 @@ Before this change, the Expenses totals, Equity to cover and Rate used updated w
 - 31.5 The browser's leave-page prompt stays while anything is unsaved, including after a blocked or refused save (Q-V5) (PF-168).
 - 31.6 Read-only: no indicator and no Save. The figures are the saved record's (Q-V6) (PF-169).
 - 31.7 A field in error counts as #143 has it, everywhere live: a bad amount counts 0 and a bad rate makes Rate used and its figures `—` (Q-V3) (PF-170).
+- 31.8 (PF-171; QA fix at 400 px) Save and `Unsaved changes` are one group that never wraps (inline-flex, nowrap). The indicator is always rendered: while nothing is unsaved it's hidden with `visibility`, not removed, and a Save-sized placeholder holds the button's place. So showing it never moves anything at any width. Read-only renders no indicator.
+- 31.9 (CFO chose option c on Q-V3; PF-172, PF-173) The numbers stay live. While any field shows an error, a dim note `Figures leave out fields marked in red.` shows above the Overview table. It clears when no error remains. Its line is always reserved (hidden with `visibility`), so nothing moves. Read-only shows no note.

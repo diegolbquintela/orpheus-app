@@ -58,6 +58,8 @@ export const MONTH_LABEL = "Month";
 export const UPDATE_MONTH = "Update month";
 export const SAVE = "Save";
 export const UNSAVED = "Unsaved changes";
+/** #144 Q-V3 (CFO option c, PF-172): shown above the Overview while any field is in error. */
+export const FIGURES_LEAVE_OUT = "Figures leave out fields marked in red.";
 export const CANCEL = "Cancel";
 export const CHART_CAPTION = "Expenses, income and net assets by month";
 export const YEARS = [1, 5, 10, 15] as const;

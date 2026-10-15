@@ -40,3 +40,7 @@ all keep it. Each of those also shows `Not saved.`, which stays until a save suc
 - **Q-V5 Leave-page warning:** keep the browser's own prompt while anything is unsaved, including after a blocked or refused save. No custom dialog.
 - **Q-V6 Read-only:** no indicator and no Save. The page can't be edited, so the figures are the saved record's, as today.
 - **Q-V7 `Not saved.` on a blocked Save press:** show it (as a refused save and a blocked toggle already do), as well as the existing `Fix the fields marked in red before saving.` note. It stays until a save succeeds. This makes all three non-saves look the same, as the ticket asks.
+
+## CFO decisions (via EL) and the QA fix
+- Q-V1, Q-V2 and Q-V4..Q-V7 are **CFO-accepted**. On **Q-V3 the CFO chose option (c)**: keep the live numbers, and while any field is in error show the dim note `Figures leave out fields marked in red.` above the Overview table. It clears when no error remains, its line is reserved (`visibility`), and read-only shows none (PF-172, PF-173).
+- QA (112689a) found `Unsaved changes` wrapping onto its own line at 400 px and causing a 0.0226 layout shift (pf-months PF-58). The fix is that Save and the indicator form one `inline-flex` / `nowrap` group, and the indicator is always rendered with `visibility: hidden` while nothing is unsaved. A Save-sized `.pf-save-slot` holds the button's place, so the group's width never changes (PF-171).

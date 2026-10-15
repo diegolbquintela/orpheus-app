@@ -63,6 +63,11 @@ async function click(el: Element) {
 const q = (el: ParentNode, id: string) => el.querySelector(`[data-testid="${id}"]`)!;
 const qa = (el: ParentNode, id: string) => [...el.querySelectorAll(`[data-testid="${id}"]`)];
 const text = (el: ParentNode, id: string) => q(el, id).textContent;
+/** #144 PF-171: `Unsaved changes` as seen: its text while shown, "" while hidden (its space is kept) or absent. */
+const shownUnsaved = (el: ParentNode) => {
+  const ind = el.querySelector('[data-testid="pf-unsaved"]');
+  return ind && ind.getAttribute("data-shown") === "true" ? ind.textContent : "";
+};
 const lines = (el: HTMLElement, group: string) => qa(q(el, `pf-group-${group}`), "pf-line");
 // #112: `Save` writes the whole record (the shown month's lines and every shared value).
 const SAVED_KEYS = [
@@ -771,9 +776,9 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(dom.window.localStorage.length, 0, "no autosave");
     // #144 (Q-V1, PF-159): 04 is live (was "04 follows saved months": `—` until Save); nothing is stored yet.
     assert.deepEqual(ov(el, "expenses"), ["1,750", "—"], "04 is live before Save");
-    assert.equal(text(el, "pf-unsaved"), "Unsaved changes");
+    assert.equal(shownUnsaved(el), "Unsaved changes");
     await click(q(el, "pf-month-save"));
-    assert.equal(text(el, "pf-unsaved"), "", "a successful Save clears the indicator");
+    assert.equal(shownUnsaved(el), "", "a successful Save clears the indicator");
     assert.equal(hasSave(el), false, "Save hides after saving");
     // #140 (PF-124): only the current month is saved → the 12-complete-month average is —.
     assert.deepEqual(ov(el, "expenses"), ["1,750", "—"]);
@@ -1725,7 +1730,7 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     // #144 (Q-V3, PF-170): the page is live, so This month counts the bad Rent as 0 while its error shows (750, as the
     // Expenses totals already did); nothing is stored, and PF-133's own check is the reload below.
     assert.equal(now(el), "750", "live, with the error shown");
-    assert.equal(text(el, "pf-unsaved"), "Unsaved changes");
+    assert.equal(shownUnsaved(el), "Unsaved changes");
     assert.ok(q(el, "pf-month-save"), "Save stays shown (Q-S1)");
     const again = await reopen();
     assert.equal(now(again), "2,950");
@@ -1939,7 +1944,7 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     return open(readOnly);
   }
   const ovCell = (el: HTMLElement, row: string, col: string) => text(q(el, `pf-ov-${row}`), col);
-  const unsaved = (el: HTMLElement) => text(el, "pf-unsaved");
+  const unsaved = (el: HTMLElement) => shownUnsaved(el);
   const num = (s: string | null) => Number((s ?? "").replace(/,/g, ""));
   /** October saved: one person (36,000 a year), Rent 2,200 + Phone 750 → This month 2,950. */
   async function october(): Promise<HTMLElement> {
@@ -2088,10 +2093,74 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(unsaved(el), "");
     assert.equal(puts.n, 0);
   });
+  it("PF-171: Save and the indicator are one group; the indicator is always there (hidden, not removed) and a Save slot holds the place", async () => {
+    const el = await october();
+    const group = el.querySelector(".pf-month-save")!;
+    const ind = q(el, "pf-unsaved");
+    assert.equal(ind.parentElement, group);
+    assert.equal(ind.getAttribute("data-shown"), "false");
+    assert.equal(ind.textContent, "Unsaved changes", "the text is kept so its width is reserved");
+    assert.ok(group.querySelector(".pf-save-slot"), "a Save-sized placeholder while clean");
+    await type(rent(el), "2,300");
+    assert.equal(q(el, "pf-unsaved"), ind, "the same element: nothing inserted");
+    assert.equal(ind.getAttribute("data-shown"), "true");
+    assert.equal(q(el, "pf-month-save").parentElement, group);
+    assert.equal(group.querySelector(".pf-save-slot"), null);
+    assert.deepEqual([...group.children].map((c) => c.getAttribute("data-testid") ?? c.className), ["pf-month-save", "pf-unsaved"]);
+  });
+  it("PF-171 (CSS): the group never wraps; hidden is visibility, not display:none; Save and its slot are the same width", () => {
+    const css = readFileSync(new URL(`file://${process.cwd()}/src/styles.css`), "utf8");
+    const rule = (sel: string) => css.slice(css.indexOf(`${sel} {`)).split("}")[0];
+    assert.match(rule("  .pf-month-save"), /display: inline-flex;[\s\S]*flex-wrap: nowrap;[\s\S]*white-space: nowrap;/);
+    assert.match(rule('  .pf-unsaved[data-shown="false"]'), /visibility: hidden;/);
+    assert.doesNotMatch(css, /\.pf-unsaved[^{]*\{[^}]*display: none/);
+    assert.match(rule("  .pf-month-save > .pf-button,\n  .pf-save-slot"), /width: 5\.5rem;/);
+  });
+  it("PF-172 (Q-V3 option c): any field in error shows `Figures leave out fields marked in red.` above the figures; fixing it clears the note; the live numbers stay", async () => {
+    const el = await october();
+    const note = () => q(el, "pf-figures-note");
+    const shown = () => note().getAttribute("data-shown");
+    assert.equal(note().textContent, "Figures leave out fields marked in red.");
+    assert.equal(shown(), "false", "no error: hidden (its line kept)");
+    const at = note();
+    await type(rent(el), "-5");
+    assert.equal(shown(), "true");
+    assert.equal(note(), at, "the same element: nothing inserted");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "750", "live numbers kept");
+    assert.ok(note().compareDocumentPosition(q(el, "pf-ov-table")) & 4, "above the Overview table");
+    await type(rent(el), "2,200");
+    assert.equal(shown(), "false", "fixed → cleared");
+    await type(q(el, "pf-roic"), "abc");
+    assert.equal(shown(), "true", "a rate field too");
+    await type(q(el, "pf-roic"), "");
+    await type(q(qa(el, "pf-person")[0], "pf-person-tax"), "101");
+    assert.equal(shown(), "true", "an income field too");
+    await type(q(qa(el, "pf-person")[0], "pf-person-tax"), "");
+    assert.equal(shown(), "false");
+  });
+  it("PF-172 (CSS): hidden by visibility, its line reserved (no display:none)", () => {
+    const css = readFileSync(new URL(`file://${process.cwd()}/src/styles.css`), "utf8");
+    const rule = (sel: string) => css.slice(css.indexOf(`${sel} {`)).split("}")[0];
+    assert.match(rule("  .pf-figures-note"), /min-height: 1\.3rem;/);
+    assert.match(rule('  .pf-figures-note[data-shown="false"]'), /visibility: hidden;/);
+    assert.doesNotMatch(css, /\.pf-figures-note[^{]*\{[^}]*display: none/);
+  });
+  it("PF-173: read-only shows no note, even with a stored bad value", async () => {
+    await october();
+    const ls = dom.window.localStorage;
+    const months = JSON.parse(ls.getItem(MONTHS_KEY)!);
+    months["2026-10"].fixed[0].amount = "-5";
+    ls.setItem(MONTHS_KEY, JSON.stringify(months));
+    const ro = await reopen(true);
+    assert.equal(ro.querySelector('[data-testid="pf-figures-note"]'), null);
+    const rw = await reopen();
+    assert.equal(q(rw, "pf-figures-note").getAttribute("data-shown"), "true", "the owner sees it");
+  });
   it("PF-169: read-only: no Unsaved changes, no Save, the saved figures", async () => {
     await october();
     const ro = await reopen(true);
     assert.equal(unsaved(ro), "");
+    assert.equal(ro.querySelector('[data-testid="pf-unsaved"]'), null, "PF-171: read-only has no indicator element");
     assert.equal(ro.querySelector('[data-testid="pf-month-save"]'), null);
     assert.equal(ovCell(ro, "expenses", "pf-ov-now"), "2,950");
     assert.equal(puts.n, 0);
@@ -2159,7 +2228,7 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,200");
     await saveNow();
     assert.equal(statuses.at(-1), 200, "a real 2xx save");
-    assert.equal(text(el, "pf-unsaved"), "");
+    assert.equal(shownUnsaved(el), "");
     await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,500");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500", "live");
     session = null; // signed out elsewhere: the API now refuses the write
@@ -2167,7 +2236,7 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     await act(async () => new Promise((r) => setTimeout(r, 50)));
     assert.equal(statuses.at(-1), 401, "the real handler refused it");
     assert.equal(text(el, "pf-save"), "Not saved.");
-    assert.equal(text(el, "pf-unsaved"), "Unsaved changes");
+    assert.equal(shownUnsaved(el), "Unsaved changes");
     assert.ok(q(el, "pf-month-save"), "Save still shown");
     assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,500", "the edit stays");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500", "the live figure stays");
@@ -2176,7 +2245,7 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     await act(async () => new Promise((r) => setTimeout(r, 50)));
     assert.equal(statuses.at(-1), 200);
     assert.equal(text(el, "pf-save"), "");
-    assert.equal(text(el, "pf-unsaved"), "");
+    assert.equal(shownUnsaved(el), "");
     // A reload reads the record back from the database.
     await act(async () => root!.unmount());
     container!.remove();

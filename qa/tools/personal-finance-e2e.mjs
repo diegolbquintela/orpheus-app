@@ -322,12 +322,12 @@ try {
         await amt.fill("-5");
         await page.getByTestId("pf-month-save").click();
         await page.waitForTimeout(800);
-        const blocked = { note: await txt(page.getByTestId("pf-month-note")), focus: await amt.evaluate((e) => e === document.activeElement), puts: puts143, now: (await figures(page)).ov.expenses[0], save: await txt(page.getByTestId("pf-save")), unsaved: await txt(page.getByTestId("pf-unsaved")) };
+        const blocked = { note: await txt(page.getByTestId("pf-month-note")), focus: await amt.evaluate((e) => e === document.activeElement), puts: puts143, now: (await figures(page)).ov.expenses[0], save: await txt(page.getByTestId("pf-save")), unsaved: await page.getByTestId("pf-unsaved").evaluate((e) => (e.getAttribute("data-shown") === "true" ? e.textContent.trim() : "")), figNote: await page.evaluate(() => { const n = document.querySelector("[data-testid=pf-figures-note]"); return n && n.getAttribute("data-shown") === "true" ? n.textContent.trim() : ""; }) };
         page.off("request", onReq);
         await amt.fill(was);
         // #144 (Q-V3 / Q-V7, PF-164 / PF-170): This month is live, so the bad Rent counts 0 (500) while its error shows; not
         // stored (PF-133's reload check is the unit/DOM one); `Not saved.` and `Unsaved changes` stay.
-        check(`${tag} PF-133 (#143) -5 in Rent: Save sends no PUT, shows "Fix the fields marked in red before saving.", focus on Rent; #144 This month live 500 (Rent counts 0), \`Not saved.\` and \`Unsaved changes\``, JSON.stringify(blocked) === JSON.stringify({ note: "Fix the fields marked in red before saving.", focus: true, puts: 0, now: "500", save: "Not saved.", unsaved: "Unsaved changes" }), blocked);
+        check(`${tag} PF-133 (#143) -5 in Rent: Save sends no PUT, shows "Fix the fields marked in red before saving.", focus on Rent; #144 This month live 500 (Rent counts 0), \`Not saved.\`, \`Unsaved changes\` and (Q-V3 c) \`Figures leave out fields marked in red.\``, JSON.stringify(blocked) === JSON.stringify({ note: "Fix the fields marked in red before saving.", focus: true, puts: 0, now: "500", save: "Not saved.", unsaved: "Unsaved changes", figNote: "Figures leave out fields marked in red." }), blocked);
       }
       await page.getByTestId("pf-month").selectOption("2026-06");
       const note = (await txt(page.getByTestId("pf-month-note")));

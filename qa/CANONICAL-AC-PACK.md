@@ -748,3 +748,10 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | PF-168 | The browser's leave-page prompt stays registered while unsaved, including after a blocked or refused save, and goes after a successful save. |
 | PF-169 | Read-only: no `Unsaved changes`, no Save, and the figures equal the saved record's. |
 | PF-170 | Live figures with a field in error: Rent `-5` counts 0 in This month and the Expenses totals while its error shows. ROIC `-8` makes Rate used and Equity to cover `—`. |
+
+| ID | Acceptance criterion (#144 addendum: QA layout fix at 400 px; the CFO accepted Q-V1, Q-V2 and Q-V4..Q-V7 and chose option (c) on Q-V3) |
+|---|---|
+| PF-171 | Save and `Unsaved changes` sit in one non-wrapping group. The indicator's space is always reserved (`visibility: hidden` while nothing is unsaved, never `display: none`), and a Save-sized slot holds the button's place. Typing at 320, 360, 400, 1024 and 1440 px moves nothing (pf-months PF-58 layout shift 0) and nothing overflows. Read-only has no indicator element. |
+| PF-172 | While any field shows an error, `Figures leave out fields marked in red.` (`pf-figures-note`, dim) shows above the Overview table, and the live numbers stay. Fixing the last error hides it. Its line is always reserved (`visibility`), so nothing moves. |
+| PF-173 | Read-only shows no `pf-figures-note`, even when the record holds a bad value. |
+| PF-170 addendum | Q-V3 is now option (c): PF-170's live figures stand, together with PF-172's note. |

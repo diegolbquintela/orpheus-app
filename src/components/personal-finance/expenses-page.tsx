@@ -334,6 +334,7 @@ export function PersonalFinancePage({
             month={month}
             onChoose={choose}
             dirty={dirty}
+            readOnly={readOnly}
             saving={saving}
             onSave={() => void save()}
             note={
@@ -451,6 +452,7 @@ export function PersonalFinancePage({
                 readOnly={readOnly}
                 rate={rateUsed(rates)}
                 currency={household.household}
+                fieldsInError={readOnly ? null : hasErrors}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
                   income: monthly(netIncomeYearly(income.people, household.household)),
@@ -481,7 +483,9 @@ function MonthControl({
   saving,
   onSave,
   note,
+  readOnly,
 }: {
+  readOnly: boolean;
   now: Date | null;
   month: MonthKey | null;
   onChoose: (key: MonthKey) => void;
@@ -513,6 +517,8 @@ function MonthControl({
             </option>
           ))}
         </select>
+        {/* #144 (PF-162; PF-171 layout fix): Save and `Unsaved changes` are one non-breaking group; the indicator's space
+            is always reserved (visibility, not display), so showing it never moves anything. Read-only: no indicator. */}
         <span className="pf-month-save">
           {dirty ? (
             <button
@@ -524,11 +530,14 @@ function MonthControl({
             >
               {SAVE}
             </button>
-          ) : null}
-        </span>
-        {/* #144 (Q-V2, PF-162): shown exactly while Save is; only a successful save (or nothing left unsaved) clears it. */}
-        <span className="pf-unsaved" role="status" data-testid="pf-unsaved">
-          {dirty ? UNSAVED : ""}
+          ) : (
+            <span className="pf-save-slot" aria-hidden="true" />
+          )}
+          {readOnly ? null : (
+            <span className="pf-unsaved" role="status" data-testid="pf-unsaved" data-shown={dirty ? "true" : "false"}>
+              {UNSAVED}
+            </span>
+          )}
         </span>
       </div>
       <p className="pf-month-note" data-testid="pf-month-note">

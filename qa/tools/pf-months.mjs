@@ -87,7 +87,7 @@ try {
       const puts0 = saves.puts;
       await line(page, "fixed", 0).getByTestId("pf-monthly").fill("1,800");
       await page.waitForTimeout(1200);
-      const unsavedText = () => page.getByTestId("pf-unsaved").textContent().then((t) => t.trim());
+      const unsavedText = () => page.getByTestId("pf-unsaved").evaluate((e) => (e.getAttribute("data-shown") === "true" ? e.textContent.trim() : ""));
       const dirty = { save: await save.isVisible(), puts: saves.puts - puts0, ov: await ov(), unsaved: await unsavedText() };
       await line(page, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
       const undone = { save: await save.count(), unsaved: await unsavedText(), ov: await ov() };

@@ -36,6 +36,7 @@ import {
   START_LABEL,
   type Summary,
   SURPLUS,
+  FIGURES_LEAVE_OUT,
   summarize,
   surplusOf,
   THIS_MONTH,
@@ -69,6 +70,7 @@ export function OverviewBlock({
   readOnly = false,
   rate = null,
   currency = "",
+  fieldsInError = null,
 }: {
   overview: Overview;
   update: (change: (current: Overview) => Overview) => void;
@@ -87,6 +89,8 @@ export function OverviewBlock({
   rate?: number | null;
   /** #126: the household (master) currency code. */
   currency?: string;
+  /** #144 Q-V3 (c), PF-172: a field shows an error (the figures leave it out); null = read-only (no note). */
+  fieldsInError?: boolean | null;
 }) {
   const summary = summarize(overview, now, page, lines);
   const coverage = overviewCoverage(overview, summary, rate);
@@ -114,6 +118,12 @@ export function OverviewBlock({
         >
           {open ? (
             <Lock on={readOnly}>
+              {fieldsInError == null ? null : (
+                // Always rendered (its line reserved, shown by visibility), so it never moves anything.
+                <p className="pf-figures-note" role="status" data-testid="pf-figures-note" data-shown={fieldsInError ? "true" : "false"}>
+                  {FIGURES_LEAVE_OUT}
+                </p>
+              )}
               <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12CountLabel(summary.window12, summary.window12WithData)} />
               <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
