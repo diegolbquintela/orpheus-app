@@ -130,7 +130,7 @@ const rgb = (s) => (/rgba?\(([\d.]+), ([\d.]+), ([\d.]+)/.exec(s) ?? []).slice(1
 
 // The empty page's copy in <main>, in order (PF-02). Phone: each total row shows its cells' labels; wide: the
 // column-label row of each group and the totals' values only (the cells' labels are visually hidden).
-const totalTexts = (label, wide, v = { share: "—", monthly: "0", yearly: "0", equity: "0" }) =>
+const totalTexts = (label, wide, v = { share: "—", monthly: "0.00", yearly: "0.00", equity: "0.00" }) =>
   wide
     ? [label, "—", v.share, v.monthly, v.yearly, v.equity]
     : [label, "% of income", "—", "% of expenses", v.share, "Monthly", v.monthly, "Yearly", v.yearly, "Equity to cover", v.equity];
@@ -146,7 +146,7 @@ const emptyTexts = (wide) => [
   "↳ Add person",
   "Income table",
   ...(wide ? TABLE_COLUMNS : []),
-  ...(wide ? ["Net income", "0", "0", "0"] : ["Net income", "Biweekly", "0", "Monthly", "0", "Yearly", "0"]),
+  ...(wide ? ["Net income", "0.00", "0.00", "0.00"] : ["Net income", "Biweekly", "0.00", "Monthly", "0.00", "Yearly", "0.00"]),
   "03",
   "Expenses",
   // #131 (Q-W7): the Withdrawal rate description, an approved exception to "no other text".
@@ -512,7 +512,7 @@ try {
       await gifts.getByTestId("pf-name").fill("Gifts");
       await gifts.getByTestId("pf-yearly").fill("1,200");
       const conv = [await val(rent.getByTestId("pf-monthly")), await val(rent.getByTestId("pf-yearly")), await val(gifts.getByTestId("pf-yearly")), await val(gifts.getByTestId("pf-monthly"))];
-      check(`${tag} PF-03 Monthly ↔ Yearly: typed stays as typed, the other converts`, JSON.stringify(conv) === JSON.stringify(["1,000", "12,000", "1,200", "100"]), conv);
+      check(`${tag} PF-03 Monthly ↔ Yearly: typed stays as typed, the other converts`, JSON.stringify(conv) === JSON.stringify(["1,000", "12,000.00", "1,200", "100.00"]), conv);
       const labels = await page.evaluate(() => [...document.querySelectorAll("[data-testid=pf-line] input, [data-testid=pf-line] select")].every((e) => (e.getAttribute("aria-label") ?? "").length > 0));
       check(`${tag} PF-03 every control in a line has an accessible label`, labels);
 
@@ -521,7 +521,7 @@ try {
       const incomes = await page.locator("[data-testid=pf-income], [data-testid=pf-total-income]").allTextContents();
       check(`${tag} PF-04 % of expenses per line (74.1 / 18.5 / 7.4); % of income — everywhere while there is no income`, JSON.stringify(shares) === JSON.stringify(["74.1%", "18.5%", "7.4%"]) && incomes.length === 6 && incomes.every((t) => t.trim() === "—"), { shares, incomes });
       const t = { fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all") };
-      check(`${tag} PF-05 totals: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200 (100.0%); no rate: equity — where a line has no override (Q10)`, JSON.stringify(t) === JSON.stringify({ fixed: ["92.6%", "—", "1,250", "15,000", "—"], variable: ["7.4%", "—", "100", "1,200", "—"], all: ["100.0%", "—", "1,350", "16,200", "—"] }), t);
+      check(`${tag} PF-05 totals: Fixed 1,250 / 15,000, Variable 100 / 1,200, Total 1,350 / 16,200 (100.0%); no rate: equity — where a line has no override (Q10)`, JSON.stringify(t) === JSON.stringify({ fixed: ["92.6%", "—", "1,250.00", "15,000.00", "—"], variable: ["7.4%", "—", "100.00", "1,200.00", "—"], all: ["100.0%", "—", "1,350.00", "16,200.00", "—"] }), t);
 
       // PF-17..20 equity cover (#86, option A).
       const eqTotals = async () => [await txt(page.locator("[data-testid=pf-total-fixed] [data-testid=pf-total-equity]")), await txt(page.locator("[data-testid=pf-total-variable] [data-testid=pf-total-equity]")), await txt(page.locator("[data-testid=pf-total-all] [data-testid=pf-total-equity]"))];
@@ -567,7 +567,7 @@ try {
       await roic.fill("0");
       const a00 = { used: await used(), holders: await holders(), totals: await eqTotals(), source: await page.getByTestId("pf-rate-source").count() };
       await roic.fill("8");
-      check(`${tag} PF-18 no rate → —; ROIC 8 → 4%: Rent 1,000/mo → 300,000, 75,000, 30,000; #138 PF-150..PF-152: withdrawal 5 + ROIC 8 → the lower 4% (\`from half of Portfolio ROIC\`, same figures); 3 → 3% (\`from Withdrawal Rate\`; 400,000 / 100,000 / 40,000; totals 350,000 / 40,000 / 390,000 with Rent's 250,000 override); 4 → 4% (equal); a typed 0 is not set → 4%; both 0 → — (equity placeholders and totals —, no source line)`, JSON.stringify(h0) === '["—","—","—"]' && JSON.stringify(a8) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"] }) && JSON.stringify(a5) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"], source: "from half of Portfolio ROIC" }) && JSON.stringify(a3) === JSON.stringify({ used: "3%", source: "from Withdrawal Rate", holders: ["400,000", "100,000", "40,000"], totals: ["350,000", "40,000", "390,000"] }) && JSON.stringify(a00) === JSON.stringify({ used: "—", holders: ["—", "—", "—"], totals: ["—", "—", "—"], source: 0 }) && JSON.stringify(a4) === JSON.stringify({ used: "4%", rent: "300,000", source: "Withdrawal Rate and half of Portfolio ROIC are equal" }) && JSON.stringify(a0) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"] }), { h0, a8, a5, a3, a4, a0, a00 });
+      check(`${tag} PF-18 no rate → —; ROIC 8 → 4%: Rent 1,000/mo → 300,000, 75,000, 30,000; #138 PF-150..PF-152: withdrawal 5 + ROIC 8 → the lower 4% (\`from half of Portfolio ROIC\`, same figures); 3 → 3% (\`from Withdrawal Rate\`; 400,000 / 100,000 / 40,000; totals 350,000 / 40,000 / 390,000 with Rent's 250,000 override); 4 → 4% (equal); a typed 0 is not set → 4%; both 0 → — (equity placeholders and totals —, no source line)`, JSON.stringify(h0) === '["—","—","—"]' && JSON.stringify(a8) === JSON.stringify({ used: "4%", holders: ["300,000.00", "75,000.00", "30,000.00"], totals: ["325,000.00", "30,000.00", "355,000.00"] }) && JSON.stringify(a5) === JSON.stringify({ used: "4%", holders: ["300,000.00", "75,000.00", "30,000.00"], totals: ["325,000.00", "30,000.00", "355,000.00"], source: "from half of Portfolio ROIC" }) && JSON.stringify(a3) === JSON.stringify({ used: "3%", source: "from Withdrawal Rate", holders: ["400,000.00", "100,000.00", "40,000.00"], totals: ["350,000.00", "40,000.00", "390,000.00"] }) && JSON.stringify(a00) === JSON.stringify({ used: "—", holders: ["—", "—", "—"], totals: ["—", "—", "—"], source: 0 }) && JSON.stringify(a4) === JSON.stringify({ used: "4%", rent: "300,000.00", source: "Withdrawal Rate and half of Portfolio ROIC are equal" }) && JSON.stringify(a0) === JSON.stringify({ used: "4%", holders: ["300,000.00", "75,000.00", "30,000.00"] }), { h0, a8, a5, a3, a4, a0, a00 });
       await wd.fill("150");
       const rErr = { text: await txt(page.getByTestId("pf-rates").getByTestId("pf-error")), invalid: await wd.getAttribute("aria-invalid"), color: await page.getByTestId("pf-rates").getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), used: await used() };
       await wd.fill("");
@@ -586,12 +586,12 @@ try {
       const badOv = { err: await txt(rent.getByTestId("pf-error")), invalid: await rent.getByTestId("pf-equity").getAttribute("aria-invalid"), totals: await eqTotals(), note: await figNote() };
       await rent.getByTestId("pf-equity").fill("250,000");
       const typed = { rent: await val(rent.getByTestId("pf-equity")), totals: await eqTotals(), note: await figNote() };
-      check(`${tag} PF-19 Q9: a bad override (Rent abc) shows \`Enter a number, 0 or more.\` (#144 PF-172: and \`Figures leave out fields marked in red.\`, cleared when fixed) and falls back to the calculated 300,000 (Fixed 375,000, Total 405,000)`, JSON.stringify(badOv) === JSON.stringify({ err: "Enter a number, 0 or more.", invalid: "true", totals: ["375,000", "30,000", "405,000"], note: ["Figures leave out fields marked in red.", "true"] }) && JSON.stringify(typed.note) === JSON.stringify(["Figures leave out fields marked in red.", "false"]), badOv);
+      check(`${tag} PF-19 Q9: a bad override (Rent abc) shows \`Enter a number, 0 or more.\` (#144 PF-172: and \`Figures leave out fields marked in red.\`, cleared when fixed) and falls back to the calculated 300,000 (Fixed 375,000, Total 405,000)`, JSON.stringify(badOv) === JSON.stringify({ err: "Enter a number, 0 or more.", invalid: "true", totals: ["375,000.00", "30,000.00", "405,000.00"], note: ["Figures leave out fields marked in red.", "true"] }) && JSON.stringify(typed.note) === JSON.stringify(["Figures leave out fields marked in red.", "false"]), badOv);
       await roic.fill("");
       const noRate = await eqTotals();
       await roic.fill("8");
       check(`${tag} PF-19 Q10: no usable rate → every total with a line lacking a valid override shows —`, JSON.stringify(noRate) === '["—","—","—"]', noRate);
-      check(`${tag} PF-19 override: typed 250,000 wins on Rent (Fixed 325,000, Total 355,000); cleared → the calculated 300,000 (Fixed 375,000); placeholder dim (${ratio(rgb(DIM), rgb(NIGHT))}:1)`, ph === DIM && JSON.stringify(cleared) === JSON.stringify({ rent: "", holder: "300,000", totals: ["375,000", "30,000", "405,000"] }) && JSON.stringify({ rent: typed.rent, totals: typed.totals }) === JSON.stringify({ rent: "250,000", totals: ["325,000", "30,000", "355,000"] }), { ph, cleared, typed });
+      check(`${tag} PF-19 override: typed 250,000 wins on Rent (Fixed 325,000, Total 355,000); cleared → the calculated 300,000 (Fixed 375,000); placeholder dim (${ratio(rgb(DIM), rgb(NIGHT))}:1)`, ph === DIM && JSON.stringify(cleared) === JSON.stringify({ rent: "", holder: "300,000.00", totals: ["375,000.00", "30,000.00", "405,000.00"] }) && JSON.stringify({ rent: typed.rent, totals: typed.totals }) === JSON.stringify({ rent: "250,000", totals: ["325,000.00", "30,000.00", "355,000.00"] }), { ph, cleared, typed });
       const rb = { wd: await box(wd), roic: await box(roic), used: await box(page.getByTestId("pf-rate-used")) };
       check(`${tag} PF-20 ${wide ? "wide: the three rate cells in one row" : "phone: the rate cells stacked full width"}`, wide ? rb.wd.y === rb.roic.y && rb.roic.x > rb.wd.x && rb.used.x > rb.roic.x && rb.wd.h >= 44 : rb.roic.y > rb.wd.y && rb.used.y > rb.roic.y && rb.wd.x === rb.roic.x && rb.wd.w === rb.roic.w && rb.wd.w >= viewport.width - 80, rb);
       await page.evaluate(() => document.activeElement?.blur());
@@ -616,9 +616,9 @@ try {
       await sp.getByTestId("pf-person-tax").fill("25");
       await sp.getByTestId("pf-person-share").fill("80");
       const nets = [await txt(me.getByTestId("pf-person-net")), await txt(sp.getByTestId("pf-person-net"))];
-      check(`${tag} PF-13 Net (yearly) per person: 92,400 and 63,000`, JSON.stringify(nets) === '["92,400","63,000"]', nets);
+      check(`${tag} PF-13 Net (yearly) per person: 92,400 and 63,000`, JSON.stringify(nets) === '["92,400.00","63,000.00"]', nets);
       const tableNow = await page.locator("[data-testid=pf-income-line], [data-testid=pf-net-income]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())));
-      check(`${tag} PF-14 / PF-15 / PF-42 income table (no uncounted / 0 row): counted × share, biweekly ÷ 26, Net income 5,169.23 / 11,200 / 134,400`, JSON.stringify(tableNow) === JSON.stringify([["Me · Wages", "3,230.77", "7,000", "84,000"], ["Spouse · Wages", "1,846.15", "4,000", "48,000"], ["Spouse · Bonus", "92.31", "200", "2,400"], ["Net income", "5,169.23", "11,200", "134,400"]]), tableNow);
+      check(`${tag} PF-14 / PF-15 / PF-42 income table (no uncounted / 0 row): counted × share, biweekly ÷ 26, Net income 5,169.23 / 11,200 / 134,400`, JSON.stringify(tableNow) === JSON.stringify([["Me · Wages", "3,230.77", "7,000.00", "84,000.00"], ["Spouse · Wages", "1,846.15", "4,000.00", "48,000.00"], ["Spouse · Bonus", "92.31", "200.00", "2,400.00"], ["Net income", "5,169.23", "11,200.00", "134,400.00"]]), tableNow);
       const ofIncome = [await txt(rent.getByTestId("pf-income")), await txt(phone.getByTestId("pf-income")), await txt(gifts.getByTestId("pf-income")), ...(await totals(page, "fixed")).slice(1, 2), ...(await totals(page, "variable")).slice(1, 2), ...(await totals(page, "all")).slice(1, 2)];
       check(`${tag} PF-04 / PF-16 % of income wired: 8.9% / 2.2% / 0.9%, totals 11.2% / 0.9% / 12.1%`, JSON.stringify(ofIncome) === JSON.stringify(["8.9%", "2.2%", "0.9%", "11.2%", "0.9%", "12.1%"]), ofIncome);
       await sp.getByTestId("pf-person-share").fill("40");
@@ -742,7 +742,7 @@ try {
       const chk = phone.getByTestId("pf-error");
       const chkOk = (await txt(chk)) === "Enter a number, 0 or more." && (await phone.getByTestId("pf-monthly").getAttribute("aria-invalid")) === "true" && (await chk.evaluate((e) => getComputedStyle(e).color)) === ALERT;
       const afterBad = await totals(page, "all");
-      check(`${tag} PF-03 a bad amount: \`Enter a number, 0 or more.\` (alert, aria-invalid) and the line counts as 0`, chkOk && afterBad[2] === "1,100" && afterBad[3] === "13,200", afterBad);
+      check(`${tag} PF-03 a bad amount: \`Enter a number, 0 or more.\` (alert, aria-invalid) and the line counts as 0`, chkOk && afterBad[2] === "1,100.00" && afterBad[3] === "13,200.00", afterBad);
       const shotC = join(CFG.out, `pf-check-${viewport.width}.png`);
       await page.screenshot({ path: shotC, fullPage: true });
       R.shots.push(shotC);
@@ -757,7 +757,7 @@ try {
       await page.waitForTimeout(200);
       const phoneName = asked61[0]?.[1];
       check(`${tag} PF-61 Remove expense asks "Delete [name]? This cannot be undone." (browser confirm); Cancel keeps the line`, kept61 === 2 && asked61.length === 2 && asked61.every(([t, m]) => t === "confirm" && /^Delete .+\? This cannot be undone\.$/.test(m)), { kept61, asked61, phoneName });
-      check(`${tag} PF-03 Remove expense removes the line`, (await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count()) === 1 && (await totals(page, "fixed"))[2] === "1,000");
+      check(`${tag} PF-03 Remove expense removes the line`, (await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count()) === 1 && (await totals(page, "fixed"))[2] === "1,000.00");
 
       // PF-07 / PF-36 storage: the account's record (after the debounced save), nothing in the browser.
       await settle(page);
@@ -777,7 +777,7 @@ try {
         net: await txt(page.getByTestId("pf-net-income").getByTestId("pf-income-yearly")),
         rates: [await val(page.getByTestId("pf-withdrawal")), await val(page.getByTestId("pf-roic")), await txt(page.getByTestId("pf-rate-used"))],
       };
-      check(`${tag} PF-07 / PF-16 / PF-20 / PF-36 a reload restores (from the account) every line, typed value, account, selection, person and rate (Total equity 250,000 + 30,000)`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "250,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100", "13,200", "280,000"], people: ["Me", false, "80"], net: "134,400", rates: ["", "8", "4%"] }), back);
+      check(`${tag} PF-07 / PF-16 / PF-20 / PF-36 a reload restores (from the account) every line, typed value, account, selection, person and rate (Total equity 250,000 + 30,000)`, JSON.stringify(back) === JSON.stringify({ rent: ["Rent", "1,000", "250,000", "Chequing"], gifts: ["Gifts", "1,200", "Visa"], all: ["100.0%", "9.8%", "1,100.00", "13,200.00", "280,000.00"], people: ["Me", false, "80"], net: "134,400.00", rates: ["", "8", "4%"] }), back);
       // PF-21..25 foreign currency (#87): the section 14.2 example (Rent's override cleared, Phone back, Condo in BRL).
       await line(page, "fixed", 0).getByTestId("pf-equity").fill("");
       await page.getByTestId("pf-add-fixed").click();
@@ -801,7 +801,7 @@ try {
       await fc.getByTestId("pf-currency").selectOption("BRL");
       const fx = fc.getByTestId("pf-fx");
       const dash24 = async () => ({ fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all"), rent: [await txt(line(page, "fixed", 0).getByTestId("pf-share")), await txt(line(page, "fixed", 0).getByTestId("pf-income"))], condo: [await val(fc.getByTestId("pf-monthly")), await val(fc.getByTestId("pf-yearly")), await txt(fc.getByTestId("pf-share")), await txt(fc.getByTestId("pf-income")), await fc.getByTestId("pf-equity").getAttribute("placeholder")] });
-      const want24 = { fixed: ["—", "—", "—", "—", "—"], variable: ["—", "0.9%", "100", "1,200", "30,000"], all: ["—", "—", "—", "—", "—"], rent: ["—", "8.9%"], condo: ["2,000", "24,000", "—", "—", "—"] };
+      const want24 = { fixed: ["—", "—", "—", "—", "—"], variable: ["—", "0.9%", "100.00", "1,200.00", "30,000.00"], all: ["—", "—", "—", "—", "—"], rent: ["—", "8.9%"], condo: ["2,000", "24,000.00", "—", "—", "—"] };
       const noRate24 = { err: await txt(fc.getByTestId("pf-error")), invalid: await fx.getAttribute("aria-invalid"), label: await fx.getAttribute("aria-label"), color: await fc.getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), ...(await dash24()) };
       const bads = [];
       for (const bad of ["abc", "-1", "0"]) {
@@ -817,12 +817,12 @@ try {
         variable: await totals(page, "variable"),
         all: await totals(page, "all"),
       };
-      check(`${tag} PF-22 / PF-35 Condo 2,000 BRL ÷ 5 (BRL per 1 CAD) = 400: its fields stay 2,000 / 24,000; 22.9% / 3.6%; Fixed 1,650 / 19,800 (14.7%), Variable 100 / 1,200, Total 1,750 / 21,000 (15.6%)`, JSON.stringify(conv22) === JSON.stringify({ errors: 0, condo: ["2,000", "24,000", "22.9%", "3.6%"], fixed: ["94.3%", "14.7%", "1,650", "19,800", "495,000"], variable: ["5.7%", "0.9%", "100", "1,200", "30,000"], all: ["100.0%", "15.6%", "1,750", "21,000", "525,000"] }), conv22);
+      check(`${tag} PF-22 / PF-35 Condo 2,000 BRL ÷ 5 (BRL per 1 CAD) = 400: its fields stay 2,000 / 24,000; 22.9% / 3.6%; Fixed 1,650 / 19,800 (14.7%), Variable 100 / 1,200, Total 1,750 / 21,000 (15.6%)`, JSON.stringify(conv22) === JSON.stringify({ errors: 0, condo: ["2,000", "24,000.00", "22.9%", "3.6%"], fixed: ["94.3%", "14.7%", "1,650.00", "19,800.00", "495,000.00"], variable: ["5.7%", "0.9%", "100.00", "1,200.00", "30,000.00"], all: ["100.0%", "15.6%", "1,750.00", "21,000.00", "525,000.00"] }), conv22);
       const holder23 = await page.locator("[data-testid=pf-equity]").evaluateAll((f) => f.map((e) => e.placeholder));
       await fc.getByTestId("pf-equity").fill("100,000");
       const ov23 = (await totals(page, "fixed"))[4];
       await fc.getByTestId("pf-equity").fill("");
-      check(`${tag} PF-23 equity on the household yearly amount (ROIC 8): Condo 120,000 (Fixed 495,000, Total 525,000); override 100,000 (household) → Fixed 475,000`, JSON.stringify(holder23) === JSON.stringify(["300,000", "75,000", "120,000", "30,000"]) && ov23 === "475,000", { holder23, ov23 });
+      check(`${tag} PF-23 equity on the household yearly amount (ROIC 8): Condo 120,000 (Fixed 495,000, Total 525,000); override 100,000 (household) → Fixed 475,000`, JSON.stringify(holder23) === JSON.stringify(["300,000.00", "75,000.00", "120,000.00", "30,000.00"]) && ov23 === "475,000.00", { holder23, ov23 });
       // Layout, size, focus and AA with the foreign line.
       const fb = { cur: await box(fc.getByTestId("pf-currency")), fx: await box(fx), monthly: await box(fc.getByTestId("pf-monthly")), yearly: await box(fc.getByTestId("pf-yearly")), equity: await box(fc.getByTestId("pf-equity")), share: await box(fc.getByTestId("pf-share")), hh: await box(hhSel) };
       check(`${tag} PF-25 ${wide ? "wide: Currency and FX rate after Yearly, before Equity to cover, one row" : "phone: Currency | FX rate under Monthly | Yearly"}; 44 px controls; Household currency ≤ 16rem`, fb.cur.h >= 44 && fb.fx.h >= 44 && fb.hh.h >= 44 && fb.hh.w <= 256 && (wide ? fb.cur.x > fb.yearly.x && fb.fx.x > fb.cur.x && fb.equity.x > fb.fx.x && Math.abs(fb.cur.y - fb.monthly.y) <= 1 && Math.abs(fb.fx.y - fb.monthly.y) <= 1 : fb.cur.y > fb.monthly.y && fb.cur.y === fb.fx.y && fb.fx.x > fb.cur.x && fb.share.y > fb.cur.y), fb);
@@ -852,11 +852,11 @@ try {
       await ready(page);
       const fc2 = line(page, "fixed", 2);
       const back25 = { household: await page.getByTestId("pf-household").inputValue(), cur: await fc2.getByTestId("pf-currency").inputValue(), rate: await val(fc2.getByTestId("pf-fx")), all: (await totals(page, "all")).slice(2, 4) };
-      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} {"household":"USD"} (#112: Save writes every name); a reload restores both (Total 1,750 / 21,000)`, before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750", "21,000"] }), { before, cadKey, back25 });
+      check(`${tag} PF-25 storage: Condo {currency BRL, rate 5} in ${KEY}; ${CURRENCY_KEY} {"household":"USD"} (#112: Save writes every name); a reload restores both (Total 1,750 / 21,000)`, before[1].currency === "BRL" && before[1].rate === "5" && cadKey === '{"household":"USD"}' && JSON.stringify(back25) === JSON.stringify({ household: "USD", cur: "BRL", rate: "5", all: ["1,750.00", "21,000.00"] }), { before, cadKey, back25 });
       await page.getByTestId("pf-household").selectOption("BRL");
       const asHome = { fx: await txt(fc2.getByTestId("pf-fx-none")), cur: await fc2.getByTestId("pf-currency").inputValue(), fixed: (await totals(page, "fixed")).slice(2, 4), rate: await (async () => { await settle(page); return JSON.parse(((await record(page)) ?? {})[KEY]).fixed[2].rate; })() };
       await page.getByTestId("pf-household").selectOption("CAD");
-      check(`${tag} PF-24 household BRL makes Condo a household line: FX rate —, × 1 (Fixed 3,250 / 39,000), the rate kept stored`, JSON.stringify(asHome) === JSON.stringify({ fx: "—", cur: "BRL", fixed: ["3,250", "39,000"], rate: "5" }), asHome);
+      check(`${tag} PF-24 household BRL makes Condo a household line: FX rate —, × 1 (Fixed 3,250 / 39,000), the rate kept stored`, JSON.stringify(asHome) === JSON.stringify({ fx: "—", cur: "BRL", fixed: ["3,250.00", "39,000.00"], rate: "5" }), asHome);
       await settle(page);
 
       // PF-37 foreign income (#102): the section 12 people (Net income 134,400) plus Brazilian Dividends.
@@ -875,7 +875,7 @@ try {
       await fxIn.fill("3.70");
       const row37 = await page.locator("[data-testid=pf-income-line]").evaluateAll((rows) => rows.map((r) => ["pf-income-label", "pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) => r.querySelector(`[data-testid=${id}]`).textContent.trim())).filter((r) => r[0].startsWith("Brazilian Dividends")));
       const yes37 = { net: await txt(bd.getByTestId("pf-person-net")), conv: await txt(bd.getByTestId("pf-person-converted")), rows: row37, total: await net37(), rent: await txt(line(page, "fixed", 0).getByTestId("pf-income")), errors: await bd.getByTestId("pf-error").count() };
-      check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000", conv: "10,000", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]], total: "144,400", rent: "8.3%", errors: 0 }), yes37);
+      check(`${tag} PF-37 Brazilian Dividends 37,000 BRL at 3.70 (BRL per 1 CAD): Net 37,000, Converted 10,000; its table line 384.62 / 833.33 / 10,000; Net income 144,400; Rent's % of income 8.3%`, JSON.stringify(yes37) === JSON.stringify({ net: "37,000.00", conv: "10,000.00", rows: [["Brazilian Dividends · Wages", "384.62", "833.33", "10,000.00"]], total: "144,400.00", rent: "8.3%", errors: 0 }), yes37);
       await settle(page);
       const ovIncome = await page.locator("[data-testid=pf-ov-income] [role=cell]:not([data-testid=pf-ov-avg3])").allTextContents();
       check(`${tag} PF-37 the Overview's income follows after Save (#112) (this month 12,033.33)`, ovIncome[0]?.trim() === "12,033.33", ovIncome);
@@ -908,7 +908,7 @@ try {
       const untick = { cells: await bd.getByTestId("pf-foreign").count(), net: await net37() };
       await settle(page);
       const kept = JSON.parse(((await record(page)) ?? {})[INCOME_KEY] ?? "{}").people?.[2];
-      check(`${tag} PF-37 unticking: the cells go, counted × 1 (Net income 171,400); the account keeps BRL / 3.70`, JSON.stringify(untick) === '{"cells":0,"net":"171,400"}' && kept?.foreign === false && kept?.currency === "BRL" && kept?.rate === "3.70", { untick, kept });
+      check(`${tag} PF-37 unticking: the cells go, counted × 1 (Net income 171,400); the account keeps BRL / 3.70`, JSON.stringify(untick) === '{"cells":0,"net":"171,400.00"}' && kept?.foreign === false && kept?.currency === "BRL" && kept?.rate === "3.70", { untick, kept });
       await bd.getByTestId("pf-person-foreign").check();
       await settle(page);
 
@@ -921,7 +921,7 @@ try {
         await ready(p2);
         other = await figures(p2);
       });
-      check(`${tag} PF-36 a second signed-in context (another device) loads the same figures`, JSON.stringify(other) === JSON.stringify(mine) && mine.people === 3 && mine.net === "144,400", { mine, other });
+      check(`${tag} PF-36 a second signed-in context (another device) loads the same figures`, JSON.stringify(other) === JSON.stringify(mine) && mine.people === 3 && mine.net === "144,400.00", { mine, other });
       const peek = await acct(page, "GET", undefined, `${API}?userId=someone-else`);
       check(`${tag} PF-36 ?userId= naming another account → 403`, peek.status === 403, peek);
       // A failed save shows `Not saved.`; the next change (saved) clears it.
@@ -966,7 +966,7 @@ try {
         const note = () => p3.getByTestId("pf-month-note").textContent().then((t) => t.trim());
         const opts = await sel.evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
         const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
-        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); Month: 12 choices October 2026 … November 2025, October shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "—"], income: ["11,200", "—"], surplus: ["9,450", "—"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
+        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); Month: 12 choices October 2026 … November 2025, October shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
         await sel.selectOption("2026-06");
         const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
         check(`${tag} PF-51 empty June: a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
@@ -978,7 +978,7 @@ try {
         await settle(p3);
         const t1 = await ov();
         const afterSave = { month: await sel.inputValue(), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
-        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
+        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
         check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 74,450.00 (#140)`, ch1.months === "12" && ch1.net === "74450.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
@@ -1047,7 +1047,7 @@ try {
         await p3.getByTestId("pf-person-wages").fill("134,400");
         await settle(p3);
         const t2 = await ov();
-        check(`${tag} PF-53 June saved as October's figures: the 12-month average (June alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750", "1,750"], income: ["11,200", "11,200"], surplus: ["9,450", "9,450"] }), { t2 });
+        check(`${tag} PF-53 June saved as October's figures: the 12-month average (June alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750.00", "1,750.00"], income: ["11,200.00", "11,200.00"], surplus: ["9,450.00", "9,450.00"] }), { t2 });
         check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / month control)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
         check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n").slice(0, 4).join(" | "));
@@ -1072,7 +1072,7 @@ try {
         const condo = line(p4, "fixed", 2);
         const rec4 = (await record(p4)) ?? {};
         const got = { rate: await val(condo.getByTestId("pf-fx")), all: (await totals(p4, "all")).slice(2, 4), people: await p4.getByTestId("pf-person").count(), names: Object.keys(rec4).sort(), v2rate: JSON.parse(rec4[KEY] ?? "{}").fixed?.[2]?.rate, local: await p4.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("orpheus.finance."))) };
-        check(`${tag} PF-38 the old browser record is imported into the empty account: Condo's 0.2 → 5 (Total 1,750 / 21,000), saved as ${KEY} (no v1; #112 its lines the current month's), the browser's keys removed`, JSON.stringify(got) === JSON.stringify({ rate: "5", all: ["1,750", "21,000"], people: 2, names: [CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, MONTHS_KEY].sort(), v2rate: "5", local: [] }), got);
+        check(`${tag} PF-38 the old browser record is imported into the empty account: Condo's 0.2 → 5 (Total 1,750 / 21,000), saved as ${KEY} (no v1; #112 its lines the current month's), the browser's keys removed`, JSON.stringify(got) === JSON.stringify({ rate: "5", all: ["1,750.00", "21,000.00"], people: 2, names: [CURRENCY_KEY, EQUITY_KEY, KEY, INCOME_KEY, MONTHS_KEY].sort(), v2rate: "5", local: [] }), got);
         await p4.evaluate((kv) => localStorage.setItem(kv[0], kv[1]), [LEGACY_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [] })]);
         await p4.reload({ waitUntil: "networkidle" });
         await ready(p4);

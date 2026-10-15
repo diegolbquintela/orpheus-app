@@ -75,7 +75,7 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
   it("converts monthly and yearly; the typed side stays as typed", () => {
     const m = line({ amount: "1,000", per: "month" });
     assert.equal(fieldText(m, "month"), "1,000");
-    assert.equal(fieldText(m, "year"), "12,000");
+    assert.equal(fieldText(m, "year"), "12,000.00"); // #142: the converted side in two decimals (PF-179)
     const y = line({ amount: "1000", per: "year" });
     assert.equal(fieldText(y, "year"), "1000");
     assert.equal(fieldText(y, "month"), "83.33");

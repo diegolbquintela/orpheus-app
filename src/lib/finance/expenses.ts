@@ -9,6 +9,7 @@
  * (Q14, decided; the Q10 pattern). `Monthly` / `Yearly` fields stay in the line's currency.
  */
 
+import { formatMoney } from "./money.ts";
 import { type CurrencyCode, DEFAULT_HOUSEHOLD, isCurrency } from "./currency.ts";
 
 /**
@@ -163,7 +164,7 @@ export function formatShare(part: number | null, whole: number | null): string {
 export function fieldText(line: Line, field: Per): string {
   if (line.per === field) return line.amount;
   if (!line.amount.trim() || parseAmount(line.amount) === null) return "";
-  return formatAmount(field === "month" ? monthlyOf(line) : yearlyOf(line));
+  return formatMoney(field === "month" ? monthlyOf(line) : yearlyOf(line));
 }
 
 /** True when the line's `Equity to cover` field holds a valid typed override (not blank, a number 0 or more; Q9). */

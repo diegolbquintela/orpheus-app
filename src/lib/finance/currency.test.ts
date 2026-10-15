@@ -177,7 +177,7 @@ describe("foreign-currency line (#87, PF-22..25)", () => {
     e.fixed[2] = { ...e.fixed[2], equity: "100,000" };
     assert.equal(totalsOf(e.fixed, 4).equity, 475000);
     // Its own Monthly / Yearly still read the typed amount.
-    assert.equal(fieldText(e.fixed[2], "year"), "24,000");
+    assert.equal(fieldText(e.fixed[2], "year"), "24,000.00"); // #142: two decimals (PF-179)
   });
 
   it("v1.1–v1.3 lines restore as household lines; currency / rate round-trip; unknown code reads as household", () => {

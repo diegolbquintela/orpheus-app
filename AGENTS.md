@@ -1169,3 +1169,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - #135 (QA font wait, tools only): `qa/tools/fonts.mjs` `fontsSettled(page)` (fonts.ready + 2 frames; reload while a probe still renders a fallback, max 3 loads). Used by `site-shell.mjs` and `site-style-regression.mjs` before font-dependent measurements; cold-load checks stay cold. Site-style-spec §17, FW-01..FW-05.
 - #135 addendum: `fontsSettled` max loads is 5, not 3 (the font is `max-age=0, must-revalidate`, so each reload still round-trips).
 - #135 addendum (2026-10-15, QA round 2): `fontsSettled` max loads is 3 again (supersedes 5), with a 1 s settle after each reload.
+- #142 (PF money format): `formatMoney` in `src/lib/finance/money.ts` (en-US, exactly 2 decimals, `-0.00` → `0.00`) for every computed PF money figure; `formatAmount` (up to 2, no trailing zeros) stays only for `formatRate`. Spec section 32, PF-175..PF-182.

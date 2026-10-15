@@ -18,7 +18,6 @@ import {
   COLUMNS,
   type Expenses,
   fieldText,
-  formatAmount,
   formatShare,
   grandTotals,
   type GroupKey,
@@ -41,6 +40,7 @@ import {
   writeExpenses,
   migrateExpenses,
 } from "@/lib/finance/expenses";
+import { formatMoney } from "@/lib/finance/money";
 import {
   type Income,
   monthly,
@@ -1085,7 +1085,7 @@ function LineRow({
       <Cell label="Equity to cover" area="equity" control>
         <input
           value={line.equity}
-          placeholder={calculated === null ? NOT_COMPUTED : formatAmount(calculated)}
+          placeholder={calculated === null ? NOT_COMPUTED : formatMoney(calculated)}
           onChange={(event) => onChange({ equity: event.target.value })}
           inputMode="decimal"
           autoComplete="off"
@@ -1260,7 +1260,7 @@ function NewName({
 
 /** An amount, or `—` for null (Q10, Q14). */
 const orDash = (value: number | null): string =>
-  value === null ? NOT_COMPUTED : formatAmount(value);
+  value === null ? NOT_COMPUTED : formatMoney(value);
 
 function TotalRow({
   label,
