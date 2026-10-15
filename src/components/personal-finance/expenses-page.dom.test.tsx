@@ -138,7 +138,7 @@ describe("personal finance page (#84)", () => {
       ["Total", "Fixed total", "Variable total"],
     );
     assert.equal(text(q(el, "pf-total-all"), "pf-total-share"), "—");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "0");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "0.00");
     assert.equal(
       dom.window.localStorage.getItem(STORAGE_KEY),
       null,
@@ -163,8 +163,8 @@ describe("personal finance page (#84)", () => {
       "1,000",
       "typed stays as typed",
     );
-    assert.equal((q(rent, "pf-yearly") as HTMLInputElement).value, "12,000");
-    assert.equal((q(gifts, "pf-monthly") as HTMLInputElement).value, "100");
+    assert.equal((q(rent, "pf-yearly") as HTMLInputElement).value, "12,000.00");
+    assert.equal((q(gifts, "pf-monthly") as HTMLInputElement).value, "100.00"); // #142: the converted side (PF-179)
     assert.equal(text(rent, "pf-share"), "74.1%");
     assert.equal(text(gifts, "pf-share"), "7.4%");
     for (const l of [rent, phone, gifts]) assert.equal(text(l, "pf-income"), "—");
@@ -173,14 +173,14 @@ describe("personal finance page (#84)", () => {
         text(q(el, `pf-total-${id}`), `pf-total-${f}`),
       );
     // No rate (#86, Q10): Phone and Gifts have no override, so their totals show —.
-    assert.deepEqual(totals("fixed"), ["92.6%", "—", "1,250", "15,000", "—"]);
-    assert.deepEqual(totals("variable"), ["7.4%", "—", "100", "1,200", "—"]);
-    assert.deepEqual(totals("all"), ["100.0%", "—", "1,350", "16,200", "—"]);
+    assert.deepEqual(totals("fixed"), ["92.6%", "—", "1,250.00", "15,000.00", "—"]);
+    assert.deepEqual(totals("variable"), ["7.4%", "—", "100.00", "1,200.00", "—"]);
+    assert.deepEqual(totals("all"), ["100.0%", "—", "1,350.00", "16,200.00", "—"]);
     // A bad amount: the field check, and the line counts as 0.
     await type(q(phone, "pf-monthly"), "abc");
     assert.equal(q(phone, "pf-error").textContent, "Enter a number, 0 or more.");
     assert.equal(q(phone, "pf-monthly").getAttribute("aria-invalid"), "true");
-    assert.deepEqual(totals("all").slice(2, 4), ["1,100", "13,200"]);
+    assert.deepEqual(totals("all").slice(2, 4), ["1,100.00", "13,200.00"]);
     // Remove (#113, PF-61): asked first; Cancel keeps the line, OK removes it.
     confirm.asked = [];
     confirm.answer = false;
@@ -302,7 +302,7 @@ describe("income block (#85)", () => {
       [...q(el, "pf-table-head").children].map((c) => c.textContent),
       ["Income", "Biweekly", "Monthly", "Yearly"],
     );
-    assert.deepEqual(table(el), [["Net income", "0", "0", "0"]]);
+    assert.deepEqual(table(el), [["Net income", "0.00", "0.00", "0.00"]]);
     assert.equal(
       [...el.querySelectorAll(".pf-label")]
         .filter((l) => /^0[1-3]$/.test(l.textContent!))
@@ -332,13 +332,13 @@ describe("income block (#85)", () => {
     await type(q(spouse, "pf-person-share"), "80");
     assert.deepEqual(
       [text(me, "pf-person-net"), text(spouse, "pf-person-net")],
-      ["92,400", "63,000"],
+      ["92,400.00", "63,000.00"],
     );
     assert.deepEqual(table(el), [
-      ["Me · Wages", "3,230.77", "7,000", "84,000"],
-      ["Spouse · Wages", "1,846.15", "4,000", "48,000"],
-      ["Spouse · Bonus", "92.31", "200", "2,400"],
-      ["Net income", "5,169.23", "11,200", "134,400"],
+      ["Me · Wages", "3,230.77", "7,000.00", "84,000.00"],
+      ["Spouse · Wages", "1,846.15", "4,000.00", "48,000.00"],
+      ["Spouse · Bonus", "92.31", "200.00", "2,400.00"],
+      ["Net income", "5,169.23", "11,200.00", "134,400.00"],
     ]);
     // Expenses: % of income against 11,200 a month.
     await click(q(el, "pf-add-fixed"));
@@ -464,26 +464,26 @@ describe("equity cover (#86, option A)", () => {
     // ROIC 8 → 4%: Rent 1,000 a month → 300,000.
     await type(q(el, "pf-roic"), "8");
     assert.equal(text(el, "pf-rate-used"), "4%");
-    assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
-    assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"]);
+    assert.deepEqual(holders(el), ["300,000.00", "75,000.00", "30,000.00"]);
+    assert.deepEqual(totals(el), ["375,000.00", "30,000.00", "405,000.00"]);
     // #138 PF-150 / PF-156: withdrawal 5 and ROIC 8 → the lower, 4% (was: 5 wins → 240,000 / 60,000 / 24,000).
     await type(q(el, "pf-withdrawal"), "5");
     assert.equal(text(el, "pf-rate-used"), "4%");
     assert.equal(text(el, "pf-rate-source"), "from half of Portfolio ROIC");
-    assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
+    assert.deepEqual(holders(el), ["300,000.00", "75,000.00", "30,000.00"]);
     await type(q(el, "pf-withdrawal"), "3");
     assert.equal(text(el, "pf-rate-used"), "3%");
     assert.equal(text(el, "pf-rate-source"), "from Withdrawal Rate");
-    assert.deepEqual(holders(el), ["400,000", "100,000", "40,000"]);
+    assert.deepEqual(holders(el), ["400,000.00", "100,000.00", "40,000.00"]);
     // A typed 4 is 4% (never halved).
     await type(q(el, "pf-withdrawal"), "4");
     assert.equal(text(el, "pf-rate-used"), "4%");
     assert.equal(text(el, "pf-rate-source"), "Withdrawal Rate and half of Portfolio ROIC are equal");
-    assert.equal(holders(el)[0], "300,000");
+    assert.equal(holders(el)[0], "300,000.00");
     // #138 PF-152 (Q-R2): a typed 0 is not set → ROIC ÷ 2; a bad rate → the check and — (PF-153).
     await type(q(el, "pf-withdrawal"), "0");
     assert.equal(text(el, "pf-rate-used"), "4%");
-    assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
+    assert.deepEqual(holders(el), ["300,000.00", "75,000.00", "30,000.00"]);
     await type(q(el, "pf-withdrawal"), "150");
     assert.equal(q(q(el, "pf-rates"), "pf-error").textContent, "Enter a percent from 0 to 100.");
     assert.equal(q(el, "pf-withdrawal").getAttribute("aria-invalid"), "true");
@@ -501,12 +501,12 @@ describe("equity cover (#86, option A)", () => {
     // Override (Q3): Rent typed 250,000 wins on its line only.
     await type(q(rent, "pf-equity"), "250,000");
     assert.equal((q(rent, "pf-equity") as HTMLInputElement).value, "250,000");
-    assert.deepEqual(totals(el), ["325,000", "30,000", "355,000"]);
+    assert.deepEqual(totals(el), ["325,000.00", "30,000.00", "355,000.00"]);
     await type(q(rent, "pf-equity"), "");
-    assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"], "cleared: calculated again");
+    assert.deepEqual(totals(el), ["375,000.00", "30,000.00", "405,000.00"], "cleared: calculated again");
     await type(q(rent, "pf-equity"), "abc");
     assert.equal(q(rent, "pf-error").textContent, "Enter a number, 0 or more.");
-    assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"], "Q9: a bad override falls back");
+    assert.deepEqual(totals(el), ["375,000.00", "30,000.00", "405,000.00"], "Q9: a bad override falls back");
     await type(q(rent, "pf-equity"), "250,000");
     // Storage: three keys; the rates as typed.
     assert.deepEqual(JSON.parse(await persisted(EQUITY_KEY)), {
@@ -524,7 +524,7 @@ describe("equity cover (#86, option A)", () => {
     const again = await render();
     assert.equal((q(again, "pf-roic") as HTMLInputElement).value, "8");
     assert.equal(text(again, "pf-rate-used"), "4%");
-    assert.deepEqual(totals(again), ["325,000", "30,000", "355,000"]);
+    assert.deepEqual(totals(again), ["325,000.00", "30,000.00", "355,000.00"]);
   });
 
   it("a v1.1 / v1.2 line with a typed amount restores as an override; malformed rates read as empty", async () => {
@@ -544,8 +544,8 @@ describe("equity cover (#86, option A)", () => {
     assert.equal((q(rent, "pf-equity") as HTMLInputElement).value, "10,000");
     assert.equal(text(el, "pf-rate-used"), "—");
     await type(q(el, "pf-roic"), "8");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "10,000", "the override stays");
-    assert.equal((q(rent, "pf-equity") as HTMLInputElement).placeholder, "300,000");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "10,000.00", "the override stays");
+    assert.equal((q(rent, "pf-equity") as HTMLInputElement).placeholder, "300,000.00");
   });
 
   it("currency copy: Household currency CAD (Q13) above Income; a line's Currency and FX rate — (PF-21)", async () => {
@@ -618,10 +618,10 @@ describe("equity cover (#86, option A)", () => {
     });
     const want = {
       fixed: ["—", "—"],
-      variable: ["100", "1,200"],
+      variable: ["100.00", "1,200.00"],
       all: ["—", "—"],
       shares: ["—", "—", "—"],
-      condo: ["2,000", "24,000"],
+      condo: ["2,000", "24,000.00"],
     };
     assert.deepEqual(dashes(), want);
     for (const bad of ["abc", "-1", "0"]) {
@@ -632,27 +632,27 @@ describe("equity cover (#86, option A)", () => {
     await type(q(el, "pf-roic"), "8");
     assert.equal((q(condo, "pf-equity") as HTMLInputElement).placeholder, "—");
     assert.equal(text(q(el, "pf-total-fixed"), "pf-total-equity"), "—");
-    assert.equal(text(q(el, "pf-total-variable"), "pf-total-equity"), "30,000");
+    assert.equal(text(q(el, "pf-total-variable"), "pf-total-equity"), "30,000.00");
     await type(q(el, "pf-roic"), "");
     await type(fx, "5");
     assert.equal(fx.getAttribute("aria-invalid"), null);
     // The line keeps its own currency; every figure is in CAD.
     assert.equal((q(condo, "pf-monthly") as HTMLInputElement).value, "2,000");
-    assert.equal((q(condo, "pf-yearly") as HTMLInputElement).value, "24,000");
-    assert.deepEqual(totals("fixed"), ["1,650", "19,800"]);
-    assert.deepEqual(totals("variable"), ["100", "1,200"]);
-    assert.deepEqual(totals("all"), ["1,750", "21,000"]);
+    assert.equal((q(condo, "pf-yearly") as HTMLInputElement).value, "24,000.00");
+    assert.deepEqual(totals("fixed"), ["1,650.00", "19,800.00"]);
+    assert.deepEqual(totals("variable"), ["100.00", "1,200.00"]);
+    assert.deepEqual(totals("all"), ["1,750.00", "21,000.00"]);
     assert.equal(text(condo, "pf-share"), "22.9%");
     // Equity cover: ROIC 8 → 4%; Condo 4,800 ÷ 0.04.
     await type(q(el, "pf-roic"), "8");
-    assert.equal((q(condo, "pf-equity") as HTMLInputElement).placeholder, "120,000");
+    assert.equal((q(condo, "pf-equity") as HTMLInputElement).placeholder, "120,000.00");
     const equity = (row: string) => text(q(el, `pf-total-${row}`), "pf-total-equity");
     assert.deepEqual(
       [equity("fixed"), equity("variable"), equity("all")],
-      ["495,000", "30,000", "525,000"],
+      ["495,000.00", "30,000.00", "525,000.00"],
     );
     await type(q(condo, "pf-equity"), "100,000");
-    assert.equal(equity("fixed"), "475,000");
+    assert.equal(equity("fixed"), "475,000.00");
     // Storage: the household key and the line's currency / rate.
     assert.equal(
       dom.window.localStorage.getItem(CURRENCY_KEY),
@@ -678,7 +678,7 @@ describe("equity cover (#86, option A)", () => {
     assert.equal(text(condo2, "pf-fx-none"), "—");
     assert.deepEqual(
       ["pf-total-monthly", "pf-total-yearly"].map((f) => text(q(again, "pf-total-fixed"), f)),
-      ["3,250", "39,000"],
+      ["3,250.00", "39,000.00"],
     );
     assert.equal(JSON.parse(await persisted(STORAGE_KEY)).fixed[2].rate, "5");
   });
@@ -698,7 +698,7 @@ describe("equity cover (#86, option A)", () => {
     const [rent] = lines(el, "fixed");
     assert.equal((q(rent, "pf-currency") as HTMLSelectElement).value, "CAD");
     assert.equal(text(rent, "pf-fx-none"), "—");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "1,000");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "1,000.00");
   });
 });
 
@@ -775,14 +775,14 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(hasSave(el), true, "a change shows Save");
     assert.equal(dom.window.localStorage.length, 0, "no autosave");
     // #144 (Q-V1, PF-159): 04 is live (was "04 follows saved months": `—` until Save); nothing is stored yet.
-    assert.deepEqual(ov(el, "expenses"), ["1,750", "—"], "04 is live before Save");
+    assert.deepEqual(ov(el, "expenses"), ["1,750.00", "—"], "04 is live before Save");
     assert.equal(shownUnsaved(el), "Unsaved changes");
     await click(q(el, "pf-month-save"));
     assert.equal(shownUnsaved(el), "", "a successful Save clears the indicator");
     assert.equal(hasSave(el), false, "Save hides after saving");
     // #140 (PF-124): only the current month is saved → the 12-complete-month average is —.
-    assert.deepEqual(ov(el, "expenses"), ["1,750", "—"]);
-    assert.deepEqual(ov(el, "income"), ["11,200", "—"]);
+    assert.deepEqual(ov(el, "expenses"), ["1,750.00", "—"]);
+    assert.deepEqual(ov(el, "income"), ["11,200.00", "—"]);
     assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
       "2026-10",
     ]);
@@ -802,9 +802,9 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(text(el, "pf-month-note"), "");
     assert.equal(hasSave(el), false);
     // #140: the 12-month average is June alone (October, the current month, is excluded).
-    assert.deepEqual(ov(el, "expenses"), ["1,750", "4,000"]);
-    assert.deepEqual(ov(el, "income"), ["11,200", "9,000"]);
-    assert.deepEqual(ov(el, "surplus"), ["9,450", "5,000"]);
+    assert.deepEqual(ov(el, "expenses"), ["1,750.00", "4,000.00"]);
+    assert.deepEqual(ov(el, "income"), ["11,200.00", "9,000.00"]);
+    assert.deepEqual(ov(el, "surplus"), ["9,450.00", "5,000.00"]);
     const stored = JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!);
     assert.deepEqual(Object.keys(stored), ["2026-06", "2026-10"]);
     assert.equal(stored["2026-10"].fixed[0].amount, "1,750", "the current month unchanged");
@@ -865,13 +865,13 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), [
       "2026-10",
     ]);
-    assert.deepEqual(ov(el, "expenses"), ["1,750", "4,000"], "the old June total still counts (#140: June alone in the 12 complete months)");
+    assert.deepEqual(ov(el, "expenses"), ["1,750.00", "4,000.00"], "the old June total still counts (#140: June alone in the 12 complete months)");
     await type(month(el), "2026-06");
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
     await click(q(el, "pf-month-save"));
     assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(OVERVIEW_KEY)!).months, {});
-    assert.deepEqual(ov(el, "expenses"), ["1,750", "1,750"]);
+    assert.deepEqual(ov(el, "expenses"), ["1,750.00", "1,750.00"]);
     await act(async () => root!.unmount());
     container!.remove();
     el = await render();
@@ -963,16 +963,16 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     assert.equal(text(p, "pf-person-converted"), "—");
     assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "—");
     await type(q(p, "pf-person-rate"), "3.70");
-    assert.equal(text(p, "pf-person-net"), "37,000", "Net stays in BRL");
-    assert.equal(text(p, "pf-person-converted"), "10,000");
+    assert.equal(text(p, "pf-person-net"), "37,000.00", "Net stays in BRL");
+    assert.equal(text(p, "pf-person-converted"), "10,000.00");
     const wagesLine = qa(el, "pf-income-line")[0];
     assert.deepEqual(
       ["pf-income-biweekly", "pf-income-monthly", "pf-income-yearly"].map((id) =>
         text(wagesLine, id),
       ),
-      ["384.62", "833.33", "10,000"],
+      ["384.62", "833.33", "10,000.00"],
     );
-    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "10,000");
+    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "10,000.00");
     // % of income on an expense of 83.33 a month: 10.0%.
     await click(q(el, "pf-add-fixed"));
     await type(q(lines(el, "fixed")[0], "pf-yearly"), "1,000");
@@ -981,7 +981,7 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     await click(q(p, "pf-person-foreign"));
     const stored = JSON.parse(await persisted(INCOME_KEY)).people[0];
     assert.deepEqual([stored.foreign, stored.currency, stored.rate], [false, "BRL", "3.70"]);
-    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "37,000");
+    assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "37,000.00");
   });
 
   it("an old v1 expenses value is migrated once: rate 0.2 → 5, Condo still 400 (PF-38)", async () => {
@@ -1006,7 +1006,7 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     );
     const el = await render();
     assert.equal((q(lines(el, "fixed")[0], "pf-fx") as HTMLInputElement).value, "5");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "400");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "400.00");
     assert.equal(dom.window.localStorage.getItem("orpheus.finance.expenses.v1"), null);
     assert.equal(JSON.parse(await persisted(STORAGE_KEY)).fixed[0].rate, "5");
   });
@@ -1113,8 +1113,8 @@ describe("usability (#105, PF-40..46)", () => {
         text(r, "pf-cat-yearly"),
       ]),
       [
-        ["Home", "93.3%", "1,400", "16,800"],
-        ["No category", "6.7%", "100", "1,200"],
+        ["Home", "93.3%", "1,400.00", "16,800.00"],
+        ["No category", "6.7%", "100.00", "1,200.00"],
       ],
     );
     // Filter.
@@ -1274,9 +1274,9 @@ describe("#119 Expenses summary", () => {
         r.getAttribute("aria-current"),
       ]);
     assert.deepEqual(rows(), [
-      ["Chase", "66.7%", "1,000", "12,000", null],
-      ["Amex", "20.0%", "300", "3,600", null],
-      ["No account", "13.3%", "200", "2,400", null],
+      ["Chase", "66.7%", "1,000.00", "12,000.00", null],
+      ["Amex", "20.0%", "300.00", "3,600.00", null],
+      ["No account", "13.3%", "200.00", "2,400.00", null],
     ]);
     // Account filter.
     assert.equal(
@@ -1394,7 +1394,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-79 / PF-80: under the table, above the fields and chart; 13,125 × 4% → 43.75 CAD/mo · 0.53% of expenses, 525 CAD/yr", async () => {
     /* #140: Sep, a complete month, so the 12-month average has it */ seed({ start: "13,125", withdrawal: "4", months: { "2026-09": { expenses: "8,254.72", income: "10,000" } } });
     const el = await render();
-    assert.deepEqual(covText(el), ["Equity coverage: 43.75 CAD/mo (525 CAD/yr)", "* 4% yearly, covers 0.53% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
+    assert.deepEqual(covText(el), ["Equity coverage: 43.75 CAD/mo (525.00 CAD/yr)", "* 4% yearly, covers 0.53% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
     const after = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
     assert.ok(after(q(el, "pf-ov-table"), cov(el)));
     assert.equal(q(el, "pf-ov-table").nextElementSibling, cov(el), "directly under the comparison table");
@@ -1404,7 +1404,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-81: ROIC ÷ 2 when no withdrawal rate; the household currency code", async () => {
     /* #140: Sep, a complete month, so the 12-month average has it */ seed({ start: "120,000", roic: "8", household: "USD", months: { "2026-09": { expenses: "2,000", income: "" } } });
     const el = await render();
-    assert.deepEqual(covText(el), ["Equity coverage: 400 USD/mo (4,800 USD/yr)", "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
+    assert.deepEqual(covText(el), ["Equity coverage: 400.00 USD/mo (4,800.00 USD/yr)", "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
   });
   it("PF-82: no rate → — and Set rate under Expenses; no start → — and Set starting net assets", async () => {
     seed({ start: "13,125" });
@@ -1416,7 +1416,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     el = await render();
     assert.deepEqual(covText(el), ["Equity coverage: —", "Set starting net assets", "** Coverage rate is derived from Rate Used under Expenses section."]);
     await type(q(el, "pf-start"), "24,000");
-    assert.deepEqual(covText(el), ["Equity coverage: 80 CAD/mo (960 CAD/yr)", "* 4% yearly, covers — of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."], "live, no expenses → %: —");
+    assert.deepEqual(covText(el), ["Equity coverage: 80.00 CAD/mo (960.00 CAD/yr)", "* 4% yearly, covers — of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."], "live, no expenses → %: —");
     assert.equal(qa(el, "pf-month-save").length, 1, "the typed start is unsaved until Save (#112)");
   });
   it("PF-83 / PF-85 / PF-86: empty this month uses the 12-month average; 3-month average fills empty months with it", async () => {
@@ -1428,16 +1428,16 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     });
     const el = await render();
     const row = (r: string) => ["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, `pf-ov-${r}`), c));
-    assert.deepEqual(row("expenses"), ["—", "2,000", "2,000"]);
-    assert.deepEqual(row("income"), ["—", "4,000", "4,000"]);
-    assert.deepEqual(row("surplus"), ["—", "2,000", "2,000"]);
-    assert.deepEqual(covText(el), ["Equity coverage: 100 CAD/mo (1,200 CAD/yr)", "* 5% yearly, covers 5.00% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."], "C2: ÷ 3-month average (Jul–Sep) 2,000");
+    assert.deepEqual(row("expenses"), ["—", "2,000.00", "2,000.00"]);
+    assert.deepEqual(row("income"), ["—", "4,000.00", "4,000.00"]);
+    assert.deepEqual(row("surplus"), ["—", "2,000.00", "2,000.00"]);
+    assert.deepEqual(covText(el), ["Equity coverage: 100.00 CAD/mo (1,200.00 CAD/yr)", "* 5% yearly, covers 5.00% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."], "C2: ÷ 3-month average (Jul–Sep) 2,000");
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12", "PF-87: chart still 12 months");
   });
   it("PF-86: a different 3-month window: Aug empty, Sep 1,000, Oct 4,000; Jan 7,000 → 12-mo 4,000, 3-mo 3,000", async () => {
     seed({ months: { "2026-01": { expenses: "7,000", income: "" }, "2026-09": { expenses: "1,000", income: "" }, "2026-10": { expenses: "4,000", income: "" } } });
     const el = await render();
-    assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["4,000", "3,000", "4,000"]);
+    assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["4,000.00", "3,000.00", "4,000.00"]);
     assert.equal(text(q(el, "pf-ov-income"), "pf-ov-avg3"), "—");
   });
   it("PF-84: Future on → projected net assets at the horizon end, average expenses, 'in N years'; off restores", async () => {
@@ -1445,10 +1445,10 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const el = await render();
     const last = Number(q(el, "pf-chart").getAttribute("data-net-last"));
     const yearly = last * 0.04;
-    const fmt = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
+    const fmt = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); // #142: two decimals
     assert.deepEqual(covText(el), [`Equity coverage in 1 year: ${fmt(yearly / 12)} CAD/mo (${fmt(yearly)} CAD/yr)`, `* 4% yearly, covers ${((yearly / 12 / 1000) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."]);
     await click(q(el, "pf-future-toggle"));
-    assert.deepEqual(covText(el), ["Equity coverage: 333.33 CAD/mo (4,000 CAD/yr)", "* 4% yearly, covers 33.33% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
+    assert.deepEqual(covText(el), ["Equity coverage: 333.33 CAD/mo (4,000.00 CAD/yr)", "* 4% yearly, covers 33.33% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
   });
   it("C7/C2 (PF-91, PF-94): the 3-month column and the coverage % use Jul–Sep, not the partial current month", async () => {
     seed({
@@ -1458,14 +1458,14 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     });
     const el = await render(new Date(2026, 9, 13, 12));
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)");
-    assert.deepEqual(["pf-ov-now", "pf-ov-avg3"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["10,000", "2,000"]);
-    assert.deepEqual(covText(el), ["Equity coverage: 400 CAD/mo (4,800 CAD/yr)", "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
+    assert.deepEqual(["pf-ov-now", "pf-ov-avg3"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["10,000.00", "2,000.00"]);
+    assert.deepEqual(covText(el), ["Equity coverage: 400.00 CAD/mo (4,800.00 CAD/yr)", "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Jul–Sep).", "** Coverage rate is derived from Rate Used under Expenses section."]);
   });
   it("C7 (PF-95): the window rolls over on Nov 1 in the household timezone (Aug–Oct)", async () => {
     seed({ months: { "2026-08": { expenses: "1,000", income: "" }, "2026-09": { expenses: "2,000", income: "" }, "2026-10": { expenses: "3,000", income: "" } } });
     const el = await render(new Date("2026-11-01T04:30:00Z")); // 00:30 Nov 1 in Toronto
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Aug–Oct)");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "2,000");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "2,000.00");
   });
   it("#129 PF-98 / PF-99 / PF-100 / PF-101 / PF-102 / PF-105: three lines, the brief's example, notes in the smaller font", async () => {
     // Start 4,000 × Rate used 12.5% = 500/yr, 41.67/mo; Jul–Sep 8,333.33 each → 41.67 ÷ 8,333.33 = 0.50%.
@@ -1478,7 +1478,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const ps = [...cov(el).querySelectorAll("p")];
     assert.deepEqual(ps.map((p) => p.getAttribute("data-testid")), ["pf-coverage-amounts", "pf-coverage-rate-note", "pf-coverage-source"]);
     assert.deepEqual(covText(el), [
-      "Equity coverage: 41.67 CAD/mo (500 CAD/yr)",
+      "Equity coverage: 41.67 CAD/mo (500.00 CAD/yr)",
       "* 12.5% yearly, covers 0.50% of monthly expenses (3-month average, Jul–Sep).",
       "** Coverage rate is derived from Rate Used under Expenses section.",
     ]);
@@ -1507,7 +1507,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-96 (N1): Oct 31 20:30 ET (already Nov 1 in UTC): This month = October, window Jul–Sep", async () => {
     seed({ months: { "2026-10": { expenses: "5,000", income: "" }, "2026-11": { expenses: "9,999", income: "" } } });
     const el = await render(new Date("2026-10-31T20:30:00-04:00"));
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "5,000");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "5,000.00");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)");
     assert.equal((q(el, "pf-month") as HTMLSelectElement).value, "2026-10");
   });
@@ -1516,7 +1516,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     let el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (2 of 12 months)", "#141 Q-T1: Nov 2025 and Sep 2026 of Oct–Sep");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)");
-    assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["50,000", "2,000", "1,800"], "Oct 50,000 is This month only; 12-month = (1,200 + 2,400) / 2; 3-month: Jul, Aug take 1,800, Sep 2,400");
+    assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["50,000.00", "2,000.00", "1,800.00"], "Oct 50,000 is This month only; 12-month = (1,200 + 2,400) / 2; 3-month: Jul, Aug take 1,800, Sep 2,400");
     assert.equal(text(cov(el), "pf-coverage-rate-note"), "* 4% yearly, covers 20.00% of monthly expenses (3-month average, Jul–Sep).", "PF-126: Future-off coverage unchanged");
     await act(async () => root?.unmount());
     container?.remove();
@@ -1527,12 +1527,12 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     container?.remove();
     el = await render(new Date("2026-11-01T03:30:00Z"), true); // still Oct 31 in Toronto; read-only
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (2 of 12 months)");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "1,800");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "1,800.00");
   });
   it("#140 PF-125 / PF-127: Future on holds expenses at the 12-complete-month average; Future-on coverage divides by it", async () => {
     seed({ start: "120,000", withdrawal: "4", future: true, years: 1, months: { "2025-10": { expenses: "6,000", income: "9,000" }, "2026-09": { expenses: "2,000", income: "9,000" }, "2026-10": { expenses: "40,000", income: "9,000" } } });
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "4,000");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "4,000.00");
     const last = Number(q(el, "pf-chart").getAttribute("data-net-last"));
     const share = ((last * 0.04) / 12 / 4000) * 100;
     assert.equal(text(cov(el), "pf-coverage-rate-note"), `* 4% yearly, covers ${share.toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`);
@@ -1540,7 +1540,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("#140 PF-124: only the current month typed → 12-month and 3-month —; Future-on coverage not computed", async () => {
     seed({ start: "10,000", withdrawal: "4", future: true, years: 1, months: { "2026-10": { expenses: "1,000", income: "2,000" } } });
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
-    assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["1,000", "—", "—"]);
+    assert.deepEqual(["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c)), ["1,000.00", "—", "—"]);
     assert.deepEqual(covText(el), ["Equity coverage in 1 year: —", "** Coverage rate is derived from Rate Used under Expenses section."]);
   });
   // #141 Q-T1 (CFO-changed): 12 of 12 → dated label; fewer → "(N of 12 months)", the CFO's example format.
@@ -1556,7 +1556,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     seed({ start: "10,000", withdrawal: "4", future: true, years: 1, months: allMonths([2025, 10], 13) });
     let el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (Oct–Sep)");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "1,000");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "1,000.00");
     assert.equal(text(cov(el), "pf-coverage-rate-note").includes("(held at 12-month average)."), true, "the Future-on note names no range or count");
     await act(async () => root?.unmount());
     container?.remove();
@@ -1573,7 +1573,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const head = text(q(el, "pf-ov-table"), "pf-ov-avg-head");
     assert.equal(head, "12-month average (8 of 12 months)");
     assert.doesNotMatch(head, /\u2013/);
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "2,000");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "2,000.00");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)", "the 3-month label is unchanged");
   });
   it("#141 PF-132: 8 expense months + 1 income-only month → \"(8 of 12 months)\"; the expense average divides by 8, not 9", async () => {
@@ -1583,9 +1583,22 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     seed({ start: "10,000", withdrawal: "4", months: m });
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (8 of 12 months)");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "450", "(100 + … + 800) / 8; / 9 would be 400");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "450.00", "(100 + … + 800) / 8; / 9 would be 400");
     assert.equal(text(q(el, "pf-ov-income"), "pf-ov-avg"), "—", "#146 PF-143: the income-only month counts toward neither average; no expense month has income → —");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "700", "Jul–Sep 600 / 700 / 800");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "700.00", "Jul–Sep 600 / 700 / 800");
+  });
+  it("#142 PF-175 / PF-179 / PF-182: the QA #133 shape (8 expense months + 1 income-only) shows the 3-month Income as 4,296.30; every Overview money cell has two decimals", async () => {
+    const m: Record<string, { expenses: string; income: string }> = {};
+    ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].forEach((k, i) => (m[k] = { expenses: String((i + 1) * 100), income: "4,000" }));
+    m["2026-08"].income = "4,388.9";
+    m["2026-09"].income = "4,500";
+    m["2026-01"] = { expenses: "", income: "6,000" };
+    seed({ start: "10,000", withdrawal: "4", months: m });
+    const el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.equal(text(q(el, "pf-ov-income"), "pf-ov-avg3"), "4,296.30", "(4,000 + 4,388.9 + 4,500) / 3; was 4,296.3");
+    const cells = ["expenses", "income", "surplus"].flatMap((r) => ["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, `pf-ov-${r}`), c)));
+    for (const c of cells) assert.match(c, /^(-?\d{1,3}(,\d{3})*\.\d\d|—)$/, `two decimals or —: ${c}`);
+    assert.match(text(cov(el), "pf-coverage-amounts"), /^Equity coverage: \d[\d,]*\.\d\d CAD\/mo \(\d[\d,]*\.\d\d CAD\/yr\)$/, "PF-176: coverage in two decimals, code suffix kept");
   });
   it("#146 PF-143 / PF-144 / PF-145 / PF-147: 8 expense months + 1 income-only → income and expenses both over 8, surplus on the same 8, (8 of 12 months); Future uses it", async () => {
     const m: Record<string, { expenses: string; income: string }> = {};
@@ -1594,14 +1607,14 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     seed({ start: "0", future: true, years: 1, months: m });
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (8 of 12 months)");
-    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["450", "4,500", "4,050"], "income 36,000 / 8, not (36,000 + 50,000) / 9 = 9,555.56");
+    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["450.00", "4,500.00", "4,050.00"], "income 36,000 / 8, not (36,000 + 50,000) / 9 = 9,555.56");
     const net = Number(q(el, "pf-chart").getAttribute("data-net-last"));
     assert.ok(Number.isFinite(net) && net > 0);
   });
   it("#146 PF-148 (Q-U1): an expense month with no income counts 0 income; PF-146: income-only months only → all —", async () => {
     seed({ months: { "2026-08": { expenses: "100", income: "3,000" }, "2026-09": { expenses: "300", income: "" } } });
     let el = await render(new Date("2026-10-14T12:00:00-04:00"));
-    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["200", "1,500", "1,300"]);
+    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["200.00", "1,500.00", "1,300.00"]);
     await act(async () => root?.unmount());
     container?.remove();
     dom.window.localStorage.clear();
@@ -1619,7 +1632,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-88: read-only sees the coverage and the 3-month column; no new control", async () => {
     /* #140: Sep, a complete month, so the 12-month average has it */ seed({ start: "13,125", withdrawal: "4", months: { "2026-09": { expenses: "8,254.72", income: "" } } });
     const el = await render(NOW, true);
-    assert.equal(covText(el)[0], "Equity coverage: 43.75 CAD/mo (525 CAD/yr)");
+    assert.equal(covText(el)[0], "Equity coverage: 43.75 CAD/mo (525.00 CAD/yr)");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "8,254.72");
     assert.equal(cov(el).querySelectorAll("input, button, select").length, 0);
   });
@@ -1713,7 +1726,7 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     await type(q(phone, "pf-monthly"), "750");
     await saveNow();
     assert.equal(puts.n, 1);
-    assert.equal(now(el), "2,950");
+    assert.equal(now(el), "2,950.00");
     puts.n = 0;
     return el;
   }
@@ -1729,11 +1742,11 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     assert.equal(dom.window.document.activeElement, rent, "focus on the field in error");
     // #144 (Q-V3, PF-170): the page is live, so This month counts the bad Rent as 0 while its error shows (750, as the
     // Expenses totals already did); nothing is stored, and PF-133's own check is the reload below.
-    assert.equal(now(el), "750", "live, with the error shown");
+    assert.equal(now(el), "750.00", "live, with the error shown");
     assert.equal(shownUnsaved(el), "Unsaved changes");
     assert.ok(q(el, "pf-month-save"), "Save stays shown (Q-S1)");
     const again = await reopen();
-    assert.equal(now(again), "2,950");
+    assert.equal(now(again), "2,950.00");
     assert.equal((q(lines(again, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "2,200");
   });
   it("PF-134: a bad tax (-1, 101), wages, share, Equity to cover, rates, Starting net assets, growth each block Save", async () => {
@@ -1771,7 +1784,7 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     assert.equal(note(el), "");
     await saveNow();
     assert.equal(puts.n, 1);
-    assert.equal(now(el), "750", "0 counts as 0");
+    assert.equal(now(el), "750.00", "0 counts as 0");
     await type(q(people(el)[0], "pf-person-tax"), "0");
     await saveNow();
     assert.equal(puts.n, 2, "tax 0 is valid");
@@ -1885,7 +1898,7 @@ describe("#138 Rate used = the lower of the Withdrawal Rate and half of Portfoli
     dom.window.localStorage.setItem(EQUITY_KEY, JSON.stringify({ withdrawal: "5", roic: "8" }));
     dom.window.localStorage.setItem(OVERVIEW_KEY, JSON.stringify({ start: "120,000", growth: "", future: false, years: 1, months: {} }));
     const el = await render();
-    assert.match(q(el, "pf-coverage").textContent ?? "", /Equity coverage: 400 CAD\/mo \(4,800 CAD\/yr\)/);
+    assert.match(q(el, "pf-coverage").textContent ?? "", /Equity coverage: 400\.00 CAD\/mo \(4,800\.00 CAD\/yr\)/);
   });
 });
 
@@ -1958,7 +1971,7 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     await type(q(rent, "pf-monthly"), "2,200");
     await type(q(phone, "pf-monthly"), "750");
     await saveNow();
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950.00");
     assert.equal(unsaved(el), "");
     puts.n = 0;
     return el;
@@ -1975,9 +1988,9 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     const income = num(ovCell(el, "income", "pf-ov-now"));
     await type(rent(el), "2,300");
     assert.equal(puts.n, 0, "nothing stored");
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "3,050");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "3,050.00");
     assert.equal(num(ovCell(el, "surplus", "pf-ov-now")), income - 3050);
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "3,050", "the same figure as the Expenses total");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "3,050.00", "the same figure as the Expenses total");
   });
   it("PF-159: a past month in the windows moves the 3-month and 12-month averages, surplus and N-of-12 label live", async () => {
     const el = await october();
@@ -1985,8 +1998,8 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "—");
     await type(q(el, "pf-month"), "2026-09"); // a copy of October, unsaved
     assert.equal(unsaved(el), "Unsaved changes", "a copy is unsaved");
-    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "2,950");
-    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "2,950");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "2,950.00");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "2,950.00");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (1 of 12 months)");
     await type(q(el, "pf-start"), "10,000");
     const net0 = q(el, "pf-chart").getAttribute("data-net-last");
@@ -1994,11 +2007,11 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     await type(rent(el), "1,000");
     // The chart's net line: Sep and the months filled with the 12-month average spend 1,200 a month less, so it rises.
     assert.ok(Number(q(el, "pf-chart").getAttribute("data-net-last")) > Number(net0), "the chart's net line moved");
-    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "1,750");
-    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "1,750");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "1,750.00");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "1,750.00");
     const inc = num(ovCell(el, "income", "pf-ov-avg"));
     assert.equal(num(ovCell(el, "surplus", "pf-ov-avg")), inc - 1750);
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950", "October (This month) is its saved lines");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950.00", "October (This month) is its saved lines");
     assert.equal(puts.n, 0);
   });
   it("PF-160 / PF-161: rates and Starting net assets move Rate used, Equity to cover, the coverage and the projection live", async () => {
@@ -2007,14 +2020,14 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     await type(q(el, "pf-start"), "120,000");
     await type(q(el, "pf-withdrawal"), "4");
     assert.equal(text(el, "pf-rate-used"), "4%");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "885,000", "2,950 × 12 ÷ 4%");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "885,000.00", "2,950 × 12 ÷ 4%");
     // 120,000 × 4% = 4,800/yr = 400/mo; ÷ the live 3-month average 2,950 = 13.56%.
-    assert.equal(text(el, "pf-coverage-monthly"), "400 CAD/mo");
+    assert.equal(text(el, "pf-coverage-monthly"), "400.00 CAD/mo");
     assert.match(text(el, "pf-coverage-rate-note")!, /covers 13\.56% of monthly expenses/);
     await type(rent(el), "1,000"); // the live 3-month average drops to 1,750 → 22.86%
     assert.match(text(el, "pf-coverage-rate-note")!, /covers 22\.86% of monthly expenses/);
     await type(q(el, "pf-withdrawal"), "8");
-    assert.equal(text(el, "pf-coverage-monthly"), "800 CAD/mo");
+    assert.equal(text(el, "pf-coverage-monthly"), "800.00 CAD/mo");
     const net0 = q(el, "pf-chart").getAttribute("data-net-last");
     await type(q(el, "pf-start"), "130,000");
     assert.notEqual(q(el, "pf-chart").getAttribute("data-net-last"), net0);
@@ -2034,7 +2047,7 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(unsaved(el), "");
     assert.equal(text(el, "pf-save"), "");
     const again = await reopen();
-    assert.equal(ovCell(again, "expenses", "pf-ov-now"), "3,050");
+    assert.equal(ovCell(again, "expenses", "pf-ov-now"), "3,050.00");
     assert.equal(rent(again).value, "2,300");
     assert.equal(unsaved(again), "");
   });
@@ -2129,7 +2142,7 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     await type(rent(el), "-5");
     assert.equal(shown(), "true");
     assert.equal(note(), at, "the same element: nothing inserted");
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "750", "live numbers kept");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "750.00", "live numbers kept");
     assert.ok(note().compareDocumentPosition(q(el, "pf-ov-table")) & 4, "above the Overview table");
     await type(rent(el), "2,200");
     assert.equal(shown(), "false", "fixed → cleared");
@@ -2165,21 +2178,21 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(unsaved(ro), "");
     assert.equal(ro.querySelector('[data-testid="pf-unsaved"]'), null, "PF-171: read-only has no indicator element");
     assert.equal(ro.querySelector('[data-testid="pf-month-save"]'), null);
-    assert.equal(ovCell(ro, "expenses", "pf-ov-now"), "2,950");
+    assert.equal(ovCell(ro, "expenses", "pf-ov-now"), "2,950.00");
     assert.equal(puts.n, 0);
   });
   it("PF-170: a field in error counts as #143 has it, live: Rent -5 counts 0; ROIC -8 → Rate used and Equity to cover —", async () => {
     const el = await october();
     await type(rent(el), "-5");
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "750");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "750");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "750.00");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "750.00");
     await type(rent(el), "2,200");
     await type(q(el, "pf-withdrawal"), "4");
-    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "885,000");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "885,000.00");
     await type(q(el, "pf-roic"), "-8");
     assert.equal(text(el, "pf-rate-used"), "—");
     assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "—");
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950", "the amounts do not depend on the rate");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950.00", "the amounts do not depend on the rate");
   });
 });
 
@@ -2233,7 +2246,7 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     assert.equal(statuses.at(-1), 200, "a real 2xx save");
     assert.equal(shownUnsaved(el), "");
     await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,500");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500", "live");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500.00", "live");
     session = null; // signed out elsewhere: the API now refuses the write
     await saveNow();
     await act(async () => new Promise((r) => setTimeout(r, 50)));
@@ -2242,7 +2255,7 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     assert.equal(shownUnsaved(el), "Unsaved changes");
     assert.ok(q(el, "pf-month-save"), "Save still shown");
     assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,500", "the edit stays");
-    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500", "the live figure stays");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500.00", "the live figure stays");
     session = "alice";
     await saveNow();
     await act(async () => new Promise((r) => setTimeout(r, 50)));
@@ -2253,6 +2266,6 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     await act(async () => root!.unmount());
     container!.remove();
     const again = await open();
-    assert.equal(text(q(again, "pf-ov-expenses"), "pf-ov-now"), "1,500");
+    assert.equal(text(q(again, "pf-ov-expenses"), "pf-ov-now"), "1,500.00");
   });
 });

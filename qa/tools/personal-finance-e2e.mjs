@@ -215,8 +215,8 @@ try {
       const rateLabel = await bd.locator(".pf-foreign .pf-label").allTextContents();
       await bd.getByTestId("pf-person-rate").fill("3.70");
       const f1 = await figures(page);
-      check(`${tag} PFE-04 income: Me Net 92,400, Spouse Net 63,000; table Me · Wages 84,000, Spouse · Wages 48,000, Spouse · Bonus 2,400; no uncounted / 0 row (PF-42)`, JSON.stringify(f1.people.slice(0, 2)) === JSON.stringify([["Me", "92,400", null], ["Spouse", "63,000", null]]) && JSON.stringify(f1.rows.slice(0, 3).map((r) => [r[0], r[3]])) === JSON.stringify([["Me · Wages", "84,000"], ["Spouse · Wages", "48,000"], ["Spouse · Bonus", "2,400"]]) && !f1.rows.some((r) => r[3] === "0"), { people: f1.people, rows: f1.rows });
-      check(`${tag} PFE-05 Brazilian Dividends 37,000 BRL at 3.70 (FX rate (BRL per 1 CAD)) → Net 37,000, Converted 10,000; its line 384.62 / 833.33 / 10,000; Net income 5,553.85 / 12,033.33 / 144,400`, JSON.stringify(f1.people[2]) === JSON.stringify(["Brazilian Dividends", "37,000", "10,000"]) && JSON.stringify(rateLabel) === JSON.stringify(["Currency", "FX rate (BRL per 1 CAD)", "Converted (yearly)"]) && JSON.stringify(f1.rows[3]) === JSON.stringify(["Brazilian Dividends · Wages", "384.62", "833.33", "10,000"]) && f1.rows.length === 5 && JSON.stringify(f1.rows.at(-1)) === JSON.stringify(["Net income", "5,553.85", "12,033.33", "144,400"]) && f1.household === "CAD", { person: f1.people[2], rateLabel, rows: f1.rows.slice(3) });
+      check(`${tag} PFE-04 income: Me Net 92,400, Spouse Net 63,000; table Me · Wages 84,000, Spouse · Wages 48,000, Spouse · Bonus 2,400; no uncounted / 0 row (PF-42)`, JSON.stringify(f1.people.slice(0, 2)) === JSON.stringify([["Me", "92,400.00", null], ["Spouse", "63,000.00", null]]) && JSON.stringify(f1.rows.slice(0, 3).map((r) => [r[0], r[3]])) === JSON.stringify([["Me · Wages", "84,000.00"], ["Spouse · Wages", "48,000.00"], ["Spouse · Bonus", "2,400.00"]]) && !f1.rows.some((r) => r[3] === "0.00"), { people: f1.people, rows: f1.rows });
+      check(`${tag} PFE-05 Brazilian Dividends 37,000 BRL at 3.70 (FX rate (BRL per 1 CAD)) → Net 37,000, Converted 10,000; its line 384.62 / 833.33 / 10,000; Net income 5,553.85 / 12,033.33 / 144,400`, JSON.stringify(f1.people[2]) === JSON.stringify(["Brazilian Dividends", "37,000.00", "10,000.00"]) && JSON.stringify(rateLabel) === JSON.stringify(["Currency", "FX rate (BRL per 1 CAD)", "Converted (yearly)"]) && JSON.stringify(f1.rows[3]) === JSON.stringify(["Brazilian Dividends · Wages", "384.62", "833.33", "10,000.00"]) && f1.rows.length === 5 && JSON.stringify(f1.rows.at(-1)) === JSON.stringify(["Net income", "5,553.85", "12,033.33", "144,400.00"]) && f1.household === "CAD", { person: f1.people[2], rateLabel, rows: f1.rows.slice(3) });
 
       // PFE-06 expenses.
       await page.getByTestId("pf-add-fixed").click();
@@ -240,8 +240,8 @@ try {
       await gifts.getByTestId("pf-new-account-add").click();
       const f2 = await figures(page);
       const want6 = {
-        lines: [["Rent", "1,000", "12,000", "CAD", "—", "66.7%", "8.3%", "—", "Chequing", ""], ["Condo", "2,000", "24,000", "BRL", "5", "26.7%", "3.3%", "—", "", ""], ["Gifts", "100", "1,200", "CAD", "—", "6.7%", "0.8%", "—", "Visa", ""]],
-        totals: { fixed: ["93.3%", "11.6%", "1,400", "16,800", "—"], variable: ["6.7%", "0.8%", "100", "1,200", "—"], all: ["100.0%", "12.5%", "1,500", "18,000", "—"] },
+        lines: [["Rent", "1,000", "12,000.00", "CAD", "—", "66.7%", "8.3%", "—", "Chequing", ""], ["Condo", "2,000", "24,000.00", "BRL", "5", "26.7%", "3.3%", "—", "", ""], ["Gifts", "100.00", "1,200", "CAD", "—", "6.7%", "0.8%", "—", "Visa", ""]],
+        totals: { fixed: ["93.3%", "11.6%", "1,400.00", "16,800.00", "—"], variable: ["6.7%", "0.8%", "100.00", "1,200.00", "—"], all: ["100.0%", "12.5%", "1,500.00", "18,000.00", "—"] },
       };
       check(`${tag} PFE-06 expenses: Rent 1,000 (Chequing), Condo 2,000 BRL ÷ 5 = 400, Gifts 1,200 a year (Visa); Fixed 1,400 / 16,800, Variable 100 / 1,200, Total 1,500 / 18,000; % of expenses / income as the spec; Condo's FX field named \`FX rate (BRL per 1 CAD), Fixed 2\``, JSON.stringify({ lines: f2.lines, totals: f2.totals }) === JSON.stringify(want6) && fxName === "FX rate (BRL per 1 CAD), Fixed 2", { lines: f2.lines, totals: f2.totals, fxName });
 
@@ -253,7 +253,7 @@ try {
       await condo.getByTestId("pf-new-category-input").fill("home");
       await condo.getByTestId("pf-new-category-add").click();
       const fc = await figures(page);
-      check(`${tag} PF-44 / PF-46 categories: Rent and Condo in Home (reused in any case); By category Home 93.3% / 1,400 / 16,800, No category 6.7% / 100 / 1,200; master totals unchanged`, JSON.stringify(fc.lines.map((l) => l[9])) === '["Home","Home",""]' && JSON.stringify(fc.cats) === JSON.stringify([["Home", "93.3%", "1,400", "16,800"], ["No category", "6.7%", "100", "1,200"]]) && JSON.stringify(fc.totals) === JSON.stringify(f2.totals), { cats: fc.cats, lines: fc.lines.map((l) => l[9]), totals: fc.totals });
+      check(`${tag} PF-44 / PF-46 categories: Rent and Condo in Home (reused in any case); By category Home 93.3% / 1,400 / 16,800, No category 6.7% / 100 / 1,200; master totals unchanged`, JSON.stringify(fc.lines.map((l) => l[9])) === '["Home","Home",""]' && JSON.stringify(fc.cats) === JSON.stringify([["Home", "93.3%", "1,400.00", "16,800.00"], ["No category", "6.7%", "100.00", "1,200.00"]]) && JSON.stringify(fc.totals) === JSON.stringify(f2.totals), { cats: fc.cats, lines: fc.lines.map((l) => l[9]), totals: fc.totals });
       await page.getByTestId("pf-filter").selectOption("Home");
       const shown = [await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count(), await page.locator("[data-testid=pf-group-variable] [data-testid=pf-line]").count()];
       const tf = { fixed: await totals(page, "fixed"), variable: await totals(page, "variable"), all: await totals(page, "all") };
@@ -269,7 +269,7 @@ try {
         const head = await page.getByTestId("pf-summary-block").evaluate((b) => ({ num: b.querySelector(".pf-label")?.textContent, title: b.querySelector("h2")?.textContent, prev: b.previousElementSibling?.getAttribute("data-testid"), next: b.nextElementSibling?.querySelector(".pf-label")?.textContent, inBody: !!document.querySelector("[data-testid=pf-body-expenses] [data-testid=pf-categories]"), inSum: !!b.querySelector("[data-testid=pf-categories]") && !!b.querySelector("[data-testid=pf-accounts]") }));
         check(`${tag} PF-67 / PF-70 Expenses summary: numeral 03, after 03 Expenses, before 04; By account and By category inside it (not in the Expenses body)`, head.num === "03" && head.title === "Expenses summary" && head.prev === "pf-expenses-block" && head.next === "04" && !head.inBody && head.inSum, head);
         const acc0 = await sumRows("acct");
-        const wantAcc = [["Chequing", "66.7%", "1,000", "12,000", null], ["Visa", "6.7%", "100", "1,200", null], ["No account", "26.7%", "400", "4,800", null]];
+        const wantAcc = [["Chequing", "66.7%", "1,000.00", "12,000.00", null], ["Visa", "6.7%", "100.00", "1,200.00", null], ["No account", "26.7%", "400.00", "4,800.00", null]];
         check(`${tag} PF-69 By account: Chequing 66.7% / 1,000 / 12,000, Visa 6.7% / 100 / 1,200, No account 26.7% / 400 / 4,800 (sum = Total 1,500)`, JSON.stringify(acc0) === JSON.stringify(wantAcc), acc0);
         const opts = await page.getByTestId("pf-acct-filter").evaluate((s) => [...s.options].map((o) => o.textContent));
         await page.getByTestId("pf-acct-filter").selectOption("Visa");
@@ -305,7 +305,7 @@ try {
       const f3 = await figures(page);
       await rent.getByTestId("pf-equity").fill("250,000");
       const over = { fixed: (await totals(page, "fixed"))[4], all: (await totals(page, "all"))[4] };
-      check(`${tag} PFE-07 ROIC 8 → Rate used 4%: Rent 300,000, Condo 120,000, Gifts 30,000 (totals 420,000 / 30,000 / 450,000); Rent override 250,000 → Fixed 370,000, Total 400,000`, f3.used === "4%" && JSON.stringify(f3.lines.map((l) => l[7])) === '["300,000","120,000","30,000"]' && JSON.stringify([f3.totals.fixed[4], f3.totals.variable[4], f3.totals.all[4]]) === '["420,000","30,000","450,000"]' && JSON.stringify(over) === '{"fixed":"370,000","all":"400,000"}', { used: f3.used, equity: f3.lines.map((l) => l[7]), totals: [f3.totals.fixed[4], f3.totals.variable[4], f3.totals.all[4]], over });
+      check(`${tag} PFE-07 ROIC 8 → Rate used 4%: Rent 300,000, Condo 120,000, Gifts 30,000 (totals 420,000 / 30,000 / 450,000); Rent override 250,000 → Fixed 370,000, Total 400,000`, f3.used === "4%" && JSON.stringify(f3.lines.map((l) => l[7])) === '["300,000.00","120,000.00","30,000.00"]' && JSON.stringify([f3.totals.fixed[4], f3.totals.variable[4], f3.totals.all[4]]) === '["420,000.00","30,000.00","450,000.00"]' && JSON.stringify(over) === '{"fixed":"370,000.00","all":"400,000.00"}', { used: f3.used, equity: f3.lines.map((l) => l[7]), totals: [f3.totals.fixed[4], f3.totals.variable[4], f3.totals.all[4]], over });
 
       // PFE-08 Overview and the month control (#112): Save October; June starts as its copy; June saved with one
       // 4,000 expense and one person netting 9,000; back on October.
@@ -327,7 +327,7 @@ try {
         await amt.fill(was);
         // #144 (Q-V3 / Q-V7, PF-164 / PF-170): This month is live, so the bad Rent counts 0 (500) while its error shows; not
         // stored (PF-133's reload check is the unit/DOM one); `Not saved.` and `Unsaved changes` stay.
-        check(`${tag} PF-133 (#143) -5 in Rent: Save sends no PUT, shows "Fix the fields marked in red before saving.", focus on Rent; #144 This month live 500 (Rent counts 0), \`Not saved.\`, \`Unsaved changes\` and (Q-V3 c) \`Figures leave out fields marked in red.\``, JSON.stringify(blocked) === JSON.stringify({ note: "Fix the fields marked in red before saving.", focus: true, puts: 0, now: "500", save: "Not saved.", unsaved: "Unsaved changes", figNote: "Figures leave out fields marked in red." }), blocked);
+        check(`${tag} PF-133 (#143) -5 in Rent: Save sends no PUT, shows "Fix the fields marked in red before saving.", focus on Rent; #144 This month live 500 (Rent counts 0), \`Not saved.\`, \`Unsaved changes\` and (Q-V3 c) \`Figures leave out fields marked in red.\``, JSON.stringify(blocked) === JSON.stringify({ note: "Fix the fields marked in red before saving.", focus: true, puts: 0, now: "500.00", save: "Not saved.", unsaved: "Unsaved changes", figNote: "Figures leave out fields marked in red." }), blocked);
       }
       await page.getByTestId("pf-month").selectOption("2026-06");
       const note = (await txt(page.getByTestId("pf-month-note")));
@@ -343,11 +343,11 @@ try {
       await page.getByTestId("pf-start").fill("10,000");
       const f4 = await figures(page);
       const ch = await page.getByTestId("pf-chart").evaluate((f) => ({ lines: f.querySelectorAll(".recharts-line-curve").length, legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()) }));
-      check(`${tag} PFE-08 (#112) #144 04 is live: the same figures before the first Save as after it (was "— before the first Save"); this month = October saved (1,500 / 12,033.33 / 10,533.33); June copied ("Copied from October 2026 — edit and save."), saved as 4,000 / 9,000 (stays on June, note gone) → #140 12-month average (12 complete months: June alone) 4,000 / 9,000 / 5,000, — while only October is saved; start 10,000 → 12 months, three lines, net assets 75,533.33`, JSON.stringify(unsaved) === JSON.stringify(ov0) && JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500", "—"], income: ["12,033.33", "—"], surplus: ["10,533.33", "—"] }) && note === "Copied from October 2026 — edit and save." && JSON.stringify(juneSaved) === JSON.stringify({ month: "2026-06", save: 0, note: "" }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500", "4,000"], income: ["12,033.33", "9,000"], surplus: ["10,533.33", "5,000"] }) && f4.chart.months === "12" && f4.chart.net === "75533.33" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { unsaved, ov0, note, juneSaved, ov: f4.ov, chart: f4.chart, ch });
+      check(`${tag} PFE-08 (#112) #144 04 is live: the same figures before the first Save as after it (was "— before the first Save"); this month = October saved (1,500 / 12,033.33 / 10,533.33); June copied ("Copied from October 2026 — edit and save."), saved as 4,000 / 9,000 (stays on June, note gone) → #140 12-month average (12 complete months: June alone) 4,000 / 9,000 / 5,000, — while only October is saved; start 10,000 → 12 months, three lines, net assets 75,533.33`, JSON.stringify(unsaved) === JSON.stringify(ov0) && JSON.stringify(ov0) === JSON.stringify({ expenses: ["1,500.00", "—"], income: ["12,033.33", "—"], surplus: ["10,533.33", "—"] }) && note === "Copied from October 2026 — edit and save." && JSON.stringify(juneSaved) === JSON.stringify({ month: "2026-06", save: 0, note: "" }) && JSON.stringify(f4.ov) === JSON.stringify({ expenses: ["1,500.00", "4,000.00"], income: ["12,033.33", "9,000.00"], surplus: ["10,533.33", "5,000.00"] }) && f4.chart.months === "12" && f4.chart.net === "75533.33" && ch.lines === 3 && JSON.stringify(ch.legend) === '["Expenses","Income","Net assets"]', { unsaved, ov0, note, juneSaved, ov: f4.ov, chart: f4.chart, ch });
 
       // #126 PF-89 + C7/C2 (approved 2026-10-13, PF-91..PF-95): Equity coverage (start 10,000 × rate used, ÷ the
       // 3-month average of complete months Jul–Sep, all empty → the 12-month average 4,000 (#140)) and that 3-month average.
-      const NUM = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+      const NUM = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); // #142: two decimals (PF-176)
       const rateNow = Number(((await txt(page.getByTestId("pf-rate-used"))) ?? "").replace("%", ""));
       const cov = async () => page.getByTestId("pf-coverage").evaluate((c) => [...c.querySelectorAll("p")].map((p) => p.textContent.trim()));
       const hh = await page.getByTestId("pf-household").inputValue();
@@ -363,7 +363,7 @@ try {
       const scroll = await page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth);
       check(`${tag} PF-104 (#129) coverage lines 2–3 in a smaller font than line 1 (${covFont.join(" / ")} px)`, covFont.length === 3 && covFont[1] < covFont[0] && covFont[2] < covFont[0], { covFont });
       check(`${tag} PF-89 (#126) Equity coverage directly under the table: start 10,000 × rate used ${rateNow}% → ${wantCov.join(" / ")}`, JSON.stringify(cv) === JSON.stringify(wantCov) && order === "pf-coverage", { cv, wantCov, order });
-      check(`${tag} PF-89 (#126) / PF-120 (#132) / PF-128 (#140) This month · 3-month average · ${avg12Label(1)}; C7: ${avg3Label()} = 4,000 / 9,000 / 5,000 (Jul, Aug, Sep empty take the 12-complete-month average, #140 PF-125); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label(1)]) && JSON.stringify(avg3) === JSON.stringify(["4,000", "9,000", "5,000"]) && scroll <= 0, { heads, avg3, scroll });
+      check(`${tag} PF-89 (#126) / PF-120 (#132) / PF-128 (#140) This month · 3-month average · ${avg12Label(1)}; C7: ${avg3Label()} = 4,000 / 9,000 / 5,000 (Jul, Aug, Sep empty take the 12-complete-month average, #140 PF-125); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label(1)]) && JSON.stringify(avg3) === JSON.stringify(["4,000.00", "9,000.00", "5,000.00"]) && scroll <= 0, { heads, avg3, scroll });
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 

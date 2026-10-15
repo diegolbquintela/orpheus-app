@@ -8,7 +8,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AMOUNT_ERROR, formatAmount, NOT_COMPUTED, parseAmount } from "@/lib/finance/expenses";
+import { AMOUNT_ERROR, NOT_COMPUTED, parseAmount } from "@/lib/finance/expenses";
+import { formatMoney } from "@/lib/finance/money";
 import { formatRate } from "@/lib/finance/equity";
 import {
   average3Label,
@@ -46,7 +47,7 @@ import {
 import { Lock, SectionHead } from "./pf-cells";
 
 const orDash = (value: number | null): string =>
-  value === null ? NOT_COMPUTED : formatAmount(value);
+  value === null ? NOT_COMPUTED : formatMoney(value);
 const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const SERIES = [
   { key: "expenses", name: EXPENSES, color: "var(--color-alert)", axis: "flow" },
@@ -224,8 +225,8 @@ function CoverageLine({
         {coverageLabel(years)}{" "}
         {coverage.status === "ok" ? (
           <>
-            <span data-testid="pf-coverage-monthly">{`${formatAmount(coverage.monthly)}${unit}/mo`}</span>{" "}
-            <span data-testid="pf-coverage-yearly">{`(${formatAmount(coverage.yearly)}${unit}/yr)`}</span>
+            <span data-testid="pf-coverage-monthly">{`${formatMoney(coverage.monthly)}${unit}/mo`}</span>{" "}
+            <span data-testid="pf-coverage-yearly">{`(${formatMoney(coverage.yearly)}${unit}/yr)`}</span>
           </>
         ) : (
           <span data-testid="pf-coverage-monthly">{NOT_COMPUTED}</span>

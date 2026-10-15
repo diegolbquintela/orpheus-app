@@ -1,10 +1,10 @@
 import { deleteQuestion } from "@/lib/finance/expenses";
+import { formatMoney } from "@/lib/finance/money";
 import { Minus } from "lucide-react";
 import { useId } from "react";
 import { type CurrencyCode, CURRENCIES, RATE_ERROR } from "@/lib/finance/currency";
 import {
   AMOUNT_ERROR,
-  formatAmount,
   NAME_MAX,
   NOT_COMPUTED,
   parseAmount,
@@ -177,7 +177,7 @@ function TableRow({
       ).map(([area, column, value]) => (
         <Cell key={area} label={column} area={area}>
           <span className="pf-value" data-testid={`pf-income-${area}`}>
-            {value === null ? NOT_COMPUTED : formatAmount(value)}
+            {value === null ? NOT_COMPUTED : formatMoney(value)}
           </span>
         </Cell>
       ))}
@@ -269,7 +269,7 @@ function PersonRow({
       {field("tax", "Average tax (%)", "tax")}
       <Cell label="Net (yearly)" area="net">
         <span className="pf-value" data-testid="pf-person-net">
-          {formatAmount(personNet(person))}
+          {formatMoney(personNet(person))}
         </span>
       </Cell>
       {box("countWages", "Count wages", "cw")}
@@ -343,7 +343,7 @@ function PersonRow({
           <div className="pf-cell pf-foreign-cell">
             <span className="pf-label">{CONVERTED_LABEL}</span>
             <span className="pf-value" data-testid="pf-person-converted">
-              {converted === null ? NOT_COMPUTED : formatAmount(converted)}
+              {converted === null ? NOT_COMPUTED : formatMoney(converted)}
             </span>
           </div>
         </div>

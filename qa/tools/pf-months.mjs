@@ -80,7 +80,7 @@ try {
       check(`${tag} PF-48 Month: 12 choices October 2026 … November 2025, October shown; no Save, no note; 05 Update gone (04 Overview last)`, opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === JSON.stringify({ label: "Month", save: 0, note: "", update: 0, updateText: 0, last: "Overview" }), { opts, first });
       const rec0 = await stored();
       const t0 = await ov();
-      check(`${tag} PF-55 the old lines became October (stored once, no change shown); June's old total still counts (#140 12-month average = June alone 4,000 / 9,000)`, JSON.stringify(Object.keys(JSON.parse(rec0[MONTHS_KEY] ?? "{}"))) === '["2026-10"]' && JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }), { months: rec0[MONTHS_KEY] ?? null, t0 });
+      check(`${tag} PF-55 the old lines became October (stored once, no change shown); June's old total still counts (#140 12-month average = June alone 4,000 / 9,000)`, JSON.stringify(Object.keys(JSON.parse(rec0[MONTHS_KEY] ?? "{}"))) === '["2026-10"]' && JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }), { months: rec0[MONTHS_KEY] ?? null, t0 });
       const cls = await page.evaluate(() => window.__shifts);
 
       // PF-49 / PF-50: a change shows Save; no PUT until Save.
@@ -93,7 +93,7 @@ try {
       const undone = { save: await save.count(), unsaved: await unsavedText(), ov: await ov() };
       // #144 (Q-V1, PF-159 / PF-162 / PF-167): 04 is live (This month 1,800, surplus 9,400 before Save; was "04 unchanged");
       // `Unsaved changes` beside Save; typing back to 1,750 hides both and 04 is the saved figures again.
-      const live = { expenses: ["1,800", t0.expenses[1]], income: t0.income, surplus: ["9,400", t0.surplus[1]] };
+      const live = { expenses: ["1,800.00", t0.expenses[1]], income: t0.income, surplus: ["9,400.00", t0.surplus[1]] };
       check(`${tag} PF-49 / PF-50 a change shows Save and \`Unsaved changes\`, nothing is sent (no PUT); #144 04 is live (This month 1,800, surplus 9,400); undoing it hides Save and the indicator, 04 back to saved`, dirty.save && dirty.puts === 0 && JSON.stringify(dirty.ov) === JSON.stringify(live) && dirty.unsaved === "Unsaved changes" && undone.save === 0 && undone.unsaved === "" && JSON.stringify(undone.ov) === JSON.stringify(t0), { dirty, undone, live });
 
       // PF-54 leaving with unsaved changes asks (beforeunload).
@@ -122,7 +122,7 @@ try {
       const rec1 = await stored();
       const months1 = JSON.parse(rec1[MONTHS_KEY] ?? "{}");
       const legacy = JSON.parse(rec1[OVERVIEW_KEY] ?? "{}").months;
-      check(`${tag} PF-52 / PF-53 Save: one PUT; stays on June; note gone; Save hidden; #140 average 4,000 / 9,000 / 5,000 from June's lines; June's old totals dropped; October unchanged`, JSON.stringify({ month: after.month, note: after.note, save: after.save, puts: after.puts }) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }) && JSON.stringify(after.ov) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && months1["2026-06"]?.fixed?.[0]?.amount === "4,000" && months1["2026-10"]?.fixed?.[0]?.amount === "1,750" && JSON.stringify(legacy) === "{}", { after, months: Object.keys(months1), legacy });
+      check(`${tag} PF-52 / PF-53 Save: one PUT; stays on June; note gone; Save hidden; #140 average 4,000 / 9,000 / 5,000 from June's lines; June's old totals dropped; October unchanged`, JSON.stringify({ month: after.month, note: after.note, save: after.save, puts: after.puts }) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }) && JSON.stringify(after.ov) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && months1["2026-06"]?.fixed?.[0]?.amount === "4,000" && months1["2026-10"]?.fixed?.[0]?.amount === "1,750" && JSON.stringify(legacy) === "{}", { after, months: Object.keys(months1), legacy });
 
       // PF-54 switching with unsaved changes: Cancel keeps; OK drops.
       await page.getByTestId("pf-growth").fill("5");
