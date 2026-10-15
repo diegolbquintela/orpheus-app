@@ -1567,8 +1567,31 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (8 of 12 months)");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "450", "(100 + … + 800) / 8; / 9 would be 400");
-    assert.equal(text(q(el, "pf-ov-income"), "pf-ov-avg"), "6,000", "income average unchanged: its own months");
+    assert.equal(text(q(el, "pf-ov-income"), "pf-ov-avg"), "—", "#146 PF-143: the income-only month counts toward neither average; no expense month has income → —");
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg3"), "700", "Jul–Sep 600 / 700 / 800");
+  });
+  it("#146 PF-143 / PF-144 / PF-145 / PF-147: 8 expense months + 1 income-only → income and expenses both over 8, surplus on the same 8, (8 of 12 months); Future uses it", async () => {
+    const m: Record<string, { expenses: string; income: string }> = {};
+    ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].forEach((k, i) => (m[k] = { expenses: String((i + 1) * 100), income: String((i + 1) * 1000) }));
+    m["2026-01"] = { expenses: "", income: "50,000" };
+    seed({ start: "0", future: true, years: 1, months: m });
+    const el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (8 of 12 months)");
+    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["450", "4,500", "4,050"], "income 36,000 / 8, not (36,000 + 50,000) / 9 = 9,555.56");
+    const net = Number(q(el, "pf-chart").getAttribute("data-net-last"));
+    assert.ok(Number.isFinite(net) && net > 0);
+  });
+  it("#146 PF-148 (Q-U1): an expense month with no income counts 0 income; PF-146: income-only months only → all —", async () => {
+    seed({ months: { "2026-08": { expenses: "100", income: "3,000" }, "2026-09": { expenses: "300", income: "" } } });
+    let el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["200", "1,500", "1,300"]);
+    await act(async () => root?.unmount());
+    container?.remove();
+    dom.window.localStorage.clear();
+    seed({ months: { "2026-01": { expenses: "", income: "9,000" } } });
+    el = await render(new Date("2026-10-14T12:00:00-04:00"));
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (0 of 12 months)");
+    assert.deepEqual(["expenses", "income", "surplus"].map((r) => text(q(el, `pf-ov-${r}`), "pf-ov-avg")), ["—", "—", "—"]);
   });
   it("#141 PF-131: 0 complete months with data → \"12-month average (0 of 12 months)\" and — (Q-T3)", async () => {
     seed({ start: "10,000", withdrawal: "4", months: { "2026-10": { expenses: "1,000", income: "2,000" } } });

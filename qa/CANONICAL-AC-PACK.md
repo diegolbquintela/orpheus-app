@@ -715,3 +715,4 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | PF-147 | Future on: future months use the same-months income and expense averages, so net assets grow by that surplus each month. |
 | PF-148 | An expense month with no income figure counts as 0 income in the average (Q-U1). The C8 fill (a chart month or 3-month window month with no income figure) uses the new income average. A month's own income stays its own. |
 | PF-149 | This month, the 3-month window (C7) and Future-off coverage are unchanged. |
+| PF-148 addendum | If none of the expense months has an income figure, the 12-month income and surplus show `—`, not 0. |

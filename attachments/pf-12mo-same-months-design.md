@@ -12,3 +12,4 @@ projection, Future-on coverage) reads `average`, so it follows without other cha
 - **Q-U4 The C8 fill (chart past months, the 3-month window):** a month with no income figure is filled with the new 12-month income average. A month's own income is still shown for that month: the rule changes the average, not the month's data. The 3-month window rule (C7) is unchanged.
 - **Q-U5 Coverage:** Future-on follows through the projected net assets; Future-off is unchanged (it uses no income average).
 - **Q-U6 No expense month but income-only months exist:** all three 12-month averages show `—`, and the label reads `(0 of 12 months)`.
+- Q-U1 refinement (built): if none of the used months has an income figure, the income average is `—` (null), not 0. The 0 rule applies once at least one used month has income.

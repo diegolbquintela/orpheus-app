@@ -975,3 +975,4 @@ Before this change, the 12-month income average used every complete month that h
   - The C8 fill uses it, so a past chart month or a 3-month window month with no income figure takes the new 12-month income average. A month's own typed or saved income is still shown and counted for that month (PF-148).
   - Future-on coverage follows through the projected net assets. Future-off coverage (the 3-month expense average and the start) is unchanged.
   - This month and the 3-month average's own window rule (C7) are unchanged (PF-149).
+- 29.7 (Q-U1 refinement) If none of the months used has an income figure, the 12-month income and surplus averages are `—`, not 0. This keeps a page with only expenses typed so far from showing a 0 income average and a negative surplus. As soon as one of those months has income, the others count as 0.
