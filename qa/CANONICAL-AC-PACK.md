@@ -732,3 +732,19 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | ID | Acceptance criterion (#138 addendum: the CFO accepted Q-R1..Q-R5 via EL, with a condition on Q-R3) |
 |---|---|
 | PF-158 | When Rate used is `—` because a rate field is invalid, that field's own error says what to fix. Portfolio ROIC `-8` or `abc` → `Enter a number, 0 or more.` Withdrawal rate `-1`, `101` or `abc` → `Enter a percent from 0 to 100.` The field has `aria-invalid="true"`, Rate used is `—`, and there's no source line. These messages already existed before #138 (4e3a7f1 renders them); they're pinned by a DOM test. |
+
+### #144 Every figure updates live; an unsaved-changes indicator (spec section 31)
+| ID | Acceptance criterion |
+|---|---|
+| PF-159 | Editing an expense or income line on the shown month changes This month (expenses, income, surplus) and the chart's point for that month while typing, before Save. On a past month inside the windows, the 3-month and 12-month averages, surpluses and the `N of 12` label change too. |
+| PF-160 | Changing a rate or the household currency changes, while typing, Rate used, Equity to cover, the Expenses totals, every month's figures (so the averages too) and the coverage. |
+| PF-161 | Starting net assets, growth, Future and years change the chart, projection and coverage while typing (as before), and the coverage uses the live expense averages. |
+| PF-162 | The first edit shows `Unsaved changes` (`pf-unsaved`) beside Save. It's dim and passes AA contrast. |
+| PF-163 | A successful Save (2xx) clears `Unsaved changes` and `Not saved.`. A reload shows the saved values and the same figures. |
+| PF-164 | Save pressed with a field in error: no PUT, `Fix the fields marked in red before saving.`, `Not saved.`, and `Unsaved changes` stays. |
+| PF-165 | A section toggle with a field in error: no PUT, `Not saved.`, and `Unsaved changes` stays. |
+| PF-166 | A save the server refuses (tested through the real account client and the real `/api/personal-finance` handler): `Not saved.`, `Unsaved changes` stays, and the edits and live figures stay. |
+| PF-167 | Typing back to the saved values hides `Unsaved changes` and Save. Discarding on a month switch (after the confirm) also hides them. |
+| PF-168 | The browser's leave-page prompt stays registered while unsaved, including after a blocked or refused save, and goes after a successful save. |
+| PF-169 | Read-only: no `Unsaved changes`, no Save, and the figures equal the saved record's. |
+| PF-170 | Live figures with a field in error: Rent `-5` counts 0 in This month and the Expenses totals while its error shows. ROIC `-8` makes Rate used and Equity to cover `—`. |
