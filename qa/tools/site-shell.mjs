@@ -33,6 +33,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+import { fontsSettled } from "./fonts.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -43,6 +44,13 @@ const check = (name, ok, detail) => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
 const info = (name, detail) => console.log(`INFO ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
+// #135: wait for the site font (document.fonts.ready; a reload if font-display: optional left the fallback) before
+// a font-dependent measurement. Logged as INFO when it took more than one load; the assertions are unchanged.
+async function fontWait(page, tag, opts) {
+  const f = await fontsSettled(page, opts);
+  if (f.loads > 1 || !f.ok) info(`${tag} #135 font wait: ${f.ok ? "Schibsted Grotesk" : "still fallback"} after ${f.loads} loads`, f.fonts);
+  return f;
+}
 
 export const SHELL_VIEWPORTS = [
   ["phone360", { width: 360, height: 780 }, true],
@@ -245,8 +253,10 @@ async function signedOut(browser, host, compareOnly) {
     page.setDefaultTimeout(30000);
     try {
       for (const [path, want, kind, panel] of PAGES) {
-        const res = await page.goto(`${host}${path}`, { waitUntil: "networkidle" });
+        let res = await page.goto(`${host}${path}`, { waitUntil: "networkidle" });
         await page.waitForTimeout(300);
+        const fw = await fontWait(page, `[${vp}] ${host === base ? "" : "compare "}${path}`);
+        if (fw.response) res = fw.response;
         if (!compareOnly) {
           const status = res?.status();
           check(`[${vp}] ${path} HTTP ${path === "/no-such-page" ? 404 : 200}`, status === (path === "/no-such-page" ? 404 : 200), status);
@@ -290,7 +300,8 @@ try {
   // #90 D1 (ROLE-01): the 11 px edge: 11 px at 399 px, 12 px at 400 px; `Personal Finance` on one line at both.
   for (const [w, want] of [[399, 11], [400, 12]]) {
     const pg = await browser.newPage({ viewport: { width: w, height: 800 } });
-    await pg.goto(`${base}/`);
+    await pg.goto(`${base}/`, { waitUntil: "networkidle" });
+    await fontWait(pg, `[${w}] /`);
     const m = await pg.locator('nav[aria-label="Site"]').evaluate((n) => {
       const pf = n.querySelector('a[href="/personal-finance"]');
       const r = document.createRange();
@@ -313,6 +324,7 @@ try {
       await eachViewport({ browser, baseUrl: host, email, password, check: which === "base" ? check : () => {}, viewports: SHELL_VIEWPORTS }, async ({ vp, viewport, page }) => {
         await page.goto(`${host}/dashboard`, { waitUntil: "networkidle" });
         await page.waitForTimeout(800);
+        await fontWait(page, `[${vp}] ${which} /dashboard`, { after: 800 });
         const content = "body .flex-1 > .bg-paper";
         if (which === "base") {
           check(`[${vp}] /dashboard content visible (released)`, await page.locator('[data-testid="holdings-section"], [data-testid="holdings-empty"], [data-testid="holding-row"]').first().isVisible().catch(() => false));
@@ -328,6 +340,7 @@ try {
           // #97 / #102: Personal Finance, signed in (the page itself is personal-finance.mjs's).
           await page.goto(`${host}/personal-finance`, { waitUntil: "networkidle" });
           await page.waitForTimeout(300);
+          await fontWait(page, `[${vp}] /personal-finance`);
           await shell(page, { vp, path: "/personal-finance", want: "Personal Finance", kind: "dark", viewport });
           const file = join(CFG.out, `personal-finance-${viewport.width}.png`);
           await page.screenshot({ path: file, fullPage: true });
