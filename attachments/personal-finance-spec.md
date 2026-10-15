@@ -993,3 +993,16 @@ This supersedes section 13's formula A ("the typed withdrawal rate wins, else RO
   - the saved months' figures;
   - the Overview equity coverage (Future off and on).
 - 30.7 Read-only shows the same value and source line, with no new control (PF-157).
+
+## 31. Every figure updates live; an unsaved-changes indicator (#144; PF-159..PF-170)
+Before this change, the Expenses totals, Equity to cover and Rate used updated while typing, but This month, the 3-month and 12-month averages, the chart and the expense side of the coverage waited for Save (audit: `attachments/pf-live-figures-design.md`).
+- 31.1 Every figure on the page is computed from what is on screen, as Save would store it (Q-V1): This month, the 3-month and 12-month averages and surpluses, the `N of 12` label, the chart, the Future projection, the equity coverage, Equity to cover and Rate used. Other months use their saved lines with the on-screen rates, household currency and shared values (PF-159..PF-161).
+- 31.2 Nothing is stored until Save (#112 unchanged). `Unsaved changes` (`pf-unsaved`) shows beside Save whenever Save shows (Q-V2) (PF-162).
+- 31.3 Only a successful save clears it (PF-163). It stays after a Save blocked by a field error, a section toggle whose save is blocked, or a save the server refuses. Each of those also shows `Not saved.` until a save succeeds (Q-V7) (PF-164..PF-166).
+- 31.4 Editing back to the saved values, or discarding on a month switch, leaves nothing unsaved, so the indicator and Save hide (Q-V4) (PF-167).
+- 31.5 The browser's leave-page prompt stays while anything is unsaved, including after a blocked or refused save (Q-V5) (PF-168).
+- 31.6 Read-only: no indicator and no Save. The figures are the saved record's (Q-V6) (PF-169).
+- 31.7 A field in error counts as #143 has it, everywhere live: a bad amount counts 0 and a bad rate makes Rate used and its figures `—` (Q-V3) (PF-170).
+- 31.8 (PF-171; QA fix at 400 px) Save and `Unsaved changes` are one group that never wraps (inline-flex, nowrap). The indicator is always rendered: while nothing is unsaved it's hidden with `visibility`, not removed, and a Save-sized placeholder holds the button's place. So showing it never moves anything at any width. Read-only renders no indicator.
+- 31.9 (CFO chose option c on Q-V3; PF-172, PF-173) The numbers stay live. While any field shows an error, a dim note `Figures leave out fields marked in red.` shows above the Overview table. It clears when no error remains. Its line is always reserved (hidden with `visibility`), so nothing moves. Read-only shows no note.
+- 31.10 (PF-174; QA fix of 31.8 at 400 px, spec 19.4) The Save slot (the button, or a Save-sized placeholder) is its own non-shrinking item right after the select, so from 400 px it stays on the select's row, as on main. Below 400 px it wraps under the select, as 19.4 allows. `Unsaved changes` is a separate non-wrapping item after it, always rendered (hidden with `visibility`), so it takes the same place clean or unsaved. Where it doesn't fit beside Save (400 to about 640 px), it wraps alone onto the row's next line in both states. Nothing moves and nothing overflows. This supersedes 31.8's single nowrap group, by addition.

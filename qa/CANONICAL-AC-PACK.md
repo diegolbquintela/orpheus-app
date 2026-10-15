@@ -732,3 +732,27 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | ID | Acceptance criterion (#138 addendum: the CFO accepted Q-R1..Q-R5 via EL, with a condition on Q-R3) |
 |---|---|
 | PF-158 | When Rate used is `—` because a rate field is invalid, that field's own error says what to fix. Portfolio ROIC `-8` or `abc` → `Enter a number, 0 or more.` Withdrawal rate `-1`, `101` or `abc` → `Enter a percent from 0 to 100.` The field has `aria-invalid="true"`, Rate used is `—`, and there's no source line. These messages already existed before #138 (4e3a7f1 renders them); they're pinned by a DOM test. |
+
+### #144 Every figure updates live; an unsaved-changes indicator (spec section 31)
+| ID | Acceptance criterion |
+|---|---|
+| PF-159 | Editing an expense or income line on the shown month changes This month (expenses, income, surplus) and the chart's point for that month while typing, before Save. On a past month inside the windows, the 3-month and 12-month averages, surpluses and the `N of 12` label change too. |
+| PF-160 | Changing a rate or the household currency changes, while typing, Rate used, Equity to cover, the Expenses totals, every month's figures (so the averages too) and the coverage. |
+| PF-161 | Starting net assets, growth, Future and years change the chart, projection and coverage while typing (as before), and the coverage uses the live expense averages. |
+| PF-162 | The first edit shows `Unsaved changes` (`pf-unsaved`) beside Save. It's dim and passes AA contrast. |
+| PF-163 | A successful Save (2xx) clears `Unsaved changes` and `Not saved.`. A reload shows the saved values and the same figures. |
+| PF-164 | Save pressed with a field in error: no PUT, `Fix the fields marked in red before saving.`, `Not saved.`, and `Unsaved changes` stays. |
+| PF-165 | A section toggle with a field in error: no PUT, `Not saved.`, and `Unsaved changes` stays. |
+| PF-166 | A save the server refuses (tested through the real account client and the real `/api/personal-finance` handler): `Not saved.`, `Unsaved changes` stays, and the edits and live figures stay. |
+| PF-167 | Typing back to the saved values hides `Unsaved changes` and Save. Discarding on a month switch (after the confirm) also hides them. |
+| PF-168 | The browser's leave-page prompt stays registered while unsaved, including after a blocked or refused save, and goes after a successful save. |
+| PF-169 | Read-only: no `Unsaved changes`, no Save, and the figures equal the saved record's. |
+| PF-170 | Live figures with a field in error: Rent `-5` counts 0 in This month and the Expenses totals while its error shows. ROIC `-8` makes Rate used and Equity to cover `—`. |
+
+| ID | Acceptance criterion (#144 addendum: QA layout fix at 400 px; the CFO accepted Q-V1, Q-V2 and Q-V4..Q-V7 and chose option (c) on Q-V3) |
+|---|---|
+| PF-171 | Save and `Unsaved changes` sit in one non-wrapping group. The indicator's space is always reserved (`visibility: hidden` while nothing is unsaved, never `display: none`), and a Save-sized slot holds the button's place. Typing at 320, 360, 400, 1024 and 1440 px moves nothing (pf-months PF-58 layout shift 0) and nothing overflows. Read-only has no indicator element. |
+| PF-172 | While any field shows an error, `Figures leave out fields marked in red.` (`pf-figures-note`, dim) shows above the Overview table, and the live numbers stay. Fixing the last error hides it. Its line is always reserved (`visibility`), so nothing moves. |
+| PF-173 | Read-only shows no `pf-figures-note`, even when the record holds a bad value. |
+| PF-170 addendum | Q-V3 is now option (c): PF-170's live figures stand, together with PF-172's note. |
+| PF-174 | (QA, 8dc0b5d at 400 px) From 400 px, Save is on the month select's row (vertical centres within 2 px, Save to the right), clean and unsaved, as PF-32 and PF-58 measure it. Below 400 px Save wraps under the select. The reserved `Unsaved changes` may wrap alone onto the next line, and does so in both states. No layout shift and no horizontal scroll at 320, 360, 399, 400, 1024 and 1440, with or without the red-fields note. Supersedes PF-171's "one non-wrapping group", by addition. |

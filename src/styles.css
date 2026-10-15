@@ -606,8 +606,36 @@
   }
   .pf-month-save {
     display: inline-flex;
-    min-width: 5.5rem;
+    flex: none;
+    align-items: center;
     min-height: 2.75rem;
+  }
+  /* The Save slot: the same width with or without the button (a placeholder when nothing is unsaved). */
+  .pf-month-save > .pf-button,
+  .pf-save-slot {
+    flex: none;
+    width: 5.5rem;
+  }
+  /* #144 (PF-162; PF-171): `Unsaved changes` beside Save; its space is always kept (hidden, never display:none). */
+  .pf-unsaved {
+    flex: none;
+    white-space: nowrap;
+    font-size: 0.875rem;
+    line-height: 1.3rem;
+    color: var(--color-dim);
+  }
+  /* #144 Q-V3 (c), PF-172: the note above the Overview figures; its line is always kept. */
+  .pf-figures-note {
+    font-size: 0.875rem;
+    line-height: 1.3rem;
+    min-height: 1.3rem;
+    color: var(--color-dim);
+  }
+  .pf-figures-note[data-shown="false"] {
+    visibility: hidden;
+  }
+  .pf-unsaved[data-shown="false"] {
+    visibility: hidden;
   }
   .pf-month-note {
     margin-top: 0.5rem;

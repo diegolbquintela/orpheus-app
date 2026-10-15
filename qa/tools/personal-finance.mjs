@@ -256,6 +256,8 @@ const mainTexts = (page) =>
       const s = t.nodeValue.trim();
       const el = t.parentElement;
       if (!s || el.closest("option, select, .pf-chart-plot")) continue;
+      // #144 (PF-171 / PF-172): a reserved, visibility-hidden line (Unsaved changes, the figures note) is not on screen.
+      if (getComputedStyle(el).visibility === "hidden") continue;
       const r = el.getBoundingClientRect();
       if (r.width > 1 && r.height > 1) out.push(s);
     }
@@ -580,15 +582,16 @@ try {
       await rent.getByTestId("pf-equity").fill("");
       const cleared = { rent: await val(rent.getByTestId("pf-equity")), holder: (await holders())[0], totals: await eqTotals() };
       await rent.getByTestId("pf-equity").fill("abc");
-      const badOv = { err: await txt(rent.getByTestId("pf-error")), invalid: await rent.getByTestId("pf-equity").getAttribute("aria-invalid"), totals: await eqTotals() };
+      const figNote = () => page.evaluate(() => { const n = document.querySelector("[data-testid=pf-figures-note]"); return n ? [n.textContent.trim(), n.getAttribute("data-shown")] : null; });
+      const badOv = { err: await txt(rent.getByTestId("pf-error")), invalid: await rent.getByTestId("pf-equity").getAttribute("aria-invalid"), totals: await eqTotals(), note: await figNote() };
       await rent.getByTestId("pf-equity").fill("250,000");
-      const typed = { rent: await val(rent.getByTestId("pf-equity")), totals: await eqTotals() };
-      check(`${tag} PF-19 Q9: a bad override (Rent abc) shows \`Enter a number, 0 or more.\` and falls back to the calculated 300,000 (Fixed 375,000, Total 405,000)`, JSON.stringify(badOv) === JSON.stringify({ err: "Enter a number, 0 or more.", invalid: "true", totals: ["375,000", "30,000", "405,000"] }), badOv);
+      const typed = { rent: await val(rent.getByTestId("pf-equity")), totals: await eqTotals(), note: await figNote() };
+      check(`${tag} PF-19 Q9: a bad override (Rent abc) shows \`Enter a number, 0 or more.\` (#144 PF-172: and \`Figures leave out fields marked in red.\`, cleared when fixed) and falls back to the calculated 300,000 (Fixed 375,000, Total 405,000)`, JSON.stringify(badOv) === JSON.stringify({ err: "Enter a number, 0 or more.", invalid: "true", totals: ["375,000", "30,000", "405,000"], note: ["Figures leave out fields marked in red.", "true"] }) && JSON.stringify(typed.note) === JSON.stringify(["Figures leave out fields marked in red.", "false"]), badOv);
       await roic.fill("");
       const noRate = await eqTotals();
       await roic.fill("8");
       check(`${tag} PF-19 Q10: no usable rate → every total with a line lacking a valid override shows —`, JSON.stringify(noRate) === '["—","—","—"]', noRate);
-      check(`${tag} PF-19 override: typed 250,000 wins on Rent (Fixed 325,000, Total 355,000); cleared → the calculated 300,000 (Fixed 375,000); placeholder dim (${ratio(rgb(DIM), rgb(NIGHT))}:1)`, ph === DIM && JSON.stringify(cleared) === JSON.stringify({ rent: "", holder: "300,000", totals: ["375,000", "30,000", "405,000"] }) && JSON.stringify(typed) === JSON.stringify({ rent: "250,000", totals: ["325,000", "30,000", "355,000"] }), { ph, cleared, typed });
+      check(`${tag} PF-19 override: typed 250,000 wins on Rent (Fixed 325,000, Total 355,000); cleared → the calculated 300,000 (Fixed 375,000); placeholder dim (${ratio(rgb(DIM), rgb(NIGHT))}:1)`, ph === DIM && JSON.stringify(cleared) === JSON.stringify({ rent: "", holder: "300,000", totals: ["375,000", "30,000", "405,000"] }) && JSON.stringify({ rent: typed.rent, totals: typed.totals }) === JSON.stringify({ rent: "250,000", totals: ["325,000", "30,000", "355,000"] }), { ph, cleared, typed });
       const rb = { wd: await box(wd), roic: await box(roic), used: await box(page.getByTestId("pf-rate-used")) };
       check(`${tag} PF-20 ${wide ? "wide: the three rate cells in one row" : "phone: the rate cells stacked full width"}`, wide ? rb.wd.y === rb.roic.y && rb.roic.x > rb.wd.x && rb.used.x > rb.roic.x && rb.wd.h >= 44 : rb.roic.y > rb.wd.y && rb.used.y > rb.roic.y && rb.wd.x === rb.roic.x && rb.wd.w === rb.roic.w && rb.wd.w >= viewport.width - 80, rb);
       await page.evaluate(() => document.activeElement?.blur());
@@ -975,7 +978,7 @@ try {
         await settle(p3);
         const t1 = await ov();
         const afterSave = { month: await sel.inputValue(), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
-        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: nothing in 04 until Save; one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify(t0) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
+        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750", "4,000"], income: ["11,200", "9,000"], surplus: ["9,450", "5,000"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
         check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 74,450.00 (#140)`, ch1.months === "12" && ch1.net === "74450.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);

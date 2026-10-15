@@ -74,12 +74,14 @@ import {
   type Overview,
   readOverview,
   SAVE,
+  UNSAVED,
   writeOverview,
 } from "@/lib/finance/overview";
 import {
   copiedNote,
   DISCARD_CONFIRM,
   lineFigures,
+  liveLineFigures,
   migrateMonths,
   MONTH_CONTROL_LABEL,
   openMonth,
@@ -211,8 +213,29 @@ export function PersonalFinancePage({
     !!(expenses && income && rates && household && overview) &&
     fieldErrors({ expenses, income, rates, overview, household: household.household }).length > 0;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const figures = useMemo(() => lineFigures(storage()), [saved, month]);
+  // #144 (Q-V1, PF-159..PF-161): every figure is live: each month as Save would store it (read-only: the saved record).
+  const figures = useMemo(
+    () =>
+      readOnly || !month || !expenses || !income || !rates || !household
+        ? lineFigures(storage())
+        : liveLineFigures(storage(), {
+            month,
+            lines: { fixed: expenses.fixed, variable: expenses.variable, people: income.people },
+            expenses,
+            rates,
+            household: household.household,
+          }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [saved, month, readOnly, expenses, income, rates, household],
+  );
+  // #144: Save drops the shown month's old typed totals, so while something is unsaved the live Overview does too
+  // (unedited, the page shows exactly the saved figures).
+  const liveOverview = useMemo(() => {
+    if (!dirty || !overview || !month || !(month in overview.months)) return overview;
+    const months = { ...overview.months };
+    delete months[month];
+    return { ...overview, months };
+  }, [overview, month, dirty]);
 
   function choose(key: MonthKey) {
     if (!now || key === month) return;
@@ -227,6 +250,8 @@ export function PersonalFinancePage({
     // #143 (PF-133, Q-S1): any field in error → nothing written, no PUT; the note and focus on the first such field.
     if (fieldErrors({ expenses, income, rates, overview, household: household.household }).length) {
       setBlocked(true);
+      // #144 Q-V7 (PF-164): a blocked Save is a non-save too: `Not saved.` until a save succeeds.
+      setSaveFailed(true);
       document.querySelector<HTMLElement>(".pf [aria-invalid=true]")?.focus();
       return;
     }
@@ -309,6 +334,7 @@ export function PersonalFinancePage({
             month={month}
             onChoose={choose}
             dirty={dirty}
+            readOnly={readOnly}
             saving={saving}
             onSave={() => void save()}
             note={
@@ -417,7 +443,7 @@ export function PersonalFinancePage({
                 onToggle={() => toggle("summary")}
               />
               <OverviewBlock
-                overview={overview}
+                overview={liveOverview ?? overview}
                 update={updateOverview}
                 now={now}
                 lines={figures}
@@ -426,6 +452,7 @@ export function PersonalFinancePage({
                 readOnly={readOnly}
                 rate={rateUsed(rates)}
                 currency={household.household}
+                fieldsInError={readOnly ? null : hasErrors}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
                   income: monthly(netIncomeYearly(income.people, household.household)),
@@ -456,7 +483,9 @@ function MonthControl({
   saving,
   onSave,
   note,
+  readOnly,
 }: {
+  readOnly: boolean;
   now: Date | null;
   month: MonthKey | null;
   onChoose: (key: MonthKey) => void;
@@ -488,6 +517,10 @@ function MonthControl({
             </option>
           ))}
         </select>
+        {/* #144 (PF-162, PF-171, PF-174): the Save slot (the button, or a Save-sized placeholder) stays beside the select
+            from 400 px (spec 19.4); `Unsaved changes` is its own flex item right after it, always rendered (shown by
+            visibility), so it takes the same place clean or unsaved: where it doesn't fit it wraps alone, in both
+            states, and nothing ever moves. Read-only: no indicator. */}
         <span className="pf-month-save">
           {dirty ? (
             <button
@@ -499,8 +532,15 @@ function MonthControl({
             >
               {SAVE}
             </button>
-          ) : null}
+          ) : (
+            <span className="pf-save-slot" aria-hidden="true" />
+          )}
         </span>
+        {readOnly ? null : (
+          <span className="pf-unsaved" role="status" data-testid="pf-unsaved" data-shown={dirty ? "true" : "false"}>
+            {UNSAVED}
+          </span>
+        )}
       </div>
       <p className="pf-month-note" data-testid="pf-month-note">
         {note}

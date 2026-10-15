@@ -625,3 +625,9 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **12-month averages over the same months (#146).** The 12-month income and expense averages, and so the surplus, both use the complete months that have expense entries. An income-only month counts toward neither. An expense month with no income counts as 0 income, unless none of them has income, in which case the income average shows `—`. Spec section 29, PF-143..PF-149.
 
 **Rate used = the lower of the two (#138).** Rate used is now min(Withdrawal rate, Portfolio ROIC ÷ 2) when both are set, and the one that is set otherwise. A typed 0 counts as not set, and any rate field in error gives `—`. A line under the value says which was used. Spec section 30, PF-150..PF-157.
+
+**Every figure is live; Unsaved changes (#144).** Personal Finance figures (This month, the 3-month and 12-month averages, the chart, the projection and the coverage) now update while you type, the same as the Expenses totals already did. They show what Save would store. Nothing is stored until Save. `Unsaved changes` shows beside Save until a save succeeds, and it stays after a blocked or refused save, along with `Not saved.`. Spec section 31, PF-159..PF-170.
+
+**Layout and the figures note (#144).** Save and `Unsaved changes` are one group that never wraps, and the indicator's space is always reserved, so nothing moves (PF-171). While any field is in error, `Figures leave out fields marked in red.` shows above the Overview figures (the CFO chose option c on Q-V3; PF-172, PF-173).
+
+**Month row at 400 px (#144, PF-174).** Save stays on the month select's row from 400 px, as on main. The reserved `Unsaved changes` may wrap alone onto the next line, in both states, so nothing moves.

@@ -182,7 +182,8 @@ const contentTexts = (page) =>
       const el = t.parentElement;
       const r = el.getBoundingClientRect();
       // > 1 px: a visually hidden label (1 × 1 px, clipped) is not on screen.
-      if (s && r.width > 1 && r.height > 1 && !el.closest(".sr-only, [aria-hidden=true], script, style, noscript")) out.push(s);
+      // #144: a reserved, visibility-hidden line (PF Unsaved changes / the figures note) is not on screen.
+      if (s && r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== "hidden" && !el.closest(".sr-only, [aria-hidden=true], script, style, noscript")) out.push(s);
     }
     return out;
   });

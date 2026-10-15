@@ -1,5 +1,5 @@
 import { type CurrencyCode, readHousehold } from "./currency.ts";
-import { rateUsed, readRates } from "./equity.ts";
+import { type Rates, rateUsed, readRates } from "./equity.ts";
 import { asExpenses, type Expenses, grandTotals, type Line, readExpenses } from "./expenses.ts";
 import { asIncome, monthly, netIncomeYearly, type Person, readIncome } from "./income.ts";
 import { type Figures, type MonthKey } from "./overview.ts";
@@ -111,10 +111,29 @@ export function openMonth(
 
 /** Decision 7: each saved month's figures from its lines (a figure above 0, else none). */
 export function lineFigures(storage: StorageLike | null): Record<MonthKey, Figures> {
-  const months = readMonths(storage);
-  const shared = readExpenses(storage);
-  const rate = rateUsed(readRates(storage));
-  const household: CurrencyCode = readHousehold(storage).household;
+  return figuresOf(readMonths(storage), readExpenses(storage), rateUsed(readRates(storage)), readHousehold(storage).household);
+}
+
+/** What is on screen (#144): the shown month, its lines and the shared values, as Save would store them. */
+export type Shown = {
+  month: MonthKey;
+  lines: MonthLines;
+  expenses: Expenses;
+  rates: Rates;
+  household: CurrencyCode;
+};
+
+/**
+ * #144 (Q-V1, PF-159..PF-161): each month's figures as `Save` would store them: the saved months with the shown
+ * month's lines replaced by the on-screen ones, and the on-screen shared values, Rate used and household currency
+ * applied to every month (Save writes those for every month). Nothing is written.
+ */
+export function liveLineFigures(storage: StorageLike | null, shown: Shown): Record<MonthKey, Figures> {
+  const months = { ...readMonths(storage), [shown.month]: shown.lines };
+  return figuresOf(months, shown.expenses, rateUsed(shown.rates), shown.household);
+}
+
+function figuresOf(months: Months, shared: Expenses, rate: number | null, household: CurrencyCode): Record<MonthKey, Figures> {
   const positive = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
   const out: Record<MonthKey, Figures> = {};
   for (const [k, m] of Object.entries(months)) {
