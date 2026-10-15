@@ -314,14 +314,16 @@ try {
           const next = document.querySelector('[data-testid="company-section-valuation"]').getBoundingClientRect();
           const cs = getComputedStyle(t);
           const br = b.getBoundingClientRect();
-          return { text: t.textContent, role: t.getAttribute("role"), wired: b.getAttribute("aria-describedby") === t.id, vis: cs.visibility, color: cs.color, bg: cs.backgroundColor, rowH: Math.round(row.height), nextY: Math.round(next.top), btn: [Math.round(br.width), Math.round(br.height)], tipR: Math.round(t.getBoundingClientRect().right), vw: window.innerWidth, scroll: document.scrollingElement.scrollWidth - window.innerWidth };
+          return { text: t.textContent, role: t.getAttribute("role"), wired: b.getAttribute("aria-describedby") === t.id, vis: cs.visibility, color: cs.color, bg: cs.backgroundColor, rowH: Math.round(row.height), nextY: Math.round(next.top + scrollY), rowY: Math.round(row.top + scrollY), btn: [Math.round(br.width), Math.round(br.height)], tipR: Math.round(t.getBoundingClientRect().right), vw: window.innerWidth, scroll: document.scrollingElement.scrollWidth - window.innerWidth };
         });
+        // Page coordinates (+ scrollY), and the button scrolled into view first, so both states are taken at the same scroll.
+        await page.getByTestId("company-roic-info").scrollIntoViewIfNeeded();
         const closed = await snap();
         await page.getByTestId("company-roic-info").focus();
         const opened = await snap();
         await page.keyboard.press("Escape");
         const esc = await snap();
-        check(`[${vp}] CV-16..CV-21 (#130) ROIC tooltip: the exact text, role tooltip, aria-describedby; hidden → focus opens → Escape closes; no shift (row and next section unmoved); no overflow; chalk on night; button ≥ 44 px`, !!closed && closed.text === T && closed.role === "tooltip" && closed.wired && closed.vis === "hidden" && opened.vis === "visible" && esc.vis === "hidden" && opened.color === "rgb(242, 240, 235)" && opened.bg === NIGHT && opened.rowH === closed.rowH && opened.nextY === closed.nextY && opened.tipR <= opened.vw && opened.scroll <= 0 && closed.btn[0] >= 44 && closed.btn[1] >= 44, { closed, opened, esc });
+        check(`[${vp}] CV-16..CV-21 (#130) ROIC tooltip: the exact text, role tooltip, aria-describedby; hidden → focus opens → Escape closes; no shift (row and next section unmoved); no overflow; chalk on night; button ≥ 44 px`, !!closed && closed.text === T && closed.role === "tooltip" && closed.wired && closed.vis === "hidden" && opened.vis === "visible" && esc.vis === "hidden" && opened.color === "rgb(242, 240, 235)" && opened.bg === NIGHT && opened.rowH === closed.rowH && opened.rowY === closed.rowY && opened.nextY === closed.nextY && opened.tipR <= opened.vw && opened.scroll <= 0 && closed.btn[0] >= 44 && closed.btn[1] >= 44, { closed, opened, esc });
       }
       await ctx.close();
     }
