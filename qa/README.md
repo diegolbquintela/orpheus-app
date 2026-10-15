@@ -62,3 +62,7 @@ These numbers are historical simulation outputs for testing.
 - The 2026-10-02 logs were copied from QA's box (`/workspace/orpheus-app/qa/run-*.md` and `evidence/`).
   Each starts with a comment saying so; the log text is unchanged, so evidence paths inside it point at
   the box. Four Cloudflare `__cf_bm` cookie values in `2026-10-02-vercel-prod/hostdiff/G-*.hdr` were redacted.
+
+## Font wait (#135)
+
+`qa/tools/fonts.mjs` `fontsSettled(page)` waits for `document.fonts.ready`, then checks that Schibsted Grotesk is actually rendered. With `font-display: optional`, a slow first load keeps the fallback for that page, so the helper reloads (up to 3 loads) until the font is rendered. `site-shell.mjs` and `site-style-regression.mjs` call it before their font-dependent measurements. A retry shows as `INFO … #135 font wait … after N loads`. Assertions are unchanged; cold-load checks stay cold. Site-style-spec §17, AC FW-01..FW-05.

@@ -775,3 +775,15 @@ Unit and DOM tests cover CV-16..CV-20. The layout (CV-21) is checked in headless
 | AC | Tier | Pass when |
 |----|------|-----------|
 | CV-22 | BLOCK | The tooltip `company-roic-tip` reads exactly `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` (PM's Q-T1 short wording, which supersedes CV-16's long text). Nothing else changes: CV-17..CV-21 still apply. |
+
+## QA tools: font wait (#135; site-style-spec §17)
+
+Tools only. These checks cover the harness itself, not the site.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| FW-01 | BLOCK | `site-shell.mjs` waits with `fontsSettled` (qa/tools/fonts.mjs) before each font-dependent measurement: signed-out pages on both hosts, ROLE-01 399 / 400, signed-in `/dashboard` (both ST0-05 shots) and `/personal-finance`. After a reload, the HTTP checks read the reload's response. |
+| FW-02 | BLOCK | `site-style-regression.mjs` waits after the ST6-06 request / preload checks and before the h1 font, ST6-07 and the other measurements. The cold-load CLS check stays cold. |
+| FW-03 | BLOCK | No assertion is loosened: only waits are added (diff review). |
+| FW-04 | BLOCK | 5+ signed-out runs per side on a preview: 0 font FAILs (ST1-01 phone360, ST6-06 h1, ST6-07, ST6-05) with the wait, against the baseline count. |
+| FW-05 | BLOCK | QA, signed in with `--compare-url`: ST0-05 `/dashboard` pixel diff passes at all 4 widths. |
