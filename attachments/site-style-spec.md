@@ -808,3 +808,5 @@ The font-dependent checks call it after their own load wait and before they meas
 | FW-05 | ST0-05 (signed in, `--compare-url`, QA): the `/dashboard` panel pixel diff passes at all 4 widths. QA runs it; the SWE has no QA credentials. |
 
 The issue's acceptance ("3 consecutive prod runs pass site-shell 313/313 and regression 258/258") is QA's to run against production after release. The SWE never runs against production.
+
+**Addendum (#135, 79f134c): up to 5 loads, not 3.** The font file is served with `cache-control: public, max-age=0, must-revalidate`, so a reload still makes a 304 round trip and can miss the block period again; in the first after-run, several pages needed all 3 loads. `fontsSettled` now allows up to 5 loads. This supersedes "up to 3 loads" above; nothing else changes.
