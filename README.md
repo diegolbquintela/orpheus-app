@@ -631,3 +631,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **Layout and the figures note (#144).** Save and `Unsaved changes` are one group that never wraps, and the indicator's space is always reserved, so nothing moves (PF-171). While any field is in error, `Figures leave out fields marked in red.` shows above the Overview figures (the CFO chose option c on Q-V3; PF-172, PF-173).
 
 **Month row at 400 px (#144, PF-174).** Save stays on the month select's row from 400 px, as on main. The reserved `Unsaved changes` may wrap alone onto the next line, in both states, so nothing moves.
+
+**ROIC method tooltip (#130).** On the company view, an `i` beside ROIC shows how it's calculated: operating income after tax ÷ average invested capital (equity + debt − cash). Cash is excluded, which is why a net-cash company such as RMS.PA shows a high ROIC. It opens on hover, focus or tap and closes on Escape. This is a disclosure only. Dashboard-spec §19, CV-16..CV-21.

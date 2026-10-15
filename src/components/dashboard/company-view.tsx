@@ -4,8 +4,68 @@
  * (the API returns the same). Dark shell tokens, shared `.ow-label`; no gold.
  * #124: a fund shows `company-fund` (the fund line) in place of the five company sections; Dividends stay.
  */
-import { useState } from "react";
-import { DERIVED_MARKER, pct, RANGES, rangeOf, type CompanyView, type ChartPoint, type RangeKey } from "@/lib/dashboard/company";
+import { useEffect, useId, useRef, useState } from "react";
+import { DERIVED_MARKER, ROIC_INFO_LABEL, ROIC_METHOD, pct, RANGES, rangeOf, type CompanyView, type ChartPoint, type RangeKey } from "@/lib/dashboard/company";
+
+/**
+ * #130 (CV-16..CV-21; attachments/roic-tooltip-design.md): the ROIC method tooltip. Hover (the button or the tooltip),
+ * keyboard focus and tap open it; Escape, blur, leaving and a tap elsewhere close it; a second tap closes it (Q-T3).
+ * The tooltip is always in the DOM (`aria-describedby` resolves), absolutely placed and hidden by visibility, so it
+ * never moves anything.
+ */
+function RoicInfo() {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLSpanElement>(null);
+  // A tap / click toggles from the state before its own pointerdown (touch fires focus and hover before the click).
+  const before = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const away = (e: Event) => {
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [open]);
+  return (
+    <span
+      ref={wrap}
+      className="company-info"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className="company-info-button"
+        aria-label={ROIC_INFO_LABEL}
+        aria-describedby={id}
+        aria-expanded={open}
+        data-testid="company-roic-info"
+        onPointerDown={() => {
+          before.current = open;
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onClick={() => {
+          setOpen(before.current === null ? (o) => !o : !before.current);
+          before.current = null;
+        }}
+      >
+        <span aria-hidden="true">i</span>
+      </button>
+      <span role="tooltip" id={id} className="company-tip" data-open={open ? "true" : "false"} data-testid="company-roic-tip">
+        {ROIC_METHOD}
+      </span>
+    </span>
+  );
+}
 
 const W = 640;
 const H = 220;
@@ -122,8 +182,9 @@ export function CompanyViewPage({ view }: { view: CompanyView }) {
                   data-testid={`company-row-${row.key}`}
                   data-status={row.status}
                 >
-                  <dt className="text-dim">
+                  <dt className="relative text-dim">
                     {row.label}
+                    {row.key === "roic" ? <RoicInfo /> : null}
                     {row.derived ? (
                       // #123 (ES-13): a figure from a fallback (E1 / E5), dim small label; the title explains how.
                       <span
