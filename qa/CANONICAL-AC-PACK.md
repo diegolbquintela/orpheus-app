@@ -800,3 +800,5 @@ Tools only. These checks cover the harness itself, not the site.
 | PF-180 | BLOCK | Unchanged: typed input text, percentages (one decimal), Rate used (`12.5%`), FX rates, compact chart ticks. |
 | PF-181 | BLOCK | `—` for a figure that isn't computed, unchanged. |
 | PF-182 | BLOCK | QA #133 fixture (8 expenses, 1 income-only person), signed in: the Overview 3-month Income reads `4,296.30`. |
+
+> **Clarification (2026-10-15, PF-182):** the "QA #133 fixture" in PF-182 means test data shaped like the #133 set: 8 expense months, income 4,000 with Aug 4,388.9 and Sep 4,500, plus an income-only January. On that data the 3-month Income reads `4,296.30`. The real #133 set reads `4,266.67` because of #148. Both must show two decimals.
