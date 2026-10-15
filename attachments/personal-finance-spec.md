@@ -1006,3 +1006,22 @@ Before this change, the Expenses totals, Equity to cover and Rate used updated w
 - 31.8 (PF-171; QA fix at 400 px) Save and `Unsaved changes` are one group that never wraps (inline-flex, nowrap). The indicator is always rendered: while nothing is unsaved it's hidden with `visibility`, not removed, and a Save-sized placeholder holds the button's place. So showing it never moves anything at any width. Read-only renders no indicator.
 - 31.9 (CFO chose option c on Q-V3; PF-172, PF-173) The numbers stay live. While any field shows an error, a dim note `Figures leave out fields marked in red.` shows above the Overview table. It clears when no error remains. Its line is always reserved (hidden with `visibility`), so nothing moves. Read-only shows no note.
 - 31.10 (PF-174; QA fix of 31.8 at 400 px, spec 19.4) The Save slot (the button, or a Save-sized placeholder) is its own non-shrinking item right after the select, so from 400 px it stays on the select's row, as on main. Below 400 px it wraps under the select, as 19.4 allows. `Unsaved changes` is a separate non-wrapping item after it, always rendered (hidden with `visibility`), so it takes the same place clean or unsaved. Where it doesn't fit beside Save (400 to about 640 px), it wraps alone onto the row's next line in both states. Nothing moves and nothing overflows. This supersedes 31.8's single nowrap group, by addition.
+
+## 32. One money format: always two decimals (#142; PF-175..PF-182)
+Business user: CFO. QA (#133, Finding 1) saw the Overview 3-month Income show `4,296.3` next to 2-decimal figures such as `4,266.67`. The cause is the old rule in section 5, "up to two decimals, no trailing zeros" (`formatAmount`). Every computed PF money figure now uses one shared formatter, `formatMoney`, in `src/lib/finance/money.ts`. **This supersedes the section 5 number-format line for money figures.** Design and Q-W1..Q-W6: [`attachments/pf-money-format-design.md`](pf-money-format-design.md).
+- 32.1 (Q-W1) Always exactly two decimals, with comma thousands separators: `4,296.30`, `1,200.00`, `83.33`, `0.00` (PF-175).
+- 32.2 (Q-W2) No currency symbol. Amounts stay unitless, as Q2 / Q15 decided. The coverage line keeps its existing ` <code>/mo` and ` <code>/yr` suffix (`41.67 CAD/mo (500.00 CAD/yr)`) (PF-176).
+- 32.3 (Q-W3) Negatives use a leading minus, `-1,234.50` (the existing `en-US` pattern). A value that rounds to zero shows `0.00`, never `-0.00` (PF-177).
+- 32.4 (Q-W4) Rounding is display only: half away from zero to the cent (`Intl.NumberFormat` default) on the computed value. Sums are still computed from unrounded values, as before (PF-178).
+- 32.5 (Q-W5) Scope: every computed money figure (PF-179).
+  - Overview: This month, the 3-month and 12-month averages and surpluses, Future figures, and the chart tooltip.
+  - Equity coverage: monthly and yearly.
+  - Income: the table's figures, each person's Net and Converted (yearly).
+  - Expenses: line, group and grand totals (Monthly, Yearly, Equity to cover), the calculated Equity to cover shown as an input placeholder, and the other period's converted figure shown in a Monthly / Yearly field.
+- 32.6 (Q-W5) Out of scope, unchanged (PF-180):
+  - typed input text, which is shown as typed;
+  - percentages (`% of expenses` / `% of income` one decimal; the rates);
+  - FX rates;
+  - the chart's compact axis ticks.
+- 32.7 (Q-W6) `—` (not computed) is unchanged (PF-181).
+- 32.8 The 8-expense + 1-income-only fixture (QA #133) shows the 3-month Income as `4,296.30` on the real page (PF-182).

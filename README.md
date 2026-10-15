@@ -634,6 +634,8 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 
 **Month row at 400 px (#144, PF-174).** Save stays on the month select's row from 400 px, as on main. The reserved `Unsaved changes` may wrap alone onto the next line, in both states, so nothing moves.
 
+**One money format (#142).** Every Personal Finance money figure shows exactly two decimals with comma separators (`4,296.30`, `1,200.00`, `0.00`) through one shared formatter, `formatMoney` in `src/lib/finance/money.ts`. There's still no currency symbol, negatives read `-1,234.50`, and percentages and typed fields are unchanged. Spec section 32, PF-175..PF-182.
+
 **ROIC method tooltip (#130).** On the company view, an `i` beside ROIC shows how it's calculated: operating income after tax ÷ average invested capital (equity + debt − cash). Cash is excluded, which is why a net-cash company such as RMS.PA shows a high ROIC. It opens on hover, focus or tap and closes on Escape. This is a disclosure only. Dashboard-spec §19, CV-16..CV-21.
 
 **ROIC tooltip short wording (#130, Q-T1).** PM chose: `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` (CV-22, dashboard-spec §19.1). Q-T2..Q-T4 accepted as built.

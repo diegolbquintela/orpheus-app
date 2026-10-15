@@ -787,3 +787,16 @@ Tools only. These checks cover the harness itself, not the site.
 | FW-03 | BLOCK | No assertion is loosened: only waits are added (diff review). |
 | FW-04 | BLOCK | 5+ signed-out runs per side on a preview: 0 font FAILs (ST1-01 phone360, ST6-06 h1, ST6-07, ST6-05) with the wait, against the baseline count. |
 | FW-05 | BLOCK | QA, signed in with `--compare-url`: ST0-05 `/dashboard` pixel diff passes at all 4 widths. |
+
+## Personal Finance: one money format (#142; personal-finance-spec section 32; attachments/pf-money-format-design.md)
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PF-175 | BLOCK | Every computed PF money figure shows exactly two decimals with comma thousands separators (`4,296.30`, `1,200.00`, `83.33`, `0.00`). |
+| PF-176 | BLOCK | No currency symbol on amounts. The coverage line reads `<m> <code>/mo (<y> <code>/yr)`, with both figures in two decimals. |
+| PF-177 | BLOCK | Negatives show `-1,234.50`. Nothing shows `-0.00`. |
+| PF-178 | BLOCK | Rounding is display only: half away from zero to the cent. Totals are summed from unrounded values (unchanged). |
+| PF-179 | BLOCK | Scope:<br>• Overview: This month, 3-month and 12-month figures, Future figures, chart tooltip<br>• Coverage<br>• Income: table, Net, Converted<br>• Expenses: totals, the Equity to cover placeholder, the converted Monthly / Yearly field<br>All use `formatMoney`. |
+| PF-180 | BLOCK | Unchanged: typed input text, percentages (one decimal), Rate used (`12.5%`), FX rates, compact chart ticks. |
+| PF-181 | BLOCK | `—` for a figure that isn't computed, unchanged. |
+| PF-182 | BLOCK | QA #133 fixture (8 expenses, 1 income-only person), signed in: the Overview 3-month Income reads `4,296.30`. |
