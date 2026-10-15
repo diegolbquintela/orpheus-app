@@ -777,3 +777,38 @@ merging them would change pixels (Q-S2). Dashboard content (#71 on hold) is unto
 | Q-S3 | Dashboard content? | Untouched (#71 on hold). |
 | Q-S4 | Fonts: any change to files, `font-display: optional` or the preload? | None: same files, same declarations, moved only. |
 
+## 17. QA font wait (#135; FW-01..FW-05)
+
+Tools only: no site change. The site keeps `font-display: optional`, the same files and the same preload.
+
+**Problem.** With `font-display: optional`, Chromium renders a page in the fallback (Liberation Sans) for that page's whole life when Schibsted Grotesk takes longer than its short block period (about 100 ms) to arrive, which happens on 130–400 ms loads. It doesn't swap later, even after `document.fonts.ready` resolves. Font-dependent checks then fail intermittently with no site fault:
+- the site-shell phone360 ST1-01 bar line (fallback text is wider);
+- style-regression ST6-06 "the h1 renders in Schibsted Grotesk" and ST6-07 `research.`;
+- ST6-05, the in-run site-shell;
+- the signed-in ST0-05 `/dashboard` panel pixel diff, which spread to 1 width at 8ecd2fc and 3 widths at 2b4d7eb (PR #145).
+
+**Fix.** A shared helper `qa/tools/fonts.mjs` `fontsSettled(page)`:
+1. Awaits `document.fonts.ready` and two animation frames.
+2. Reads the platform font that the bar's Calculator link and the first `h1` actually render in (CDP).
+3. If either is still a fallback, reloads with the file now cached (what a second visit shows) and repeats, up to 3 loads.
+
+The font-dependent checks call it after their own load wait and before they measure. A wait that needed more than one load is logged as `INFO … #135 font wait`.
+
+**What doesn't change.** No assertion is loosened, removed or given a tolerance. If the font still isn't applied after 3 loads, the check measures the fallback and fails as before. The checks that measure the first, cold load on purpose stay cold and don't use the helper:
+- ST6-06 strict CLS on cold loads;
+- the ST6-06 font-request and preload checks, which read the first load's requests;
+- the home and calculator "fonts at DOMContentLoaded" checks.
+
+| AC | Pass when |
+|----|-----------|
+| FW-01 | `site-shell.mjs` runs `fontsSettled` before `shell()` measures each signed-out page (every viewport, base and compare hosts), before the ROLE-01 399 / 400 px check, and before the signed-in `/dashboard` (both hosts, so both ST0-05 panel shots) and `/personal-finance` measurements. When the helper reloads, the page's HTTP status / X-Robots-Tag checks read that reload's response. |
+| FW-02 | `site-style-regression.mjs` runs `fontsSettled` after the ST6-06 request / preload checks and before the ST6-06 h1 font, ST6-07 and the rest of each page's measurements. The cold-load CLS check is unchanged. |
+| FW-03 | No assertion text, comparison or threshold changes in either tool (diff review): only waits are added. |
+| FW-04 | Over 5+ signed-out runs on one preview, the font-dependent FAILs seen before (ST1-01 phone360, ST6-06 h1, ST6-07, ST6-05) occur 0 times with the wait, against the baseline tools' counts on the same kind of preview. |
+| FW-05 | ST0-05 (signed in, `--compare-url`, QA): the `/dashboard` panel pixel diff passes at all 4 widths. QA runs it; the SWE has no QA credentials. |
+
+The issue's acceptance ("3 consecutive prod runs pass site-shell 313/313 and regression 258/258") is QA's to run against production after release. The SWE never runs against production.
+
+**Addendum (#135, 79f134c): up to 5 loads, not 3.** The font file is served with `cache-control: public, max-age=0, must-revalidate`, so a reload still makes a 304 round trip and can miss the block period again; in the first after-run, several pages needed all 3 loads. `fontsSettled` now allows up to 5 loads. This supersedes "up to 3 loads" above; nothing else changes.
+
+**Addendum (#135, 2026-10-15, QA round 2): back to 3 loads, with a 1 s settle.** At QA's request, `fontsSettled` allows up to **3** loads again, and waits 1000 ms after each reload before re-checking (it was 300 ms). This supersedes the "up to 5 loads" addendum above; nothing else changes.

@@ -582,6 +582,8 @@ Spec section 20, AC PF-59..PF-66.
 `src/styles/parts.css` (both imported by `src/styles.css`); the bar and footer wrap every page from `__root.tsx`.
 Change a shared part there and every page follows. Site-style-spec section 16, AC SP-01..SP-07.
 
+**QA font wait (#135).** The site keeps `font-display: optional`, so a slow first load can render in the fallback font. Before font-dependent checks, `site-shell.mjs` and `site-style-regression.mjs` call `qa/tools/fonts.mjs` `fontsSettled()`. It waits for `document.fonts.ready`, then reloads (up to 3 loads, 1 s settle) until Schibsted Grotesk is actually rendered. The checks themselves are unchanged. Site-style-spec §17, FW-01..FW-05.
+
 **Dashboard company view (#95).** Open a holding, then `Open company view`: `/dashboard/company/<SYMBOL>` shows
 Profile, Margins, Returns, Valuation, Growth, Dividends and a price chart from SEC filings and the stored daily closes.
 Design `attachments/dashboard-company-view-design.md`, AC CV-01..CV-15.

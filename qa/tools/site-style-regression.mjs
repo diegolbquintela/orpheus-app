@@ -36,6 +36,7 @@ import { mkdirSync, readFileSync, writeFileSync, createWriteStream } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
+import { fontsSettled } from "./fonts.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -258,6 +259,12 @@ async function ownChecks(browser) {
         check(`${tag} ST6-06 no Google Fonts request; font files from this host's /fonts/schibsted-grotesk/`, fontReqs.length >= 1 && fontReqs.every((u) => u.startsWith(`${base}/fonts/schibsted-grotesk/`)), fontReqs.map((u) => u.replace(base, "")));
         const preload = await page.locator('link[rel=preload][as=font][href="/fonts/schibsted-grotesk/schibsted-grotesk-latin.woff2"][crossorigin]').count();
         check(`${tag} ST6-06 the upright latin file is preloaded (crossorigin)`, preload === 1, preload);
+        // #135: the font checks below (ST6-06 h1 font, ST6-07 period width) and the rest of this page's checks
+        // measure once the site font is applied (document.fonts.ready; a reload if font-display: optional left
+        // the fallback). The font-request and preload checks above read the first load; the cold-load CLS check
+        // below stays cold. Assertions unchanged.
+        const fw = await fontsSettled(page);
+        if (fw.loads > 1 || !fw.ok) console.log(`INFO ${tag} #135 font wait: ${fw.ok ? "Schibsted Grotesk" : "still fallback"} after ${fw.loads} loads · ${JSON.stringify(fw.fonts)}`);
         const fam = await platformFont(page, p.path === "/" || p.path === "/calculator" ? "header h1" : "main h1");
         check(`${tag} ST6-06 the h1 renders in Schibsted Grotesk`, fam?.length === 1 && fam[0] === "Schibsted Grotesk", fam);
 
