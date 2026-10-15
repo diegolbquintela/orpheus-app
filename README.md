@@ -621,3 +621,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **12-month count: expense months only (#141, PF-132).** For the 12-month expense average and its `(N of 12 months)` count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0; the income average keeps its own months.
 
 **Save blocked by field errors (#143).** While any Personal Finance field shows an error (for example `-5` in Rent, or tax above 100), pressing Save sends nothing: it shows `Fix the fields marked in red before saving.` and moves focus to the field. `PUT /api/personal-finance` refuses such a record with 400 `{ "error": "Invalid value.", "field": "<path>" }` and never clamps the value to 0. Spec section 28, PF-133..PF-140.
+
+**12-month averages over the same months (#146).** The 12-month income and expense averages, and so the surplus, both use the complete months that have expense entries. An income-only month counts toward neither. An expense month with no income counts as 0 income, unless none of them has income, in which case the income average shows `—`. Spec section 29, PF-143..PF-149.

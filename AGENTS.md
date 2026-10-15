@@ -1161,3 +1161,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - #141 Q-T1 (CFO-changed): the 12-month header shows `(N of 12 months)` when fewer than 12 complete months have data, and the dated range only at 12 of 12. Spec 27, PF-129..PF-131.
 - #141 PF-132: the 12-month count/expense average counts only months with expense entries (income-only months excluded); `(0 of 12 months)` accepted.
 - #143 (PF Save blocked by field errors): `src/lib/finance/field-errors.ts` is the one check for the page (`save()` blocks, note `SAVE_BLOCKED`) and the API (PUT → 400 `{error:"Invalid value.", field}`); never clamp. Spec 28, PF-133..PF-140.
+- #146 (PF 12-month averages over the same months): `summarize()` averages income and expenses over the complete months with expense entries; an expense month with no income counts as 0 (Q-U1). Spec 29, PF-143..PF-149.

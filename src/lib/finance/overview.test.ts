@@ -401,7 +401,7 @@ describe("#140 the 12-month average over 12 complete months (PF-121..PF-125)", (
   });
   it("PF-123: fewer than 12 complete months with data → their mean; empty months left out; full-window label", () => {
     const s = summarize(ov({ months: { "2026-08": { expenses: "1,000", income: "500" }, "2026-09": { expenses: "2,000", income: "" } } }), at("2026-10-14T12:00:00-04:00"), P, undefined, TZ);
-    assert.deepEqual(s.average, { expenses: 1500, income: 500 });
+    assert.deepEqual(s.average, { expenses: 1500, income: 250 }, "#146 Q-U1: Sep (expenses, no income) counts 0 income");
     assert.equal(average12Label(s.window12), "12-month average (Oct\u2013Sep)");
   });
   it("PF-124: no complete month with a figure → — ; 3-month —; Future not computed", () => {
@@ -452,7 +452,7 @@ describe("#141 Q-T1 (CFO-changed): the 12-month label shows the count when fewer
     assert.equal(s.window12WithData, 8);
     assert.equal(average12CountLabel(s.window12, s.window12WithData), "12-month average (8 of 12 months)");
     assert.equal(s.average.expenses, 3600 / 8, "(100+…+800) / 8 = 450, not / 9");
-    assert.equal(s.average.income, 9000, "income average: the income-only month is its one income month");
+    assert.equal(s.average.income, null, "#146 PF-143: the income-only month counts toward neither average; no expense month has income → —");
     const jan = s.points.find((p) => p.key === "2026-01")!;
     assert.equal(jan.expenses, 450, "the chart fill gives the income-only month the expense average (C8), not $0");
     const only = summarize(ov({ months: { "2026-05": { expenses: "", income: "5,000" } } }), NOW, P, undefined, TZ);
@@ -465,5 +465,53 @@ describe("#141 Q-T1 (CFO-changed): the 12-month label shows the count when fewer
     assert.equal(s.window12WithData, 0);
     assert.equal(average12CountLabel(s.window12, 0), "12-month average (0 of 12 months)");
     assert.deepEqual(s.average, { expenses: null, income: null });
+  });
+});
+
+describe("#146 the 12-month income and expense averages over the same months (PF-143..PF-149)", () => {
+  const TZ = "America/Toronto";
+  const P = { expenses: null, income: null };
+  const NOW = new Date("2026-10-14T12:00:00-04:00");
+  const W = completeMonths(NOW, 12, TZ);
+  // Feb..Sep: 8 expense months (100..800) with income 1,000..8,000; Jan: income only (50,000).
+  const eight = () => {
+    const m: Record<string, { expenses: string; income: string }> = {};
+    W.slice(4).forEach((k, i) => (m[k] = { expenses: String((i + 1) * 100), income: String((i + 1) * 1000) }));
+    m["2026-01"] = { expenses: "", income: "50,000" };
+    return m;
+  };
+  it("PF-143 / PF-144 / PF-145: 8 expense months + 1 income-only → both over 8; surplus on the same 8; 8 of 12", () => {
+    const s = summarize(ov({ months: eight() }), NOW, P, undefined, TZ);
+    assert.equal(s.window12WithData, 8);
+    assert.equal(average12CountLabel(s.window12, s.window12WithData), "12-month average (8 of 12 months)");
+    assert.equal(s.average.expenses, 450);
+    assert.equal(s.average.income, 36000 / 8, "4,500: the income-only 50,000 is left out (was (36,000 + 50,000) / 9)");
+    assert.equal(surplusOf(s.average), 4500 - 450);
+  });
+  it("PF-148 / Q-U1: an expense month with no income counts 0 income; none with income → —", () => {
+    const m = eight();
+    m["2026-09"] = { expenses: "800", income: "" };
+    const s = summarize(ov({ months: m }), NOW, P, undefined, TZ);
+    assert.equal(s.average.income, (36000 - 8000) / 8, "Sep counts 0, still / 8");
+    const none = summarize(ov({ months: { "2026-08": { expenses: "100", income: "" }, "2026-01": { expenses: "", income: "9,000" } } }), NOW, P, undefined, TZ);
+    assert.deepEqual(none.average, { expenses: 100, income: null });
+  });
+  it("PF-146: income-only months only → expenses, income and surplus —; 0 of 12", () => {
+    const s = summarize(ov({ months: { "2026-01": { expenses: "", income: "9,000" }, "2026-05": { expenses: "", income: "5,000" } } }), NOW, P, undefined, TZ);
+    assert.deepEqual(s.average, { expenses: null, income: null });
+    assert.equal(surplusOf(s.average), null);
+    assert.equal(s.window12WithData, 0);
+  });
+  it("PF-147: Future on → future months use the same-months averages; net grows by that surplus", () => {
+    const s = summarize(ov({ start: "0", future: true, years: 1, growth: "", months: eight() }), NOW, P, undefined, TZ);
+    const fut = s.points.filter((p) => p.future);
+    assert.deepEqual([fut[0].income, fut[0].expenses], [4500, 450]);
+    const lastPast = s.points.filter((p) => !p.future).at(-1)!.net!;
+    assert.equal(Math.round((fut.at(-1)!.net! - lastPast) * 100) / 100, 12 * 4050);
+  });
+  it("PF-148 / PF-149: a month's own income stays its own in the chart; This month unchanged", () => {
+    const s = summarize(ov({ months: { ...eight(), "2026-10": { expenses: "10", income: "20" } } }), NOW, P, undefined, TZ);
+    assert.equal(s.points.find((p) => p.key === "2026-01")!.income, 50000);
+    assert.deepEqual(s.thisMonth, { expenses: 10, income: 20 });
   });
 });

@@ -251,9 +251,13 @@ export function summarize(
   // #141 (CFO via EL, PF-132): a month has data only with expense entries; an income-only month is neither counted
   // nor averaged as $0 (its expenses are null, so the expense mean already leaves it out).
   const window12WithData = figures12.filter((f) => f.expenses !== null).length;
+  // #146 (PF-143..PF-148): income and expenses average over the SAME months, the complete months with expense
+  // entries; an income-only month counts toward neither; an expense month without income counts 0 income (Q-U1).
+  const used = figures12.filter((f) => f.expenses !== null);
   const average: Figures = {
-    expenses: mean(figures12.map((f) => f.expenses)),
-    income: mean(figures12.map((f) => f.income)),
+    expenses: mean(used.map((f) => f.expenses)),
+    // Q-U1: none of those months has an income figure → `—` (nothing typed yet), not 0.
+    income: used.some((f) => f.income !== null) ? mean(used.map((f) => f.income ?? 0)) : null,
   };
   let net: number | null = orZero(overview.start);
   const points: Point[] = months.map((key, i) => {

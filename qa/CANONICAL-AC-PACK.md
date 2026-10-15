@@ -704,3 +704,15 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 |---|---|
 | PF-142 | Correction to PF-141's "Already true at 8ecd2fc": that claim was wrong. At 8ecd2fc / f307e46 a section toggle sent its PUT (the stored record plus the view) with no field check, so it returned 200 and `Not saved.` never showed. Now, with a field in error on screen (e.g. `-5` in Rent, `520,000` in Starting net assets), closing or reopening a section still toggles it on screen, and the view is kept and sent with the next successful Save. **No PUT is sent.** `Not saved.` shows and stays until a save succeeds. The edits stay on screen. PF-141 still covers a server refusal of a valid on-screen state. |
 | PF-133 note | The signed-in e2e check uses its own fixture, whose October This month is **1,500** (PFE-08). PF-133's 2,950 is the issue's repro. Both mean the same thing: This month is unchanged after the blocked Save. |
+
+### #146 12-month income and expense averages over the same months (spec section 29)
+| ID | Acceptance criterion |
+|---|---|
+| PF-143 | Both 12-month averages use the complete months with expense entries. An income-only month counts toward neither: 8 expense months plus 1 income-only month → income and expenses both average over 8, label `12-month average (8 of 12 months)`. |
+| PF-144 | Surplus = the income average minus the expense average, on those same months. |
+| PF-145 | The month-count label matches the months used (12 of 12 dated; otherwise `(N of 12 months)`). |
+| PF-146 | No expense month in the window (income-only months only): the 12-month expenses, income and surplus are `—`, label `(0 of 12 months)`. |
+| PF-147 | Future on: future months use the same-months income and expense averages, so net assets grow by that surplus each month. |
+| PF-148 | An expense month with no income figure counts as 0 income in the average (Q-U1). The C8 fill (a chart month or 3-month window month with no income figure) uses the new income average. A month's own income stays its own. |
+| PF-149 | This month, the 3-month window (C7) and Future-off coverage are unchanged. |
+| PF-148 addendum | If none of the expense months has an income figure, the 12-month income and surplus show `—`, not 0. |
