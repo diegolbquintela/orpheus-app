@@ -756,3 +756,16 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | PF-173 | Read-only shows no `pf-figures-note`, even when the record holds a bad value. |
 | PF-170 addendum | Q-V3 is now option (c): PF-170's live figures stand, together with PF-172's note. |
 | PF-174 | (QA, 8dc0b5d at 400 px) From 400 px, Save is on the month select's row (vertical centres within 2 px, Save to the right), clean and unsaved, as PF-32 and PF-58 measure it. Below 400 px Save wraps under the select. The reserved `Unsaved changes` may wrap alone onto the next line, and does so in both states. No layout shift and no horizontal scroll at 320, 360, 399, 400, 1024 and 1440, with or without the red-fields note. Supersedes PF-171's "one non-wrapping group", by addition. |
+
+## Dashboard: company view, ROIC method tooltip (#130; attachments/roic-tooltip-design.md; dashboard-spec §19)
+
+Unit and DOM tests cover CV-16..CV-20. The layout (CV-21) is checked in headless Chromium with the deployed CSS (the page needs sign-in) and by QA signed in.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| CV-16 | BLOCK | The Returns `ROIC` label has a button `company-roic-info` (accessible name `How ROIC is calculated`), and only that row does. Its tooltip `company-roic-tip` (`role="tooltip"`) reads exactly `ROIC = operating income × (1 − tax rate) ÷ average invested capital (equity + debt − cash) over the last two year-ends. Cash is excluded, which raises ROIC for net-cash companies.` |
+| CV-17 | BLOCK | The tooltip opens on mouse hover (button or tooltip) and on keyboard focus. It closes on mouse leave and on blur. |
+| CV-18 | BLOCK | A tap (click) toggles it. A second tap or a tap elsewhere closes it. Escape closes it from any of these states. |
+| CV-19 | BLOCK | The button has `aria-describedby` pointing to the tooltip's id, and `aria-expanded` follows the open state. The tooltip is always in the DOM, hidden with `visibility` while closed. |
+| CV-20 | BLOCK | It shows whatever ROIC's status (ok, `n/m`, insufficient history). A fund (no Returns section) has none. The ROIC formula and value are unchanged. |
+| CV-21 | BLOCK | No layout shift on open or close, and no horizontal overflow at 320, 360, 400, 1024 and 1440 px. The tooltip text is chalk on night (AA), the button is ≥ 44 px with the 2 px chalk focus ring, and there's no gold. |

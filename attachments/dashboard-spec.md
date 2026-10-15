@@ -1589,3 +1589,15 @@ as stored by the Dashboard · fund type from OpenFIGI`. Classification runs in t
 backfill only (stored on `instruments.provider_ids.openfigi`, rechecked after 30 days, not-found after 7), never from
 a page. OpenFIGI down or unknown → the company view as before. Design and Q-F1..Q-F8:
 [`attachments/etf-detection-design.md`](etf-detection-design.md); AC FD-01..FD-14.
+
+## 19. ROIC method tooltip (#130)
+
+On the company view, the Returns section's `ROIC` label has a dim `i` button. Its tooltip discloses the method, with no formula change: `ROIC = operating income × (1 − tax rate) ÷ average invested capital (equity + debt − cash) over the last two year-ends. Cash is excluded, which raises ROIC for net-cash companies.`
+
+The tooltip:
+- opens on hover, keyboard focus and tap;
+- closes on Escape, blur, moving off it, or a tap elsewhere;
+- is wired with `aria-describedby` and `role="tooltip"`, in chalk on night (AA);
+- causes no layout shift and doesn't overflow at 320–1440 px.
+
+Business user: Portfolio Manager. Design and Q-T1..Q-T4: [`attachments/roic-tooltip-design.md`](roic-tooltip-design.md); AC CV-16..CV-21.
