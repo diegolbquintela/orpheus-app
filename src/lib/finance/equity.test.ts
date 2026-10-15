@@ -58,12 +58,12 @@ describe("personal finance equity cover (#86, option A, PF-17..20)", () => {
   it("rate used: the typed withdrawal rate as typed, else ROIC ÷ 2; withdrawal wins; none → null", () => {
     assert.equal(rateUsed(rates("", "8")), 4);
     assert.equal(rateUsed(rates("4", "")), 4, "a typed 4% is used as 4% (never halved)");
-    assert.equal(rateUsed(rates("5", "8")), 5, "the withdrawal rate wins when both are typed");
+    assert.equal(rateUsed(rates("5", "8")), 4, "#138 PF-150: the lower of 5 and 8 ÷ 2 (was: withdrawal wins)");
     assert.equal(rateUsed(rates("3.5", "")), 3.5);
     assert.equal(rateUsed(rates("", "7.5")), 3.75);
     assert.equal(rateUsed(NO_RATES), null);
     assert.equal(rateUsed(rates("  ", "")), null);
-    assert.equal(rateUsed(rates("0", "8")), null, "a typed 0 is no rate (it still wins)");
+    assert.equal(rateUsed(rates("0", "8")), 4, "#138 PF-152 (Q-R2): a typed 0 is not set, so ROIC ÷ 2");
     assert.equal(rateUsed(rates("", "0")), null);
     assert.equal(rateUsed(rates("abc", "8")), null, "a bad withdrawal rate reads as 0");
     assert.equal(rateUsed(rates("120", "")), null, "a withdrawal rate above 100 is invalid");
@@ -84,7 +84,7 @@ describe("personal finance equity cover (#86, option A, PF-17..20)", () => {
     assert.equal(calculatedEquity(example.fixed[0], rate), 300000);
     assert.equal(calculatedEquity(example.fixed[1], rate), 75000);
     assert.equal(calculatedEquity(example.variable[0], rate), 30000);
-    const five = rateUsed(rates("5", "8"));
+    const five = rateUsed(rates("5", ""));
     assert.deepEqual(
       [...example.fixed, ...example.variable].map((l) => calculatedEquity(l, five)),
       [240000, 60000, 24000],
@@ -182,13 +182,41 @@ describe("#131 Withdrawal rate description (PF-108, PF-112)", () => {
       [...WITHDRAWAL_DESC_LINES],
       [
         "Withdrawal rate used to calculate how much equity can cover expenses.",
-        "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
+        "Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.",
       ],
     );
   });
-  it("PF-112: Rate used unchanged: withdrawal wins when typed (5 + ROIC 8 → 5), else ROIC ÷ 2 (8 → 4)", () => {
-    assert.equal(rateUsed({ withdrawal: "5", roic: "8" }), 5);
+  it("PF-112 (superseded by #138 PF-150): 5 + ROIC 8 → 4 (the lower), else ROIC ÷ 2 (8 → 4)", () => {
+    assert.equal(rateUsed({ withdrawal: "5", roic: "8" }), 4);
     assert.equal(rateUsed({ withdrawal: "", roic: "8" }), 4);
     assert.equal(rateUsed({ withdrawal: "3", roic: "8" }), 3);
+  });
+});
+
+describe("#138 Rate used = the lower of the Withdrawal Rate and half of Portfolio ROIC (PF-150..PF-153)", () => {
+  const r = (withdrawal: string, roic: string) => ({ withdrawal, roic });
+  it("PF-150: both set → the lower; source names it; equal → equal", async () => {
+    const { rateSource } = await import("./equity.ts");
+    assert.deepEqual([rateUsed(r("5", "8")), rateSource(r("5", "8"))], [4, "roic"]);
+    assert.deepEqual([rateUsed(r("3", "8")), rateSource(r("3", "8"))], [3, "withdrawal"]);
+    assert.deepEqual([rateUsed(r("4", "8")), rateSource(r("4", "8"))], [4, "equal"]);
+    assert.deepEqual([rateUsed(r("3.5", "7.5")), rateSource(r("3.5", "7.5"))], [3.5, "withdrawal"]);
+  });
+  it("PF-151: one set → it; neither → null", async () => {
+    const { rateSource } = await import("./equity.ts");
+    assert.deepEqual([rateUsed(r("5", "")), rateSource(r("5", ""))], [5, "withdrawal"]);
+    assert.deepEqual([rateUsed(r("", "8")), rateSource(r("", "8"))], [4, "roic"]);
+    assert.deepEqual([rateUsed(r("", "")), rateSource(r("", ""))], [null, null]);
+  });
+  it("PF-152 (Q-R2): a typed 0 is not set", async () => {
+    const { rateSource } = await import("./equity.ts");
+    assert.deepEqual([rateUsed(r("0", "8")), rateSource(r("0", "8"))], [4, "roic"]);
+    assert.deepEqual([rateUsed(r("5", "0")), rateSource(r("5", "0"))], [5, "withdrawal"]);
+    assert.deepEqual([rateUsed(r("0", "0")), rateSource(r("0", "0"))], [null, null]);
+  });
+  it("PF-153 (Q-R3): any rate field in error → null, even with the other valid", async () => {
+    const { rateSource } = await import("./equity.ts");
+    for (const [w, o] of [["5", "-8"], ["101", "8"], ["abc", ""], ["", "abc"], ["4", "x"]])
+      assert.deepEqual([rateUsed(r(w, o)), rateSource(r(w, o))], [null, null], `${w} / ${o}`);
   });
 });

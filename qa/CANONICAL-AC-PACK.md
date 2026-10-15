@@ -716,3 +716,19 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | PF-148 | An expense month with no income figure counts as 0 income in the average (Q-U1). The C8 fill (a chart month or 3-month window month with no income figure) uses the new income average. A month's own income stays its own. |
 | PF-149 | This month, the 3-month window (C7) and Future-off coverage are unchanged. |
 | PF-148 addendum | If none of the expense months has an income figure, the 12-month income and surplus show `—`, not 0. |
+
+### #138 Rate used = the lower of the Withdrawal Rate and half of Portfolio ROIC (spec section 30; supersedes PF-18's rule and PF-108's line 2, by addition)
+| ID | Acceptance criterion |
+|---|---|
+| PF-150 | Both set: Rate used = min(withdrawal, ROIC ÷ 2). Withdrawal 5 and ROIC 8 → `4%` (was 5%), source `from half of Portfolio ROIC`. Withdrawal 3 and ROIC 8 → `3%`, `from Withdrawal Rate`. Withdrawal 4 and ROIC 8 → `4%`, `Withdrawal Rate and half of Portfolio ROIC are equal`. |
+| PF-151 | Only one set: withdrawal 5 alone → `5%` (`from Withdrawal Rate`); ROIC 8 alone → `4%` (`from half of Portfolio ROIC`). Neither → `—`, no source line. |
+| PF-152 | A typed 0 counts as not set: withdrawal 0 and ROIC 8 → `4%`; ROIC 0 and withdrawal 5 → `5%`; both 0 → `—`. |
+| PF-153 | Any rate field in error (ROIC `-8`, withdrawal `101`, `abc`) → Rate used `—`, no source line, even if the other is valid. |
+| PF-154 | The source line `pf-rate-source` sits under the value and passes AA contrast. |
+| PF-155 | `pf-withdrawal-desc` line 2 reads `Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.` (line 1 unchanged). |
+| PF-156 | Equity to cover, its totals, the saved months' figures and the Overview coverage use the new rate: withdrawal 5 and ROIC 8 → Rent 1,000 a month → `300,000` (was 240,000). |
+| PF-157 | Read-only shows the same value and source line, with no new control. |
+
+| ID | Acceptance criterion (#138 addendum: the CFO accepted Q-R1..Q-R5 via EL, with a condition on Q-R3) |
+|---|---|
+| PF-158 | When Rate used is `—` because a rate field is invalid, that field's own error says what to fix. Portfolio ROIC `-8` or `abc` → `Enter a number, 0 or more.` Withdrawal rate `-1`, `101` or `abc` → `Enter a percent from 0 to 100.` The field has `aria-invalid="true"`, Rate used is `—`, and there's no source line. These messages already existed before #138 (4e3a7f1 renders them); they're pinned by a DOM test. |

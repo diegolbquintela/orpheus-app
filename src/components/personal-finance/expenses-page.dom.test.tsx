@@ -458,18 +458,24 @@ describe("equity cover (#86, option A)", () => {
     assert.equal(text(el, "pf-rate-used"), "4%");
     assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
     assert.deepEqual(totals(el), ["375,000", "30,000", "405,000"]);
-    // Withdrawal rate 5 wins, used as typed.
+    // #138 PF-150 / PF-156: withdrawal 5 and ROIC 8 → the lower, 4% (was: 5 wins → 240,000 / 60,000 / 24,000).
     await type(q(el, "pf-withdrawal"), "5");
-    assert.equal(text(el, "pf-rate-used"), "5%");
-    assert.deepEqual(holders(el), ["240,000", "60,000", "24,000"]);
+    assert.equal(text(el, "pf-rate-used"), "4%");
+    assert.equal(text(el, "pf-rate-source"), "from half of Portfolio ROIC");
+    assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
+    await type(q(el, "pf-withdrawal"), "3");
+    assert.equal(text(el, "pf-rate-used"), "3%");
+    assert.equal(text(el, "pf-rate-source"), "from Withdrawal Rate");
+    assert.deepEqual(holders(el), ["400,000", "100,000", "40,000"]);
     // A typed 4 is 4% (never halved).
     await type(q(el, "pf-withdrawal"), "4");
     assert.equal(text(el, "pf-rate-used"), "4%");
+    assert.equal(text(el, "pf-rate-source"), "Withdrawal Rate and half of Portfolio ROIC are equal");
     assert.equal(holders(el)[0], "300,000");
-    // 0 → —; a bad rate → the check and —.
+    // #138 PF-152 (Q-R2): a typed 0 is not set → ROIC ÷ 2; a bad rate → the check and — (PF-153).
     await type(q(el, "pf-withdrawal"), "0");
-    assert.equal(text(el, "pf-rate-used"), "—");
-    assert.deepEqual(holders(el), ["—", "—", "—"]);
+    assert.equal(text(el, "pf-rate-used"), "4%");
+    assert.deepEqual(holders(el), ["300,000", "75,000", "30,000"]);
     await type(q(el, "pf-withdrawal"), "150");
     assert.equal(q(q(el, "pf-rates"), "pf-error").textContent, "Enter a percent from 0 to 100.");
     assert.equal(q(el, "pf-withdrawal").getAttribute("aria-invalid"), "true");
@@ -1612,7 +1618,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
 describe("#131 Withdrawal rate description (PF-108..PF-112)", () => {
   const LINES = [
     "Withdrawal rate used to calculate how much equity can cover expenses.",
-    "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
+    "Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.", // #138 PF-155
   ];
   it("PF-108 / PF-109 / PF-110: two description lines right before the rates row, note style, not a title", async () => {
     const el = await render();
@@ -1639,13 +1645,14 @@ describe("#131 Withdrawal rate description (PF-108..PF-112)", () => {
     assert.deepEqual(ids, [desc.id, err.id]);
     assert.equal(wd.getAttribute("aria-invalid"), "true");
   });
-  it("PF-112: read-only sees the description inside the lock; Rate used as before (5 + ROIC 8 → 5%)", async () => {
+  it("PF-112: read-only sees the description inside the lock; Rate used (#138: 5 + ROIC 8 → the lower, 4%) and its source", async () => {
     dom.window.localStorage.setItem(EQUITY_KEY, JSON.stringify({ withdrawal: "5", roic: "8" }));
     const el = await render(NOW, true);
     const desc = q(el, "pf-withdrawal-desc");
     assert.deepEqual([...desc.querySelectorAll("p")].map((p) => p.textContent), LINES);
     assert.ok(desc.closest('[data-testid="pf-lock"]'));
-    assert.equal(text(q(el, "pf-rates"), "pf-rate-used"), "5%");
+    assert.equal(text(q(el, "pf-rates"), "pf-rate-used"), "4%");
+    assert.equal(text(q(el, "pf-rates"), "pf-rate-source"), "from half of Portfolio ROIC", "PF-157: read-only sees the source");
   });
 });
 
@@ -1835,5 +1842,59 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     const ro = await reopen(true);
     assert.equal(ro.querySelector('[data-testid="pf-month-save"]'), null);
     assert.equal(puts.n, 0);
+  });
+});
+
+describe("#138 Rate used = the lower of the Withdrawal Rate and half of Portfolio ROIC (PF-150..PF-157)", () => {
+  const show = (el: HTMLElement) => [text(el, "pf-rate-used"), el.querySelector('[data-testid="pf-rate-source"]')?.textContent ?? null];
+  it("PF-150 / PF-151 / PF-152 / PF-153 / PF-154: lower, equal, one empty, 0, a field in error", async () => {
+    const el = await render();
+    const cases: [string, string, string, string | null][] = [
+      ["3", "8", "3%", "from Withdrawal Rate"],
+      ["5", "8", "4%", "from half of Portfolio ROIC"],
+      ["4", "8", "4%", "Withdrawal Rate and half of Portfolio ROIC are equal"],
+      ["", "8", "4%", "from half of Portfolio ROIC"],
+      ["5", "", "5%", "from Withdrawal Rate"],
+      ["", "", "—", null],
+      ["0", "8", "4%", "from half of Portfolio ROIC"],
+      ["0", "0", "—", null],
+      ["5", "-8", "—", null],
+      ["101", "8", "—", null],
+    ];
+    for (const [w, r, used, source] of cases) {
+      await type(q(el, "pf-withdrawal"), w);
+      await type(q(el, "pf-roic"), r);
+      assert.deepEqual(show(el), [used, source], `${w} / ${r}`);
+    }
+  });
+  it("PF-156: the Overview coverage uses the new rate (withdrawal 5 and ROIC 8 → 4%)", async () => {
+    dom.window.localStorage.setItem(EQUITY_KEY, JSON.stringify({ withdrawal: "5", roic: "8" }));
+    dom.window.localStorage.setItem(OVERVIEW_KEY, JSON.stringify({ start: "120,000", growth: "", future: false, years: 1, months: {} }));
+    const el = await render();
+    assert.match(q(el, "pf-coverage").textContent ?? "", /Equity coverage: 400 CAD\/mo \(4,800 CAD\/yr\)/);
+  });
+});
+
+describe("#138 Q-R3 condition (CFO): a rate field in error says what to fix (PF-158)", () => {
+  it("PF-158: ROIC -8 / abc → `Enter a number, 0 or more.`; WR -1 / 101 / abc → `Enter a percent from 0 to 100.`; Rate used —", async () => {
+    const el = await render();
+    const rates = () => q(el, "pf-rates");
+    const err = (field: string) => rates().querySelector(`[data-testid="pf-error"][data-field="${field}"]`)?.textContent ?? null;
+    const cases: [string, string, string, string][] = [
+      ["roic", "-8", "Enter a number, 0 or more.", "5"],
+      ["roic", "abc", "Enter a number, 0 or more.", "5"],
+      ["withdrawal", "-1", "Enter a percent from 0 to 100.", "8"],
+      ["withdrawal", "101", "Enter a percent from 0 to 100.", "8"],
+      ["withdrawal", "abc", "Enter a percent from 0 to 100.", "8"],
+    ];
+    for (const [field, bad, message, other] of cases) {
+      await type(q(el, field === "roic" ? "pf-withdrawal" : "pf-roic"), other);
+      await type(q(el, `pf-${field}`), bad);
+      assert.equal(err(field), message, `${field} ${bad}`);
+      assert.equal(q(el, `pf-${field}`).getAttribute("aria-invalid"), "true");
+      assert.equal(text(el, "pf-rate-used"), "—", `${field} ${bad}: Rate used —`);
+      assert.equal(el.querySelector('[data-testid="pf-rate-source"]'), null);
+      await type(q(el, `pf-${field}`), "");
+    }
   });
 });

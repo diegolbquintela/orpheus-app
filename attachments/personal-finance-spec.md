@@ -976,3 +976,20 @@ Before this change, the 12-month income average used every complete month that h
   - Future-on coverage follows through the projected net assets. Future-off coverage (the 3-month expense average and the start) is unchanged.
   - This month and the 3-month average's own window rule (C7) are unchanged (PF-149).
 - 29.7 (Q-U1 refinement) If none of the months used has an income figure, the 12-month income and surplus averages are `—`, not 0. This keeps a page with only expenses typed so far from showing a 0 income average and a negative surplus. As soon as one of those months has income, the others count as 0.
+
+## 30. Rate used = the lower of the Withdrawal Rate and half of Portfolio ROIC (#138; PF-150..PF-157)
+This supersedes section 13's formula A ("the typed withdrawal rate wins, else ROIC ÷ 2"), PF-18's rule and #131 Q-W1's line 2, by addition only.
+- 30.1 Rate used = min(Withdrawal Rate, Portfolio ROIC ÷ 2) when both are set; when only one is set, that one; when neither, `—`. Example: withdrawal 5 and ROIC 8 → 4% (it was 5%). Withdrawal 3 and ROIC 8 → 3%. Withdrawal 4 and ROIC 8 → 4% (equal) (PF-150, PF-151).
+- 30.2 A typed 0 counts as **not set** (Q-R2): withdrawal 0 and ROIC 8 → 4%; both 0 → `—`. A rate of 0 can't cover anything, and before this change 0 already meant "no rate" (`—`) (PF-152).
+- 30.3 While either rate field shows an error (a negative ROIC, a withdrawal above 100, a non-number), Rate used is `—` (Q-R3). Before, a bad withdrawal rate gave `—`, but a bad ROIC was ignored when a withdrawal rate was set. Now neither is ignored, and Save is blocked by #143 anyway (PF-153).
+- 30.4 Which rate was used (Q-R4): under the value, a small source line, `pf-rate-source` (PF-154):
+  - `from Withdrawal Rate`
+  - `from half of Portfolio ROIC`
+  - `Withdrawal Rate and half of Portfolio ROIC are equal`
+  - nothing when Rate used is `—`
+- 30.5 The #131 description line 2 now reads `Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.` (the issue's wording, with a period). This supersedes PF-108's line 2 text (PF-155).
+- 30.6 Everything that uses Rate used follows with no other change (PF-156):
+  - the Expenses `Equity to cover` column and totals;
+  - the saved months' figures;
+  - the Overview equity coverage (Future off and on).
+- 30.7 Read-only shows the same value and source line, with no new control (PF-157).

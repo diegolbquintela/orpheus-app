@@ -6,6 +6,8 @@ import {
   parseWithdrawal,
   RATE_USED_LABEL,
   type Rates,
+  RATE_SOURCE,
+  rateSource,
   rateUsed,
   ROIC_LABEL,
   WITHDRAWAL_DESC_LINES,
@@ -81,6 +83,12 @@ export function EquityRates({
           <span className="pf-value" data-testid="pf-rate-used">
             {formatRate(rateUsed(rates))}
           </span>
+          {/* #138 (PF-154, Q-R4): which rate won; nothing while Rate used is —. */}
+          {rateSource(rates) ? (
+            <span className="pf-rate-source" data-testid="pf-rate-source">
+              {RATE_SOURCE[rateSource(rates)!]}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
