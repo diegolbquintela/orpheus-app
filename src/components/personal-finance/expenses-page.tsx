@@ -517,8 +517,10 @@ function MonthControl({
             </option>
           ))}
         </select>
-        {/* #144 (PF-162; PF-171 layout fix): Save and `Unsaved changes` are one non-breaking group; the indicator's space
-            is always reserved (visibility, not display), so showing it never moves anything. Read-only: no indicator. */}
+        {/* #144 (PF-162, PF-171, PF-174): the Save slot (the button, or a Save-sized placeholder) stays beside the select
+            from 400 px (spec 19.4); `Unsaved changes` is its own flex item right after it, always rendered (shown by
+            visibility), so it takes the same place clean or unsaved: where it doesn't fit it wraps alone, in both
+            states, and nothing ever moves. Read-only: no indicator. */}
         <span className="pf-month-save">
           {dirty ? (
             <button
@@ -533,12 +535,12 @@ function MonthControl({
           ) : (
             <span className="pf-save-slot" aria-hidden="true" />
           )}
-          {readOnly ? null : (
-            <span className="pf-unsaved" role="status" data-testid="pf-unsaved" data-shown={dirty ? "true" : "false"}>
-              {UNSAVED}
-            </span>
-          )}
         </span>
+        {readOnly ? null : (
+          <span className="pf-unsaved" role="status" data-testid="pf-unsaved" data-shown={dirty ? "true" : "false"}>
+            {UNSAVED}
+          </span>
+        )}
       </div>
       <p className="pf-month-note" data-testid="pf-month-note">
         {note}

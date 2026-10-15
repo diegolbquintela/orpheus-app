@@ -2093,11 +2093,13 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(unsaved(el), "");
     assert.equal(puts.n, 0);
   });
-  it("PF-171: Save and the indicator are one group; the indicator is always there (hidden, not removed) and a Save slot holds the place", async () => {
+  it("PF-171 / PF-174: the Save slot then the indicator in the month row; the indicator is always there (hidden, not removed) and a Save-sized slot holds the place", async () => {
     const el = await october();
+    const row = el.querySelector(".pf-month-row")!;
     const group = el.querySelector(".pf-month-save")!;
     const ind = q(el, "pf-unsaved");
-    assert.equal(ind.parentElement, group);
+    assert.equal(ind.parentElement, row, "its own flex item in the row (it may wrap alone; Save stays beside the select)");
+    assert.equal(group.nextElementSibling, ind, "right after the Save slot");
     assert.equal(ind.getAttribute("data-shown"), "false");
     assert.equal(ind.textContent, "Unsaved changes", "the text is kept so its width is reserved");
     assert.ok(group.querySelector(".pf-save-slot"), "a Save-sized placeholder while clean");
@@ -2106,12 +2108,13 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(ind.getAttribute("data-shown"), "true");
     assert.equal(q(el, "pf-month-save").parentElement, group);
     assert.equal(group.querySelector(".pf-save-slot"), null);
-    assert.deepEqual([...group.children].map((c) => c.getAttribute("data-testid") ?? c.className), ["pf-month-save", "pf-unsaved"]);
+    assert.deepEqual([...row.children].map((c) => c.getAttribute("data-testid") ?? c.className.split(" ")[0]), ["pf-label", "pf-month", "pf-month-save", "pf-unsaved"]);
   });
-  it("PF-171 (CSS): the group never wraps; hidden is visibility, not display:none; Save and its slot are the same width", () => {
+  it("PF-171 / PF-174 (CSS): hidden is visibility, not display:none; Save and its slot are the same width; the indicator never breaks inside", () => {
     const css = readFileSync(new URL(`file://${process.cwd()}/src/styles.css`), "utf8");
     const rule = (sel: string) => css.slice(css.indexOf(`${sel} {`)).split("}")[0];
-    assert.match(rule("  .pf-month-save"), /display: inline-flex;[\s\S]*flex-wrap: nowrap;[\s\S]*white-space: nowrap;/);
+    assert.match(rule("  .pf-month-save"), /display: inline-flex;[\s\S]*flex: none;/);
+    assert.match(rule("  .pf-unsaved"), /flex: none;[\s\S]*white-space: nowrap;/);
     assert.match(rule('  .pf-unsaved[data-shown="false"]'), /visibility: hidden;/);
     assert.doesNotMatch(css, /\.pf-unsaved[^{]*\{[^}]*display: none/);
     assert.match(rule("  .pf-month-save > .pf-button,\n  .pf-save-slot"), /width: 5\.5rem;/);

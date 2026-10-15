@@ -629,3 +629,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **Every figure is live; Unsaved changes (#144).** Personal Finance figures (This month, the 3-month and 12-month averages, the chart, the projection and the coverage) now update while you type, the same as the Expenses totals already did. They show what Save would store. Nothing is stored until Save. `Unsaved changes` shows beside Save until a save succeeds, and it stays after a blocked or refused save, along with `Not saved.`. Spec section 31, PF-159..PF-170.
 
 **Layout and the figures note (#144).** Save and `Unsaved changes` are one group that never wraps, and the indicator's space is always reserved, so nothing moves (PF-171). While any field is in error, `Figures leave out fields marked in red.` shows above the Overview figures (the CFO chose option c on Q-V3; PF-172, PF-173).
+
+**Month row at 400 px (#144, PF-174).** Save stays on the month select's row from 400 px, as on main. The reserved `Unsaved changes` may wrap alone onto the next line, in both states, so nothing moves.
