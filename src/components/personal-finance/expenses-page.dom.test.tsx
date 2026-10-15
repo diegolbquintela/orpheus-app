@@ -12,7 +12,10 @@ import { OVERVIEW_KEY } from "@/lib/finance/overview";
 import { VIEW_KEY } from "@/lib/finance/view";
 import { MONTHS_KEY } from "@/lib/finance/months";
 import { PersonalFinancePage } from "./expenses-page";
-import { loadLocalStore, type LoadStore } from "@/lib/finance/account-client";
+import { loadAccountStore, loadLocalStore, type LoadStore } from "@/lib/finance/account-client";
+import { PGlite } from "@electric-sql/pglite";
+import { readFileSync } from "node:fs";
+import { handlePersonalFinanceRequest } from "@/lib/finance/account.server";
 import { RecordStore } from "@/lib/finance/record";
 
 let root: Root | undefined;
@@ -766,8 +769,11 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     await type(q(el, "pf-person-wages"), "134,400");
     assert.equal(hasSave(el), true, "a change shows Save");
     assert.equal(dom.window.localStorage.length, 0, "no autosave");
-    assert.deepEqual(ov(el, "expenses"), ["—", "—"], "04 follows saved months");
+    // #144 (Q-V1, PF-159): 04 is live (was "04 follows saved months": `—` until Save); nothing is stored yet.
+    assert.deepEqual(ov(el, "expenses"), ["1,750", "—"], "04 is live before Save");
+    assert.equal(text(el, "pf-unsaved"), "Unsaved changes");
     await click(q(el, "pf-month-save"));
+    assert.equal(text(el, "pf-unsaved"), "", "a successful Save clears the indicator");
     assert.equal(hasSave(el), false, "Save hides after saving");
     // #140 (PF-124): only the current month is saved → the 12-complete-month average is —.
     assert.deepEqual(ov(el, "expenses"), ["1,750", "—"]);
@@ -1716,7 +1722,10 @@ describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () 
     assert.equal(puts.n, 0, "no PUT");
     assert.equal(note(el), "Fix the fields marked in red before saving.");
     assert.equal(dom.window.document.activeElement, rent, "focus on the field in error");
-    assert.equal(now(el), "2,950", "This month not dropped to 750");
+    // #144 (Q-V3, PF-170): the page is live, so This month counts the bad Rent as 0 while its error shows (750, as the
+    // Expenses totals already did); nothing is stored, and PF-133's own check is the reload below.
+    assert.equal(now(el), "750", "live, with the error shown");
+    assert.equal(text(el, "pf-unsaved"), "Unsaved changes");
     assert.ok(q(el, "pf-month-save"), "Save stays shown (Q-S1)");
     const again = await reopen();
     assert.equal(now(again), "2,950");
@@ -1896,5 +1905,282 @@ describe("#138 Q-R3 condition (CFO): a rate field in error says what to fix (PF-
       assert.equal(el.querySelector('[data-testid="pf-rate-source"]'), null);
       await type(q(el, `pf-${field}`), "");
     }
+  });
+});
+
+
+describe("#144 every figure is live; Unsaved changes until a successful save (PF-159..PF-170)", () => {
+  // A store like the account's that counts PUTs and keeps the record on success (for a reload). It always accepts:
+  // the blocked cases below are the page's own (no PUT is sent), not a faked refusal. The refusal is PF-166's real path.
+  const puts = { n: 0 };
+  const loadCounting: LoadStore = async ({ onSaved }) => {
+    const ls = dom.window.localStorage;
+    const data: Record<string, string> = {};
+    for (let i = 0; i < ls.length; i++) data[ls.key(i)!] = ls.getItem(ls.key(i)!)!;
+    const store: RecordStore & { save?: () => Promise<boolean> } = new RecordStore(data);
+    store.save = async () => {
+      puts.n++;
+      onSaved(true);
+      for (const [k, v] of Object.entries(store.snapshot())) ls.setItem(k, v);
+      return true;
+    };
+    return store;
+  };
+  async function open(readOnly = false): Promise<HTMLElement> {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadCounting} readOnly={readOnly} />));
+    return container;
+  }
+  async function reopen(readOnly = false) {
+    await act(async () => root!.unmount());
+    container!.remove();
+    return open(readOnly);
+  }
+  const ovCell = (el: HTMLElement, row: string, col: string) => text(q(el, `pf-ov-${row}`), col);
+  const unsaved = (el: HTMLElement) => text(el, "pf-unsaved");
+  const num = (s: string | null) => Number((s ?? "").replace(/,/g, ""));
+  /** October saved: one person (36,000 a year), Rent 2,200 + Phone 750 → This month 2,950. */
+  async function october(): Promise<HTMLElement> {
+    puts.n = 0;
+    const el = await open();
+    await click(q(el, "pf-add-person"));
+    await type(q(qa(el, "pf-person")[0], "pf-person-wages"), "36,000");
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-fixed"));
+    const [rent, phone] = lines(el, "fixed");
+    await type(q(rent, "pf-monthly"), "2,200");
+    await type(q(phone, "pf-monthly"), "750");
+    await saveNow();
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950");
+    assert.equal(unsaved(el), "");
+    puts.n = 0;
+    return el;
+  }
+  const rent = (el: HTMLElement) => q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement;
+  const leaveWarns = () => {
+    const e = new dom.window.Event("beforeunload", { cancelable: true });
+    dom.window.dispatchEvent(e);
+    return e.defaultPrevented;
+  };
+
+  it("PF-159: the shown month's edit moves This month, the surplus and the chart while typing, before Save", async () => {
+    const el = await october();
+    const income = num(ovCell(el, "income", "pf-ov-now"));
+    await type(rent(el), "2,300");
+    assert.equal(puts.n, 0, "nothing stored");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "3,050");
+    assert.equal(num(ovCell(el, "surplus", "pf-ov-now")), income - 3050);
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "3,050", "the same figure as the Expenses total");
+  });
+  it("PF-159: a past month in the windows moves the 3-month and 12-month averages, surplus and N-of-12 label live", async () => {
+    const el = await october();
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "—");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "—");
+    await type(q(el, "pf-month"), "2026-09"); // a copy of October, unsaved
+    assert.equal(unsaved(el), "Unsaved changes", "a copy is unsaved");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "2,950");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "2,950");
+    assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg-head"), "12-month average (1 of 12 months)");
+    await type(q(el, "pf-start"), "10,000");
+    const net0 = q(el, "pf-chart").getAttribute("data-net-last");
+    assert.notEqual(net0, "");
+    await type(rent(el), "1,000");
+    // The chart's net line: Sep and the months filled with the 12-month average spend 1,200 a month less, so it rises.
+    assert.ok(Number(q(el, "pf-chart").getAttribute("data-net-last")) > Number(net0), "the chart's net line moved");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "1,750");
+    assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "1,750");
+    const inc = num(ovCell(el, "income", "pf-ov-avg"));
+    assert.equal(num(ovCell(el, "surplus", "pf-ov-avg")), inc - 1750);
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950", "October (This month) is its saved lines");
+    assert.equal(puts.n, 0);
+  });
+  it("PF-160 / PF-161: rates and Starting net assets move Rate used, Equity to cover, the coverage and the projection live", async () => {
+    const el = await october();
+    await type(q(el, "pf-month"), "2026-09");
+    await type(q(el, "pf-start"), "120,000");
+    await type(q(el, "pf-withdrawal"), "4");
+    assert.equal(text(el, "pf-rate-used"), "4%");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "885,000", "2,950 × 12 ÷ 4%");
+    // 120,000 × 4% = 4,800/yr = 400/mo; ÷ the live 3-month average 2,950 = 13.56%.
+    assert.equal(text(el, "pf-coverage-monthly"), "400 CAD/mo");
+    assert.match(text(el, "pf-coverage-rate-note")!, /covers 13\.56% of monthly expenses/);
+    await type(rent(el), "1,000"); // the live 3-month average drops to 1,750 → 22.86%
+    assert.match(text(el, "pf-coverage-rate-note")!, /covers 22\.86% of monthly expenses/);
+    await type(q(el, "pf-withdrawal"), "8");
+    assert.equal(text(el, "pf-coverage-monthly"), "800 CAD/mo");
+    const net0 = q(el, "pf-chart").getAttribute("data-net-last");
+    await type(q(el, "pf-start"), "130,000");
+    assert.notEqual(q(el, "pf-chart").getAttribute("data-net-last"), net0);
+    assert.equal(puts.n, 0, "nothing stored while typing");
+  });
+  it("PF-162 / PF-163: the first edit shows Unsaved changes beside Save; a successful Save clears it; a reload shows the saved figures", async () => {
+    const el = await october();
+    assert.equal(unsaved(el), "");
+    await type(rent(el), "2,300");
+    assert.equal(unsaved(el), "Unsaved changes");
+    const ind = q(el, "pf-unsaved");
+    assert.equal(ind.getAttribute("role"), "status");
+    assert.ok(ind.closest('[data-testid="pf-month-control"]'), "in the month row, beside Save");
+    assert.ok(q(el, "pf-month-save"));
+    await saveNow();
+    assert.equal(puts.n, 1);
+    assert.equal(unsaved(el), "");
+    assert.equal(text(el, "pf-save"), "");
+    const again = await reopen();
+    assert.equal(ovCell(again, "expenses", "pf-ov-now"), "3,050");
+    assert.equal(rent(again).value, "2,300");
+    assert.equal(unsaved(again), "");
+  });
+  it("PF-164 / PF-168: Save with a field in error: no PUT, the note, Not saved., the indicator and the leave prompt stay", async () => {
+    const el = await october();
+    assert.equal(leaveWarns(), false, "nothing unsaved, no prompt");
+    await type(rent(el), "-5");
+    await saveNow();
+    assert.equal(puts.n, 0);
+    assert.equal(text(el, "pf-month-note"), "Fix the fields marked in red before saving.");
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    assert.equal(unsaved(el), "Unsaved changes");
+    assert.equal(leaveWarns(), true, "the leave prompt stays");
+    await act(async () => new Promise((r) => setTimeout(r, 1500)));
+    assert.equal(text(el, "pf-save"), "Not saved.", "stays");
+    await type(rent(el), "2,400");
+    assert.equal(text(el, "pf-save"), "Not saved.", "fixing alone does not clear it; only a successful save does");
+    await saveNow();
+    assert.equal(puts.n, 1);
+    assert.equal(text(el, "pf-save"), "");
+    assert.equal(unsaved(el), "");
+    assert.equal(leaveWarns(), false, "saved: no prompt");
+  });
+  it("PF-165: a section toggle with a field in error sends no PUT; Not saved. and Unsaved changes stay", async () => {
+    const el = await october();
+    await type(rent(el), "-5");
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(puts.n, 0);
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    assert.equal(unsaved(el), "Unsaved changes");
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(unsaved(el), "Unsaved changes");
+    assert.equal(rent(el).value, "-5");
+  });
+  it("PF-165: a toggle with nothing in error saves the view only; it does not clear Unsaved changes", async () => {
+    const el = await october();
+    await type(rent(el), "2,300");
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(unsaved(el), "Unsaved changes", "the edit is still not saved by Save");
+    assert.ok(q(el, "pf-month-save"));
+  });
+  it("PF-167: typing back to the saved value hides the indicator and Save; discarding on a month switch too", async () => {
+    const el = await october();
+    await type(rent(el), "2,300");
+    assert.equal(unsaved(el), "Unsaved changes");
+    await type(rent(el), "2,200");
+    assert.equal(unsaved(el), "");
+    assert.equal(container!.querySelector('[data-testid="pf-month-save"]'), null);
+    await type(rent(el), "2,300");
+    confirm.answer = true;
+    confirm.asked = [];
+    await type(q(el, "pf-month"), "2026-09");
+    assert.deepEqual(confirm.asked, ["Discard unsaved changes?"]);
+    await type(q(el, "pf-month"), "2026-10");
+    assert.equal(rent(el).value, "2,200", "discarded");
+    assert.equal(unsaved(el), "");
+    assert.equal(puts.n, 0);
+  });
+  it("PF-169: read-only: no Unsaved changes, no Save, the saved figures", async () => {
+    await october();
+    const ro = await reopen(true);
+    assert.equal(unsaved(ro), "");
+    assert.equal(ro.querySelector('[data-testid="pf-month-save"]'), null);
+    assert.equal(ovCell(ro, "expenses", "pf-ov-now"), "2,950");
+    assert.equal(puts.n, 0);
+  });
+  it("PF-170: a field in error counts as #143 has it, live: Rent -5 counts 0; ROIC -8 → Rate used and Equity to cover —", async () => {
+    const el = await october();
+    await type(rent(el), "-5");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "750");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-monthly"), "750");
+    await type(rent(el), "2,200");
+    await type(q(el, "pf-withdrawal"), "4");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "885,000");
+    await type(q(el, "pf-roic"), "-8");
+    assert.equal(text(el, "pf-rate-used"), "—");
+    assert.equal(text(q(el, "pf-total-all"), "pf-total-equity"), "—");
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950", "the amounts do not depend on the rate");
+  });
+});
+
+describe("#144 PF-166: a save the server refuses, through the real account client and the real API handler", () => {
+  // The page's own store (`loadAccountStore`) talks to `handlePersonalFinanceRequest` on PGLite (as
+  // account.server.test.ts), with a session lookup that can end. Nothing on the client is faked.
+  const pg = new PGlite();
+  const db = { query: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows };
+  let session: string | null = "alice";
+  const deps = {
+    env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
+    getUser: async () => (session ? { id: session, email: `${session}@example.com` } : null),
+    getDb: async () => db,
+  };
+  const realFetch = globalThis.fetch;
+  const statuses: number[] = [];
+  let ready: Promise<void> | null = null;
+  async function setup() {
+    ready ??= (async () => {
+      await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');
+      for (const f of ["0010_personal_finance.sql", "0011_access.sql"])
+        await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, `file://${process.cwd()}/src/components/personal-finance/`), "utf8"));
+      await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', ["alice", "alice@example.com"]);
+    })();
+    await ready;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const res = await handlePersonalFinanceRequest(new Request(new URL(String(input), "http://localhost"), init), deps);
+      statuses.push(res.status);
+      return res;
+    }) as typeof fetch;
+  }
+  async function open(): Promise<HTMLElement> {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadAccountStore} />));
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    return container;
+  }
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it("PF-166: the session ends → the real PUT is refused (401): Not saved., Unsaved changes and the live figures stay; signed in again, Save clears both", async () => {
+    await setup();
+    session = "alice";
+    const el = await open();
+    await click(q(el, "pf-add-fixed"));
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,200");
+    await saveNow();
+    assert.equal(statuses.at(-1), 200, "a real 2xx save");
+    assert.equal(text(el, "pf-unsaved"), "");
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,500");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500", "live");
+    session = null; // signed out elsewhere: the API now refuses the write
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 401, "the real handler refused it");
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    assert.equal(text(el, "pf-unsaved"), "Unsaved changes");
+    assert.ok(q(el, "pf-month-save"), "Save still shown");
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,500", "the edit stays");
+    assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "1,500", "the live figure stays");
+    session = "alice";
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 200);
+    assert.equal(text(el, "pf-save"), "");
+    assert.equal(text(el, "pf-unsaved"), "");
+    // A reload reads the record back from the database.
+    await act(async () => root!.unmount());
+    container!.remove();
+    const again = await open();
+    assert.equal(text(q(again, "pf-ov-expenses"), "pf-ov-now"), "1,500");
   });
 });

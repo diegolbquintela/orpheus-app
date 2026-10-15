@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { lineFigures, liveLineFigures, writeMonths } from "./months.ts";
+import { newLine, readExpenses, writeExpenses } from "./expenses.ts";
+import { writeRates } from "./equity.ts";
 import {
   asOverview,
   average3Label,
@@ -513,5 +516,54 @@ describe("#146 the 12-month income and expense averages over the same months (PF
     const s = summarize(ov({ months: { ...eight(), "2026-10": { expenses: "10", income: "20" } } }), NOW, P, undefined, TZ);
     assert.equal(s.points.find((p) => p.key === "2026-01")!.income, 50000);
     assert.deepEqual(s.thisMonth, { expenses: 10, income: 20 });
+  });
+});
+
+
+describe("#144 liveLineFigures: each month as Save would store it (PF-159, PF-160, Q-V1)", () => {
+  const mem = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
+  };
+  const line = (amount: string) => ({ ...newLine(), amount });
+  function saved() {
+    const s = mem();
+    writeExpenses(s, { ...readExpenses(s), fixed: [line("1,000")], variable: [] });
+    writeMonths(s, {
+      "2026-09": { fixed: [line("1,000")], variable: [], people: [] },
+      "2026-10": { fixed: [line("2,000")], variable: [], people: [] },
+    });
+    writeRates(s, { withdrawal: "4", roic: "" });
+    return s;
+  }
+  it("unedited: the same figures as the saved record", () => {
+    const s = saved();
+    const shown = { month: "2026-10", lines: { fixed: [line("2,000")], variable: [], people: [] }, expenses: readExpenses(s), rates: { withdrawal: "4", roic: "" }, household: "CAD" as const };
+    assert.deepEqual(liveLineFigures(s, shown), lineFigures(s));
+  });
+  it("the shown month's on-screen lines replace its saved ones; other months keep theirs; nothing is written", () => {
+    const s = saved();
+    const before = s.getItem("orpheus.finance.months.v1");
+    const live = liveLineFigures(s, { month: "2026-10", lines: { fixed: [line("2,500"), line("100")], variable: [], people: [] }, expenses: readExpenses(s), rates: { withdrawal: "4", roic: "" }, household: "CAD" });
+    assert.equal(live["2026-10"].expenses, 2600);
+    assert.equal(live["2026-09"].expenses, 1000);
+    assert.equal(s.getItem("orpheus.finance.months.v1"), before, "nothing written");
+    assert.equal(lineFigures(s)["2026-10"].expenses, 2000, "the saved figures are unchanged");
+  });
+  it("a shown month not yet saved (a copy) is counted live", () => {
+    const s = saved();
+    const live = liveLineFigures(s, { month: "2026-08", lines: { fixed: [line("700")], variable: [], people: [] }, expenses: readExpenses(s), rates: { withdrawal: "4", roic: "" }, household: "CAD" });
+    assert.equal(live["2026-08"].expenses, 700);
+    assert.equal(lineFigures(s)["2026-08"], undefined);
+  });
+  it("the shown month cleared of lines drops out (as Save would store it)", () => {
+    const s = saved();
+    const live = liveLineFigures(s, { month: "2026-10", lines: { fixed: [], variable: [], people: [] }, expenses: readExpenses(s), rates: { withdrawal: "4", roic: "" }, household: "CAD" });
+    assert.equal(live["2026-10"], undefined);
+  });
+  it("Q-V3 (PF-170): an invalid amount counts 0, as the Expenses totals do", () => {
+    const s = saved();
+    const live = liveLineFigures(s, { month: "2026-10", lines: { fixed: [line("-5"), line("750")], variable: [], people: [] }, expenses: readExpenses(s), rates: { withdrawal: "4", roic: "" }, household: "CAD" });
+    assert.equal(live["2026-10"].expenses, 750);
   });
 });

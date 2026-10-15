@@ -57,6 +57,7 @@ export const MONTH_LABEL = "Month";
 /** #105 (PF-43): the Update panel. */
 export const UPDATE_MONTH = "Update month";
 export const SAVE = "Save";
+export const UNSAVED = "Unsaved changes";
 export const CANCEL = "Cancel";
 export const CHART_CAPTION = "Expenses, income and net assets by month";
 export const YEARS = [1, 5, 10, 15] as const;

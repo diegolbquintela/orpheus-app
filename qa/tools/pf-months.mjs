@@ -3,7 +3,8 @@
 // eachViewport, which always signs out). The account's Personal Finance record is read first and put back at the end.
 //
 //   PF-48 the control (Month, 12 months newest first, the current month shown), `05 Update` gone
-//   PF-49 / PF-50 Save hidden until a change, hidden again after; no PUT before Save; one PUT on Save
+//   PF-49 / PF-50 Save hidden until a change, hidden again after; no PUT before Save; one PUT on Save;
+//   #144 04 live before Save and `Unsaved changes` beside Save (PF-159 / PF-162 / PF-167)
 //   PF-51 / PF-52 / PF-53 an empty past month is a copy with the note; Save stays on it; the averages follow
 //   PF-54 switching with unsaved changes asks; leaving the page asks (beforeunload)
 //   PF-55 an old record (lines, no months value, an old June total) → the current month; June's total counts
@@ -86,10 +87,14 @@ try {
       const puts0 = saves.puts;
       await line(page, "fixed", 0).getByTestId("pf-monthly").fill("1,800");
       await page.waitForTimeout(1200);
-      const dirty = { save: await save.isVisible(), puts: saves.puts - puts0, ov: await ov() };
+      const unsavedText = () => page.getByTestId("pf-unsaved").textContent().then((t) => t.trim());
+      const dirty = { save: await save.isVisible(), puts: saves.puts - puts0, ov: await ov(), unsaved: await unsavedText() };
       await line(page, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
-      const undone = await save.count();
-      check(`${tag} PF-49 / PF-50 a change shows Save, nothing is sent (no PUT), 04 unchanged; undoing it hides Save`, dirty.save && dirty.puts === 0 && JSON.stringify(dirty.ov) === JSON.stringify(t0) && undone === 0, { dirty, undone });
+      const undone = { save: await save.count(), unsaved: await unsavedText(), ov: await ov() };
+      // #144 (Q-V1, PF-159 / PF-162 / PF-167): 04 is live (This month 1,800, surplus 9,400 before Save; was "04 unchanged");
+      // `Unsaved changes` beside Save; typing back to 1,750 hides both and 04 is the saved figures again.
+      const live = { expenses: ["1,800", t0.expenses[1]], income: t0.income, surplus: ["9,400", t0.surplus[1]] };
+      check(`${tag} PF-49 / PF-50 a change shows Save and \`Unsaved changes\`, nothing is sent (no PUT); #144 04 is live (This month 1,800, surplus 9,400); undoing it hides Save and the indicator, 04 back to saved`, dirty.save && dirty.puts === 0 && JSON.stringify(dirty.ov) === JSON.stringify(live) && dirty.unsaved === "Unsaved changes" && undone.save === 0 && undone.unsaved === "" && JSON.stringify(undone.ov) === JSON.stringify(t0), { dirty, undone, live });
 
       // PF-54 leaving with unsaved changes asks (beforeunload).
       await page.getByTestId("pf-start").fill("10,000");

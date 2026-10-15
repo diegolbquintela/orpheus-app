@@ -609,6 +609,15 @@
     min-width: 5.5rem;
     min-height: 2.75rem;
   }
+  /* #144 (Q-V2, PF-162): `Unsaved changes` beside Save (dim; nothing reserved: it appears after an edit). */
+  .pf-unsaved {
+    font-size: 0.875rem;
+    line-height: 1.3rem;
+    color: var(--color-dim);
+  }
+  .pf-unsaved:empty {
+    display: none;
+  }
   .pf-month-note {
     margin-top: 0.5rem;
     min-height: 1.3rem;
