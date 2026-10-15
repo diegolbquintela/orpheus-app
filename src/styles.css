@@ -1201,3 +1201,59 @@
     }
   }
 }
+
+/* #130 (CV-16..CV-21): the ROIC method tooltip on the company view. The button's 44 px hit area overlaps the row's
+   padding (negative margins), so the row keeps its height; the tooltip is absolute and visibility-toggled. */
+@layer components {
+  .company-info {
+    display: inline-block;
+    vertical-align: baseline;
+  }
+  .company-info-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: -0.875rem -0.75rem -0.875rem -0.25rem;
+    vertical-align: middle;
+    color: var(--color-dim);
+    font-size: 0.75rem;
+    line-height: 1;
+    background: transparent;
+    cursor: help;
+  }
+  .company-info-button > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid var(--color-hair);
+    border-radius: 9999px;
+    font-style: italic;
+  }
+  .company-info-button:hover > span,
+  .company-info-button[aria-expanded="true"] > span {
+    color: var(--color-chalk);
+    border-color: var(--color-dim);
+  }
+  .company-tip {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    z-index: 20;
+    width: min(20rem, calc(100vw - 2.5rem));
+    margin-top: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-hair);
+    background-color: var(--color-night);
+    color: var(--color-chalk);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    white-space: normal;
+  }
+  .company-tip[data-open="false"] {
+    visibility: hidden;
+  }
+}

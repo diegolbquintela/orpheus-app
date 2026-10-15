@@ -302,6 +302,29 @@ try {
       const mk = (k) => m.marks.find((x) => x.key === k);
       check(`[${vp}] ES-15 ${UNCOVERED} page: "derived" marker on Shares (diluted) and FCF margin, .ow-label, dim and small, title + aria-label explain the method; no marker on Revenue`, !!mk("shares") && !!mk("fcf_margin") && !mk("revenue") && m.marks.every((x) => x.text === "derived" && x.cls.split(" ").includes("ow-label") && /^Derived: /.test(x.title) && x.aria.startsWith("derived: Derived: ") && x.size <= 13 && x.color !== x.rowColor) && /net income ÷ diluted EPS/.test(mk("shares")?.title ?? "") && /broad IFRS line/.test(mk("fcf_margin")?.title ?? ""), m.marks.map(({ key, color, size, cls }) => ({ key, color, size, cls })));
       check(`[${vp}] ES-10 ${UNCOVERED} dark shell, .ow-label, no horizontal scroll`, m.bg === NIGHT && m.labels && m.scroll <= 0, { bg: m.bg, labels: m.labels, scroll: m.scroll });
+      // #130 (CV-16..CV-22): the ROIC method tooltip: hidden by default, opens on focus (and Tab), Escape closes it;
+      // nothing moves; no horizontal scroll while open; chalk on night; the button ≥ 44 px.
+      {
+        const T = "Operating income after tax ÷ average (equity + debt − cash). Cash excluded.";
+        const snap = () => page.evaluate(() => {
+          const b = document.querySelector('[data-testid="company-roic-info"]');
+          const t = document.querySelector('[data-testid="company-roic-tip"]');
+          if (!b || !t) return null;
+          const row = b.closest("[data-testid^='company-row-']").getBoundingClientRect();
+          const next = document.querySelector('[data-testid="company-section-valuation"]').getBoundingClientRect();
+          const cs = getComputedStyle(t);
+          const br = b.getBoundingClientRect();
+          return { text: t.textContent, role: t.getAttribute("role"), wired: b.getAttribute("aria-describedby") === t.id, vis: cs.visibility, color: cs.color, bg: cs.backgroundColor, rowH: Math.round(row.height), nextY: Math.round(next.top + scrollY), rowY: Math.round(row.top + scrollY), btn: [Math.round(br.width), Math.round(br.height)], tipR: Math.round(t.getBoundingClientRect().right), vw: window.innerWidth, scroll: document.scrollingElement.scrollWidth - window.innerWidth };
+        });
+        // Page coordinates (+ scrollY), and the button scrolled into view first, so both states are taken at the same scroll.
+        await page.getByTestId("company-roic-info").scrollIntoViewIfNeeded();
+        const closed = await snap();
+        await page.getByTestId("company-roic-info").focus();
+        const opened = await snap();
+        await page.keyboard.press("Escape");
+        const esc = await snap();
+        check(`[${vp}] CV-16..CV-22 (#130) ROIC tooltip: the exact text, role tooltip, aria-describedby; hidden → focus opens → Escape closes; no shift (row and next section unmoved); no overflow; chalk on night; button ≥ 44 px`, !!closed && closed.text === T && closed.role === "tooltip" && closed.wired && closed.vis === "hidden" && opened.vis === "visible" && esc.vis === "hidden" && opened.color === "rgb(242, 240, 235)" && opened.bg === NIGHT && opened.rowH === closed.rowH && opened.rowY === closed.rowY && opened.nextY === closed.nextY && opened.tipR <= opened.vw && opened.scroll <= 0 && closed.btn[0] >= 44 && closed.btn[1] >= 44, { closed, opened, esc });
+      }
       await ctx.close();
     }
   } else console.log(`INFO ${UNCOVERED} not held and --seed not given: ES-09 / ES-10 skipped`);

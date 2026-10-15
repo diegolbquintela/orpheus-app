@@ -177,3 +177,107 @@ describe("CompanyViewPage: funds (#124)", () => {
     mount(companyView({ ...fundInput, kind: "company" }));
   });
 });
+
+describe("CompanyViewPage: the ROIC method tooltip (#130, CV-16..CV-20)", () => {
+  const TEXT =
+    "Operating income after tax ÷ average (equity + debt − cash). Cash excluded.";
+  const roicView = (status: string, value: number | null) =>
+    companyView({
+      symbol: "RMS.PA",
+      name: "Hermès International",
+      exchange: "Paris",
+      currency: "EUR",
+      covered: true,
+      checked: true,
+      closes,
+      years: [{ end: "2024-12-31", values: { revenue: 1.517e10, net_income: 4.6e9, equity_parent: 1.84e10 }, units: { revenue: "EUR" } }],
+      metrics: { roic_1y: { value, status } },
+      dividends: [],
+      today: closes.at(-1)!.date,
+    });
+  const mount = (v: ReturnType<typeof companyView>) => {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.append(container);
+    root = createRoot(container);
+    act(() => root.render(<CompanyViewPage view={v} />));
+  };
+  const btn = () => container.querySelector('[data-testid="company-roic-info"]') as HTMLButtonElement;
+  const tip = () => container.querySelector('[data-testid="company-roic-tip"]') as HTMLElement;
+  const isOpen = () => tip().getAttribute("data-open") === "true";
+  const fire = (el: EventTarget, type: string, Ctor: typeof Event = dom.window.MouseEvent as unknown as typeof Event) =>
+    act(() => void el.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true })));
+  const esc = () => act(() => void dom.window.document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  /** A tap: pointerdown, then the touch-emulated hover and focus, then the click (as a phone fires them). */
+  const tap = (el: HTMLElement) => {
+    fire(el, "pointerdown");
+    fire(el, "mouseover");
+    act(() => el.focus());
+    act(() => el.click());
+  };
+
+  it("CV-16 / CV-19: one button by the ROIC label only; the exact text; role tooltip; aria-describedby / aria-expanded; always in the DOM", () => {
+    mount(roicView("ok", 0.706));
+    const roicDt = container.querySelector('[data-testid="company-row-roic"] dt')!;
+    assert.equal(btn().closest("dt"), roicDt, "beside the ROIC label");
+    assert.equal(container.querySelectorAll('[data-testid="company-roic-info"]').length, 1, "ROIC only");
+    for (const k of ["roa", "roe", "roce"]) assert.equal(container.querySelector(`[data-testid="company-row-${k}"] button`), null, k);
+    assert.equal(btn().getAttribute("aria-label"), "How ROIC is calculated");
+    assert.equal(btn().getAttribute("type"), "button");
+    assert.equal(tip().getAttribute("role"), "tooltip");
+    assert.equal(tip().textContent, TEXT);
+    assert.ok(tip().id);
+    assert.equal(btn().getAttribute("aria-describedby"), tip().id);
+    assert.equal(dom.window.document.getElementById(btn().getAttribute("aria-describedby")!), tip());
+    assert.equal(isOpen(), false);
+    assert.equal(btn().getAttribute("aria-expanded"), "false");
+    assert.equal(container.querySelector('[data-testid="company-row-roic"] dd')?.textContent, "70.6%", "the value is unchanged");
+  });
+  it("CV-17: hover (the button, then the tooltip itself) opens it; leaving closes it", () => {
+    mount(roicView("ok", 0.706));
+    fire(btn(), "mouseover");
+    assert.equal(isOpen(), true);
+    assert.equal(btn().getAttribute("aria-expanded"), "true");
+    fire(btn(), "mouseout"); // moving within the wrapper onto the tooltip keeps it open (WCAG 1.4.13)
+    fire(tip(), "mouseover");
+    assert.equal(isOpen(), true);
+    act(() => void tip().dispatchEvent(new dom.window.MouseEvent("mouseout", { bubbles: true, relatedTarget: dom.window.document.body })));
+    assert.equal(isOpen(), false);
+  });
+  it("CV-17: keyboard focus opens it; blur closes it; Escape closes it while focused", () => {
+    mount(roicView("ok", 0.706));
+    act(() => btn().focus());
+    assert.equal(isOpen(), true);
+    esc();
+    assert.equal(isOpen(), false);
+    assert.equal(dom.window.document.activeElement, btn(), "focus stays on the button");
+    act(() => btn().blur());
+    act(() => btn().focus());
+    assert.equal(isOpen(), true);
+    act(() => btn().blur());
+    assert.equal(isOpen(), false);
+  });
+  it("CV-18: a tap opens it; a second tap closes it; a tap elsewhere closes it; Escape closes it", () => {
+    mount(roicView("ok", 0.706));
+    tap(btn());
+    assert.equal(isOpen(), true, "first tap: open (not toggled shut by its own hover and focus)");
+    tap(btn());
+    assert.equal(isOpen(), false, "second tap: closed");
+    tap(btn());
+    assert.equal(isOpen(), true);
+    fire(dom.window.document.body, "pointerdown");
+    assert.equal(isOpen(), false, "a tap elsewhere");
+    tap(btn());
+    esc();
+    assert.equal(isOpen(), false, "Escape");
+  });
+  it("CV-20: shown for any ROIC status; a fund has none", () => {
+    for (const [status, value] of [["n/m", null], ["insufficient_history", null]] as const) {
+      mount(roicView(status, value));
+      assert.equal(tip().textContent, TEXT, status);
+      act(() => root.unmount());
+      container.remove();
+    }
+    mount(companyView({ symbol: "VDY.TO", name: "ETF", exchange: "Toronto", currency: "CAD", covered: false, checked: true, closes, years: [], metrics: {}, dividends: [], today: closes.at(-1)!.date, kind: "fund", securityType: "ETP" }));
+    assert.equal(btn(), null);
+  });
+});

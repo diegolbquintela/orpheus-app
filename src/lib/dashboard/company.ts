@@ -24,6 +24,10 @@ export const DERIVED_TITLE: Record<DerivedMethod, string> = {
 };
 /** #123: the marker text shown next to a derived row's label. */
 export const DERIVED_MARKER = "derived";
+/** #130 (CV-16, Q-T1): the ROIC method, disclosed in the tooltip by the ROIC label (the formula is `roic()`, unchanged). */
+export const ROIC_METHOD =
+  "Operating income after tax ÷ average (equity + debt − cash). Cash excluded.";
+export const ROIC_INFO_LABEL = "How ROIC is calculated";
 
 export type StoredMetric = { value: number | null; status: string };
 
