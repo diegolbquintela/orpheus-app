@@ -619,3 +619,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **12-month label count (#141).** If fewer than 12 complete months have data, the header reads `12-month average (8 of 12 months)` (the CFO's format) instead of the range. With 0 it reads `(0 of 12 months)` and the figures are `—`. Labelling only. Spec section 27, PF-129..PF-131.
 
 **12-month count: expense months only (#141, PF-132).** For the 12-month expense average and its `(N of 12 months)` count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0; the income average keeps its own months.
+
+**Save blocked by field errors (#143).** While any Personal Finance field shows an error (for example `-5` in Rent, or tax above 100), pressing Save sends nothing: it shows `Fix the fields marked in red before saving.` and moves focus to the field. `PUT /api/personal-finance` refuses such a record with 400 `{ "error": "Invalid value.", "field": "<path>" }` and never clamps the value to 0. Spec section 28, PF-133..PF-140.

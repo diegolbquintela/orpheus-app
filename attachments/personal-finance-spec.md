@@ -945,3 +945,19 @@ This is a labelling change only: the 12-month calculation in section 26 stays th
   - The Future projection and Future-on coverage use that expense average; Future-off coverage uses the 3-month average.
   - The income average is a separate mean over months with an income figure, so an income-only month still counts there. Surplus is the income average minus the expense average.
 - 27.6 `(0 of 12 months)` is accepted as built (CFO via EL).
+
+## 28. Save is blocked while any field has an error; the API refuses invalid values (#143; PF-133..PF-140)
+Found in the #134 triage. Before this change, `-5` in Rent saved, counted as 0, and This month dropped from 2,950 to 750 with no warning; a bad tax value did the same.
+- 28.1 Fields checked (Q-S2). These are exactly the fields that show an error:
+  - Expenses lines: amount, `Equity to cover`, and the FX rate on a foreign line.
+  - Income people: wages, bonus %, tax %, share %, and the FX rate when the person is foreign.
+  - `Withdrawal rate (%)` and `Portfolio ROIC (%)`.
+  - Overview `Starting net assets` and growth.
+  - The add-account / add-category inputs are not included; they have their own Add check.
+- 28.2 Valid values (Q-S3): blank or 0 or more for amounts; 0–100 for percents (tax, share, withdrawal); a number above 0 for an FX rate. 0 is allowed. A negative, a non-number, or a percent above 100 is an error.
+- 28.3 Block (Q-S1): while any field shows an error, `Save` stays shown but pressing it sends nothing. The month note line reads `Fix the fields marked in red before saving.` and focus moves to the first field in error. Fixing the fields clears the note, and Save works again.
+- 28.4 API (Q-S4): `PUT /api/personal-finance` checks the same rules on every month's lines and the shared values. A record holding an invalid value gets `400 { "error": "Invalid value.", "field": "<where>" }`, for example `months.2026-10.fixed.0.amount`. Nothing is stored, and the value is never clamped to 0. A blank FX rate is accepted by the API (Q14: "—"), but the page still blocks it (28.1).
+- 28.5 A refused PUT (Q-S5): the page shows `Not saved.` and keeps the edits unsaved (Save still shown).
+- 28.6 Records already holding an invalid value (Q-S6): when the month opens, the page shows that field's error and Save is blocked until it is fixed. The API refuses any PUT of that record until then.
+- 28.7 (The CFO accepted Q-S1..Q-S6 via EL; condition on Q-S6, PF-141) A refused automatic save on section open/close shows `Not saved.`, which stays until a later save succeeds. The edits on screen are kept, not reverted.
+- 28.8 (PF-142; corrects 28.7's basis) A section toggle no longer saves while a field shows an error. The section still opens or closes on screen, and its view is kept and sent with the next successful Save. No PUT is sent. `Not saved.` shows and stays until a save succeeds, and the edits stay. Before this, a toggle sent the stored record with no field check, so it returned 200 and `Not saved.` never showed.

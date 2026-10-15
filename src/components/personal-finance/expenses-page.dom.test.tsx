@@ -12,7 +12,8 @@ import { OVERVIEW_KEY } from "@/lib/finance/overview";
 import { VIEW_KEY } from "@/lib/finance/view";
 import { MONTHS_KEY } from "@/lib/finance/months";
 import { PersonalFinancePage } from "./expenses-page";
-import { loadLocalStore } from "@/lib/finance/account-client";
+import { loadLocalStore, type LoadStore } from "@/lib/finance/account-client";
+import { RecordStore } from "@/lib/finance/record";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -360,6 +361,8 @@ describe("income block (#85)", () => {
     await type(q(spouse, "pf-person-share"), "80");
     await type(q(spouse, "pf-person-wages"), "lots");
     assert.equal(q(spouse, "pf-error").textContent, "Enter a number, 0 or more.");
+    // #143 (PF-134): Save is blocked while it shows; fix it before saving.
+    await type(q(spouse, "pf-person-wages"), "80,000");
     // Storage and reload.
     const stored = JSON.parse(await persisted(INCOME_KEY));
     assert.deepEqual(
@@ -383,7 +386,7 @@ describe("income block (#85)", () => {
     await act(async () => root!.unmount());
     container!.remove();
     const again = await render();
-    assert.equal((q(people(again)[1], "pf-person-wages") as HTMLInputElement).value, "lots");
+    assert.equal((q(people(again)[1], "pf-person-wages") as HTMLInputElement).value, "80,000");
     assert.equal((q(people(again)[0], "pf-person-count-wages") as HTMLInputElement).checked, false);
     // Remove a person (#113, PF-62): asked first.
     confirm.asked = [];
@@ -1620,5 +1623,194 @@ describe("#131 Withdrawal rate description (PF-108..PF-112)", () => {
     assert.deepEqual([...desc.querySelectorAll("p")].map((p) => p.textContent), LINES);
     assert.ok(desc.closest('[data-testid="pf-lock"]'));
     assert.equal(text(q(el, "pf-rates"), "pf-rate-used"), "5%");
+  });
+});
+
+
+describe("#143 Save is blocked while a field has an error (PF-133..PF-140)", () => {
+  // A store like the account's: `save()` counts PUTs, answers `ok`, and on success keeps the record (for a reload).
+  const puts = { n: 0, ok: true };
+  const loadCounting: LoadStore = async ({ onSaved }) => {
+    const ls = dom.window.localStorage;
+    const data: Record<string, string> = {};
+    for (let i = 0; i < ls.length; i++) data[ls.key(i)!] = ls.getItem(ls.key(i)!)!;
+    const store: RecordStore & { save?: () => Promise<boolean> } = new RecordStore(data);
+    store.save = async () => {
+      puts.n++;
+      onSaved(puts.ok);
+      if (puts.ok) for (const [k, v] of Object.entries(store.snapshot())) ls.setItem(k, v);
+      return puts.ok;
+    };
+    return store;
+  };
+  async function open(readOnly = false): Promise<HTMLElement> {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadCounting} readOnly={readOnly} />));
+    return container;
+  }
+  async function reopen(readOnly = false) {
+    await act(async () => root!.unmount());
+    container!.remove();
+    return open(readOnly);
+  }
+  const people = (el: HTMLElement) => qa(el, "pf-person");
+  const now = (el: HTMLElement) => text(q(el, "pf-ov-expenses"), "pf-ov-now");
+  const note = (el: HTMLElement) => text(el, "pf-month-note");
+  /** October saved: one person (36,000 a year), Rent 2,200 + Phone 750 → This month 2,950. */
+  async function october(): Promise<HTMLElement> {
+    puts.n = 0;
+    puts.ok = true;
+    const el = await open();
+    await click(q(el, "pf-add-person"));
+    await type(q(people(el)[0], "pf-person-wages"), "36,000");
+    await click(q(el, "pf-add-fixed"));
+    await click(q(el, "pf-add-fixed"));
+    const [rent, phone] = lines(el, "fixed");
+    await type(q(rent, "pf-monthly"), "2,200");
+    await type(q(phone, "pf-monthly"), "750");
+    await saveNow();
+    assert.equal(puts.n, 1);
+    assert.equal(now(el), "2,950");
+    puts.n = 0;
+    return el;
+  }
+
+  it("PF-133: -5 in Rent → its error; Save sends no PUT, shows the note, focuses Rent; a reload keeps 2,950", async () => {
+    const el = await october();
+    const rent = q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement;
+    await type(rent, "-5");
+    assert.equal(q(lines(el, "fixed")[0], "pf-error").textContent, "Enter a number, 0 or more.");
+    await saveNow();
+    assert.equal(puts.n, 0, "no PUT");
+    assert.equal(note(el), "Fix the fields marked in red before saving.");
+    assert.equal(dom.window.document.activeElement, rent, "focus on the field in error");
+    assert.equal(now(el), "2,950", "This month not dropped to 750");
+    assert.ok(q(el, "pf-month-save"), "Save stays shown (Q-S1)");
+    const again = await reopen();
+    assert.equal(now(again), "2,950");
+    assert.equal((q(lines(again, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "2,200");
+  });
+  it("PF-134: a bad tax (-1, 101), wages, share, Equity to cover, rates, Starting net assets, growth each block Save", async () => {
+    const el = await october();
+    const cases: [() => Element, string, string][] = [
+      [() => q(people(el)[0], "pf-person-tax"), "-1", "30"],
+      [() => q(people(el)[0], "pf-person-tax"), "101", "30"],
+      [() => q(people(el)[0], "pf-person-wages"), "-36,000", "36,000"],
+      [() => q(people(el)[0], "pf-person-share"), "150", "100"],
+      [() => q(lines(el, "fixed")[1], "pf-equity"), "-1", ""],
+      [() => q(el, "pf-withdrawal"), "-4", "4"],
+      [() => q(el, "pf-roic"), "abc", ""],
+      [() => q(el, "pf-start"), "-10", "10,000"],
+      [() => q(el, "pf-growth"), "-5", "5"],
+    ];
+    for (const [field, bad, good] of cases) {
+      await type(field(), bad);
+      await saveNow();
+      assert.equal(puts.n, 0, `${bad} blocks Save`);
+      assert.equal(note(el), "Fix the fields marked in red before saving.", bad);
+      assert.equal(dom.window.document.activeElement, field(), `focus on ${bad}`);
+      await type(field(), good);
+    }
+    assert.equal(note(el), "", "fixed → the note clears");
+    await saveNow();
+    assert.equal(puts.n, 1, "PF-136: fixed → Save saves");
+  });
+  it("PF-135 / PF-136: 0 and blank are valid; fixing a field clears the note and Save saves", async () => {
+    const el = await october();
+    const rent = q(lines(el, "fixed")[0], "pf-monthly");
+    await type(rent, "-5");
+    await saveNow();
+    assert.equal(puts.n, 0);
+    await type(rent, "0");
+    assert.equal(note(el), "");
+    await saveNow();
+    assert.equal(puts.n, 1);
+    assert.equal(now(el), "750", "0 counts as 0");
+    await type(q(people(el)[0], "pf-person-tax"), "0");
+    await saveNow();
+    assert.equal(puts.n, 2, "tax 0 is valid");
+    await type(q(people(el)[0], "pf-person-tax"), "");
+    await saveNow();
+    assert.equal(puts.n, 3, "blank tax is 0, valid");
+  });
+  it("PF-134: a foreign line without a valid FX rate blocks Save on the page", async () => {
+    const el = await october();
+    const phone = lines(el, "fixed")[1];
+    await type(q(phone, "pf-currency"), "USD");
+    await saveNow();
+    assert.equal(puts.n, 0);
+    await type(q(lines(el, "fixed")[1], "pf-fx"), "1.4");
+    await saveNow();
+    assert.equal(puts.n, 1);
+  });
+  it("PF-138: a refused PUT shows Not saved. and keeps the edits unsaved", async () => {
+    const el = await october();
+    puts.ok = false;
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "2,300");
+    await saveNow();
+    assert.equal(puts.n, 1);
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    assert.ok(q(el, "pf-month-save"), "Save still shown");
+  });
+  it("PF-139: a record already holding -5 opens with the error and Save is blocked until fixed", async () => {
+    const el = await october();
+    const ls = dom.window.localStorage;
+    const months = JSON.parse(ls.getItem(MONTHS_KEY)!);
+    months["2026-10"].fixed[0].amount = "-5";
+    ls.setItem(MONTHS_KEY, JSON.stringify(months));
+    void el;
+    const again = await reopen();
+    assert.equal(q(lines(again, "fixed")[0], "pf-error").textContent, "Enter a number, 0 or more.");
+    await type(q(lines(again, "fixed")[1], "pf-monthly"), "800");
+    await saveNow();
+    assert.equal(puts.n, 0);
+    assert.equal(note(again), "Fix the fields marked in red before saving.");
+  });
+  it("PF-141 (Q-S6 condition, server refusal): a refused automatic save on section open/close shows Not saved. and it stays; the edits stay on screen", async () => {
+    const el = await october();
+    await type(q(lines(el, "fixed")[1], "pf-monthly"), "800"); // valid on screen: the toggle's save is sent
+    puts.ok = false; // the API refuses the record (e.g. one already holding a bad value)
+    await click(q(el, "pf-toggle-summary"));
+    assert.equal(puts.n, 1, "the toggle's own save was sent (and refused)");
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    await act(async () => new Promise((r) => setTimeout(r, 2500))); // time passes: the note does not flash away
+    await click(q(el, "pf-toggle-summary")); // another blocked toggle and a re-render
+    await act(async () => new Promise((r) => setTimeout(r, 500)));
+    assert.equal(text(el, "pf-save"), "Not saved.", "still shown");
+    assert.equal((q(lines(el, "fixed")[1], "pf-monthly") as HTMLInputElement).value, "800", "edit not reverted");
+    assert.ok(q(el, "pf-month-save"), "still unsaved (Save shown)");
+  });
+  it("PF-142 (Q-S6 condition, the server WOULD accept): a field in error → the toggle opens / closes locally, sends no PUT, Not saved. stays; the edits stay", async () => {
+    const el = await october();
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "-5");
+    await type(q(el, "pf-start"), "520,000");
+    assert.equal(puts.ok, true, "the store would accept a PUT");
+    const open0 = q(el, "pf-toggle-income").getAttribute("aria-expanded");
+    await click(q(el, "pf-toggle-income"));
+    assert.notEqual(q(el, "pf-toggle-income").getAttribute("aria-expanded"), open0, "the section toggles locally");
+    assert.equal(puts.n, 0, "no PUT");
+    assert.equal(text(el, "pf-save"), "Not saved.");
+    await act(async () => new Promise((r) => setTimeout(r, 2500)));
+    await click(q(el, "pf-toggle-income")); // reopen: a re-render, still no PUT
+    assert.equal(q(el, "pf-toggle-income").getAttribute("aria-expanded"), open0);
+    await act(async () => new Promise((r) => setTimeout(r, 500)));
+    assert.equal(puts.n, 0);
+    assert.equal(text(el, "pf-save"), "Not saved.", "still shown");
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "-5");
+    assert.equal((q(el, "pf-start") as HTMLInputElement).value, "520,000");
+    assert.ok(q(el, "pf-month-save"));
+    // Fixed and saved → the note clears; the toggled view rides along with that save.
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "2,200");
+    await saveNow();
+    assert.equal(puts.n, 1);
+    assert.equal(text(el, "pf-save"), "");
+  });
+  it("PF-140: read-only: no Save, no PUT", async () => {
+    await october();
+    const ro = await reopen(true);
+    assert.equal(ro.querySelector('[data-testid="pf-month-save"]'), null);
+    assert.equal(puts.n, 0);
   });
 });

@@ -683,3 +683,24 @@ PF-129..PF-131 supersede the PF-115/PF-121 header example and PF-123's "full-win
 | PF-132 | For the 12-month expense average and the N-of-12 count, a month has data only if it has expense entries. An income-only month is neither counted nor averaged as $0: 8 expense months + 1 income-only month give `12-month average (8 of 12 months)` and an expense average over 8. The fill, Future and coverage use that average. The income average keeps its own months. This supersedes PF-130's "an income-only month counts". |
 
 PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated label too, a month has data only if it has expense entries.
+
+### #143 Save blocked while a field has an error; API refuses invalid values (spec section 28)
+| ID | Acceptance criterion |
+|---|---|
+| PF-133 | With October saved (This month 2,950), typing `-5` in Rent shows `Enter a number, 0 or more.`. Pressing Save sends no PUT and shows `Fix the fields marked in red before saving.`; focus moves to Rent. After a reload, This month is still 2,950. |
+| PF-134 | The same for a bad tax (`-1` or `101`: `Enter a percent from 0 to 100.`), wages, bonus, share, `Equity to cover`, `Withdrawal rate (%)`, `Portfolio ROIC (%)`, `Starting net assets`, growth, and a foreign line's FX rate. |
+| PF-135 | 0 and blank are valid: `0` in Rent saves (one PUT), and This month counts it as 0. |
+| PF-136 | Fixing the field clears the note, and Save then saves (one PUT). |
+| PF-137 | API: a PUT whose record holds a negative amount, a non-number, a percent above 100, or an FX rate of 0 or less (in any month's lines or the shared values) gets 400 `{ "error": "Invalid value.", "field": "<path>" }`. Nothing is stored and nothing is clamped to 0. A valid record still saves. A blank FX rate is accepted by the API. |
+| PF-138 | A refused PUT shows `Not saved.`, and the edits stay unsaved (Save shown). |
+| PF-139 | A record already holding `-5` opens with the error shown on that field, and Save is blocked until it's fixed. |
+| PF-140 | Read-only is unchanged: no Save and no PUT. |
+
+| ID | Acceptance criterion (#143 addendum: the CFO's condition on Q-S6, via EL) |
+|---|---|
+| PF-141 | When an automatic save on section open/close is refused (e.g. a record already holding a bad value), `Not saved.` shows and **stays** visible: it doesn't flash away; it clears only on a later successful save. The user's unsaved edits stay on screen, not reverted (field errors still shown, Save still shown). Already true at 8ecd2fc; pinned by a DOM test. |
+
+| ID | Acceptance criterion (#143 addendum after QA's fail at f307e46) |
+|---|---|
+| PF-142 | Correction to PF-141's "Already true at 8ecd2fc": that claim was wrong. At 8ecd2fc / f307e46 a section toggle sent its PUT (the stored record plus the view) with no field check, so it returned 200 and `Not saved.` never showed. Now, with a field in error on screen (e.g. `-5` in Rent, `520,000` in Starting net assets), closing or reopening a section still toggles it on screen, and the view is kept and sent with the next successful Save. **No PUT is sent.** `Not saved.` shows and stays until a save succeeds. The edits stay on screen. PF-141 still covers a server refusal of a valid on-screen state. |
+| PF-133 note | The signed-in e2e check uses its own fixture, whose October This month is **1,500** (PFE-08). PF-133's 2,950 is the issue's repro. Both mean the same thing: This month is unchanged after the blocked Save. |

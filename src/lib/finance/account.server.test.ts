@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import { handlePersonalFinanceRequest, handlePersonalFinanceViewRequest } from "./account.server.ts";
 import { STORAGE_KEY } from "./expenses.ts";
 import { VIEW_KEY } from "./view.ts";
+import { MONTHS_KEY } from "./months.ts";
+import { INCOME_KEY } from "./income.ts";
 
 // #102 (spec 16.5, PF-33 / PF-36) and #90 (ROLE-10, -11, -14, Q-D1, Q-D11, Q-D13): /api/personal-finance on PGLite
 // with a fake session lookup. alice is the owner; bob a CFO with Read; carol a CFO with Read and write; dave has no
@@ -138,5 +140,37 @@ describe("/api/personal-finance (#102, #90)", () => {
     assert.deepEqual(((await (await pf("GET", "bob")).json()) as { data: unknown }).data, {
       [VIEW_KEY]: '{"closed":["expenses"]}',
     });
+  });
+});
+
+describe("#143 PUT refuses invalid values, never clamps (PF-137)", () => {
+  const line = (amount: string) => ({ id: "l1", name: "Rent", amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "" });
+  const person = (tax: string) => ({ id: "p1", name: "Me", wages: "36,000", bonus: "", tax, share: "100", countWages: true, countBonus: false, foreign: false, currency: "", rate: "" });
+  const rec = (amount: string, tax = "30") => ({ [MONTHS_KEY]: JSON.stringify({ "2026-10": { fixed: [line(amount)], variable: [], people: [person(tax)] } }) });
+  it("a valid record saves; -5 in Rent → 400 { error, field } and the stored record is unchanged", async () => {
+    let r = await pf("PUT", "alice", { data: rec("2,200") });
+    assert.equal(r.status, 200);
+    r = await pf("PUT", "alice", { data: rec("-5") });
+    assert.equal(r.status, 400);
+    assert.deepEqual(await r.json(), { error: "Invalid value.", field: "months.2026-10.fixed.0.amount" });
+    const got = (await (await pf("GET", "alice")).json()) as { data: Record<string, string> };
+    assert.equal(JSON.parse(got.data[MONTHS_KEY])["2026-10"].fixed[0].amount, "2,200", "not stored, not clamped to 0");
+  });
+  it("a bad tax, a non-number, and a bad shared value are refused; 0 and blank are fine", async () => {
+    for (const [data, field] of [
+      [rec("1", "101"), "months.2026-10.people.0.tax"],
+      [rec("1", "-1"), "months.2026-10.people.0.tax"],
+      [rec("abc"), "months.2026-10.fixed.0.amount"],
+      [{ [INCOME_KEY]: JSON.stringify({ people: [person("-3")] }) }, "income.people.0.tax"],
+    ] as const) {
+      const r = await pf("PUT", "alice", { data });
+      assert.equal(r.status, 400, field);
+      assert.equal(((await r.json()) as { field: string }).field, field);
+    }
+    assert.equal((await pf("PUT", "alice", { data: rec("0", "") })).status, 200);
+  });
+  it("Read and write (carol) is checked the same way", async () => {
+    const r = await pf("PUT", "carol", { data: rec("-5") });
+    assert.equal(r.status, 400);
   });
 });
