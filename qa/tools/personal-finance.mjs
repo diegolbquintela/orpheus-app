@@ -556,12 +556,16 @@ try {
       await wd.fill("5");
       const a5 = { used: await used(), holders: await holders(), totals: await eqTotals(), source: await txt(page.getByTestId("pf-rate-source")) };
       await wd.fill("3");
-      const a3 = { used: await used(), source: await txt(page.getByTestId("pf-rate-source")) };
+      const a3 = { used: await used(), source: await txt(page.getByTestId("pf-rate-source")), holders: await holders(), totals: await eqTotals() };
       await wd.fill("4");
       const a4 = { used: await used(), rent: (await holders())[0], source: await txt(page.getByTestId("pf-rate-source")) };
       await wd.fill("0");
       const a0 = { used: await used(), holders: await holders() };
-      check(`${tag} PF-18 no rate → —; ROIC 8 → 4%: Rent 1,000/mo → 300,000, 75,000, 30,000; #138 PF-150..PF-152: withdrawal 5 + ROIC 8 → the lower 4% (\`from half of Portfolio ROIC\`, same figures); 3 → 3% (\`from Withdrawal Rate\`); 4 → 4% (equal); a typed 0 is not set → 4%`, JSON.stringify(h0) === '["—","—","—"]' && JSON.stringify(a8) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"] }) && JSON.stringify(a5) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"], source: "from half of Portfolio ROIC" }) && JSON.stringify(a3) === JSON.stringify({ used: "3%", source: "from Withdrawal Rate" }) && JSON.stringify(a4) === JSON.stringify({ used: "4%", rent: "300,000", source: "Withdrawal Rate and half of Portfolio ROIC are equal" }) && JSON.stringify(a0) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"] }), { h0, a8, a5, a3, a4, a0 });
+      // #138 PF-152: both 0 → not set → — everywhere, no source line; ROIC back to 8 for the steps below.
+      await roic.fill("0");
+      const a00 = { used: await used(), holders: await holders(), totals: await eqTotals(), source: await page.getByTestId("pf-rate-source").count() };
+      await roic.fill("8");
+      check(`${tag} PF-18 no rate → —; ROIC 8 → 4%: Rent 1,000/mo → 300,000, 75,000, 30,000; #138 PF-150..PF-152: withdrawal 5 + ROIC 8 → the lower 4% (\`from half of Portfolio ROIC\`, same figures); 3 → 3% (\`from Withdrawal Rate\`; 400,000 / 100,000 / 40,000; totals 350,000 / 40,000 / 390,000 with Rent's 250,000 override); 4 → 4% (equal); a typed 0 is not set → 4%; both 0 → — (equity placeholders and totals —, no source line)`, JSON.stringify(h0) === '["—","—","—"]' && JSON.stringify(a8) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"] }) && JSON.stringify(a5) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"], totals: ["325,000", "30,000", "355,000"], source: "from half of Portfolio ROIC" }) && JSON.stringify(a3) === JSON.stringify({ used: "3%", source: "from Withdrawal Rate", holders: ["400,000", "100,000", "40,000"], totals: ["350,000", "40,000", "390,000"] }) && JSON.stringify(a00) === JSON.stringify({ used: "—", holders: ["—", "—", "—"], totals: ["—", "—", "—"], source: 0 }) && JSON.stringify(a4) === JSON.stringify({ used: "4%", rent: "300,000", source: "Withdrawal Rate and half of Portfolio ROIC are equal" }) && JSON.stringify(a0) === JSON.stringify({ used: "4%", holders: ["300,000", "75,000", "30,000"] }), { h0, a8, a5, a3, a4, a0, a00 });
       await wd.fill("150");
       const rErr = { text: await txt(page.getByTestId("pf-rates").getByTestId("pf-error")), invalid: await wd.getAttribute("aria-invalid"), color: await page.getByTestId("pf-rates").getByTestId("pf-error").evaluate((e) => getComputedStyle(e).color), used: await used() };
       await wd.fill("");

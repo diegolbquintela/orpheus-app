@@ -1874,3 +1874,27 @@ describe("#138 Rate used = the lower of the Withdrawal Rate and half of Portfoli
     assert.match(q(el, "pf-coverage").textContent ?? "", /Equity coverage: 400 CAD\/mo \(4,800 CAD\/yr\)/);
   });
 });
+
+describe("#138 Q-R3 condition (CFO): a rate field in error says what to fix (PF-158)", () => {
+  it("PF-158: ROIC -8 / abc → `Enter a number, 0 or more.`; WR -1 / 101 / abc → `Enter a percent from 0 to 100.`; Rate used —", async () => {
+    const el = await render();
+    const rates = () => q(el, "pf-rates");
+    const err = (field: string) => rates().querySelector(`[data-testid="pf-error"][data-field="${field}"]`)?.textContent ?? null;
+    const cases: [string, string, string, string][] = [
+      ["roic", "-8", "Enter a number, 0 or more.", "5"],
+      ["roic", "abc", "Enter a number, 0 or more.", "5"],
+      ["withdrawal", "-1", "Enter a percent from 0 to 100.", "8"],
+      ["withdrawal", "101", "Enter a percent from 0 to 100.", "8"],
+      ["withdrawal", "abc", "Enter a percent from 0 to 100.", "8"],
+    ];
+    for (const [field, bad, message, other] of cases) {
+      await type(q(el, field === "roic" ? "pf-withdrawal" : "pf-roic"), other);
+      await type(q(el, `pf-${field}`), bad);
+      assert.equal(err(field), message, `${field} ${bad}`);
+      assert.equal(q(el, `pf-${field}`).getAttribute("aria-invalid"), "true");
+      assert.equal(text(el, "pf-rate-used"), "—", `${field} ${bad}: Rate used —`);
+      assert.equal(el.querySelector('[data-testid="pf-rate-source"]'), null);
+      await type(q(el, `pf-${field}`), "");
+    }
+  });
+});

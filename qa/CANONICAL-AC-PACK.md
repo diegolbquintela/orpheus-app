@@ -728,3 +728,7 @@ PF-132 also supersedes PF-129's `(expenses or income)`: for the 12 of 12 dated l
 | PF-155 | `pf-withdrawal-desc` line 2 reads `Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.` (line 1 unchanged). |
 | PF-156 | Equity to cover, its totals, the saved months' figures and the Overview coverage use the new rate: withdrawal 5 and ROIC 8 → Rent 1,000 a month → `300,000` (was 240,000). |
 | PF-157 | Read-only shows the same value and source line, with no new control. |
+
+| ID | Acceptance criterion (#138 addendum: the CFO accepted Q-R1..Q-R5 via EL, with a condition on Q-R3) |
+|---|---|
+| PF-158 | When Rate used is `—` because a rate field is invalid, that field's own error says what to fix. Portfolio ROIC `-8` or `abc` → `Enter a number, 0 or more.` Withdrawal rate `-1`, `101` or `abc` → `Enter a percent from 0 to 100.` The field has `aria-invalid="true"`, Rate used is `—`, and there's no source line. These messages already existed before #138 (4e3a7f1 renders them); they're pinned by a DOM test. |
