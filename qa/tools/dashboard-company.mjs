@@ -302,10 +302,10 @@ try {
       const mk = (k) => m.marks.find((x) => x.key === k);
       check(`[${vp}] ES-15 ${UNCOVERED} page: "derived" marker on Shares (diluted) and FCF margin, .ow-label, dim and small, title + aria-label explain the method; no marker on Revenue`, !!mk("shares") && !!mk("fcf_margin") && !mk("revenue") && m.marks.every((x) => x.text === "derived" && x.cls.split(" ").includes("ow-label") && /^Derived: /.test(x.title) && x.aria.startsWith("derived: Derived: ") && x.size <= 13 && x.color !== x.rowColor) && /net income ÷ diluted EPS/.test(mk("shares")?.title ?? "") && /broad IFRS line/.test(mk("fcf_margin")?.title ?? ""), m.marks.map(({ key, color, size, cls }) => ({ key, color, size, cls })));
       check(`[${vp}] ES-10 ${UNCOVERED} dark shell, .ow-label, no horizontal scroll`, m.bg === NIGHT && m.labels && m.scroll <= 0, { bg: m.bg, labels: m.labels, scroll: m.scroll });
-      // #130 (CV-16..CV-21): the ROIC method tooltip: hidden by default, opens on focus (and Tab), Escape closes it;
+      // #130 (CV-16..CV-22): the ROIC method tooltip: hidden by default, opens on focus (and Tab), Escape closes it;
       // nothing moves; no horizontal scroll while open; chalk on night; the button ≥ 44 px.
       {
-        const T = "ROIC = operating income × (1 − tax rate) ÷ average invested capital (equity + debt − cash) over the last two year-ends. Cash is excluded, which raises ROIC for net-cash companies.";
+        const T = "Operating income after tax ÷ average (equity + debt − cash). Cash excluded.";
         const snap = () => page.evaluate(() => {
           const b = document.querySelector('[data-testid="company-roic-info"]');
           const t = document.querySelector('[data-testid="company-roic-tip"]');
@@ -323,7 +323,7 @@ try {
         const opened = await snap();
         await page.keyboard.press("Escape");
         const esc = await snap();
-        check(`[${vp}] CV-16..CV-21 (#130) ROIC tooltip: the exact text, role tooltip, aria-describedby; hidden → focus opens → Escape closes; no shift (row and next section unmoved); no overflow; chalk on night; button ≥ 44 px`, !!closed && closed.text === T && closed.role === "tooltip" && closed.wired && closed.vis === "hidden" && opened.vis === "visible" && esc.vis === "hidden" && opened.color === "rgb(242, 240, 235)" && opened.bg === NIGHT && opened.rowH === closed.rowH && opened.rowY === closed.rowY && opened.nextY === closed.nextY && opened.tipR <= opened.vw && opened.scroll <= 0 && closed.btn[0] >= 44 && closed.btn[1] >= 44, { closed, opened, esc });
+        check(`[${vp}] CV-16..CV-22 (#130) ROIC tooltip: the exact text, role tooltip, aria-describedby; hidden → focus opens → Escape closes; no shift (row and next section unmoved); no overflow; chalk on night; button ≥ 44 px`, !!closed && closed.text === T && closed.role === "tooltip" && closed.wired && closed.vis === "hidden" && opened.vis === "visible" && esc.vis === "hidden" && opened.color === "rgb(242, 240, 235)" && opened.bg === NIGHT && opened.rowH === closed.rowH && opened.rowY === closed.rowY && opened.nextY === closed.nextY && opened.tipR <= opened.vw && opened.scroll <= 0 && closed.btn[0] >= 44 && closed.btn[1] >= 44, { closed, opened, esc });
       }
       await ctx.close();
     }

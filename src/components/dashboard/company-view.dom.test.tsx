@@ -180,7 +180,7 @@ describe("CompanyViewPage: funds (#124)", () => {
 
 describe("CompanyViewPage: the ROIC method tooltip (#130, CV-16..CV-20)", () => {
   const TEXT =
-    "ROIC = operating income × (1 − tax rate) ÷ average invested capital (equity + debt − cash) over the last two year-ends. Cash is excluded, which raises ROIC for net-cash companies.";
+    "Operating income after tax ÷ average (equity + debt − cash). Cash excluded.";
   const roicView = (status: string, value: number | null) =>
     companyView({
       symbol: "RMS.PA",

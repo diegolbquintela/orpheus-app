@@ -769,3 +769,9 @@ Unit and DOM tests cover CV-16..CV-20. The layout (CV-21) is checked in headless
 | CV-19 | BLOCK | The button has `aria-describedby` pointing to the tooltip's id, and `aria-expanded` follows the open state. The tooltip is always in the DOM, hidden with `visibility` while closed. |
 | CV-20 | BLOCK | It shows whatever ROIC's status (ok, `n/m`, insufficient history). A fund (no Returns section) has none. The ROIC formula and value are unchanged. |
 | CV-21 | BLOCK | No layout shift on open or close, and no horizontal overflow at 320, 360, 400, 1024 and 1440 px. The tooltip text is chalk on night (AA), the button is ≥ 44 px with the 2 px chalk focus ring, and there's no gold. |
+
+**Addendum (#130, Q-T1 short wording, dashboard-spec §19.1).** CV-22 supersedes CV-16's quoted text only; the rest of CV-16 still applies.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| CV-22 | BLOCK | The tooltip `company-roic-tip` reads exactly `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` (PM's Q-T1 short wording, which supersedes CV-16's long text). Nothing else changes: CV-17..CV-21 still apply. |

@@ -18,3 +18,7 @@ A small info button `i` right after the `ROIC` label (`company-roic-info`). Its 
 - **Q-T2 Placement:** a dim `i` button right after the `ROIC` label in the Returns section, on the label side, not the value side. It's ROIC only, as the issue asks. The ROA, ROE and ROCE rows are unchanged; a follow-up could add the same tooltip to them.
 - **Q-T3 Mobile tap:** a tap toggles it. A second tap, a tap anywhere else, or Escape closes it. Hover and keyboard focus open it, and moving off it or blurring closes it. The tooltip itself can be hovered without closing (WCAG 1.4.13).
 - **Q-T4 When ROIC shows no value** (`n/m`, `Insufficient history`, `Not covered`): the tooltip still shows, because the method is the same. A fund shows no Returns section, so it gets no tooltip.
+
+## Addendum: PM decisions
+- **Q-T1:** PM chose the **short** wording. The tooltip reads exactly `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` This supersedes the long wording above (AC CV-22, dashboard-spec §19.1).
+- **Q-T2, Q-T3, Q-T4:** PM accepted them as built.

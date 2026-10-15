@@ -736,8 +736,9 @@ describe("QA N3 (#44): the EPS column's portfolio cell has a visible 'EPS growth
 describe("#130 the ROIC tooltip matches the formula (CV-16, CV-20)", () => {
   it("the text names the numerator and denominator and says cash is excluded, as investedCapital() subtracts it", async () => {
     const { ROIC_METHOD } = await import("./company.ts");
-    assert.match(ROIC_METHOD, /^ROIC = operating income × \(1 − tax rate\) ÷ average invested capital \(equity \+ debt − cash\)/);
-    assert.match(ROIC_METHOD, /Cash is excluded/);
+    assert.equal(ROIC_METHOD, "Operating income after tax ÷ average (equity + debt − cash). Cash excluded.", "Q-T1 short wording (CV-22)");
+    assert.match(ROIC_METHOD, /\(equity \+ debt − cash\)/);
+    assert.match(ROIC_METHOD, /Cash excluded\.$/);
     const f = new Map([["equity_parent", 100], ["long_term_debt", 20], ["cash", 50]]);
     assert.equal(investedCapital(f), 70, "equity + debt − cash");
     assert.equal(investedCapital(new Map([["equity_parent", 100], ["long_term_debt", 20]])), 120, "no cash line → nothing subtracted");

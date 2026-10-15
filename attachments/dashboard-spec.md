@@ -1601,3 +1601,7 @@ The tooltip:
 - causes no layout shift and doesn't overflow at 320–1440 px.
 
 Business user: Portfolio Manager. Design and Q-T1..Q-T4: [`attachments/roic-tooltip-design.md`](roic-tooltip-design.md); AC CV-16..CV-21.
+
+### 19.1 Addendum: short wording (Q-T1, PM decision)
+
+PM chose the short wording for Q-T1, which supersedes the long wording quoted in §19 above. The tooltip text is now exactly: `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` Behaviour, placement and layout are unchanged (PM accepted Q-T2..Q-T4 as built). The tax clamp, the 25% fallback and the two-year-end average stay in §8. AC CV-22.
