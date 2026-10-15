@@ -10,7 +10,7 @@
  *   1. awaits `document.fonts.ready` and two animation frames (the layout settle);
  *   2. asks CDP which platform font each probe actually renders in (the bar's links and the first h1);
  *   3. if any probe still renders in a fallback while the face has loaded, reloads the page once the file is
- *      cached (what a second visit sees) and repeats, up to `attempts` loads in total (5: the font is served `max-age=0, must-revalidate`, so each reload still makes a 304 round trip and can miss the block period again).
+ *      cached (what a second visit sees) and repeats, up to `attempts` loads in total (3, with a 1 s settle after each reload: the font is served `max-age=0, must-revalidate`, so each reload still makes a 304 round trip; the longer settle lets the revalidated file land before the next measurement).
  * It never changes what a check asserts: the caller measures afterwards with its own unchanged assertion, and
  * if the font still isn't applied after the last attempt, that check fails as before.
  * The cold-load checks (ST6-06 strict CLS, the home and calculator "fonts at DOMContentLoaded" checks) don't use
@@ -44,7 +44,7 @@ async function rendered(page) {
   }
 }
 
-export async function fontsSettled(page, { attempts = 5, waitUntil = "networkidle", after = 300 } = {}) {
+export async function fontsSettled(page, { attempts = 3, waitUntil = "networkidle", after = 1000 } = {}) {
   let fonts = {};
   let response = null; // the last reload's response, so a caller's HTTP status / header checks read the page it measures
   for (let i = 1; i <= attempts; i++) {

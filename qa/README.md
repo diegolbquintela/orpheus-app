@@ -68,3 +68,5 @@ These numbers are historical simulation outputs for testing.
 `qa/tools/fonts.mjs` `fontsSettled(page)` waits for `document.fonts.ready`, then checks that Schibsted Grotesk is actually rendered. With `font-display: optional`, a slow first load keeps the fallback for that page, so the helper reloads (up to 3 loads) until the font is rendered. `site-shell.mjs` and `site-style-regression.mjs` call it before their font-dependent measurements. A retry shows as `INFO … #135 font wait … after N loads`. Assertions are unchanged; cold-load checks stay cold. Site-style-spec §17, AC FW-01..FW-05.
 
 Addendum (#135, 79f134c): `fontsSettled` allows up to **5** loads (not 3), because the font revalidates on every reload (`max-age=0, must-revalidate`).
+
+Addendum (#135, 2026-10-15, QA round 2): `fontsSettled` allows up to **3** loads again (supersedes the 5-load note above), with a 1 s settle after each reload.

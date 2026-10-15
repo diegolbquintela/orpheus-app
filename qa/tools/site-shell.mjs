@@ -324,7 +324,7 @@ try {
       await eachViewport({ browser, baseUrl: host, email, password, check: which === "base" ? check : () => {}, viewports: SHELL_VIEWPORTS }, async ({ vp, viewport, page }) => {
         await page.goto(`${host}/dashboard`, { waitUntil: "networkidle" });
         await page.waitForTimeout(800);
-        await fontWait(page, `[${vp}] ${which} /dashboard`, { after: 800 });
+        await fontWait(page, `[${vp}] ${which} /dashboard`);
         const content = "body .flex-1 > .bg-paper";
         if (which === "base") {
           check(`[${vp}] /dashboard content visible (released)`, await page.locator('[data-testid="holdings-section"], [data-testid="holdings-empty"], [data-testid="holding-row"]').first().isVisible().catch(() => false));

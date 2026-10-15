@@ -810,3 +810,5 @@ The font-dependent checks call it after their own load wait and before they meas
 The issue's acceptance ("3 consecutive prod runs pass site-shell 313/313 and regression 258/258") is QA's to run against production after release. The SWE never runs against production.
 
 **Addendum (#135, 79f134c): up to 5 loads, not 3.** The font file is served with `cache-control: public, max-age=0, must-revalidate`, so a reload still makes a 304 round trip and can miss the block period again; in the first after-run, several pages needed all 3 loads. `fontsSettled` now allows up to 5 loads. This supersedes "up to 3 loads" above; nothing else changes.
+
+**Addendum (#135, 2026-10-15, QA round 2): back to 3 loads, with a 1 s settle.** At QA's request, `fontsSettled` allows up to **3** loads again, and waits 1000 ms after each reload before re-checking (it was 300 ms). This supersedes the "up to 5 loads" addendum above; nothing else changes.
