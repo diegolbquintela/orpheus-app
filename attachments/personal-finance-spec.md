@@ -961,3 +961,17 @@ Found in the #134 triage. Before this change, `-5` in Rent saved, counted as 0, 
 - 28.6 Records already holding an invalid value (Q-S6): when the month opens, the page shows that field's error and Save is blocked until it is fixed. The API refuses any PUT of that record until then.
 - 28.7 (The CFO accepted Q-S1..Q-S6 via EL; condition on Q-S6, PF-141) A refused automatic save on section open/close shows `Not saved.`, which stays until a later save succeeds. The edits on screen are kept, not reverted.
 - 28.8 (PF-142; corrects 28.7's basis) A section toggle no longer saves while a field shows an error. The section still opens or closes on screen, and its view is kept and sent with the next successful Save. No PUT is sent. `Not saved.` shows and stays until a save succeeds, and the edits stay. Before this, a toggle sent the stored record with no field check, so it returned 200 and `Not saved.` never showed.
+
+## 29. Overview: the 12-month income and expense averages use the same months (#146; PF-143..PF-149)
+Before this change, the 12-month income average used every complete month that had an income figure, while the expense average used only months with expense entries (PF-132). The surplus therefore subtracted averages taken over different months, and income-only months made it look better than it is.
+- 29.1 Both 12-month averages are taken over the same months: the complete months in the 12-month window that have expense entries (PF-132). An income-only month counts toward neither average (PF-143).
+- 29.2 An expense month with no income figure counts as **0 income** in the 12-month income average (Q-U1), so both averages cover exactly the same months.
+- 29.3 The 12-month surplus is the income average minus the expense average, both over those months (PF-144).
+- 29.4 The `(N of 12 months)` label counts those months, and the dated label shows only at 12 of 12 (PF-129..PF-132 unchanged; PF-145).
+- 29.5 No expense month in the window: the expense, income and surplus averages are all `—` (Q-T3), even if income-only months exist (PF-146).
+- 29.6 Where the 12-month income average is used (Q-U2..Q-U5):
+  - The table's 12-month income and surplus cells follow it.
+  - The Future projection uses it for future income and for the monthly surplus that grows net assets (PF-147).
+  - The C8 fill uses it, so a past chart month or a 3-month window month with no income figure takes the new 12-month income average. A month's own typed or saved income is still shown and counted for that month (PF-148).
+  - Future-on coverage follows through the projected net assets. Future-off coverage (the 3-month expense average and the start) is unchanged.
+  - This month and the 3-month average's own window rule (C7) are unchanged (PF-149).
