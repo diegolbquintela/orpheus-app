@@ -789,6 +789,13 @@
   }
   /* #131 (spec section 24, PF-110): the Withdrawal rate description, the note style above (not a label or title);
      it sits right above the rates row inside one block. */
+  /* #138 (PF-154): the source line under Rate used, the description's dim style. */
+  .pf-rate-source {
+    display: block;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--color-dim);
+  }
   .pf-desc {
     font-size: 0.875rem;
     line-height: 1.4;

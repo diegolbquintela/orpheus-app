@@ -14,12 +14,19 @@ export const ROIC_LABEL = "Portfolio ROIC (%)";
 export const RATE_USED_LABEL = "Rate used";
 /**
  * #131 (spec section 24, PF-108): the description above `Withdrawal rate (%)`, one string per line. Line 2 follows
- * `rateUsed()` (withdrawal rate when typed, else ROIC ÷ 2), not the brief's "the lower of" (Q-W1).
+ * `rateUsed()`; #138 changed it to "the lower of" (PF-155).
  */
 export const WITHDRAWAL_DESC_LINES = [
   "Withdrawal rate used to calculate how much equity can cover expenses.",
-  "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.",
+  // #138 (PF-155, Q-R5; supersedes Q-W1's line): the lower-of rule.
+  "Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.",
 ] as const;
+/** #138 (PF-154, Q-R4): the line under `Rate used` naming the rate that won. */
+export const RATE_SOURCE = {
+  withdrawal: "from Withdrawal Rate",
+  roic: "from half of Portfolio ROIC",
+  equal: "Withdrawal Rate and half of Portfolio ROIC are equal",
+} as const;
 
 export type Rates = {
   /** Withdrawal rate percent as typed (empty: use ROIC ÷ 2). */
@@ -38,10 +45,31 @@ export const parseWithdrawal = (text: string): number | null => parsePercent(tex
 export const parseRoic = (text: string): number | null => parseAmount(text);
 
 /** The rate used, a percent (4 for 4%), or null when there is none (neither typed, 0, or a bad field). */
+/**
+ * #138 (spec section 30, PF-150..PF-153; supersedes PF-18's formula A): the two candidates, each null when not set
+ * (blank or 0, Q-R2); `bad` when either field fails its check (Q-R3 → `—`).
+ */
+function candidates(rates: Rates): { bad: boolean; wr: number | null; half: number | null } {
+  const wr = parseWithdrawal(rates.withdrawal);
+  const roic = parseRoic(rates.roic);
+  if (wr === null || roic === null) return { bad: true, wr: null, half: null };
+  return { bad: false, wr: positive(wr), half: positive(roic / 2) };
+}
+
+/** Rate used = min(withdrawal, ROIC ÷ 2) of the set ones; one set → it; none or a field in error → null. */
 export function rateUsed(rates: Rates): number | null {
-  if (rates.withdrawal.trim()) return positive(parseWithdrawal(rates.withdrawal) ?? 0);
-  if (rates.roic.trim()) return positive((parseRoic(rates.roic) ?? 0) / 2);
-  return null;
+  const { bad, wr, half } = candidates(rates);
+  if (bad) return null;
+  if (wr !== null && half !== null) return Math.min(wr, half);
+  return wr ?? half;
+}
+
+/** #138 (Q-R4): which input gave `rateUsed`, or null when it is `—`. */
+export function rateSource(rates: Rates): keyof typeof RATE_SOURCE | null {
+  const { bad, wr, half } = candidates(rates);
+  if (bad || (wr === null && half === null)) return null;
+  if (wr !== null && half !== null) return wr === half ? "equal" : wr < half ? "withdrawal" : "roic";
+  return wr !== null ? "withdrawal" : "roic";
 }
 
 /** `Rate used` as shown: `4%`, `3.75%`, or `—`. */

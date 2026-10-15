@@ -101,7 +101,7 @@ const PAGES = [
       const overview = ["04", "Overview", "This month", avg3Label(), avg12Label(0), "Expenses", "—", "—", "—", "Income", "—", "—", "—", "Surplus", "—", "—", "—", "Equity coverage:", "—", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", "Starting net assets", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
       // #131 (Q-W7): the two Withdrawal rate description lines before `Withdrawal rate (%)`.
       // #87: the Household currency select (its label; a closed select's options are not on screen) above Income.
-      return ["01", "Personal Finance.", "Household currency", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate used to calculate how much equity can cover expenses.", "Rate Used is your Withdrawal Rate, or half of Portfolio ROIC when no Withdrawal Rate is set.", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total"), ...overview];
+      return ["01", "Personal Finance.", "Household currency", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate used to calculate how much equity can cover expenses.", "Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total"), ...overview];
     },
   },
 ];
