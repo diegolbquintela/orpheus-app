@@ -849,6 +849,8 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 
 > **Addendum (2026-10-16, #163, PFR-14):** `qa/tools/pf-report-api.mjs` now also checks per-person isolation (with the CFO's report saved, the owner's GET does not return it) and, with `QA_NOGRANT_EMAIL` / `QA_NOGRANT_PASSWORD`, 403 for GET / PUT / DELETE without a Personal Finance grant. This is QA's optional #153 follow-up.
 
+> **Note (2026-10-16, EL):** the PFR-14 no-grant 403 check uses the existing 'none' login, `QA_NONE_EMAIL` / `QA_NONE_PASSWORD` (the same as `roles.mjs`). `QA_NOGRANT_*` above is superseded and no longer read.
+
 > **Change (2026-10-16, #163, CFO): Q-Y6 rejected.** PFM-05 ("an empty past month opens as a copy") is superseded by PFM-15..PFM-17. The PFM-04/06/08 checks open a past month blank and use the button.
 
 | AC | Tier | Pass when |
@@ -858,3 +860,5 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 | PFM-17 | BLOCK | After the copy nothing is stored (no PUT, the record unchanged) until `Save`. `Save` stores the month. Leaving a copied month asks `Discard unsaved changes?`; leaving a blank one doesn't. |
 | PFM-18 | BLOCK | An empty current month is unchanged: it opens as a copy of the most recent month with lines (PF-56), with no button. |
 | PFM-19 | BLOCK | Read-only: an empty past month is blank, with no button and no `Save`. |
+
+> **Note (2026-10-16, QA of e7a19fa):** PFM-11 includes the `Copy from current month` line. It is always rendered and hidden by visibility (not focusable, not in the a11y tree), so a month change has strict CLS 0 at 360/400/1024/1440. At 360 px Month, Year and Save stay on one row; this supersedes spec 19.4's phone wrap (personal-finance PF-32).

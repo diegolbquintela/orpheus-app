@@ -5,8 +5,8 @@
 //   Signed in (QA_EMAIL / QA_PASSWORD from env; never logged; preview only, it writes to the account): PFR-02..PFR-13.
 //   The account's own report and its Personal Finance record are read first and put back at the end; always signed out.
 //   PFR-14 also needs a second account with a Personal Finance Read grant: QA_CFO_EMAIL / QA_CFO_PASSWORD (optional);
-//   #163 adds the isolation check (the owner never sees the CFO's report) and, with QA_NOGRANT_EMAIL /
-//   QA_NOGRANT_PASSWORD (an account without a Personal Finance grant, optional), 403 for GET / PUT / DELETE.
+//   #163 adds the isolation check (the owner never sees the CFO's report) and, with QA_NONE_EMAIL /
+//   QA_NONE_PASSWORD (the existing 'none' login from roles.mjs: an account without a Personal Finance grant, optional), 403 for GET / PUT / DELETE.
 //
 //   [QA_EMAIL=… QA_PASSWORD=… [QA_CFO_EMAIL=… QA_CFO_PASSWORD=…]] node qa/tools/pf-report-api.mjs --base-url <preview> --out <dir>
 import { chromium } from "playwright";
@@ -164,15 +164,15 @@ try {
   else if (email && password && !prod) console.log("INFO PFR-14 SKIPPED: set QA_CFO_EMAIL / QA_CFO_PASSWORD (an account with a Personal Finance Read grant)");
 
   // #153 QA follow-up (folded into #163): an account with no Personal Finance grant → 403 for every method.
-  const noEmail = process.env.QA_NOGRANT_EMAIL;
-  const noPassword = process.env.QA_NOGRANT_PASSWORD;
+  const noEmail = process.env.QA_NONE_EMAIL;
+  const noPassword = process.env.QA_NONE_PASSWORD;
   if (!prod && noEmail && noPassword)
     await signedIn(browser, noEmail, noPassword, async (request) => {
       const st = [];
       for (const m of ["GET", "PUT", "DELETE"]) st.push((await call(request, m, API, m === "PUT" ? { json: { report: REPORT } } : {})).status);
       check("PFR-14 no Personal Finance grant: GET / PUT / DELETE → 403", same(st, [403, 403, 403]), st);
     });
-  else if (!prod) console.log("INFO PFR-14 no-grant SKIPPED: set QA_NOGRANT_EMAIL / QA_NOGRANT_PASSWORD (an account without a Personal Finance grant)");
+  else if (!prod) console.log("INFO PFR-14 no-grant SKIPPED: set QA_NONE_EMAIL / QA_NONE_PASSWORD (the existing 'none' login from roles.mjs: an account without a Personal Finance grant)");
 } finally {
   await browser.close();
 }

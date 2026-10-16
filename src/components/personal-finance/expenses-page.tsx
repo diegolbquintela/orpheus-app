@@ -603,13 +603,21 @@ function MonthControl({
           </span>
         )}
       </div>
-      {onCopy ? (
-        <p className="pf-month-copy">
-          <button type="button" className="pf-button" onClick={onCopy} data-testid="pf-month-copy">
-            {COPY_FROM_CURRENT}
-          </button>
-        </p>
-      ) : null}
+      {/* #163 PFM-11 (QA fix of e7a19fa): the copy line is always rendered and shown by visibility, so its space is
+          reserved from the first render and nothing moves on a month change. Hidden, it is neither focusable nor in
+          the accessibility tree (visibility: hidden), and it is disabled as well. */}
+      <p className="pf-month-copy" data-testid="pf-month-copy-line" data-shown={onCopy ? "true" : "false"}>
+        <button
+          type="button"
+          className="pf-button"
+          onClick={onCopy ?? undefined}
+          disabled={!onCopy}
+          tabIndex={onCopy ? undefined : -1}
+          data-testid="pf-month-copy"
+        >
+          {COPY_FROM_CURRENT}
+        </button>
+      </p>
       <p className="pf-month-note" data-testid="pf-month-note">
         {note}
       </p>

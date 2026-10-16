@@ -63,6 +63,16 @@ async function click(el: Element) {
 const q = (el: ParentNode, id: string) => el.querySelector(`[data-testid="${id}"]`)!;
 const qa = (el: ParentNode, id: string) => [...el.querySelectorAll(`[data-testid="${id}"]`)];
 /** #163: the month shown by the Month + Year selects, `yyyy-mm`. */
+/** #163 PFM-11: the copy line is always rendered; "shown" = visible (data-shown) and enabled. Hidden, it must be disabled and out of the tab order. */
+const copyShown = (el: ParentNode) => {
+  const line = el.querySelector<HTMLElement>("[data-testid=pf-month-copy-line]");
+  const button = el.querySelector<HTMLButtonElement>("[data-testid=pf-month-copy]");
+  assert.ok(line && button, "the copy line is always rendered (reserved space)");
+  const shown = line.dataset.shown === "true";
+  assert.equal(button.disabled, !shown, "a hidden copy button is disabled");
+  if (!shown) assert.equal(button.tabIndex, -1, "a hidden copy button is out of the tab order");
+  return shown;
+};
 const shownMonth = (el: ParentNode) =>
   `${(q(el, "pf-month-year") as HTMLSelectElement).value}-${(q(el, "pf-month") as HTMLSelectElement).value}`;
 /** #163: choose a month the way a person does: the Year (when it differs), then the Month. */
@@ -128,7 +138,7 @@ describe("personal finance page (#84)", () => {
         ],
       );
     assert.deepEqual(
-      [...el.querySelectorAll("button")].map((b) => b.textContent),
+      [...el.querySelectorAll("button")].filter((b) => !b.closest("[data-shown=false]")).map((b) => b.textContent),
       [
         "Income",
         "↳ Add person",
@@ -915,7 +925,7 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(shownMonth(el), "2026-06");
     assert.equal(text(el, "pf-month-note"), "");
     assert.equal(lines(el, "fixed").length, 0);
-    assert.equal(qa(el, "pf-month-copy").length, 0, "no copy for a reader");
+    assert.equal(copyShown(el), false, "no copy for a reader");
     assert.equal(hasSave(el), false);
     assert.equal(dom.window.localStorage.getItem(MONTHS_KEY), before);
   });
@@ -2305,7 +2315,7 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ "2026-10": { fixed: [LINE("1,750")], variable: [], people: [] } }));
     const el = await render();
     assert.equal(shownMonth(el), "2026-10");
-    assert.equal(qa(el, "pf-month-copy").length, 0, "no copy button on the current month");
+    assert.equal(copyShown(el), false, "no copy button on the current month");
     confirm.answer = true;
     confirm.asked = [];
     await pick(el, "2021-03");
@@ -2315,13 +2325,14 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     assert.equal(lines(el, "fixed").length + lines(el, "variable").length + qa(el, "pf-person").length, 0);
     assert.equal(text(el, "pf-month-note"), "");
     assert.equal(qa(el, "pf-month-save").length, 0);
+    assert.equal(copyShown(el), true);
     assert.equal(text(el, "pf-month-copy"), "Copy from current month");
     // PFM-16 / PFM-17: the button copies October's lines; the note and Save show; nothing stored until Save.
     await click(q(el, "pf-month-copy"));
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(rentOf(el), "1,750");
     assert.ok(q(el, "pf-month-save"), "Save shown for the copy");
-    assert.equal(qa(el, "pf-month-copy").length, 0, "the button goes once the month has lines");
+    assert.equal(copyShown(el), false, "the button goes once the month has lines");
     assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"], "nothing stored");
     // Leaving a copy asks (it was an explicit change); Cancel keeps it.
     confirm.answer = false;
@@ -2350,11 +2361,11 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     assert.equal(shownMonth(el), "2026-10");
     assert.equal(text(el, "pf-month-note"), "Copied from August 2026 — edit and save.");
     assert.equal(rentOf(el), "1,200");
-    assert.equal(qa(el, "pf-month-copy").length, 0);
+    assert.equal(copyShown(el), false);
     // A past month while October has no saved lines: blank, and no button (nothing to copy).
     await pick(el, "2026-03");
     assert.equal(lines(el, "fixed").length, 0);
-    assert.equal(qa(el, "pf-month-copy").length, 0);
+    assert.equal(copyShown(el), false);
   });
 
   it("PFM-06 / PFM-07 / PFM-09 / PFM-15..PFM-17 (real path: account client → API → PGlite): 30+ old months survive; February 2020 edited, saved and reloaded; May 2023 blank, copied, persisted only on Save; the averages unchanged", async () => {
@@ -2455,7 +2466,7 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     assert.equal(rentOf(el), "300");
     await pick(el, "2020-07");
     assert.equal(lines(el, "fixed").length, 0);
-    assert.equal(qa(el, "pf-month-copy").length, 0);
+    assert.equal(copyShown(el), false);
     assert.equal(qa(el, "pf-month-save").length, 0);
   });
 });

@@ -650,6 +650,11 @@
   /* #163 (PFM-16): `Copy from current month` under the row, only for an empty past month. */
   .pf-month-copy {
     margin-top: 0.75rem;
+    min-height: 2.75rem;
+  }
+  /* #163 PFM-11: the line is always kept (no mount/unmount on a month change); hidden, it is not focusable. */
+  .pf-month-copy[data-shown="false"] {
+    visibility: hidden;
   }
   .pf-month-note {
     margin-top: 0.5rem;

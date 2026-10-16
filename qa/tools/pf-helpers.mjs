@@ -133,7 +133,7 @@ export const blankMonth = (page) =>
     people: document.querySelectorAll("[data-testid=pf-person]").length,
     note: document.querySelector("[data-testid=pf-month-note]")?.textContent.trim() ?? null,
     save: document.querySelectorAll("[data-testid=pf-month-save]").length,
-    texts: [...document.querySelectorAll("[data-testid=pf-month-control] label, [data-testid=pf-month-control] button")].map((e) => e.textContent.trim()),
+    texts: [...document.querySelectorAll("[data-testid=pf-month-control] label, [data-testid=pf-month-control] button")].filter((e) => getComputedStyle(e).visibility !== "hidden").map((e) => e.textContent.trim()),
   }));
-/** What `blankMonth` reads on an empty past month for a writer (the current month has saved lines). */
+/** (#163 PFM-11: `texts` lists only visible controls; the copy line is always rendered, hidden by visibility.) What `blankMonth` reads on an empty past month for a writer (the current month has saved lines). */
 export const BLANK_PAST = { lines: 0, people: 0, note: "", save: 0, texts: ["Month", "Year", COPY_FROM_CURRENT] };

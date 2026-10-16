@@ -774,6 +774,8 @@ the month's own tables at once, in `04` after Save).
 ≤ 16rem, `Save` the 44 px chalk text button; the note 14 px dim. Nothing moves when `Save` appears (its slot is
 reserved), strict CLS 0. No gold.
 
+> **Note (2026-10-16, #163):** superseded by PFM-11 (section 34): Month, Year and `Save` stay on one row at every width, including below 400 px (360 px); `Save` no longer wraps on a phone. The `Copy from current month` line under the row is always rendered (hidden by visibility), so a month change moves nothing.
+
 ## 20. Capital F, delete confirmations, rename categories (#113; PF-59..PF-66)
 
 Business user: the CFO. No calculation, currency-model, sign-in or Dashboard change.
