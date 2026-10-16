@@ -1039,3 +1039,16 @@ Design and CFO calls Q-X1..Q-X8: `attachments/pf-chart-report-design.md`.
 33.7 `PUT { report }` validates with the shared `reportError` (client and API) and replaces the report. A bad value gets 400 `{ error: "Invalid value.", field }`. Above 4 KB gets 413. `DELETE` removes it.
 33.8 Gate as for `/api/personal-finance`. A read grant is enough (the report is the person's own). Audit actions: `pf.report_save` / `pf.report_delete`.
 33.9 The record API never shows or changes the report, except that the owner's record `DELETE` removes the owner's report.
+
+## 34. Month control: any past month, Month + Year (#163; PFM-01..PFM-14)
+
+Design and CFO calls Q-Y1..Q-Y9: `attachments/pf-any-month-design.md`. Supersedes 19.1's "a select of the last 12 months" and 19.3's "24 months kept". Nothing else in section 19 changes.
+
+34.1 Under the title: `Month` (a select, `Jan`..`Dec`) and `Year` (a select, 2020 to the current year, newest first), each label above its select. Then the `Save` slot and `Unsaved changes` (section 31).
+34.2 Default: the current household month. Future months can't be chosen: in the current year the later months are disabled, and switching to the current year with a later month opens the current month.
+34.3 Choosing a Month or a Year opens that month at once: its own lines, else a copy of the current month's saved lines with `Copied from <Month> <yyyy> — edit and save.` (decisions 3–5, unchanged).
+34.4 `Discard unsaved changes?` only when something was typed or changed on the shown month (not for an untouched copy).
+34.5 Storage: every month from `2020-01` is kept, with no count limit. The record limit stays 1 MB (413 → `Not saved.`). No migration.
+34.6 The averages, This month, the chart and Equity Coverage are unchanged: counted back from the current month.
+34.7 Read-only: any month can be opened; no `Save`.
+34.8 Layout: Month, Year and Save on one row from 360 px, each ≥ 44 px tall. Strict CLS 0, no horizontal scroll, no gold.
