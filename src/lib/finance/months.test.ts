@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import { STORAGE_KEY } from "./expenses.ts";
 import {
   chosenMonth,
+  copyOfCurrent,
+  openMonth,
   FIRST_MONTH,
   type MonthLines,
   MONTHS_KEY,
@@ -71,5 +73,26 @@ describe("#163 storage keeps every month from 2020-01 (Q-Y5)", () => {
 
   it("PFM-14: the #153 report's custom range is still at most 24 months", () => {
     assert.equal(RANGE_MONTHS_MAX, 24);
+  });
+});
+
+describe("#163 Q-Y6 rejected: an empty past month opens blank (PFM-15, PFM-16, PFM-18)", () => {
+  const months = { "2026-08": lines, "2026-10": lines };
+  it("PFM-15: an empty past month opens blank (no copy), even when the current month has lines", () => {
+    assert.deepEqual(openMonth(months, "2021-03", "2026-10", true), {
+      lines: { fixed: [], variable: [], people: [] },
+      copiedFrom: null,
+    });
+  });
+  it("PFM-18: an empty current month keeps decision 5 (a copy of the most recent month with lines)", () => {
+    assert.deepEqual(openMonth({ "2026-08": lines }, "2026-10", "2026-10", true), {
+      lines,
+      copiedFrom: "2026-08",
+    });
+    assert.equal(openMonth({ "2026-08": lines }, "2026-10", "2026-10", false).copiedFrom, null);
+  });
+  it("PFM-16: Copy from current month = the current month's saved lines, or nothing when it has none", () => {
+    assert.equal(copyOfCurrent(months, "2026-10"), lines);
+    assert.equal(copyOfCurrent({ "2026-08": lines }, "2026-10"), null);
   });
 });

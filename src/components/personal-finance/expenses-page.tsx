@@ -84,6 +84,8 @@ import {
   liveLineFigures,
   migrateMonths,
   chosenMonth,
+  COPY_FROM_CURRENT,
+  copyOfCurrent,
   MONTH_CONTROL_LABEL,
   MONTH_OPTIONS,
   openMonth,
@@ -195,6 +197,28 @@ export function PersonalFinancePage({
     setRenames([]);
     setBlocked(false);
     setBaseline(canonical(e, i, r, h, o));
+  }
+
+  /**
+   * #163 (PFM-15..PFM-19): `Copy from current month` puts the current month's saved lines into the shown empty past
+   * month (unsaved: the note and Save show; nothing is stored until Save). Shown only to a writer, for a past month
+   * with nothing on screen, when the current month has saved lines.
+   */
+  const current = now ? lastTwelve(now)[11] : null;
+  const copySource = useMemo(
+    () => (current ? copyOfCurrent(readMonths(storage()), current) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [saved, current, month],
+  );
+  const canCopyCurrent =
+    !readOnly &&
+    !!(month && current && month !== current && copySource && expenses && income) &&
+    expenses!.fixed.length + expenses!.variable.length + income!.people.length === 0;
+  function copyCurrent() {
+    if (!canCopyCurrent || !copySource || !expenses || !current) return;
+    setExpenses({ ...expenses, fixed: copySource.fixed, variable: copySource.variable });
+    setIncome({ people: copySource.people });
+    setCopiedFrom(current);
   }
 
   /** #163 Q-Y8: something typed or changed on the shown month (an untouched copy has nothing to lose). */
@@ -343,6 +367,7 @@ export function PersonalFinancePage({
             readOnly={readOnly}
             saving={saving}
             onSave={() => void save()}
+            onCopy={canCopyCurrent ? copyCurrent : null}
             note={
               blocked && hasErrors
                 ? SAVE_BLOCKED
@@ -489,9 +514,11 @@ function MonthControl({
   dirty,
   saving,
   onSave,
+  onCopy,
   note,
   readOnly,
 }: {
+  onCopy: (() => void) | null;
   readOnly: boolean;
   now: Date | null;
   month: MonthKey | null;
@@ -576,6 +603,13 @@ function MonthControl({
           </span>
         )}
       </div>
+      {onCopy ? (
+        <p className="pf-month-copy">
+          <button type="button" className="pf-button" onClick={onCopy} data-testid="pf-month-copy">
+            {COPY_FROM_CURRENT}
+          </button>
+        </p>
+      ) : null}
       <p className="pf-month-note" data-testid="pf-month-note">
         {note}
       </p>

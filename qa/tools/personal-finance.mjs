@@ -66,7 +66,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
-import { monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
+import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -970,8 +970,11 @@ try {
         const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
         check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); #163 Month (Jan..Dec, Nov / Dec disabled) + Year (2026 … 2020), October 2026 shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === "2026-10" && JSON.stringify(opts[1]) === JSON.stringify({"labels":["Month","Year"],"months":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov (disabled)","Dec (disabled)"],"years":["2026","2025","2024","2023","2022","2021","2020"]}) && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
         await pickMonth(p3, "2026-06");
+        const blankJune = await blankMonth(p3);
+        check(`${tag} #163 PFM-15 empty June opens blank (no lines, people, note or Save); the control's texts are Month, Year, "Copy from current month"`, JSON.stringify(blankJune) === JSON.stringify(BLANK_PAST), blankJune);
+        await p3.getByTestId("pf-month-copy").click();
         const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
-        check(`${tag} PF-51 empty June: a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
+        check(`${tag} PF-51 / #163 PFM-16 empty June after "Copy from current month": a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
         await p3.getByTestId("pf-person-wages").fill("108,000");
         const draft = await ov();

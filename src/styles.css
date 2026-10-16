@@ -647,6 +647,10 @@
   .pf-unsaved[data-shown="false"] {
     visibility: hidden;
   }
+  /* #163 (PFM-16): `Copy from current month` under the row, only for an empty past month. */
+  .pf-month-copy {
+    margin-top: 0.75rem;
+  }
   .pf-month-note {
     margin-top: 0.5rem;
     min-height: 1.3rem;

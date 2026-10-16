@@ -1052,3 +1052,11 @@ Design and CFO calls Q-Y1..Q-Y9: `attachments/pf-any-month-design.md`. Supersede
 34.6 The averages, This month, the chart and Equity Coverage are unchanged: counted back from the current month.
 34.7 Read-only: any month can be opened; no `Save`.
 34.8 Layout: Month, Year and Save on one row from 360 px, each ≥ 44 px tall. Strict CLS 0, no horizontal scroll, no gold.
+
+> **Change (2026-10-16, #163, CFO): Q-Y6 rejected.** This supersedes 34.3's "else a copy of the current month's saved lines" for past months. The rest of section 34 stands.
+
+34.9 An empty past month opens blank: no lines, no people, no note, no `Save` (PFM-15).
+34.10 `Copy from current month` (a `pf-button` under the row) is shown only to a writer, for a past month with nothing on screen, when the current month has saved lines. It copies those lines (expenses and people) into the month, with the note `Copied from <Month> <yyyy> — edit and save.` and `Save`. Nothing is stored and no request is sent until `Save` (PFM-16, PFM-17).
+34.11 Leaving a copied month asks `Discard unsaved changes?`; leaving a blank month doesn't.
+34.12 An empty current month is unchanged: a copy of the most recent month with lines (decision 5, PF-56), with no button (PFM-18).
+34.13 Read-only: an empty past month is blank, with no button and no `Save` (PFM-19).

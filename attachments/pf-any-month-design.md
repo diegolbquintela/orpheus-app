@@ -38,3 +38,12 @@ No change to the currency model, Equity Coverage, the averages' windows, the cha
 
 ## Layout
 Each label sits above its select. Month (6.5rem), Year (6rem) and the Save slot (5.5rem) fit one row from 360 px. The selects and Save are aligned at the bottom, each ≥ 44 px tall. `Unsaved changes` may wrap alone (PF-174). Nothing moves when `Save` appears (strict CLS 0). Existing site style, no gold.
+
+## Addendum (2026-10-16): CFO decision on Q-Y6 — REJECTED
+
+The CFO accepted Q-Y1..Q-Y5 and Q-Y7..Q-Y9 and **rejected Q-Y6**. Figures pre-filled into a past month and saved by accident would pollute the 3-month and 12-month averages. Built instead (PFM-15..PFM-19):
+- **An empty past month opens blank:** no lines, no people, no note, no `Save`.
+- **`Copy from current month`:** a `pf-button` under the Month / Year / Save row, shown only to a writer, for a past month with nothing on screen, while the current month has saved lines. It puts the current month's saved lines (expenses and people) into the month. It shows the note `Copied from <current month> — edit and save.` and `Save`, and stores nothing until `Save` (no request is sent). It goes away once the month has lines.
+- **Leaving a copied month** asks `Discard unsaved changes?` (the copy was an explicit change). Leaving a blank month doesn't ask.
+- **An empty CURRENT month is unchanged:** it still opens as a copy of the most recent month with lines (decision 5 of `pf-month-control-design.md`, spec 19.2, PF-56; rollover into a new month). Nothing in the spec asks to change it, and the CFO's reason is about past months. It has no button.
+- **Read-only:** an empty past month is blank, with no button (there is nothing they could save).

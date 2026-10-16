@@ -111,8 +111,8 @@ export function migrateMonths(storage: StorageLike | null, current: MonthKey): b
 export type Opened = { lines: MonthLines; copiedFrom: MonthKey | null };
 
 /**
- * The lines a month opens with (decisions 3–5): its own; else (when the person may write) a copy — of the current
- * month's saved lines for a past month, of the most recent month with lines for the current one; else none.
+ * The lines a month opens with (decisions 3–5): its own; else, for the current month only, a copy of the most recent
+ * month with lines; else none. #163 (Q-Y6 rejected): an empty past month opens blank (see `copyOfCurrent`).
  */
 export function openMonth(
   months: Months,
@@ -123,11 +123,20 @@ export function openMonth(
   const own = months[key];
   if (own) return { lines: own, copiedFrom: null };
   const none: Opened = { lines: { fixed: [], variable: [], people: [] }, copiedFrom: null };
-  if (!canCopy) return none;
-  const source = key !== current && hasLines(months[current]) ? current : latestWithLines(months);
+  // #163 (CFO rejected Q-Y6, PFM-15): an empty PAST month opens blank; copying is the explicit
+  // `Copy from current month` (copyOfCurrent). The empty current month keeps decision 5 (PF-56).
+  if (!canCopy || key !== current) return none;
+  const source = latestWithLines(months);
   if (!source || source === key) return none;
   return { lines: months[source], copiedFrom: source };
 }
+
+/** #163 PFM-16: what `Copy from current month` puts in an empty past month: the current month's saved lines, or null. */
+export function copyOfCurrent(months: Months, current: MonthKey): MonthLines | null {
+  return hasLines(months[current]) ? months[current] : null;
+}
+
+export const COPY_FROM_CURRENT = "Copy from current month";
 
 /** Decision 7: each saved month's figures from its lines (a figure above 0, else none). */
 export function lineFigures(storage: StorageLike | null): Record<MonthKey, Figures> {

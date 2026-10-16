@@ -848,3 +848,13 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 | PFM-14 | BLOCK | The #153 report's custom range is still at most 24 months. |
 
 > **Addendum (2026-10-16, #163, PFR-14):** `qa/tools/pf-report-api.mjs` now also checks per-person isolation (with the CFO's report saved, the owner's GET does not return it) and, with `QA_NOGRANT_EMAIL` / `QA_NOGRANT_PASSWORD`, 403 for GET / PUT / DELETE without a Personal Finance grant. This is QA's optional #153 follow-up.
+
+> **Change (2026-10-16, #163, CFO): Q-Y6 rejected.** PFM-05 ("an empty past month opens as a copy") is superseded by PFM-15..PFM-17. The PFM-04/06/08 checks open a past month blank and use the button.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PFM-15 | BLOCK | An empty past month (for example June 2026 or March 2021) opens blank: no lines, no people, no note, no `Save`. The month control's texts are `Month`, `Year`, `Copy from current month`. |
+| PFM-16 | BLOCK | `Copy from current month` (existing button style) is shown only for an empty past month, to a writer, when the current month has saved lines. It isn't on the current month, and it goes once the month has lines. A click copies the current month's lines and people, and shows `Copied from October 2026 — edit and save.` and `Save`. |
+| PFM-17 | BLOCK | After the copy nothing is stored (no PUT, the record unchanged) until `Save`. `Save` stores the month. Leaving a copied month asks `Discard unsaved changes?`; leaving a blank one doesn't. |
+| PFM-18 | BLOCK | An empty current month is unchanged: it opens as a copy of the most recent month with lines (PF-56), with no button. |
+| PFM-19 | BLOCK | Read-only: an empty past month is blank, with no button and no `Save`. |

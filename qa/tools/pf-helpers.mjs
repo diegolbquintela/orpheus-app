@@ -123,3 +123,17 @@ export const monthChoices = (page) =>
     months: [...c.querySelector("[data-testid=pf-month]").options].map((o) => o.textContent + (o.disabled ? " (disabled)" : "")),
     years: [...c.querySelector("[data-testid=pf-month-year]").options].map((o) => o.textContent),
   }));
+
+// #163 (Q-Y6 rejected, PFM-15..PFM-19): an empty past month opens blank; this button copies the current month in.
+export const COPY_FROM_CURRENT = "Copy from current month";
+/** An empty past month as shown: lines, people, the note, Save, and the month control's own texts (labels + button). */
+export const blankMonth = (page) =>
+  page.evaluate(() => ({
+    lines: document.querySelectorAll("[data-testid=pf-line]").length,
+    people: document.querySelectorAll("[data-testid=pf-person]").length,
+    note: document.querySelector("[data-testid=pf-month-note]")?.textContent.trim() ?? null,
+    save: document.querySelectorAll("[data-testid=pf-month-save]").length,
+    texts: [...document.querySelectorAll("[data-testid=pf-month-control] label, [data-testid=pf-month-control] button")].map((e) => e.textContent.trim()),
+  }));
+/** What `blankMonth` reads on an empty past month for a writer (the current month has saved lines). */
+export const BLANK_PAST = { lines: 0, people: 0, note: "", save: 0, texts: ["Month", "Year", COPY_FROM_CURRENT] };
