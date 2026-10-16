@@ -62,6 +62,15 @@ async function click(el: Element) {
 }
 const q = (el: ParentNode, id: string) => el.querySelector(`[data-testid="${id}"]`)!;
 const qa = (el: ParentNode, id: string) => [...el.querySelectorAll(`[data-testid="${id}"]`)];
+/** #163: the month shown by the Month + Year selects, `yyyy-mm`. */
+const shownMonth = (el: ParentNode) =>
+  `${(q(el, "pf-month-year") as HTMLSelectElement).value}-${(q(el, "pf-month") as HTMLSelectElement).value}`;
+/** #163: choose a month the way a person does: the Year (when it differs), then the Month. */
+async function pick(el: ParentNode, key: string) {
+  const [y, m] = key.split("-");
+  if ((q(el, "pf-month-year") as HTMLSelectElement).value !== y) await type(q(el, "pf-month-year"), y);
+  if ((q(el, "pf-month") as HTMLSelectElement).value !== m) await type(q(el, "pf-month"), m);
+}
 const text = (el: ParentNode, id: string) => q(el, id).textContent;
 /** #144 PF-171: `Unsaved changes` as seen: its text while shown, "" while hidden (its space is kept) or absent. */
 const shownUnsaved = (el: ParentNode) => {
@@ -754,13 +763,14 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(q(el, "pf-future-toggle").getAttribute("aria-pressed"), "false");
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
     assert.equal(qa(el, "pf-update").length, 0, "#112: 05 Update is gone");
-    assert.equal(q(el, "pf-month-control").querySelector("label")!.textContent, "Month");
-    const options = [...month(el).options].map((o) => o.textContent);
-    assert.equal(options.length, 12);
-    assert.equal(options[0], "October 2026");
-    assert.equal(options[4], "June 2026");
-    assert.equal(options[11], "November 2025");
-    assert.equal(month(el).value, "2026-10");
+    // #163 (PFM-01..PFM-03): Month (Jan..Dec, the months after October disabled) and Year (2026 down to 2020).
+    assert.deepEqual([...q(el, "pf-month-control").querySelectorAll("label")].map((l) => l.textContent), ["Month", "Year"]);
+    const options = [...month(el).options].map((o) => [o.textContent, o.disabled]);
+    assert.deepEqual(options.map(([t]) => t), ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+    assert.deepEqual(options.filter(([, d]) => d).map(([t]) => t), ["Nov", "Dec"]);
+    const years = [...(q(el, "pf-month-year") as HTMLSelectElement).options].map((o) => o.textContent);
+    assert.deepEqual(years, ["2026", "2025", "2024", "2023", "2022", "2021", "2020"]);
+    assert.equal(shownMonth(el), "2026-10");
     assert.equal(hasSave(el), false, "Save hidden when nothing changed");
     assert.equal(text(el, "pf-month-note"), "");
     assert.equal(dom.window.localStorage.length, 0, "nothing written");
@@ -787,8 +797,8 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
       "2026-10",
     ]);
     // An empty past month: a copy of the current saved lines and the note; nothing stored.
-    await type(month(el), "2026-06");
-    assert.equal(month(el).value, "2026-06");
+    await pick(el, "2026-06");
+    assert.equal(shownMonth(el), "2026-06");
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(hasSave(el), true, "a copy is unsaved");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
@@ -798,7 +808,7 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     await type(lines(el, "fixed")[0].querySelector('[data-testid="pf-monthly"]')!, "4,000");
     await type(q(el, "pf-person-wages"), "108,000");
     await click(q(el, "pf-month-save"));
-    assert.equal(month(el).value, "2026-06", "stays on the saved month");
+    assert.equal(shownMonth(el), "2026-06", "stays on the saved month");
     assert.equal(text(el, "pf-month-note"), "");
     assert.equal(hasSave(el), false);
     // #140: the 12-month average is June alone (October, the current month, is excluded).
@@ -823,13 +833,13 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     await type(q(el, "pf-growth"), "five");
     assert.equal(text(q(el, "pf-overview"), "pf-error"), "Enter a number, 0 or more.");
     // Switching with unsaved changes asks; Cancel keeps the month and the edits; OK drops them.
-    let asked = await confirmWith(false, () => type(month(el), "2026-10"));
+    let asked = await confirmWith(false, () => pick(el, "2026-10"));
     assert.deepEqual(asked, ["Discard unsaved changes?"]);
-    assert.equal(month(el).value, "2026-06");
+    assert.equal(shownMonth(el), "2026-06");
     assert.equal((q(el, "pf-start") as HTMLInputElement).value, "10,000");
-    asked = await confirmWith(true, () => type(month(el), "2026-10"));
+    asked = await confirmWith(true, () => pick(el, "2026-10"));
     assert.equal(asked.length, 1);
-    assert.equal(month(el).value, "2026-10");
+    assert.equal(shownMonth(el), "2026-10");
     assert.equal((q(el, "pf-start") as HTMLInputElement).value, "", "unsaved shared edits dropped");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
     assert.equal(hasSave(el), false);
@@ -838,9 +848,9 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(hasSave(el), true);
     await type(q(el, "pf-start"), "");
     assert.equal(hasSave(el), false);
-    asked = await confirmWith(false, () => type(month(el), "2026-06"));
+    asked = await confirmWith(false, () => pick(el, "2026-06"));
     assert.equal(asked.length, 0);
-    assert.equal(month(el).value, "2026-06");
+    assert.equal(shownMonth(el), "2026-06");
     assert.equal(monthly(lines(el, "fixed")[0]), "4,000", "a saved month shows its own lines");
     assert.equal(text(el, "pf-month-note"), "");
   });
@@ -866,7 +876,7 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
       "2026-10",
     ]);
     assert.deepEqual(ov(el, "expenses"), ["1,750.00", "4,000.00"], "the old June total still counts (#140: June alone in the 12 complete months)");
-    await type(month(el), "2026-06");
+    await pick(el, "2026-06");
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
     await click(q(el, "pf-month-save"));
@@ -875,7 +885,7 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     await act(async () => root!.unmount());
     container!.remove();
     el = await render();
-    assert.equal(month(el).value, "2026-10", "opens on the current month");
+    assert.equal(shownMonth(el), "2026-10", "opens on the current month");
     assert.equal((q(el, "pf-start") as HTMLInputElement).value, "10,000");
     assert.equal(qa(el, "pf-year")[2].getAttribute("aria-pressed"), "true");
     dom.window.localStorage.setItem(OVERVIEW_KEY, "{broken");
@@ -897,8 +907,8 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     );
     const before = dom.window.localStorage.getItem(MONTHS_KEY);
     const el = await render(NOW, true);
-    await type(month(el), "2026-06");
-    assert.equal(month(el).value, "2026-06");
+    await pick(el, "2026-06");
+    assert.equal(shownMonth(el), "2026-06");
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
     assert.equal(hasSave(el), false);
@@ -915,8 +925,8 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
       JSON.stringify({ "2026-10": { fixed: [LINE], variable: [], people: [] } }),
     );
     const el = await render(new Date(2026, 10, 1, 9));
-    assert.equal(month(el).value, "2026-11");
-    assert.equal([...month(el).options][0].textContent, "November 2026");
+    assert.equal(shownMonth(el), "2026-11");
+    assert.deepEqual([...month(el).options].filter((o) => o.disabled).map((o) => o.textContent), ["Dec"]);
     assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
     assert.equal(monthly(lines(el, "fixed")[0]), "1,750");
     assert.equal(hasSave(el), true);
@@ -1509,7 +1519,7 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const el = await render(new Date("2026-10-31T20:30:00-04:00"));
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-now"), "5,000.00");
     assert.equal(text(q(el, "pf-ov-table"), "pf-ov-avg3-head"), "3-month average (Jul–Sep)");
-    assert.equal((q(el, "pf-month") as HTMLSelectElement).value, "2026-10");
+    assert.equal(shownMonth(el), "2026-10");
   });
   it("#140 PF-121 / PF-122 / PF-126 / PF-127 (was #132 PF-115..PF-119): 12 complete months, header Oct–Sep; the current month is excluded; rolls over in Toronto", async () => {
     seed({ start: "120,000", withdrawal: "4", months: { "2025-11": { expenses: "1,200", income: "" }, "2026-09": { expenses: "2,400", income: "" }, "2026-10": { expenses: "50,000", income: "" } } });
@@ -1996,7 +2006,7 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     const el = await october();
     assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "—");
     assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "—");
-    await type(q(el, "pf-month"), "2026-09"); // a copy of October, unsaved
+    await pick(el, "2026-09"); // a copy of October, unsaved
     assert.equal(unsaved(el), "Unsaved changes", "a copy is unsaved");
     assert.equal(ovCell(el, "expenses", "pf-ov-avg3"), "2,950.00");
     assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "2,950.00");
@@ -2016,7 +2026,7 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
   });
   it("PF-160 / PF-161: rates and Starting net assets move Rate used, Equity to cover, the coverage and the projection live", async () => {
     const el = await october();
-    await type(q(el, "pf-month"), "2026-09");
+    await pick(el, "2026-09");
     await type(q(el, "pf-start"), "120,000");
     await type(q(el, "pf-withdrawal"), "4");
     assert.equal(text(el, "pf-rate-used"), "4%");
@@ -2099,9 +2109,9 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     await type(rent(el), "2,300");
     confirm.answer = true;
     confirm.asked = [];
-    await type(q(el, "pf-month"), "2026-09");
+    await pick(el, "2026-09");
     assert.deepEqual(confirm.asked, ["Discard unsaved changes?"]);
-    await type(q(el, "pf-month"), "2026-10");
+    await pick(el, "2026-10");
     assert.equal(rent(el).value, "2,200", "discarded");
     assert.equal(unsaved(el), "");
     assert.equal(puts.n, 0);
@@ -2121,7 +2131,8 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(ind.getAttribute("data-shown"), "true");
     assert.equal(q(el, "pf-month-save").parentElement, group);
     assert.equal(group.querySelector(".pf-save-slot"), null);
-    assert.deepEqual([...row.children].map((c) => c.getAttribute("data-testid") ?? c.className.split(" ")[0]), ["pf-label", "pf-month", "pf-month-save", "pf-unsaved"]);
+    assert.deepEqual([...row.children].map((c) => c.getAttribute("data-testid") ?? c.className.split(" ")[0]), ["pf-month-field", "pf-month-field", "pf-month-save", "pf-unsaved"]);
+    assert.deepEqual([...row.querySelectorAll(".pf-month-field > select")].map((e) => e.getAttribute("data-testid")), ["pf-month", "pf-month-year"]);
   });
   it("PF-171 / PF-174 (CSS): hidden is visibility, not display:none; Save and its slot are the same width; the indicator never breaks inside", () => {
     const css = readFileSync(new URL(`file://${process.cwd()}/src/styles.css`), "utf8");
@@ -2267,5 +2278,131 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     container!.remove();
     const again = await open();
     assert.equal(text(q(again, "pf-ov-expenses"), "pf-ov-now"), "1,500.00");
+  });
+});
+
+describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
+  const LINE = (amount: string) => ({ id: "rent", name: "Rent", amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "" });
+  const rentOf = (el: HTMLElement) => (q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value;
+  const months = (from: number, to: number, amount: string) => {
+    const out: Record<string, unknown> = {};
+    for (let i = from; i <= to; i++) {
+      const key = `${2020 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+      out[key] = { fixed: [LINE(amount)], variable: [], people: [] };
+    }
+    return out;
+  };
+
+  it("PFM-02..PFM-05 / PFM-08: default October; Year then Month opens March 2021 as a copy without asking; no future month; asks only after an edit", async () => {
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
+    dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ "2026-10": { fixed: [LINE("1,750")], variable: [], people: [] } }));
+    const el = await render();
+    assert.equal(shownMonth(el), "2026-10");
+    confirm.answer = true;
+    confirm.asked = [];
+    await pick(el, "2021-03");
+    assert.equal(shownMonth(el), "2021-03");
+    assert.deepEqual(confirm.asked, [], "an untouched copy has nothing to lose (Q-Y8)");
+    assert.equal(text(el, "pf-month-note"), "Copied from October 2026 — edit and save.");
+    assert.equal(rentOf(el), "1,750");
+    assert.ok(q(el, "pf-month-save"), "Save shown for the copy");
+    assert.deepEqual(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)), ["2026-10"], "nothing stored");
+    // Q-Y1: December 2025, then the current year → October 2026 (no future month); Dec 2026 is disabled.
+    await pick(el, "2025-12");
+    assert.equal(shownMonth(el), "2025-12");
+    assert.equal([...(q(el, "pf-month") as HTMLSelectElement).options].some((o) => o.disabled), false, "a past year: every month");
+    await type(q(el, "pf-month-year"), "2026");
+    assert.equal(shownMonth(el), "2026-10");
+    assert.equal(text(el, "pf-month-note"), "", "the current month's own lines");
+    // An edit → switching asks once.
+    await pick(el, "2025-12");
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "900");
+    await type(q(el, "pf-month"), "11");
+    assert.deepEqual(confirm.asked, ["Discard unsaved changes?"]);
+    assert.equal(shownMonth(el), "2025-11");
+    assert.equal(rentOf(el), "1,750", "the edit was discarded");
+  });
+
+  it("PFM-06 / PFM-07 / PFM-09 (real path: account client → API → PGlite): 30+ old months survive; February 2020 edited, saved and reloaded; the averages unchanged", async () => {
+    const pg = new PGlite();
+    const db = { query: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows };
+    const deps = {
+      env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
+      getUser: async () => ({ id: "alice", email: "alice@example.com" }),
+      getDb: async () => db,
+    };
+    await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');
+    for (const f of ["0010_personal_finance.sql", "0011_access.sql"])
+      await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, `file://${process.cwd()}/src/components/personal-finance/`), "utf8"));
+    await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', ["alice", "alice@example.com"]);
+    // 30 months Jan 2020 .. Jun 2022 at 100, plus September (1,000) and October (1,750) 2026.
+    const seeded = { ...months(0, 29, "100"), "2026-09": { fixed: [LINE("1,000")], variable: [], people: [] }, "2026-10": { fixed: [LINE("1,750")], variable: [], people: [] } };
+    const record = {
+      [STORAGE_KEY]: JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }),
+      [MONTHS_KEY]: JSON.stringify(seeded),
+    };
+    await pg.query("INSERT INTO personal_finance (user_id, data) VALUES ($1, $2::jsonb)", ["alice", JSON.stringify(record)]);
+    const statuses: number[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const res = await handlePersonalFinanceRequest(new Request(new URL(String(input), "http://localhost"), init), deps);
+      statuses.push(res.status);
+      return res;
+    }) as typeof fetch;
+    const open = async () => {
+      container = dom.window.document.createElement("div");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadAccountStore} />));
+      await act(async () => new Promise((r) => setTimeout(r, 50)));
+      return container;
+    };
+    const figures = (el: HTMLElement) =>
+      ["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c));
+    try {
+      let el = await open();
+      const before = figures(el);
+      assert.deepEqual(before, ["1,750.00", "1,000.00", "1,000.00"]);
+      await pick(el, "2021-03");
+      assert.equal(rentOf(el), "100", "an old month opens with its own saved lines");
+      assert.equal(text(el, "pf-month-note"), "");
+      await pick(el, "2020-02");
+      assert.equal(rentOf(el), "100");
+      await type(q(lines(el, "fixed")[0], "pf-monthly"), "250");
+      await saveNow();
+      await act(async () => new Promise((r) => setTimeout(r, 50)));
+      assert.equal(statuses.at(-1), 200, "a real save");
+      assert.deepEqual(figures(el), before, "PFM-09: a month older than the windows changes no average");
+      const stored = JSON.parse(
+        JSON.parse((await pg.query<{ data: string }>("SELECT data::text AS data FROM personal_finance WHERE user_id = 'alice'")).rows[0].data)[MONTHS_KEY],
+      );
+      assert.equal(Object.keys(stored).length, 32, "PFM-07: every month kept (was the 24 newest)");
+      assert.equal(stored["2020-01"].fixed[0].amount, "100");
+      assert.equal(stored["2020-02"].fixed[0].amount, "250");
+      // A reload reads it back from the database.
+      await act(async () => root!.unmount());
+      container!.remove();
+      el = await open();
+      assert.equal(shownMonth(el), "2026-10");
+      await pick(el, "2020-02");
+      assert.equal(rentOf(el), "250");
+      assert.equal(text(el, "pf-month-note"), "");
+      await pick(el, "2020-01");
+      assert.equal(rentOf(el), "100");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it("PFM-10: read-only opens any month (a copy preview for an empty one), never Save", async () => {
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
+    dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ ...months(14, 14, "300"), "2026-10": { fixed: [LINE("1,750")], variable: [], people: [] } }));
+    const el = await render(NOW, true);
+    assert.equal((q(el, "pf-month-year") as HTMLSelectElement).disabled, false);
+    await pick(el, "2021-03");
+    assert.equal(rentOf(el), "300");
+    await pick(el, "2020-07");
+    assert.equal(rentOf(el), "1,750");
+    assert.equal(qa(el, "pf-month-save").length, 0);
   });
 });

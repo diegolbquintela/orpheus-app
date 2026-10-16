@@ -1,5 +1,5 @@
 import { ACCOUNT_MAX, CATEGORY_MAX, readExpenses } from "./expenses.ts";
-import { MONTHS_STORED, readMonths } from "./months.ts";
+import { readMonths } from "./months.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 
 /**
@@ -10,7 +10,8 @@ import { RecordStore, type PfRecord } from "./record.ts";
 export const REPORT_KEY = "orpheus.finance.report.v1";
 export const REPORT_MAX_BYTES = 4096;
 export const SERIES_MAX = 12;
-export const RANGE_MONTHS_MAX = MONTHS_STORED;
+/** #153 Q-X2: a custom range is at most 24 months (its own limit since #163 removed the 24-month storage window). */
+export const RANGE_MONTHS_MAX = 24;
 
 export const SERIES_KINDS = ["line", "account", "category", "group", "metric"] as const;
 export const GROUP_IDS = ["fixed", "variable", "all"] as const;

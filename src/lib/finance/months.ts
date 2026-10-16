@@ -6,12 +6,17 @@ import { type Figures, type MonthKey } from "./overview.ts";
 
 /**
  * #112 (spec section 19; design `attachments/pf-month-control-design.md`, EL option A): each month's own lines.
- * `{ "<yyyy-mm>": { fixed, variable, people } }`; the 24 newest months kept. Shared values (accounts, categories,
+ * `{ "<yyyy-mm>": { fixed, variable, people } }`; #163: every month from `FIRST_MONTH` kept (was the 24 newest). Shared values (accounts, categories,
  * currency, rates, overview fields, view) stay in their own keys.
  */
 export const MONTHS_KEY = "orpheus.finance.months.v1";
-export const MONTHS_STORED = 24;
+/** #163 (spec section 34, Q-Y5): the oldest month kept and offered; no count limit (the record's 1 MB limit stays). */
+export const FIRST_MONTH = "2020-01";
+export const FIRST_YEAR = 2020;
 export const MONTH_CONTROL_LABEL = "Month";
+export const YEAR_CONTROL_LABEL = "Year";
+/** #163 Q-Y7: the Month select's options, as in the ticket. */
+export const MONTH_OPTIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 export const DISCARD_CONFIRM = "Discard unsaved changes?";
 export const copiedNote = (name: string): string => `Copied from ${name} — edit and save.`;
 
@@ -20,6 +25,21 @@ export type Months = Record<MonthKey, MonthLines>;
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 const isKey = (k: string): boolean => /^\d{4}-(0[1-9]|1[0-2])$/.test(k);
+const keptKey = (k: string): boolean => isKey(k) && k >= FIRST_MONTH;
+
+/** #163 Q-Y2: the Year select's years, the current month's year down to `FIRST_YEAR`. */
+export function yearChoices(current: MonthKey): number[] {
+  const out: number[] = [];
+  for (let y = Number(current.slice(0, 4)); y >= FIRST_YEAR; y--) out.push(y);
+  return out;
+}
+
+/** #163 Q-Y1: the month a Year / Month choice opens; a future month (or one before `FIRST_MONTH`) gives the nearest allowed. */
+export function chosenMonth(year: number | string, month: number | string, current: MonthKey): MonthKey {
+  const key = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+  if (!isKey(key) || key > current) return current;
+  return key < FIRST_MONTH ? FIRST_MONTH : key;
+}
 
 /** A month's lines checked against the shared accounts / categories (as the page reads them). */
 function asLines(value: unknown, shared: Expenses): MonthLines {
@@ -41,7 +61,7 @@ export function readMonths(storage: StorageLike | null): Months {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
     const shared = readExpenses(storage);
     const out: Months = {};
-    for (const k of Object.keys(raw).filter(isKey).sort().reverse().slice(0, MONTHS_STORED))
+    for (const k of Object.keys(raw).filter(keptKey).sort().reverse())
       out[k] = asLines((raw as Record<string, unknown>)[k], shared);
     return out;
   } catch {
@@ -50,7 +70,7 @@ export function readMonths(storage: StorageLike | null): Months {
 }
 
 export function writeMonths(storage: StorageLike | null, months: Months): void {
-  const keys = Object.keys(months).sort().reverse().slice(0, MONTHS_STORED);
+  const keys = Object.keys(months).filter(keptKey);
   const kept: Months = {};
   for (const k of keys.sort()) kept[k] = months[k];
   try {

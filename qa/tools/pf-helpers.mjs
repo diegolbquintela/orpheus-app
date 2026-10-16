@@ -105,3 +105,21 @@ export async function contrastScan(page) {
     return { n, bad: bad.slice(0, 10) };
   });
 }
+
+// #163 (spec section 34): the month control is Month (`pf-month`, 01..12) + Year (`pf-month-year`).
+/** The month shown, `yyyy-mm`. */
+export const shownMonth = async (page) =>
+  `${await page.getByTestId("pf-month-year").inputValue()}-${await page.getByTestId("pf-month").inputValue()}`;
+/** Choose a month as a person does: the Year (when it differs), then the Month. */
+export async function pickMonth(page, key) {
+  const [y, m] = key.split("-");
+  if ((await page.getByTestId("pf-month-year").inputValue()) !== y) await page.getByTestId("pf-month-year").selectOption(y);
+  if ((await page.getByTestId("pf-month").inputValue()) !== m) await page.getByTestId("pf-month").selectOption(m);
+}
+/** The control's choices: the Month options with their disabled flag, and the years. */
+export const monthChoices = (page) =>
+  page.getByTestId("pf-month-control").evaluate((c) => ({
+    labels: [...c.querySelectorAll("label")].map((l) => l.textContent.trim()),
+    months: [...c.querySelector("[data-testid=pf-month]").options].map((o) => o.textContent + (o.disabled ? " (disabled)" : "")),
+    years: [...c.querySelector("[data-testid=pf-month-year]").options].map((o) => o.textContent),
+  }));

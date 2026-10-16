@@ -846,3 +846,5 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 | PFM-12 | BLOCK | Copy: the only new visible text is `Year` (and the options `Jan`..`Dec` and the years). |
 | PFM-13 | BLOCK | The currency model and Equity Coverage are unchanged (their existing PF checks pass). |
 | PFM-14 | BLOCK | The #153 report's custom range is still at most 24 months. |
+
+> **Addendum (2026-10-16, #163, PFR-14):** `qa/tools/pf-report-api.mjs` now also checks per-person isolation (with the CFO's report saved, the owner's GET does not return it) and, with `QA_NOGRANT_EMAIL` / `QA_NOGRANT_PASSWORD`, 403 for GET / PUT / DELETE without a Personal Finance grant. This is QA's optional #153 follow-up.

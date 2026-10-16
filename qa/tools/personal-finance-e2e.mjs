@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
-import { API, PATH, acct, contrastScan, line, ready, settle, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
+import { API, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -329,7 +329,7 @@ try {
         // stored (PF-133's reload check is the unit/DOM one); `Not saved.` and `Unsaved changes` stay.
         check(`${tag} PF-133 (#143) -5 in Rent: Save sends no PUT, shows "Fix the fields marked in red before saving.", focus on Rent; #144 This month live 500 (Rent counts 0), \`Not saved.\`, \`Unsaved changes\` and (Q-V3 c) \`Figures leave out fields marked in red.\``, JSON.stringify(blocked) === JSON.stringify({ note: "Fix the fields marked in red before saving.", focus: true, puts: 0, now: "500.00", save: "Not saved.", unsaved: "Unsaved changes", figNote: "Figures leave out fields marked in red." }), blocked);
       }
-      await page.getByTestId("pf-month").selectOption("2026-06");
+      await pickMonth(page, "2026-06");
       const note = (await txt(page.getByTestId("pf-month-note")));
       while ((await page.getByTestId("pf-remove").count()) > 0) { page.once("dialog", (d) => void d.accept()); await page.getByTestId("pf-remove").first().click(); }
       while ((await page.getByTestId("pf-remove-person").count()) > 0) { page.once("dialog", (d) => void d.accept()); await page.getByTestId("pf-remove-person").first().click(); }
@@ -338,8 +338,8 @@ try {
       await page.getByTestId("pf-add-person").click();
       await page.getByTestId("pf-person-wages").first().fill("108,000");
       await settle(page);
-      const juneSaved = { month: await page.getByTestId("pf-month").inputValue(), save: await page.getByTestId("pf-month-save").count(), note: await txt(page.getByTestId("pf-month-note")) };
-      await page.getByTestId("pf-month").selectOption("2026-10");
+      const juneSaved = { month: await shownMonth(page), save: await page.getByTestId("pf-month-save").count(), note: await txt(page.getByTestId("pf-month-note")) };
+      await pickMonth(page, "2026-10");
       await page.getByTestId("pf-start").fill("10,000");
       const f4 = await figures(page);
       const ch = await page.getByTestId("pf-chart").evaluate((f) => ({ lines: f.querySelectorAll(".recharts-line-curve").length, legend: [...f.querySelectorAll(".pf-legend li")].map((l) => l.textContent.trim()) }));

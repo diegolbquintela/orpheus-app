@@ -9,6 +9,7 @@
 //   PF-54 switching with unsaved changes asks; leaving the page asks (beforeunload)
 //   PF-55 an old record (lines, no months value, an old June total) → the current month; June's total counts
 //   PF-56 rollover: the clock on 1 November 2026 → November copies October with the note
+//   #163 PFM-01..PFM-08: Month + Year; an old month (March 2021) copies, saves and reloads; no future month
 //   PF-58 layout: the row under the title, select / Save ≥ 44 px, no gold, no horizontal scroll, strict CLS 0
 //
 //   QA_EMAIL=… QA_PASSWORD=… node qa/tools/pf-months.mjs --base-url <preview> --out <dir>
@@ -17,7 +18,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
-import { PATH, acct, line, ready, trackSaves, txt, val } from "./pf-helpers.mjs";
+import { PATH, acct, line, monthChoices, pickMonth, ready, shownMonth, trackSaves, txt, val } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -58,7 +59,6 @@ try {
     page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 80)));
     const saves = trackSaves(page);
     const original = (await acct(page, base, "GET")).body?.data ?? null;
-    const sel = page.getByTestId("pf-month");
     const save = page.getByTestId("pf-month-save");
     const note = async () => (await txt(page.getByTestId("pf-month-note")));
     const ov = () => page.evaluate(() => Object.fromEntries(["expenses", "income", "surplus"].map((r) => [r, ["now", "avg"].map((c) => document.querySelector(`[data-testid=pf-ov-${r}] [data-testid=pf-ov-${c}]`)?.textContent.trim())])));
@@ -75,9 +75,9 @@ try {
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
       await page.waitForTimeout(800);
-      const opts = await sel.evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
-      const first = { label: await txt(page.getByTestId("pf-month-control").locator("label")), save: await save.count(), note: await note(), update: await page.getByTestId("pf-update").count(), updateText: await page.getByText("Update month").count(), last: await page.locator("main h2").evaluateAll((hs) => hs.map((h) => h.textContent.trim()).pop()) };
-      check(`${tag} PF-48 Month: 12 choices October 2026 … November 2025, October shown; no Save, no note; 05 Update gone (04 Overview last)`, opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === JSON.stringify({ label: "Month", save: 0, note: "", update: 0, updateText: 0, last: "Overview" }), { opts, first });
+      const opts = [await shownMonth(page), await monthChoices(page)];
+      const first = { save: await save.count(), note: await note(), update: await page.getByTestId("pf-update").count(), updateText: await page.getByText("Update month").count(), last: await page.locator("main h2").evaluateAll((hs) => hs.map((h) => h.textContent.trim()).pop()) };
+      check(`${tag} PF-48 / #163 PFM-01..PFM-03 Month (Jan..Dec, Nov / Dec disabled) and Year (2026 … 2020), October 2026 shown; no Save, no note; 05 Update gone (04 Overview last)`, opts[0] === "2026-10" && JSON.stringify(opts[1]) === JSON.stringify({"labels":["Month","Year"],"months":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov (disabled)","Dec (disabled)"],"years":["2026","2025","2024","2023","2022","2021","2020"]}) && JSON.stringify(first) === JSON.stringify({ save: 0, note: "", update: 0, updateText: 0, last: "Overview" }), { opts, first });
       const rec0 = await stored();
       const t0 = await ov();
       check(`${tag} PF-55 the old lines became October (stored once, no change shown); June's old total still counts (#140 12-month average = June alone 4,000 / 9,000)`, JSON.stringify(Object.keys(JSON.parse(rec0[MONTHS_KEY] ?? "{}"))) === '["2026-10"]' && JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }), { months: rec0[MONTHS_KEY] ?? null, t0 });
@@ -109,7 +109,7 @@ try {
       await page.getByTestId("pf-start").fill("");
 
       // PF-51..53 June: a copy of October's saved lines, the note; edit; Save.
-      await sel.selectOption("2026-06");
+      await pickMonth(page, "2026-06");
       const copy = { note: await note(), save: await save.isVisible(), rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), wages: await val(page.getByTestId("pf-person-wages")) };
       check(`${tag} PF-51 / PF-55 June (old totals, no lines) opens as a copy of October with "Copied from October 2026 — edit and save."; Save shown; nothing stored`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }) && (await stored())[MONTHS_KEY] === rec0[MONTHS_KEY], copy);
       await line(page, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
@@ -118,7 +118,7 @@ try {
       await save.click();
       for (let i = 0; i < 50 && (await save.count()) > 0; i++) await page.waitForTimeout(100);
       await page.waitForTimeout(500);
-      const after = { month: await sel.inputValue(), note: await note(), save: await save.count(), puts: saves.puts - puts1, ov: await ov() };
+      const after = { month: await shownMonth(page), note: await note(), save: await save.count(), puts: saves.puts - puts1, ov: await ov() };
       const rec1 = await stored();
       const months1 = JSON.parse(rec1[MONTHS_KEY] ?? "{}");
       const legacy = JSON.parse(rec1[OVERVIEW_KEY] ?? "{}").months;
@@ -128,13 +128,13 @@ try {
       await page.getByTestId("pf-growth").fill("5");
       const confirms = [];
       page.once("dialog", (d) => { confirms.push(d.message()); void d.dismiss(); });
-      await sel.selectOption("2026-10");
+      await pickMonth(page, "2026-10");
       await page.waitForTimeout(200);
-      const kept = [await sel.inputValue(), await val(page.getByTestId("pf-growth"))];
+      const kept = [await shownMonth(page), await val(page.getByTestId("pf-growth"))];
       page.once("dialog", (d) => { confirms.push(d.message()); void d.accept(); });
-      await sel.selectOption("2026-10");
+      await pickMonth(page, "2026-10");
       await page.waitForTimeout(200);
-      const dropped = [await sel.inputValue(), await val(page.getByTestId("pf-growth")), await val(line(page, "fixed", 0).getByTestId("pf-monthly"))];
+      const dropped = [await shownMonth(page), await val(page.getByTestId("pf-growth")), await val(line(page, "fixed", 0).getByTestId("pf-monthly"))];
       check(`${tag} PF-54 "Discard unsaved changes?": Cancel keeps June and the edit; OK shows October (its own lines) without it`, JSON.stringify(confirms) === JSON.stringify(["Discard unsaved changes?", "Discard unsaved changes?"]) && JSON.stringify(kept) === '["2026-06","5"]' && JSON.stringify(dropped) === '["2026-10","","1,750"]', { confirms, kept, dropped });
 
       // PF-58 layout + CLS + gold + scroll.
@@ -157,16 +157,37 @@ try {
       // PF-50 a reload shows only what was saved.
       await page.reload({ waitUntil: "networkidle" });
       await ready(page);
-      await sel.selectOption("2026-06");
+      await pickMonth(page, "2026-06");
       const back = { june: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), note: await note(), ov: await ov() };
       check(`${tag} PF-50 a reload: October shown; June restores its own saved lines (4,000), no note`, back.june === "4,000" && back.note === "" && JSON.stringify(back.ov) === JSON.stringify(after.ov), back);
+
+      // #163 PFM-03..PFM-06 / PFM-08: an old month (March 2021): Year then Month opens a copy of October without asking;
+      // edit, Save, reload restores it; Year → the current year with a later month opens October (no future month).
+      const dialogs163 = [];
+      const onDialog163 = (d) => { dialogs163.push(d.message()); void d.accept(); };
+      page.on("dialog", onDialog163);
+      await pickMonth(page, "2021-03");
+      const old = { month: await shownMonth(page), note: await note(), save: await save.isVisible(), rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), asked: dialogs163.length };
+      await line(page, "fixed", 0).getByTestId("pf-monthly").fill("900");
+      await save.click();
+      for (let i = 0; i < 50 && (await save.count()) > 0; i++) await page.waitForTimeout(100);
+      await page.waitForTimeout(500);
+      await pickMonth(page, "2025-12");
+      await page.getByTestId("pf-month-year").selectOption("2026");
+      const clamp = await shownMonth(page);
+      await page.reload({ waitUntil: "networkidle" });
+      await ready(page);
+      await pickMonth(page, "2021-03");
+      const oldBack = { rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), note: await note(), stored: Object.keys(JSON.parse((await stored())[MONTHS_KEY] ?? "{}")) };
+      page.off("dialog", onDialog163);
+      check(`${tag} #163 PFM-04..PFM-06 / PFM-08 March 2021 (Year then Month, no question): a copy of October with the note and Save; 900 saved; December 2025 → Year 2026 opens October 2026 (PFM-03); a reload restores March 2021 (900, no note) and keeps June and October`, JSON.stringify(old) === JSON.stringify({ month: "2021-03", note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", asked: 0 }) && clamp === "2026-10" && JSON.stringify(oldBack) === JSON.stringify({ rent: "900", note: "", stored: ["2021-03", "2026-06", "2026-10"] }), { old, clamp, oldBack, dialogs163 });
 
       // PF-56 rollover: 1 November 2026, November empty → a copy of October (the most recent month with lines).
       await page.clock.setFixedTime(NOV_1);
       await page.reload({ waitUntil: "networkidle" });
       await ready(page);
-      const roll = { month: await sel.inputValue(), first: await sel.evaluate((s) => s.options[0].textContent), note: await note(), save: await save.isVisible(), rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), stored: Object.keys(JSON.parse((await stored())[MONTHS_KEY] ?? "{}")) };
-      check(`${tag} PF-56 rollover (clock 1 November 2026): November shown, a copy of October's lines with "Copied from October 2026 — edit and save."; Save shown; nothing stored`, JSON.stringify(roll) === JSON.stringify({ month: "2026-11", first: "November 2026", note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", stored: ["2026-06", "2026-10"] }), roll);
+      const roll = { month: await shownMonth(page), first: (await monthChoices(page)).years[0], disabled: (await monthChoices(page)).months.filter((m) => m.endsWith("(disabled)")), note: await note(), save: await save.isVisible(), rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), stored: Object.keys(JSON.parse((await stored())[MONTHS_KEY] ?? "{}")) };
+      check(`${tag} PF-56 rollover (clock 1 November 2026): November shown (Dec the only disabled month), a copy of October's lines with "Copied from October 2026 — edit and save."; Save shown; nothing stored`, JSON.stringify(roll) === JSON.stringify({ month: "2026-11", first: "2026", disabled: ["Dec (disabled)"], note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", stored: ["2021-03", "2026-06", "2026-10"] }), roll);
       check(`${tag} no page error; only /api/personal-finance besides auth`, errors.length === 0, errors);
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
