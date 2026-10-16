@@ -19,6 +19,14 @@ import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { checkRecord, type PfRecord } from "./record.ts";
 import { INVALID_VALUE, recordFieldError } from "./field-errors.ts";
+import {
+  checkReport,
+  missingSeries,
+  parseReport,
+  REPORT_KEY,
+  REPORT_MAX_BYTES,
+  reportText,
+} from "./report.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
 
@@ -29,6 +37,14 @@ export async function readRecord(db: Queryable, userId: string): Promise<PfRecor
   );
   if (!rows[0]) return null;
   const raw = typeof rows[0].data === "string" ? JSON.parse(rows[0].data) : rows[0].data;
+  // #153 (Q-X7): the person's saved chart report shares the row but is not part of the record.
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && REPORT_KEY in raw) {
+    const { [REPORT_KEY]: _report, ...rest } = raw as Record<string, unknown>;
+    void _report;
+    if (Object.keys(rest).length === 0) return null;
+    const checkedRest = checkRecord(rest);
+    return checkedRest.ok ? checkedRest.record : {};
+  }
   const checked = checkRecord(raw);
   return checked.ok ? checked.record : {};
 }
@@ -36,8 +52,10 @@ export async function readRecord(db: Queryable, userId: string): Promise<PfRecor
 export async function writeRecord(db: Queryable, userId: string, record: PfRecord): Promise<void> {
   await db.query(
     `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
-     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
-    [userId, JSON.stringify(record)],
+     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data
+       || CASE WHEN personal_finance.data ? $3 THEN jsonb_build_object($3::text, personal_finance.data -> $3) ELSE '{}'::jsonb END,
+       updated_at = now()`,
+    [userId, JSON.stringify(record), REPORT_KEY],
   );
 }
 
@@ -134,4 +152,86 @@ export async function handlePersonalFinanceViewRequest(request: Request, deps: D
   } else await writeOwnView(g.db, g.viewer.id, view);
   await auditFor(g.db, g.access, "pf.view");
   return dashboardJson({ view });
+}
+
+export const PF_REPORT_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
+
+/** #153: the person's own saved chart report text, from their own `personal_finance` row (null when none). */
+export async function readOwnReport(db: Queryable, userId: string): Promise<string | null> {
+  const rows = await db.query<{ report: string | null }>(
+    "SELECT data ->> $2 AS report FROM personal_finance WHERE user_id = $1",
+    [userId, REPORT_KEY],
+  );
+  return rows[0]?.report ?? null;
+}
+
+export async function writeOwnReport(db: Queryable, userId: string, text: string): Promise<void> {
+  await db.query(
+    `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, jsonb_build_object($2::text, $3::text), now())
+     ON CONFLICT (user_id) DO UPDATE SET data = personal_finance.data || jsonb_build_object($2::text, $3::text),
+       updated_at = now()`,
+    [userId, REPORT_KEY, text],
+  );
+}
+
+export async function deleteOwnReport(db: Queryable, userId: string): Promise<void> {
+  await db.query(
+    "UPDATE personal_finance SET data = data - $2::text, updated_at = now() WHERE user_id = $1 AND data ? $2",
+    [userId, REPORT_KEY],
+  );
+  // A row that only held the report goes, so the record still reads as "none yet" (null).
+  await db.query("DELETE FROM personal_finance WHERE user_id = $1 AND data = '{}'::jsonb", [
+    userId,
+  ]);
+}
+
+/**
+ * `/api/personal-finance/report` (#153; spec section 33, PFR-01..PFR-16). The signed-in person's **own** saved chart
+ * report (Q-X6), in their own `personal_finance` row. A Personal Finance read grant is enough (a preference, like the
+ * section toggles). GET `{ report, missing }` (`missing`: series not in the owner's record, Q-X4); PUT `{ report }`
+ * replaces it (shared `checkReport`: 400 `{ error, field }`, 413 above 4 KB); DELETE removes it.
+ */
+export async function handlePersonalFinanceReportRequest(request: Request, deps: DashboardApiDeps) {
+  const g = await gateDashboardRequest(request, PF_REPORT_ALLOW, deps, {
+    surface: "personal_finance",
+    need: "read",
+  });
+  if ("response" in g) return g.response;
+  const { db, viewer, user } = g;
+  const method = request.method.toUpperCase();
+  if (method === "PUT") {
+    const text = await request.text();
+    if (new TextEncoder().encode(text).length > REPORT_MAX_BYTES)
+      return dashboardJson({ error: "Report too large." }, 413);
+    let body: { report?: unknown } | undefined;
+    try {
+      body = JSON.parse(text) as typeof body;
+    } catch {
+      return badRequest("Body must be JSON.");
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body))
+      return badRequest("Body must be a JSON object.");
+    const checked = checkReport(body.report);
+    if (!checked.ok)
+      return dashboardJson(
+        checked.field ? { error: checked.error, field: checked.field } : { error: checked.error },
+        checked.status,
+      );
+    await writeOwnReport(db, viewer.id, reportText(checked.report));
+    await auditFor(db, g.access, "pf.report_save");
+    return dashboardJson({
+      report: checked.report,
+      missing: missingSeries(checked.report, await readRecord(db, user.id)),
+    });
+  }
+  if (method === "DELETE") {
+    await deleteOwnReport(db, viewer.id);
+    await auditFor(db, g.access, "pf.report_delete");
+    return dashboardJson({ report: null, missing: [] });
+  }
+  const report = parseReport(await readOwnReport(db, viewer.id));
+  return dashboardJson({
+    report,
+    missing: report ? missingSeries(report, await readRecord(db, user.id)) : [],
+  });
 }

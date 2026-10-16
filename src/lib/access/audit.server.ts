@@ -21,6 +21,8 @@ export const AUDIT_ACTIONS = [
   "pf.save",
   "pf.delete",
   "pf.view",
+  "pf.report_save",
+  "pf.report_delete",
   "dash.holding_add",
   "dash.holding_edit",
   "dash.holding_delete",

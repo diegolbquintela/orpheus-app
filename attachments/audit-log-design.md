@@ -44,6 +44,7 @@ their history). No IP address, user agent, email, name, amount, ticker, currency
 | `access.remove` | the owner removes a person's access |
 | `access.reset` | the owner resets a person's password |
 | `pf.save` / `pf.delete` / `pf.view` | Personal Finance record saved / wiped / section toggles saved |
+| `pf.report_save` / `pf.report_delete` | #153: a person's own saved chart report saved / removed |
 | `dash.holding_add` / `dash.holding_edit` / `dash.holding_delete` | Dashboard holdings |
 | `dash.settings` | Dashboard settings saved |
 | `access.denied` | a signed-in person refused (403) by the Personal Finance / Dashboard grant check; detail `<surface> <METHOD>` |

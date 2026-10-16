@@ -639,3 +639,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **ROIC method tooltip (#130).** On the company view, an `i` beside ROIC shows how it's calculated: operating income after tax ÷ average invested capital (equity + debt − cash). Cash is excluded, which is why a net-cash company such as RMS.PA shows a high ROIC. It opens on hover, focus or tap and closes on Escape. This is a disclosure only. Dashboard-spec §19, CV-16..CV-21.
 
 **ROIC tooltip short wording (#130, Q-T1).** PM chose: `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` (CV-22, dashboard-spec §19.1). Q-T2..Q-T4 accepted as built.
+
+**Saved chart report (#153, backend only).** `/api/personal-finance/report` (GET / PUT / DELETE) stores each signed-in person's one chart report definition (series, date range, chart type) in their own `personal_finance` row under `orpheus.finance.report.v1`. There is no migration. Validation is shared with the client (`src/lib/finance/report.ts`). See personal-finance-spec section 33 and `attachments/pf-chart-report-design.md`. QA API checks: `qa/tools/pf-report-api.mjs`.

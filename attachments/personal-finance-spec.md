@@ -1025,3 +1025,17 @@ Business user: CFO. QA (#133, Finding 1) saw the Overview 3-month Income show `4
   - the chart's compact axis ticks.
 - 32.7 (Q-W6) `—` (not computed) is unchanged (PF-181).
 - 32.8 The 8-expense + 1-income-only fixture (QA #133) shows the 3-month Income as `4,296.30` on the real page (PF-182).
+
+## 33. Saved chart report: data model, backend only (#153; PFR-01..PFR-16)
+
+Design and CFO calls Q-X1..Q-X8: `attachments/pf-chart-report-design.md`.
+
+33.1 One report per person, as JSON text under `orpheus.finance.report.v1` in that person's own `personal_finance` row. No migration.
+33.2 Shape: `{ series, range, chart }` and nothing else.
+33.3 `series`: 1 to 12 items, each `{ kind, id }`, with no duplicates. Kinds: `line` (line id), `account`, `category` (names up to 40 characters), `group` (`fixed` / `variable` / `all`), `metric` (`income` / `expenses` / `surplus` / `net-assets`).
+33.4 `range`: `{ preset }` with `3m` / `6m` / `12m` / `24m` / `ytd`, or `{ from, to }` as `YYYY-MM`, with `from` ≤ `to`, at most 24 months, years 2000–2100.
+33.5 `chart`: `line`, `bar` or `stacked-bar`.
+33.6 `GET /api/personal-finance/report` → `{ report, missing }`. `missing` lists the indexes of line / account / category series not found in the owner's record (shared or any month). Such a series is kept as saved.
+33.7 `PUT { report }` validates with the shared `reportError` (client and API) and replaces the report. A bad value gets 400 `{ error: "Invalid value.", field }`. Above 4 KB gets 413. `DELETE` removes it.
+33.8 Gate as for `/api/personal-finance`. A read grant is enough (the report is the person's own). Audit actions: `pf.report_save` / `pf.report_delete`.
+33.9 The record API never shows or changes the report, except that the owner's record `DELETE` removes the owner's report.

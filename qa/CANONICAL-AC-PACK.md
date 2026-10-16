@@ -802,3 +802,26 @@ Tools only. These checks cover the harness itself, not the site.
 | PF-182 | BLOCK | QA #133 fixture (8 expenses, 1 income-only person), signed in: the Overview 3-month Income reads `4,296.30`. |
 
 > **Clarification (2026-10-15, PF-182):** the "QA #133 fixture" in PF-182 means test data shaped like the #133 set: 8 expense months, income 4,000 with Aug 4,388.9 and Sep 4,500, plus an income-only January. On that data the 3-month Income reads `4,296.30`. The real #133 set reads `4,266.67` because of #148. Both must show two decimals.
+
+## Personal Finance: saved chart report, data model (#153; personal-finance-spec section 33; attachments/pf-chart-report-design.md)
+
+Backend only. Signed-in checks: `qa/tools/pf-report-api.mjs` (needs `QA_EMAIL` / `QA_PASSWORD`). Signed out, it checks PFR-01 only.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PFR-01 | BLOCK | `/api/personal-finance/report` signed out: 401 JSON for GET / PUT / DELETE. Another method: 405. |
+| PFR-02 | BLOCK | Signed in with nothing saved: `GET` → `{ "report": null, "missing": [] }`. |
+| PFR-03 | BLOCK | `PUT` a valid report → 200 with the report; `GET` returns the same (survives reload / another device). |
+| PFR-04 | BLOCK | `PUT` replaces the whole report (one report per person). |
+| PFR-05 | BLOCK | Series kinds: `line`, `account`, `category`, `group` (`fixed` / `variable` / `all`), `metric` (`income` / `expenses` / `surplus` / `net-assets`). Anything else → 400 `{ "error": "Invalid value.", "field": "series.<i>.kind" }` (or `.id`). |
+| PFR-06 | BLOCK | 0 or more than 12 series, or a duplicate kind + id → 400 with `field` `series`. |
+| PFR-07 | BLOCK | Range presets `3m` / `6m` / `12m` / `24m` / `ytd` are accepted; any other preset → 400 `range.preset`. |
+| PFR-08 | BLOCK | A custom range `{ from, to }` in `YYYY-MM` is accepted. `from` after `to`, more than 24 months, a bad month, or a year outside 2000–2100 → 400 `range`. |
+| PFR-09 | BLOCK | Chart `line` / `bar` / `stacked-bar` is accepted; anything else → 400 `chart`. |
+| PFR-10 | BLOCK | An unknown key (top level, in a series or in the range) → 400. A body that isn't JSON → 400. More than 4 KB → 413. Nothing is stored on any refusal. |
+| PFR-11 | BLOCK | A line / account / category series that is not in the record is kept as saved and listed by index in `missing`. Group and metric series are never missing. |
+| PFR-12 | BLOCK | `DELETE` → `{ "report": null, "missing": [] }`; a later `GET` → null. |
+| PFR-13 | BLOCK | The record API never shows the report (`GET /api/personal-finance` has no `orpheus.finance.report.v1`), and a record `PUT` keeps the saved report. A record `PUT` naming it → 400 `Unknown name`. |
+| PFR-14 | BLOCK | Per person: a CFO (Read only is enough) saves their own report. The owner and the CFO each see only their own. `missing` is checked against the owner's record. No grant → 403. |
+| PFR-15 | BLOCK | The client and the API use one validator (`reportError` in `src/lib/finance/report.ts`). |
+| PFR-16 | BLOCK | No migration file is added. No UI, navigation or style change. |
