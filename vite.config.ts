@@ -76,7 +76,16 @@ export default defineConfig(({ command, isPreview }) => ({
             // the filesystem and the server function.
             vercel: {
               config: {
-                routes: [{ src: "/(.*)", headers: { "X-Robots-Tag": "noindex, nofollow" }, continue: true }],
+                // #157: X-Orpheus-Env names the Vercel environment the build was made for (system variable
+                // VERCEL_ENV at build time; no secret), so QA tools can refuse production before any request
+                // that signs in or writes (qa/tools/prod-guard.mjs).
+                routes: [
+                  {
+                    src: "/(.*)",
+                    headers: { "X-Robots-Tag": "noindex, nofollow", "X-Orpheus-Env": process.env.VERCEL_ENV || "local" },
+                    continue: true,
+                  },
+                ],
               },
             },
           }),

@@ -14,6 +14,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -59,6 +60,8 @@ const REPORT = {
   chart: "stacked-bar",
 };
 
+// #157 (QA #174 note 1): refuse production before any GET or sign-in.
+await refuseIfProd(base, "pf-report-api");
 const browser = await chromium.launch();
 try {
   // PFR-01 signed out.

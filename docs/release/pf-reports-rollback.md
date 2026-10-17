@@ -115,3 +115,14 @@ A Personal Finance snapshot at every deploy is not cheap: it would have to run a
 time (like `db:migrate`) and needs somewhere to keep the files. Estimate for EL: a build-time export step plus
 private storage (e.g. Vercel Blob or a Neon branch per deploy), its credentials and a retention rule: about 1-2 days
 of work and a new secret, so out of scope here.
+
+## Addendum 2026-10-17 (#157, QA's #174 note 3): run the export read-only, then drop the URL
+
+Run the select / count steps with the session forced read-only, so a slip cannot write:
+
+```sh
+PGOPTIONS='-c default_transaction_read_only=on' psql "$PF_DB_URL" ...   # the select / count commands above, unchanged
+```
+
+and when done, clear the URL from the shell: `unset PF_DB_URL`. (The restore step is a write and is not covered by
+this; it still must NEVER be run against any real or preview DB without the owner's go.)

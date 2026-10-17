@@ -1127,3 +1127,61 @@ Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFR
 38.9 The record API never shows reports and a record save keeps them. A stored named report that is no longer valid is skipped on read. Removing the last report from a row that holds nothing else removes the row.
 38.10 Not built: the #173 range refusal (Q-AC12, shared validator unchanged), concurrency control (Q-AC13) and the Q-AC14 list.
 38.11 (2026-10-17, CFO on PR #174) Q-AC1..Q-AC14 accepted as written (Q-AC12..Q-AC14 stay not built). **Pre-merge condition:** a rollback runbook, `docs/release/pf-reports-rollback.md`: do NOT roll back past #174 without first exporting every user's PF report keys (`orpheus.finance.report.v1`, `orpheus.finance.reports.v1` in `personal_finance.data`) with the documented read-only SELECT, a dated file and a row-count check; the restore is a separate, marked WRITE. The SQL is tested against PGlite only. A snapshot at every deploy was not built (not cheap: build-time access to the shared database plus storage and a secret; estimate in the runbook).
+
+## 39. Report export stubs: PDF + PNG (#157, backend only)
+
+Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
+
+- 39.1 `GET` (and `HEAD`) `/api/personal-finance/reports/:id/export?format=pdf|png`; `:id` = `default` or a named
+  report id. Other methods 405.
+- 39.2 Access as the reports API (section 38): flag off 404, signed out 401, no grant 403, another user's or unknown
+  id 404 `Report not found.`; `format` missing or not `pdf` / `png` → 400 `{ error: "Invalid value.", field: "format" }`.
+- 39.3 Synchronous; the response is the file: `application/pdf` or `image/png`, `Content-Disposition: attachment;
+  filename="orpheus-report-<slug>-<YYYY-MM-DD>.<ext>"`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+- 39.4 Values come from the same function as `/chart { saved: true, id }`; the file embeds that JSON exactly (PDF
+  Info `/OrpheusData`, PNG `tEXt` `orpheus-data`).
+- 39.5 Every export prints the as-of month (and whether it is the partial current month), the generation time, the
+  FX basis line; with net assets, `Net assets from` and the 36.11 caveat verbatim; with mixed axes, the mixed line.
+- 39.6 Read-only: no write, no audit row. ASCII text (other characters print `?`). No new dependency.
+- 39.7 Every response carries `X-Orpheus-Env` (build-time `VERCEL_ENV`); QA tools that sign in refuse production.
+
+### AC PFX
+
+- PFX-01 gate (404 flag off / 401 / 405 / 403). PFX-02 PDF valid with headers. PFX-03 PNG valid (CRCs, IDAT size).
+- PFX-05 embedded data deep-equals `/chart { saved: true, id }` (default and named, both formats).
+- PFX-06 as-of / generated / FX basis printed. PFX-07 net assets from + 36.11 caveat (and mixed line) only with
+  net assets. PFX-08 the PDF table equals `/chart` rows, formatted.
+- PFX-09 unknown / malformed / other user's id 404. PFX-10 bad format 400. PFX-11 ASCII. PFX-12 deleted labels.
+- PFX-13 Toronto month whatever the process TZ. PFX-14 worst case small and quick. PFX-15 HEAD. PFX-16 read-only.
+
+### 39.8 CFO decisions (2026-10-17)
+
+- Accepted: Q-AD1..Q-AD10 and Q-AD12 as built.
+- **Q-AD11 audit: built (PFX-17).**
+  - Every successful export `GET` (200) writes one `pf.report_export` row through the existing audit mechanism (`auditFor`, the same actor / role as `pf.report_save`, target empty as for `pf.report_save`).
+  - The row's detail is `format:<pdf|png> id:<report id>`. The 0012 detail CHECK allows only letters, `_`, `:`, `+` and spaces, so the id is written with digits as capitals A-J and `-` as `_` (`r-1a2b3c4d` → `r_BaCbDcEd`; `default` stays `default`; `decodeReportId` reverses it). No migration or schema change; the action name fits the existing `^[a-z]+\.[a-z_]+$` check (it is not an enum).
+  - `HEAD` is not audited: it sends no file.
+  - 4xx (401 / 403 / 404 / 400 / 405) are not audited.
+  - A failed audit insert is logged (action code only) and never changes the answer, as for `pf.report_save`.
+- **Q-AD4 label: built (PFX-18).** For `bar` and `stacked-bar` reports, the PNG draws `Rendered as lines` as header line 3 and carries it in a `tEXt` `orpheus-note` chunk. The PDF prints the same line in the same place (it shares the header lines, so this cost nothing).
+- Q-AD5 ASCII stays. Unicode fonts go to Diego as a follow-up (not built).
+- Correction: Q-AD7's filename date was the UTC day in the first build. It is now the Toronto day, as the design note said.
+
+### AC PFX (added 2026-10-17)
+
+- PFX-17: one `pf.report_export` row per successful pdf / png GET, with id, format and actor as above. No row for 4xx or HEAD. A failed audit insert does not change the answer.
+- PFX-18: bar / stacked-bar exports carry `Rendered as lines`: PNG pixels and `tEXt`, and the PDF header line. Line reports don't.
+
+### 39.9 CFO decisions, second round (2026-10-17)
+
+- **Q-AD14:** keep the encoded report id. A test pins the lossless round trip: per-character bijection, every hex character in every one of the 8 positions, boundary ids, and 10,000 seeded random ids. Every encoded detail fits the 0012 CHECK.
+- **PFX-19, fail closed (this departs from `pf.report_save`'s log-and-continue, 39.8):**
+  - The `pf.report_export` row is written BEFORE the file is sent.
+  - If the insert fails, the export answers `503` `{ "error": "Export unavailable. Try again." }` as `no-store` JSON, and no file bytes are sent.
+  - The failure is logged as `[audit] could not record pf.report_export` (action code only).
+  - `HEAD` writes no row, so it still answers `200` with the file's headers (including `Content-Length`) when the audit is down. No file leaves the server.
+  - This supersedes the "best effort" line for exports in 39.8 / PFX-17.
+
+### AC PFX (added 2026-10-17, second round)
+
+- PFX-19: with the audit insert failing, GET pdf / png → 503 with the JSON above, not pdf / png, no `Content-Disposition`, no file bytes, the failure logged, and no row. HEAD → 200 with no insert. Once the audit works again, exports resume.

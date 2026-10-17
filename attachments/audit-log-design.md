@@ -85,3 +85,5 @@ changes the action's own answer.
 - **Q-A2 Who reads it.** Built: the owner only. Alternative: also a Dashboard `Read and write` grantee.
 - **Q-A3 Failed sign-ins.** Built: recorded as `anonymous` without the typed email. Alternative: also a masked code of the typed email (would let the owner spot repeated guesses for one account).
 - **Q-A4 Denials.** Built: only the Personal Finance / Dashboard grant 403s. Alternative: also the owner-only `/api/account/*` 403s.
+
+- 2026-10-17 (#157): `pf.report_export`: a successful report export GET (detail `format:<pdf|png> id:<encoded report id>`, digits as A-J and `-` as `_`, to fit the detail CHECK). HEAD and 4xx are not audited.
