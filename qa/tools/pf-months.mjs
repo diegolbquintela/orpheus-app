@@ -20,10 +20,13 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, DELETE_ACCOUNT, DELETE_CATEGORY, DELETED_SUFFIX, deleteNameQuestion, PATH, acct, blankMonth, line, monthChoices, pickMonth, ready, shownMonth, trackSaves, txt, val } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+await refuseIfProd(CFG.baseUrl, "pf-months");
 const base = CFG.baseUrl;
 const R = { base, checks: [], shots: [] };
 const check = (name, ok, detail) => {

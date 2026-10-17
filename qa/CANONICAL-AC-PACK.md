@@ -976,3 +976,33 @@ Backend only. Design and Q-calls: `attachments/pf-report-crud-design.md` (Q-AC1.
 | PFRC-16 | MINOR | Deleting the last named report from a row holding nothing else removes the row. |
 | PFRC-17 | MINOR | Create / update audit `pf.report_save`; delete `pf.report_delete`; reads audit nothing. |
 | PFRC-18 | BLOCK | Q-AC1: legacy `PUT` / `DELETE /report` never touch named reports. |
+
+## Personal Finance report export stubs: PDF + PNG (#157, spec section 39; added 2026-10-17)
+
+Backend only. Design and Q-calls: `attachments/pf-export-design.md` (Q-AD1..Q-AD14). PGlite real-path tests: `src/lib/finance/export.server.test.ts` (TZ=UTC and TZ=America/Los_Angeles). Signed-in checks: `qa/tools/pf-export-api.mjs` (read-only; refuses production first). Signed out, it checks PFX-01 only. Prod guard tests: `scripts/qa-prod-guard.test.mjs`.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFX-01 | BLOCK | Flag off 404; signed out 401; other methods 405; no Personal Finance grant 403. |
+| PFX-02 | BLOCK | PDF: 200, `application/pdf`, `attachment; filename="orpheus-report-<slug>-<YYYY-MM-DD>.pdf"`, `no-store`, `nosniff`, Content-Length matches; a valid PDF (header, xref offsets, startxref, `%%EOF`). |
+| PFX-03 | BLOCK | PNG: 200, `image/png`, attachment filename; a valid PNG (magic, chunk CRCs, 8-bit RGB, IDAT inflates to height x (1 + 3 x width)). |
+| PFX-04 | n/a | Reserved, unused (see the 2026-10-17 note below). |
+| PFX-05 | BLOCK | Both files embed exactly what `/chart { saved: true, id }` returns (deep-equal), for the default and named reports. |
+| PFX-06 | MAJOR | The as-of month (partial or not in range), the generation time and the FX basis line are printed. |
+| PFX-07 | BLOCK | With net assets: `Net assets from` and the 36.11 caveat verbatim (and the mixed-axes line); without: neither. |
+| PFX-08 | BLOCK | The PDF table equals the `/chart` rows, formatted with `formatMoney` (`-` for no value). |
+| PFX-09 | BLOCK | Unknown, malformed or another person's id → 404 `Report not found.`; a Read CFO exports their own. |
+| PFX-10 | MAJOR | Missing or unknown `format` → 400 `{ error: "Invalid value.", field: "format" }`. |
+| PFX-11 | MINOR | Text is ASCII; other characters print as `?` (Q-AD5). |
+| PFX-12 | MINOR | #165 deleted names keep their `(deleted)` label in the legend. |
+| PFX-13 | MAJOR | The household month is Toronto's whatever the process timezone. |
+| PFX-14 | MAJOR | 12 series x 24 months: PDF < 100 KB, PNG < 600 KB, each < 2 s, data still equals `/chart`. |
+| PFX-15 | MINOR | HEAD answers the headers with no body. |
+| PFX-16 | BLOCK | Exports never change the stored rows; the only audit rows they write are `pf.report_export`. |
+| PFX-17 | BLOCK | One `pf.report_export` row per successful pdf / png GET, detail `format:<pdf\|png> id:<encoded id>`, actor and role as `pf.report_save`; no row for 4xx or HEAD; the encoded id round-trips losslessly and fits the detail CHECK (Q-AD14). |
+| PFX-18 | MAJOR | Bar / stacked-bar exports carry `Rendered as lines` (PNG drawn and `tEXt orpheus-note`; PDF header line); line reports don't. |
+| PFX-19 | BLOCK | Fail closed: if the audit insert fails, GET → 503 `{ error: "Export unavailable. Try again." }`, `no-store` JSON, no file bytes, the failure logged, no row; HEAD still 200 with no insert. |
+
+**Note (2026-10-17): PFX-04 is reserved and unused.** The gap comes from the first draft: PFX-04 was never defined in the spec, the AC list or the tests. The draft skipped it, and HEAD, its likely intent, was later written as PFX-15. No behaviour is missing: PFX-01..PFX-19 cover the whole spec section 39, and the tests have no PFX-04. It stays reserved so the other IDs keep their numbers.
+
+**Note (2026-10-17): the PNG prints exact case.** The PNG's built-in font now has lowercase and all printable ASCII, so the PNG prints the header lines (and the 36.11 caveat) with exact case and punctuation (QA run 2026-10-17 F3). Tests pin each glyph.

@@ -10,7 +10,7 @@ import {
   handlePersonalFinanceRequest,
 } from "./account.server.ts";
 import { inflateSync } from "node:zlib";
-import { crc32, BG, FG, GLYPHS, LINES_NOTE, PNG_LAYOUT, exportFilename } from "./export.ts";
+import { crc32, BG, FG, GLYPHS, LINES_NOTE, NET_ASSETS_CAVEAT, PNG_LAYOUT, exportFilename, pngText } from "./export.ts";
 import { decodeReportId, exportDetail, maskCode } from "../access/audit.server.ts";
 import { formatMoney } from "./money.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
@@ -18,7 +18,7 @@ import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
 
-// #157 (spec section 39, PFX-01..PFX-19): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
+// #157 (spec section 39, PFX-01..PFX-03, PFX-05..PFX-19; PFX-04 is reserved, unused: spec 39.10): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
 // Finance grant. Runs under TZ=UTC and TZ=America/Los_Angeles (npm test both ways): the household month is Toronto's.
 const pg = new PGlite();
@@ -361,21 +361,23 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     return { p, rgb: (x: number, y: number) => [...raw.subarray(y * rowLen + 1 + x * 3, y * rowLen + 4 + x * 3)] };
   };
   // Every pixel of the glyph cells for `text` at header line `line` is exactly FG where the 5x7 font has a dot and BG elsewhere.
-  const drawn = (b: Buffer, text: string, line: number) => {
-    const { S, ADV, LH, M } = PNG_LAYOUT;
+  const drawnAt = (b: Buffer, text: string, x0: number, y0: number) => {
+    const { S, ADV } = PNG_LAYOUT;
     const { rgb } = pixels(b);
-    return [...text.toUpperCase()].every((ch, n) => {
+    return [...text].every((ch, n) => {
       const g = GLYPHS[ch];
+      if (!g) return false;
       for (let r = 0; r < 7; r++)
         for (let c = 0; c < 6; c++) {
           const on = c < 5 && (parseInt(g.slice(r * 2, r * 2 + 2), 16) & (1 << (4 - c))) !== 0;
           for (let dy = 0; dy < S; dy++)
             for (let dx = 0; dx < S; dx++)
-              if (rgb(M + n * ADV + c * S + dx, M + line * LH + r * S + dy).join() !== (on ? FG : BG).join()) return false;
+              if (rgb(x0 + n * ADV + c * S + dx, y0 + r * S + dy).join() !== (on ? FG : BG).join()) return false;
         }
       return true;
     });
   };
+  const drawn = (b: Buffer, text: string, line: number) => drawnAt(b, text, PNG_LAYOUT.M, PNG_LAYOUT.M + line * PNG_LAYOUT.LH);
 
   it("PFX-18: bar / stacked-bar reports: the PNG draws 'Rendered as lines' (pixels and tEXt) and the PDF prints it; line reports don't", async () => {
     assert.equal(LINES_NOTE, "Rendered as lines");
@@ -393,6 +395,37 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     assert.ok(drawn(png, "As of", 2), "the control: line 3 is the as-of line");
     assert.equal(readPng(png, crc32).text["orpheus-note"], undefined);
     assert.ok(!readPdf(await bytes(await ex("alice", "default", "pdf"))).text.includes(LINES_NOTE));
+  });
+
+  it("F3 (QA 2026-10-17): the font covers printable ASCII with distinct glyphs; non-ASCII has none (prints ?)", () => {
+    for (let c = 32; c < 127; c++) assert.match(GLYPHS[String.fromCharCode(c)] ?? "", /^[0-9a-f]{14}$/, `glyph for ${String.fromCharCode(c)}`);
+    const bitmaps = Object.values(GLYPHS);
+    assert.equal(new Set(bitmaps).size, bitmaps.length, "no two characters share a bitmap (case and punctuation are distinguishable)");
+    assert.equal(GLYPHS["\u00e9"], undefined);
+  });
+
+  it("F3 (QA 2026-10-17): the PNG draws every header and legend line verbatim, incl. the 36.11 caveat, glyph by glyph", async () => {
+    assert.equal((await rep("alice", "PUT", { report: { ...NET, chart: "bar" } })).status, 200);
+    const b = await bytes(await ex("alice", "default", "png"));
+    const d = readPng(b, crc32).data;
+    const { head, leg, legendY } = pngText(d, { name: "Default", generatedAt: NOW.toISOString() });
+    const { M, ADV, LH } = PNG_LAYOUT;
+    const caveat = head.slice(head.findIndex((l) => l.startsWith("Caveat: ")));
+    const joined = caveat.slice(0, caveat.findIndex((l) => l.startsWith("Mixed axes")) >>> 0 || caveat.length).join(" ");
+    assert.ok(joined.startsWith(`Caveat: ${NET_ASSETS_CAVEAT}`), joined);
+    assert.ok(head.join("").includes(";") && head.join("").includes("'"), "the caveat's ; and ' are in the text");
+    assert.ok(!head.join("").includes("?") && !leg.join("").includes("?"), "no ? anywhere");
+    assert.ok(head.includes(LINES_NOTE), "the lines note");
+    head.forEach((l, i) => assert.ok(drawn(b, l, i), `header line ${i + 1}: ${l}`));
+    assert.ok(drawnAt(b, "Series", M, legendY - LH));
+    leg.forEach((l, i) => assert.ok(drawnAt(b, l, M + 4 * ADV, legendY + i * LH), `legend line ${i + 1}: ${l}`));
+    assert.ok(leg.some((l) => l.includes("Travel (deleted)")), "labels keep their case");
+    assert.ok(!drawn(b, head[0].toUpperCase(), 0), "not uppercased any more");
+  });
+
+  it("F3 / Q-AD5: non-ASCII still prints as ? in the PNG", async () => {
+    const b = await bytes(await ex("alice", named, "png"));
+    assert.ok(drawn(b, "Orpheus - Personal Finance report: Spend ?t?", 0));
   });
 
   it("Q-AD7: the filename date is the generation day in Toronto", () => {

@@ -1185,3 +1185,13 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
 ### AC PFX (added 2026-10-17, second round)
 
 - PFX-19: with the audit insert failing, GET pdf / png → 503 with the JSON above, not pdf / png, no `Content-Disposition`, no file bytes, the failure logged, and no row. HEAD → 200 with no insert. Once the audit works again, exports resume.
+
+### 39.10 QA corrections (2026-10-17, QA run `qa/run-2026-10-17-pr175.md`)
+
+- **39.7 made true (F2, EL 2026-10-17):** QA found that at 2110718 only 3 of the sign-in tools called `refuseIfProd`. The guard is now extended, with the same helper and method, to every QA tool that signs in. Each one runs it before any request, browser launch, spawn or sign-in. The full set of 19 tools is `audit`, `dashboard-add`, `dashboard-book`, `dashboard-company`, `dashboard-leaveouts`, `dashboard-list`, `dashboard-metrics`, `dashboard-redesign`, `personal-finance`, `personal-finance-e2e`, `pf-chart-api`, `pf-export-api`, `pf-months`, `pf-report-api`, `pf-reports-api`, `pf-series-api`, `roles`, `site-shell` (also its `--compare-url`) and `site-style-regression`. `scripts/qa-prod-guard.test.mjs` enumerates the tools that read a `*_PASSWORD` from env, so a new one is covered automatically. It checks that each tool refuses the prod alias with exit 2 and no traffic, and that the guard comes first in the source.
+- **EL rulings (2026-10-17):**
+  - (a) One signed-out `HEAD /` before refusing a production deployment URL is acceptable (QA F5).
+  - (b) Render, then audit, then send is fine (QA F6; 39.9 is met as built).
+  - (c) `qa/tools/audit.mjs` (AUDIT-04) is not run for this ticket.
+- **PFX-04 is reserved and unused (F1).** PFX-04 was never defined in the first draft (spec, AC list and tests all skipped it; HEAD, its likely intent, is PFX-15). Spec, AC pack (`qa/CANONICAL-AC-PACK.md`) and tests agree: PFX-01..PFX-03 and PFX-05..PFX-19.
+- **Correction to the PNG text (F3):** the PNG used to print in capitals and showed `;` as `?`. The built-in bitmap font now covers printable ASCII (lowercase, digits and punctuation), so the PNG prints the header lines, including the 36.11 caveat, verbatim. Non-ASCII still prints `?` (Q-AD5). The text is wrapped to the image width.

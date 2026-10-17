@@ -86,3 +86,4 @@ any other non-local host gets one `HEAD /` and must answer `X-Orpheus-Env: previ
 
 - `pf-export-api.mjs` (2026-10-17): adds PFX-18 (`Rendered as lines` on bar / stacked-bar exports) and PFX-17, which checks recent `pf.report_export` audit rows only when signed in as the owner (otherwise an INFO skip). `audit.mjs` AUDIT-04 also accepts the `format:<pdf|png> id:<code>` detail.
 - `pf-export-api.mjs` (2026-10-17, second round): exports now fail closed. If the audit row can't be written, the export answers 503 `EXPORT_UNAVAILABLE` (pf-helpers). Only the PGlite tests simulate this; the tool can't break audit on a preview.
+- Production guard (2026-10-17, #157 QA F2 / EL): extended to every tool that signs in (19 tools, enumerated by `*_PASSWORD` in `scripts/qa-prod-guard.test.mjs`); `site-shell` also guards `--compare-url`.

@@ -79,3 +79,11 @@ A production deployment's own unique URL looks like a preview by name; step 2 ca
   - The handler builds the file, writes the row, and sends the file only if the row was written. Otherwise it answers 503 `EXPORT_UNAVAILABLE` (`pf-helpers`), `no-store`.
   - HEAD writes nothing, so it keeps answering 200 with `Content-Length` while the audit is down.
 - **Correction:** at ba8e4dd the PFX-17 "failed insert still answers 200" test stubbed the wrong dependency key (`db` instead of `getDb`), so it never simulated a failure. The PFX-19 test injects the failure through `getDb`. A mutation check (log-and-continue put back) makes it fail.
+
+## QA corrections (2026-10-17, QA run `qa/run-2026-10-17-pr175.md`)
+
+- **F2 (EL):** the prod guard is extended to all 19 sign-in QA tools (spec 39.10 lists them). It was mechanical: one import plus one line after `qaConfig` in each, plus the `--compare-url` check in site-shell. The tests enumerate the tools.
+- **EL rulings:** (a) one HEAD before refusing a prod deployment URL is OK; (b) render, then audit, then send is OK; (c) AUDIT-04 is not run for this ticket.
+- **F1:** PFX-04 is reserved and unused. README now has an entry for the export endpoint, and the AC pack has PFX-01..PFX-19.
+- **F3:** the PNG font now has every printable ASCII glyph (exact case), so the 36.11 caveat prints verbatim. Each glyph is pinned by a pixel test.
+- F5 / F6: EL ruled as above, so no change. F4 (deep-equal, not byte-equal, for non-ASCII) is unchanged.

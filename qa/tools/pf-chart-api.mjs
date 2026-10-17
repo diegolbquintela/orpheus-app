@@ -12,10 +12,13 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { FX_BASIS_CURRENT, NO_SAVED_REPORT } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+await refuseIfProd(CFG.baseUrl, "pf-chart-api");
 const base = CFG.baseUrl;
 const R = { base, checks: [] };
 const check = (name, ok, detail) => {

@@ -35,9 +35,12 @@ import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { contrastScan } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+await refuseIfProd(CFG.baseUrl, "roles");
 const base = CFG.baseUrl;
 const argv = process.argv.slice(2);
 const LOCAL = ["localhost", "127.0.0.1"].includes(new URL(base).hostname);

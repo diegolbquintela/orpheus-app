@@ -36,6 +36,7 @@ import { mkdirSync, readFileSync, writeFileSync, createWriteStream } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { fontsSettled } from "./fonts.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
@@ -53,6 +54,8 @@ const avg3Label = (now = new Date()) => {
 };
 
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+await refuseIfProd(CFG.baseUrl, "site-style-regression");
 const base = CFG.baseUrl;
 const argv = process.argv.slice(2);
 const OWN_ONLY = argv.includes("--own-only");

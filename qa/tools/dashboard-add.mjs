@@ -12,8 +12,11 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+await refuseIfProd(CFG.baseUrl, "dashboard-add");
 const { QA_EMAIL: email, QA_PASSWORD: password } = process.env;
 const SYMBOL = (process.env.QA_ADD_SYMBOL || "MSFT").trim().toUpperCase();
 if (!email || !password) {

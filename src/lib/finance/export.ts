@@ -196,6 +196,50 @@ export const GLYPHS: Record<string, string> = {
   "?": "0e110102040004",
   "&": "0c12140815120d",
   "#": "0a0a1f0a1f0a0a",
+  // QA 2026-10-17 F3: lowercase and the rest of printable ASCII, so the PNG prints text verbatim.
+  "a": "00000e010f110f",
+  "b": "1010161911111e",
+  "c": "00000e1010110e",
+  "d": "01010d1311110f",
+  "e": "00000e111f100e",
+  "f": "0609081c080808",
+  "g": "000f11110f010e",
+  "h": "10101619111111",
+  "i": "04000c0404040e",
+  "j": "0200060202120c",
+  "k": "10101214181412",
+  "l": "0c04040404040e",
+  "m": "00001a15151111",
+  "n": "00001619111111",
+  "o": "00000e1111110e",
+  "p": "00001e111e1010",
+  "q": "00000d130f0101",
+  "r": "00001619101010",
+  "s": "00000e100e011e",
+  "t": "08081c08080906",
+  "u": "0000111111130d",
+  "v": "00001111110a04",
+  "w": "0000111115150a",
+  "x": "0000110a040a11",
+  "y": "000011110f010e",
+  "z": "00001f0204081f",
+  "!": "04040404040004",
+  "\"": "0a0a0a00000000",
+  "$": "040f140e051e04",
+  "*": "0004150e150400",
+  ";": "000c0c000c0408",
+  "<": "02040810080402",
+  ">": "08040201020408",
+  "@": "0e11010d15150e",
+  "[": "0e08080808080e",
+  "\\": "00100804020100",
+  "]": "0e02020202020e",
+  "^": "040a1100000000",
+  "`": "08040200000000",
+  "{": "02040408040402",
+  "|": "04040404040404",
+  "}": "08040402040408",
+  "~": "00000815020000",
 };
 
 type RGB = [number, number, number];
@@ -235,12 +279,23 @@ const chunk = (type: string, data: Buffer): Buffer => {
 /** PNG text layout (exported for the PFX-18 pixel test): header line i starts at (M, M + i * LH), glyphs 5x7 x S. */
 export const PNG_LAYOUT = { S: 2, ADV: 12, LH: 18, W: 1200, M: 24 } as const;
 
+/**
+ * The PNG's text, wrapped to the width (exported for the glyph tests): header line i is drawn at (M, M + i * LH);
+ * "Series" at (M, legendY - LH); legend line i at (M + 4 * ADV, legendY + i * LH).
+ */
+export function pngText(d: ChartData, meta: ExportMeta) {
+  const { ADV, LH, W, M } = PNG_LAYOUT;
+  const maxChars = Math.floor((W - 2 * M) / ADV);
+  const head = headerLines(d, meta).flatMap((l) => wrap(l, maxChars));
+  const leg = legend(d).flatMap((l) => wrap(l, maxChars - 4));
+  const PLOT = 360;
+  const legendY = M + head.length * LH + 16 + PLOT + 2 * LH;
+  return { head, leg, PLOT, legendY };
+}
+
 export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
   const { S, ADV, LH, W, M } = PNG_LAYOUT; // font scale 2: 10 x 14 px glyphs, 12 px advance
-  const maxChars = Math.floor((W - 2 * M) / ADV);
-  const head = headerLines(d, meta).flatMap((l) => wrap(l.toUpperCase(), maxChars));
-  const leg = legend(d).flatMap((l) => wrap(l.toUpperCase(), maxChars - 4));
-  const PLOT = 360;
+  const { head, leg, PLOT } = pngText(d, meta);
   const H = M + head.length * LH + 16 + PLOT + 3 * LH + leg.length * LH + M;
   const px = Buffer.alloc(W * H * 3);
   for (let i = 0; i < W * H; i++) BG.forEach((v, k) => (px[i * 3 + k] = v));
@@ -252,7 +307,7 @@ export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
     px[i + 2] = c[2];
   };
   const text = (s: string, x: number, y: number, c: RGB = FG) => {
-    [...ascii(s).toUpperCase()].forEach((ch, n) => {
+    [...ascii(s)].forEach((ch, n) => {
       const g = GLYPHS[ch] ?? GLYPHS["?"];
       for (let r = 0; r < 7; r++) {
         const bits = parseInt(g.slice(r * 2, r * 2 + 2), 16);
@@ -318,7 +373,7 @@ export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
     });
   });
   y = top + PLOT + LH;
-  text("SERIES", M, y);
+  text("Series", M, y);
   y += LH;
   leg.forEach((l) => {
     const si = Number(/^(\d+)\./.exec(l)?.[1] ?? 0) - 1;
