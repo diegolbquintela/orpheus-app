@@ -30,7 +30,8 @@ import {
  * same range shape plus the `all` preset (Q-AA7); a custom range may reach back to `FIRST_MONTH` (2020-01, Q-AA1).
  * Read-only: nothing is stored.
  */
-export const SERIES_PRESETS = [...RANGE_PRESETS, "all"] as const;
+/** #179: the same presets as saved reports (`all` moved into RANGE_PRESETS). */
+export const SERIES_PRESETS = RANGE_PRESETS;
 export const SERIES_MAX_BYTES = 4096;
 
 export type SeriesRange = { preset: (typeof SERIES_PRESETS)[number] } | { from: string; to: string };
@@ -68,7 +69,7 @@ export function seriesQueryError(value: unknown, current: MonthKey): ReportError
   if (!isObject(value) || !Object.keys(value).every((k) => k === "series" || k === "range")) return bad("query");
   return (
     seriesListError(value.series) ??
-    rangeError(value.range, SERIES_PRESETS, (from, to) => from >= FIRST_MONTH && to <= current)
+    rangeError(value.range, "query", current)
   );
 }
 

@@ -1,7 +1,8 @@
 import { readHousehold } from "./currency.ts";
 import { rateUsed, readRates } from "./equity.ts";
 import { ACCOUNT_MAX, CATEGORY_MAX, deletedLabel, isDeleted, readExpenses, totalsOf } from "./expenses.ts";
-import { readMonths } from "./months.ts";
+import { FIRST_MONTH, readMonths } from "./months.ts";
+import { householdMonth } from "./overview.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 
 /**
@@ -18,7 +19,8 @@ export const RANGE_MONTHS_MAX = 24;
 export const SERIES_KINDS = ["line", "account", "category", "group", "metric"] as const;
 export const GROUP_IDS = ["fixed", "variable", "all"] as const;
 export const METRIC_IDS = ["income", "expenses", "surplus", "net-assets"] as const;
-export const RANGE_PRESETS = ["3m", "6m", "12m", "24m", "ytd"] as const;
+/** #179: `all` (dynamic: resolved when the report runs) is a preset everywhere, saved reports included (Q-AF1..Q-AF9). */
+export const RANGE_PRESETS = ["3m", "6m", "12m", "24m", "ytd", "all"] as const;
 export const CHART_TYPES = ["line", "bar", "stacked-bar"] as const;
 
 export type SeriesKind = (typeof SERIES_KINDS)[number];
@@ -83,31 +85,40 @@ export function seriesListError(series: unknown): ReportError | null {
 }
 
 /**
- * #154: the first problem with a `range` (preset or custom `from`/`to`). `presets` are the allowed preset names;
- * `ok(from, to, months)` adds the caller's own custom-range limit (the report: at most `RANGE_MONTHS_MAX`).
+ * #179 (spec 41.1): THE range validator, shared by `/series`, `/chart` and every saved-report path. Modes:
+ * - `query` (/series, /chart): any preset; custom within FIRST_MONTH (2020-01)..`current`, no length cap.
+ * - `save` (every saved-report write): any preset (`all` included); custom within FIRST_MONTH..`current` (#173) and at
+ *   most `RANGE_MONTHS_MAX` months.
+ * - `stored` (reading what is stored): any preset; custom a valid 2000..2100 span of at most `RANGE_MONTHS_MAX` months
+ *   (the pre-#179 rule, so no existing stored report stops reading).
+ * Every refusal is 400 `Invalid value.` with field `range` / `range.preset` (Q-AF4: the series API's wording).
  */
-export function rangeError(
-  range: unknown,
-  presets: readonly string[] = RANGE_PRESETS,
-  ok: (from: string, to: string, months: number) => boolean = (_f, _t, n) => n <= RANGE_MONTHS_MAX,
-): ReportError | null {
+export type RangeMode = "query" | "save" | "stored";
+export function rangeError(range: unknown, mode: RangeMode = "stored", current?: string): ReportError | null {
   if (!isObject(range)) return bad("range");
   if ("preset" in range) {
     if (!onlyKeys(range, ["preset"])) return bad("range");
-    if (!has(presets, range.preset)) return bad("range.preset");
-  } else {
-    if (!onlyKeys(range, ["from", "to"])) return bad("range");
-    const n = span(range.from, range.to);
-    if (n === null || n < 1 || !ok(range.from as string, range.to as string, n)) return bad("range");
+    if (!has(RANGE_PRESETS, range.preset)) return bad("range.preset");
+    return null;
   }
+  if (!onlyKeys(range, ["from", "to"])) return bad("range");
+  const n = span(range.from, range.to);
+  if (n === null || n < 1) return bad("range");
+  const from = range.from as string;
+  const to = range.to as string;
+  if (mode !== "stored" && (from < FIRST_MONTH || to > (current ?? householdMonth(new Date())))) return bad("range");
+  if (mode !== "query" && n > RANGE_MONTHS_MAX) return bad("range");
   return null;
 }
 
-/** The first problem with a report value (client and API), or null when it can be stored. */
-export function reportError(value: unknown): ReportError | null {
+/**
+ * The first problem with a report value, or null. #179: with `current` (a `YYYY-MM`), the `save` rules (client and API
+ * writes; 2020-01..current); without, the lenient `stored` rules (reading what is stored).
+ */
+export function reportError(value: unknown, current?: string): ReportError | null {
   if (!isObject(value) || !onlyKeys(value, ["series", "range", "chart"])) return bad("report");
   const { series, range, chart } = value;
-  const e = seriesListError(series) ?? rangeError(range);
+  const e = seriesListError(series) ?? (current ? rangeError(range, "save", current) : rangeError(range, "stored"));
   if (e) return e;
   if (!has(CHART_TYPES, chart)) return bad("chart");
   if (new TextEncoder().encode(reportText(value as Report)).length > REPORT_MAX_BYTES)
@@ -124,8 +135,9 @@ function canonical(r: Report): Report {
 
 export const reportText = (r: Report): string => JSON.stringify(canonical(r));
 
-export function checkReport(value: unknown): ReportCheck {
-  const e = reportError(value);
+/** `current` given: a write (`save` rules, #179); omitted: reading what is stored (`stored` rules). */
+export function checkReport(value: unknown, current?: string): ReportCheck {
+  const e = reportError(value, current);
   return e ? { ok: false, ...e } : { ok: true, report: canonical(value as Report) };
 }
 

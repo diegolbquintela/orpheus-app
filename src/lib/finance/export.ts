@@ -1,5 +1,6 @@
 import { deflateSync } from "node:zlib";
 import type { ChartData } from "./chart.ts";
+import type { ReportRange } from "./report.ts";
 import { formatMoney } from "./money.ts";
 
 /**
@@ -17,7 +18,17 @@ export const NET_ASSETS_CAVEAT =
 export const FX_LINE = "FX basis: current (every month is valued at today's rates, not historical rates)";
 export const MIXED_LINE = "Mixed axes: net assets (a level) share this chart with flows (amounts per month).";
 
-export type ExportMeta = { name: string; generatedAt: string };
+/** #179: `range` = the report's range as saved (a saved `all` prints as `All data (...)`, Q-AF1 / Q-AF2). */
+export type ExportMeta = { name: string; generatedAt: string; range?: ReportRange };
+export const ALL_DATA = "All data";
+export const NO_DATA_YET = "no data yet";
+/** The export's range text: `from to to`, or for a saved `all`, `All data (from to to)` / `All data (no data yet, month)`. */
+export const rangeLabel = (d: Pick<ChartData, "range" | "current" | "net_assets_from">, range?: ReportRange): string =>
+  range && "preset" in range && range.preset === "all"
+    ? d.net_assets_from === null
+      ? `${ALL_DATA} (${NO_DATA_YET}, ${d.current})`
+      : `${ALL_DATA} (${d.range.from} to ${d.range.to})`
+    : `${d.range.from} to ${d.range.to}`;
 
 /** ASCII only (Q-AD9): other characters print as `?` in both formats. */
 export const ascii = (s: string): string => s.replace(/[\u2013\u2014]/g, "-").replace(/[^\x20-\x7e]/g, "?");
@@ -32,7 +43,7 @@ const hasNetAssets = (d: ChartData): boolean => d.series.some((s) => s.kind === 
 export function headerLines(d: ChartData, meta: ExportMeta): string[] {
   const out = [
     `Orpheus - Personal Finance report: ${meta.name}`,
-    `Chart: ${d.chart} - Range: ${d.range.from} to ${d.range.to} - Currency: ${d.currency}`,
+    `Chart: ${d.chart} - Range: ${rangeLabel(d, meta.range)} - Currency: ${d.currency}`,
     `As of: ${d.current} (${d.partial ? "current month included, partial" : "current month not in range"}) - Generated: ${meta.generatedAt}`,
     FX_LINE,
   ];

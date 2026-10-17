@@ -161,3 +161,8 @@ export const NET_ASSETS_CAVEAT = "Starting net assets is defined at the Overview
 export const EXPORT_LINES_NOTE = "Rendered as lines";
 // #157 PFX-19: 503 when the export could not be audited (fail closed; no file sent).
 export const EXPORT_UNAVAILABLE = "Export unavailable. Try again.";
+// #179 (spec 41.5; Q-AF1 / Q-AF2): a saved `all` report's export range text (must equal src/lib/finance/export.ts).
+export const EXPORT_ALL_DATA = "All data";
+export const EXPORT_NO_DATA_YET = "no data yet";
+export const exportAllRange = (from, to) => `Range: ${EXPORT_ALL_DATA} (${from} to ${to})`;
+export const exportAllNoData = (month) => `Range: ${EXPORT_ALL_DATA} (${EXPORT_NO_DATA_YET}, ${month})`;

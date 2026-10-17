@@ -1,4 +1,5 @@
 import { type Report, type ReportError, reportError } from "./report.ts";
+import { householdMonth } from "./overview.ts";
 
 /**
  * #153 (spec section 33): the client side of `/api/personal-finance/report`. No UI uses it yet (PF charts 2/6+).
@@ -19,7 +20,8 @@ export async function loadReport(f: Fetch = fetch): Promise<Loaded> {
 }
 
 export async function saveReport(report: Report, f: Fetch = fetch): Promise<Saved> {
-  const local: ReportError | null = reportError(report);
+  // #179: the same `save` rules as the API, against the current household (Toronto) month.
+  const local: ReportError | null = reportError(report, householdMonth(new Date()));
   if (local) return { ok: false, status: local.status, error: local.error, field: local.field };
   const r = await f(REPORT_API, {
     method: "PUT",
