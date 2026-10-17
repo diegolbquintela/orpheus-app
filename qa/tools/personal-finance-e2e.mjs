@@ -18,6 +18,7 @@ import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { API, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
@@ -36,6 +37,8 @@ const avg3Label = (now = new Date()) => {
 };
 
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+const GUARD = await refuseIfProd(CFG.baseUrl, "personal-finance-e2e");
 const base = CFG.baseUrl;
 const R = { base, checks: [], shots: [] };
 const check = (name, ok, detail) => {
@@ -105,11 +108,15 @@ try {
     const to = new URL(r.headers.get("location") ?? "/x", base);
     check("PFE-01 GET /personal-finance signed out → 307 /dashboard/sign-in?next=%2Fpersonal-finance, X-Robots-Tag noindex", r.status === 307 && to.pathname === "/dashboard/sign-in" && to.search === "?next=%2Fpersonal-finance" && /noindex/i.test(r.headers.get("x-robots-tag") ?? ""), [r.status, r.headers.get("location"), r.headers.get("x-robots-tag")]);
     const calls = [];
-    for (const method of ["GET", "PUT", "DELETE", "POST"]) {
+    // #157 F7: on production (signed-out prod mode) only the GET is sent.
+    for (const method of GUARD.signedOutProd ? ["GET"] : ["GET", "PUT", "DELETE", "POST"]) {
       const a = await fetch(`${base}${API}`, { method, redirect: "manual", headers: method === "PUT" ? { "content-type": "application/json" } : {}, body: method === "PUT" ? '{"data":{}}' : undefined });
       calls.push([method, a.status, await a.text()]);
     }
-    check("PFE-02 /api/personal-finance signed out: GET / PUT / DELETE → 401 JSON, POST → 405", calls.slice(0, 3).every(([, st, b]) => st === 401 && b === '{"error":"Unauthorized."}') && calls[3][1] === 405, calls);
+    if (GUARD.signedOutProd) {
+      console.log("INFO signed-out write probes SKIPPED (signed-out prod mode)");
+      check("PFE-02 signed out (prod, GET only): /api/personal-finance GET → 401 JSON", calls[0][1] === 401 && calls[0][2] === '{"error":"Unauthorized."}', calls);
+    } else check("PFE-02 /api/personal-finance signed out: GET / PUT / DELETE → 401 JSON, POST → 405", calls.slice(0, 3).every(([, st, b]) => st === 401 && b === '{"error":"Unauthorized."}') && calls[3][1] === 405, calls);
 
     for (const [what, start, click] of [
       ["the bar's Personal Finance item", "/calculator", 'nav[aria-label="Site"] a[href="/personal-finance"]'],

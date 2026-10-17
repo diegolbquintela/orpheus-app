@@ -23,6 +23,7 @@ export const AUDIT_ACTIONS = [
   "pf.view",
   "pf.report_save",
   "pf.report_delete",
+  "pf.report_export",
   "dash.holding_add",
   "dash.holding_edit",
   "dash.holding_delete",
@@ -84,6 +85,35 @@ export async function recordAudit(db: Queryable | null | undefined, e: AuditEven
     );
   } catch {
     console.error(`[audit] could not record ${e.action}`);
+  }
+}
+
+/**
+ * #157 PFX-17: `pf.report_export` detail, `format:<pdf|png> id:<report id>`. The audit_event detail CHECK (0012) allows
+ * only letters, `_`, `:`, `+` and spaces, so digits are written as capitals A-J and `-` as `_`: `r-1a2b3c4d` →
+ * `r_BaCbDcEd` (`decodeReportId` reverses it); `default` stays `default`. No schema change.
+ */
+export function exportDetail(format: "pdf" | "png", reportId: string): string {
+  return `format:${format} id:${reportId.replace(/-/g, "_").replace(/[0-9]/g, (c) => String.fromCharCode(65 + Number(c)))}`;
+}
+export const decodeReportId = (code: string): string => code.replace(/_/g, "-").replace(/[A-J]/g, (c) => String(c.charCodeAt(0) - 65));
+
+/**
+ * #157 PFX-19 (CFO, 2026-10-17): fail-closed variant for actions that must not happen unaudited (report export).
+ * Same insert and the same log line as `recordAudit` (action code only), but reports whether the row was written.
+ */
+export async function tryAuditFor(db: Queryable | null | undefined, access: AccountAccess, action: AuditAction, more: Partial<AuditEvent> = {}): Promise<boolean> {
+  if (!db) return false;
+  const e: AuditEvent = { actor: actorCode(access), role: roleOf(access), action, ...more };
+  try {
+    await db.query(
+      "INSERT INTO audit_event (actor, role, action, target, outcome, detail) VALUES ($1, $2, $3, $4, $5, $6)",
+      [e.actor, e.role, e.action, e.target ?? null, e.outcome ?? "ok", e.detail ?? null],
+    );
+    return true;
+  } catch {
+    console.error(`[audit] could not record ${e.action}`);
+    return false;
   }
 }
 

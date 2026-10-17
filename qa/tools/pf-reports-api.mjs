@@ -15,6 +15,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { DEFAULT_REPORT_NAME, NAME_TAKEN, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
@@ -46,6 +47,8 @@ const signedIn = async (browser, email, password, fn) =>
   await eachViewport({ browser, baseUrl: base, email, password, check, viewports: API_VIEWPORT }, async ({ page }) => fn(page.request));
 const REP = { series: [{ kind: "group", id: "all" }], range: { preset: "12m" }, chart: "line" };
 
+// #157 (QA #174 note 1): refuse production before any GET or sign-in.
+await refuseIfProd(base, "pf-reports-api");
 const browser = await chromium.launch();
 try {
   const anon = async (path) => (await fetch(`${base}${path}`)).status;

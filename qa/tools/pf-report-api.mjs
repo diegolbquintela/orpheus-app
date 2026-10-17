@@ -14,6 +14,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -59,6 +60,8 @@ const REPORT = {
   chart: "stacked-bar",
 };
 
+// #157 (QA #174 note 1): refuse production before any GET or sign-in.
+const GUARD = await refuseIfProd(base, "pf-report-api");
 const browser = await chromium.launch();
 try {
   // PFR-01 signed out.
@@ -66,9 +69,16 @@ try {
   const anon = async (method, body) =>
     (await fetch(`${base}${API}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) })).status;
   const out = [];
-  for (const m of ["GET", "PUT", "DELETE"]) out.push(await anon(m, m === "PUT" ? { report: REPORT } : undefined));
-  const post = await anon("POST", {});
-  check("PFR-01 signed out: GET / PUT / DELETE → 401; POST → 405 (or 401 before the method check is reached)", same(out, [401, 401, 401]) && (post === 405 || post === 401), { out, post });
+  if (GUARD.signedOutProd) {
+    // #157 F7: no PUT / DELETE / POST on production; GET only.
+    console.log("INFO signed-out write probes SKIPPED (signed-out prod mode)");
+    out.push(await anon("GET"));
+    check("PFR-01 signed out (prod, GET only): GET → 401", same(out, [401]), { out });
+  } else {
+    for (const m of ["GET", "PUT", "DELETE"]) out.push(await anon(m, m === "PUT" ? { report: REPORT } : undefined));
+    const post = await anon("POST", {});
+    check("PFR-01 signed out: GET / PUT / DELETE → 401; POST → 405 (or 401 before the method check is reached)", same(out, [401, 401, 401]) && (post === 405 || post === 401), { out, post });
+  }
 
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;

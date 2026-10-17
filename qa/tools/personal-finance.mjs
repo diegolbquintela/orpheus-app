@@ -65,6 +65,7 @@ import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
@@ -83,6 +84,8 @@ const avg3Label = (now = new Date()) => {
 };
 
 const CFG = qaConfig(import.meta.url);
+// #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+const GUARD = await refuseIfProd(CFG.baseUrl, "personal-finance");
 const base = CFG.baseUrl;
 const R = { base, checks: [], shots: [] };
 const check = (name, ok, detail) => {
@@ -382,11 +385,15 @@ try {
     const to = new URL(r.headers.get("location") ?? "/x", base);
     check("PF-33 signed out: GET /personal-finance → 307 /dashboard/sign-in?next=/personal-finance, no page copy", r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === PATH && !/pf-area|Personal Finance\./.test(body), [r.status, r.headers.get("location")]);
     const calls = [];
-    for (const method of ["GET", "PUT", "DELETE", "POST"]) {
+    // #157 F7: on production (signed-out prod mode) only the GET is sent.
+    for (const method of GUARD.signedOutProd ? ["GET"] : ["GET", "PUT", "DELETE", "POST"]) {
       const a = await fetch(`${base}${API}`, { method, redirect: "manual", headers: method === "PUT" ? { "content-type": "application/json" } : {}, body: method === "PUT" ? '{"data":{}}' : undefined });
       calls.push([method, a.status, (a.headers.get("content-type") ?? "").includes("application/json"), await a.text()]);
     }
-    check("PF-33 signed out: /api/personal-finance GET / PUT / DELETE → 401 JSON, POST → 405 JSON", calls.slice(0, 3).every(([, st, json, b]) => st === 401 && json && b === '{"error":"Unauthorized."}') && calls[3][1] === 405 && calls[3][2], calls);
+    if (GUARD.signedOutProd) {
+      console.log("INFO signed-out write probes SKIPPED (signed-out prod mode)");
+      check("PF-33 signed out (prod, GET only): /api/personal-finance GET → 401 JSON", calls[0][1] === 401 && calls[0][2] && calls[0][3] === '{"error":"Unauthorized."}', calls);
+    } else check("PF-33 signed out: /api/personal-finance GET / PUT / DELETE → 401 JSON, POST → 405 JSON", calls.slice(0, 3).every(([, st, json, b]) => st === 401 && json && b === '{"error":"Unauthorized."}') && calls[3][1] === 405 && calls[3][2], calls);
     const fav = await fetch(`${base}/favicon.svg`);
     const svg = await fav.text();
     check("ST1-05 /favicon.svg is the lyre (chalk strokes on charcoal, no two-bar mark)", fav.status === 200 && /fill="#1e2124"/.test(svg) && /stroke="#f2f0eb"/.test(svg) && (svg.match(/<path /g) ?? []).length === 5 && !/<rect[^>]*x="6"/.test(svg), svg.length);

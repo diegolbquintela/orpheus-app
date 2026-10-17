@@ -1127,3 +1127,92 @@ Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFR
 38.9 The record API never shows reports and a record save keeps them. A stored named report that is no longer valid is skipped on read. Removing the last report from a row that holds nothing else removes the row.
 38.10 Not built: the #173 range refusal (Q-AC12, shared validator unchanged), concurrency control (Q-AC13) and the Q-AC14 list.
 38.11 (2026-10-17, CFO on PR #174) Q-AC1..Q-AC14 accepted as written (Q-AC12..Q-AC14 stay not built). **Pre-merge condition:** a rollback runbook, `docs/release/pf-reports-rollback.md`: do NOT roll back past #174 without first exporting every user's PF report keys (`orpheus.finance.report.v1`, `orpheus.finance.reports.v1` in `personal_finance.data`) with the documented read-only SELECT, a dated file and a row-count check; the restore is a separate, marked WRITE. The SQL is tested against PGlite only. A snapshot at every deploy was not built (not cheap: build-time access to the shared database plus storage and a secret; estimate in the runbook).
+
+## 39. Report export stubs: PDF + PNG (#157, backend only)
+
+Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
+
+- 39.1 `GET` (and `HEAD`) `/api/personal-finance/reports/:id/export?format=pdf|png`; `:id` = `default` or a named
+  report id. Other methods 405.
+- 39.2 Access as the reports API (section 38): flag off 404, signed out 401, no grant 403, another user's or unknown
+  id 404 `Report not found.`; `format` missing or not `pdf` / `png` → 400 `{ error: "Invalid value.", field: "format" }`.
+- 39.3 Synchronous; the response is the file: `application/pdf` or `image/png`, `Content-Disposition: attachment;
+  filename="orpheus-report-<slug>-<YYYY-MM-DD>.<ext>"`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+- 39.4 Values come from the same function as `/chart { saved: true, id }`; the file embeds that JSON exactly (PDF
+  Info `/OrpheusData`, PNG `tEXt` `orpheus-data`).
+- 39.5 Every export prints the as-of month (and whether it is the partial current month), the generation time, the
+  FX basis line; with net assets, `Net assets from` and the 36.11 caveat verbatim; with mixed axes, the mixed line.
+- 39.6 Read-only: no write, no audit row. ASCII text (other characters print `?`). No new dependency.
+- 39.7 Every response carries `X-Orpheus-Env` (build-time `VERCEL_ENV`); QA tools that sign in refuse production.
+
+### AC PFX
+
+- PFX-01 gate (404 flag off / 401 / 405 / 403). PFX-02 PDF valid with headers. PFX-03 PNG valid (CRCs, IDAT size).
+- PFX-05 embedded data deep-equals `/chart { saved: true, id }` (default and named, both formats).
+- PFX-06 as-of / generated / FX basis printed. PFX-07 net assets from + 36.11 caveat (and mixed line) only with
+  net assets. PFX-08 the PDF table equals `/chart` rows, formatted.
+- PFX-09 unknown / malformed / other user's id 404. PFX-10 bad format 400. PFX-11 ASCII. PFX-12 deleted labels.
+- PFX-13 Toronto month whatever the process TZ. PFX-14 worst case small and quick. PFX-15 HEAD. PFX-16 read-only.
+
+### 39.8 CFO decisions (2026-10-17)
+
+- Accepted: Q-AD1..Q-AD10 and Q-AD12 as built.
+- **Q-AD11 audit: built (PFX-17).**
+  - Every successful export `GET` (200) writes one `pf.report_export` row through the existing audit mechanism (`auditFor`, the same actor / role as `pf.report_save`, target empty as for `pf.report_save`).
+  - The row's detail is `format:<pdf|png> id:<report id>`. The 0012 detail CHECK allows only letters, `_`, `:`, `+` and spaces, so the id is written with digits as capitals A-J and `-` as `_` (`r-1a2b3c4d` → `r_BaCbDcEd`; `default` stays `default`; `decodeReportId` reverses it). No migration or schema change; the action name fits the existing `^[a-z]+\.[a-z_]+$` check (it is not an enum).
+  - `HEAD` is not audited: it sends no file.
+  - 4xx (401 / 403 / 404 / 400 / 405) are not audited.
+  - A failed audit insert is logged (action code only) and never changes the answer, as for `pf.report_save`.
+- **Q-AD4 label: built (PFX-18).** For `bar` and `stacked-bar` reports, the PNG draws `Rendered as lines` as header line 3 and carries it in a `tEXt` `orpheus-note` chunk. The PDF prints the same line in the same place (it shares the header lines, so this cost nothing).
+- Q-AD5 ASCII stays. Unicode fonts go to Diego as a follow-up (not built).
+- Correction: Q-AD7's filename date was the UTC day in the first build. It is now the Toronto day, as the design note said.
+
+### AC PFX (added 2026-10-17)
+
+- PFX-17: one `pf.report_export` row per successful pdf / png GET, with id, format and actor as above. No row for 4xx or HEAD. A failed audit insert does not change the answer.
+- PFX-18: bar / stacked-bar exports carry `Rendered as lines`: PNG pixels and `tEXt`, and the PDF header line. Line reports don't.
+
+### 39.9 CFO decisions, second round (2026-10-17)
+
+- **Q-AD14:** keep the encoded report id. A test pins the lossless round trip: per-character bijection, every hex character in every one of the 8 positions, boundary ids, and 10,000 seeded random ids. Every encoded detail fits the 0012 CHECK.
+- **PFX-19, fail closed (this departs from `pf.report_save`'s log-and-continue, 39.8):**
+  - The `pf.report_export` row is written BEFORE the file is sent.
+  - If the insert fails, the export answers `503` `{ "error": "Export unavailable. Try again." }` as `no-store` JSON, and no file bytes are sent.
+  - The failure is logged as `[audit] could not record pf.report_export` (action code only).
+  - `HEAD` writes no row, so it still answers `200` with the file's headers (including `Content-Length`) when the audit is down. No file leaves the server.
+  - This supersedes the "best effort" line for exports in 39.8 / PFX-17.
+
+### AC PFX (added 2026-10-17, second round)
+
+- PFX-19: with the audit insert failing, GET pdf / png → 503 with the JSON above, not pdf / png, no `Content-Disposition`, no file bytes, the failure logged, and no row. HEAD → 200 with no insert. Once the audit works again, exports resume.
+
+### 39.10 QA corrections (2026-10-17, QA run `qa/run-2026-10-17-pr175.md`)
+
+- **39.7 made true (F2, EL 2026-10-17):** QA found that at 2110718 only 3 of the sign-in tools called `refuseIfProd`. The guard is now extended, with the same helper and method, to every QA tool that signs in. Each one runs it before any request, browser launch, spawn or sign-in. The full set of 19 tools is `audit`, `dashboard-add`, `dashboard-book`, `dashboard-company`, `dashboard-leaveouts`, `dashboard-list`, `dashboard-metrics`, `dashboard-redesign`, `personal-finance`, `personal-finance-e2e`, `pf-chart-api`, `pf-export-api`, `pf-months`, `pf-report-api`, `pf-reports-api`, `pf-series-api`, `roles`, `site-shell` (also its `--compare-url`) and `site-style-regression`. `scripts/qa-prod-guard.test.mjs` enumerates the tools that read a `*_PASSWORD` from env, so a new one is covered automatically. It checks that each tool refuses the prod alias with exit 2 and no traffic, and that the guard comes first in the source.
+- **EL rulings (2026-10-17):**
+  - (a) One signed-out `HEAD /` before refusing a production deployment URL is acceptable (QA F5).
+  - (b) Render, then audit, then send is fine (QA F6; 39.9 is met as built).
+  - (c) `qa/tools/audit.mjs` (AUDIT-04) is not run for this ticket.
+- **PFX-04 is reserved and unused (F1).** PFX-04 was never defined in the first draft (spec, AC list and tests all skipped it; HEAD, its likely intent, is PFX-15). Spec, AC pack (`qa/CANONICAL-AC-PACK.md`) and tests agree: PFX-01..PFX-03 and PFX-05..PFX-19.
+- **Correction to the PNG text (F3):** the PNG used to print in capitals and showed `;` as `?`. The built-in bitmap font now covers printable ASCII (lowercase, digits and punctuation), so the PNG prints the header lines, including the 36.11 caveat, verbatim. Non-ASCII still prints `?` (Q-AD5). The text is wrapped to the image width.
+
+### 39.11 Signed-out prod mode (2026-10-17, QA F7, EL option 1)
+
+- **F7, EL option 1 (2026-10-17): signed-out prod mode.**
+  - The production guard (same detection: the static prod hosts, otherwise one `HEAD /`) refuses a production or unconfirmed target **only** when a sign-in or write env var is set: any non-empty sign-in variable the tools read (`QA_*_EMAIL` / `QA_*_PASSWORD` and `ORPHEUS_OWNER_EMAIL`), or `QA_WRITE`. Unrelated `*_PASSWORD` variables don't count. It then exits 2 with `REFUSED …`; a static prod host gets no request at all.
+  - With none set, the tool runs signed out against production. It prints exactly `signed-out prod mode (prod: signed-out only)`, and never signs in or writes:
+    - tools skip their signed-out write probes on the guard's returned mode, and send GET only;
+    - `session.mjs` skips sign-in;
+    - as a safety net, `fetch` and every browser context refuse non-GET / HEAD and `/api/auth/` requests.
+  - 39.7 now reads: QA tools that sign in refuse production when credentials or `QA_WRITE` are set, and run signed out otherwise.
+  - Tests: `scripts/qa-prod-guard.test.mjs` runs every sign-in tool against a faked network with zero real traffic, and asserts no sign-in or write requests.
+
+### 39.12 Signed-out prod mode reaches child processes (2026-10-17, QA F8, EL option 1)
+
+- **Correction to 39.11 (QA F8, EL option 1, 2026-10-17):** 39.11 overclaimed. On a real no-credential prod run of `site-style-regression`, QA saw its child `signin-page.mjs` send 4 POSTs to `/api/auth/sign-in/email` (failed sign-ins with made-up addresses, 401). That child read no credential variable, and child processes did not inherit the fetch / browser backstop. Fixed (tooling only):
+  - A parent that resolves signed-out prod mode sets `ORPHEUS_QA_PROD_MODE=signed-out` in its env before spawning anything, so every child inherits it.
+  - `qa/tools/prod-guard.mjs` turns the backstop on at import in any process where the marker is set. `refuseIfProd` returns `{ signedOutProd: true }` whenever the marker is set, whatever the target.
+  - Every tool `site-style-regression` spawns now calls the guard: site-shell and personal-finance already did; home-page, calculator-page, saved-searches, signin-page and site.mjs now do. `scripts/release-smoke.mjs` (GET only) imports the guard, so the backstop applies to it.
+  - `signin-page.mjs` renders and checks the sign-in page but never submits on prod. It prints `INFO … failed sign-in submit SKIPPED (signed-out prod mode)` per viewport.
+  - Tests: `scripts/qa-prod-guard.test.mjs` runs site-style-regression and all its children on a faked network. It asserts no POST to `/api/auth/`, no non-GET / HEAD and no submit click, and that the marker is inherited and honoured. `scripts/qa-tools-session.test.mjs` fails any `qa/tools` file that can sign in or write without importing and calling the guard (two observe-only files are exempt, with reasons).
+  - 39.11 is accurate with this addition: in signed-out prod mode, no process in the run (parent or child) signs in or writes.
