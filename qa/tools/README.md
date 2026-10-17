@@ -83,3 +83,5 @@ request or sign-in, and exit 2 with `REFUSED ...` when the target is production 
 the prod alias `https://orpheus-app-beta.vercel.app` and the production-branch aliases are refused from the URL alone;
 any other non-local host gets one `HEAD /` and must answer `X-Orpheus-Env: preview` (set at build time from Vercel's
 `VERCEL_ENV`; `production` or a missing header is refused). Tests: `scripts/qa-prod-guard.test.mjs`.
+
+- `pf-export-api.mjs` (2026-10-17): adds PFX-18 (`Rendered as lines` on bar / stacked-bar exports) and PFX-17, which checks recent `pf.report_export` audit rows only when signed in as the owner (otherwise an INFO skip). `audit.mjs` AUDIT-04 also accepts the `format:<pdf|png> id:<code>` detail.

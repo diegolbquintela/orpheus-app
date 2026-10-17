@@ -4,7 +4,7 @@
  * 405 JSON for another method, 401 JSON without a session, 403 when `userId` names someone else, 400 / 413 for a bad
  * body, 503 without a database. The user id is the session's, never the client's. #90: the data is the owner's.
  */
-import { auditFor } from "../access/audit.server.ts";
+import { auditFor, exportDetail } from "../access/audit.server.ts";
 import {
   badRequest,
   type DashboardApiDeps,
@@ -540,6 +540,9 @@ export async function handlePersonalFinanceReportExportRequest(
   const meta = { name, generatedAt: at.toISOString() };
   const f = format as ExportFormat;
   const body = f === "pdf" ? buildPdf(data, meta) : buildPng(data, meta);
+  // PFX-17 (CFO, 2026-10-17): a successful GET is audited like pf.report_save (same actor / role, best effort: a
+  // failed insert is logged and never changes the answer). HEAD sends no file, so it is not audited; 4xx never are.
+  if (request.method.toUpperCase() === "GET") await auditFor(db, g.access, "pf.report_export", { detail: exportDetail(f, id) });
   return new Response(request.method.toUpperCase() === "HEAD" ? null : new Uint8Array(body), {
     status: 200,
     headers: {

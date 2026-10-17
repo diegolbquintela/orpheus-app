@@ -55,3 +55,18 @@ size or duration change.
 2. otherwise one `HEAD /` (no cookies, redirects not followed) reads `X-Orpheus-Env`: `production` refuses, a
    missing header refuses (cannot confirm a preview: a deployment from before #157 or not Orpheus), `preview` passes.
 A production deployment's own unique URL looks like a preview by name; step 2 catches it. Exit code 2, `REFUSED ...`.
+
+## CFO decisions (2026-10-17)
+
+- Accepted AD1..AD10 and AD12 as built.
+- **AD11: built, as PFX-17.**
+  - `pf.report_export` is written on a successful GET only, with detail `format:<fmt> id:<encoded id>`. The encoding (digits as A-J, `-` as `_`) is needed because the 0012 detail CHECK forbids digits and `-`.
+  - No schema change.
+  - HEAD is not audited (no file leaves); 4xx are not audited.
+  - It is best effort, as for `pf.report_save`.
+  - `qa/tools/audit.mjs` AUDIT-04 accepts the new detail.
+  - `pf-export-api` checks the rows only when signed in as the owner (the audit API is owner-only); otherwise it skips the check with an INFO line.
+- **Q-AD14 (new, not built):** store the report id literally. That needs a migration that widens the detail CHECK. Rec: keep the encoding unless the Activity screen should show ids.
+- **AD4: built, as PFX-18.** `Rendered as lines` (`LINES_NOTE`, `pf-helpers` `EXPORT_LINES_NOTE`) appears as header line 3 for bar and stacked-bar reports. In the PNG it is drawn and also in `tEXt orpheus-note`; the PDF gets the same line for free.
+- AD5: ASCII stays; Unicode fonts go to Diego as a follow-up.
+- AD7 correction: the filename date is now the Toronto day; the first build used the UTC day.

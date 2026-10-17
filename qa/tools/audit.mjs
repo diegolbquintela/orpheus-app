@@ -129,7 +129,7 @@ const secrets = [...people.flatMap((p) => [p.email, p.name]), ...Object.values(A
 const blob = JSON.stringify(events);
 check("AUDIT-03 masked: actor / target codes only", events.every((e) => /^(owner|anonymous|p-[0-9a-f]{8})$/.test(e.actor) && (e.target === null || /^(owner|[ph]-[0-9a-f]{8})$/.test(e.target))));
 check("AUDIT-03 no email, no name from Who has access, no @", !blob.includes("@") && secrets.every((s) => !blob.toLowerCase().includes(s.toLowerCase())), { names: secrets.length });
-check("AUDIT-04 detail from the fixed list", events.every((e) => e.detail === null || /^(pf:(none|read|read_write) dash:(none|read|read_write)|(personal_finance|dashboard) [A-Z]+)$/.test(e.detail)), [...new Set(events.map((e) => e.detail))]);
+check("AUDIT-04 detail from the fixed list", events.every((e) => e.detail === null || /^(pf:(none|read|read_write) dash:(none|read|read_write)|(personal_finance|dashboard) [A-Z]+|format:(pdf|png) id:[a-zA-Z_]+)$/.test(e.detail)), [...new Set(events.map((e) => e.detail))]);
 check("AUDIT-03 fields exactly id, at, actor, role, action, target, outcome, detail", events.every((e) => JSON.stringify(Object.keys(e)) === '["id","at","actor","role","action","target","outcome","detail"]'));
 if (events.length > 3) {
   const p1 = (await http(jars.owner, "GET", "/api/account/audit?limit=2")).json;

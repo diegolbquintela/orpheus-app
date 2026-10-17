@@ -1153,3 +1153,21 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
   net assets. PFX-08 the PDF table equals `/chart` rows, formatted.
 - PFX-09 unknown / malformed / other user's id 404. PFX-10 bad format 400. PFX-11 ASCII. PFX-12 deleted labels.
 - PFX-13 Toronto month whatever the process TZ. PFX-14 worst case small and quick. PFX-15 HEAD. PFX-16 read-only.
+
+### 39.8 CFO decisions (2026-10-17)
+
+- Accepted: Q-AD1..Q-AD10 and Q-AD12 as built.
+- **Q-AD11 audit: built (PFX-17).**
+  - Every successful export `GET` (200) writes one `pf.report_export` row through the existing audit mechanism (`auditFor`, the same actor / role as `pf.report_save`, target empty as for `pf.report_save`).
+  - The row's detail is `format:<pdf|png> id:<report id>`. The 0012 detail CHECK allows only letters, `_`, `:`, `+` and spaces, so the id is written with digits as capitals A-J and `-` as `_` (`r-1a2b3c4d` → `r_BaCbDcEd`; `default` stays `default`; `decodeReportId` reverses it). No migration or schema change; the action name fits the existing `^[a-z]+\.[a-z_]+$` check (it is not an enum).
+  - `HEAD` is not audited: it sends no file.
+  - 4xx (401 / 403 / 404 / 400 / 405) are not audited.
+  - A failed audit insert is logged (action code only) and never changes the answer, as for `pf.report_save`.
+- **Q-AD4 label: built (PFX-18).** For `bar` and `stacked-bar` reports, the PNG draws `Rendered as lines` as header line 3 and carries it in a `tEXt` `orpheus-note` chunk. The PDF prints the same line in the same place (it shares the header lines, so this cost nothing).
+- Q-AD5 ASCII stays. Unicode fonts go to Diego as a follow-up (not built).
+- Correction: Q-AD7's filename date was the UTC day in the first build. It is now the Toronto day, as the design note said.
+
+### AC PFX (added 2026-10-17)
+
+- PFX-17: one `pf.report_export` row per successful pdf / png GET, with id, format and actor as above. No row for 4xx or HEAD. A failed audit insert does not change the answer.
+- PFX-18: bar / stacked-bar exports carry `Rendered as lines`: PNG pixels and `tEXt`, and the PDF header line. Line reports don't.

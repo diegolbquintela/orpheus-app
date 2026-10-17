@@ -23,6 +23,7 @@ export const AUDIT_ACTIONS = [
   "pf.view",
   "pf.report_save",
   "pf.report_delete",
+  "pf.report_export",
   "dash.holding_add",
   "dash.holding_edit",
   "dash.holding_delete",
@@ -86,6 +87,16 @@ export async function recordAudit(db: Queryable | null | undefined, e: AuditEven
     console.error(`[audit] could not record ${e.action}`);
   }
 }
+
+/**
+ * #157 PFX-17: `pf.report_export` detail, `format:<pdf|png> id:<report id>`. The audit_event detail CHECK (0012) allows
+ * only letters, `_`, `:`, `+` and spaces, so digits are written as capitals A-J and `-` as `_`: `r-1a2b3c4d` →
+ * `r_BaCbDcEd` (`decodeReportId` reverses it); `default` stays `default`. No schema change.
+ */
+export function exportDetail(format: "pdf" | "png", reportId: string): string {
+  return `format:${format} id:${reportId.replace(/-/g, "_").replace(/[0-9]/g, (c) => String.fromCharCode(65 + Number(c)))}`;
+}
+export const decodeReportId = (code: string): string => code.replace(/_/g, "-").replace(/[A-J]/g, (c) => String(c.charCodeAt(0) - 65));
 
 /** Shorthand for a signed-in person's action. */
 export function auditFor(db: Queryable | null | undefined, access: AccountAccess, action: AuditAction, more: Partial<AuditEvent> = {}) {

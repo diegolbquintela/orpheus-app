@@ -22,6 +22,10 @@ export type ExportMeta = { name: string; generatedAt: string };
 /** ASCII only (Q-AD9): other characters print as `?` in both formats. */
 export const ascii = (s: string): string => s.replace(/[\u2013\u2014]/g, "-").replace(/[^\x20-\x7e]/g, "?");
 
+/** #157 PFX-18 (CFO, 2026-10-17): bar and stacked-bar reports are drawn as lines in the stub; both formats say so. */
+export const LINES_NOTE = "Rendered as lines";
+export const drawnAsLines = (d: Pick<ChartData, "chart">): boolean => d.chart !== "line";
+
 const hasNetAssets = (d: ChartData): boolean => d.series.some((s) => s.kind === "metric" && s.id === "net-assets");
 
 /** The text lines both formats print above the numbers (Q-AD5). */
@@ -32,6 +36,7 @@ export function headerLines(d: ChartData, meta: ExportMeta): string[] {
     `As of: ${d.current} (${d.partial ? "current month included, partial" : "current month not in range"}) - Generated: ${meta.generatedAt}`,
     FX_LINE,
   ];
+  if (drawnAsLines(d)) out.splice(2, 0, LINES_NOTE);
   if (hasNetAssets(d)) out.push(`Net assets from: ${d.net_assets_from ?? "no data"}`, `Caveat: ${NET_ASSETS_CAVEAT}`);
   if (d.mixed_axes) out.push(MIXED_LINE);
   return out.map(ascii);
@@ -138,7 +143,7 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
 
 // ---------- PNG ----------
 
-const GLYPHS: Record<string, string> = {
+export const GLYPHS: Record<string, string> = {
   "A": "0e11111f111111",
   "B": "1e11111e11111e",
   "C": "0e11101010110e",
@@ -194,8 +199,8 @@ const GLYPHS: Record<string, string> = {
 };
 
 type RGB = [number, number, number];
-const BG: RGB = [0x12, 0x14, 0x18];
-const FG: RGB = [0xe6, 0xe6, 0xe6];
+export const BG: RGB = [0x12, 0x14, 0x18];
+export const FG: RGB = [0xe6, 0xe6, 0xe6];
 const DIM: RGB = [0x5a, 0x60, 0x6b];
 /** No gold / yellow (house style). */
 export const PALETTE: RGB[] = [
@@ -227,12 +232,11 @@ const chunk = (type: string, data: Buffer): Buffer => {
 };
 
 /** A dark PNG: the header text, a line plot (flows on the left scale, levels on the right when mixed) and a legend. */
+/** PNG text layout (exported for the PFX-18 pixel test): header line i starts at (M, M + i * LH), glyphs 5x7 x S. */
+export const PNG_LAYOUT = { S: 2, ADV: 12, LH: 18, W: 1200, M: 24 } as const;
+
 export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
-  const S = 2; // font scale: 10 x 14 px glyphs, 12 px advance
-  const ADV = 6 * S;
-  const LH = 9 * S;
-  const W = 1200;
-  const M = 24;
+  const { S, ADV, LH, W, M } = PNG_LAYOUT; // font scale 2: 10 x 14 px glyphs, 12 px advance
   const maxChars = Math.floor((W - 2 * M) / ADV);
   const head = headerLines(d, meta).flatMap((l) => wrap(l.toUpperCase(), maxChars));
   const leg = legend(d).flatMap((l) => wrap(l.toUpperCase(), maxChars - 4));
@@ -333,14 +337,16 @@ export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", ihdr),
     chunk("tEXt", Buffer.from(`orpheus-data\0${dataJson(d)}`, "latin1")),
+    ...(drawnAsLines(d) ? [chunk("tEXt", Buffer.from(`orpheus-note\0${LINES_NOTE}`, "latin1"))] : []),
     chunk("tEXt", Buffer.from(`Software\0Orpheus #157 (generated ${meta.generatedAt})`, "latin1")),
     chunk("IDAT", deflateSync(raw, { level: 9 })),
     chunk("IEND", Buffer.alloc(0)),
   ]);
 }
 
-/** `orpheus-report-<slug>-<YYYY-MM-DD>.<ext>` (Q-AD7; UTC date of generation). */
+/** `orpheus-report-<slug>-<YYYY-MM-DD>.<ext>` (Q-AD7; the generation day in Toronto, the household's zone). */
 export function exportFilename(name: string, generatedAt: string, format: ExportFormat): string {
   const slug = ascii(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "report";
-  return `orpheus-report-${slug}-${generatedAt.slice(0, 10)}.${format}`;
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(generatedAt));
+  return `orpheus-report-${slug}-${day}.${format}`;
 }

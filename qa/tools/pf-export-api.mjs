@@ -16,7 +16,7 @@ import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { readPdf, readPng } from "./export-parse.mjs";
-import { EXPORT_FX_LINE, NET_ASSETS_CAVEAT, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
+import { EXPORT_FX_LINE, EXPORT_LINES_NOTE, NET_ASSETS_CAVEAT, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -59,6 +59,10 @@ try {
           const h = r.headers();
           check(`PFX-02/03 ${rep.id} ${format}: 200, ${format} content type, attachment filename, no-store, valid file`, r.status() === 200 && h["content-type"] === (format === "pdf" ? "application/pdf" : "image/png") && /^attachment; filename="orpheus-report-[a-z0-9-]+-\d{4}-\d{2}-\d{2}\.(pdf|png)"$/.test(h["content-disposition"] ?? "") && h["cache-control"] === "no-store" && !err, { status: r.status(), err, size: buf.length });
           check(`PFX-05 ${rep.id} ${format}: embedded data equals /chart { saved: true, id }`, parsed && same(parsed.data, chart), { size: buf.length });
+          if (parsed) {
+            const note = format === "pdf" ? parsed.text.includes(EXPORT_LINES_NOTE) : parsed.text["orpheus-note"] === EXPORT_LINES_NOTE;
+            check(`PFX-18 ${rep.id} ${format}: '${EXPORT_LINES_NOTE}' ${chart.chart === "line" ? "absent (line chart)" : `present (${chart.chart})`}`, note === (chart.chart !== "line"));
+          }
           if (format === "pdf" && parsed) {
             const text = parsed.text.join("\n");
             const net = chart.series?.some((s) => s.id === "net-assets" && s.kind === "metric");
@@ -66,6 +70,12 @@ try {
           }
         }
       }
+      // PFX-17: the audit log is readable only by the owner (/api/account/audit); other accounts get 403 and skip this.
+      const au = await request.fetch(`${base}/api/account/audit?limit=50`);
+      if (au.status() === 200 && reports.length) {
+        const ev = ((await au.json()).events ?? []).filter((e) => e.action === "pf.report_export");
+        check("PFX-17 recent audit rows include a pf.report_export (format:<pdf|png> id:<code>) per export made", ev.length >= reports.length * 2 && ev.every((e) => e.action === "pf.report_export" && /^format:(pdf|png) id:[a-zA-Z_]+$/.test(e.detail ?? "")), ev.map((e) => `${e.action} ${e.detail}`));
+      } else console.log(`INFO PFX-17 audit check SKIPPED (audit API ${au.status()}: only the owner can read the audit log)`);
       const nf = await request.fetch(`${base}${url("r-00000000", "pdf")}`);
       check(`PFX-09 unknown id → 404 '${REPORT_NOT_FOUND}'`, nf.status() === 404 && (await nf.json()).error === REPORT_NOT_FOUND, nf.status());
       const bf = await request.fetch(`${base}${url("default", "svg")}`);

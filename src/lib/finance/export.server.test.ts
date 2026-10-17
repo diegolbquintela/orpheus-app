@@ -9,14 +9,16 @@ import {
   handlePersonalFinanceReportsRequest,
   handlePersonalFinanceRequest,
 } from "./account.server.ts";
-import { crc32 } from "./export.ts";
+import { inflateSync } from "node:zlib";
+import { crc32, BG, FG, GLYPHS, LINES_NOTE, PNG_LAYOUT, exportFilename } from "./export.ts";
+import { decodeReportId, exportDetail, maskCode } from "../access/audit.server.ts";
 import { formatMoney } from "./money.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
 
-// #157 (spec section 39, PFX-01..PFX-16): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
+// #157 (spec section 39, PFX-01..PFX-18): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
 // Finance grant. Runs under TZ=UTC and TZ=America/Los_Angeles (npm test both ways): the household month is Toronto's.
 const pg = new PGlite();
@@ -220,11 +222,119 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     assert.equal((await r.arrayBuffer()).byteLength, 0);
   });
 
-  it("PFX-16 (Q-AD11): read-only: the rows and the audit log are unchanged by exports", async () => {
-    const before = [await rowOf("alice"), await rowOf("bob"), await actions()];
+  it("PFX-16: rows are unchanged by exports; the only audit rows are pf.report_export", async () => {
+    const before = [await rowOf("alice"), await rowOf("bob")];
+    const n = (await actions()).length;
     await ex("alice", "default", "pdf");
     await ex("alice", named, "png");
-    await ex("bob", "default", "pdf");
-    assert.deepEqual([await rowOf("alice"), await rowOf("bob"), await actions()], before);
+    assert.equal((await ex("bob", "default", "pdf")).status, 404, "bob has no default report: no row");
+    assert.deepEqual([await rowOf("alice"), await rowOf("bob")], before);
+    assert.deepEqual((await actions()).slice(n), ["pf.report_export", "pf.report_export"]);
+  });
+
+  const audits = async (after: number) =>
+    (await pg.query<{ id: number; actor: string; role: string; action: string; target: string | null; outcome: string; detail: string | null }>(
+      "SELECT id, actor, role, action, target, outcome, detail FROM audit_event WHERE id > $1 ORDER BY id", [after])).rows;
+  const top = async () => Number((await pg.query<{ m: number | null }>("SELECT max(id) AS m FROM audit_event")).rows[0]?.m ?? 0);
+
+  it("PFX-17: one pf.report_export row per successful pdf / png GET, with the id, format and actor (as pf.report_save)", async () => {
+    const t = await top();
+    await ex("alice", "default", "pdf");
+    await ex("alice", named, "png");
+    const bobs = (await (await list("bob", "GET")).json()).reports.find((r: { id: string }) => r.id !== "default").id;
+    await ex("bob", bobs, "pdf");
+    const rows = await audits(t);
+    assert.deepEqual(rows.map(({ id: _id, ...r }) => r), [
+      { actor: "owner", role: "owner", action: "pf.report_export", target: null, outcome: "ok", detail: "format:pdf id:default" },
+      { actor: "owner", role: "owner", action: "pf.report_export", target: null, outcome: "ok", detail: exportDetail("png", named) },
+      { actor: maskCode("p", "bob"), role: "cfo", action: "pf.report_export", target: null, outcome: "ok", detail: exportDetail("pdf", bobs) },
+    ]);
+    assert.equal(decodeReportId(rows[1].detail!.split(" id:")[1]), named);
+    assert.match(rows[1].detail!, /^[a-z_:+ A-Z]{1,40}$/, "fits the 0012 detail CHECK");
+    // same actor fields as pf.report_save: save a report as bob and compare actor / role
+    const t2 = await top();
+    await list("bob", "POST", { name: "Bob two", report: R() });
+    const save = (await audits(t2)).find((r) => r.action === "pf.report_save")!;
+    assert.deepEqual([save.actor, save.role], [rows[2].actor, rows[2].role]);
+  });
+
+  it("PFX-17: no audit row for 404 / 403 / 401 / 400 / 405 / HEAD", async () => {
+    const t = await top();
+    await ex("alice", "r-00000000", "pdf");
+    await ex("dave", "default", "pdf");
+    await ex(null, "default", "pdf");
+    await ex("alice", "default", "svg");
+    await ex("alice", "default", "pdf", "POST");
+    assert.equal((await ex("alice", "default", "png", "HEAD")).status, 200);
+    assert.deepEqual((await audits(t)).filter((r) => r.action === "pf.report_export"), []);
+  });
+
+  it("PFX-17: a failed audit insert does not change the answer (best effort, as pf.report_save)", async () => {
+    const broken = { ...as("alice"), db: { query: async (text: string, params?: unknown[]) => {
+      if (/INSERT INTO audit_event/.test(text)) throw new Error("audit down");
+      return (await pg.query(text, params)).rows;
+    } } };
+    const err = console.error;
+    console.error = () => {};
+    try {
+      const r = await handlePersonalFinanceReportExportRequest(req("GET", undefined, "/api/personal-finance/reports/default/export?format=pdf"), "default", broken as never, () => NOW);
+      assert.equal(r.status, 200);
+      readPdf(await bytes(r));
+    } finally {
+      console.error = err;
+    }
+  });
+
+  const pixels = (b: Buffer) => {
+    const p = readPng(b, crc32);
+    let at = 8;
+    const idat: Buffer[] = [];
+    while (at < b.length) {
+      const len = b.readUInt32BE(at);
+      if (b.toString("latin1", at + 4, at + 8) === "IDAT") idat.push(b.subarray(at + 8, at + 8 + len));
+      at += 12 + len;
+    }
+    const raw = inflateSync(Buffer.concat(idat));
+    const rowLen = 1 + 3 * p.width;
+    return { p, rgb: (x: number, y: number) => [...raw.subarray(y * rowLen + 1 + x * 3, y * rowLen + 4 + x * 3)] };
+  };
+  // Every pixel of the glyph cells for `text` at header line `line` is exactly FG where the 5x7 font has a dot and BG elsewhere.
+  const drawn = (b: Buffer, text: string, line: number) => {
+    const { S, ADV, LH, M } = PNG_LAYOUT;
+    const { rgb } = pixels(b);
+    return [...text.toUpperCase()].every((ch, n) => {
+      const g = GLYPHS[ch];
+      for (let r = 0; r < 7; r++)
+        for (let c = 0; c < 6; c++) {
+          const on = c < 5 && (parseInt(g.slice(r * 2, r * 2 + 2), 16) & (1 << (4 - c))) !== 0;
+          for (let dy = 0; dy < S; dy++)
+            for (let dx = 0; dx < S; dx++)
+              if (rgb(M + n * ADV + c * S + dx, M + line * LH + r * S + dy).join() !== (on ? FG : BG).join()) return false;
+        }
+      return true;
+    });
+  };
+
+  it("PFX-18: bar / stacked-bar reports: the PNG draws 'Rendered as lines' (pixels and tEXt) and the PDF prints it; line reports don't", async () => {
+    assert.equal(LINES_NOTE, "Rendered as lines");
+    for (const chart of ["bar", "stacked-bar"]) {
+      assert.equal((await rep("alice", "PUT", { report: R(chart) })).status, 200);
+      const png = await bytes(await ex("alice", "default", "png"));
+      assert.ok(drawn(png, LINES_NOTE, 2), `${chart}: note pixels at header line 3`);
+      assert.equal(readPng(png, crc32).text["orpheus-note"], LINES_NOTE);
+      const t = readPdf(await bytes(await ex("alice", "default", "pdf"))).text;
+      assert.equal(t[2], LINES_NOTE, chart);
+    }
+    assert.equal((await rep("alice", "PUT", { report: R("line") })).status, 200);
+    const png = await bytes(await ex("alice", "default", "png"));
+    assert.ok(!drawn(png, LINES_NOTE, 2));
+    assert.ok(drawn(png, "As of", 2), "the control: line 3 is the as-of line");
+    assert.equal(readPng(png, crc32).text["orpheus-note"], undefined);
+    assert.ok(!readPdf(await bytes(await ex("alice", "default", "pdf"))).text.includes(LINES_NOTE));
+  });
+
+  it("Q-AD7: the filename date is the generation day in Toronto", () => {
+    assert.equal(exportFilename("Default", "2026-11-01T02:00:00.000Z", "pdf"), "orpheus-report-default-2026-10-31.pdf");
+    assert.equal(exportFilename("Default", "2026-10-16T16:00:00.000Z", "png"), "orpheus-report-default-2026-10-16.png");
   });
 });
