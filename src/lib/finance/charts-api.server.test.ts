@@ -61,11 +61,11 @@ const NOW = new Date("2026-10-16T16:00:00Z");
 const clock = () => NOW;
 
 /** The route table, as the six route files wire it (path → handler). */
-function dispatch(who: string | null, e: Record<string, string> = env) {
+function dispatch(who: string | null, e: Record<string, string> = env, getDb?: () => Promise<unknown>) {
   return async (input: string, init: RequestInit = {}): Promise<Response> => {
     const req = new Request(`http://localhost${input}`, init);
     const path = new URL(req.url).pathname;
-    const d = as(who, e);
+    const d = getDb ? ({ ...as(who, e), getDb } as never as ReturnType<typeof as>) : as(who, e);
     if (path === "/api/personal-finance/series") return handlePersonalFinanceSeriesRequest(req, d, clock);
     if (path === "/api/personal-finance/chart") return handlePersonalFinanceChartRequest(req, d, clock);
     if (path === "/api/personal-finance/reports") return handlePersonalFinanceReportsRequest(req, d);
@@ -326,5 +326,158 @@ describe("#158 PFAPI-09 the contract doc matches the code (drift guard)", () => 
   it("is linked from the spec, README and AGENTS", () => {
     for (const f of ["attachments/personal-finance-spec.md", "README.md", "AGENTS.md"])
       assert.ok(readFileSync(new URL(`../../../${f}`, import.meta.url), "utf8").includes("attachments/pf-charts-api-contract.md"), f);
+  });
+});
+
+// ---- #158 QA round 1 F2 (2026-10-17): every doc message and cap tied to the SERVER (wire output), not the client ----
+describe("#158 F2 contract section 8: every message × route and every cap, driven through the real handlers", () => {
+  const doc = readFileSync(new URL("../../../attachments/pf-charts-api-contract.md", import.meta.url), "utf8");
+  const sec = (from: string, to?: string) => doc.slice(doc.indexOf(from), to ? doc.indexOf(to, doc.indexOf(from) + 1) : undefined);
+  const table = (from: string, to?: string) =>
+    sec(from, to).split("\n").filter((l) => /^\| `?[^-|]/.test(l) && !/^\| (Message|Cap) \|/.test(l)).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
+  const MSGS = table("### 8.1", "### 8.2").map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
+  const CAPS = table("### 8.2").map(([cap, value, routes, constant]) => ({ cap, value, routes: routes.split(/\s+/), constant }));
+  const ROUTE = { R1: "/api/personal-finance/series", R2: "/api/personal-finance/chart", R3: "/api/personal-finance/reports", R4: "/api/personal-finance/reports/default", R5: "/api/personal-finance/reports/default/export?format=pdf", L1: "/api/personal-finance/report" } as const;
+  type RK = keyof typeof ROUTE;
+  const OK_METHOD: Record<RK, string> = { R1: "POST", R2: "POST", R3: "GET", R4: "GET", R5: "GET", L1: "GET" };
+  const WRITE: Record<string, [string, string]> = { R1: ["POST", ROUTE.R1], R2: ["POST", ROUTE.R2], R3: ["POST", ROUTE.R3], R4: ["PUT", ROUTE.R4], L1: ["PUT", ROUTE.L1] };
+  const J = { "content-type": "application/json" };
+  const call = (d: ReturnType<typeof dispatch>, method: string, path: string, body?: string) => d(path, { method, headers: J, body });
+  const failingAudit = async () => ({ query: async (text: string, params?: unknown[]) => {
+    if (/INSERT INTO audit_event/.test(text)) throw new Error("audit down");
+    return (await pg.query(text, params)).rows;
+  } });
+  /** A body of exactly n bytes that is valid JSON. */
+  const sized = (n: number) => `{"x":"${"a".repeat(n - 8)}"}`;
+  const bob = dispatch("bob");
+  let named = "";
+  before(async () => {
+    await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING', ["eve", "eve@example.com"]);
+    await pg.query("INSERT INTO account_state (user_id, must_change_password) VALUES ('eve', true) ON CONFLICT (user_id) DO UPDATE SET must_change_password = true");
+    named = ok(await createReport({ name: "F2 named", report: R1 }, bob), 201).id;
+  });
+
+  const trigger = async (msg: string, k: RK): Promise<Response> => {
+    const M = CHARTS_MESSAGES;
+    const [wm, wp] = WRITE[k] ?? ["GET", ROUTE[k]];
+    switch (msg) {
+      case M.disabled: return call(dispatch("alice", { ...env, DASHBOARD_ENABLED: "false" }), OK_METHOD[k], ROUTE[k]);
+      case M.methodNotAllowed: return call(alice, "PATCH", ROUTE[k]);
+      case M.unauthorized: return call(dispatch(null), OK_METHOD[k], ROUTE[k]);
+      case M.forbidden: return call(dispatch("dave"), OK_METHOD[k], ROUTE[k]);
+      case M.mustChange: return call(dispatch("eve"), OK_METHOD[k], ROUTE[k]);
+      case M.storage: return call(dispatch("alice", env, async () => null), OK_METHOD[k], ROUTE[k]);
+      case M.badJson: return call(bob, wm, wp, "{");
+      case M.notObject: return call(bob, wm, wp, "[]");
+      case M.invalid:
+        if (k === "R5") return call(bob, "GET", "/api/personal-finance/reports/default/export?format=gif");
+        return call(bob, wm, wp, k === "L1" ? '{"report":{}}' : "{}");
+      case M.queryTooLarge:
+      case M.reportTooLarge: {
+        const cap = Number(CAPS.find((c) => c.cap === "body-bytes" && c.routes.includes(k))!.value);
+        return call(bob, wm, wp, sized(cap + 1));
+      }
+      case M.noSavedReport: return call(bob, "POST", ROUTE.R2, '{"saved":true,"id":"r-00000000"}');
+      case M.reportNotFound: return call(bob, "GET", k === "R5" ? "/api/personal-finance/reports/r-00000000/export?format=pdf" : "/api/personal-finance/reports/r-00000000");
+      case M.nameTaken:
+        return k === "R3" ? call(bob, "POST", ROUTE.R3, JSON.stringify({ name: "default", report: R1 })) : call(bob, "PUT", `/api/personal-finance/reports/${named}`, JSON.stringify({ name: "DEFAULT", report: R1 }));
+      case M.defaultNameFixed: return call(bob, "PUT", ROUTE.R4, JSON.stringify({ name: "Other", report: R1 }));
+      case M.exportUnavailable: {
+        await call(bob, "PUT", ROUTE.R4, JSON.stringify({ report: R1 }));
+        return call(dispatch("bob", env, failingAudit), "GET", ROUTE.R5);
+      }
+      case M.reportLimit: {
+        const have = ok(await listReports(bob)).reports.filter((r) => !r.default).length;
+        const cap = Number(CAPS.find((c) => c.cap === "named-reports")!.value);
+        const made: string[] = [];
+        for (let i = have; i < cap; i++) made.push(ok(await createReport({ name: `lim ${i}`, report: R1 }, bob), 201).id);
+        const r = await call(bob, "POST", ROUTE.R3, JSON.stringify({ name: "one too many", report: R1 }));
+        for (const id of made) ok(await deleteReport(id, bob));
+        return r;
+      }
+    }
+    throw new Error(`no trigger for ${msg}`);
+  };
+
+  it("the 8.1 table lists exactly the section 5 messages (no more, no fewer)", () => {
+    const sec5 = (sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1));
+    assert.deepEqual(MSGS.map((m) => m.msg).sort(), [...sec5].sort());
+    assert.equal(MSGS.length, 17);
+    assert.deepEqual(Object.values(CHARTS_MESSAGES).sort(), [...sec5].sort(), "the client's copy equals the doc too");
+  });
+
+  it("each message × route in 8.1: the real handler answers that status with exactly that error text (JSON, no-store)", async () => {
+    const errLog = console.error;
+    console.error = () => {};
+    try {
+      let n = 0;
+      for (const m of MSGS)
+        for (const k of m.routes as RK[]) {
+          assert.ok(k in ROUTE, `route ${k}`);
+          const r = await trigger(m.msg, k);
+          const body = (await r.json()) as { error?: string };
+          assert.deepEqual([r.status, body.error], [m.status, m.msg], `${m.msg} on ${k}`);
+          assert.equal(r.headers.get("cache-control"), "no-store", `${m.msg} on ${k}`);
+          n++;
+        }
+      assert.equal(n, 61, "message × route pairs driven");
+    } finally {
+      console.error = errLog;
+    }
+  });
+
+  it("each cap in 8.2 equals its server constant and holds at the boundary on every route listed", async () => {
+    const CONST: Record<string, number> = { SERIES_MAX_BYTES, CHART_MAX_BYTES, REPORTS_BODY_MAX, REPORT_MAX_BYTES, SERIES_MAX, RANGE_MONTHS_MAX, REPORTS_MAX, NAME_MAX };
+    assert.deepEqual(CAPS.map((c) => c.cap), ["body-bytes", "body-bytes", "body-bytes", "body-bytes", "series-max", "saved-custom-range-months", "query-custom-range-months", "named-reports", "name-chars"]);
+    for (const c of CAPS) {
+      if (c.value === "none") continue;
+      const name = c.constant.replace(/`/g, "");
+      assert.equal(Number(c.value), CONST[name], `${c.cap} ${c.routes} = ${name}`);
+    }
+    for (const c of CAPS.filter((x) => x.cap === "body-bytes"))
+      for (const k of c.routes) {
+        const [m, p] = WRITE[k];
+        const v = Number(c.value);
+        assert.notEqual((await call(bob, m, p, sized(v))).status, 413, `${k}: ${v} bytes is allowed`);
+        assert.equal((await call(bob, m, p, sized(v + 1))).status, 413, `${k}: ${v + 1} bytes is 413`);
+      }
+    const sm = Number(CAPS.find((c) => c.cap === "series-max")!.value);
+    const lines = (n: number) => Array.from({ length: n }, (_, i) => ({ kind: "line" as const, id: `l${i}` }));
+    assert.equal((await seriesQuery({ series: lines(sm), range: { preset: "12m" } }, bob)).status, 200);
+    assert.equal(refused(await seriesQuery({ series: lines(sm + 1), range: { preset: "12m" } }, bob)).field, "series");
+    assert.equal((await chartQuery({ series: lines(sm), range: { preset: "12m" }, chart: "line" }, bob)).status, 200);
+    assert.equal(refused(await chartQuery({ series: lines(sm + 1), range: { preset: "12m" }, chart: "line" }, bob)).field, "series");
+    const atMax = ok(await createReport({ name: "series max", report: { ...R1, series: lines(sm) } }, bob), 201);
+    ok(await deleteReport(atMax.id, bob));
+    assert.equal(refused(await createReport({ name: "series max+1", report: { ...R1, series: lines(sm + 1) } }, bob)).field, "report.series");
+    const rm = Number(CAPS.find((c) => c.cap === "saved-custom-range-months")!.value);
+    const span = (n: number) => ({ from: "2024-01", to: `${2024 + Math.floor((n - 1) / 12)}-${String(((n - 1) % 12) + 1).padStart(2, "0")}` });
+    const inRange = ok(await createReport({ name: "range max", report: { ...R1, range: span(rm) } }, bob), 201);
+    ok(await deleteReport(inRange.id, bob));
+    assert.equal(refused(await createReport({ name: "range max+1", report: { ...R1, range: span(rm + 1) } }, bob)).field, "report.range");
+    assert.equal(CAPS.find((c) => c.cap === "query-custom-range-months")!.value, "none");
+    for (const q of [seriesQuery({ series: R1.series, range: { from: "2020-01", to: "2026-10" } }, bob), chartQuery({ ...R1, range: { from: "2020-01", to: "2026-10" } }, bob)])
+      assert.equal((await q).status, 200, "R1 / R2: an 82-month custom range is allowed (no cap)");
+    const nm = Number(CAPS.find((c) => c.cap === "name-chars")!.value);
+    const longOk = ok(await createReport({ name: "n".repeat(nm), report: R1 }, bob), 201);
+    ok(await deleteReport(longOk.id, bob));
+    assert.equal(refused(await createReport({ name: "n".repeat(nm + 1), report: R1 }, bob)).field, "name");
+  });
+
+  it("every cap written in the prose (sections 3 and 4) matches the 8.2 values", () => {
+    const BYTE_CAPS = new Set([SERIES_MAX_BYTES, CHART_MAX_BYTES, REPORTS_BODY_MAX, REPORT_MAX_BYTES]);
+    const prose = sec("## 3. Per route", "## 5.");
+    for (const n of prose.match(/\b\d{4}\b/g) ?? []) if (!["2000", "2020", "2100"].includes(n)) assert.ok(BYTE_CAPS.has(Number(n)), `prose byte cap ${n} is a server constant`);
+    const r1 = sec("### R1", "### R2"), r2 = sec("### R2", "### R3"), r3 = sec("### R3", "### R4"), l1 = sec("### L1", "## 4."), lim = sec("## 4. Limits", "## 5.");
+    assert.ok(r1.includes(`(> ${SERIES_MAX_BYTES} bytes)`), "R1 413 cap");
+    assert.ok(r2.includes(`(> ${CHART_MAX_BYTES})`), "R2 413 cap");
+    assert.ok(r3.includes(`(body > ${REPORTS_BODY_MAX} bytes, or a canonical report > ${REPORT_MAX_BYTES})`), "R3 413 cap");
+    assert.ok(l1.includes(`(> ${REPORT_MAX_BYTES})`), "L1 413 cap");
+    assert.ok(r1.includes("with **no 24-month cap**"), "R1: no custom-range cap (8.2 query-custom-range-months none)");
+    assert.ok(!/\ba \d+-month cap\b/.test(r1 + r2), "R1 / R2 never claim a month cap");
+    assert.ok(r3.includes(`**at most ${RANGE_MONTHS_MAX} months**`) && r3.includes(`1..${SERIES_MAX}`) && r3.includes(`1..${NAME_MAX} chars`) && r3.includes(`limit: ${REPORTS_MAX} }`), "R3 caps");
+    assert.ok(r1.includes(`Series[1..${SERIES_MAX}]`), "R1 series cap");
+    for (const s of [`1..${SERIES_MAX}, no duplicates`, `≤ ${RANGE_MONTHS_MAX} months`, `${REPORTS_MAX} per person`, `1..${NAME_MAX} chars`, `${SERIES_MAX_BYTES} B (R1, R2, L1); ${REPORTS_BODY_MAX} B (R3, R4); canonical report ≤ ${REPORT_MAX_BYTES} B`])
+      assert.ok(lim.includes(s), `limits table: ${s}`);
   });
 });

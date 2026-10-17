@@ -11,7 +11,14 @@ import { join } from "node:path";
 import { credentialVars, prodReason, staticProdReason, PROD_ALIAS, SIGNED_OUT_PROD_LINE } from "../qa/tools/prod-guard.mjs";
 
 // Every QA tool that signs in (reads a *_PASSWORD from env), enumerated, not listed by hand (QA run 2026-10-17 F2, EL).
-const TOOLS = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "prod-guard.mjs" && readFileSync(`qa/tools/${f}`, "utf8").includes("_PASSWORD")).sort();
+// #158 QA round 1 F1 (EL req 3): the union with every qa/tools file that calls `refuseIfProd(`, so a guarded tool with no
+// sign-in (pf-charts-contract) gets the same fake-network assertions. GUARDED pins the expected set: a tool that stops
+// calling the guard drops out of the refuseIfProd half and fails the pin (and a sign-in tool fails "source order").
+const toolSrc = (f) => readFileSync(`qa/tools/${f}`, "utf8");
+const SIGN_IN = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "prod-guard.mjs" && toolSrc(f).includes("_PASSWORD")).sort();
+const CALLS_GUARD = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "prod-guard.mjs" && /\brefuseIfProd\(/.test(toolSrc(f).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"))).sort();
+const TOOLS = [...new Set([...SIGN_IN, ...CALLS_GUARD])].sort();
+const GUARDED = ["audit.mjs", "calculator-page.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "home-page.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-charts-contract.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-series-api.mjs", "roles.mjs", "saved-searches.mjs", "signin-page.mjs", "site-shell.mjs", "site-style-regression.mjs", "site.mjs"];
 const stub = (env, calls = []) => async (url, init) => {
   calls.push([url, init]);
   return { headers: new Headers(env === null ? {} : { "x-orpheus-env": env }) };
@@ -39,7 +46,14 @@ test("probe: production or a missing header refuses; preview / local pass; one H
 });
 
 test("the enumerated sign-in tools are the 19 known ones (a new sign-in tool lands here automatically)", () => {
-  assert.deepEqual(TOOLS, ["audit.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-series-api.mjs", "roles.mjs", "site-shell.mjs", "site-style-regression.mjs"]);
+  assert.deepEqual(SIGN_IN, ["audit.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-series-api.mjs", "roles.mjs", "site-shell.mjs", "site-style-regression.mjs"]);
+});
+
+test("#158 F1: every guarded tool is covered: the refuseIfProd callers and the sign-in tools are exactly the pinned 25 (pf-charts-contract included)", () => {
+  assert.deepEqual(CALLS_GUARD, GUARDED, "a tool that stops calling refuseIfProd (or a new caller) changes this set");
+  assert.deepEqual(TOOLS, GUARDED);
+  assert.ok(SIGN_IN.every((t) => CALLS_GUARD.includes(t)), "every sign-in tool calls the guard");
+  assert.ok(TOOLS.includes("pf-charts-contract.mjs"));
 });
 
 const PRELOAD = join(process.cwd(), "scripts/fixtures/fake-net.mjs");
@@ -76,7 +90,7 @@ test("F7 (2): with credentials, every sign-in tool refuses the prod alias: exit 
 });
 
 test("F7 (3): QA_WRITE alone (no credentials) is refused on prod too, with zero traffic", () => {
-  for (const t of ["pf-reports-api.mjs", "site-shell.mjs", "personal-finance.mjs"]) {
+  for (const t of ["pf-reports-api.mjs", "site-shell.mjs", "personal-finance.mjs", "pf-charts-contract.mjs"]) {
     const r = run(t, ["--base-url", PROD_ALIAS], { QA_WRITE: "1" });
     assert.equal(r.status, 2, `${t}: ${r.out}`);
     assert.match(r.out, /^REFUSED .*\(QA_WRITE\)/m, t);

@@ -179,3 +179,48 @@ built. The client (section 6) already hides Q-AE1, Q-AE2, Q-AE7 and Q-AE11 from 
 
 **Built here (non-behavioural):** the shared `ReportItem` type (a type-only change in `account.server.ts`) and a fix to
 the export handler's stale docblock ("not audited (Q-AD11)"; it has audited since PFX-17).
+
+## 8. Machine-checked tables (added 2026-10-17, #158 QA round 1 F2)
+
+**Note (2026-10-17):** QA round 1 F2 found that the PFAPI-09 drift test checked only 8 of the 17 messages against server
+code, and checked none of the numeric caps in the prose. From this date, `charts-api.server.test.ts` parses the two
+tables below and **drives the real handlers** for every row and every route listed. The status and the `error` text
+on the wire must equal the row. It also ties every byte cap and count written anywhere in sections 3, 4 and 8 to the
+server constants, with a boundary request on each side (cap → not 413, cap + 1 → 413). Sections 1–7 stay as written;
+where they and this section disagree, this section and the test win.
+
+### 8.1 Messages × routes (every message in section 5, exact text)
+
+| Message | Status | Routes |
+|---|---|---|
+| `Not found.` | 404 | R1 R2 R3 R4 R5 L1 |
+| `Method not allowed.` | 405 | R1 R2 R3 R4 R5 L1 |
+| `Unauthorized.` | 401 | R1 R2 R3 R4 R5 L1 |
+| `Forbidden.` | 403 | R1 R2 R3 R4 R5 L1 |
+| `Change your password first.` | 403 | R1 R2 R3 R4 R5 L1 |
+| `Storage not configured.` | 503 | R1 R2 R3 R4 R5 L1 |
+| `Body must be JSON.` | 400 | R1 R2 R3 R4 L1 |
+| `Body must be a JSON object.` | 400 | L1 |
+| `Invalid value.` | 400 | R1 R2 R3 R4 R5 L1 |
+| `Query too large.` | 413 | R1 R2 |
+| `Report too large.` | 413 | R3 R4 L1 |
+| `No saved report.` | 404 | R2 |
+| `Report not found.` | 404 | R4 R5 |
+| `Report limit reached.` | 409 | R3 |
+| `Name already used.` | 409 | R3 R4 |
+| `The default report cannot be renamed.` | 400 | R4 |
+| `Export unavailable. Try again.` | 503 | R5 |
+
+### 8.2 Caps (byte limits and counts; each value is checked against its server constant and at its boundary)
+
+| Cap | Value | Routes | Server constant |
+|---|---|---|---|
+| body-bytes | 4096 | R1 | `SERIES_MAX_BYTES` |
+| body-bytes | 4096 | R2 | `CHART_MAX_BYTES` |
+| body-bytes | 4608 | R3 R4 | `REPORTS_BODY_MAX` |
+| body-bytes | 4096 | L1 | `REPORT_MAX_BYTES` |
+| series-max | 12 | R1 R2 R3 | `SERIES_MAX` |
+| saved-custom-range-months | 24 | R3 | `RANGE_MONTHS_MAX` |
+| query-custom-range-months | none | R1 R2 | (no cap: 2020-01..current month) |
+| named-reports | 20 | R3 | `REPORTS_MAX` |
+| name-chars | 60 | R3 | `NAME_MAX` |
