@@ -5,7 +5,6 @@ import { readFileSync } from "node:fs";
 import {
   handlePersonalFinanceReportExportRequest,
   handlePersonalFinanceChartRequest,
-  handlePersonalFinanceReportItemRequest,
   handlePersonalFinanceReportRequest,
   handlePersonalFinanceReportsRequest,
   handlePersonalFinanceRequest,
@@ -71,15 +70,10 @@ before(async () => {
 
 const list = (who: string | null, method = "GET", body?: unknown, e = env) =>
   handlePersonalFinanceReportsRequest(req(method, body, "/api/personal-finance/reports"), as(who, e));
-const item = (who: string | null, id: string, method = "GET", body?: unknown) =>
-  handlePersonalFinanceReportItemRequest(req(method, body, `/api/personal-finance/reports/${id}`), id, as(who));
-const rec = (who: string, method: string, body?: unknown) =>
-  handlePersonalFinanceRequest(req(method, body, "/api/personal-finance"), as(who));
 const rowOf = async (id: string) => (await pg.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = $1", [id])).rows[0]?.data ?? null;
 const actions = async () => (await pg.query<{ action: string }>("SELECT action FROM audit_event ORDER BY id")).rows.map((r) => r.action);
 const M = (id: string) => ({ kind: "metric", id });
 const R = (chart = "line", id = "all") => ({ series: [{ kind: "group", id }], range: { preset: "12m" }, chart });
-const LEGACY = { series: [{ kind: "category", id: "Travel" }, { kind: "line", id: "gone" }], range: { preset: "6m" }, chart: "bar" };
 
 const ex = (who: string | null, id: string, format?: string, method = "GET", now = NOW, e = env) =>
   handlePersonalFinanceReportExportRequest(

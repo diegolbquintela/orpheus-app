@@ -1,4 +1,3 @@
-// @ts-nocheck -- plain JS shared by a QA tool and the PGlite tests; types are checked by the tests that use it.
 // #157: minimal readers for the PF export files (used by qa/tools/pf-export-api.mjs and the PGlite tests). They check
 // structure and pull out the embedded `/chart` data; they are not general PDF / PNG parsers.
 import { inflateSync } from "node:zlib";
@@ -6,9 +5,11 @@ import { inflateSync } from "node:zlib";
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /** PNG: magic, chunk CRCs, IHDR, IDAT inflates to height × (1 + 3 × width) bytes, tEXt entries. Throws on a problem. */
+/** @param {Buffer} buf @param {(b: Buffer) => number} [crc32] */
 export function readPng(buf, crc32) {
   if (!PNG_MAGIC.every((b, i) => buf[i] === b)) throw new Error("PNG magic");
   let at = 8;
+  /** @type {Record<string, string>} */
   const text = {};
   const idat = [];
   let width = 0;
@@ -38,6 +39,7 @@ export function readPng(buf, crc32) {
 }
 
 /** PDF: header, %%EOF, startxref → `xref`, every xref offset → `n 0 obj`; Info `/OrpheusData`; page text. Throws on a problem. */
+/** @param {Buffer} buf */
 export function readPdf(buf) {
   const s = buf.toString("latin1");
   if (!s.startsWith("%PDF-1.")) throw new Error("PDF header");
@@ -48,7 +50,7 @@ export function readPdf(buf) {
   if (!m) throw new Error("xref header");
   const n = Number(m[1]);
   const rows = s.slice(sx + m[0].length).split("\n").slice(0, n);
-  rows.slice(1).forEach((r, i) => {
+  rows.slice(1).forEach((/** @type {string} */ r, /** @type {number} */ i) => {
     const off = Number(r.slice(0, 10));
     if (!s.startsWith(`${i + 1} 0 obj`, off)) throw new Error(`xref object ${i + 1}`);
   });
