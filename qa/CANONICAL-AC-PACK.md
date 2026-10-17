@@ -951,3 +951,28 @@ Backend only. Design and Q-calls: `attachments/pf-chart-data-design.md` (Q-AB1..
 | ID | Severity | Check |
 |---|---|---|
 | PFC-17 | BLOCK | Top-level `mixed_axes` (beside the `chart` string): true with net-assets plus a flow series; false for level-only and flow-only; the same rule in `{ saved: true }` mode. |
+
+## Personal Finance report CRUD (#156, spec section 38)
+
+Backend only. Design and Q-calls: `attachments/pf-report-crud-design.md` (Q-AC1..Q-AC14). PGlite real-path tests: `src/lib/finance/reports.server.test.ts` (TZ=UTC and TZ=America/Los_Angeles); the #153 tests (`report.server.test.ts`) and #155 tests (`chart.server.test.ts`) still pass unchanged. Signed-in checks: `qa/tools/pf-reports-api.mjs` (read-only by default; `QA_WRITE=1` adds a temporary create / update / delete round trip on a preview).
+
+| ID | Severity | Check |
+|---|---|---|
+| PFRC-01 | BLOCK | Flag off 404; signed out 401 (list and item); other methods 405; no Personal Finance grant 403. |
+| PFRC-02 | MAJOR | Nothing saved → `{ reports: [], limit: 20 }`, `no-store`. |
+| PFRC-03 | BLOCK | Q-AC1: a legacy `PUT /report` shows as the default report (`id: "default"`, `Default`, first, null timestamps, same `missing` / `deleted` / `labels`); legacy GET unchanged. |
+| PFRC-04 | BLOCK | POST `{ name, report }` → 201 with an `r-xxxxxxxx` id, trimmed name; GET by id returns it; list order default then oldest first. |
+| PFRC-05 | BLOCK | PUT replaces name and report; `created_at` kept, `updated_at` later; the same name in another case is allowed for itself. |
+| PFRC-06 | BLOCK | Bad name (empty, blank, > 60, control character, missing), bad report (`report.<path>`), extra key (`body`) → 400 with the field; > 4.5 KB 413; not JSON 400; nothing stored. |
+| PFRC-07 | MAJOR | Duplicate name in any case, or `Default` → 409 `Name already used.` (`field: name`), also on rename. |
+| PFRC-08 | MAJOR | 20 named reports allowed; the 21st → 409 `Report limit reached.`; the list shows 20 + the default. |
+| PFRC-09 | MAJOR | Unknown or malformed id → 404 `Report not found.` for GET / PUT / DELETE. |
+| PFRC-10 | BLOCK | `PUT /reports/default` writes the legacy value (legacy GET sees it); another name → 400 `The default report cannot be renamed.`. |
+| PFRC-11 | BLOCK | DELETE a named report; DELETE `default` = legacy DELETE (legacy GET null); named reports stay. |
+| PFRC-12 | BLOCK | Per person: a Read CFO keeps their own reports; another person's id is 404; series resolve against the owner's record. |
+| PFRC-13 | BLOCK | The record API never shows report keys; a record save keeps named reports; the key is refused on the record API. |
+| PFRC-14 | BLOCK | `/chart { saved: true }` unchanged (default); `{ saved: true, id }` charts a named or default report; unknown / another person's id 404; malformed id 400 `query`. |
+| PFRC-15 | MINOR | A stored named report that is no longer valid is skipped on read; the others stay. |
+| PFRC-16 | MINOR | Deleting the last named report from a row holding nothing else removes the row. |
+| PFRC-17 | MINOR | Create / update audit `pf.report_save`; delete `pf.report_delete`; reads audit nothing. |
+| PFRC-18 | BLOCK | Q-AC1: legacy `PUT` / `DELETE /report` never touch named reports. |

@@ -314,3 +314,5 @@ carried out on production (see the status note at the top).
 4. **Fresh production secrets** (`BETTER_AUTH_SECRET`, `CRON_SECRET`): generated and set by the EL through the
    Vercel connector at the flip, never pasted in chat, PRs, logs or the vault, and not reused from Preview.
 5. **Nothing flips without Diego's explicit go.**
+
+> **Addendum (2026-10-17, #156 / PR #174):** before any Instant Rollback or redeploy to a commit older than #174, follow `docs/release/pf-reports-rollback.md` (export every user's Personal Finance report keys first). The flag-off rollback in §3 step 9 does not roll code back and needs no export.

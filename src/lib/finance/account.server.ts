@@ -28,8 +28,28 @@ import {
   REPORT_KEY,
   REPORT_MAX_BYTES,
   reportText,
+  type Report,
 } from "./report.ts";
 import { householdMonth } from "./overview.ts";
+import {
+  checkBody,
+  DEFAULT_ID,
+  DEFAULT_NAME,
+  DEFAULT_NAME_FIXED,
+  isNamedId,
+  isReportId,
+  NAME_TAKEN,
+  nameTaken,
+  type Named,
+  namedText,
+  newId,
+  parseNamed,
+  REPORT_LIMIT,
+  REPORT_NOT_FOUND,
+  REPORTS_BODY_MAX,
+  REPORTS_KEY,
+  REPORTS_MAX,
+} from "./reports.ts";
 import { CHART_MAX_BYTES, chartData, chartQueryError, fromReport, NO_SAVED_REPORT, type ChartQuery } from "./chart.ts";
 import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
 
@@ -42,10 +62,11 @@ export async function readRecord(db: Queryable, userId: string): Promise<PfRecor
   );
   if (!rows[0]) return null;
   const raw = typeof rows[0].data === "string" ? JSON.parse(rows[0].data) : rows[0].data;
-  // #153 (Q-X7): the person's saved chart report shares the row but is not part of the record.
-  if (raw && typeof raw === "object" && !Array.isArray(raw) && REPORT_KEY in raw) {
-    const { [REPORT_KEY]: _report, ...rest } = raw as Record<string, unknown>;
+  // #153 (Q-X7) / #156 (Q-AC1): the person's saved reports share the row but are not part of the record.
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && (REPORT_KEY in raw || REPORTS_KEY in raw)) {
+    const { [REPORT_KEY]: _report, [REPORTS_KEY]: _reports, ...rest } = raw as Record<string, unknown>;
     void _report;
+    void _reports;
     if (Object.keys(rest).length === 0) return null;
     const checkedRest = checkRecord(rest);
     return checkedRest.ok ? checkedRest.record : {};
@@ -58,9 +79,11 @@ export async function writeRecord(db: Queryable, userId: string, record: PfRecor
   await db.query(
     `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data
-       || CASE WHEN personal_finance.data ? $3 THEN jsonb_build_object($3::text, personal_finance.data -> $3) ELSE '{}'::jsonb END,
+       || COALESCE((SELECT jsonb_object_agg(e.key, e.value) FROM jsonb_each(personal_finance.data) AS e
+                    WHERE e.key = ANY($3::text[])), '{}'::jsonb),
        updated_at = now()`,
-    [userId, JSON.stringify(record), REPORT_KEY],
+    // #153 / #156: a record save keeps the person's saved reports (default and named).
+    [userId, JSON.stringify(record), [REPORT_KEY, REPORTS_KEY]],
   );
 }
 
@@ -313,9 +336,165 @@ export async function handlePersonalFinanceChartRequest(
   if (e) return dashboardJson(e.field ? { error: e.error, field: e.field } : { error: e.error }, e.status);
   const q = body as ChartQuery;
   if ("saved" in q) {
-    const report = parseReport(await readOwnReport(g.db, g.viewer.id));
+    // #156 Q-AC10: `{ saved: true, id }` charts that report; without `id`, the default (legacy) report as before.
+    const id = "id" in q && q.id ? q.id : DEFAULT_ID;
+    const report = id === DEFAULT_ID ? parseReport(await readOwnReport(g.db, g.viewer.id)) : (await readOwnNamed(g.db, g.viewer.id)).find((r) => r.id === id)?.report ?? null;
     if (!report) return dashboardJson({ error: NO_SAVED_REPORT }, 404);
     return dashboardJson(chartData(fromReport(report), await readRecord(g.db, g.user.id), at, "saved"));
   }
   return dashboardJson(chartData(q, await readRecord(g.db, g.user.id), at));
+}
+
+export const PF_REPORTS_ALLOW = ["GET", "HEAD", "POST"] as const;
+export const PF_REPORT_ITEM_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
+
+/** #156: the person's named reports (their own row; empty when none). */
+export async function readOwnNamed(db: Queryable, userId: string): Promise<Named[]> {
+  const rows = await db.query<{ reports: string | null }>(
+    "SELECT data ->> $2 AS reports FROM personal_finance WHERE user_id = $1",
+    [userId, REPORTS_KEY],
+  );
+  return parseNamed(rows[0]?.reports ?? null);
+}
+
+async function writeOwnNamed(db: Queryable, userId: string, list: Named[]): Promise<void> {
+  if (list.length) {
+    await db.query(
+      `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, jsonb_build_object($2::text, $3::text), now())
+       ON CONFLICT (user_id) DO UPDATE SET data = personal_finance.data || jsonb_build_object($2::text, $3::text),
+         updated_at = now()`,
+      [userId, REPORTS_KEY, namedText(list)],
+    );
+    return;
+  }
+  await db.query("UPDATE personal_finance SET data = data - $2::text, updated_at = now() WHERE user_id = $1 AND data ? $2", [userId, REPORTS_KEY]);
+  await db.query("DELETE FROM personal_finance WHERE user_id = $1 AND data = '{}'::jsonb", [userId]);
+}
+
+type Item = {
+  id: string;
+  name: string;
+  default: boolean;
+  report: Report;
+  missing: number[];
+  deleted: number[];
+  labels: string[];
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+const itemOf = (id: string, name: string, report: Report, record: PfRecord | null, created: string | null, updated: string | null): Item => ({
+  id,
+  name,
+  default: id === DEFAULT_ID,
+  report,
+  missing: missingSeries(report, record),
+  deleted: deletedSeries(report, record),
+  labels: seriesLabels(report, record),
+  created_at: created,
+  updated_at: updated,
+});
+
+async function readBody(request: Request): Promise<{ body: unknown } | { response: Response }> {
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > REPORTS_BODY_MAX) return { response: dashboardJson({ error: "Report too large." }, 413) };
+  try {
+    return { body: JSON.parse(text) };
+  } catch {
+    return { response: badRequest("Body must be JSON.") };
+  }
+}
+
+const refuse = (e: { status: number; error: string; field?: string }) =>
+  dashboardJson(e.field ? { error: e.error, field: e.field } : { error: e.error }, e.status);
+
+/**
+ * `/api/personal-finance/reports` (#156; spec section 38, PFRC-01..PFRC-20). GET lists the person's own reports (the
+ * default first, then named reports oldest first, Q-AC7); POST `{ name, report }` creates a named report (201). Same
+ * gate as the report API (Personal Finance read grant; reports are the person's own; series resolve against the
+ * owner's record).
+ */
+export async function handlePersonalFinanceReportsRequest(request: Request, deps: DashboardApiDeps) {
+  const g = await gateDashboardRequest(request, PF_REPORTS_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  if ("response" in g) return g.response;
+  const { db, viewer, user } = g;
+  if (request.method.toUpperCase() === "POST") {
+    const b = await readBody(request);
+    if ("response" in b) return b.response;
+    const c = checkBody(b.body, true);
+    if (!c.ok) return refuse(c);
+    const list = await readOwnNamed(db, viewer.id);
+    if (list.length >= REPORTS_MAX) return dashboardJson({ error: REPORT_LIMIT }, 409);
+    if (nameTaken(list, c.name!)) return dashboardJson({ error: NAME_TAKEN, field: "name" }, 409);
+    const now = new Date().toISOString();
+    let id = newId();
+    while (list.some((r) => r.id === id)) id = newId();
+    const entry: Named = { id, name: c.name!, report: c.report, created_at: now, updated_at: now };
+    await writeOwnNamed(db, viewer.id, [...list, entry]);
+    await auditFor(db, g.access, "pf.report_save");
+    return dashboardJson(itemOf(id, entry.name, entry.report, await readRecord(db, user.id), now, now), 201);
+  }
+  const record = await readRecord(db, user.id);
+  const legacy = parseReport(await readOwnReport(db, viewer.id));
+  const named = await readOwnNamed(db, viewer.id);
+  const reports: Item[] = [
+    ...(legacy ? [itemOf(DEFAULT_ID, DEFAULT_NAME, legacy, record, null, null)] : []),
+    ...named.map((r) => itemOf(r.id, r.name, r.report, record, r.created_at, r.updated_at)),
+  ];
+  return dashboardJson({ reports, limit: REPORTS_MAX });
+}
+
+/**
+ * `/api/personal-finance/reports/:id` (#156). GET / PUT `{ name, report }` (full replace) / DELETE one of the person's
+ * own reports. `default` is the legacy single report (#153 GET / PUT / DELETE on the same stored value; PUT may omit
+ * the name and cannot rename it). Unknown id → 404 `Report not found.`.
+ */
+export async function handlePersonalFinanceReportItemRequest(request: Request, id: string, deps: DashboardApiDeps) {
+  const g = await gateDashboardRequest(request, PF_REPORT_ITEM_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  if ("response" in g) return g.response;
+  const { db, viewer, user } = g;
+  if (!isReportId(id)) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
+  const method = request.method.toUpperCase();
+  if (id === DEFAULT_ID) {
+    if (method === "PUT") {
+      const b = await readBody(request);
+      if ("response" in b) return b.response;
+      const c = checkBody(b.body, false);
+      if (!c.ok) return refuse(c);
+      if (c.name !== undefined && c.name.toLowerCase() !== DEFAULT_NAME.toLowerCase())
+        return dashboardJson({ error: DEFAULT_NAME_FIXED, field: "name" }, 400);
+      await writeOwnReport(db, viewer.id, reportText(c.report));
+      await auditFor(db, g.access, "pf.report_save");
+      return dashboardJson(itemOf(DEFAULT_ID, DEFAULT_NAME, c.report, await readRecord(db, user.id), null, null));
+    }
+    const legacy = parseReport(await readOwnReport(db, viewer.id));
+    if (!legacy) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
+    if (method === "DELETE") {
+      await deleteOwnReport(db, viewer.id);
+      await auditFor(db, g.access, "pf.report_delete");
+      return dashboardJson({ deleted: DEFAULT_ID });
+    }
+    return dashboardJson(itemOf(DEFAULT_ID, DEFAULT_NAME, legacy, await readRecord(db, user.id), null, null));
+  }
+  const list = await readOwnNamed(db, viewer.id);
+  const at = list.findIndex((r) => r.id === id);
+  if (at < 0 || !isNamedId(id)) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
+  if (method === "PUT") {
+    const b = await readBody(request);
+    if ("response" in b) return b.response;
+    const c = checkBody(b.body, true);
+    if (!c.ok) return refuse(c);
+    if (nameTaken(list, c.name!, id)) return dashboardJson({ error: NAME_TAKEN, field: "name" }, 409);
+    const next: Named = { ...list[at], name: c.name!, report: c.report, updated_at: new Date().toISOString() };
+    await writeOwnNamed(db, viewer.id, list.map((r, i) => (i === at ? next : r)));
+    await auditFor(db, g.access, "pf.report_save");
+    return dashboardJson(itemOf(id, next.name, next.report, await readRecord(db, user.id), next.created_at, next.updated_at));
+  }
+  if (method === "DELETE") {
+    await writeOwnNamed(db, viewer.id, list.filter((r) => r.id !== id));
+    await auditFor(db, g.access, "pf.report_delete");
+    return dashboardJson({ deleted: id });
+  }
+  const r = list[at];
+  return dashboardJson(itemOf(id, r.name, r.report, await readRecord(db, user.id), r.created_at, r.updated_at));
 }

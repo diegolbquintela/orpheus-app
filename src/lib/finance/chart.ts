@@ -2,6 +2,7 @@ import { monthShort, type MonthKey } from "./overview.ts";
 import type { PfRecord } from "./record.ts";
 import { CHART_TYPES, INVALID_REPORT, type ChartType, type Report, type ReportError } from "./report.ts";
 import { HOUSEHOLD_TIME_ZONE } from "./overview.ts";
+import { isReportId } from "./reports.ts";
 import { seriesQueryError, seriesValues, type SeriesOut, type SeriesQuery, type SeriesResult } from "./series.ts";
 
 /**
@@ -32,12 +33,18 @@ export type ChartData = Omit<SeriesResult, "series"> & {
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const bad = (field: string): ReportError => ({ status: 400, error: INVALID_REPORT, field });
 
-export type ChartQuery = { saved: true } | (SeriesQuery & { chart: ChartType });
+export type ChartQuery = { saved: true; id?: string } | (SeriesQuery & { chart: ChartType });
 
 /** The first problem with a chart query (`{ series, range, chart }` or `{ saved: true }`), or null. */
 export function chartQueryError(value: unknown, current: MonthKey): ReportError | null {
   if (!isObject(value)) return bad("query");
-  if ("saved" in value) return Object.keys(value).length === 1 && value.saved === true ? null : bad("query");
+  // #156 Q-AC10: `{ saved: true }` (the default report, unchanged) or `{ saved: true, id }` (one of the person's reports).
+  if ("saved" in value)
+    return value.saved === true &&
+      Object.keys(value).every((k) => k === "saved" || k === "id") &&
+      (!("id" in value) || (typeof value.id === "string" && isReportId(value.id)))
+      ? null
+      : bad("query");
   if (!Object.keys(value).every((k) => k === "series" || k === "range" || k === "chart")) return bad("query");
   const { chart, ...rest } = value;
   const e = seriesQueryError(rest, current);

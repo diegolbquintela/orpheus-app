@@ -147,3 +147,9 @@ export const NAME_DELETED = "That name was deleted. Add it again to restore it."
 // #155 (spec section 37): API texts of /api/personal-finance/chart (no page text; backend only).
 export const NO_SAVED_REPORT = "No saved report.";
 export const FX_BASIS_CURRENT = "current";
+// #156 (spec section 38): API texts of /api/personal-finance/reports (no page text; backend only).
+export const REPORT_NOT_FOUND = "Report not found.";
+export const REPORT_LIMIT = "Report limit reached.";
+export const NAME_TAKEN = "Name already used.";
+export const DEFAULT_NAME_FIXED = "The default report cannot be renamed.";
+export const DEFAULT_REPORT_NAME = "Default";
