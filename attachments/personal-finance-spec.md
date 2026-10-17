@@ -1111,3 +1111,18 @@ Design and Q-calls Q-AB1..Q-AB8: `attachments/pf-chart-data-design.md`. AC PFC-0
 37.7 `{ saved: true }` charts the caller's own saved report with its range and chart type; `source: "saved"` (Q-AB5).
 37.8 Not built (Diego's call): report ranges before 2020-01 / after the current month (Q-AB7) and the Q-AB8 list.
 37.9 (2026-10-17, CFO on PR #172) Q-AB1..Q-AB6 and Q-AB8 accepted; Q-AB7 routed to Diego as a LOW ticket (not built). **Condition on Q-AB2:** the response carries a chart-level `mixed_axes` boolean, true when both an `axis: "level"` and an `axis: "flow"` series are present, else false, in request and saved modes, so a UI can warn about or split such charts. It is a top-level field beside `chart`; `chart` stays the chart-type string of 37.1 (least breaking). AC PFC-17.
+
+## 38. Report CRUD (#156, backend only)
+
+Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFRC-01..PFRC-18. No UI, no migration, no schema change.
+
+38.1 `GET /api/personal-finance/reports` lists the caller's own reports `{ reports, limit: 20 }`; `POST` `{ name, report }` creates a named report (201). `GET / PUT { name, report } / DELETE /api/personal-finance/reports/:id` read, replace and remove one. Items: `{ id, name, default, report, missing, deleted, labels, created_at, updated_at }`.
+38.2 Q-AC1: the #153 single report (`orpheus.finance.report.v1`) is the default report (`id: "default"`, name `Default`), stored where it was; named reports are `orpheus.finance.reports.v1` in the same row. The legacy `/report` GET / PUT / DELETE and `/chart { saved: true }` are unchanged and use the default.
+38.3 Names are trimmed, 1..60 characters, no control characters, unique per person in any case; `Default` is reserved (409 `Name already used.`). Ids are `r-` + 8 hex; anything else is 404 `Report not found.`.
+38.4 At most 20 named reports per person plus the default (409 `Report limit reached.`); a report is ≤ 4 KB as #153; a body above 4.5 KB is 413.
+38.5 The default cannot be renamed (400 `The default report cannot be renamed.`); deleting it is the legacy DELETE; named reports stay.
+38.6 Order: the default first, then named reports oldest first. PUT replaces name and report; `created_at` stays.
+38.7 Access: a Personal Finance read grant; reports are the caller's own (another person's id is 404); no grant 403. Create / update audit `pf.report_save`, delete `pf.report_delete`.
+38.8 `/chart { saved: true, id }` charts that report; unknown id 404 `No saved report.`; malformed 400 `query`.
+38.9 The record API never shows reports and a record save keeps them. A stored named report that is no longer valid is skipped on read. Removing the last report from a row that holds nothing else removes the row.
+38.10 Not built: the #173 range refusal (Q-AC12, shared validator unchanged), concurrency control (Q-AC13) and the Q-AC14 list.
