@@ -68,11 +68,20 @@ export type Line = {
   category: string;
 };
 
+/**
+ * #165 (spec section 35, CFO option A KEEP): a deleted category or account. `from` is the month it was deleted on: that
+ * month and later ones lost it on Save; earlier months keep it on their lines, shown as `<name> (deleted)`.
+ */
+export type Deleted = { name: string; from: string };
+
 export type Expenses = {
   fixed: Line[];
   variable: Line[];
   accounts: string[];
   categories: string[];
+  /** #165: deleted accounts / categories still on earlier months' lines (absent when none). */
+  deletedAccounts?: Deleted[];
+  deletedCategories?: Deleted[];
 };
 
 export const EMPTY: Expenses = { fixed: [], variable: [], accounts: [], categories: [] };
@@ -283,7 +292,9 @@ export function categoryTotals(
 ): { name: string; totals: Totals }[] {
   const all = [...expenses.fixed, ...expenses.variable];
   if (!all.some((l) => l.category)) return [];
-  const names = [...expenses.categories.filter((c) => all.some((l) => l.category === c)), ""];
+  // #165: deleted categories still on this month's lines get their own row (shown `<name> (deleted)`).
+  const known = [...expenses.categories, ...(expenses.deletedCategories ?? []).map((d) => d.name)];
+  const names = [...known.filter((c) => all.some((l) => l.category === c)), ""];
   return names
     .map((name) => ({ name, lines: all.filter((l) => l.category === name) }))
     .filter((g) => g.lines.length > 0)
@@ -301,7 +312,8 @@ export function accountTotals(
 ): { name: string; totals: Totals }[] {
   const all = [...expenses.fixed, ...expenses.variable];
   if (!all.some((l) => l.account)) return [];
-  const names = [...expenses.accounts.filter((a) => all.some((l) => l.account === a)), ""];
+  const known = [...expenses.accounts, ...(expenses.deletedAccounts ?? []).map((d) => d.name)];
+  const names = [...known.filter((a) => all.some((l) => l.account === a)), ""];
   return names
     .map((name) => ({ name, lines: all.filter((l) => l.account === name) }))
     .filter((g) => g.lines.length > 0)
@@ -383,12 +395,17 @@ export function asExpenses(value: unknown): Expenses {
       if (categories.length < CATEGORIES_MAX) categories.push(c);
     }
   }
+  const deletedAccounts = asDeleted(v.deletedAccounts, accounts, ACCOUNT_MAX);
+  const deletedCategories = asDeleted(v.deletedCategories, categories, CATEGORY_MAX);
+  // #165: a line keeps a deleted name (earlier months' history); pickers still offer only the live lists.
+  const knownAccounts = [...accounts, ...deletedAccounts.map((d) => d.name)];
+  const knownCategories = [...categories, ...deletedCategories.map((d) => d.name)];
   const lines = (list: unknown): Line[] => {
     if (!Array.isArray(list)) return [];
     const seen = new Set<string>();
     const out: Line[] = [];
     for (const item of list.slice(0, LINES_MAX)) {
-      const line = asLine(item, accounts, categories);
+      const line = asLine(item, knownAccounts, knownCategories);
       if (line && !seen.has(line.id)) {
         seen.add(line.id);
         out.push(line);
@@ -396,7 +413,27 @@ export function asExpenses(value: unknown): Expenses {
     }
     return out;
   };
-  return { fixed: lines(v.fixed), variable: lines(v.variable), accounts, categories };
+  const out: Expenses = { fixed: lines(v.fixed), variable: lines(v.variable), accounts, categories };
+  if (deletedAccounts.length) out.deletedAccounts = deletedAccounts;
+  if (deletedCategories.length) out.deletedCategories = deletedCategories;
+  return out;
+}
+
+const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** #165: the stored deleted names (valid, unique in any case, not also live), else none. */
+function asDeleted(value: unknown, live: readonly string[], max: number): Deleted[] {
+  if (!Array.isArray(value)) return [];
+  const out: Deleted[] = [];
+  for (const d of value) {
+    if (!d || typeof d !== "object") continue;
+    const { name, from } = d as Record<string, unknown>;
+    if (!isText(name, max) || !name.trim() || typeof from !== "string" || !MONTH_KEY.test(from)) continue;
+    const lower = name.toLowerCase();
+    if (live.some((n) => n.toLowerCase() === lower) || out.some((n) => n.name.toLowerCase() === lower)) continue;
+    if (out.length < 200) out.push({ name, from });
+  }
+  return out;
 }
 
 /** An old-direction rate inverted once (#102, Q27): 1 ÷ rate, ≤ 6 decimals, no trailing zeros; bad / empty kept. */
@@ -473,6 +510,8 @@ export function renameCategory(
   if (!name) return { error: CATEGORY_ERROR };
   if (expenses.categories.some((c) => c !== from && c.toLowerCase() === name.toLowerCase()))
     return { error: CATEGORY_EXISTS };
+  if ((expenses.deletedCategories ?? []).some((d) => d.name.toLowerCase() === name.toLowerCase()))
+    return { error: NAME_DELETED };
   const swap = (l: Line): Line => (l.category === from ? { ...l, category: name } : l);
   return {
     name,
@@ -484,3 +523,65 @@ export function renameCategory(
     },
   };
 }
+
+// ---- #165 (spec section 35, CFO option A KEEP, PFD-01..PFD-14) ----
+
+export type NameKind = "account" | "category";
+/** #165 Q-Z1: the label of a deleted name wherever history shows it. */
+export const DELETED_SUFFIX = " (deleted)";
+/** #165: the buttons beside the filters (the existing `Rename` style). */
+export const DELETE_CATEGORY = "Delete category";
+export const DELETE_ACCOUNT = "Delete account";
+export const deletedLabel = (name: string): string => `${name}${DELETED_SUFFIX}`;
+/** #165 Q-Z2: the confirmation (replaces "This cannot be undone." for these deletes: history keeps the name). */
+export const deleteNameQuestion = (name: string): string =>
+  `Delete ${name}? This month and later months lose it; earlier months keep it, marked (deleted).`;
+
+const deletedOf = (e: Expenses, kind: NameKind): Deleted[] =>
+  (kind === "account" ? e.deletedAccounts : e.deletedCategories) ?? [];
+const withDeleted = (e: Expenses, kind: NameKind, list: Deleted[]): Expenses => {
+  const key = kind === "account" ? "deletedAccounts" : "deletedCategories";
+  const next: Expenses = { ...e };
+  if (list.length) next[key] = list;
+  else delete next[key];
+  return next;
+};
+
+/** True when `name` is a deleted (not live) account / category. */
+export const isDeleted = (e: Expenses, kind: NameKind, name: string): boolean =>
+  !!name && deletedOf(e, kind).some((d) => d.name === name);
+
+/** #165: lines without `name` in the `kind` field (amounts untouched). */
+export function stripName<T extends { fixed: Line[]; variable: Line[] }>(m: T, kind: NameKind, name: string): T {
+  const off = (l: Line): Line => (l[kind] === name ? { ...l, [kind]: "" } : l);
+  return { ...m, fixed: m.fixed.map(off), variable: m.variable.map(off) };
+}
+
+/**
+ * #165 (PFD-01, PFD-02): delete a live account / category while `month` is shown: it leaves the live list, is kept as
+ * deleted from `month` (a live name has no deleted entry: re-adding removed it, Q-Z4), and the shown lines lose it. Earlier months are applied on Save by `deleteInMonths` (only `month` and later).
+ */
+export function deleteName(e: Expenses, kind: NameKind, name: string, month: string): Expenses {
+  const live = kind === "account" ? e.accounts : e.categories;
+  if (!live.includes(name)) return e;
+  const rest = live.filter((n) => n !== name);
+  const base = stripName({ ...e, [kind === "account" ? "accounts" : "categories"]: rest }, kind, name);
+  const list = deletedOf(e, kind).filter((d) => d.name.toLowerCase() !== name.toLowerCase());
+  return withDeleted(base, kind, [...list, { name, from: month }]);
+}
+
+/**
+ * #165 Q-Z4 (PFD-09): adding a name that was deleted (any case) re-links it: the deleted entry goes, the live name takes
+ * the deleted spelling, so earlier months' lines show it plain again. Otherwise `e` is returned unchanged.
+ */
+export function relinkName(e: Expenses, kind: NameKind, added: string): { expenses: Expenses; name: string } {
+  const hit = deletedOf(e, kind).find((d) => d.name.toLowerCase() === added.toLowerCase());
+  if (!hit) return { expenses: e, name: added };
+  const liveKey = kind === "account" ? "accounts" : "categories";
+  const live = e[liveKey].map((n) => (n === added ? hit.name : n));
+  const relinked = withDeleted({ ...e, [liveKey]: live }, kind, deletedOf(e, kind).filter((d) => d !== hit));
+  return { expenses: relinked, name: hit.name };
+}
+
+/** #165 Q-Z6: renaming to a deleted name (any case) is refused with this text (re-add it instead to re-link). */
+export const NAME_DELETED = "That name was deleted. Add it again to restore it.";

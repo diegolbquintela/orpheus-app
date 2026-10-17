@@ -47,6 +47,8 @@ const audits = async () =>
     (r) => r.action,
   );
 
+/** #165: `deleted` / `labels` are pinned in report-deleted.server.test.ts; these #153 checks compare the rest. */
+const core = (j: { report: unknown; missing: unknown }) => ({ report: j.report, missing: j.missing });
 const line = (id: string) => ({
   id,
   name: id,
@@ -103,14 +105,14 @@ describe("#153 /api/personal-finance/report", () => {
   it("PFR-02 / PFR-03: nothing saved → null; PUT stores (canonical) and GET returns it with missing", async () => {
     let r = await rep("GET", "alice");
     assert.equal(r.headers.get("cache-control"), "no-store");
-    assert.deepEqual(await r.json(), { report: null, missing: [] });
+    assert.deepEqual(core(await r.json()), { report: null, missing: [] });
     assert.equal((await rec("PUT", "alice", { data: record })).status, 200);
     r = await rep("PUT", "alice", {
       report: { chart: report.chart, range: report.range, series: report.series },
     });
     assert.equal(r.status, 200);
-    assert.deepEqual(await r.json(), { report, missing: [1] });
-    assert.deepEqual(await (await rep("GET", "alice")).json(), { report, missing: [1] });
+    assert.deepEqual(core(await r.json()), { report, missing: [1] });
+    assert.deepEqual(core(await (await rep("GET", "alice")).json()), { report, missing: [1] });
     assert.equal((await row("alice"))?.[REPORT_KEY], JSON.stringify(report));
   });
 
@@ -121,7 +123,7 @@ describe("#153 /api/personal-finance/report", () => {
       chart: "bar",
     };
     assert.equal((await rep("PUT", "alice", { report: next })).status, 200);
-    assert.deepEqual(await (await rep("GET", "alice")).json(), { report: next, missing: [] });
+    assert.deepEqual(core(await (await rep("GET", "alice")).json()), { report: next, missing: [] });
     assert.equal((await rep("PUT", "alice", { report })).status, 200);
   });
 
@@ -164,7 +166,7 @@ describe("#153 /api/personal-finance/report", () => {
       [STORAGE_KEY]: JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }),
     };
     assert.equal((await rec("PUT", "alice", { data: changed })).status, 200);
-    assert.deepEqual(await (await rep("GET", "alice")).json(), { report, missing: [0, 1, 2] });
+    assert.deepEqual(core(await (await rep("GET", "alice")).json()), { report, missing: [0, 1, 2] });
     const r = await rec("PUT", "alice", { data: { ...changed, [REPORT_KEY]: "{}" } });
     assert.equal(r.status, 400);
     assert.match((await r.json()).error, /^Unknown name/);
@@ -172,7 +174,7 @@ describe("#153 /api/personal-finance/report", () => {
   });
 
   it("PFR-14: per person; a Read CFO saves their own; missing uses the owner's record; no grant 403", async () => {
-    assert.deepEqual(await (await rep("GET", "bob")).json(), { report: null, missing: [] });
+    assert.deepEqual(core(await (await rep("GET", "bob")).json()), { report: null, missing: [] });
     const mine: Report = {
       series: [
         { kind: "line", id: "q1" },
@@ -183,9 +185,9 @@ describe("#153 /api/personal-finance/report", () => {
     };
     const r = await rep("PUT", "bob", { report: mine });
     assert.equal(r.status, 200);
-    assert.deepEqual(await r.json(), { report: mine, missing: [1] });
-    assert.deepEqual(await (await rep("GET", "alice")).json(), { report, missing: [1] });
-    assert.deepEqual(await (await rep("GET", "bob")).json(), { report: mine, missing: [1] });
+    assert.deepEqual(core(await r.json()), { report: mine, missing: [1] });
+    assert.deepEqual(core(await (await rep("GET", "alice")).json()), { report, missing: [1] });
+    assert.deepEqual(core(await (await rep("GET", "bob")).json()), { report: mine, missing: [1] });
     // bob's own row holds only his report; the owner's record (what bob sees) is unchanged.
     assert.deepEqual(await row("bob"), { [REPORT_KEY]: JSON.stringify(mine) });
     assert.deepEqual((await (await rec("GET", "bob")).json()).data, record);
@@ -195,8 +197,8 @@ describe("#153 /api/personal-finance/report", () => {
 
   it("PFR-12: DELETE removes it; a row that only held the report goes; the owner's record stays", async () => {
     let r = await rep("DELETE", "bob");
-    assert.deepEqual(await r.json(), { report: null, missing: [] });
-    assert.deepEqual(await (await rep("GET", "bob")).json(), { report: null, missing: [] });
+    assert.deepEqual(core(await r.json()), { report: null, missing: [] });
+    assert.deepEqual(core(await (await rep("GET", "bob")).json()), { report: null, missing: [] });
     assert.equal(await row("bob"), null);
     r = await rep("DELETE", "alice");
     assert.equal(r.status, 200);
@@ -220,7 +222,7 @@ describe("#153 /api/personal-finance/report", () => {
   it("Q-X7: the owner's record DELETE (wipe) removes the owner's report too", async () => {
     assert.equal((await rep("PUT", "alice", { report })).status, 200);
     assert.equal((await rec("DELETE", "alice")).status, 200);
-    assert.deepEqual(await (await rep("GET", "alice")).json(), { report: null, missing: [] });
+    assert.deepEqual(core(await (await rep("GET", "alice")).json()), { report: null, missing: [] });
     // A report saved before any record: the record still reads as none yet.
     assert.equal((await rep("PUT", "alice", { report })).status, 200);
     assert.equal((await (await rec("GET", "alice")).json()).data, null);
@@ -235,9 +237,9 @@ describe("#153 /api/personal-finance/report", () => {
     });
     assert.deepEqual(bad, { ok: false, status: 400, error: "Invalid value.", field: "chart" });
     const saved = await saveReport(report, via("bob"));
-    assert.deepEqual(saved, { ok: true, report, missing: [1] });
-    assert.deepEqual(await loadReport(via("bob")), { report, missing: [1] });
+    assert.deepEqual(saved, { ok: true, report, missing: [1], deleted: [], labels: report.series.map((x) => x.id) });
+    assert.deepEqual(core(await loadReport(via("bob"))), { report, missing: [1] });
     assert.equal(await deleteReport(via("bob")), true);
-    assert.deepEqual(await loadReport(via("bob")), { report: null, missing: [] });
+    assert.deepEqual(core(await loadReport(via("bob"))), { report: null, missing: [] });
   });
 });

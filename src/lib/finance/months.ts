@@ -1,6 +1,6 @@
 import { type CurrencyCode, readHousehold } from "./currency.ts";
 import { type Rates, rateUsed, readRates } from "./equity.ts";
-import { asExpenses, type Expenses, grandTotals, type Line, readExpenses } from "./expenses.ts";
+import { asExpenses, type Expenses, grandTotals, type Line, type NameKind, readExpenses, stripName } from "./expenses.ts";
 import { asIncome, monthly, netIncomeYearly, type Person, readIncome } from "./income.ts";
 import { type Figures, type MonthKey } from "./overview.ts";
 
@@ -47,6 +47,9 @@ function asLines(value: unknown, shared: Expenses): MonthLines {
   const e = asExpenses({
     accounts: shared.accounts,
     categories: shared.categories,
+    // #165: earlier months keep deleted names on their lines.
+    deletedAccounts: shared.deletedAccounts,
+    deletedCategories: shared.deletedCategories,
     fixed: v.fixed,
     variable: v.variable,
   });
@@ -188,5 +191,34 @@ export function renameInMonths(months: Months, renames: readonly [string, string
     });
     out[k] = { ...m, fixed: m.fixed.map(swap), variable: m.variable.map(swap) };
   }
+  return out;
+}
+
+/** #165: a delete made on the shown month, applied on Save. */
+export type PendingDelete = { kind: NameKind; name: string; from: MonthKey };
+
+/**
+ * #165 (PFD-01..PFD-03, CFO condition 1): each delete strips its name from `from` and every LATER stored month only;
+ * a month before `from` is returned as the very same object (never rewritten). Amounts are untouched (condition 3).
+ */
+export function deleteInMonths(months: Months, deletes: readonly PendingDelete[]): Months {
+  if (!deletes.length) return months;
+  const out: Months = {};
+  for (const [k, m] of Object.entries(months)) {
+    let next = m;
+    for (const d of deletes) if (k >= d.from) next = stripName(next, d.kind, d.name);
+    out[k] = next;
+  }
+  return out;
+}
+
+/**
+ * #165 Q-Z7 (PFD-08): a copy (decision 5, or `Copy from current month`) into `key` drops names deleted on or before
+ * `key`, so a deleted name never reaches a month at or after its delete.
+ */
+export function withoutDeletedFor(lines: MonthLines, shared: Expenses, key: MonthKey): MonthLines {
+  let out = lines;
+  for (const d of shared.deletedAccounts ?? []) if (key >= d.from) out = stripName(out, "account", d.name);
+  for (const d of shared.deletedCategories ?? []) if (key >= d.from) out = stripName(out, "category", d.name);
   return out;
 }

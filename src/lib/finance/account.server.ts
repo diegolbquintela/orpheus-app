@@ -22,6 +22,8 @@ import { INVALID_VALUE, recordFieldError } from "./field-errors.ts";
 import {
   checkReport,
   missingSeries,
+  deletedSeries,
+  seriesLabels,
   parseReport,
   REPORT_KEY,
   REPORT_MAX_BYTES,
@@ -219,19 +221,26 @@ export async function handlePersonalFinanceReportRequest(request: Request, deps:
       );
     await writeOwnReport(db, viewer.id, reportText(checked.report));
     await auditFor(db, g.access, "pf.report_save");
+    const record = await readRecord(db, user.id);
     return dashboardJson({
       report: checked.report,
-      missing: missingSeries(checked.report, await readRecord(db, user.id)),
+      missing: missingSeries(checked.report, record),
+      deleted: deletedSeries(checked.report, record),
+      labels: seriesLabels(checked.report, record),
     });
   }
   if (method === "DELETE") {
     await deleteOwnReport(db, viewer.id);
     await auditFor(db, g.access, "pf.report_delete");
-    return dashboardJson({ report: null, missing: [] });
+    return dashboardJson({ report: null, missing: [], deleted: [], labels: [] });
   }
   const report = parseReport(await readOwnReport(db, viewer.id));
+  const record = report ? await readRecord(db, user.id) : null;
+  // #165 (PFD-05, PFD-06): `deleted` = series naming a deleted account / category still in history; `labels` their names.
   return dashboardJson({
     report,
-    missing: report ? missingSeries(report, await readRecord(db, user.id)) : [],
+    missing: report ? missingSeries(report, record) : [],
+    deleted: report ? deletedSeries(report, record) : [],
+    labels: report ? seriesLabels(report, record) : [],
   });
 }

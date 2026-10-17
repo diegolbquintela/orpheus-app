@@ -15,7 +15,10 @@ import { PersonalFinancePage } from "./expenses-page";
 import { loadAccountStore, loadLocalStore, type LoadStore } from "@/lib/finance/account-client";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
-import { handlePersonalFinanceRequest } from "@/lib/finance/account.server";
+import { handlePersonalFinanceReportRequest, handlePersonalFinanceRequest } from "@/lib/finance/account.server";
+import { lineFigures } from "@/lib/finance/months";
+import { PF_DELETE_UI } from "@/lib/finance/flags";
+import { seriesHistory } from "@/lib/finance/report";
 import { RecordStore } from "@/lib/finance/record";
 
 let root: Root | undefined;
@@ -2486,6 +2489,129 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+
+  it("#165 PFD-01..PFD-07 / PFD-13 (real path: page → account client → API → PGlite, CFO option A): deleting Travel / Amex while June is shown strips them from June and later months only; March is never rewritten; the report keeps Travel / Amex as (deleted) with March's data, not missing; totals and averages unchanged", async () => {
+    const pg = new PGlite();
+    const db = { query: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows };
+    const deps = {
+      env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
+      getUser: async () => ({ id: "alice", email: "alice@example.com" }),
+      getDb: async () => db,
+    };
+    await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');
+    for (const f of ["0010_personal_finance.sql", "0011_access.sql", "0012_audit.sql"])
+      await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, `file://${process.cwd()}/src/components/personal-finance/`), "utf8"));
+    await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', ["alice", "alice@example.com"]);
+    const L = (id: string, amount: string, category: string, account: string) => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+    const month = (travel: string) => ({ fixed: [L("rent", "1,000", "Home", "")], variable: [L("trip", travel, "Travel", "Amex")], people: [] });
+    const seeded = { "2026-03": month("200"), "2026-06": month("300"), "2026-08": month("350"), "2026-10": month("400") };
+    const record = {
+      [STORAGE_KEY]: JSON.stringify({ ...month("400"), people: undefined, accounts: ["Amex"], categories: ["Home", "Travel"] }),
+      [MONTHS_KEY]: JSON.stringify(seeded),
+    };
+    await pg.query("INSERT INTO personal_finance (user_id, data) VALUES ($1, $2::jsonb)", ["alice", JSON.stringify(record)]);
+    const report = { series: [{ kind: "category", id: "Travel" }, { kind: "account", id: "Amex" }, { kind: "category", id: "Home" }], range: { preset: "12m" }, chart: "line" };
+    const rep = (method: string, body?: unknown) =>
+      handlePersonalFinanceReportRequest(new Request("http://localhost/api/personal-finance/report", { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }), deps);
+    assert.equal((await rep("PUT", { report })).status, 200);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+      handlePersonalFinanceRequest(new Request(new URL(String(input), "http://localhost"), init), deps)) as typeof fetch;
+    const row = async () => JSON.parse((await pg.query<{ data: string }>("SELECT data::text AS data FROM personal_finance WHERE user_id = 'alice'")).rows[0].data) as Record<string, string>;
+    const figures = (el: HTMLElement) => ["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c));
+    const catRows = (el: HTMLElement) => qa(el, "pf-cat-name").map((r) => r.textContent);
+    const acctRows = (el: HTMLElement) => qa(el, "pf-acct-name").map((r) => r.textContent);
+    try {
+      container = dom.window.document.createElement("div");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadAccountStore} deleteUi />));
+      await act(async () => new Promise((r) => setTimeout(r, 50)));
+      const el = container;
+      const before = { figures: figures(el), lines: lineFigures(new RecordStore(await row())) };
+      const marchBefore = JSON.stringify(JSON.parse((await row())[MONTHS_KEY])["2026-03"]);
+      await pick(el, "2026-06");
+      confirm.asked = [];
+      await type(q(el, "pf-filter"), "Travel");
+      await click(q(el, "pf-delete-category"));
+      await type(q(el, "pf-acct-filter"), "Amex");
+      await click(q(el, "pf-delete-account"));
+      assert.deepEqual(confirm.asked, [
+        "Delete Travel? This month and later months lose it; earlier months keep it, marked (deleted).",
+        "Delete Amex? This month and later months lose it; earlier months keep it, marked (deleted).",
+      ]);
+      assert.deepEqual([...(q(el, "pf-filter") as HTMLSelectElement).options].map((o) => o.value), ["", "Home"], "Travel no longer offered");
+      assert.equal(((q(lines(el, "variable")[0], "pf-category")) as HTMLSelectElement).value, "", "June's line lost Travel on screen");
+      // PFD-13: unsaved until Save: Save shows, the database is unchanged.
+      assert.ok(el.querySelector('[data-testid="pf-month-save"]'), "Save shows");
+      assert.equal(JSON.parse((await row())[MONTHS_KEY])["2026-06"].variable[0].category, "Travel", "nothing stored before Save");
+      await saveNow();
+      await act(async () => new Promise((r) => setTimeout(r, 50)));
+      const stored = await row();
+      const months = JSON.parse(stored[MONTHS_KEY]);
+      // Condition 1: June and later lose it; March (before June) is byte-for-byte as it was.
+      assert.equal(JSON.stringify(months["2026-03"]), marchBefore, "PFD-02: an earlier month is never rewritten");
+      for (const k of ["2026-06", "2026-08", "2026-10"]) {
+        assert.equal(months[k].variable[0].category, "", `${k} lost Travel`);
+        assert.equal(months[k].variable[0].account, "", `${k} lost Amex`);
+        assert.equal(months[k].variable[0].amount, seeded[k as keyof typeof seeded].variable[0].amount, "amount kept");
+      }
+      const shared = JSON.parse(stored[STORAGE_KEY]);
+      assert.deepEqual([shared.categories, shared.deletedCategories, shared.accounts, shared.deletedAccounts], [["Home"], [{ name: "Travel", from: "2026-06" }], [], [{ name: "Amex", from: "2026-06" }]]);
+      // Condition 3: every month's totals, and the Overview figures, unchanged.
+      assert.deepEqual(lineFigures(new RecordStore(stored)), before.lines, "PFD-07: totals unchanged");
+      assert.deepEqual(figures(el), before.figures, "PFD-07: averages unchanged");
+      // Condition 2: the report keeps Travel / Amex, labelled, with March's data; not missing.
+      const got = await (await rep("GET")).json();
+      assert.deepEqual([got.missing, got.deleted, got.labels], [[], [0, 1], ["Travel (deleted)", "Amex (deleted)", "Home"]]);
+      const hist = seriesHistory(report as never, stored);
+      assert.deepEqual(hist[0], { "2026-03": 200 }, "PFD-05: Travel's past data");
+      assert.deepEqual(hist[1], { "2026-03": 200 }, "PFD-05: Amex's past data");
+      // March on screen: its line keeps Travel / Amex, labelled; the summary rows say (deleted); not offered elsewhere.
+      await pick(el, "2026-03");
+      const cat = q(lines(el, "variable")[0], "pf-category") as HTMLSelectElement;
+      assert.equal(cat.value, "Travel");
+      assert.equal(cat.selectedOptions[0].textContent, "Travel (deleted)");
+      assert.equal(([...(q(lines(el, "fixed")[0], "pf-category") as HTMLSelectElement).options]).some((o) => o.value === "Travel"), false, "PFD-03: not offered for another line");
+      assert.ok(catRows(el).includes("Travel (deleted)"), JSON.stringify(catRows(el)));
+      assert.ok(acctRows(el).includes("Amex (deleted)"), JSON.stringify(acctRows(el)));
+      // October (after June) on screen: no Travel anywhere.
+      await pick(el, "2026-10");
+      assert.equal(catRows(el).some((r) => r?.startsWith("Travel")), false);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it("#165 PFD-15 (PF_DELETE_UI): flag off → no Delete buttons, no confirm; existing deleted data still reads back and shows `(deleted)`; the default follows the constant", async () => {
+    const L = (id: string, amount: string, category: string, account: string) => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: ["Chase"], categories: ["Home"], deletedCategories: [{ name: "Travel", from: "2026-06" }], deletedAccounts: [{ name: "Amex", from: "2026-06" }] }));
+    dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ "2026-03": { fixed: [L("t", "200", "Travel", "Amex")], variable: [], people: [] }, "2026-10": { fixed: [L("h", "100", "Home", "Chase")], variable: [], people: [] } }));
+    for (const deleteUi of [false, true]) {
+      container = dom.window.document.createElement("div");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadLocalStore} deleteUi={deleteUi} />));
+      const el = container;
+      assert.equal(qa(el, "pf-delete-category").length, deleteUi ? 1 : 0, `Delete category with deleteUi=${deleteUi}`);
+      assert.equal(qa(el, "pf-delete-account").length, deleteUi ? 1 : 0, `Delete account with deleteUi=${deleteUi}`);
+      assert.equal(el.textContent!.includes("This month and later months lose it"), false, "no confirm text on the page");
+      if (!deleteUi) assert.equal(el.textContent!.includes("Delete category") || el.textContent!.includes("Delete account"), false);
+      // The KEEP protection is independent of the flag: March reads Travel / Amex back, labelled.
+      await pick(el, "2026-03");
+      const cat = q(lines(el, "fixed")[0], "pf-category") as HTMLSelectElement;
+      assert.deepEqual([cat.value, cat.selectedOptions[0].textContent], ["Travel", "Travel (deleted)"]);
+      const acct = q(lines(el, "fixed")[0], "pf-account") as HTMLSelectElement;
+      assert.equal(acct.selectedOptions[0].textContent, "Amex (deleted)");
+      assert.ok(qa(el, "pf-cat-name").some((n) => n.textContent === "Travel (deleted)"));
+      await act(async () => root!.unmount());
+      container.remove();
+      root = undefined;
+      container = undefined;
+    }
+    const el = await render();
+    assert.equal(qa(el, "pf-delete-category").length, PF_DELETE_UI ? 1 : 0, `the default follows PF_DELETE_UI (${PF_DELETE_UI})`);
   });
 
   it("PFM-10 / PFM-19: read-only opens any month (an empty past one blank, no copy button), never Save", async () => {

@@ -66,3 +66,6 @@ node qa/tools/full.mjs --base-url https://<preview>.vercel.app --out /tmp/qa-ful
 QA_BASE_URL=https://<preview>.vercel.app node qa/tools/pr3.mjs
 python3 qa/tools/fetch.py --base-url https://<preview>.vercel.app --out /tmp/orpheus-fetch --tickers PLTR,TQQQ
 ```
+
+| `pf-months.mjs` (#165, 2026-10-16) | PFD-01..PFD-04 / PFD-12 signed in. On June 2026, `Delete category` (Travel) and `Delete account` (Amex), then Save. March 2026 is stored unchanged and shows `Travel (deleted)` / `Amex (deleted)`. June and October lose them, and Travel isn't offered for another line. PF-58 also checks a Year-only data → data change (March 2025 ⇄ March 2026, strict 0). `pf-report-api.mjs` compares `{ report, missing }` (the body also carries `deleted` / `labels`). The texts are in `pf-helpers.mjs`. |
+| `pf-months.mjs` (#165 PFD-15, 2026-10-16) | When the preview has no Delete buttons (`PF_DELETE_UI = false`, the protection-only branch), the PFD Delete flow is SKIPPED with an `INFO … SKIPPED` reason. It then checks the protection on a record that already has deleted names: `(deleted)` labels show, and there are no buttons or confirm text. |
