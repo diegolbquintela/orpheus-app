@@ -1006,3 +1006,24 @@ Backend only. Design and Q-calls: `attachments/pf-export-design.md` (Q-AD1..Q-AD
 **Note (2026-10-17): PFX-04 is reserved and unused.** The gap comes from the first draft: PFX-04 was never defined in the spec, the AC list or the tests. The draft skipped it, and HEAD, its likely intent, was later written as PFX-15. No behaviour is missing: PFX-01..PFX-19 cover the whole spec section 39, and the tests have no PFX-04. It stays reserved so the other IDs keep their numbers.
 
 **Note (2026-10-17): the PNG prints exact case.** The PNG's built-in font now has lowercase and all printable ASCII, so the PNG prints the header lines (and the 36.11 caveat) with exact case and punctuation (QA run 2026-10-17 F3). Tests pin each glyph.
+
+## Personal Finance chart report API contract (#158, spec section 40; added 2026-10-17)
+
+Backend only, no wire change. Contract: `attachments/pf-charts-api-contract.md` (single source of truth). PGlite real-path tests: `src/lib/finance/charts-api.server.test.ts` (TZ=UTC and TZ=America/Los_Angeles). Live check: `qa/tools/pf-charts-contract.mjs` (signed out, GET / HEAD only, calls the prod guard; with `QA_EMAIL` / `QA_PASSWORD` it adds read-only signed-in shape checks on a preview).
+
+| ID | Severity | Check |
+|---|---|---|
+| PFAPI-01 | BLOCK | Signed out: R3 GET/HEAD, R4 GET, R5 GET → 401 `{ error: "Unauthorized." }`, JSON, `no-store`, `X-Robots-Tag`. |
+| PFAPI-02 | BLOCK | Wrong method → 405 `Method not allowed.` with the contract's `Allow` for every route (R1 `POST`; R2 `POST`; R3 `GET, HEAD, POST`; R4 `GET, HEAD, PUT, DELETE`; R5 `GET, HEAD`; L1 `GET, HEAD, PUT, DELETE`). |
+| PFAPI-03 | MAJOR | Every response on a preview carries `X-Orpheus-Env: preview` (Q-AE13). |
+| PFAPI-04 | BLOCK | E2E chain through the real handlers and the typed client: create (201) → chart `{ saved: true, id }` (source `saved`) → export pdf and png (200, a valid file, one `pf.report_export` row each) → update → chart shows the new values → delete → chart, export and GET all 404. |
+| PFAPI-05 | BLOCK | Export bytes embed exactly the chart data from the same step (before and after the update). |
+| PFAPI-06 | BLOCK | Audit rows across the chain are exactly `pf.report_save`, `pf.report_export` ×2, `pf.report_save`, `pf.report_delete`; no row for a read, a 404 or HEAD. |
+| PFAPI-07 | MAJOR | Typed client error shape: every refusal returns `{ ok: false, status, code, error, field? }`, with the code from the contract table (401 `unauthorized`, 405 `method_not_allowed`, 400 `invalid` + field, 409 `name_taken` / `limit`, 413 `too_large`, 404 `not_found` for both `Report not found.` and `No saved report.`). |
+| PFAPI-08 | MAJOR | The client sends exactly what the routes accept (paths, methods, `content-type`, bodies). A client call and a raw request get byte-identical responses. |
+| PFAPI-09 | MAJOR | Contract drift guard: every route, its Allow list, every limit constant and every message in the doc match the code. |
+| PFAPI-10 | MINOR | HEAD on R3, R4 and R5 = GET status and headers; R5 HEAD has no body and writes no audit row. |
+| PFAPI-11 | MAJOR | Q-AE1 / Q-AE2 as documented: `/chart` unknown id 404 `No saved report.`; malformed id 400 `query`; R4 / R5 malformed 404. |
+| PFAPI-12 | MINOR | Wire unchanged: `git diff f08a0c8 -- src/routes` is empty, and every existing PF API test passes unchanged. |
+| PFAPI-13 | MINOR | Cross-user: bob (Read CFO) can't chart, export or GET alice's id (404 via the client). |
+| PFAPI-14 | MAJOR | Spec 39.13: zero `/api/auth/` requests reach the server in signed-out prod mode. PF-34's mocked sign-in attempts are answered in the browser and don't count. |
