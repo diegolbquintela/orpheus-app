@@ -30,6 +30,7 @@ import {
   reportText,
 } from "./report.ts";
 import { householdMonth } from "./overview.ts";
+import { CHART_MAX_BYTES, chartData, chartQueryError, fromReport, NO_SAVED_REPORT, type ChartQuery } from "./chart.ts";
 import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
@@ -278,4 +279,43 @@ export async function handlePersonalFinanceSeriesRequest(
   if (e) return dashboardJson(e.field ? { error: e.error, field: e.field } : { error: e.error }, e.status);
   const record = await readRecord(g.db, g.user.id);
   return dashboardJson(seriesValues(body as SeriesQuery, record, at));
+}
+
+export const PF_CHART_ALLOW = ["POST"] as const;
+
+/**
+ * `POST /api/personal-finance/chart` (#155; spec section 37, PFC-01..PFC-16): several series aligned for one chart.
+ * Body `{ series, range, chart }` or `{ saved: true }` (the signed-in person's own saved report, #153). Same gate as
+ * the series / report APIs; the data is the owner's record. Read-only, not audited. 404 `No saved report.` when
+ * `saved` and none is stored.
+ */
+export async function handlePersonalFinanceChartRequest(
+  request: Request,
+  deps: DashboardApiDeps,
+  now: () => Date = () => new Date(),
+) {
+  const g = await gateDashboardRequest(request, PF_CHART_ALLOW, deps, {
+    surface: "personal_finance",
+    need: "read",
+  });
+  if ("response" in g) return g.response;
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > CHART_MAX_BYTES)
+    return dashboardJson({ error: "Query too large." }, 413);
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return badRequest("Body must be JSON.");
+  }
+  const at = now();
+  const e = chartQueryError(body, householdMonth(at));
+  if (e) return dashboardJson(e.field ? { error: e.error, field: e.field } : { error: e.error }, e.status);
+  const q = body as ChartQuery;
+  if ("saved" in q) {
+    const report = parseReport(await readOwnReport(g.db, g.viewer.id));
+    if (!report) return dashboardJson({ error: NO_SAVED_REPORT }, 404);
+    return dashboardJson(chartData(fromReport(report), await readRecord(g.db, g.user.id), at, "saved"));
+  }
+  return dashboardJson(chartData(q, await readRecord(g.db, g.user.id), at));
 }

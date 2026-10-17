@@ -920,3 +920,28 @@ Backend only. Design and CFO calls: `attachments/pf-series-design.md` (Q-AA1..Q-
 | PFS-20 | MAJOR | Q-AA10: `net_assets_from` is the first month with data; months before it are null; that month = Starting net assets + its surplus. |
 
 > **Addendum (2026-10-17, #154):** Q-AA10 = (a) accepted (spec 36.11). PFS-20 checks the anchor as built; the absolute `net-assets` level carries the spec 36.11 caveat (shape right, level not trustworthy until an as-of month is stored).
+
+> **Addendum (2026-10-17, #155, QA #169 nit b, PFS-20):** PFS-20 checks the anchor as built. The spec 36.11 caveat, verbatim: 'Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).'
+
+## Personal Finance multi-series chart data (#155, spec section 37)
+
+Backend only. Design and Q-calls: `attachments/pf-chart-data-design.md` (Q-AB1..Q-AB8). PGlite real-path tests: `src/lib/finance/chart.server.test.ts` (TZ=UTC and TZ=America/Los_Angeles). Signed-in checks: `qa/tools/pf-chart-api.mjs` (read-only; `QA_EMAIL` / `QA_PASSWORD`; optional CFO and 'none' logins). Signed out, it checks PFC-01 only.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFC-01 | BLOCK | Flag off 404; signed out 401; GET / PUT 405; no Personal Finance grant 403. |
+| PFC-02 | BLOCK | Several series share one month axis: `rows`, `labels` and every `values` have one entry per month; `rows[i].values[j]` = `series[j].values[i]`. |
+| PFC-03 | BLOCK | #154 conventions: `fx_basis: "current"`, `net_assets_from`, and values identical to `/series` for the same query (net assets anchored as spec 36.9 / 36.11). |
+| PFC-04 | MAJOR | Q-AB2: `axis` is `level` for `net-assets`, `flow` for all other series. |
+| PFC-05 | BLOCK | Q-AB3: `stacked-bar` stacks only lines, accounts, categories, `fixed` and `variable`; never `all` or metrics; `line` / `bar` stack nothing. |
+| PFC-06 | BLOCK | #165: a deleted category keeps its history and `(deleted)` label; stacked parts add up to `all`. |
+| PFC-07 | MAJOR | Q-AB4: short month labels (`Oct 26`); the current month's row is `partial`. |
+| PFC-08 | MAJOR | Bad series kind / id or empty series → 400 with the #154 field. |
+| PFC-09 | MAJOR | Bad or missing `chart` → 400 `chart`. |
+| PFC-10 | MAJOR | Extra keys, `saved` not exactly `true`, or `saved` with other keys → 400 `query`; range before 2020-01 → 400 `range`. |
+| PFC-11 | MINOR | Above 4 KB → 413; not JSON → 400. |
+| PFC-12 | MAJOR | Q-AB5: `{ saved: true }` with no saved report → 404 `{ error: "No saved report." }`. |
+| PFC-13 | BLOCK | Q-AB5: `{ saved: true }` charts the caller's own saved report (series, range, chart as saved; `source: "saved"`), equal to the same request sent directly. |
+| PFC-14 | BLOCK | A CFO with Read gets the same chart data as the owner. |
+| PFC-15 | MAJOR | A missing series keeps its column (all null) and does not shift the others. |
+| PFC-16 | BLOCK | Read-only: the owner's row and the audit log are unchanged. |
