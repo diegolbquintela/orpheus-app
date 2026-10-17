@@ -17,6 +17,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { handlePersonalFinanceReportRequest, handlePersonalFinanceRequest } from "@/lib/finance/account.server";
 import { lineFigures } from "@/lib/finance/months";
+import { PF_DELETE_UI } from "@/lib/finance/flags";
 import { seriesHistory } from "@/lib/finance/report";
 import { RecordStore } from "@/lib/finance/record";
 
@@ -2525,7 +2526,7 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       container = dom.window.document.createElement("div");
       dom.window.document.body.appendChild(container);
       root = createRoot(container);
-      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadAccountStore} />));
+      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadAccountStore} deleteUi />));
       await act(async () => new Promise((r) => setTimeout(r, 50)));
       const el = container;
       const before = { figures: figures(el), lines: lineFigures(new RecordStore(await row())) };
@@ -2581,6 +2582,36 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+
+  it("#165 PFD-15 (PF_DELETE_UI): flag off → no Delete buttons, no confirm; existing deleted data still reads back and shows `(deleted)`; the default follows the constant", async () => {
+    const L = (id: string, amount: string, category: string, account: string) => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: ["Chase"], categories: ["Home"], deletedCategories: [{ name: "Travel", from: "2026-06" }], deletedAccounts: [{ name: "Amex", from: "2026-06" }] }));
+    dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ "2026-03": { fixed: [L("t", "200", "Travel", "Amex")], variable: [], people: [] }, "2026-10": { fixed: [L("h", "100", "Home", "Chase")], variable: [], people: [] } }));
+    for (const deleteUi of [false, true]) {
+      container = dom.window.document.createElement("div");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadLocalStore} deleteUi={deleteUi} />));
+      const el = container;
+      assert.equal(qa(el, "pf-delete-category").length, deleteUi ? 1 : 0, `Delete category with deleteUi=${deleteUi}`);
+      assert.equal(qa(el, "pf-delete-account").length, deleteUi ? 1 : 0, `Delete account with deleteUi=${deleteUi}`);
+      assert.equal(el.textContent!.includes("This month and later months lose it"), false, "no confirm text on the page");
+      if (!deleteUi) assert.equal(el.textContent!.includes("Delete category") || el.textContent!.includes("Delete account"), false);
+      // The KEEP protection is independent of the flag: March reads Travel / Amex back, labelled.
+      await pick(el, "2026-03");
+      const cat = q(lines(el, "fixed")[0], "pf-category") as HTMLSelectElement;
+      assert.deepEqual([cat.value, cat.selectedOptions[0].textContent], ["Travel", "Travel (deleted)"]);
+      const acct = q(lines(el, "fixed")[0], "pf-account") as HTMLSelectElement;
+      assert.equal(acct.selectedOptions[0].textContent, "Amex (deleted)");
+      assert.ok(qa(el, "pf-cat-name").some((n) => n.textContent === "Travel (deleted)"));
+      await act(async () => root!.unmount());
+      container.remove();
+      root = undefined;
+      container = undefined;
+    }
+    const el = await render();
+    assert.equal(qa(el, "pf-delete-category").length, PF_DELETE_UI ? 1 : 0, `the default follows PF_DELETE_UI (${PF_DELETE_UI})`);
   });
 
   it("PFM-10 / PFM-19: read-only opens any month (an empty past one blank, no copy button), never Save", async () => {

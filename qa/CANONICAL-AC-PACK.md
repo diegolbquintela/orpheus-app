@@ -885,3 +885,4 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 | PFD-12 | MINOR | QA tools: the texts `Delete category`, `Delete account`, ` (deleted)`, the question and `That name was deleted. Add it again to restore it.` are in `pf-helpers.mjs`; `pf-months.mjs` checks PFD-01..PFD-04 signed in. |
 | PFD-13 | BLOCK | A delete is unsaved until Save: Save shows, nothing is stored or sent before it. |
 | PFD-14 | MINOR | A deleted name that no stored line holds any more is in `missing` as before (Q-Z8). |
+| PFD-15 | BLOCK | (2026-10-16, Diego's call pending) `PF_DELETE_UI` (one constant in `src/lib/finance/flags.ts`). `true`: PFD-01..PFD-14 as written. `false`: no Delete buttons and no confirm text; a record that already has deleted names still shows `<name> (deleted)` on earlier months, and the report returns `deleted` / `labels`. pf-months skips the Delete flow with a printed reason and checks this instead. |

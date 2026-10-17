@@ -257,27 +257,48 @@ try {
       await ready(page);
       const march65 = JSON.stringify(JSON.parse((await stored())[MONTHS_KEY])["2026-03"]);
       await pickMonth(page, "2026-06");
-      const asked65 = [];
-      const onDialog165 = (d) => { asked65.push(d.message()); d.accept(); };
-      page.on("dialog", onDialog165);
-      const texts65 = [await txt(page.getByTestId("pf-delete-category")), await txt(page.getByTestId("pf-delete-account"))];
-      await page.getByTestId("pf-filter").selectOption("Travel");
-      await page.getByTestId("pf-delete-category").click();
-      await page.getByTestId("pf-acct-filter").selectOption("Amex");
-      await page.getByTestId("pf-delete-account").click();
-      await save.click();
-      await page.waitForTimeout(1200);
-      page.off("dialog", onDialog165);
-      const m65 = JSON.parse((await stored())[MONTHS_KEY]);
-      await pickMonth(page, "2026-03");
-      const marchView = await page.evaluate(() => {
-        const sel = document.querySelector("[data-testid=pf-group-variable] [data-testid=pf-line] [data-testid=pf-category]");
-        const other = document.querySelector("[data-testid=pf-group-fixed] [data-testid=pf-line] [data-testid=pf-category]");
-        return { line: sel?.selectedOptions[0]?.textContent, otherOffers: [...(other?.options ?? [])].some((o) => o.value === "Travel"), rows: [...document.querySelectorAll("[data-testid=pf-cat-name], [data-testid=pf-acct-name]")].map((e) => e.textContent.trim()) };
-      });
-      check(`${tag} #165 PFD-01..PFD-04 / PFD-12 "${DELETE_CATEGORY}" / "${DELETE_ACCOUNT}" on June 2026 ask "${deleteNameQuestion("Travel")}"; after Save June and October lose Travel / Amex, March is stored unchanged and shows "Travel${DELETED_SUFFIX}" / "Amex${DELETED_SUFFIX}"; Travel is not offered for another line`,
-        JSON.stringify(texts65) === JSON.stringify([DELETE_CATEGORY, DELETE_ACCOUNT]) && JSON.stringify(asked65) === JSON.stringify([deleteNameQuestion("Travel"), deleteNameQuestion("Amex")]) && JSON.stringify(m65["2026-03"]) === march65 && m65["2026-06"].variable[0].category === "" && m65["2026-10"].variable[0].account === "" && marchView.line === `Travel${DELETED_SUFFIX}` && !marchView.otherOffers && marchView.rows.includes(`Travel${DELETED_SUFFIX}`) && marchView.rows.includes(`Amex${DELETED_SUFFIX}`),
-        { texts65, asked65, march: JSON.stringify(m65["2026-03"]) === march65, june: m65["2026-06"].variable[0], marchView });
+      const hasDeleteUi = (await page.getByTestId("pf-delete-category").count()) > 0;
+      if (hasDeleteUi) {
+        const asked65 = [];
+        const onDialog165 = (d) => { asked65.push(d.message()); d.accept(); };
+        page.on("dialog", onDialog165);
+        const texts65 = [await txt(page.getByTestId("pf-delete-category")), await txt(page.getByTestId("pf-delete-account"))];
+        await page.getByTestId("pf-filter").selectOption("Travel");
+        await page.getByTestId("pf-delete-category").click();
+        await page.getByTestId("pf-acct-filter").selectOption("Amex");
+        await page.getByTestId("pf-delete-account").click();
+        await save.click();
+        await page.waitForTimeout(1200);
+        page.off("dialog", onDialog165);
+        const m65 = JSON.parse((await stored())[MONTHS_KEY]);
+        await pickMonth(page, "2026-03");
+        const marchView = await page.evaluate(() => {
+          const sel = document.querySelector("[data-testid=pf-group-variable] [data-testid=pf-line] [data-testid=pf-category]");
+          const other = document.querySelector("[data-testid=pf-group-fixed] [data-testid=pf-line] [data-testid=pf-category]");
+          return { line: sel?.selectedOptions[0]?.textContent, otherOffers: [...(other?.options ?? [])].some((o) => o.value === "Travel"), rows: [...document.querySelectorAll("[data-testid=pf-cat-name], [data-testid=pf-acct-name]")].map((e) => e.textContent.trim()) };
+        });
+        check(`${tag} #165 PFD-01..PFD-04 / PFD-12 "${DELETE_CATEGORY}" / "${DELETE_ACCOUNT}" on June 2026 ask "${deleteNameQuestion("Travel")}"; after Save June and October lose Travel / Amex, March is stored unchanged and shows "Travel${DELETED_SUFFIX}" / "Amex${DELETED_SUFFIX}"; Travel is not offered for another line`,
+          JSON.stringify(texts65) === JSON.stringify([DELETE_CATEGORY, DELETE_ACCOUNT]) && JSON.stringify(asked65) === JSON.stringify([deleteNameQuestion("Travel"), deleteNameQuestion("Amex")]) && JSON.stringify(m65["2026-03"]) === march65 && m65["2026-06"].variable[0].category === "" && m65["2026-10"].variable[0].account === "" && marchView.line === `Travel${DELETED_SUFFIX}` && !marchView.otherOffers && marchView.rows.includes(`Travel${DELETED_SUFFIX}`) && marchView.rows.includes(`Amex${DELETED_SUFFIX}`),
+          { texts65, asked65, march: JSON.stringify(m65["2026-03"]) === march65, june: m65["2026-06"].variable[0], marchView });
+      } else {
+        // PF_DELETE_UI = false (branch fix/pf-keep-deleted-protection-only): the Delete flow can't run, so it's SKIPPED
+        // with this reason; the KEEP protection is still checked on a record that already has deleted names.
+        console.log(`INFO ${tag} #165 PFD-01 / PFD-13 Delete flow SKIPPED: no Delete buttons (PF_DELETE_UI = false, protection-only build)`);
+        await acct(page, base, "PUT", {
+          [KEY]: JSON.stringify({ fixed: [R58("o1", "1,000")], variable: [], accounts: [], categories: [], deletedCategories: [{ name: "Travel", from: "2026-06" }], deletedAccounts: [{ name: "Amex", from: "2026-06" }] }),
+          [MONTHS_KEY]: JSON.stringify({ "2026-03": M65("m", "200"), "2026-10": { fixed: [R58("or", "1,000")], variable: [], people: [] } }),
+        });
+        await page.reload({ waitUntil: "networkidle" });
+        await ready(page);
+        await pickMonth(page, "2026-03");
+        const view = await page.evaluate(() => ({
+          line: document.querySelector("[data-testid=pf-group-variable] [data-testid=pf-line] [data-testid=pf-category]")?.selectedOptions[0]?.textContent,
+          rows: [...document.querySelectorAll("[data-testid=pf-cat-name], [data-testid=pf-acct-name]")].map((e) => e.textContent.trim()),
+          buttons: document.querySelectorAll("[data-testid=pf-delete-category], [data-testid=pf-delete-account]").length,
+          confirmText: document.body.textContent.includes("This month and later months lose it"),
+        }));
+        check(`${tag} #165 PFD-15 protection-only (PF_DELETE_UI = false): no Delete buttons or confirm text; March with already-deleted Travel / Amex shows "Travel${DELETED_SUFFIX}" / "Amex${DELETED_SUFFIX}"`, view.buttons === 0 && !view.confirmText && view.line === `Travel${DELETED_SUFFIX}` && view.rows.includes(`Travel${DELETED_SUFFIX}`) && view.rows.includes(`Amex${DELETED_SUFFIX}`), view);
+      }
       check(`${tag} no page error; only /api/personal-finance besides auth`, errors.length === 0, errors);
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);

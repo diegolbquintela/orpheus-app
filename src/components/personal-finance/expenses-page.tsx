@@ -1,6 +1,7 @@
 import { Minus } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { fieldErrors, SAVE_BLOCKED } from "@/lib/finance/field-errors";
+import { PF_DELETE_UI } from "@/lib/finance/flags";
 import {
   ACCOUNT_MAX,
   ACCOUNTS_MAX,
@@ -139,7 +140,14 @@ export function PersonalFinancePage({
   now: fixedNow,
   loadStore = loadAccountStore,
   readOnly = false,
-}: { now?: Date; loadStore?: LoadStore; readOnly?: boolean } = {}) {
+  deleteUi = PF_DELETE_UI,
+}: {
+  now?: Date;
+  loadStore?: LoadStore;
+  readOnly?: boolean;
+  /** #165: the Delete UI (default: the `PF_DELETE_UI` constant; tests pass both values). */
+  deleteUi?: boolean;
+} = {}) {
   const [saveFailed, setSaveFailed] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -459,7 +467,7 @@ export function PersonalFinancePage({
                           setFilter(result.name);
                           return null;
                         }}
-                        onDelete={(kind, name) => {
+                        onDelete={!deleteUi ? null : (kind, name) => {
                           // #165 (PFD-01, Q-Z2): confirm, then the shown month loses it now; Save applies it onwards.
                           if (!month || !window.confirm(deleteNameQuestion(name))) return;
                           update((e) => deleteName(e, kind, name, month));
@@ -836,7 +844,7 @@ function CategoryFilter({
   readOnly = false,
 }: {
   /** #165 (PFD-01): delete the chosen account / category (a write: disabled for read-only). */
-  onDelete: (kind: NameKind, name: string) => void;
+  onDelete: ((kind: NameKind, name: string) => void) | null;
   /** #119 S7: read-only grantees filter, but `Rename` (a write) stays disabled. */
   readOnly?: boolean;
   categories: string[];
@@ -876,7 +884,7 @@ function CategoryFilter({
             </select>
           </div>
         ) : null}
-        {accounts.length > 0 ? (
+        {onDelete && accounts.length > 0 ? (
           <button
             type="button"
             className="pf-cancel pf-rename"
@@ -917,15 +925,17 @@ function CategoryFilter({
             >
               Rename
             </button>
-            <button
-              type="button"
-              className="pf-cancel pf-rename"
-              disabled={readOnly || value === ALL || renaming}
-              onClick={() => onDelete("category", value)}
-              data-testid="pf-delete-category"
-            >
-              {DELETE_CATEGORY}
-            </button>
+            {onDelete ? (
+              <button
+                type="button"
+                className="pf-cancel pf-rename"
+                disabled={readOnly || value === ALL || renaming}
+                onClick={() => onDelete("category", value)}
+                data-testid="pf-delete-category"
+              >
+                {DELETE_CATEGORY}
+              </button>
+            ) : null}
           </>
         ) : null}
       </div>
