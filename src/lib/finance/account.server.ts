@@ -53,6 +53,7 @@ import {
 } from "./reports.ts";
 import { buildPdf, buildPng, EXPORT_FORMATS, exportFilename, type ExportFormat } from "./export.ts";
 import { CHART_MAX_BYTES, chartData, chartQueryError, fromReport, NO_SAVED_REPORT, type ChartQuery } from "./chart.ts";
+import type { ReportItem } from "./charts-api.ts";
 import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
@@ -373,17 +374,8 @@ async function writeOwnNamed(db: Queryable, userId: string, list: Named[]): Prom
   await db.query("DELETE FROM personal_finance WHERE user_id = $1 AND data = '{}'::jsonb", [userId]);
 }
 
-type Item = {
-  id: string;
-  name: string;
-  default: boolean;
-  report: Report;
-  missing: number[];
-  deleted: number[];
-  labels: string[];
-  created_at: string | null;
-  updated_at: string | null;
-};
+/** #158: the shared response type (contract section 3); type-only. */
+type Item = ReportItem;
 
 const itemOf = (id: string, name: string, report: Report, record: PfRecord | null, created: string | null, updated: string | null): Item => ({
   id,
@@ -510,8 +502,9 @@ export const EXPORT_TYPES: Record<ExportFormat, string> = { pdf: "application/pd
  * `GET /api/personal-finance/reports/:id/export?format=pdf|png` (#157; spec section 39, PFX-01..PFX-18). One of the
  * caller's own reports (#156: `default` or a named id) as a PDF or PNG, made synchronously (Q-AD3). The numbers are
  * `chartData` for that report, exactly what `/chart { saved: true, id }` returns (Q-AD5). Same gate as the reports
- * API; another person's id or an unknown one 404 `Report not found.`; a bad format 400 `format`. Read-only, not
- * audited (Q-AD11), `no-store`.
+ * API; another person's id or an unknown one 404 `Report not found.`; a bad format 400 `format`. Read-only (stores
+ * nothing), `no-store`. #158: a successful GET IS audited (`pf.report_export`, PFX-17 / PFX-19 below; the earlier
+ * "not audited (Q-AD11)" was superseded by the CFO's second round).
  */
 export async function handlePersonalFinanceReportExportRequest(
   request: Request,
