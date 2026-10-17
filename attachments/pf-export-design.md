@@ -99,3 +99,14 @@ A production deployment's own unique URL looks like a preview by name; step 2 ca
   - 39.7 now reads: QA tools that sign in refuse production when credentials or `QA_WRITE` are set, and run signed out otherwise.
   - Tests: `scripts/qa-prod-guard.test.mjs` runs every sign-in tool against a faked network with zero real traffic, and asserts no sign-in or write requests.
 - This push is tooling only: `src/` is unchanged since 1219d4d. The PNG descenders nit was skipped (EL).
+
+## Child processes (2026-10-17, QA F8, EL option 1)
+
+- **Correction to 39.11 (QA F8, EL option 1, 2026-10-17):** 39.11 overclaimed. On a real no-credential prod run of `site-style-regression`, QA saw its child `signin-page.mjs` send 4 POSTs to `/api/auth/sign-in/email` (failed sign-ins with made-up addresses, 401). That child read no credential variable, and child processes did not inherit the fetch / browser backstop. Fixed (tooling only):
+  - A parent that resolves signed-out prod mode sets `ORPHEUS_QA_PROD_MODE=signed-out` in its env before spawning anything, so every child inherits it.
+  - `qa/tools/prod-guard.mjs` turns the backstop on at import in any process where the marker is set. `refuseIfProd` returns `{ signedOutProd: true }` whenever the marker is set, whatever the target.
+  - Every tool `site-style-regression` spawns now calls the guard: site-shell and personal-finance already did; home-page, calculator-page, saved-searches, signin-page and site.mjs now do. `scripts/release-smoke.mjs` (GET only) imports the guard, so the backstop applies to it.
+  - `signin-page.mjs` renders and checks the sign-in page but never submits on prod. It prints `INFO … failed sign-in submit SKIPPED (signed-out prod mode)` per viewport.
+  - Tests: `scripts/qa-prod-guard.test.mjs` runs site-style-regression and all its children on a faked network. It asserts no POST to `/api/auth/`, no non-GET / HEAD and no submit click, and that the marker is inherited and honoured. `scripts/qa-tools-session.test.mjs` fails any `qa/tools` file that can sign in or write without importing and calling the guard (two observe-only files are exempt, with reasons).
+  - 39.11 is accurate with this addition: in signed-out prod mode, no process in the run (parent or child) signs in or writes.
+- Tooling only: `git diff --stat 1ecd113 -- src` is empty.

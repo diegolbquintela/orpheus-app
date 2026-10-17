@@ -18,6 +18,9 @@
  *
  * Exit code 0 when every check passes, 1 otherwise. Prints one line per check.
  */
+// #157 F8: inside a signed-out prod run (ORPHEUS_QA_PROD_MODE inherited) this activates the GET / HEAD-only backstop;
+// otherwise it does nothing. release-smoke only sends GETs.
+import "../qa/tools/prod-guard.mjs";
 const [base, mode] = process.argv.slice(2);
 if (!base || !["off", "on", "preview"].includes(mode)) {
   console.error("usage: node scripts/release-smoke.mjs <base-url> off|on|preview");

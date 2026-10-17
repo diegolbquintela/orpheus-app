@@ -51,6 +51,8 @@ export async function prodReason(baseUrl, fetchImpl = fetch) {
 }
 
 export const SIGNED_OUT_PROD_LINE = "signed-out prod mode (prod: signed-out only)";
+/** #157 F8: set by a parent in signed-out prod mode; inherited by every child process. */
+export const PROD_MODE_ENV = "ORPHEUS_QA_PROD_MODE";
 
 /**
  * Env vars that make a run "signed in or writing" (#157 F7, EL option 1): any non-empty sign-in variable the tools read
@@ -63,7 +65,7 @@ export function credentialVars(env = process.env) {
 }
 
 /** True once a tool entered signed-out prod mode (session.mjs and tools skip sign-in / writes on it). */
-export const signedOutProd = () => globalThis.__orpheusSignedOutProd === true;
+export const signedOutProd = () => globalThis.__orpheusSignedOutProd === true || process.env.ORPHEUS_QA_PROD_MODE === "signed-out";
 
 /**
  * #157 F7 (EL option 1, 2026-10-17). Same detection as before (static hosts; one HEAD / otherwise).
@@ -75,6 +77,12 @@ export const signedOutProd = () => globalThis.__orpheusSignedOutProd === true;
  *   and as a safety net `fetch` refuses any method other than GET / HEAD and any /api/auth/ path.
  */
 export async function refuseIfProd(baseUrl, script, fetchImpl = fetch, env = process.env) {
+  // #157 F8: a child of a signed-out prod run inherits the mode (and honours it) whatever its own target or env.
+  if (env[PROD_MODE_ENV] === "signed-out") {
+    console.log(SIGNED_OUT_PROD_LINE);
+    await enterSignedOutProd();
+    return { signedOutProd: true };
+  }
   const why = await prodReason(baseUrl, fetchImpl);
   if (!why) return { signedOutProd: false };
   const creds = credentialVars(env);
@@ -83,6 +91,8 @@ export async function refuseIfProd(baseUrl, script, fetchImpl = fetch, env = pro
     process.exit(2);
   }
   console.log(SIGNED_OUT_PROD_LINE);
+  // #157 F8 (EL option 1): every child spawned from here on inherits the mode through the env marker.
+  process.env[PROD_MODE_ENV] = "signed-out";
   await enterSignedOutProd();
   return { signedOutProd: true };
 }
@@ -123,3 +133,7 @@ async function enterSignedOutProd() {
     // playwright not installed: nothing to wrap
   }
 }
+
+// #157 F8: any process that imports this module with the inherited marker set gets the fetch / browser backstop at
+// once, before its own code runs (a spawned child, even one that never calls refuseIfProd itself).
+if (process.env.ORPHEUS_QA_PROD_MODE === "signed-out") await enterSignedOutProd();

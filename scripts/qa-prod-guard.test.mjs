@@ -92,10 +92,49 @@ test("F7 (1): with no credentials, every sign-in tool runs signed out on the pro
     assert.doesNotMatch(r.out, /^REFUSED /m, t);
     assert.deepEqual(writesOrAuth(r.requests), [], `${t}: no sign-in, no write, no raw socket`);
     assert.doesNotMatch(r.out, /BLOCKED /, `${t}: skipped by mode, not caught by the safety net`);
-    assert.ok(r.requests.every((l) => l.startsWith("GET https://orpheus-app-beta.vercel.app/") || l.startsWith("HEAD https://orpheus-app-beta.vercel.app/")), `${t}: only GET / HEAD to the (faked) prod host: ${r.requests.join(" | ")}`);
+    assert.ok(r.requests.filter((l) => !l.startsWith("CLICK ")).every((l) => l.startsWith("GET https://orpheus-app-beta.vercel.app/") || l.startsWith("HEAD https://orpheus-app-beta.vercel.app/")), `${t}: only GET / HEAD to the (faked) prod host: ${r.requests.join(" | ")}`);
+    assert.deepEqual(r.requests.filter((l) => l.startsWith("CLICK") && /submit/.test(l)), [], `${t}: no form submit clicked`);
   }
   // the post-merge signed-out prod check: these really run (they make signed-out GETs)
   for (const t of ["site-shell.mjs", "site-style-regression.mjs", "personal-finance.mjs", "personal-finance-e2e.mjs"]) assert.ok(run(t, ["--base-url", PROD_ALIAS]).requests.some((l) => l.startsWith("GET ")), `${t} ran`);
+});
+
+test("F8: no credentials, prod alias: site-style-regression and every child it spawns (signin-page included) send no POST to /api/auth/, no non-GET / HEAD, no submit", () => {
+  const r = run("site-style-regression.mjs", ["--base-url", PROD_ALIAS]);
+  const outDir = /out (\S+)/.exec(r.out)?.[1];
+  assert.ok(outDir, r.out.slice(0, 300));
+  const childLog = (name) => readFileSync(join(outDir, `${name}.log`), "utf8");
+  for (const child of ["site-shell", "home-page", "calculator-page", "saved-searches", "signin-page", "personal-finance", "site"])
+    assert.ok(childLog(child).split("\n").includes(SIGNED_OUT_PROD_LINE), `${child} ran in signed-out prod mode (marker inherited)`);
+  assert.equal(childLog("signin-page").match(/failed sign-in submit SKIPPED \(signed-out prod mode\)/g)?.length, 4, "signin-page: the submit skipped on each of the 4 viewports");
+  assert.deepEqual(writesOrAuth(r.requests), [], "no POST / PUT / DELETE / PATCH, no /api/auth/, no raw socket in parent or children");
+  assert.deepEqual(r.requests.filter((l) => l.startsWith("CLICK") && /submit/.test(l)), [], "no form submit clicked");
+  assert.ok(r.requests.filter((l) => l.startsWith("GET ")).length > 50, "the parent and children really ran (GETs recorded)");
+  assert.doesNotMatch(`${r.out}${["signin-page", "site", "home-page"].map(childLog).join("")}`, /BLOCKED /, "skipped by mode, not caught by the backstop");
+});
+
+test("F8: the marker is inherited and honoured: a process with ORPHEUS_QA_PROD_MODE=signed-out is in the mode and blocks writes, whatever its target", () => {
+  const dir = mkdtempSync(join(tmpdir(), "prodguard-"));
+  const probe = join(dir, "probe.mjs");
+  writeFileSync(probe, [
+    `import { refuseIfProd, signedOutProd } from ${JSON.stringify(join(process.cwd(), "qa/tools/prod-guard.mjs"))};`,
+    "console.log('ACTIVE ' + signedOutProd());",
+    "const g = await refuseIfProd('http://localhost:9', 'probe');",
+    "console.log('GUARD ' + g.signedOutProd);",
+    "for (const [m, u] of [['POST', 'https://x.example/api/auth/sign-in/email'], ['GET', 'https://x.example/api/auth/get-session'], ['PUT', 'https://x.example/api/personal-finance'], ['GET', 'https://x.example/']]) {",
+    "  try { await fetch(u, { method: m }); console.log('SENT ' + m + ' ' + new URL(u).pathname); } catch (e) { console.log(String(e.message)); }",
+    "}",
+  ].join("\n"));
+  const log = join(dir, "requests.log");
+  writeFileSync(log, "");
+  const r = spawnSync(process.execPath, [probe], { encoding: "utf8", env: { PATH: process.env.PATH, FAKE_LOG: log, NODE_OPTIONS: `--import ${PRELOAD}`, ORPHEUS_QA_PROD_MODE: "signed-out" } });
+  const out = r.stdout.split("\n");
+  assert.ok(out.includes("ACTIVE true"), r.stdout + r.stderr);
+  assert.ok(out.includes(SIGNED_OUT_PROD_LINE) && out.includes("GUARD true"), r.stdout);
+  for (const b of ["BLOCKED POST /api/auth/sign-in/email (signed-out prod mode)", "BLOCKED GET /api/auth/get-session (signed-out prod mode)", "BLOCKED PUT /api/personal-finance (signed-out prod mode)", "SENT GET /"]) assert.ok(out.includes(b), `${b}\n${r.stdout}`);
+  assert.deepEqual(readFileSync(log, "utf8").split("\n").filter(Boolean), ["GET https://x.example/"]);
+  // and a parent in the mode sets the marker for its children (checked by the site-style-regression test above)
+  assert.match(readFileSync("qa/tools/prod-guard.mjs", "utf8"), /process\.env\[PROD_MODE_ENV\] = "signed-out";/);
 });
 
 test("the mode line is pinned", () => assert.equal(SIGNED_OUT_PROD_LINE, "signed-out prod mode (prod: signed-out only)"));

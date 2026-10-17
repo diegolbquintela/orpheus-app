@@ -113,4 +113,28 @@ describe("QA N4: qa/tools sessions always sign out", () => {
     assert.doesNotMatch(src, /\/api\/auth\/sign-(in|out)|process\.env\.QA_PASSWORD|eachViewport/);
     assert.doesNotMatch(src, /\.fill\(|\.click\(|method: "(POST|PUT|PATCH|DELETE)"/, "its own checks are read-only");
   });
+
+  it("#157 F8: every qa/tools file that can POST to /api/auth/ or send a non-GET request imports and calls the prod guard (or honours the marker)", () => {
+    const dir = join(import.meta.dirname, "..", "qa", "tools");
+    const risky = /api\\?\/auth|method: ["'](POST|PUT|DELETE|PATCH)["']|["'](POST|PUT|DELETE|PATCH)["']|\.(post|put|delete|patch)\(|type=submit/;
+    // Exempt after review, each re-checked below: pf-helpers.mjs only OBSERVES the page's PUTs (q.method() === "PUT") and
+    // is imported by guarded tools; sidebyside.mjs only measures the submit button (boundingBox), never clicks it.
+    const EXEMPT = { "pf-helpers.mjs": /q\.method\(\) === "PUT"/, "sidebyside.mjs": /button\[type=submit\]/ };
+    for (const [f, why] of Object.entries(EXEMPT)) {
+      const src = readFileSync(join(dir, f), "utf8");
+      assert.match(src, why, f);
+      assert.doesNotMatch(src, /method:\s*["'](POST|PUT|DELETE|PATCH)|\.(post|put|delete|patch)\(|type=submit[^\n;]*\.click\(|api\/auth\//, `${f} still only observes / measures`);
+    }
+    const files = readdirSync(dir).filter((f) => f.endsWith(".mjs") && f !== "prod-guard.mjs" && !(f in EXEMPT));
+    const flagged = files.filter((f) => risky.test(readFileSync(join(dir, f), "utf8")));
+    assert.ok(flagged.includes("signin-page.mjs") && flagged.includes("session.mjs") && flagged.length >= 15, flagged.join(" "));
+    const bad = flagged.filter((f) => {
+      const src = readFileSync(join(dir, f), "utf8");
+      const imports = /from "\.\/prod-guard\.mjs";/.test(src);
+      const calls = /await refuseIfProd\(/.test(src);
+      const honours = /signedOutProd\(\)/.test(src);
+      return !(imports && (calls || honours));
+    });
+    assert.deepEqual(bad, [], "these can write or sign in but don't use the guard");
+  });
 });

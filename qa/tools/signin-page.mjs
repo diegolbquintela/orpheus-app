@@ -22,8 +22,11 @@ import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 
 const CFG = qaConfig(import.meta.url);
+// #157 F8 (EL option 1): the prod guard in every tool site-style-regression spawns (signed-out prod mode on prod).
+const GUARD = await refuseIfProd(CFG.baseUrl, "signin-page");
 const base = CFG.baseUrl;
 const R = { base, checks: [], shots: [] };
 const check = (name, ok, detail) => {
@@ -246,7 +249,11 @@ try {
       await page.screenshot({ path: shot, fullPage: true });
       R.shots.push(shot);
 
-      // One failed sign-in (made-up address; never sign-up).
+      // One failed sign-in (made-up address; never sign-up). #157 F8: never submitted on production.
+      if (GUARD.signedOutProd) {
+        console.log(`INFO ${tag} failed sign-in submit SKIPPED (signed-out prod mode): ST5b-02 error line, ST5b-03 sign-in calls, AA with the error line not checked`);
+        continue;
+      }
       await page.locator("input[type=email]").fill(`qa-nobody-${vp}@example.invalid`);
       await page.locator("input[type=password]").fill("not-a-real-password-73");
       const resp = page.waitForResponse((r) => /\/api\/auth\/sign-in\/email$/.test(new URL(r.url()).pathname), { timeout: 15000 });

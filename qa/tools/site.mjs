@@ -7,7 +7,10 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import { qaConfig } from "./config.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 const CFG = qaConfig(import.meta.url);
+// #157 F8 (EL option 1): the prod guard in every tool site-style-regression spawns (signed-out prod mode on prod).
+await refuseIfProd(CFG.baseUrl, "site");
 const base = CFG.baseUrl;
 const OUT = CFG.out;
 const R = { base, checks: [] };
