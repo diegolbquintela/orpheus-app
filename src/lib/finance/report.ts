@@ -1,4 +1,6 @@
-import { ACCOUNT_MAX, CATEGORY_MAX, readExpenses } from "./expenses.ts";
+import { readHousehold } from "./currency.ts";
+import { rateUsed, readRates } from "./equity.ts";
+import { ACCOUNT_MAX, CATEGORY_MAX, deletedLabel, isDeleted, readExpenses, totalsOf } from "./expenses.ts";
 import { readMonths } from "./months.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 
@@ -149,4 +151,47 @@ export function missingSeries(report: Report, record: PfRecord | null): number[]
     if (!found) out.push(i);
   });
   return out;
+}
+
+/**
+ * #165 (PFD-05, PFD-06, CFO condition 2): indexes of `account` / `category` series naming a DELETED name that earlier
+ * months' lines still hold. They are not in `missing` (those lines find them); a client labels them `(deleted)`.
+ */
+export function deletedSeries(report: Report, record: PfRecord | null): number[] {
+  const store = new RecordStore(record ?? {});
+  const shared = readExpenses(store);
+  const missing = new Set(missingSeries(report, record));
+  const out: number[] = [];
+  report.series.forEach((s, i) => {
+    if ((s.kind === "account" || s.kind === "category") && !missing.has(i) && isDeleted(shared, s.kind, s.id)) out.push(i);
+  });
+  return out;
+}
+
+/** #165 Q-Z1 (PFD-06): each series' display name: its id, `<name> (deleted)` for a deleted account / category. */
+export function seriesLabels(report: Report, record: PfRecord | null): string[] {
+  const del = new Set(deletedSeries(report, record));
+  return report.series.map((s, i) => (del.has(i) ? deletedLabel(s.id) : s.id));
+}
+
+/**
+ * #165 (PFD-05, condition 2): an `account` / `category` series' monthly figure in each stored month that has lines
+ * with it (household currency, the record's Rate used), so a deleted name keeps returning its past data. Other kinds:
+ * an empty object (their figures come from the Overview).
+ */
+export function seriesHistory(report: Report, record: PfRecord | null): Record<string, number>[] {
+  const store = new RecordStore(record ?? {});
+  const months = readMonths(store);
+  const rate = rateUsed(readRates(store));
+  const household = readHousehold(store).household;
+  return report.series.map((s) => {
+    const out: Record<string, number> = {};
+    if (s.kind !== "account" && s.kind !== "category") return out;
+    for (const [k, m] of Object.entries(months).sort(([a], [b]) => (a < b ? -1 : 1))) {
+      const lines = [...m.fixed, ...m.variable].filter((l) => l[s.kind as "account" | "category"] === s.id);
+      const monthly = lines.length ? totalsOf(lines, rate, household).monthly : null;
+      if (monthly !== null) out[k] = monthly;
+    }
+    return out;
+  });
 }

@@ -7,7 +7,8 @@ import { type Report, type ReportError, reportError } from "./report.ts";
 export const REPORT_API = "/api/personal-finance/report";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
-export type Loaded = { report: Report | null; missing: number[] };
+/** #165: `deleted` = series naming a deleted account / category (shown with `labels`, `<name> (deleted)`). */
+export type Loaded = { report: Report | null; missing: number[]; deleted?: number[]; labels?: string[] };
 export type Saved =
   ({ ok: true } & Loaded) | { ok: false; status: number; error: string; field?: string };
 
@@ -31,7 +32,7 @@ export async function saveReport(report: Report, f: Fetch = fetch): Promise<Save
   };
   if (!r.ok)
     return { ok: false, status: r.status, error: body.error ?? "Not saved.", field: body.field };
-  return { ok: true, report: body.report ?? null, missing: body.missing ?? [] };
+  return { ok: true, report: body.report ?? null, missing: body.missing ?? [], deleted: body.deleted ?? [], labels: body.labels ?? [] };
 }
 
 export async function deleteReport(f: Fetch = fetch): Promise<boolean> {

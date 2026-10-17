@@ -864,3 +864,24 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 > **Note (2026-10-16, QA of e7a19fa):** PFM-11 includes the `Copy from current month` line. It is always rendered and hidden by visibility (not focusable, not in the a11y tree), so a month change has strict CLS 0 at 360/400/1024/1440. At 360 px Month, Year and Save stay on one row; this supersedes spec 19.4's phone wrap (personal-finance PF-32).
 
 > **Note (2026-10-16, EL ruling, QA of a936fab):** PFM-11 / PF-58 strict CLS is per month change. (1) A change between two months that both have data must be about 0 (measured 0.0000 at 360/400/1024/1440). (2) A change from a month with data to a blank month (and back) is exempt from strict CLS, because the lines and people really go. But Month, Year, the Save slot and the `Copy from current month` line must not move. Picking a month in another year by Year then Month passes through the same month of the new year; when that month is blank it counts as a data → blank change. This corrects the e7a19fa note above ("a month change has strict CLS 0").
+
+> **Note (2026-10-16, #165, QA nit on #164):** in the EL-ruling note above, "must be about 0" should read "must be 0" (strict). PF-58 now also checks a Year-only data → data change (March 2025 ⇄ March 2026).
+
+## #165 Deleting a category or account keeps past months (CFO option A KEEP; spec section 35)
+
+| ID | Severity | Check |
+|---|---|---|
+| PFD-01 | BLOCK | `Delete category` / `Delete account` beside `Rename` / `Filter by account` ask `Delete <name>? This month and later months lose it; earlier months keep it, marked (deleted).`; disabled for read-only and for `All`. |
+| PFD-02 | BLOCK | CFO condition 1: on Save the name is removed from the shown month and every later stored month; every earlier month's stored JSON is unchanged (never rewritten). |
+| PFD-03 | BLOCK | The deleted name is not offered for another line or in the filters (Q-Z3). |
+| PFD-04 | BLOCK | An earlier month's line shows `<name> (deleted)` in its select; `By category` / `By account` show `<name> (deleted)` rows. |
+| PFD-05 | BLOCK | CFO condition 2: a report series on the deleted name keeps its past monthly data and is not in `missing` while history holds lines. |
+| PFD-06 | BLOCK | Report GET / PUT carry `deleted` (series indexes) and `labels` (`<name> (deleted)` for those). |
+| PFD-07 | BLOCK | CFO condition 3: every month's totals and the Overview (This month, 3- and 12-month averages) are unchanged by a delete. |
+| PFD-08 | MAJOR | A copy (decision 5 / `Copy from current month`) into a month at or after the delete drops the name (Q-Z7). |
+| PFD-09 | MAJOR | Re-adding a deleted name (any case) re-links it with the deleted spelling; earlier history shows it plain again (Q-Z4). |
+| PFD-10 | MAJOR | Renaming a category to a deleted name is refused: `That name was deleted. Add it again to restore it.` (Q-Z6). |
+| PFD-11 | MINOR | Stored deleted entries are validated (month key, unique in any case, not also live); invalid ones are dropped. |
+| PFD-12 | MINOR | QA tools: the texts `Delete category`, `Delete account`, ` (deleted)`, the question and `That name was deleted. Add it again to restore it.` are in `pf-helpers.mjs`; `pf-months.mjs` checks PFD-01..PFD-04 signed in. |
+| PFD-13 | BLOCK | A delete is unsaved until Save: Save shows, nothing is stored or sent before it. |
+| PFD-14 | MINOR | A deleted name that no stored line holds any more is in `missing` as before (Q-Z8). |

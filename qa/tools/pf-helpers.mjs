@@ -137,3 +137,10 @@ export const blankMonth = (page) =>
   }));
 /** (#163 PFM-11: `texts` lists only visible controls; the copy line is always rendered, hidden by visibility.) What `blankMonth` reads on an empty past month for a writer (the current month has saved lines). */
 export const BLANK_PAST = { lines: 0, people: 0, note: "", save: 0, texts: ["Month", "Year", COPY_FROM_CURRENT] };
+
+// #165 (spec section 35, PFD-12): the visible texts of deleting a category / account (option A KEEP).
+export const DELETE_CATEGORY = "Delete category";
+export const DELETE_ACCOUNT = "Delete account";
+export const DELETED_SUFFIX = " (deleted)";
+export const deleteNameQuestion = (name) => `Delete ${name}? This month and later months lose it; earlier months keep it, marked (deleted).`;
+export const NAME_DELETED = "That name was deleted. Add it again to restore it.";

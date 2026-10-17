@@ -34,6 +34,13 @@ import {
   readExpenses,
   renameCategory,
   deleteQuestion,
+  deleteName,
+  deleteNameQuestion,
+  deletedLabel,
+  DELETE_ACCOUNT,
+  DELETE_CATEGORY,
+  type NameKind,
+  relinkName,
   UNNAMED_EXPENSE,
   type Totals,
   totalsOf,
@@ -82,6 +89,9 @@ import {
   DISCARD_CONFIRM,
   lineFigures,
   liveLineFigures,
+  deleteInMonths,
+  type PendingDelete,
+  withoutDeletedFor,
   migrateMonths,
   chosenMonth,
   COPY_FROM_CURRENT,
@@ -154,6 +164,8 @@ export function PersonalFinancePage({
   const [blocked, setBlocked] = useState(false);
   /** #113: category renames since the last save / month switch (applied to every stored month on Save). */
   const [renames, setRenames] = useState<[string, string][]>([]);
+  /** #165: category / account deletes made on the shown month (applied to it and later months on Save). */
+  const [deletes, setDeletes] = useState<PendingDelete[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -182,8 +194,10 @@ export function PersonalFinancePage({
     const store = storage();
     const shared = readExpenses(store);
     const opened = openMonth(readMonths(store), key, current, true);
-    const e = { ...shared, fixed: opened.lines.fixed, variable: opened.lines.variable };
-    const i = { people: opened.lines.people };
+    // #165 Q-Z7: a copy never carries a name deleted on or before this month.
+    const lines = opened.copiedFrom ? withoutDeletedFor(opened.lines, shared, key) : opened.lines;
+    const e = { ...shared, fixed: lines.fixed, variable: lines.variable };
+    const i = { people: lines.people };
     const r = readRates(store);
     const h = readHousehold(store);
     const o = readOverview(store);
@@ -195,6 +209,7 @@ export function PersonalFinancePage({
     setMonth(key);
     setCopiedFrom(opened.copiedFrom);
     setRenames([]);
+    setDeletes([]);
     setBlocked(false);
     setBaseline(canonical(e, i, r, h, o));
   }
@@ -215,9 +230,10 @@ export function PersonalFinancePage({
     !!(month && current && month !== current && copySource && expenses && income) &&
     expenses!.fixed.length + expenses!.variable.length + income!.people.length === 0;
   function copyCurrent() {
-    if (!canCopyCurrent || !copySource || !expenses || !current) return;
-    setExpenses({ ...expenses, fixed: copySource.fixed, variable: copySource.variable });
-    setIncome({ people: copySource.people });
+    if (!canCopyCurrent || !copySource || !expenses || !current || !month) return;
+    const lines = withoutDeletedFor(copySource, expenses, month);
+    setExpenses({ ...expenses, fixed: lines.fixed, variable: lines.variable });
+    setIncome({ people: lines.people });
     setCopiedFrom(current);
   }
 
@@ -287,7 +303,8 @@ export function PersonalFinancePage({
     }
     setBlocked(false);
     // #113 (PF-65): renames reach every month (read against the old list, before it is replaced).
-    const months = renameInMonths(readMonths(store), renames);
+    // #165 (PFD-01..PFD-03): deletes reach the shown month and later months only; earlier months are left as stored.
+    const months = deleteInMonths(renameInMonths(readMonths(store), renames), deletes);
     months[month] = { fixed: expenses.fixed, variable: expenses.variable, people: income.people };
     const legacy = { ...overview.months };
     delete legacy[month];
@@ -306,6 +323,7 @@ export function PersonalFinancePage({
     setOverview(nextOverview);
     setCopiedFrom(null);
     setRenames([]);
+    setDeletes([]);
     setBaseline(canonical(expenses, income, rates, household, nextOverview));
     setSaved((n) => n + 1);
   }
@@ -440,6 +458,14 @@ export function PersonalFinancePage({
                           if (result.name !== from) setRenames((r) => [...r, [from, result.name]]);
                           setFilter(result.name);
                           return null;
+                        }}
+                        onDelete={(kind, name) => {
+                          // #165 (PFD-01, Q-Z2): confirm, then the shown month loses it now; Save applies it onwards.
+                          if (!month || !window.confirm(deleteNameQuestion(name))) return;
+                          update((e) => deleteName(e, kind, name, month));
+                          setDeletes((d) => [...d, { kind, name, from: month }]);
+                          if (kind === "category") setFilter(ALL);
+                          else setAcctFilter(ALL);
                         }}
                       />
                       <Lock on={readOnly}>
@@ -735,26 +761,27 @@ function Groups({
                   onAddAccount={(typed) => {
                     const result = addAccount(expenses.accounts, typed);
                     if ("error" in result) return result.error;
-                    update((e) => ({
-                      ...e,
-                      accounts: result.accounts,
-                      [group.key]: e[group.key].map((l) =>
-                        l.id === line.id && result.name ? { ...l, account: result.name } : l,
-                      ),
-                    }));
+                    // #165 Q-Z4: re-adding a deleted name re-links it (its earlier history shows it plain again).
+                    update((e) => {
+                      const { expenses: r, name } = relinkName({ ...e, accounts: result.accounts }, "account", result.name);
+                      return {
+                        ...r,
+                        [group.key]: r[group.key].map((l) => (l.id === line.id && name ? { ...l, account: name } : l)),
+                      };
+                    });
                     setAdding(null);
                     return null;
                   }}
                   onAddCategory={(typed) => {
                     const result = addCategory(expenses.categories, typed);
                     if ("error" in result) return result.error;
-                    update((e) => ({
-                      ...e,
-                      categories: result.categories,
-                      [group.key]: e[group.key].map((l) =>
-                        l.id === line.id && result.name ? { ...l, category: result.name } : l,
-                      ),
-                    }));
+                    update((e) => {
+                      const { expenses: r, name } = relinkName({ ...e, categories: result.categories }, "category", result.name);
+                      return {
+                        ...r,
+                        [group.key]: r[group.key].map((l) => (l.id === line.id && name ? { ...l, category: name } : l)),
+                      };
+                    });
                     setAdding(null);
                     return null;
                   }}
@@ -802,11 +829,14 @@ function CategoryFilter({
   value,
   onChange,
   onRename,
+  onDelete,
   accounts,
   account,
   onAccount,
   readOnly = false,
 }: {
+  /** #165 (PFD-01): delete the chosen account / category (a write: disabled for read-only). */
+  onDelete: (kind: NameKind, name: string) => void;
   /** #119 S7: read-only grantees filter, but `Rename` (a write) stays disabled. */
   readOnly?: boolean;
   categories: string[];
@@ -846,6 +876,17 @@ function CategoryFilter({
             </select>
           </div>
         ) : null}
+        {accounts.length > 0 ? (
+          <button
+            type="button"
+            className="pf-cancel pf-rename"
+            disabled={readOnly || account === ALL}
+            onClick={() => onDelete("account", account)}
+            data-testid="pf-delete-account"
+          >
+            {DELETE_ACCOUNT}
+          </button>
+        ) : null}
         {categories.length > 0 ? (
           <>
             <div className="pf-cell pf-filter" data-testid="pf-filter-cell">
@@ -875,6 +916,15 @@ function CategoryFilter({
               data-testid="pf-rename-category"
             >
               Rename
+            </button>
+            <button
+              type="button"
+              className="pf-cancel pf-rename"
+              disabled={readOnly || value === ALL || renaming}
+              onClick={() => onDelete("category", value)}
+              data-testid="pf-delete-category"
+            >
+              {DELETE_CATEGORY}
             </button>
           </>
         ) : null}
@@ -942,12 +992,14 @@ function ExpensesSummary({
               rows={accountTotals(expenses, rate, household)}
               whole={whole}
               selected={account}
+              deleted={(expenses.deletedAccounts ?? []).map((d) => d.name)}
             />
             <Subtotals
               kind="category"
               rows={categoryTotals(expenses, rate, household)}
               whole={whole}
               selected={category}
+              deleted={(expenses.deletedCategories ?? []).map((d) => d.name)}
             />
           </>
         ) : null}
@@ -965,7 +1017,10 @@ function Subtotals({
   rows,
   whole,
   selected,
+  deleted = [],
 }: {
+  /** #165 (PFD-04): deleted names on this month's lines, shown `<name> (deleted)`. */
+  deleted?: string[];
   kind: "account" | "category";
   rows: { name: string; totals: Totals }[];
   whole: number | null;
@@ -1000,7 +1055,13 @@ function Subtotals({
           >
             <div className="pf-cell pf-name">
               <span className="pf-row-label" data-testid={`pf-${k}-name`}>
-                {row.name || (kind === "account" ? NO_ACCOUNT : NO_CATEGORY)}
+                {row.name
+                  ? deleted.includes(row.name)
+                    ? deletedLabel(row.name)
+                    : row.name
+                  : kind === "account"
+                    ? NO_ACCOUNT
+                    : NO_CATEGORY}
               </span>
             </div>
             <Cell label="% of expenses" area="share">
@@ -1185,6 +1246,10 @@ function LineRow({
           data-testid="pf-account"
         >
           <option value="">{NOT_COMPUTED}</option>
+          {/* #165 Q-Z3: a deleted account stays on its earlier line, labelled; it is never offered for another line. */}
+          {line.account && !accounts.includes(line.account) ? (
+            <option value={line.account}>{deletedLabel(line.account)}</option>
+          ) : null}
           {accounts.map((a) => (
             <option key={a} value={a}>
               {a}
@@ -1208,6 +1273,9 @@ function LineRow({
           data-testid="pf-category"
         >
           <option value="">{NOT_COMPUTED}</option>
+          {line.category && !categories.includes(line.category) ? (
+            <option value={line.category}>{deletedLabel(line.category)}</option>
+          ) : null}
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}

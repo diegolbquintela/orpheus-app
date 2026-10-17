@@ -26,7 +26,10 @@ const API = "/api/personal-finance/report";
 const RECORD_API = "/api/personal-finance";
 const REPORT_KEY = "orpheus.finance.report.v1";
 const EXPENSES_KEY = "orpheus.finance.expenses.v2";
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// #165: the GET / PUT / DELETE body also carries `deleted` / `labels`; `same` compares `{ report, missing }` when the
+// expected value is that shape (the #165 fields are checked on their own in PFD-06).
+const core = (x) => (x && typeof x === "object" && "missing" in x ? { report: x.report, missing: x.missing } : x);
+const same = (a, b) => JSON.stringify(b && typeof b === "object" && "missing" in b ? core(a) : a) === JSON.stringify(b);
 
 /** One HTTP call with the context's cookies; `raw` is sent as the body text as is. */
 async function call(request, method, path, { json, raw } = {}) {

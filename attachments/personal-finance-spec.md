@@ -1063,3 +1063,18 @@ Design and CFO calls Q-Y1..Q-Y9: `attachments/pf-any-month-design.md`. Supersede
 34.12 An empty current month is unchanged: a copy of the most recent month with lines (decision 5, PF-56), with no button (PFM-18).
 34.13 Read-only: an empty past month is blank, with no button and no `Save` (PFM-19).
 34.14 (PFM-11, PF-58; 2026-10-16, EL ruling, QA of a936fab) PFM-11 / PF-58 strict CLS is per month change. (1) A change between two months that both have data must be about 0 (measured 0.0000 at 360/400/1024/1440). (2) A change from a month with data to a blank month (and back) is exempt from strict CLS, because the lines and people really go. But Month, Year, the Save slot and the `Copy from current month` line must not move. Picking a month in another year by Year then Month passes through the same month of the new year; when that month is blank it counts as a data → blank change. This corrects the e7a19fa note above ("a month change has strict CLS 0").
+
+> **Note (2026-10-16, #165, QA nit on #164):** in 34.14, "must be about 0" should read "must be 0". A change between two months that both have data is strict CLS 0. PF-58 checks it (now also by Year only).
+
+## 35. Deleting a category or account keeps past months (#165, CFO option A KEEP)
+
+Design: `attachments/pf-keep-deleted-design.md` (Q-Z1..Q-Z12). AC: PFD-01..PFD-14.
+
+35.1 `Delete category` (beside `Rename`, for the chosen category) and `Delete account` (beside `Filter by account`, for the chosen account), in the `Rename` style. Each asks `Delete <name>? This month and later months lose it; earlier months keep it, marked (deleted).` Disabled for read-only and when `All` is chosen.
+35.2 A delete is an unsaved change (Save shows; nothing is sent). On Save it applies to the shown month and every later stored month only. Every earlier month is left exactly as stored (CFO condition 1).
+35.3 The name leaves the live list. It is never offered for another line or in a filter (Q-Z3).
+35.4 Earlier months keep it on their lines. The line's select shows `<name> (deleted)`, and so do `By category` / `By account` (Q-Z1).
+35.5 Chart report: a series on a deleted name keeps its past data (`seriesHistory`), and is not in `missing` while any stored line holds it. GET / PUT return `deleted` (indexes) and `labels` (`<name> (deleted)`) (CFO condition 2, Q-Z8).
+35.6 Totals and averages are unchanged. A delete changes only grouping, from its month on (CFO condition 3).
+35.7 A copy into a month at or after the delete month drops the name (Q-Z7). Re-adding the name (any case) re-links it (Q-Z4). Renaming to it is refused with `That name was deleted. Add it again to restore it.` (Q-Z6).
+35.8 Stored as `deletedCategories` / `deletedAccounts` (`[{ name, from }]`) in the shared expenses value. There is no migration; invalid entries are dropped on read.
