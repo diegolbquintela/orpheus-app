@@ -93,3 +93,5 @@ not audited either). No migration.
   net assets restart 12 months back and fill empty months with averages. Alternatives for the CFO: (a) keep this;
   (b) a new stored "as of" month for Starting net assets (needs a UI field; out of scope for a backend-only ticket);
   (c) the Overview's rolling window start (matches the chart, but the value of a month changes as time passes).
+
+**Q-AA10 decided (2026-10-17): (a) accepted, as built**; (b) filed separately by EL. Caveat (verbatim in spec 36.11): Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).

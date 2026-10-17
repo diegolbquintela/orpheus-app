@@ -918,3 +918,5 @@ Backend only. Design and CFO calls: `attachments/pf-series-design.md` (Q-AA1..Q-
 | PFS-18 | BLOCK | Q-AA4: a month without a surplus carries `net-assets` flat from the previous month (not null, nothing lost). |
 | PFS-19 | BLOCK | Q-AA3: every response has `fx_basis: "current"`. |
 | PFS-20 | MAJOR | Q-AA10: `net_assets_from` is the first month with data; months before it are null; that month = Starting net assets + its surplus. |
+
+> **Addendum (2026-10-17, #154):** Q-AA10 = (a) accepted (spec 36.11). PFS-20 checks the anchor as built; the absolute `net-assets` level carries the spec 36.11 caveat (shape right, level not trustworthy until an as-of month is stored).
