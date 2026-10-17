@@ -153,3 +153,7 @@ export const REPORT_LIMIT = "Report limit reached.";
 export const NAME_TAKEN = "Name already used.";
 export const DEFAULT_NAME_FIXED = "The default report cannot be renamed.";
 export const DEFAULT_REPORT_NAME = "Default";
+// #157 (spec section 39): texts printed in the PF exports (PDF / PNG; backend only).
+export const EXPORT_FX_LINE = "FX basis: current (every month is valued at today's rates, not historical rates)";
+export const EXPORT_MIXED_LINE = "Mixed axes: net assets (a level) share this chart with flows (amounts per month).";
+export const NET_ASSETS_CAVEAT = "Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).";

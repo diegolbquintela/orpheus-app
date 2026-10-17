@@ -74,3 +74,12 @@ python3 qa/tools/fetch.py --base-url https://<preview>.vercel.app --out /tmp/orp
 | `pf-chart-api.mjs` (#155) | Multi-series chart data API (`POST /api/personal-finance/chart`, spec section 37, PFC-01..PFC-16). HTTP only, read-only. Signed out: PFC-01. Signed in: alignment (rows / labels / values), `fx_basis` and values equal to `/series`, `axis`, `stack`, parts add up to `all`, partial current row, refusals, 413, `{ saved: true }` (404 `No saved report.` or the saved chart), missing column, record unchanged. Optional `QA_CFO_*` (PFC-14) and `QA_NONE_*` (403). Texts `NO_SAVED_REPORT`, `FX_BASIS_CURRENT` in `pf-helpers.mjs`. |
 | `pf-chart-api.mjs` (#155, 2026-10-17) | Adds PFC-17 signed in: `mixed_axes` true for net-assets + all, false for net-assets only and for flow only, and consistent with the series' axes in `{ saved: true }` mode when a report is saved. |
 | `pf-reports-api.mjs` (#156) | Report CRUD API (`/api/personal-finance/reports[/:id]`, spec section 38, PFRC-01..PFRC-18). HTTP only. Signed out: PFRC-01. Signed in, read-only by default: list shape, default = legacy report, GET per id, unknown id 404, refusals, `/chart { saved: true, id }` per report, record unchanged. `QA_WRITE=1` (preview only) adds a temporary create / update / duplicate-name / delete round trip. Optional `QA_NONE_*` (403). Texts in `pf-helpers.mjs` (`REPORT_NOT_FOUND`, `REPORT_LIMIT`, `NAME_TAKEN`, `DEFAULT_NAME_FIXED`, `DEFAULT_REPORT_NAME`). |
+| `pf-export-api.mjs` (#157) | Report export API (`/api/personal-finance/reports/:id/export?format=pdf\|png`, spec section 39, PFX-01..PFX-16). Read-only. Signed out: 401. Signed in: per listed report, PDF and PNG valid, headers, embedded data equals `/chart { saved: true, id }`, as-of / FX / caveat lines; unknown id 404; bad format 400. Optional `QA_NONE_*` (403). **Refuses production** first (see below). |
+
+### Production guard (#157, QA's #174 note 1)
+
+`pf-report-api.mjs`, `pf-reports-api.mjs` and `pf-export-api.mjs` call `refuseIfProd` (`prod-guard.mjs`) before any
+request or sign-in, and exit 2 with `REFUSED ...` when the target is production or can't be shown to be a preview:
+the prod alias `https://orpheus-app-beta.vercel.app` and the production-branch aliases are refused from the URL alone;
+any other non-local host gets one `HEAD /` and must answer `X-Orpheus-Env: preview` (set at build time from Vercel's
+`VERCEL_ENV`; `production` or a missing header is refused). Tests: `scripts/qa-prod-guard.test.mjs`.

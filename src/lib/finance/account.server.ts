@@ -28,6 +28,7 @@ import {
   REPORT_KEY,
   REPORT_MAX_BYTES,
   reportText,
+  INVALID_REPORT,
   type Report,
 } from "./report.ts";
 import { householdMonth } from "./overview.ts";
@@ -50,6 +51,7 @@ import {
   REPORTS_KEY,
   REPORTS_MAX,
 } from "./reports.ts";
+import { buildPdf, buildPng, EXPORT_FORMATS, exportFilename, type ExportFormat } from "./export.ts";
 import { CHART_MAX_BYTES, chartData, chartQueryError, fromReport, NO_SAVED_REPORT, type ChartQuery } from "./chart.ts";
 import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
 
@@ -497,4 +499,56 @@ export async function handlePersonalFinanceReportItemRequest(request: Request, i
   }
   const r = list[at];
   return dashboardJson(itemOf(id, r.name, r.report, await readRecord(db, user.id), r.created_at, r.updated_at));
+}
+
+export const PF_EXPORT_ALLOW = ["GET", "HEAD"] as const;
+export const EXPORT_TYPES: Record<ExportFormat, string> = { pdf: "application/pdf", png: "image/png" };
+
+/**
+ * `GET /api/personal-finance/reports/:id/export?format=pdf|png` (#157; spec section 39, PFX-01..PFX-18). One of the
+ * caller's own reports (#156: `default` or a named id) as a PDF or PNG, made synchronously (Q-AD3). The numbers are
+ * `chartData` for that report, exactly what `/chart { saved: true, id }` returns (Q-AD5). Same gate as the reports
+ * API; another person's id or an unknown one 404 `Report not found.`; a bad format 400 `format`. Read-only, not
+ * audited (Q-AD11), `no-store`.
+ */
+export async function handlePersonalFinanceReportExportRequest(
+  request: Request,
+  id: string,
+  deps: DashboardApiDeps,
+  now: () => Date = () => new Date(),
+) {
+  const g = await gateDashboardRequest(request, PF_EXPORT_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  if ("response" in g) return g.response;
+  const { db, viewer, user } = g;
+  const format = new URL(request.url).searchParams.get("format");
+  if (!isReportId(id)) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
+  if (!format || !(EXPORT_FORMATS as readonly string[]).includes(format))
+    return dashboardJson({ error: INVALID_REPORT, field: "format" }, 400);
+  let report: Report | null = null;
+  let name = DEFAULT_NAME;
+  if (id === DEFAULT_ID) report = parseReport(await readOwnReport(db, viewer.id));
+  else {
+    const found = (await readOwnNamed(db, viewer.id)).find((r) => r.id === id);
+    if (found) {
+      report = found.report;
+      name = found.name;
+    }
+  }
+  if (!report) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
+  const at = now();
+  const data = chartData(fromReport(report), await readRecord(db, user.id), at, "saved");
+  const meta = { name, generatedAt: at.toISOString() };
+  const f = format as ExportFormat;
+  const body = f === "pdf" ? buildPdf(data, meta) : buildPng(data, meta);
+  return new Response(request.method.toUpperCase() === "HEAD" ? null : new Uint8Array(body), {
+    status: 200,
+    headers: {
+      "Content-Type": EXPORT_TYPES[f],
+      "Content-Length": String(body.length),
+      "Content-Disposition": `attachment; filename="${exportFilename(name, meta.generatedAt, f)}"`,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
+    },
+  });
 }

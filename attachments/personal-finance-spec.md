@@ -1127,3 +1127,29 @@ Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFR
 38.9 The record API never shows reports and a record save keeps them. A stored named report that is no longer valid is skipped on read. Removing the last report from a row that holds nothing else removes the row.
 38.10 Not built: the #173 range refusal (Q-AC12, shared validator unchanged), concurrency control (Q-AC13) and the Q-AC14 list.
 38.11 (2026-10-17, CFO on PR #174) Q-AC1..Q-AC14 accepted as written (Q-AC12..Q-AC14 stay not built). **Pre-merge condition:** a rollback runbook, `docs/release/pf-reports-rollback.md`: do NOT roll back past #174 without first exporting every user's PF report keys (`orpheus.finance.report.v1`, `orpheus.finance.reports.v1` in `personal_finance.data`) with the documented read-only SELECT, a dated file and a row-count check; the restore is a separate, marked WRITE. The SQL is tested against PGlite only. A snapshot at every deploy was not built (not cheap: build-time access to the shared database plus storage and a secret; estimate in the runbook).
+
+## 39. Report export stubs: PDF + PNG (#157, backend only)
+
+Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
+
+- 39.1 `GET` (and `HEAD`) `/api/personal-finance/reports/:id/export?format=pdf|png`; `:id` = `default` or a named
+  report id. Other methods 405.
+- 39.2 Access as the reports API (section 38): flag off 404, signed out 401, no grant 403, another user's or unknown
+  id 404 `Report not found.`; `format` missing or not `pdf` / `png` → 400 `{ error: "Invalid value.", field: "format" }`.
+- 39.3 Synchronous; the response is the file: `application/pdf` or `image/png`, `Content-Disposition: attachment;
+  filename="orpheus-report-<slug>-<YYYY-MM-DD>.<ext>"`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+- 39.4 Values come from the same function as `/chart { saved: true, id }`; the file embeds that JSON exactly (PDF
+  Info `/OrpheusData`, PNG `tEXt` `orpheus-data`).
+- 39.5 Every export prints the as-of month (and whether it is the partial current month), the generation time, the
+  FX basis line; with net assets, `Net assets from` and the 36.11 caveat verbatim; with mixed axes, the mixed line.
+- 39.6 Read-only: no write, no audit row. ASCII text (other characters print `?`). No new dependency.
+- 39.7 Every response carries `X-Orpheus-Env` (build-time `VERCEL_ENV`); QA tools that sign in refuse production.
+
+### AC PFX
+
+- PFX-01 gate (404 flag off / 401 / 405 / 403). PFX-02 PDF valid with headers. PFX-03 PNG valid (CRCs, IDAT size).
+- PFX-05 embedded data deep-equals `/chart { saved: true, id }` (default and named, both formats).
+- PFX-06 as-of / generated / FX basis printed. PFX-07 net assets from + 36.11 caveat (and mixed line) only with
+  net assets. PFX-08 the PDF table equals `/chart` rows, formatted.
+- PFX-09 unknown / malformed / other user's id 404. PFX-10 bad format 400. PFX-11 ASCII. PFX-12 deleted labels.
+- PFX-13 Toronto month whatever the process TZ. PFX-14 worst case small and quick. PFX-15 HEAD. PFX-16 read-only.
