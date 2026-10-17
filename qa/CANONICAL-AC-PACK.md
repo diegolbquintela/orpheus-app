@@ -886,3 +886,26 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 | PFD-13 | BLOCK | A delete is unsaved until Save: Save shows, nothing is stored or sent before it. |
 | PFD-14 | MINOR | A deleted name that no stored line holds any more is in `missing` as before (Q-Z8). |
 | PFD-15 | BLOCK | (2026-10-16, Diego's call pending) `PF_DELETE_UI` (one constant in `src/lib/finance/flags.ts`). `true`: PFD-01..PFD-14 as written. `false`: no Delete buttons and no confirm text; a record that already has deleted names still shows `<name> (deleted)` on earlier months, and the report returns `deleted` / `labels`. pf-months skips the Delete flow with a printed reason and checks this instead. |
+
+## Personal Finance historical series endpoint (#154, spec section 36)
+
+Backend only. Design and CFO calls: `attachments/pf-series-design.md` (Q-AA1..Q-AA9). PGlite real-path tests: `src/lib/finance/series.server.test.ts` (run under TZ=UTC and TZ=America/Los_Angeles). Signed-in checks: `qa/tools/pf-series-api.mjs` (read-only; needs `QA_EMAIL` / `QA_PASSWORD`; optional CFO and 'none' logins). Signed out, it checks PFS-01 only.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFS-01 | BLOCK | Flag off 404; signed out 401; GET / PUT 405; no Personal Finance grant 403. |
+| PFS-02 | BLOCK | The owner and a CFO with Read get the same series (the owner's data); `cache-control: no-store`. |
+| PFS-03 | BLOCK | A bad series kind or id → 400 with `field` `series.<i>.kind` / `series.<i>.id`. |
+| PFS-04 | MAJOR | No series, more than 12, or a duplicate → 400 `series`. |
+| PFS-05 | MAJOR | An unknown preset → 400 `range.preset`; an unknown top-level key → 400 `query`. |
+| PFS-06 | MAJOR | A custom range before 2020-01, after the current month, or `from` after `to` → 400 `range`. |
+| PFS-07 | MINOR | A body above 4 KB → 413; not JSON → 400. |
+| PFS-08 | BLOCK | Q-AA1: a custom range from 2020-01 to the current month is accepted (82 months in October 2026). |
+| PFS-09 | BLOCK | #165: a deleted category / account returns its past months under `<name> (deleted)`, `deleted: true`. |
+| PFS-10 | BLOCK | Q-AA2: a month with no data is `null`; a month with data but nothing on the series is 0. |
+| PFS-11 | BLOCK | Totals unchanged: categories add up to group `all`; `fixed` + `variable` = `all` = metric `expenses`. |
+| PFS-12 | MAJOR | Q-AA6 / Q-AA7: presets end at the current household month (`partial: true`); `ytd` starts in January; `all` starts at the first data month. |
+| PFS-13 | MAJOR | The household month is America/Toronto's whatever the server timezone (tests under UTC and Los Angeles). |
+| PFS-14 | MAJOR | A line / account / category not in the record is `missing: true` with all-null values. |
+| PFS-15 | MAJOR | Q-AA4: without income, `income` / `surplus` / `net-assets` are null (nothing invented). |
+| PFS-16 | BLOCK | Read-only: the record and the audit log are unchanged. |

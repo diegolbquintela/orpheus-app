@@ -66,10 +66,8 @@ function span(from: unknown, to: unknown): number | null {
 
 const bad = (field: string): ReportError => ({ status: 400, error: INVALID_REPORT, field });
 
-/** The first problem with a report value (client and API), or null when it can be stored. */
-export function reportError(value: unknown): ReportError | null {
-  if (!isObject(value) || !onlyKeys(value, ["series", "range", "chart"])) return bad("report");
-  const { series, range, chart } = value;
+/** #154: the first problem with a `series` list (shared by the report and `/api/personal-finance/series`). */
+export function seriesListError(series: unknown): ReportError | null {
   if (!Array.isArray(series) || series.length < 1 || series.length > SERIES_MAX)
     return bad("series");
   const seen = new Set<string>();
@@ -81,15 +79,36 @@ export function reportError(value: unknown): ReportError | null {
     if (seen.has(key)) return bad("series");
     seen.add(key);
   }
+  return null;
+}
+
+/**
+ * #154: the first problem with a `range` (preset or custom `from`/`to`). `presets` are the allowed preset names;
+ * `ok(from, to, months)` adds the caller's own custom-range limit (the report: at most `RANGE_MONTHS_MAX`).
+ */
+export function rangeError(
+  range: unknown,
+  presets: readonly string[] = RANGE_PRESETS,
+  ok: (from: string, to: string, months: number) => boolean = (_f, _t, n) => n <= RANGE_MONTHS_MAX,
+): ReportError | null {
   if (!isObject(range)) return bad("range");
   if ("preset" in range) {
     if (!onlyKeys(range, ["preset"])) return bad("range");
-    if (!has(RANGE_PRESETS, range.preset)) return bad("range.preset");
+    if (!has(presets, range.preset)) return bad("range.preset");
   } else {
     if (!onlyKeys(range, ["from", "to"])) return bad("range");
     const n = span(range.from, range.to);
-    if (n === null || n < 1 || n > RANGE_MONTHS_MAX) return bad("range");
+    if (n === null || n < 1 || !ok(range.from as string, range.to as string, n)) return bad("range");
   }
+  return null;
+}
+
+/** The first problem with a report value (client and API), or null when it can be stored. */
+export function reportError(value: unknown): ReportError | null {
+  if (!isObject(value) || !onlyKeys(value, ["series", "range", "chart"])) return bad("report");
+  const { series, range, chart } = value;
+  const e = seriesListError(series) ?? rangeError(range);
+  if (e) return e;
   if (!has(CHART_TYPES, chart)) return bad("chart");
   if (new TextEncoder().encode(reportText(value as Report)).length > REPORT_MAX_BYTES)
     return { status: 413, error: REPORT_TOO_LARGE };

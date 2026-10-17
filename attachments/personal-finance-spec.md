@@ -1080,3 +1080,16 @@ Design: `attachments/pf-keep-deleted-design.md` (Q-Z1..Q-Z12). AC: PFD-01..PFD-1
 35.8 Stored as `deletedCategories` / `deletedAccounts` (`[{ name, from }]`) in the shared expenses value. There is no migration; invalid entries are dropped on read.
 35.9 (2026-10-16, Diego's call pending) The Delete UI sits behind one code constant, `PF_DELETE_UI` in `src/lib/finance/flags.ts` (not an environment variable). With `true` (PR #167) everything above applies. With `false` (branch `fix/pf-keep-deleted-protection-only`), there are no `Delete category` / `Delete account` buttons and no confirm text. The KEEP protection stays: deleted names already in a record read back on earlier months, `<name> (deleted)` labels show, and report `deleted` / `labels` work. All tests stay (PFD-15).
 35.10 (2026-10-16, Diego's call) **No Delete buttons on #165.** `PF_DELETE_UI = false` on PR #167. The Delete buttons are off, pending a follow-up ticket; #165 ships the KEEP protection only. 35.1 (the buttons and confirm) and the Delete steps of 35.2 / 35.7 are dormant until that ticket. 35.3..35.6, 35.8 and 35.9 apply, and a record that already holds deleted names reads back with `(deleted)`. QA: pf-months skips the PFD Delete flow with a printed reason and runs the PFD-15 protection check. PFD-01 / PFD-13 are covered by DOM tests with `deleteUi` on.
+
+## 36. Historical series endpoint (#154, backend only)
+
+Design and CFO calls Q-AA1..Q-AA9: `attachments/pf-series-design.md`. AC PFS-01..PFS-16. No UI, no migration.
+
+36.1 `POST /api/personal-finance/series` `{ series, range }` returns the owner's monthly series: `range`, `months`, `current`, `partial`, `currency`, and per series `kind`, `id`, `label`, `deleted`, `missing`, `values` (one per month).
+36.2 Access is the report API's: signed in with a Personal Finance read grant (owner or CFO with Read); the data is the owner's. Flag off 404, signed out 401, other methods 405, no grant 403. Read-only: nothing stored, nothing audited.
+36.3 `series` is the #153 list (same kinds, ids, 1..12, no duplicates), checked by the shared `seriesListError` in `report.ts`. Errors are 400 `{ error: "Invalid value.", field }`; 413 above 4 KB.
+36.4 `range` is the #153 shape. Presets `3m` / `6m` / `12m` / `24m` / `ytd` end at the current household month; `all` starts at the first month with data (Q-AA7). A custom `from`/`to` may reach back to 2020-01 and up to the current month, with no 24-month cap (Q-AA1). The saved report keeps its 24-month cap.
+36.5 A month with no data is `null`; a month with data where the series has nothing is 0 (Q-AA2). Values are monthly, in the household currency at the record's current rates (Q-AA3).
+36.6 Metrics: `income` / `expenses` are the Overview's month figures; `surplus` = income − expenses; `net-assets` = Starting net assets + surplus so far in the range (Q-AA4).
+36.7 A deleted category / account keeps its past data, labelled `<name> (deleted)` with `deleted: true`; totals are unchanged (categories add up to `all`, which equals `expenses`) (Q-AA5, #165).
+36.8 The current month is included when in range, flagged `partial: true` (Q-AA6). The household month is America/Toronto's, whatever the server timezone.
