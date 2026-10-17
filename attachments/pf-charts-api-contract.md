@@ -252,3 +252,26 @@ and only a 2000..2100 bound. From #179:
 | query-presets | 3m 6m 12m 24m ytd all | R1 R2 | `RANGE_PRESETS` |
 | query-from-min | 2020-01 | R1 R2 | `FIRST_MONTH` |
 | query-to-max | current-month | R1 R2 | `householdMonth` (Toronto) |
+
+## 10. Range bound messages (added 2026-10-17, #179 Q-AF4, CFO-accepted)
+
+**Note (2026-10-17):** CFO accepted Q-AF4. The two range-bound refusals of the shared validator now say why. **The
+status (400) and the field are unchanged**: `range` on R1, R2 and L1, and `report.range` on R3 and R4. Every other
+refusal keeps its text, including every other `Invalid value.`. Sections 5 and 8.1 are extended by the table below,
+and the drift test reads them together.
+
+- `from` before 2020-01 → `Range can't start before 2020-01.` This needs a well-formed month from 2000-01 on; a month
+  before 2000 or after 2100, a malformed month, or `from` after `to` is still `Invalid value.`.
+- `to` after the current Toronto month → `Range can't end after the current month.`
+- When both apply, `from` is reported. In save mode, the bounds are checked before the 24-month cap, so a range that
+  also exceeds the cap gets the bound message. A range that is only over the cap stays `Invalid value.`.
+- Stored reports are never checked against the bounds (stored mode), so these messages never come from reading a
+  report (R2 `{ saved: true }` or R5).
+- Client code (section 6): both messages map to `range_out_of_bounds` (400).
+
+### 10.1 Messages × routes (added; machine-checked with 8.1)
+
+| Message | Status | Routes |
+|---|---|---|
+| `Range can't start before 2020-01.` | 400 | R1 R2 R3 R4 L1 |
+| `Range can't end after the current month.` | 400 | R1 R2 R3 R4 L1 |

@@ -1054,3 +1054,10 @@ Backend only. PGlite real-path tests: `src/lib/finance/all-range.server.test.ts`
 | PFALL-12 | MAJOR | The client (`reportError` with the current month, `charts-api.ts` types) refuses the same out-of-bounds saves before sending and accepts `all`. |
 | PFALL-13 | MAJOR | Contract section 9 and the drift test cover the new bounds (from-min 2020-01, to-max the current month, `all` in saved presets) at their boundaries. |
 | PFALL-14 | MINOR | The new export text (`All data (`, `no data yet`) is in the QA lists (`qa/tools/pf-helpers.mjs`). |
+
+**Additions (2026-10-17, #179 Q-AF4, CFO-accepted):**
+
+| ID | Severity | Check |
+|---|---|---|
+| PFALL-15 | BLOCK | A custom `from` from 2000-01 to 2019-12 → 400 `Range can't start before 2020-01.`; `to` after the current Toronto month → 400 `Range can't end after the current month.`. Field `range` on `/series`, `/chart` and legacy `/report` PUT; `report.range` on `/reports` POST and `/reports/:id` PUT. Status and field are unchanged from before. When both apply, `from` is reported. |
+| PFALL-16 | MAJOR | Every other range refusal still says `Invalid value.`: a month before 2000 or after 2100, malformed months, `from` after `to`, missing keys, unknown preset, over the 24-month cap only. Stored reports are never checked against the bounds. The drift test (contract 10.1) drives both messages on all 5 routes. |

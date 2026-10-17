@@ -166,3 +166,6 @@ export const EXPORT_ALL_DATA = "All data";
 export const EXPORT_NO_DATA_YET = "no data yet";
 export const exportAllRange = (from, to) => `Range: ${EXPORT_ALL_DATA} (${from} to ${to})`;
 export const exportAllNoData = (month) => `Range: ${EXPORT_ALL_DATA} (${EXPORT_NO_DATA_YET}, ${month})`;
+// #179 Q-AF4 (CFO, 2026-10-17): range bound refusals (400; field `range`, or `report.range` on /reports); must equal report.ts.
+export const RANGE_BEFORE_FIRST = "Range can't start before 2020-01.";
+export const RANGE_AFTER_CURRENT = "Range can't end after the current month.";

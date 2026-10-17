@@ -149,7 +149,9 @@ describe("#155 /api/personal-finance/chart", () => {
     for (const [body, field] of cases) {
       const r = await ch("alice", body);
       assert.equal(r.status, 400, JSON.stringify(body));
-      assert.deepEqual(await r.json(), { error: "Invalid value.", field });
+      // #179 Q-AF4 (CFO, 2026-10-17): the from-bound says why; status and field unchanged.
+      const from = (body as { range?: { from?: string } }).range?.from;
+      assert.deepEqual(await r.json(), { error: from === "2019-12" ? "Range can't start before 2020-01." : "Invalid value.", field });
     }
     assert.equal((await ch("alice", "{nope")).status, 400);
     assert.equal((await ch("alice", JSON.stringify(c([G("all")])) + " ".repeat(4100))).status, 413);

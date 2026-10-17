@@ -34,6 +34,9 @@ export type ReportCheck = { ok: true; report: Report } | ({ ok: false } & Report
 
 export const INVALID_REPORT = "Invalid value.";
 export const REPORT_TOO_LARGE = "Report too large.";
+/** #179 Q-AF4 (CFO, 2026-10-17): the save / query range bounds (status 400, field `range` unchanged). */
+export const RANGE_BEFORE_FIRST = "Range can't start before 2020-01.";
+export const RANGE_AFTER_CURRENT = "Range can't end after the current month.";
 
 const LINE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
@@ -91,7 +94,8 @@ export function seriesListError(series: unknown): ReportError | null {
  *   most `RANGE_MONTHS_MAX` months.
  * - `stored` (reading what is stored): any preset; custom a valid 2000..2100 span of at most `RANGE_MONTHS_MAX` months
  *   (the pre-#179 rule, so no existing stored report stops reading).
- * Every refusal is 400 `Invalid value.` with field `range` / `range.preset` (Q-AF4: the series API's wording).
+ * Every refusal is 400 with field `range` / `range.preset`: `Invalid value.`, except the two bounds (Q-AF4, built
+ * 2026-10-17): `RANGE_BEFORE_FIRST` / `RANGE_AFTER_CURRENT`.
  */
 export type RangeMode = "query" | "save" | "stored";
 export function rangeError(range: unknown, mode: RangeMode = "stored", current?: string): ReportError | null {
@@ -106,7 +110,9 @@ export function rangeError(range: unknown, mode: RangeMode = "stored", current?:
   if (n === null || n < 1) return bad("range");
   const from = range.from as string;
   const to = range.to as string;
-  if (mode !== "stored" && (from < FIRST_MONTH || to > (current ?? householdMonth(new Date())))) return bad("range");
+  // #179 Q-AF4 (CFO, 2026-10-17): the two bounds refusals keep 400 + field `range` but say why. `from` is checked first.
+  if (mode !== "stored" && from < FIRST_MONTH) return { status: 400, error: RANGE_BEFORE_FIRST, field: "range" };
+  if (mode !== "stored" && to > (current ?? householdMonth(new Date()))) return { status: 400, error: RANGE_AFTER_CURRENT, field: "range" };
   if (mode !== "query" && n > RANGE_MONTHS_MAX) return bad("range");
   return null;
 }

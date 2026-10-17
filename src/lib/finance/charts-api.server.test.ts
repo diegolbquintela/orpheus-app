@@ -41,6 +41,7 @@ import { INVALID_REPORT, RANGE_MONTHS_MAX, REPORT_MAX_BYTES, REPORT_TOO_LARGE, S
 import { CHART_MAX_BYTES, NO_SAVED_REPORT } from "./chart.ts";
 import { RANGE_PRESETS } from "./report.ts";
 import { FIRST_MONTH } from "./months.ts";
+import { householdMonth, nextMonth } from "./overview.ts";
 import { SERIES_MAX_BYTES } from "./series.ts";
 import { crc32 } from "./export.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
@@ -308,8 +309,9 @@ describe("#158 PFAPI-09 the contract doc matches the code (drift guard)", () => 
     }
   });
   it("every message is in the doc verbatim and equals the server constant", () => {
-    const sec5 = doc.slice(doc.indexOf("## 5. Messages"), doc.indexOf("## 6."));
-    for (const [k, v] of Object.entries(CHARTS_MESSAGES)) assert.ok(sec5.includes(`\`${v}\``), `doc section 5 has ${k}: ${v}`);
+    // #179 Q-AF4 (2026-10-17): section 5 plus the messages added in section 10.1.
+    const sec5 = doc.slice(doc.indexOf("## 5. Messages"), doc.indexOf("## 6.")) + doc.slice(doc.indexOf("### 10.1")).split("\n").filter((l) => l.startsWith("| `")).map((l) => l.split("|")[1]).join(" ");
+    for (const [k, v] of Object.entries(CHARTS_MESSAGES)) assert.ok(sec5.includes(`\`${v}\``), `doc section 5 / 10.1 has ${k}: ${v}`);
     assert.equal((sec5.match(/`[^`]+`/g) ?? []).length, Object.keys(CHARTS_MESSAGES).length, "no extra messages in the doc");
     const M = CHARTS_MESSAGES;
     assert.deepEqual(
@@ -337,7 +339,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   const sec = (from: string, to?: string) => doc.slice(doc.indexOf(from), to ? doc.indexOf(to, doc.indexOf(from) + 1) : undefined);
   const table = (from: string, to?: string) =>
     sec(from, to).split("\n").filter((l) => /^\| `?[^-|]/.test(l) && !/^\| (Message|Cap) \|/.test(l)).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
-  const MSGS = table("### 8.1", "### 8.2").map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
+  const MSGS = [...table("### 8.1", "### 8.2"), ...table("### 10.1")].map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
   const CAPS = table("### 8.2", "## 9.").map(([cap, value, routes, constant]) => ({ cap, value, routes: routes.split(/\s+/), constant }));
   const ROUTE = { R1: "/api/personal-finance/series", R2: "/api/personal-finance/chart", R3: "/api/personal-finance/reports", R4: "/api/personal-finance/reports/default", R5: "/api/personal-finance/reports/default/export?format=pdf", L1: "/api/personal-finance/report" } as const;
   type RK = keyof typeof ROUTE;
@@ -388,6 +390,18 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
         await call(bob, "PUT", ROUTE.R4, JSON.stringify({ report: R1 }));
         return call(dispatch("bob", env, failingAudit), "GET", ROUTE.R5);
       }
+      case M.rangeBeforeFirst:
+      case M.rangeAfterCurrent: {
+        // #179 Q-AF4: the bound case per route (clock: the real now; the current month comes from the server).
+        const cur = householdMonth(new Date());
+        const range = msg === M.rangeBeforeFirst ? { from: "2019-12", to: "2020-02" } : { from: cur, to: nextMonth(cur) };
+        const report = { series: [{ kind: "group", id: "all" }], range, chart: "line" };
+        if (k === "R1") return call(bob, "POST", ROUTE.R1, JSON.stringify({ series: report.series, range }));
+        if (k === "R2") return call(bob, "POST", ROUTE.R2, JSON.stringify(report));
+        if (k === "R3") return call(bob, "POST", ROUTE.R3, JSON.stringify({ name: "bound", report }));
+        if (k === "R4") return call(bob, "PUT", ROUTE.R4, JSON.stringify({ report }));
+        return call(bob, "PUT", ROUTE.L1, JSON.stringify({ report }));
+      }
       case M.reportLimit: {
         const have = ok(await listReports(bob)).reports.filter((r) => !r.default).length;
         const cap = Number(CAPS.find((c) => c.cap === "named-reports")!.value);
@@ -402,9 +416,9 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   };
 
   it("the 8.1 table lists exactly the section 5 messages (no more, no fewer)", () => {
-    const sec5 = (sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1));
+    const sec5 = [...(sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1)), ...table("### 10.1").map(([m]) => m.slice(1, -1))];
     assert.deepEqual(MSGS.map((m) => m.msg).sort(), [...sec5].sort());
-    assert.equal(MSGS.length, 17);
+    assert.equal(MSGS.length, 19, "17 (#158) + 2 (#179 Q-AF4)");
     assert.deepEqual(Object.values(CHARTS_MESSAGES).sort(), [...sec5].sort(), "the client's copy equals the doc too");
   });
 
@@ -422,7 +436,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
           assert.equal(r.headers.get("cache-control"), "no-store", `${m.msg} on ${k}`);
           n++;
         }
-      assert.equal(n, 61, "message × route pairs driven");
+      assert.equal(n, 71, "message × route pairs driven (61 + 10 for #179 Q-AF4)");
     } finally {
       console.error = errLog;
     }

@@ -98,7 +98,10 @@ describe("#154 /api/personal-finance/series", () => {
     for (const [body, status, field] of cases) {
       const r = await ser("alice", body);
       assert.equal(r.status, status, JSON.stringify(body));
-      assert.deepEqual(await r.json(), { error: "Invalid value.", field });
+      // #179 Q-AF4 (CFO, 2026-10-17): the two bounds say why; status and field unchanged; the rest stay `Invalid value.`.
+      const r0 = (body as { range?: { from?: string; to?: string } }).range;
+      const error = r0?.from === "2019-12" ? "Range can't start before 2020-01." : r0?.to === "2026-11" ? "Range can't end after the current month." : "Invalid value.";
+      assert.deepEqual(await r.json(), { error, field });
     }
     let r = await ser("alice", "{not json");
     assert.equal(r.status, 400);

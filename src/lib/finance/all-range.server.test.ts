@@ -13,7 +13,7 @@ import {
 } from "./account.server.ts";
 import { crc32, headerLines, rangeLabel, ALL_DATA, NO_DATA_YET } from "./export.ts";
 import { chartData, fromReport } from "./chart.ts";
-import { rangeError, reportError, REPORT_KEY, RANGE_PRESETS, type Report } from "./report.ts";
+import { rangeError, reportError, REPORT_KEY, RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST, RANGE_PRESETS, type Report } from "./report.ts";
 import { REPORTS_KEY } from "./reports.ts";
 import { FIRST_SAVED_MONTH, type RangePreset } from "./charts-api.ts";
 import { FIRST_MONTH } from "./months.ts";
@@ -141,6 +141,9 @@ describe("#179 PFALL-03 / 04 / 05 `all` is dynamic: resolved when the report run
   it("PFALL-14: the QA list (pf-helpers) carries the exact new export text", () => {
     assert.equal(helperConst("EXPORT_ALL_DATA"), ALL_DATA);
     assert.equal(helperConst("EXPORT_NO_DATA_YET"), NO_DATA_YET);
+    // #179 Q-AF4: the QA list's copies of the bound messages equal the server's
+    assert.ok(helpers.includes(`export const RANGE_BEFORE_FIRST = ${JSON.stringify(RANGE_BEFORE_FIRST)};`));
+    assert.ok(helpers.includes(`export const RANGE_AFTER_CURRENT = ${JSON.stringify(RANGE_AFTER_CURRENT)};`));
     assert.ok(helpers.includes("export const exportAllRange = (from, to) => `Range: ${EXPORT_ALL_DATA} (${from} to ${to})`;"));
     assert.ok(helpers.includes("export const exportAllNoData = (month) => `Range: ${EXPORT_ALL_DATA} (${EXPORT_NO_DATA_YET}, ${month})`;"));
   });
@@ -162,7 +165,10 @@ describe("#179 PFALL-06 / 07 / 08 (#173) save bounds: 2020-01..the current Toron
         const res = await w(r);
         // /reports and /reports/:id prefix body fields with `report.` (spec 38, PFRC-06); legacy /report doesn't.
         const field = name === "legacy PUT /report" ? "range" : "report.range";
-        assert.deepEqual([res.status, await res.json()], [400, { error: "Invalid value.", field }], `${name} ${JSON.stringify(r.range)}`);
+        // #179 Q-AF4 (CFO, 2026-10-17): from-bound / to-bound messages; the 24-month cap stays `Invalid value.`.
+        const rr = r.range as { from: string; to: string };
+        const error = rr.from < "2020-01" ? "Range can't start before 2020-01." : rr.to > "2026-10" ? "Range can't end after the current month." : "Invalid value.";
+        assert.deepEqual([res.status, await res.json()], [400, { error, field }], `${name} ${JSON.stringify(r.range)}`);
       }
       assert.equal(JSON.stringify(await stored("bob")), before, `${name}: nothing stored`);
       for (const r of [custom("2020-01", "2020-06"), custom("2026-05", "2026-10"), custom("2024-11", "2026-10")]) assert.equal((await w(r)).status < 300, true, `${name} ${JSON.stringify(r.range)} allowed`);
@@ -198,7 +204,7 @@ describe("#179 PFALL-06 / 07 / 08 (#173) save bounds: 2020-01..the current Toron
     const s = await handlePersonalFinanceSeriesRequest(rq("POST", "/api/personal-finance/series", { series: ALL.series, range: { from: "2020-01", to: "2026-10" } }), as("alice"), () => OCT);
     assert.equal(s.status, 200);
     const s2 = await handlePersonalFinanceSeriesRequest(rq("POST", "/api/personal-finance/series", { series: ALL.series, range: { from: "2019-12", to: "2020-02" } }), as("alice"), () => OCT);
-    assert.deepEqual([s2.status, await s2.json()], [400, { error: "Invalid value.", field: "range" }]);
+    assert.deepEqual([s2.status, await s2.json()], [400, { error: "Range can't start before 2020-01.", field: "range" }]);
   });
 
   it("PFALL-12: the client check uses the same save rules", () => {
@@ -247,5 +253,41 @@ describe("#179 PFALL-09 / 10 old stored reports read, chart and export unchanged
     assert.equal((await put("carol", "r-0000aaaa", { name: "Old out", report: OLD_OUT })).status, 400);
     assert.equal((await legacyPut("carol", OLD_OUT)).status, 400);
     assert.equal(JSON.stringify(await stored("carol")), before);
+  });
+});
+
+describe("#179 Q-AF4 (CFO, 2026-10-17) PFALL-15 / 16 bound messages; every other range refusal stays Invalid value.", () => {
+  const B = "Range can't start before 2020-01.";
+  const A = "Range can't end after the current month.";
+  it("validator: which inputs get which text, in every mode", () => {
+    const cases: [unknown, string | null, string | null, string | null][] = [
+      // range, query, save, stored (null = accepted)
+      [{ from: "2019-12", to: "2020-02" }, B, B, null],
+      [{ from: "2000-01", to: "2000-02" }, B, B, null],
+      [{ from: "2026-09", to: "2026-11" }, A, A, null],
+      [{ from: "2019-12", to: "2026-11" }, B, B, "Invalid value."], // both bounds: from wins; stored: 84 months > cap
+      [{ from: "2018-01", to: "2020-06" }, B, B, "Invalid value."], // bound + over the cap: bound message in save mode
+      [{ from: "2020-01", to: "2026-10" }, null, "Invalid value.", "Invalid value."], // cap only
+      [{ from: "1999-12", to: "2020-02" }, "Invalid value.", "Invalid value.", "Invalid value."], // before 2000: malformed span
+      [{ from: "2026-05", to: "2101-01" }, "Invalid value.", "Invalid value.", "Invalid value."], // after 2100
+      [{ from: "2026-06", to: "2026-05" }, "Invalid value.", "Invalid value.", "Invalid value."], // from after to
+      [{ from: "2026-13", to: "2026-12" }, "Invalid value.", "Invalid value.", "Invalid value."],
+      [{ from: "2026-1", to: "2026-02" }, "Invalid value.", "Invalid value.", "Invalid value."],
+      [{ from: "2026-01" }, "Invalid value.", "Invalid value.", "Invalid value."],
+      [{ preset: "5y" }, "Invalid value.", "Invalid value.", "Invalid value."],
+    ];
+    for (const [range, q, s, st] of cases)
+      for (const [mode, want] of [["query", q], ["save", s], ["stored", st]] as const) {
+        const e = rangeError(range, mode, "2026-10");
+        assert.equal(e?.error ?? null, want, `${mode} ${JSON.stringify(range)}`);
+        if (e) assert.equal(e.status, 400);
+        if (e) assert.equal(e.field, "preset" in (range as object) ? "range.preset" : "range");
+      }
+  });
+  it("stored reports are never checked against the bounds: reading / charting / exporting an old 2019 report sends neither message", async () => {
+    const r = await chart("carol", "r-0000aaaa");
+    assert.equal(r.status, 200);
+    const e = await exp("carol", "r-0000aaaa", "pdf");
+    assert.equal(e.status, 200);
   });
 });

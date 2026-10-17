@@ -156,8 +156,14 @@ describe("#156 /api/personal-finance/reports", () => {
     for (const [body, field] of cases) {
       const r = await list("alice", "POST", body);
       assert.equal(r.status, 400, JSON.stringify(body));
-      assert.deepEqual(await r.json(), { error: "Invalid value.", field }, JSON.stringify(body));
+      // #179 Q-AF4 (CFO, 2026-10-17): 2026-01..2028-06 also ends after the current month, and the bound is checked before
+      // the 24-month cap, so it now says why (status and field unchanged). An in-bounds range over the cap stays `Invalid value.`.
+      const to = (body as { report?: { range?: { to?: string } } }).report?.range?.to;
+      const error = to === "2028-06" ? "Range can't end after the current month." : "Invalid value.";
+      assert.deepEqual(await r.json(), { error, field }, JSON.stringify(body));
     }
+    const cap = await list("alice", "POST", { name: "ok", report: { ...R(), range: { from: "2020-01", to: "2026-10" } } });
+    assert.deepEqual([cap.status, await cap.json()], [400, { error: "Invalid value.", field: "report.range" }], "cap only: Invalid value.");
     assert.equal((await list("alice", "POST", "{nope")).status, 400);
     assert.equal((await list("alice", "POST", JSON.stringify({ name: "big", report: R() }) + " ".repeat(5000))).status, 413);
     assert.deepEqual(await rowOf("alice"), before);

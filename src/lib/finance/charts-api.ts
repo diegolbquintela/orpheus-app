@@ -48,6 +48,9 @@ export const CHARTS_MESSAGES = {
   nameTaken: "Name already used.",
   defaultNameFixed: "The default report cannot be renamed.",
   exportUnavailable: "Export unavailable. Try again.",
+  /** #179 Q-AF4 (2026-10-17): 400, field `range` (`report.range` on /reports). */
+  rangeBeforeFirst: "Range can't start before 2020-01.",
+  rangeAfterCurrent: "Range can't end after the current month.",
 } as const;
 
 export type ChartsApiErrorCode =
@@ -61,6 +64,7 @@ export type ChartsApiErrorCode =
   | "bad_json"
   | "invalid"
   | "default_name_fixed"
+  | "range_out_of_bounds"
   | "too_large"
   | "not_found"
   | "name_taken"
@@ -87,6 +91,7 @@ export function errorCode(status: number, error: string): ChartsApiErrorCode {
   if (status === 400) {
     if (error === M.badJson || error === M.notObject) return "bad_json";
     if (error === M.defaultNameFixed) return "default_name_fixed";
+    if (error === M.rangeBeforeFirst || error === M.rangeAfterCurrent) return "range_out_of_bounds";
     return error === M.invalid ? "invalid" : "unknown";
   }
   return "unknown";
