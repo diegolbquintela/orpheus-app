@@ -17,7 +17,7 @@ import { eachViewport } from "./session.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
-await refuseIfProd(CFG.baseUrl, "pf-series-api");
+const GUARD = await refuseIfProd(CFG.baseUrl, "pf-series-api");
 const base = CFG.baseUrl;
 const R = { base, checks: [] };
 const check = (name, ok, detail) => {
@@ -61,9 +61,15 @@ const browser = await chromium.launch();
 try {
   const anon = async (method) =>
     (await fetch(`${base}${API}`, { method, headers: { "content-type": "application/json" }, body: method === "POST" ? JSON.stringify(MAIN) : undefined })).status;
-  const post = await anon("POST");
   const get = await anon("GET");
-  check("PFS-01 signed out: POST → 401; GET → 401 or 405", post === 401 && (get === 401 || get === 405), { post, get });
+  if (GUARD.signedOutProd) {
+    // #157 F7: no POST on production; GET only.
+    console.log("INFO signed-out write probes SKIPPED (signed-out prod mode)");
+    check("PFS-01 signed out (prod, GET only): GET → 401 or 405", get === 401 || get === 405, { get });
+  } else {
+    const post = await anon("POST");
+    check("PFS-01 signed out: POST → 401; GET → 401 or 405", post === 401 && (get === 401 || get === 405), { post, get });
+  }
 
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;

@@ -50,11 +50,76 @@ export async function prodReason(baseUrl, fetchImpl = fetch) {
   return null;
 }
 
-/** Prints `REFUSED …` and exits 2 when the target is (or may be) production. */
-export async function refuseIfProd(baseUrl, script, fetchImpl = fetch) {
+export const SIGNED_OUT_PROD_LINE = "signed-out prod mode (prod: signed-out only)";
+
+/**
+ * Env vars that make a run "signed in or writing" (#157 F7, EL option 1): any non-empty sign-in variable the tools read
+ * (`QA_*_EMAIL` / `QA_*_PASSWORD`, incl. `QA_EMAIL` / `QA_PASSWORD`, and `ORPHEUS_OWNER_EMAIL`), or `QA_WRITE`.
+ * Unrelated *_PASSWORD variables on the machine (not read by any tool) don't count.
+ */
+export const CREDENTIAL_VAR = /^(QA_(\w+_)?(EMAIL|PASSWORD)|ORPHEUS_OWNER_EMAIL|QA_WRITE)$/;
+export function credentialVars(env = process.env) {
+  return Object.keys(env).filter((k) => CREDENTIAL_VAR.test(k) && env[k]).sort();
+}
+
+/** True once a tool entered signed-out prod mode (session.mjs and tools skip sign-in / writes on it). */
+export const signedOutProd = () => globalThis.__orpheusSignedOutProd === true;
+
+/**
+ * #157 F7 (EL option 1, 2026-10-17). Same detection as before (static hosts; one HEAD / otherwise).
+ * - Not production → `{ signedOutProd: false }`.
+ * - Production (or unconfirmed) WITH any credential env var or QA_WRITE → prints `REFUSED …`, exits 2 (a static
+ *   prod host makes no request at all).
+ * - Production with none → prints exactly SIGNED_OUT_PROD_LINE and returns `{ signedOutProd: true }`. From then on
+ *   the process never signs in or writes: tools skip those steps on the returned mode, session.mjs skips sign-in,
+ *   and as a safety net `fetch` refuses any method other than GET / HEAD and any /api/auth/ path.
+ */
+export async function refuseIfProd(baseUrl, script, fetchImpl = fetch, env = process.env) {
   const why = await prodReason(baseUrl, fetchImpl);
-  if (why) {
-    console.log(`REFUSED ${script}: production or unconfirmed target (${why}). Run it with --base-url <preview>.`);
+  if (!why) return { signedOutProd: false };
+  const creds = credentialVars(env);
+  if (creds.length) {
+    console.log(`REFUSED ${script}: production or unconfirmed target (${why}) with sign-in / write env set (${creds.join(", ")}). Run it with --base-url <preview>, or unset them for a signed-out run.`);
     process.exit(2);
+  }
+  console.log(SIGNED_OUT_PROD_LINE);
+  await enterSignedOutProd();
+  return { signedOutProd: true };
+}
+
+const writeOrAuth = (method, url) => !["GET", "HEAD"].includes(String(method).toUpperCase()) || new URL(url).pathname.startsWith("/api/auth/");
+
+async function enterSignedOutProd() {
+  if (globalThis.__orpheusSignedOutProd) return;
+  globalThis.__orpheusSignedOutProd = true;
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+    const method = String(init.method ?? (typeof input === "object" && "method" in input ? input.method : "GET")).toUpperCase();
+    if (writeOrAuth(method, url)) throw new Error(`BLOCKED ${method} ${url.pathname} (signed-out prod mode)`);
+    return inner(input, init);
+  };
+  // Browser safety net: every context a tool opens aborts non-GET / HEAD and /api/auth/ requests.
+  try {
+    const { chromium } = await import("playwright");
+    const launch = chromium.launch.bind(chromium);
+    chromium.launch = async (...a) => {
+      const browser = await launch(...a);
+      const newContext = browser.newContext.bind(browser);
+      browser.newContext = async (...o) => {
+        const ctx = await newContext(...o);
+        await ctx.route("**/*", (r) => {
+          const q = r.request();
+          if (!writeOrAuth(q.method(), q.url())) return r.continue();
+          console.log(`BLOCKED ${q.method()} ${new URL(q.url()).pathname} (signed-out prod mode)`);
+          return r.abort();
+        });
+        return ctx;
+      };
+      browser.newPage = async (...o) => (await browser.newContext(...o)).newPage();
+      return browser;
+    };
+  } catch {
+    // playwright not installed: nothing to wrap
   }
 }

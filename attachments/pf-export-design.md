@@ -87,3 +87,15 @@ A production deployment's own unique URL looks like a preview by name; step 2 ca
 - **F1:** PFX-04 is reserved and unused. README now has an entry for the export endpoint, and the AC pack has PFX-01..PFX-19.
 - **F3:** the PNG font now has every printable ASCII glyph (exact case), so the 36.11 caveat prints verbatim. Each glyph is pinned by a pixel test.
 - F5 / F6: EL ruled as above, so no change. F4 (deep-equal, not byte-equal, for non-ASCII) is unchanged.
+
+## Signed-out prod mode (2026-10-17, QA F7, EL option 1)
+
+- **F7, EL option 1 (2026-10-17): signed-out prod mode.**
+  - The production guard (same detection: the static prod hosts, otherwise one `HEAD /`) refuses a production or unconfirmed target **only** when a sign-in or write env var is set: any non-empty sign-in variable the tools read (`QA_*_EMAIL` / `QA_*_PASSWORD` and `ORPHEUS_OWNER_EMAIL`), or `QA_WRITE`. Unrelated `*_PASSWORD` variables don't count. It then exits 2 with `REFUSED …`; a static prod host gets no request at all.
+  - With none set, the tool runs signed out against production. It prints exactly `signed-out prod mode (prod: signed-out only)`, and never signs in or writes:
+    - tools skip their signed-out write probes on the guard's returned mode, and send GET only;
+    - `session.mjs` skips sign-in;
+    - as a safety net, `fetch` and every browser context refuse non-GET / HEAD and `/api/auth/` requests.
+  - 39.7 now reads: QA tools that sign in refuse production when credentials or `QA_WRITE` are set, and run signed out otherwise.
+  - Tests: `scripts/qa-prod-guard.test.mjs` runs every sign-in tool against a faked network with zero real traffic, and asserts no sign-in or write requests.
+- This push is tooling only: `src/` is unchanged since 1219d4d. The PNG descenders nit was skipped (EL).
