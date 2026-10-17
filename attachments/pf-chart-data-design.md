@@ -67,3 +67,10 @@ uses the caller's own saved report (a CFO's report is the CFO's). Read-only, not
   a range keeps reading back (not silently dropped). Not built here because it changes the report API's behaviour.
 - **Q-AB8 Out of scope, NOT BUILT.** Second-axis scaling, derived series (shares, differences, running totals other than
   net assets), per-series ranges, currency choice, downsampling, and any UI. Separate tickets if wanted.
+
+## CFO decisions (2026-10-17, PR #172 at 401de0e)
+
+- Q-AB1..Q-AB6 and Q-AB8 accepted. Q-AB7 routed to Diego as a LOW ticket (not built).
+- **Condition on Q-AB2:** top-level `mixed_axes: boolean` (true when both a `level` and a `flow` series are present),
+  in request and saved modes. `chart` stays a string (turning it into an object would break 37.1 / PFC-05 / PFC-13
+  consumers); spec 37.9, AC PFC-17.

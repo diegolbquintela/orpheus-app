@@ -191,4 +191,21 @@ describe("#155 /api/personal-finance/chart", () => {
     await ch("bob", { saved: true });
     assert.deepEqual([await row(), await audits()], before);
   });
+
+  it("PFC-17 (CFO condition on Q-AB2): mixed_axes is true only with both a level and a flow series, in request and saved modes", async () => {
+    const mixed = await (await ch("alice", c([M("net-assets"), G("all")]))).json();
+    assert.equal(mixed.mixed_axes, true);
+    assert.equal(typeof mixed.chart, "string");
+    const level = await (await ch("alice", c([M("net-assets")]))).json();
+    assert.equal(level.mixed_axes, false);
+    const flow = await (await ch("alice", c([G("all"), M("income"), { kind: "category", id: "Travel" }]))).json();
+    assert.equal(flow.mixed_axes, false);
+    const report = { series: [M("net-assets"), M("expenses")], range: { preset: "6m" }, chart: "line" };
+    assert.equal((await rep("bob", "PUT", { report })).status, 200);
+    const saved = await (await ch("bob", { saved: true })).json();
+    assert.equal(saved.source, "saved");
+    assert.equal(saved.mixed_axes, true);
+    assert.equal((await rep("bob", "PUT", { report: { ...report, series: [M("expenses")] } })).status, 200);
+    assert.equal((await (await ch("bob", { saved: true })).json()).mixed_axes, false);
+  });
 });

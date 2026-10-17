@@ -1,5 +1,5 @@
 // Personal Finance multi-series chart data API (#155; spec section 37; design attachments/pf-chart-data-design.md;
-// AC PFC-01..PFC-16). Backend only: HTTP checks against POST /api/personal-finance/chart on a preview. READ-ONLY: it
+// AC PFC-01..PFC-17). Backend only: HTTP checks against POST /api/personal-finance/chart on a preview. READ-ONLY: it
 // never writes (the record and the saved report are only read).
 //
 //   Signed out (always): PFC-01 POST → 401; GET → 401 or 405.
@@ -99,6 +99,18 @@ try {
       else check(`PFC-12 { saved: true } with none saved → 404 '${NO_SAVED_REPORT}'`, r.status === 404 && same(r.body, { error: NO_SAVED_REPORT }), r);
       r = await call(request, "POST", API, { series: [{ kind: "line", id: "qa-chart-gone" }, G("all")], range: { preset: "3m" }, chart: "line" });
       check("PFC-15 a missing series keeps an all-null column", r.status === 200 && r.body.series[0].missing === true && r.body.rows.every((row) => row.values[0] === null), r.status);
+      // #155 CFO condition on Q-AB2 (2026-10-17): chart-level mixed_axes (top level; `chart` stays a string).
+      const mx = [];
+      for (const [series, want] of [[[M("net-assets"), G("all")], true], [[M("net-assets")], false], [[G("all"), M("income")], false]]) {
+        const x = await call(request, "POST", API, { series, range: { preset: "3m" }, chart: "line" });
+        mx.push(x.status === 200 && x.body.mixed_axes === want && typeof x.body.chart === "string" ? "ok" : { want, status: x.status, got: x.body?.mixed_axes });
+      }
+      const sv = await call(request, "POST", API, { saved: true });
+      if (sv.status === 200) {
+        const axes = sv.body.series.map((x) => x.axis);
+        mx.push(sv.body.mixed_axes === (axes.includes("level") && axes.includes("flow")) ? "ok" : { saved: sv.body.mixed_axes, axes });
+      }
+      check("PFC-17 mixed_axes: true for level + flow, false for level-only / flow-only (and saved mode when a report is saved)", mx.every((m) => m === "ok") && j.mixed_axes === true, mx);
       const after = (await call(request, "GET", "/api/personal-finance")).body?.data ?? null;
       check("PFC-16 read-only: the record is unchanged", same(after, record));
     });

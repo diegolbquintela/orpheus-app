@@ -18,6 +18,11 @@ export type ChartSeries = SeriesOut & { axis: Axis; stack: boolean };
 export type ChartRow = { month: MonthKey; label: string; partial: boolean; values: (number | null)[] };
 export type ChartData = Omit<SeriesResult, "series"> & {
   chart: ChartType;
+  /**
+   * #155 CFO condition on Q-AB2 (2026-10-17, PFC-17): true when the chart has both a `level` and a `flow` series, so a
+   * UI can warn or split. Top level (beside `chart`, which stays the chart-type string).
+   */
+  mixed_axes: boolean;
   source: "request" | "saved";
   labels: string[];
   series: ChartSeries[];
@@ -69,7 +74,8 @@ export function chartData(
     partial: month === r.current,
     values: series.map((s) => s.values[i]),
   }));
-  return { ...r, chart: query.chart, source, labels, series, rows };
+  const mixed_axes = series.some((s) => s.axis === "level") && series.some((s) => s.axis === "flow");
+  return { ...r, chart: query.chart, mixed_axes, source, labels, series, rows };
 }
 
 /** A saved report as a chart query. */

@@ -945,3 +945,9 @@ Backend only. Design and Q-calls: `attachments/pf-chart-data-design.md` (Q-AB1..
 | PFC-14 | BLOCK | A CFO with Read gets the same chart data as the owner. |
 | PFC-15 | MAJOR | A missing series keeps its column (all null) and does not shift the others. |
 | PFC-16 | BLOCK | Read-only: the owner's row and the audit log are unchanged. |
+
+> **Addendum (2026-10-17, #155, CFO condition on Q-AB2, spec 37.9):**
+
+| ID | Severity | Check |
+|---|---|---|
+| PFC-17 | BLOCK | Top-level `mixed_axes` (beside the `chart` string): true with net-assets plus a flow series; false for level-only and flow-only; the same rule in `{ saved: true }` mode. |
