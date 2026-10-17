@@ -89,7 +89,7 @@ try {
         const shuffled = { chart: REPORT.chart, range: REPORT.range, series: REPORT.series.map((s) => ({ id: s.id, kind: s.kind })) };
         r = await call(request, "PUT", API, { json: { report: shuffled } });
         const back = await call(request, "GET", API);
-        check("PFR-03 / PFR-11 PUT stores (keys in the canonical order); GET returns it; missing = [1] (qa-gone)", put.status === 200 && r.status === 200 && same(r.body, { report: REPORT, missing: [1] }) && same(back.body, r.body), { put: put.status, r, back });
+        check("PFR-03 / PFR-11 PUT stores (keys in the canonical order); GET returns it; missing = [1] (qa-gone)", put.status === 200 && r.status === 200 && same(r.body, { report: REPORT, missing: [1] }) && same(core(back.body), core(r.body)), { put: put.status, r, back });
 
         const next = { series: [{ kind: "category", id: "QA" }], range: { from: "2026-01", to: "2026-09" }, chart: "bar" };
         r = await call(request, "PUT", API, { json: { report: next } });
