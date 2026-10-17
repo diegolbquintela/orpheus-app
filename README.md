@@ -663,3 +663,7 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **Report export (#157, backend only, added 2026-10-17).** `GET /api/personal-finance/reports/:id/export?format=pdf|png` returns a saved report (`default` or a named id) as a PDF or PNG file, built in-process with no new dependency. The numbers come from the same function as `/chart { saved: true, id }` and are embedded in the file. Each export prints the as-of month, the generation time, the FX basis and, with net assets, the 36.11 caveat. Access is the same as the reports API.
 
 Every successful GET writes a `pf.report_export` audit row before the file is sent. If that row can't be written, the export answers 503 `Export unavailable. Try again.` (fail closed). HEAD is not audited. No UI, no email, no migration. Every response also carries `X-Orpheus-Env` (build-time `VERCEL_ENV`). Spec section 39; design `attachments/pf-export-design.md`; QA tool `qa/tools/pf-export-api.mjs`.
+
+### Personal Finance chart report API contract (#158, added 2026-10-17)
+
+The Charts UI (#160–#162) calls five routes: `/series`, `/chart`, `/reports`, `/reports/:id` and `/reports/:id/export`. Their single source of truth (methods, bodies, responses, limits, exact error text, auth, headers, `X-Orpheus-Env`) is `attachments/pf-charts-api-contract.md`, spec section 40. Typed client: `src/lib/finance/charts-api.ts`. No wire change; open inconsistencies are Q-AE1..Q-AE14, none built.

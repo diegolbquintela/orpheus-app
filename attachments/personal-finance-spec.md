@@ -1216,3 +1216,34 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
   - `signin-page.mjs` renders and checks the sign-in page but never submits on prod. It prints `INFO … failed sign-in submit SKIPPED (signed-out prod mode)` per viewport.
   - Tests: `scripts/qa-prod-guard.test.mjs` runs site-style-regression and all its children on a faked network. It asserts no POST to `/api/auth/`, no non-GET / HEAD and no submit click, and that the marker is inherited and honoured. `scripts/qa-tools-session.test.mjs` fails any `qa/tools` file that can sign in or write without importing and calling the guard (two observe-only files are exempt, with reasons).
   - 39.11 is accurate with this addition: in signed-out prod mode, no process in the run (parent or child) signs in or writes.
+
+### 39.13 Zero `/api/auth/` requests reach the server in signed-out prod mode (2026-10-17, EL, #158)
+
+- **Note (EL, 2026-10-17), added in #158; it doesn't edit 39.11 or 39.12:** in signed-out prod mode, **zero** `/api/auth/` requests reach the server. SWE confirmed this with a real no-credential prod run of `site-style-regression --smoke-mode on` at be306f7 (an SWE run, not a QA run): 258/258 passed, 0 `/api/auth/` POSTs reached the server, and no node process sent anything other than GET / HEAD.
+- personal-finance PF-34 makes **mocked** sign-in attempts: 4 browser `POST /api/auth/sign-in/email`, answered inside the browser by the tool's own `page.route` (`route.fulfill`; no server address). They never leave the browser and **do not count** as requests to the server. PF-34 stays as built.
+
+## 40. Chart report API contract (#158, backend only)
+
+Contract (single source of truth): `attachments/pf-charts-api-contract.md`. AC PFAPI-01..PFAPI-14. No UI, no new route, no migration, no schema change, **no wire change**.
+
+40.1 The five endpoints the Charts UI (#160–#162) calls are R1 `POST /series`, R2 `POST /chart`, R3 `GET|HEAD|POST /reports`, R4 `GET|HEAD|PUT|DELETE /reports/:id` and R5 `GET|HEAD /reports/:id/export?format=pdf|png`. The legacy `/report` (L1) stays as built, and the UI doesn't use it.
+40.2 Typed client `src/lib/finance/charts-api.ts`: shared request and response types, one error shape `{ ok: false, status, code, error, field? }` with a client-derived `code` (contract section 6), and thin calls `listReports`, `getReport`, `createReport`, `updateReport`, `deleteReport`, `chartQuery`, `chartSaved`, `seriesQuery`, `exportUrl`, `exportReport`. They send exactly the requests the routes already accept.
+40.3 End-to-end on PGlite through the real handlers (`charts-api.server.test.ts`, TZ=UTC and TZ=America/Los_Angeles): create → chart `{ saved: true, id }` → export pdf and png (audit rows) → update → chart again (new values) → delete → chart, export and GET all 404. The chain runs through the typed client, with a fetch that routes to the handlers.
+40.4 Audit (the inconsistencies across the five, plus L1) is listed in 40.6. The only fix built is non-behavioural: the export handler's stale "not audited" comment. The response item type is now shared (`ReportItem`), a type-only change.
+40.5 The contract doc is linked from this spec, `README.md` and `AGENTS.md`. A test fails if a route, a method list, a limit or a message in the doc drifts from the code.
+40.6 Q-calls (none built, because each would change the wire or add a route). CFO must accept any of them first. The design and recommendations are in contract section 7.
+- Q-AE1 `/chart` unknown id says `No saved report.` while R4 and R5 say `Report not found.`
+- Q-AE2 A malformed id is 400 `query` on `/chart` but 404 on R4 and R5.
+- Q-AE3 The default report has null `created_at` / `updated_at` (#160 shows "last updated").
+- Q-AE4 Saved reports cap a custom range at 24 months with no `all` preset, while `/series` and `/chart` allow both (#161 "as far back as data exists"). See Q-AC12.
+- Q-AE5 There is no Email export route (#161 Export menu: Email).
+- Q-AE6 DELETE shapes differ: L1 `{ report: null, … }`, R4 `{ deleted: id }`.
+- Q-AE7 Body-shape errors differ: L1 `Body must be a JSON object.` (no field); R3 / R4 `Invalid value.` `body`; R1 / R2 `Invalid value.` `query`.
+- Q-AE8 `POST /reports` 201 has no `Location` header.
+- Q-AE9 HEAD on the JSON GET routes builds the body and leaves dropping it to the platform; the export sends none.
+- Q-AE10 L1 duplicates `/reports/default`.
+- Q-AE11 The 413 text and limits differ: `Query too large.` at 4096 B (R1, R2), `Report too large.` at 4608 B (R3, R4) and 4096 B (L1).
+- Q-AE12 405 comes before 401, so a signed-out wrong method shows 405.
+- Q-AE13 `X-Orpheus-Env` is set by Vercel routing only, so local dev and tests don't carry it.
+- Q-AE14 `limit: 20` counts named reports only; the default is extra.
+40.7 (2026-10-17, #158 QA round 1; this changes the 40.5 claim) The drift test now ties the doc to the **server**, not to the client's copy. Contract section 8.1 lists all 17 messages and the routes that send each one. The test drives the real handlers for each of the 61 message × route pairs and asserts the status and the exact `error` text. Section 8.2 lists the caps, which are checked against their server constants and at their boundary (cap allowed, cap + 1 refused). Every byte cap and count in the prose (sections 3 and 4) must match them, including R1 / R2's "no 24-month cap". QA's 4 surviving mutations and 26 more were all killed (see the PR body). `scripts/qa-prod-guard.test.mjs` now covers every `refuseIfProd` caller, `pf-charts-contract` included, against a pinned set of 25.
