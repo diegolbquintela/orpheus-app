@@ -5,4 +5,4 @@
  * (deleted names read back on earlier months, `(deleted)` labels for existing data, report `deleted` / `labels`) and
  * every test stay. Flip it in one commit.
  */
-export const PF_DELETE_UI = true;
+export const PF_DELETE_UI = false;
