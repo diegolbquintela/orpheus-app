@@ -144,3 +144,6 @@ export const DELETE_ACCOUNT = "Delete account";
 export const DELETED_SUFFIX = " (deleted)";
 export const deleteNameQuestion = (name) => `Delete ${name}? This month and later months lose it; earlier months keep it, marked (deleted).`;
 export const NAME_DELETED = "That name was deleted. Add it again to restore it.";
+// #155 (spec section 37): API texts of /api/personal-finance/chart (no page text; backend only).
+export const NO_SAVED_REPORT = "No saved report.";
+export const FX_BASIS_CURRENT = "current";

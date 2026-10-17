@@ -1096,3 +1096,18 @@ Design and CFO calls Q-AA1..Q-AA9: `attachments/pf-series-design.md`. AC PFS-01.
 36.9 (2026-10-17, CFO on PR #169) Q-AA1, Q-AA2, Q-AA5..Q-AA9 accepted. **Q-AA4 changed:** `net-assets` for month M = Starting net assets + every month's surplus from the anchor month through M, independent of the requested range; before the anchor null; a month without a surplus carries the value flat (not null). The response names the anchor `net_assets_from`. **Q-AA10 (open):** the record stores no starting-net-assets date, so the anchor is the first month with any data (design note). This supersedes the range-relative net assets in 36.6; income / expenses / surplus are unchanged.
 36.10 (2026-10-17, CFO condition on Q-AA3) Every response carries `fx_basis: "current"`: all months are valued at the record's current FX rates.
 36.11 (2026-10-17, CFO on PR #169) **Q-AA10 = (a) accepted, as built**: `net_assets_from` is the first data month; (b) (a stored as-of month) is filed separately by EL. Caveat for `net_assets_from` / `net-assets`: Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).
+36.12 (2026-10-17, #155, QA #169 nit a) The documented series response shape includes `fx_basis` (always `"current"`) and `net_assets_from` (the anchor month, or null with no data): `{ range, months, current, partial, currency, fx_basis, net_assets_from, series }` (design note addendum).
+
+## 37. Multi-series chart data (#155, backend only)
+
+Design and Q-calls Q-AB1..Q-AB8: `attachments/pf-chart-data-design.md`. AC PFC-01..PFC-16. No UI, no migration, no schema change.
+
+37.1 `POST /api/personal-finance/chart` takes `{ series, range, chart }` or `{ saved: true }` and returns several series aligned on one month axis: the #154 series response (section 36, unchanged, incl. `fx_basis: "current"`, `net_assets_from` and the 36.11 caveat) plus `chart`, `source`, `labels`, per series `axis` and `stack`, and `rows` (one per month: `month`, `label`, `partial`, `values`).
+37.2 Access is the series / report API's (Personal Finance read grant; the owner's data). Read-only, not audited. 404 `No saved report.` for `{ saved: true }` with none stored.
+37.3 `series` / `range` are validated as in #154; `chart` is `line` / `bar` / `stacked-bar` (400 `chart`); anything else in the body is 400 `query`; 413 above 4 KB.
+37.4 Values are identical to `/series` for the same series and range; `rows[i].values[j]` = `series[j].values[i]`.
+37.5 `axis` is `level` for `net-assets`, else `flow` (Q-AB2). In a `stacked-bar`, `stack` is true only for `line`, `account`, `category`, `fixed`, `variable`; never for `all` or metrics; other chart types stack nothing (Q-AB3).
+37.6 `labels` / `rows[].label` are the Overview's short month labels (`Oct 26`); the current month's row is `partial` (Q-AB4).
+37.7 `{ saved: true }` charts the caller's own saved report with its range and chart type; `source: "saved"` (Q-AB5).
+37.8 Not built (Diego's call): report ranges before 2020-01 / after the current month (Q-AB7) and the Q-AB8 list.
+37.9 (2026-10-17, CFO on PR #172) Q-AB1..Q-AB6 and Q-AB8 accepted; Q-AB7 routed to Diego as a LOW ticket (not built). **Condition on Q-AB2:** the response carries a chart-level `mixed_axes` boolean, true when both an `axis: "level"` and an `axis: "flow"` series are present, else false, in request and saved modes, so a UI can warn about or split such charts. It is a top-level field beside `chart`; `chart` stays the chart-type string of 37.1 (least breaking). AC PFC-17.

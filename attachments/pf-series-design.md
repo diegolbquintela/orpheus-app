@@ -95,3 +95,25 @@ not audited either). No migration.
   (c) the Overview's rolling window start (matches the chart, but the value of a month changes as time passes).
 
 **Q-AA10 decided (2026-10-17): (a) accepted, as built**; (b) filed separately by EL. Caveat (verbatim in spec 36.11): Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).
+
+## Response shape addendum (2026-10-17, #155, QA #169 nit a)
+
+The documented response above predates the CFO round. The full #154 response is:
+
+```json
+{
+  "range": { "from": "2020-01", "to": "2026-10" },
+  "months": ["2020-01", "…", "2026-10"],
+  "current": "2026-10",
+  "partial": true,
+  "currency": "CAD",
+  "fx_basis": "current",
+  "net_assets_from": "2020-01",
+  "series": [
+    { "kind": "category", "id": "Travel", "label": "Travel (deleted)", "deleted": true, "missing": false, "values": [100, null, "…"] }
+  ]
+}
+```
+
+`fx_basis` is always `"current"` (Q-AA3, spec 36.10). `net_assets_from` is the anchor month (Q-AA4 / Q-AA10, spec 36.9 /
+36.11), or null when the record has no data. #155 (`/chart`, `attachments/pf-chart-data-design.md`) keeps both.
