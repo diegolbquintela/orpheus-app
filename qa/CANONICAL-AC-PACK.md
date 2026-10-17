@@ -1033,3 +1033,24 @@ Backend only, no wire change. Contract: `attachments/pf-charts-api-contract.md` 
 **Correction (2026-10-17, #158 QA round 1 F3b):** PFAPI-06 lists the chain's audit rows wrongly. The test, which the PR body also follows, asserts these six rows, in order: `pf.report_save` (create), `pf.report_export` (pdf), `pf.report_export` (png), `pf.report_save` (update), `pf.report_export` (the pdf export after the update, which checks the new values), `pf.report_delete`. Reads, 404s and HEAD write no row.
 
 **Note (2026-10-17, #158 QA round 1 F1 / F2):** PFAPI-09 is now stricter. Contract section 8 has a messages × routes table and a caps table. `charts-api.server.test.ts` drives the real handlers for all 61 message × route pairs, and checks every cap against its server constant and at its boundary. It also ties the caps written in the prose to those constants. Separately, `scripts/qa-prod-guard.test.mjs` now discovers every `qa/tools` file that calls `refuseIfProd` (the union with the sign-in tools: 25 pinned), so `pf-charts-contract.mjs` gets the fake-network refusal and GET / HEAD-only assertions.
+
+## Personal Finance saved reports: dynamic `all` range and range bounds (#179, folds in #173; spec section 41; added 2026-10-17)
+
+Backend only. PGlite real-path tests: `src/lib/finance/all-range.server.test.ts` (TZ=UTC and TZ=America/Los_Angeles); drift test `charts-api.server.test.ts` with contract section 9.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFALL-01 | BLOCK | `POST /reports` and `PUT /reports/:id` accept `{ preset: "all" }` (201 / 200), and the stored value is exactly `{"preset":"all"}`. |
+| PFALL-02 | BLOCK | Legacy `PUT /report` and `PUT /reports/default` accept `all` and store it. |
+| PFALL-03 | BLOCK | Dynamic: `/chart { saved: true, id }` on an `all` report resolves to first data month..current; after a new month with data is added, or the clock moves to a later month, the same stored report charts more months (never frozen). |
+| PFALL-04 | BLOCK | Export (pdf and png) of an `all` report embeds exactly `/chart { saved: true, id }`, and prints `Range: All data (<from> to <to>)`. |
+| PFALL-05 | MAJOR | An `all` report with no data months: chart = the current month only, nulls; the export prints `Range: All data (no data yet, <month>)`. |
+| PFALL-06 | BLOCK | #173: a save with `from` 2019-12 → 400 `Invalid value.` `range`; `from` 2020-01 → OK; `to` = current Toronto month → OK; `to` = next month → 400. Nothing is stored. The same on POST, PUT `:id`, PUT `default` and legacy PUT. |
+| PFALL-07 | BLOCK | Toronto month boundary: at 2026-11-01T03:30Z (still October in Toronto), `to` 2026-11 is refused and 2026-10 allowed; at 04:30Z, 2026-11 is allowed. The same under TZ=UTC and TZ=America/Los_Angeles. |
+| PFALL-08 | MAJOR | 24-month cap kept for explicit saved ranges (24 OK, 25 → 400 `range`). |
+| PFALL-09 | BLOCK | Old stored reports (legacy default and named) whose ranges fall outside the new bounds still GET, list, chart (nulls) and export unchanged; a stored `all` reads back as `all`. |
+| PFALL-10 | BLOCK | Old stored in-bound reports read, chart and export byte-identically to before #179 (same data, same header lines). |
+| PFALL-11 | MAJOR | One validator: `/series` and `/chart` behaviour unchanged (all existing #154 / #155 tests pass unchanged); the save and query modes differ only in the 24-month cap. |
+| PFALL-12 | MAJOR | The client (`reportError` with the current month, `charts-api.ts` types) refuses the same out-of-bounds saves before sending and accepts `all`. |
+| PFALL-13 | MAJOR | Contract section 9 and the drift test cover the new bounds (from-min 2020-01, to-max the current month, `all` in saved presets) at their boundaries. |
+| PFALL-14 | MINOR | The new export text (`All data (`, `no data yet`) is in the QA lists (`qa/tools/pf-helpers.mjs`). |

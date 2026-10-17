@@ -667,3 +667,7 @@ Every successful GET writes a `pf.report_export` audit row before the file is se
 ### Personal Finance chart report API contract (#158, added 2026-10-17)
 
 The Charts UI (#160–#162) calls five routes: `/series`, `/chart`, `/reports`, `/reports/:id` and `/reports/:id/export`. Their single source of truth (methods, bodies, responses, limits, exact error text, auth, headers, `X-Orpheus-Env`) is `attachments/pf-charts-api-contract.md`, spec section 40. Typed client: `src/lib/finance/charts-api.ts`. No wire change; open inconsistencies are Q-AE1..Q-AE14, none built.
+
+### Personal Finance saved reports: dynamic `all` range (#179, added 2026-10-17)
+
+Saved reports accept the `all` range, stored as `all` and resolved each time they run, and saves refuse ranges before 2020-01 or after the current Toronto month (#173). One range validator serves /series, /chart and saved reports. Spec section 41; contract `attachments/pf-charts-api-contract.md` section 9; AC PFALL-01..PFALL-14.
