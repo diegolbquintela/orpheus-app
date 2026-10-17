@@ -29,6 +29,8 @@ import {
   REPORT_MAX_BYTES,
   reportText,
 } from "./report.ts";
+import { householdMonth } from "./overview.ts";
+import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
 
@@ -243,4 +245,37 @@ export async function handlePersonalFinanceReportRequest(request: Request, deps:
     deleted: report ? deletedSeries(report, record) : [],
     labels: report ? seriesLabels(report, record) : [],
   });
+}
+
+export const PF_SERIES_ALLOW = ["POST"] as const;
+
+/**
+ * `POST /api/personal-finance/series` `{ series, range }` (#154; spec section 36, PFS-01..PFS-16). Read-only: the
+ * **owner's** record as monthly series (the report's kinds and ids, Q-AA1..Q-AA9). Same gate as the report API (a
+ * Personal Finance read grant). 400 `{ error, field }` for a bad query, 413 above 4 KB. Nothing is stored or audited.
+ */
+export async function handlePersonalFinanceSeriesRequest(
+  request: Request,
+  deps: DashboardApiDeps,
+  now: () => Date = () => new Date(),
+) {
+  const g = await gateDashboardRequest(request, PF_SERIES_ALLOW, deps, {
+    surface: "personal_finance",
+    need: "read",
+  });
+  if ("response" in g) return g.response;
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > SERIES_MAX_BYTES)
+    return dashboardJson({ error: "Query too large." }, 413);
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return badRequest("Body must be JSON.");
+  }
+  const at = now();
+  const e = seriesQueryError(body, householdMonth(at));
+  if (e) return dashboardJson(e.field ? { error: e.error, field: e.field } : { error: e.error }, e.status);
+  const record = await readRecord(g.db, g.user.id);
+  return dashboardJson(seriesValues(body as SeriesQuery, record, at));
 }
