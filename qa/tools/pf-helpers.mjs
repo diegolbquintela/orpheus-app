@@ -159,3 +159,5 @@ export const EXPORT_MIXED_LINE = "Mixed axes: net assets (a level) share this ch
 export const NET_ASSETS_CAVEAT = "Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).";
 // #157 PFX-18: the note bar / stacked-bar exports carry (PNG drawn text + tEXt `orpheus-note`; PDF header line).
 export const EXPORT_LINES_NOTE = "Rendered as lines";
+// #157 PFX-19: 503 when the export could not be audited (fail closed; no file sent).
+export const EXPORT_UNAVAILABLE = "Export unavailable. Try again.";

@@ -18,7 +18,7 @@ import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
 
-// #157 (spec section 39, PFX-01..PFX-18): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
+// #157 (spec section 39, PFX-01..PFX-19): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
 // Finance grant. Runs under TZ=UTC and TZ=America/Los_Angeles (npm test both ways): the household month is Toronto's.
 const pg = new PGlite();
@@ -269,19 +269,81 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     assert.deepEqual((await audits(t)).filter((r) => r.action === "pf.report_export"), []);
   });
 
-  it("PFX-17: a failed audit insert does not change the answer (best effort, as pf.report_save)", async () => {
-    const broken = { ...as("alice"), db: { query: async (text: string, params?: unknown[]) => {
+  it("PFX-19 (CFO, 2026-10-17): audit insert fails → 503 JSON, no-store, no file bytes, failure logged; HEAD still 200, no row", async () => {
+    const t = await top();
+    const failing = { query: async (text: string, params?: unknown[]) => {
       if (/INSERT INTO audit_event/.test(text)) throw new Error("audit down");
       return (await pg.query(text, params)).rows;
-    } } };
+    } };
+    const broken = { ...as("alice"), getDb: async () => failing };
+    const logged: string[] = [];
     const err = console.error;
-    console.error = () => {};
+    console.error = (...m: unknown[]) => void logged.push(m.map(String).join(" "));
     try {
-      const r = await handlePersonalFinanceReportExportRequest(req("GET", undefined, "/api/personal-finance/reports/default/export?format=pdf"), "default", broken as never, () => NOW);
-      assert.equal(r.status, 200);
-      readPdf(await bytes(r));
+      for (const f of ["pdf", "png"]) {
+        const r = await handlePersonalFinanceReportExportRequest(req("GET", undefined, `/api/personal-finance/reports/default/export?format=${f}`), "default", broken as never, () => NOW);
+        assert.equal(r.status, 503, f);
+        assert.match(r.headers.get("content-type") ?? "", /^application\/json/);
+        assert.equal(r.headers.get("cache-control"), "no-store");
+        assert.equal(r.headers.get("content-disposition"), null);
+        const raw = await bytes(r);
+        assert.deepEqual(JSON.parse(raw.toString("utf8")), { error: "Export unavailable. Try again." });
+        assert.ok(!raw.subarray(0, 8).toString("latin1").startsWith("%PDF") && raw[0] !== 0x89, "no file bytes");
+        assert.ok(raw.length < 64, "only the short JSON");
+      }
+      assert.deepEqual(logged, ["[audit] could not record pf.report_export", "[audit] could not record pf.report_export"]);
+      assert.ok(!logged.join().includes("alice") && !logged.join().includes("default"), "no person or report in the log");
+      const h = await handlePersonalFinanceReportExportRequest(req("HEAD", undefined, "/api/personal-finance/reports/default/export?format=pdf"), "default", broken as never, () => NOW);
+      assert.equal(h.status, 200, "HEAD writes nothing, so it answers even with audit down");
+      assert.equal(h.headers.get("content-type"), "application/pdf");
+      assert.equal((await h.arrayBuffer()).byteLength, 0);
+      assert.equal(logged.length, 2, "HEAD tried no insert");
     } finally {
       console.error = err;
+    }
+    assert.deepEqual(await audits(t), [], "no row from the failed GETs or HEAD");
+    const ok = await ex("alice", "default", "pdf");
+    assert.equal(ok.status, 200, "audit back → exports again");
+    assert.deepEqual((await audits(t)).map((r) => r.action), ["pf.report_export"]);
+  });
+
+  it("Q-AD14 (CFO, 2026-10-17): the encoded report id round-trips losslessly and always fits the audit detail CHECK", () => {
+    const CHECK = /^[a-z_:+ A-Z]{1,40}$/;
+    const enc = (id: string) => exportDetail("png", id).slice("format:png id:".length);
+    const ok = (id: string) => {
+      const e = enc(id);
+      assert.equal(decodeReportId(e), id, id);
+      assert.match(`format:png id:${e}`, CHECK, id);
+      assert.match(`format:pdf id:${e}`, CHECK, id);
+    };
+    // per character: the alphabet of ids ("default", "r-", hex) maps injectively, each image decodes back, and no
+    // image is itself another input character left unchanged (so the per-character map is a bijection onto its image).
+    const alphabet = [..."0123456789abcdef-r", ..."default"].filter((c, i, a) => a.indexOf(c) === i);
+    const images = alphabet.map((c) => enc(c));
+    assert.equal(new Set(images).size, alphabet.length, "injective");
+    images.forEach((im, i) => {
+      assert.equal(im.length, 1);
+      assert.equal(decodeReportId(im), alphabet[i]);
+    });
+    const hex = "0123456789abcdef";
+    ok("default");
+    for (let pos = 0; pos < 8; pos++) for (const c of hex) ok(`r-${"0".repeat(pos)}${c}${"0".repeat(7 - pos)}`);
+    for (let pos = 0; pos < 8; pos++) for (const c of hex) ok(`r-${"f".repeat(pos)}${c}${"f".repeat(7 - pos)}`);
+    for (const id of ["r-00000000", "r-99999999", "r-12345678", "r-aaaaaaaa", "r-ffffffff", "r-abcdefab", "r-0f0f0f0f", "r-f0f0f0f0", "r-09af09af"]) ok(id);
+    let x = 0x157;
+    const rnd = () => {
+      x = (x + 0x6d2b79f5) | 0;
+      let t = Math.imul(x ^ (x >>> 15), 1 | x);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const seen = new Map<string, string>();
+    for (let i = 0; i < 10_000; i++) {
+      const id = `r-${Array.from({ length: 8 }, () => hex[Math.floor(rnd() * 16)]).join("")}`;
+      ok(id);
+      const e = enc(id);
+      assert.ok(!seen.has(e) || seen.get(e) === id, "no two ids share a code");
+      seen.set(e, id);
     }
   });
 

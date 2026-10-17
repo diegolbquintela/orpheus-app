@@ -70,3 +70,12 @@ A production deployment's own unique URL looks like a preview by name; step 2 ca
 - **AD4: built, as PFX-18.** `Rendered as lines` (`LINES_NOTE`, `pf-helpers` `EXPORT_LINES_NOTE`) appears as header line 3 for bar and stacked-bar reports. In the PNG it is drawn and also in `tEXt orpheus-note`; the PDF gets the same line for free.
 - AD5: ASCII stays; Unicode fonts go to Diego as a follow-up.
 - AD7 correction: the filename date is now the Toronto day; the first build used the UTC day.
+
+## CFO decisions, second round (2026-10-17)
+
+- **Q-AD14: keep the encoding.** It is pinned by the round-trip test in `export.server.test.ts`: per-character bijection, each hex character at each position, boundary ids, and 10k seeded random ids, all fitting the detail CHECK.
+- **Fail closed (PFX-19).** This replaces the best-effort behaviour noted above for exports only, and differs from `pf.report_save`, which logs and continues.
+  - `tryAuditFor` (in `audit.server.ts`) does the same insert and logs the same line, but returns whether the row was written.
+  - The handler builds the file, writes the row, and sends the file only if the row was written. Otherwise it answers 503 `EXPORT_UNAVAILABLE` (`pf-helpers`), `no-store`.
+  - HEAD writes nothing, so it keeps answering 200 with `Content-Length` while the audit is down.
+- **Correction:** at ba8e4dd the PFX-17 "failed insert still answers 200" test stubbed the wrong dependency key (`db` instead of `getDb`), so it never simulated a failure. The PFX-19 test injects the failure through `getDb`. A mutation check (log-and-continue put back) makes it fail.

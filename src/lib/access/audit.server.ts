@@ -98,6 +98,25 @@ export function exportDetail(format: "pdf" | "png", reportId: string): string {
 }
 export const decodeReportId = (code: string): string => code.replace(/_/g, "-").replace(/[A-J]/g, (c) => String(c.charCodeAt(0) - 65));
 
+/**
+ * #157 PFX-19 (CFO, 2026-10-17): fail-closed variant for actions that must not happen unaudited (report export).
+ * Same insert and the same log line as `recordAudit` (action code only), but reports whether the row was written.
+ */
+export async function tryAuditFor(db: Queryable | null | undefined, access: AccountAccess, action: AuditAction, more: Partial<AuditEvent> = {}): Promise<boolean> {
+  if (!db) return false;
+  const e: AuditEvent = { actor: actorCode(access), role: roleOf(access), action, ...more };
+  try {
+    await db.query(
+      "INSERT INTO audit_event (actor, role, action, target, outcome, detail) VALUES ($1, $2, $3, $4, $5, $6)",
+      [e.actor, e.role, e.action, e.target ?? null, e.outcome ?? "ok", e.detail ?? null],
+    );
+    return true;
+  } catch {
+    console.error(`[audit] could not record ${e.action}`);
+    return false;
+  }
+}
+
 /** Shorthand for a signed-in person's action. */
 export function auditFor(db: Queryable | null | undefined, access: AccountAccess, action: AuditAction, more: Partial<AuditEvent> = {}) {
   return recordAudit(db, { actor: actorCode(access), role: roleOf(access), action, ...more });

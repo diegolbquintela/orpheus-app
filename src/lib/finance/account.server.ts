@@ -4,7 +4,7 @@
  * 405 JSON for another method, 401 JSON without a session, 403 when `userId` names someone else, 400 / 413 for a bad
  * body, 503 without a database. The user id is the session's, never the client's. #90: the data is the owner's.
  */
-import { auditFor, exportDetail } from "../access/audit.server.ts";
+import { auditFor, exportDetail, tryAuditFor } from "../access/audit.server.ts";
 import {
   badRequest,
   type DashboardApiDeps,
@@ -501,6 +501,8 @@ export async function handlePersonalFinanceReportItemRequest(request: Request, i
   return dashboardJson(itemOf(id, r.name, r.report, await readRecord(db, user.id), r.created_at, r.updated_at));
 }
 
+/** PFX-19: the export could not be audited, so it was not sent. */
+export const EXPORT_UNAVAILABLE = "Export unavailable. Try again.";
 export const PF_EXPORT_ALLOW = ["GET", "HEAD"] as const;
 export const EXPORT_TYPES: Record<ExportFormat, string> = { pdf: "application/pdf", png: "image/png" };
 
@@ -540,9 +542,12 @@ export async function handlePersonalFinanceReportExportRequest(
   const meta = { name, generatedAt: at.toISOString() };
   const f = format as ExportFormat;
   const body = f === "pdf" ? buildPdf(data, meta) : buildPng(data, meta);
-  // PFX-17 (CFO, 2026-10-17): a successful GET is audited like pf.report_save (same actor / role, best effort: a
-  // failed insert is logged and never changes the answer). HEAD sends no file, so it is not audited; 4xx never are.
-  if (request.method.toUpperCase() === "GET") await auditFor(db, g.access, "pf.report_export", { detail: exportDetail(f, id) });
+  // PFX-17 / PFX-19 (CFO, 2026-10-17): a successful GET is audited BEFORE the file is sent (same actor / role as
+  // pf.report_save). Fail closed, unlike pf.report_save's log-and-continue: if the row can't be written, 503
+  // EXPORT_UNAVAILABLE (no-store JSON, no file bytes); the failure is logged by tryAuditFor (action code only).
+  // HEAD sends no file, so it writes no row and still answers 200 with the headers even when audit is down; 4xx never audit.
+  if (request.method.toUpperCase() === "GET" && !(await tryAuditFor(db, g.access, "pf.report_export", { detail: exportDetail(f, id) })))
+    return dashboardJson({ error: EXPORT_UNAVAILABLE }, 503);
   return new Response(request.method.toUpperCase() === "HEAD" ? null : new Uint8Array(body), {
     status: 200,
     headers: {

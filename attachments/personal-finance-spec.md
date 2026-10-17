@@ -1171,3 +1171,17 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
 
 - PFX-17: one `pf.report_export` row per successful pdf / png GET, with id, format and actor as above. No row for 4xx or HEAD. A failed audit insert does not change the answer.
 - PFX-18: bar / stacked-bar exports carry `Rendered as lines`: PNG pixels and `tEXt`, and the PDF header line. Line reports don't.
+
+### 39.9 CFO decisions, second round (2026-10-17)
+
+- **Q-AD14:** keep the encoded report id. A test pins the lossless round trip: per-character bijection, every hex character in every one of the 8 positions, boundary ids, and 10,000 seeded random ids. Every encoded detail fits the 0012 CHECK.
+- **PFX-19, fail closed (this departs from `pf.report_save`'s log-and-continue, 39.8):**
+  - The `pf.report_export` row is written BEFORE the file is sent.
+  - If the insert fails, the export answers `503` `{ "error": "Export unavailable. Try again." }` as `no-store` JSON, and no file bytes are sent.
+  - The failure is logged as `[audit] could not record pf.report_export` (action code only).
+  - `HEAD` writes no row, so it still answers `200` with the file's headers (including `Content-Length`) when the audit is down. No file leaves the server.
+  - This supersedes the "best effort" line for exports in 39.8 / PFX-17.
+
+### AC PFX (added 2026-10-17, second round)
+
+- PFX-19: with the audit insert failing, GET pdf / png → 503 with the JSON above, not pdf / png, no `Content-Disposition`, no file bytes, the failure logged, and no row. HEAD → 200 with no insert. Once the audit works again, exports resume.
