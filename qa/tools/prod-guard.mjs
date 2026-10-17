@@ -54,7 +54,7 @@ export const SIGNED_OUT_PROD_LINE = "signed-out prod mode (prod: signed-out only
 
 /**
  * Env vars that make a run "signed in or writing" (#157 F7, EL option 1): any non-empty sign-in variable the tools read
- * (`QA_*_EMAIL` / `QA_*_PASSWORD`, incl. `QA_EMAIL` / `QA_PASSWORD`, and `ORPHEUS_OWNER_EMAIL`), or `QA_WRITE`.
+ * (`QA_*_EMAIL` / `QA_*_PASSWORD`, incl. the plain QA email and password, and `ORPHEUS_OWNER_EMAIL`), or `QA_WRITE`.
  * Unrelated *_PASSWORD variables on the machine (not read by any tool) don't count.
  */
 export const CREDENTIAL_VAR = /^(QA_(\w+_)?(EMAIL|PASSWORD)|ORPHEUS_OWNER_EMAIL|QA_WRITE)$/;
