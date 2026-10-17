@@ -647,3 +647,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **#163 addendum (2026-10-16, CFO rejected Q-Y6).** An empty past month now opens blank. A `Copy from current month` button copies the current month's lines into it, and nothing is stored until Save, so figures saved by accident can't pollute the averages. An empty current month still copies the most recent month with lines (PF-56). AC PFM-15..PFM-19.
 
 **Deleting keeps history (#165).** `Delete category` / `Delete account` remove a name from the shown month and later months on Save. Earlier months keep it, shown as `<name> (deleted)`. Chart report series on it keep their past data (`deleted` / `labels` on the report API). Totals and averages don't change. Design: `attachments/pf-keep-deleted-design.md`; spec section 35; AC PFD-01..PFD-14.
+
+**Note (2026-10-16, #165, spec 35.10):** the `Delete category` / `Delete account` buttons are **off** (`PF_DELETE_UI = false`, Diego's call), pending a follow-up ticket. #165 ships only the history protection and the `<name> (deleted)` labels; the report's `deleted` / `labels` work for data that already holds deleted names.
