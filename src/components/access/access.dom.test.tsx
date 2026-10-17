@@ -227,6 +227,7 @@ describe("denied and read-only (#90)", () => {
       open.map((c) => c.getAttribute("data-testid")),
       [
         "pf-month",
+        "pf-month-year",
         "pf-toggle-income",
         "pf-toggle-expenses",
         "pf-toggle-summary",

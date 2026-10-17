@@ -105,3 +105,35 @@ export async function contrastScan(page) {
     return { n, bad: bad.slice(0, 10) };
   });
 }
+
+// #163 (spec section 34): the month control is Month (`pf-month`, 01..12) + Year (`pf-month-year`).
+/** The month shown, `yyyy-mm`. */
+export const shownMonth = async (page) =>
+  `${await page.getByTestId("pf-month-year").inputValue()}-${await page.getByTestId("pf-month").inputValue()}`;
+/** Choose a month as a person does: the Year (when it differs), then the Month. */
+export async function pickMonth(page, key) {
+  const [y, m] = key.split("-");
+  if ((await page.getByTestId("pf-month-year").inputValue()) !== y) await page.getByTestId("pf-month-year").selectOption(y);
+  if ((await page.getByTestId("pf-month").inputValue()) !== m) await page.getByTestId("pf-month").selectOption(m);
+}
+/** The control's choices: the Month options with their disabled flag, and the years. */
+export const monthChoices = (page) =>
+  page.getByTestId("pf-month-control").evaluate((c) => ({
+    labels: [...c.querySelectorAll("label")].map((l) => l.textContent.trim()),
+    months: [...c.querySelector("[data-testid=pf-month]").options].map((o) => o.textContent + (o.disabled ? " (disabled)" : "")),
+    years: [...c.querySelector("[data-testid=pf-month-year]").options].map((o) => o.textContent),
+  }));
+
+// #163 (Q-Y6 rejected, PFM-15..PFM-19): an empty past month opens blank; this button copies the current month in.
+export const COPY_FROM_CURRENT = "Copy from current month";
+/** An empty past month as shown: lines, people, the note, Save, and the month control's own texts (labels + button). */
+export const blankMonth = (page) =>
+  page.evaluate(() => ({
+    lines: document.querySelectorAll("[data-testid=pf-line]").length,
+    people: document.querySelectorAll("[data-testid=pf-person]").length,
+    note: document.querySelector("[data-testid=pf-month-note]")?.textContent.trim() ?? null,
+    save: document.querySelectorAll("[data-testid=pf-month-save]").length,
+    texts: [...document.querySelectorAll("[data-testid=pf-month-control] label, [data-testid=pf-month-control] button")].filter((e) => getComputedStyle(e).visibility !== "hidden").map((e) => e.textContent.trim()),
+  }));
+/** (#163 PFM-11: `texts` lists only visible controls; the copy line is always rendered, hidden by visibility.) What `blankMonth` reads on an empty past month for a writer (the current month has saved lines). */
+export const BLANK_PAST = { lines: 0, people: 0, note: "", save: 0, texts: ["Month", "Year", COPY_FROM_CURRENT] };

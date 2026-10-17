@@ -825,3 +825,42 @@ Backend only. Signed-in checks: `qa/tools/pf-report-api.mjs` (needs `QA_EMAIL` /
 | PFR-14 | BLOCK | Per person: a CFO (Read only is enough) saves their own report. The owner and the CFO each see only their own. `missing` is checked against the owner's record. No grant → 403. |
 | PFR-15 | BLOCK | The client and the API use one validator (`reportError` in `src/lib/finance/report.ts`). |
 | PFR-16 | BLOCK | No migration file is added. No UI, navigation or style change. |
+
+## Personal Finance: month control allows any past month (#163; personal-finance-spec section 34; attachments/pf-any-month-design.md)
+
+Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/personal-finance-e2e.mjs`). Supersedes PF-48's "12 choices".
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PFM-01 | BLOCK | Under the title: label `Month` above a select with `Jan`..`Dec`, and label `Year` above a select with the current year down to `2020`. Then the Save slot. |
+| PFM-02 | BLOCK | Default: the current household month (for example October / 2026). |
+| PFM-03 | BLOCK | In the current year, the months after the current month are disabled. Choosing the current year while a later month is chosen opens the current month. No future month can be opened. |
+| PFM-04 | BLOCK | Any past month from January 2020 opens (for example March 2021): its own saved lines if it has them. |
+| PFM-05 | BLOCK | An empty past month opens as a copy of the current month's saved lines, with `Copied from October 2026 — edit and save.`, and `Save` shown. Nothing is stored until Save. |
+| PFM-06 | BLOCK | Editing and saving an old month (for example March 2021) stores it. After a reload it reopens with its own lines, and the current month is unchanged. |
+| PFM-07 | BLOCK | Storage keeps every saved month from 2020-01 (no 24-month limit): 30+ saved months all survive a save and a reload. No migration. |
+| PFM-08 | BLOCK | `Discard unsaved changes?` only after something was typed or changed. Moving on from an untouched copy doesn't ask. Year then Month asks at most once. |
+| PFM-09 | BLOCK | The 3-month and 12-month averages, This month and the chart don't change when a month older than their windows is saved. |
+| PFM-10 | BLOCK | Read-only (a CFO with Read): any month can be opened; no `Save`. |
+| PFM-11 | BLOCK | Layout at 360 / 400 / 1024 / 1440: Month, Year and Save on one row under the title, each control ≥ 44 px tall. No horizontal scroll, strict CLS 0, no gold. |
+| PFM-12 | BLOCK | Copy: the only new visible text is `Year` (and the options `Jan`..`Dec` and the years). |
+| PFM-13 | BLOCK | The currency model and Equity Coverage are unchanged (their existing PF checks pass). |
+| PFM-14 | BLOCK | The #153 report's custom range is still at most 24 months. |
+
+> **Addendum (2026-10-16, #163, PFR-14):** `qa/tools/pf-report-api.mjs` now also checks per-person isolation (with the CFO's report saved, the owner's GET does not return it) and, with `QA_NOGRANT_EMAIL` / `QA_NOGRANT_PASSWORD`, 403 for GET / PUT / DELETE without a Personal Finance grant. This is QA's optional #153 follow-up.
+
+> **Note (2026-10-16, EL):** the PFR-14 no-grant 403 check uses the existing 'none' login, `QA_NONE_EMAIL` / `QA_NONE_PASSWORD` (the same as `roles.mjs`). `QA_NOGRANT_*` above is superseded and no longer read.
+
+> **Change (2026-10-16, #163, CFO): Q-Y6 rejected.** PFM-05 ("an empty past month opens as a copy") is superseded by PFM-15..PFM-17. The PFM-04/06/08 checks open a past month blank and use the button.
+
+| AC | Tier | Pass when |
+|----|------|-----------|
+| PFM-15 | BLOCK | An empty past month (for example June 2026 or March 2021) opens blank: no lines, no people, no note, no `Save`. The month control's texts are `Month`, `Year`, `Copy from current month`. |
+| PFM-16 | BLOCK | `Copy from current month` (existing button style) is shown only for an empty past month, to a writer, when the current month has saved lines. It isn't on the current month, and it goes once the month has lines. A click copies the current month's lines and people, and shows `Copied from October 2026 — edit and save.` and `Save`. |
+| PFM-17 | BLOCK | After the copy nothing is stored (no PUT, the record unchanged) until `Save`. `Save` stores the month. Leaving a copied month asks `Discard unsaved changes?`; leaving a blank one doesn't. |
+| PFM-18 | BLOCK | An empty current month is unchanged: it opens as a copy of the most recent month with lines (PF-56), with no button. |
+| PFM-19 | BLOCK | Read-only: an empty past month is blank, with no button and no `Save`. |
+
+> **Note (2026-10-16, QA of e7a19fa):** PFM-11 includes the `Copy from current month` line. It is always rendered and hidden by visibility (not focusable, not in the a11y tree), so a month change has strict CLS 0 at 360/400/1024/1440. At 360 px Month, Year and Save stay on one row; this supersedes spec 19.4's phone wrap (personal-finance PF-32).
+
+> **Note (2026-10-16, EL ruling, QA of a936fab):** PFM-11 / PF-58 strict CLS is per month change. (1) A change between two months that both have data must be about 0 (measured 0.0000 at 360/400/1024/1440). (2) A change from a month with data to a blank month (and back) is exempt from strict CLS, because the lines and people really go. But Month, Year, the Save slot and the `Copy from current month` line must not move. Picking a month in another year by Year then Month passes through the same month of the new year; when that month is blank it counts as a data → blank change. This corrects the e7a19fa note above ("a month change has strict CLS 0").

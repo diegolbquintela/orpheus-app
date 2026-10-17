@@ -4,7 +4,9 @@
 //   Signed out (always): PFR-01 401 for GET / PUT / DELETE, 405 for another method.
 //   Signed in (QA_EMAIL / QA_PASSWORD from env; never logged; preview only, it writes to the account): PFR-02..PFR-13.
 //   The account's own report and its Personal Finance record are read first and put back at the end; always signed out.
-//   PFR-14 also needs a second account with a Personal Finance Read grant: QA_CFO_EMAIL / QA_CFO_PASSWORD (optional).
+//   PFR-14 also needs a second account with a Personal Finance Read grant: QA_CFO_EMAIL / QA_CFO_PASSWORD (optional);
+//   #163 adds the isolation check (the owner never sees the CFO's report) and, with QA_NONE_EMAIL /
+//   QA_NONE_PASSWORD (the existing 'none' login from roles.mjs: an account without a Personal Finance grant, optional), 403 for GET / PUT / DELETE.
 //
 //   [QA_EMAIL=… QA_PASSWORD=… [QA_CFO_EMAIL=… QA_CFO_PASSWORD=…]] node qa/tools/pf-report-api.mjs --base-url <preview> --out <dir>
 import { chromium } from "playwright";
@@ -148,12 +150,29 @@ try {
         const p = await call(request, "PUT", API, { json: { report: mine } });
         const g = await call(request, "GET", API);
         check("PFR-14 a CFO (Read is enough) saves and reads their own report; missing checked against the owner's record", p.status === 200 && same(g.body?.report, mine) && same(g.body?.missing, [1]), { p: p.status, g: g.body });
+        // #153 QA follow-up (folded into #163): per-person isolation — the owner never sees the CFO's report.
+        let ownerSees = "not run";
+        await signedIn(browser, email, password, async (ownerRequest) => {
+          ownerSees = (await call(ownerRequest, "GET", API)).body?.report ?? null;
+        });
+        check("PFR-14 isolation: with the CFO's report saved, the owner's GET does not return it (each person's own)", ownerSees !== "not run" && !same(ownerSees, mine), { ownerSees });
       } finally {
         const rep = original ? await call(request, "PUT", API, { json: { report: original } }) : await call(request, "DELETE", API);
         check("the CFO account's report restored", rep.status === 200, rep.status);
       }
     });
   else if (email && password && !prod) console.log("INFO PFR-14 SKIPPED: set QA_CFO_EMAIL / QA_CFO_PASSWORD (an account with a Personal Finance Read grant)");
+
+  // #153 QA follow-up (folded into #163): an account with no Personal Finance grant → 403 for every method.
+  const noEmail = process.env.QA_NONE_EMAIL;
+  const noPassword = process.env.QA_NONE_PASSWORD;
+  if (!prod && noEmail && noPassword)
+    await signedIn(browser, noEmail, noPassword, async (request) => {
+      const st = [];
+      for (const m of ["GET", "PUT", "DELETE"]) st.push((await call(request, m, API, m === "PUT" ? { json: { report: REPORT } } : {})).status);
+      check("PFR-14 no Personal Finance grant: GET / PUT / DELETE → 403", same(st, [403, 403, 403]), st);
+    });
+  else if (!prod) console.log("INFO PFR-14 no-grant SKIPPED: set QA_NONE_EMAIL / QA_NONE_PASSWORD (the existing 'none' login from roles.mjs: an account without a Personal Finance grant)");
 } finally {
   await browser.close();
 }

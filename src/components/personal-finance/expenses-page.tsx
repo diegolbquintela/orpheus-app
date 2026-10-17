@@ -83,11 +83,17 @@ import {
   lineFigures,
   liveLineFigures,
   migrateMonths,
+  chosenMonth,
+  COPY_FROM_CURRENT,
+  copyOfCurrent,
   MONTH_CONTROL_LABEL,
+  MONTH_OPTIONS,
   openMonth,
   readMonths,
   renameInMonths,
   writeMonths,
+  YEAR_CONTROL_LABEL,
+  yearChoices,
 } from "@/lib/finance/months";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
 import {
@@ -193,10 +199,34 @@ export function PersonalFinancePage({
     setBaseline(canonical(e, i, r, h, o));
   }
 
-  const dirty =
+  /**
+   * #163 (PFM-15..PFM-19): `Copy from current month` puts the current month's saved lines into the shown empty past
+   * month (unsaved: the note and Save show; nothing is stored until Save). Shown only to a writer, for a past month
+   * with nothing on screen, when the current month has saved lines.
+   */
+  const current = now ? lastTwelve(now)[11] : null;
+  const copySource = useMemo(
+    () => (current ? copyOfCurrent(readMonths(storage()), current) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [saved, current, month],
+  );
+  const canCopyCurrent =
+    !readOnly &&
+    !!(month && current && month !== current && copySource && expenses && income) &&
+    expenses!.fixed.length + expenses!.variable.length + income!.people.length === 0;
+  function copyCurrent() {
+    if (!canCopyCurrent || !copySource || !expenses || !current) return;
+    setExpenses({ ...expenses, fixed: copySource.fixed, variable: copySource.variable });
+    setIncome({ people: copySource.people });
+    setCopiedFrom(current);
+  }
+
+  /** #163 Q-Y8: something typed or changed on the shown month (an untouched copy has nothing to lose). */
+  const edited =
     !readOnly &&
     !!(expenses && income && rates && household && overview) &&
-    (copiedFrom !== null || canonical(expenses, income, rates, household, overview) !== baseline);
+    canonical(expenses, income, rates, household, overview) !== baseline;
+  const dirty = !readOnly && (copiedFrom !== null || edited);
 
   // Decision 2: leaving with unsaved changes asks (the browser's own question).
   useEffect(() => {
@@ -239,7 +269,7 @@ export function PersonalFinancePage({
 
   function choose(key: MonthKey) {
     if (!now || key === month) return;
-    if (dirty && !window.confirm(DISCARD_CONFIRM)) return;
+    if (edited && !window.confirm(DISCARD_CONFIRM)) return;
     open(key, lastTwelve(now)[11]);
   }
 
@@ -337,6 +367,7 @@ export function PersonalFinancePage({
             readOnly={readOnly}
             saving={saving}
             onSave={() => void save()}
+            onCopy={canCopyCurrent ? copyCurrent : null}
             note={
               blocked && hasErrors
                 ? SAVE_BLOCKED
@@ -471,9 +502,10 @@ const canonical = (e: Expenses, i: Income, r: Rates, h: Household, o: Overview):
   JSON.stringify([e, i, r, h, { ...o, months: {} }]);
 
 /**
- * #112 (PF-48, PF-49): `Month` and a select of the last 12 months (newest first) under the title, `Save` beside it
- * only while something is unsaved, and the copy note under it. The row and the note line are reserved from the
- * server render, so nothing moves (strict CLS 0).
+ * #112 (PF-48, PF-49), #163 (spec section 34, PFM-01..PFM-12): `Month` (Jan..Dec) and `Year` (2020 to the current
+ * year), each label above its select, under the title; `Save` beside them only while something is unsaved, and the
+ * copy note under it. A choice opens its month at once; a future month can't be chosen (Q-Y1). The row and the note
+ * line are reserved from the server render, so nothing moves (strict CLS 0).
  */
 function MonthControl({
   now,
@@ -482,9 +514,11 @@ function MonthControl({
   dirty,
   saving,
   onSave,
+  onCopy,
   note,
   readOnly,
 }: {
+  onCopy: (() => void) | null;
   readOnly: boolean;
   now: Date | null;
   month: MonthKey | null;
@@ -495,28 +529,55 @@ function MonthControl({
   note: string;
 }) {
   const uid = useId();
-  const keys = now ? lastTwelve(now).slice().reverse() : [];
+  const current = now ? lastTwelve(now)[11] : null;
+  const years = current ? yearChoices(current) : [];
+  const [year, mm] = month ? month.split("-") : ["", ""];
   return (
     <div className="pf-month mt-6" data-testid="pf-month-control">
       <div className="pf-month-row">
-        <label htmlFor={`${uid}-month`} className="pf-label">
-          {MONTH_CONTROL_LABEL}
-        </label>
-        <select
-          id={`${uid}-month`}
-          value={month ?? ""}
-          disabled={!month}
-          onChange={(event) => onChoose(event.target.value)}
-          className="pf-field pf-month-select"
-          data-testid="pf-month"
-        >
-          {month ? null : <option value="" />}
-          {keys.map((k) => (
-            <option key={k} value={k}>
-              {monthName(k)}
-            </option>
-          ))}
-        </select>
+        <span className="pf-month-field">
+          <label htmlFor={`${uid}-month`} className="pf-label">
+            {MONTH_CONTROL_LABEL}
+          </label>
+          <select
+            id={`${uid}-month`}
+            value={mm}
+            disabled={!month}
+            onChange={(event) => current && onChoose(chosenMonth(year, event.target.value, current))}
+            className="pf-field pf-month-select"
+            data-testid="pf-month"
+          >
+            {month ? null : <option value="" />}
+            {MONTH_OPTIONS.map((name, i) => {
+              const value = String(i + 1).padStart(2, "0");
+              return (
+                <option key={value} value={value} disabled={!!current && `${year}-${value}` > current}>
+                  {name}
+                </option>
+              );
+            })}
+          </select>
+        </span>
+        <span className="pf-month-field">
+          <label htmlFor={`${uid}-year`} className="pf-label">
+            {YEAR_CONTROL_LABEL}
+          </label>
+          <select
+            id={`${uid}-year`}
+            value={year}
+            disabled={!month}
+            onChange={(event) => current && onChoose(chosenMonth(event.target.value, mm, current))}
+            className="pf-field pf-year-select"
+            data-testid="pf-month-year"
+          >
+            {month ? null : <option value="" />}
+            {years.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </span>
         {/* #144 (PF-162, PF-171, PF-174): the Save slot (the button, or a Save-sized placeholder) stays beside the select
             from 400 px (spec 19.4); `Unsaved changes` is its own flex item right after it, always rendered (shown by
             visibility), so it takes the same place clean or unsaved: where it doesn't fit it wraps alone, in both
@@ -542,6 +603,21 @@ function MonthControl({
           </span>
         )}
       </div>
+      {/* #163 PFM-11 (QA fix of e7a19fa): the copy line is always rendered and shown by visibility, so its space is
+          reserved from the first render and nothing moves on a month change. Hidden, it is neither focusable nor in
+          the accessibility tree (visibility: hidden), and it is disabled as well. */}
+      <p className="pf-month-copy" data-testid="pf-month-copy-line" data-shown={onCopy ? "true" : "false"}>
+        <button
+          type="button"
+          className="pf-button"
+          onClick={onCopy ?? undefined}
+          disabled={!onCopy}
+          tabIndex={onCopy ? undefined : -1}
+          data-testid="pf-month-copy"
+        >
+          {COPY_FROM_CURRENT}
+        </button>
+      </p>
       <p className="pf-month-note" data-testid="pf-month-note">
         {note}
       </p>

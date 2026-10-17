@@ -66,6 +66,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
+import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -137,8 +138,9 @@ const totalTexts = (label, wide, v = { share: "—", monthly: "0.00", yearly: "0
 const emptyTexts = (wide) => [
   "01",
   "Personal Finance.",
-  // #112 (PF-48): the month control (the select's own text is not counted).
+  // #112 (PF-48): the month control (the select's own text is not counted); #163 (PFM-12): Month and Year.
   "Month",
+  "Year",
   "Household currency",
   "02",
   "Income",
@@ -964,12 +966,15 @@ try {
         const sel = p3.getByTestId("pf-month");
         const saveBtn = p3.getByTestId("pf-month-save");
         const note = () => p3.getByTestId("pf-month-note").textContent().then((t) => t.trim());
-        const opts = await sel.evaluate((s) => [s.value, [...s.options].map((o) => o.textContent)]);
+        const opts = [await shownMonth(p3), await monthChoices(p3)];
         const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
-        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); Month: 12 choices October 2026 … November 2025, October shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === "2026-10" && opts[1].length === 12 && opts[1][0] === "October 2026" && opts[1][4] === "June 2026" && opts[1][11] === "November 2025" && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
-        await sel.selectOption("2026-06");
+        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); #163 Month (Jan..Dec, Nov / Dec disabled) + Year (2026 … 2020), October 2026 shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === "2026-10" && JSON.stringify(opts[1]) === JSON.stringify({"labels":["Month","Year"],"months":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov (disabled)","Dec (disabled)"],"years":["2026","2025","2024","2023","2022","2021","2020"]}) && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
+        await pickMonth(p3, "2026-06");
+        const blankJune = await blankMonth(p3);
+        check(`${tag} #163 PFM-15 empty June opens blank (no lines, people, note or Save); the control's texts are Month, Year, "Copy from current month"`, JSON.stringify(blankJune) === JSON.stringify(BLANK_PAST), blankJune);
+        await p3.getByTestId("pf-month-copy").click();
         const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
-        check(`${tag} PF-51 empty June: a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
+        check(`${tag} PF-51 / #163 PFM-16 empty June after "Copy from current month": a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
         await p3.getByTestId("pf-person-wages").fill("108,000");
         const draft = await ov();
@@ -977,7 +982,7 @@ try {
         await saveBtn.click();
         await settle(p3);
         const t1 = await ov();
-        const afterSave = { month: await sel.inputValue(), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
+        const afterSave = { month: await shownMonth(p3), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
         check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
@@ -1002,8 +1007,8 @@ try {
         // Layout (Save shown: start / growth are unsaved).
         const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(sel), me: await box(saveBtn), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
         const row = viewport.width >= 640;
-        const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.month.w <= 256 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x) && (viewport.width < 400 ? lb.me.y > lb.month.y : Math.abs(lb.month.y + lb.month.h / 2 - (lb.me.y + lb.me.h / 2)) <= 2 && lb.me.x > lb.month.x) && lb.table.w <= 640;
-        check(`${tag} PF-32 layout: ${row ? "fields in one row (≤ 16rem)" : "fields stacked full width"}; every control ≥ 44 px; #112 the month select (≤ 16rem) and Save on one row (below 400 px Save wraps under it, spec 19.4); chart plot ${wide ? 320 : 240} px; table ≤ 40rem`, okLayout, lb);
+        const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.month.w <= 256 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x) && (Math.abs(lb.month.y + lb.month.h / 2 - (lb.me.y + lb.me.h / 2)) <= 2 && lb.me.x > lb.month.x) && lb.table.w <= 640;
+        check(`${tag} PF-32 layout: ${row ? "fields in one row (≤ 16rem)" : "fields stacked full width"}; every control ≥ 44 px; #112 the month select (≤ 16rem) and Save on one row at every width incl. 360 px (PFM-11 supersedes spec 19.4's wrap); chart plot ${wide ? 320 : 240} px; table ≤ 40rem`, okLayout, lb);
         await p3.getByTestId("pf-growth").focus();
         await p3.keyboard.press("Tab");
         const ring = await tog.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, parseFloat(c.outlineWidth), c.outlineColor, document.activeElement === e]; });
@@ -1020,9 +1025,9 @@ try {
         // #112 (PF-54): switching with unsaved changes asks; Cancel keeps the month and the edits.
         const asked = [];
         p3.once("dialog", (d) => { asked.push([d.type(), d.message()]); void d.dismiss(); });
-        await sel.selectOption("2026-10");
+        await pickMonth(p3, "2026-10");
         await p3.waitForTimeout(200);
-        const kept = { asked, month: await sel.inputValue(), start: await val(p3.getByTestId("pf-start")) };
+        const kept = { asked, month: await shownMonth(p3), start: await val(p3.getByTestId("pf-start")) };
         check(`${tag} PF-54 switching with unsaved changes asks "Discard unsaved changes?"; Cancel keeps June and the edits`, JSON.stringify(kept) === JSON.stringify({ asked: [["confirm", "Discard unsaved changes?"]], month: "2026-06", start: "10,000" }), kept);
         await p3.getByTestId("pf-overview").scrollIntoViewIfNeeded();
         const shotO = join(CFG.out, `pf-overview-${viewport.width}.png`);
@@ -1037,8 +1042,8 @@ try {
         const stored = [rec3[OVERVIEW_KEY], Object.keys(rec3).sort(), await p3.evaluate(() => localStorage.length)];
         await p3.reload({ waitUntil: "networkidle" });
         await ready(p3);
-        const onLoad = await sel.inputValue();
-        await sel.selectOption("2026-06");
+        const onLoad = await shownMonth(p3);
+        await pickMonth(p3, "2026-06");
         const back = { onLoad, t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), await val(p3.getByTestId("pf-person-wages"))], note: await note(), net: (await chart()).net };
         const monthsStored = Object.keys(JSON.parse(rec3[MONTHS_KEY] ?? "{}"));
         check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} October and June (only PF names; nothing in localStorage); a reload opens October and June restores (#140: 4,000 / 9,000, net 434,087.85)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === '["2026-06","2026-10"]' && JSON.stringify(back) === JSON.stringify({ onLoad: "2026-10", t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "434087.85" }), { stored, monthsStored, back });
