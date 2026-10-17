@@ -12,6 +12,7 @@
 //   #163 PFM-01..PFM-08: Month + Year; an old month (March 2021) copies, saves and reloads; no future month
 //   #163 PFM-15..PFM-17 (Q-Y6 rejected): an empty past month opens blank; "Copy from current month" copies; stored only on Save
 //   PF-58 layout: the row under the title, select / Save ≥ 44 px, no gold, no horizontal scroll, strict CLS 0
+//   PF-58 per change (#163, EL 2026-10-16): data → data strict CLS 0; data → blank exempt, but the controls, Save and Copy line stay put
 //
 //   QA_EMAIL=… QA_PASSWORD=… node qa/tools/pf-months.mjs --base-url <preview> --out <dir>
 import { chromium } from "playwright";
@@ -142,7 +143,9 @@ try {
       const dropped = [await shownMonth(page), await val(page.getByTestId("pf-growth")), await val(line(page, "fixed", 0).getByTestId("pf-monthly"))];
       check(`${tag} PF-54 "Discard unsaved changes?": Cancel keeps June and the edit; OK shows October (its own lines) without it`, JSON.stringify(confirms) === JSON.stringify(["Discard unsaved changes?", "Discard unsaved changes?"]) && JSON.stringify(kept) === '["2026-06","5"]' && JSON.stringify(dropped) === '["2026-10","","1,750"]', { confirms, kept, dropped });
 
-      // PF-58 layout + CLS + gold + scroll.
+      // PF-58 layout + CLS + gold + scroll. #163 (QA of a936fab, EL 2026-10-16): cls2 is Save shown / hidden only; it
+      // used to sum every month change since load, including data → blank ones (now measured per change below).
+      await page.evaluate(() => { window.__shifts = 0; });
       await page.getByTestId("pf-start").fill("1");
       const lay = await page.evaluate(() => {
         const r = (id) => document.querySelector(`[data-testid=${id}]`).getBoundingClientRect();
@@ -151,13 +154,14 @@ try {
         return { below: s.top > t.bottom, sel: [Math.round(s.height), Math.round(s.width)], save: Math.round(b.height), row: Math.abs(s.top + s.height / 2 - (b.top + b.height / 2)) <= 2, scroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           gold: [...document.querySelectorAll("main *")].filter((e) => { const c = getComputedStyle(e); return [c.color, c.backgroundColor, c.borderColor].some((v) => /gold|rgb\(2[0-4]\d, 1[6-9]\d, [0-9]{1,2}\)/i.test(v)); }).length };
       });
-      const cls2 = await page.evaluate(() => window.__shifts);
-      check(`${tag} PF-58 the control under the title; select ≥ 44 px and ≤ 16rem, Save ≥ 44 px on its row; no horizontal scroll; no gold; strict CLS 0 (load, Save shown / hidden)`, lay.below && lay.sel[0] >= 44 && lay.sel[1] <= 256 && lay.save >= 44 && lay.row && lay.scroll <= 0 && lay.gold === 0 && cls === 0 && cls2 === 0, { ...lay, cls, cls2 });
       const shot = join(CFG.out, `pf-months-${viewport.width}.png`);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: shot });
       R.shots.push(shot);
       await page.getByTestId("pf-start").fill("");
+      await page.waitForTimeout(600);
+      const cls2 = await page.evaluate(() => window.__shifts);
+      check(`${tag} PF-58 the control under the title; select ≥ 44 px and ≤ 16rem, Save ≥ 44 px on its row; no horizontal scroll; no gold; strict CLS 0 (load, Save shown / hidden)`, lay.below && lay.sel[0] >= 44 && lay.sel[1] <= 256 && lay.save >= 44 && lay.row && lay.scroll <= 0 && lay.gold === 0 && cls === 0 && cls2 === 0, { ...lay, cls, cls2 });
 
       // PF-50 a reload shows only what was saved.
       await page.reload({ waitUntil: "networkidle" });
@@ -198,6 +202,44 @@ try {
       await ready(page);
       const roll = { month: await shownMonth(page), first: (await monthChoices(page)).years[0], disabled: (await monthChoices(page)).months.filter((m) => m.endsWith("(disabled)")), note: await note(), save: await save.isVisible(), rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), stored: Object.keys(JSON.parse((await stored())[MONTHS_KEY] ?? "{}")) };
       check(`${tag} PF-56 rollover (clock 1 November 2026): November shown (Dec the only disabled month), a copy of October's lines with "Copied from October 2026 — edit and save."; Save shown; nothing stored`, JSON.stringify(roll) === JSON.stringify({ month: "2026-11", first: "2026", disabled: ["Dec (disabled)"], note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", stored: ["2021-03", "2026-06", "2026-10"] }), roll);
+      // #163 PF-58 / PFM-11 per change (EL ruling 2026-10-16): a change between two months that both have data is
+      // strict CLS 0 (each change measured alone, by one select); data → blank is exempt from CLS, but Month, Year,
+      // the Save slot and the Copy line must not move. At 360 / 400 / 1024 / 1440 (the page resized in place).
+      const ME58 = (id, w) => ({ ...ME, id, wages: w });
+      const R58 = (id, a) => ({ ...RENT, id, amount: a });
+      await acct(page, base, "PUT", {
+        [KEY]: JSON.stringify({ fixed: [R58("o1", "1,750")], variable: [], accounts: [], categories: [] }),
+        [INCOME_KEY]: JSON.stringify({ people: [ME58("o2", "134,400")] }),
+        [MONTHS_KEY]: JSON.stringify({
+          "2026-10": { fixed: [R58("o1", "1,750")], variable: [], people: [ME58("o2", "134,400")] },
+          "2025-06": { fixed: [R58("j1", "1,600")], variable: [], people: [ME58("j2", "120,000")] },
+          "2025-03": { fixed: [R58("m1", "1,500")], variable: [], people: [ME58("m2", "118,000")] },
+        }),
+      });
+      await page.clock.setFixedTime(TODAY);
+      await page.reload({ waitUntil: "networkidle" });
+      await ready(page);
+      await pickMonth(page, "2025-06");
+      const fixedPos = () => page.evaluate(() => ["pf-month", "pf-month-year", "pf-month-copy-line"].map((id) => document.querySelector(`[data-testid=${id}]`)).concat(document.querySelector(".pf-month-save")).map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY)]; }));
+      const change = async (id, v) => {
+        const p0 = await fixedPos();
+        await page.evaluate(() => { window.__shifts = 0; });
+        await page.getByTestId(id).selectOption(v);
+        await page.waitForTimeout(600);
+        return { cls: +(await page.evaluate(() => window.__shifts)).toFixed(4), moved: JSON.stringify(p0) !== JSON.stringify(await fixedPos()) };
+      };
+      const per = {};
+      for (const width of [360, 400, 1024, 1440]) {
+        await page.setViewportSize({ width, height: viewport.height });
+        await page.waitForTimeout(300);
+        const dd = await change("pf-month", "03"); // June 2025 → March 2025: both have data
+        const dd2 = await change("pf-month", "06"); // March → June 2025: both have data
+        const db = await change("pf-month", "01"); // June → January 2025: blank (exempt from CLS)
+        const bd = await change("pf-month", "06"); // January → June 2025: blank → data (exempt from CLS)
+        per[width] = { dd, dd2, db, bd };
+      }
+      await page.setViewportSize(viewport);
+      check(`${tag} PF-58 / PFM-11 per change (EL 2026-10-16) at 360 / 400 / 1024 / 1440: data → data strict CLS 0 (June ⇄ March 2025); data → blank / blank → data exempt from CLS, but Month, Year, Save and the Copy line don't move`, Object.values(per).every((r) => r.dd.cls === 0 && r.dd2.cls === 0 && !r.dd.moved && !r.dd2.moved && !r.db.moved && !r.bd.moved), per);
       check(`${tag} no page error; only /api/personal-finance besides auth`, errors.length === 0, errors);
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);

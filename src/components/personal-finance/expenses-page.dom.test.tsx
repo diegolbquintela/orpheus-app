@@ -2368,6 +2368,37 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     assert.equal(copyShown(el), false);
   });
 
+  it("PFM-11 / PF-58 (#163 QA of a936fab): a change between two months with data keeps the income table and Add person mounted, never empty in between", async () => {
+    const ME = (id: string, wages: string) => ({ id, name: "Me", wages, bonus: "", tax: "", share: "100", countWages: true, countBonus: false });
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
+    dom.window.localStorage.setItem(
+      MONTHS_KEY,
+      JSON.stringify({
+        "2026-10": { fixed: [LINE("1,750")], variable: [], people: [ME("p10", "134,400")] },
+        "2025-06": { fixed: [LINE("1,600")], variable: [], people: [ME("p06", "120,000")] },
+        "2025-03": { fixed: [LINE("1,500")], variable: [], people: [ME("p03", "118,000")] },
+      }),
+    );
+    const el = await render();
+    await pick(el, "2025-06");
+    const table = q(el, "pf-income-table");
+    const add = q(el, "pf-add-person");
+    const copyLine = q(el, "pf-month-copy-line");
+    // Every DOM batch during the switch: the person rows never drop to 0 (no empty frame).
+    const counts: number[] = [];
+    const mo = new dom.window.MutationObserver(() => counts.push(qa(el, "pf-person").length));
+    mo.observe(el, { childList: true, subtree: true });
+    await pick(el, "2025-03");
+    mo.disconnect();
+    assert.equal(shownMonth(el), "2025-03");
+    assert.equal(rentOf(el), "1,500");
+    assert.ok(q(el, "pf-income-table") === table, "the income table is not remounted");
+    assert.ok(q(el, "pf-add-person") === add, "Add person is not remounted");
+    assert.ok(q(el, "pf-month-copy-line") === copyLine, "the copy line is not remounted");
+    assert.equal(qa(el, "pf-person").length, 1);
+    assert.ok(counts.every((n) => n === 1), `person rows during the switch: ${JSON.stringify(counts)}`);
+  });
+
   it("PFM-06 / PFM-07 / PFM-09 / PFM-15..PFM-17 (real path: account client → API → PGlite): 30+ old months survive; February 2020 edited, saved and reloaded; May 2023 blank, copied, persisted only on Save; the averages unchanged", async () => {
     const pg = new PGlite();
     const db = { query: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows };
