@@ -909,3 +909,12 @@ Backend only. Design and CFO calls: `attachments/pf-series-design.md` (Q-AA1..Q-
 | PFS-14 | MAJOR | A line / account / category not in the record is `missing: true` with all-null values. |
 | PFS-15 | MAJOR | Q-AA4: without income, `income` / `surplus` / `net-assets` are null (nothing invented). |
 | PFS-16 | BLOCK | Read-only: the record and the audit log are unchanged. |
+
+> **Addendum (2026-10-17, #154, CFO on PR #169):** Q-AA4 changed and Q-AA3 conditioned (spec 36.9 / 36.10). PFS-15 now reads: in a month without income, `income` / `surplus` are null. New rows:
+
+| ID | Severity | Check |
+|---|---|---|
+| PFS-17 | BLOCK | Q-AA4: the same month has the same `net-assets` across different ranges (anchored, not range-relative). |
+| PFS-18 | BLOCK | Q-AA4: a month without a surplus carries `net-assets` flat from the previous month (not null, nothing lost). |
+| PFS-19 | BLOCK | Q-AA3: every response has `fx_basis: "current"`. |
+| PFS-20 | MAJOR | Q-AA10: `net_assets_from` is the first month with data; months before it are null; that month = Starting net assets + its surplus. |

@@ -73,3 +73,23 @@ not audited either). No migration.
   axis. A single series is a list of one. One call gives a whole chart.
 - **Q-AA9 Size limits.** Body at most 4 KB; at most 12 series × the months from 2020-01 to now (82 in October 2026, about
   1,000 numbers). No paging is needed at that size.
+
+## CFO decisions (2026-10-17, PR #169 at f38cb0b)
+
+- **Accepted as built:** Q-AA1, Q-AA2, Q-AA5..Q-AA9.
+- **Q-AA4 net assets: CHANGED.** Net assets for month M = Starting net assets + the surplus of every month from the
+  anchor through M, so a month has the same value whatever range is asked. Months before the anchor are null. A month
+  without a surplus (no data, or no income) adds nothing: the value carries flat through it, never null. Income, expenses
+  and surplus are unchanged. The response names the anchor as `net_assets_from`.
+- **Q-AA3 FX: CONDITION met.** Every response carries `fx_basis: "current"`: past months are valued at the record's
+  current rates, not as historical fact.
+- **Q-AA10 (new, open) Net-assets anchor.** The record stores **no starting-net-assets date**. Evidence: the Overview value
+  `orpheus.finance.overview.v1` holds only `start`, `growth`, `future`, `years` and `months` (`Overview` type in
+  `src/lib/finance/overview.ts`); spec Q19 / section 15 say `Starting net assets` is the value "at the start of the
+  oldest month" of the Overview chart, which is the rolling 12-month window (`lastTwelve`), so that anchor moves every
+  month and would null all older history. **Built:** the anchor is the **first month with any data** (stored lines or
+  typed Update totals, not before 2020-01): Starting net assets is the value at the start of that month. It is fixed by
+  the data, the same for every range and every day. Consequence: the series can differ from the Overview chart, whose
+  net assets restart 12 months back and fill empty months with averages. Alternatives for the CFO: (a) keep this;
+  (b) a new stored "as of" month for Starting net assets (needs a UI field; out of scope for a backend-only ticket);
+  (c) the Overview's rolling window start (matches the chart, but the value of a month changes as time passes).

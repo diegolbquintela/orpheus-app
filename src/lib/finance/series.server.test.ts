@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { handlePersonalFinanceRequest, handlePersonalFinanceSeriesRequest } from "./account.server.ts";
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
+import { OVERVIEW_KEY } from "./overview.ts";
 import { rangeMonths } from "./series.ts";
 
 // #154 (spec section 36, PFS-01..PFS-16): POST /api/personal-finance/series on PGlite (migrations 0010-0012,
@@ -42,6 +43,8 @@ const record = {
     "2026-03": { fixed: [L("rent", "1000", "Home", "Chequing")], variable: [L("t", "200", "Travel", "Amex")], people: [] },
     "2026-09": { fixed: [L("rent", "1000", "Home", "Chequing")], variable: [], people: [] },
   }),
+  // #154 Q-AA4 change: typed Update totals (income) in months without lines, for the net-assets checks.
+  [OVERVIEW_KEY]: JSON.stringify({ start: "10000", growth: "", future: false, years: 1, months: { "2025-01": { expenses: "500", income: "800" }, "2025-03": { expenses: "500", income: "700" } } }),
 };
 const row = async () => (await pg.query<{ data: unknown }>("SELECT data FROM personal_finance WHERE user_id = 'alice'")).rows[0]?.data;
 const audits = async () => (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM audit_event")).rows[0].n;
@@ -179,9 +182,30 @@ describe("#154 /api/personal-finance/series", () => {
     assert.equal(j.series[1].values[at(j, "2020-01")], 900);
   });
 
-  it("PFS-15 (Q-AA4): surplus / net assets are null without income (no invented figures)", async () => {
-    const j = await (await ser("alice", q([{ kind: "metric", id: "surplus" }, { kind: "metric", id: "net-assets" }, { kind: "metric", id: "income" }]))).json();
-    for (const s of j.series) assert.ok(s.values.every((v: unknown) => v === null), s.id);
+  it("PFS-15 (Q-AA4): income / surplus are null in a month without income (no invented figures)", async () => {
+    const j = await (await ser("alice", q([{ kind: "metric", id: "surplus" }, { kind: "metric", id: "income" }]))).json();
+    for (const k of ["2020-01", "2026-03", "2026-09", "2025-02"]) for (const s of j.series) assert.equal(s.values[at(j, k)], null, `${s.id} ${k}`);
+    assert.equal(j.series[0].values[at(j, "2025-01")], 300);
+  });
+
+  it("PFS-17 (Q-AA4 change, 2026-10-17): the same month has the same net assets whatever the range", async () => {
+    const nets = [];
+    for (const range of [{ preset: "all" }, { from: "2025-02", to: "2025-04" }, { preset: "24m" }, { from: "2025-03", to: "2025-03" }]) {
+      const j = await (await ser("alice", q([{ kind: "metric", id: "net-assets" }], range))).json();
+      nets.push(j.series[0].values[at(j, "2025-03")]);
+    }
+    assert.deepEqual(nets, [10500, 10500, 10500, 10500]);
+  });
+
+  it("PFS-18 (Q-AA4 change): a no-data month carries net assets flat (not null, nothing lost)", async () => {
+    const j = await (await ser("alice", q([{ kind: "metric", id: "net-assets" }], { from: "2024-12", to: "2025-04" }))).json();
+    assert.deepEqual(j.series[0].values, [10000, 10300, 10300, 10500, 10500]);
+    assert.equal(j.net_assets_from, "2020-01");
+  });
+
+  it("PFS-19 (Q-AA3 condition): the response states fx_basis: current", async () => {
+    const j = await (await ser("alice", q([{ kind: "group", id: "all" }], { preset: "3m" }))).json();
+    assert.equal(j.fx_basis, "current");
   });
 
   it("PFS-16: read-only: the row and the audit log are unchanged", async () => {
@@ -189,5 +213,16 @@ describe("#154 /api/personal-finance/series", () => {
     await ser("alice", q([{ kind: "group", id: "all" }]));
     await ser("bob", q([{ kind: "category", id: "Travel" }]));
     assert.deepEqual([await row(), await audits()], before);
+  });
+
+  it("PFS-20 (Q-AA10): months before the anchor (the first data month) are null; the anchor month starts at Starting net assets", async () => {
+    const later = {
+      [MONTHS_KEY]: JSON.stringify({}),
+      [OVERVIEW_KEY]: JSON.stringify({ start: "5000", growth: "", future: false, years: 1, months: { "2025-01": { expenses: "500", income: "800" } } }),
+    };
+    assert.equal((await handlePersonalFinanceRequest(req("PUT", { data: later }, "/api/personal-finance"), as("alice"))).status, 200);
+    const j = await (await ser("alice", q([{ kind: "metric", id: "net-assets" }], { from: "2024-11", to: "2025-02" }))).json();
+    assert.equal(j.net_assets_from, "2025-01");
+    assert.deepEqual(j.series[0].values, [null, null, 5300, 5300]);
   });
 });

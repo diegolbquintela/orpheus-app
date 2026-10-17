@@ -53,6 +53,10 @@ export type SeriesResult = {
   current: MonthKey;
   partial: boolean;
   currency: string;
+  /** Q-AA3 (CFO condition): every month is valued at the record's CURRENT FX rates, never that month's own. */
+  fx_basis: "current";
+  /** Q-AA10: the month net assets are anchored at (Starting net assets at its start), or null with no data. */
+  net_assets_from: MonthKey | null;
   series: SeriesOut[];
 };
 
@@ -123,17 +127,21 @@ export function seriesValues(query: SeriesQuery, record: PfRecord | null, now: D
     if (!hasLines(m)) return null;
     return totalsOf([...m.fixed, ...m.variable].filter(pick), rate, household).monthly;
   };
-  // Q-AA4: net assets = Starting net assets + each month's surplus so far in the range (no surplus → unchanged).
-  let net = orZero(overview.start);
-  let started = false;
-  const netAssets = figures.map((f) => {
-    const s = surplusOf(f);
-    if (s !== null) {
-      net += s;
-      started = true;
+  // Q-AA4 (CFO change 2026-10-17) + Q-AA10: net assets are anchored at the first month with data (the record stores
+  // no starting-net-assets date): Starting net assets at the start of that month, plus every month's surplus from
+  // there through M, whatever range is asked. Before the anchor: null. A month without a surplus adds nothing
+  // (carried flat, never null). Income / expenses / surplus are unchanged.
+  const anchor = firstDataMonth(record);
+  const netByMonth = new Map<MonthKey, number>();
+  if (anchor && anchor <= months[months.length - 1]) {
+    let net = orZero(overview.start);
+    for (let k = anchor; ; k = nextMonth(k)) {
+      net += surplusOf(monthFigures(overview, k, current, none, lines)) ?? 0;
+      netByMonth.set(k, net);
+      if (k >= months[months.length - 1]) break;
     }
-    return started ? net : null;
-  });
+  }
+  const netAssets = months.map((k) => netByMonth.get(k) ?? null);
   const series = query.series.map((s, i): SeriesOut => {
     const del = (s.kind === "account" || s.kind === "category") && !missing.has(i) && isDeleted(shared, s.kind, s.id);
     const values = months.map((k, j): number | null => {
@@ -166,6 +174,8 @@ export function seriesValues(query: SeriesQuery, record: PfRecord | null, now: D
     current,
     partial: months.includes(current),
     currency: household,
+    fx_basis: "current",
+    net_assets_from: anchor,
     series,
   };
 }

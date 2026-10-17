@@ -121,6 +121,26 @@ try {
         const s = r.body?.series ?? [];
         check("PFS-09 deleted names: label '<name> (deleted)', deleted: true (or missing when no line holds them)", r.status === 200 && s.every((x) => x.missing || (x.deleted && x.label === `${x.id} (deleted)`)), s.map((x) => [x.label, x.deleted, x.missing]));
       }
+      // #154 2026-10-17: Q-AA3 condition and the anchored net assets (Q-AA4 change, Q-AA10).
+      check("PFS-19 fx_basis: current", j.fx_basis === "current", j.fx_basis);
+      const na = j.series?.[6]?.values ?? [];
+      const from = j.net_assets_from ?? null;
+      const idx = from ? j.months.indexOf(from) : -1;
+      const pre = idx < 0 ? na : na.slice(0, idx);
+      check("PFS-20 months before net_assets_from are null", pre.every((v) => v === null), { from });
+      const sur = j.series?.[5]?.values ?? [];
+      let flat = true;
+      if (idx >= 0)
+        for (let i = idx + 1; i < na.length; i++)
+          if (na[i] === null || (sur[i] === null && na[i] !== na[i - 1])) flat = false;
+      check("PFS-18 net assets: never null from the anchor; a month without a surplus carries flat", idx < 0 || flat, { from });
+      const pick = j.months?.length ? j.months[Math.max(0, j.months.length - 2)] : null;
+      const vals = [];
+      for (const range of [{ preset: "all" }, { preset: "24m" }, { from: pick && pick >= "2020-02" ? pick.slice(0, 5) + "01" : pick, to: current }]) {
+        const x = await call(request, "POST", { series: [M("net-assets")], range });
+        vals.push(x.status === 200 ? x.body.series[0].values[x.body.months.indexOf(pick)] : `status ${x.status}`);
+      }
+      check(`PFS-17 net assets for ${pick} equal across all / 24m / custom`, vals.every((v) => JSON.stringify(v) === JSON.stringify(vals[0])), vals);
       const after = (await call(request, "GET")).body?.data ?? null;
       check("PFS-16 read-only: the record is unchanged", same(after, record));
     });
