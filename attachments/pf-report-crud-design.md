@@ -75,3 +75,9 @@ Errors: 400 `{ error: "Invalid value.", field }` (`name`, `report`, `report.<pat
 Rolling back past this change after someone has a named report is **unsafe**: the older `readRecord` does not strip
 `orpheus.finance.reports.v1`, so the record would read as invalid (`{}`), and an older record save would drop the key.
 Rollback is only safe while no named report exists, or after removing that key.
+
+## CFO decision (2026-10-17, PR #174 at a72b7bd)
+
+Q-AC1..Q-AC14 accepted (Q-AC12..Q-AC14 stay not built). Pre-merge condition met: the rollback runbook
+`docs/release/pf-reports-rollback.md` (export before any rollback past #174; separate marked restore; SQL tested on
+PGlite only in `scripts/pf-reports-rollback.test.mjs`). Snapshot at deploy: not built; estimate in the runbook.

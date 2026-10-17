@@ -657,3 +657,5 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 **Note (2026-10-17, #155, spec 37.9):** `/api/personal-finance/chart` also returns a top-level `mixed_axes` (true when net assets share a chart with flow series), so a future UI can warn or split.
 
 **Saved reports (#156, backend only).** `/api/personal-finance/reports` (GET list, POST create) and `/reports/:id` (GET / PUT / DELETE) keep up to 20 named chart reports per person beside the #153 report, which is now the `default` report (same stored value; the legacy `/report` API and `/chart { saved: true }` are unchanged). `/chart { saved: true, id }` charts a named report. No migration. Spec section 38; design `attachments/pf-report-crud-design.md` (incl. a rollback caution).
+
+**Rollback caution (2026-10-17, #156):** before rolling back past PR #174, export the Personal Finance report keys with `docs/release/pf-reports-rollback.md`.
