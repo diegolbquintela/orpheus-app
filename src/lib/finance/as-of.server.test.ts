@@ -360,4 +360,16 @@ describe("#171 CFO round: QA tool replay (cap message, record bound messages)", 
     assert.ok(p.includes(`["PFR-08 cap", { report: { ...REPORT, range: { from: "2020-01", to: "2022-01" } } }, 400, "range", RANGE_TOO_LONG],`));
     for (const t of [r, p]) assert.match(t, /await refuseIfProd\(/);
   });
+  it("QA finding 2 (2026-10-17): seriesNetChecks rejects a wrong anchor value and a non-rolling series", () => {
+    const j = { months: ["2026-08", "2026-09", "2026-10"], net_assets_from: "2026-09" };
+    const sur = [1000, 2000, 500];
+    const good = seriesNetChecks(j, [10000, 12000, 12500], sur, 10000);
+    assert.equal(good.pfs20, true);
+    assert.equal(good.pfs18, true);
+    // anchor month off by its surplus, rest of the roll consistent → PFS-20 must fail
+    assert.equal(seriesNetChecks(j, [8000, 10000, 10500], sur, 10000).pfs20, false);
+    // flat after the anchor despite surplus → PFS-18 must fail
+    assert.equal(seriesNetChecks(j, [10000, 12000, 12000], sur, 10000).pfs18, false);
+  });
+
 });

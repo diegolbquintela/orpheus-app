@@ -215,6 +215,7 @@ describe("#158 PFAPI-07 / PFAPI-11 / PFAPI-13 one error shape, client codes", ()
     // #179 Q-AF4: both bound messages map to range_out_of_bounds (QA round 1, 2026-10-17).
     assert.equal(errorCode(400, "Range can't start before 2020-01."), "range_out_of_bounds");
     assert.equal(errorCode(400, "Range can't end after the current month."), "range_out_of_bounds");
+    assert.equal(errorCode(400, "Range can't be longer than 24 months."), "range_too_long"); // #171 CFO round
     ok(await deleteReport(a.id, alice));
   });
 });
