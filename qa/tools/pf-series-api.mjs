@@ -139,16 +139,18 @@ try {
       const na = j.series?.[6]?.values ?? [];
       const from = j.net_assets_from ?? null;
       // #171 (2026-10-17): with an as-of month the anchor may sit before the range (the level carries in: nothing null)
-      // or after it (all null); otherwise as before.
+      // or after it; otherwise as before. #171 Q-AG1 (CFO change, 2026-10-17): an as-of month after the first data month
+      // is worked BACKWARDS, so values may start before net_assets_from (never after it). Every month after the first
+      // value is the one before plus its own surplus (none → carried flat), forwards and backwards alike.
       const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);
-      const pre = idx < 0 ? na : na.slice(0, idx);
-      check("PFS-20 months before net_assets_from are null", pre.every((v) => v === null), { from });
+      const firstVal = na.findIndex((v) => v !== null);
       const sur = j.series?.[5]?.values ?? [];
+      check("PFS-20 net assets start at or before net_assets_from (Q-AG1); nothing before the first value", idx < 0 || (firstVal >= 0 && firstVal <= idx), { from, firstVal });
       let flat = true;
-      if (idx >= 0)
-        for (let i = Math.max(1, idx + 1); i < na.length; i++)
-          if (na[i] === null || (sur[i] === null && na[i] !== na[i - 1])) flat = false;
-      check("PFS-18 net assets: never null from the anchor; a month without a surplus carries flat", idx < 0 || flat, { from });
+      if (firstVal >= 0)
+        for (let i = firstVal + 1; i < na.length; i++)
+          if (na[i] === null || Math.abs(na[i] - na[i - 1] - (sur[i] ?? 0)) > 0.005) flat = false;
+      check("PFS-18 net assets: never null after the first value; each month = the one before + its surplus (none → flat)", flat, { from });
       const pick = j.months?.length ? j.months[Math.max(0, j.months.length - 2)] : null;
       const vals = [];
       for (const range of [{ preset: "all" }, { preset: "24m" }, { from: pick && pick >= "2020-02" ? pick.slice(0, 5) + "01" : pick, to: current }]) {

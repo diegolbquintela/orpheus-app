@@ -276,8 +276,8 @@ export function summarize(
   };
   // #171 (spec 42): with an as-of month A, Starting net assets is the value at the start of A. A before the window:
   // the window starts from start + every month's own surplus from A to the window (a month without one adds nothing,
-  // the series rule, Q-AG2). A inside the window: points before A have no net assets (null); from A on, as today.
-  // No as-of month: exactly as before (the start at the window start).
+  // the series rule, Q-AG2). A inside the window: from A on, as today; #171 Q-AG1 (CFO change): the points before A
+  // are worked BACKWARDS from the start with the same per-point surplus (spec 42.9). No as-of month: exactly as before.
   const asOf = asOfMonth(overview);
   let net: number | null = orZero(overview.start);
   if (asOf && asOf < months[0]) {
@@ -291,6 +291,16 @@ export function summarize(
     net = net === null ? null : plus(net, minus(income, expenses));
     return { key, label: monthShort(key), expenses, income, net, future: false };
   });
+  // Q-AG1 backwards inside the window: the point before A = the start; each earlier point = the next one minus the
+  // next one's surplus (null if that surplus is null, like the forward roll).
+  if (asOf && asOf > months[0] && asOf <= current) {
+    let back: number | null = orZero(overview.start);
+    for (let i = points.findIndex((p) => p.key === asOf) - 1; i >= 0; i--) {
+      points[i].net = back;
+      const next = points[i];
+      back = back === null ? null : plus(back, minus(next.expenses, next.income));
+    }
+  }
   // A after the whole window (a skewed clock only): no net assets now, so none projected.
   if (asOf && asOf > current) net = null;
   if (overview.future) {
@@ -336,14 +346,32 @@ export function asOfMonth(overview: Pick<Overview, "asOf">): MonthKey | null {
  * adding each month's surplus (a month without one adds nothing); before `from`: null. Used by the series (#154) and by
  * the Overview for the months before its window.
  */
-export function netAssetsFrom(start: number, from: MonthKey, until: MonthKey, surplus: (k: MonthKey) => number | null): Map<MonthKey, number> {
+export function netAssetsFrom(
+  start: number,
+  from: MonthKey,
+  until: MonthKey,
+  surplus: (k: MonthKey) => number | null,
+  back?: MonthKey,
+): Map<MonthKey, number> {
   const out = new Map<MonthKey, number>();
-  if (from > until) return out;
   let net = start;
-  for (let k = from; ; k = nextMonth(k)) {
-    net += surplus(k) ?? 0;
-    out.set(k, net);
-    if (k >= until) break;
+  if (from <= until)
+    for (let k = from; ; k = nextMonth(k)) {
+      net += surplus(k) ?? 0;
+      out.set(k, net);
+      if (k >= until) break;
+    }
+  // #171 Q-AG1 (CFO change, 2026-10-17): backwards to `back`. Same convention as forward: a value is at the END of its
+  // month and Starting net assets is the value at the START of `from` (= the end of the month before). So the month
+  // before `from` is exactly the start (the anchor month's own surplus is NOT taken off), and each earlier month M is
+  // the start minus the surplus of every month after M up to the month before `from`. A month without one takes off nothing.
+  if (back !== undefined && back < from) {
+    net = start;
+    for (let k = previousMonth(from); ; k = previousMonth(k)) {
+      out.set(k, net);
+      if (k <= back) break;
+      net -= surplus(k) ?? 0;
+    }
   }
   return out;
 }

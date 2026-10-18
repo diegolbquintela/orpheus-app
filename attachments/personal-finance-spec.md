@@ -1310,3 +1310,22 @@ Business user: CFO. AC pack: PFAO-01..PFAO-18 (`qa/CANONICAL-AC-PACK.md`). Contr
 - Q-AG10 Should `all` start at `asOf` when it is earlier than the first data month? **Not built**; `all` is unchanged. Recommendation: keep `all` = data months.
 - Q-AG11 Should equity coverage use the anchored net assets instead of the typed start? **Not built**; coverage is unchanged. Recommendation: separate ticket if wanted.
 - Q-AG12 An `asOf` after the current month (only possible with a skewed clock, since saves refuse it): **built**. It still anchors there, so everything is null until then. Recommendation: as built.
+
+42.9 **(2026-10-17, CFO decision)** Q-AG2..Q-AG8, Q-AG10 and Q-AG12 are accepted as built. Q-AG11 is not built, by decision. Q-AG1 and Q-AG9 are changed and built as follows (42.10, 42.11). The 24-month cap message is in 42.12.
+
+42.10 **(2026-10-17, Q-AG1 changed) Work backwards.** An as-of month A after the first data month F no longer blanks the months before A.
+- **Convention, the same as the forward roll:** every value is at the END of its month, and Starting net assets is the value at the START of A, which is the end of A−1. So:
+  - net(A−1) = start (A's own surplus is **not** taken off);
+  - net(M) = net(M+1) − surplus(M+1) for each earlier M, down to F, and never before F (as without an as-of month);
+  - forward from A, as before: net(A) = start + surplus(A).
+  - Every month after the first value is therefore the month before plus its own surplus, in both directions. A month without a surplus changes nothing.
+- **Where it lives:** inside the one anchor rule (`netAssetsFrom`'s `back` argument). The series passes F. The Overview works backwards over its window points before A, using the same per-point surplus as its forward roll, where empty months use the average. FX is unaffected: every month is already valued at current rates (Q-AA3), forwards and backwards alike. Growth only applies to the Future projection, which still starts from the current month.
+- **Consequence for Q-AG2:** a range that ends before A is no longer all null; it shows the backward values. Showing null there would make a month's value depend on the range asked for.
+- **Q-AG12 is kept:** an A after the current month (skewed clock only) still blanks everything before it.
+- **Unchanged:** an A at or before F; no as-of month; the export text.
+
+42.11 **(2026-10-17, Q-AG9 changed) Record bound messages.** The record API (`PUT /api/personal-finance`) refuses an as-of month before 2020-01 with `Month can't be before 2020-01.` and one after the current Toronto month with `Month can't be after the current month.`. Both are 400 with field `overview.asOf`.
+- The mapping is from the #179 validator's two bound refusals; everything else it refuses (malformed, before 2000 or after 2100) stays `Invalid value.`. No awkwardness.
+- The page error text `Enter a month as YYYY-MM, from 2020-01 to this month.` is kept. It covers both cases and the malformed one in one hint, in the page's "Enter …" style like `Enter a number, 0 or more.`.
+
+42.12 **(2026-10-17, CFO request) 24-month cap message.** The existing cap on saved-report ranges now says `Range can't be longer than 24 months.`, with the same 400 and field (`report.range` on `/reports` POST and `/reports/:id` PUT, `range` on legacy `/report` PUT). The cap exists only in save mode (and in stored mode, which never reaches the wire), so the message is never sent by `/series` or `/chart`, which have no cap. No cap was added anywhere. The bounds are still checked first.

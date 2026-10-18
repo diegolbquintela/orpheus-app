@@ -1088,3 +1088,13 @@ PGlite real-path tests: `src/lib/finance/as-of.server.test.ts` (TZ=UTC and TZ=Am
 | PFAO-16 | BLOCK | UI at 390 px and desktop: `As of month` sits between Starting net assets and Growth rate (%): one row on desktop, stacked on mobile, 44 px high, labelled, no gold, axe clean, no horizontal scroll. |
 | PFAO-17 | MAJOR | UI: a bad month shows `Enter a month as YYYY-MM, from 2020-01 to this month.` (aria-invalid), blocks Save, and is left out of the figures. A good month re-anchors the chart live; clearing removes the error. |
 | PFAO-18 | MAJOR | Contract 11.1 (field, first month, record error, export suffix and note) equals the code, and the record API answers with exactly that field and message. |
+
+**Additions (2026-10-17, #171 CFO round; spec 42.9–42.12):** these supersede PFAO-05's "months before it are null" and PFAO-06's "after it, every value is null" for an as-of month after the first data month. PFAO-11's `Invalid value.` now covers malformed months only.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFAO-19 | BLOCK | Q-AG1: an as-of month A after the first data month F is worked backwards: net(A−1) = Starting net assets (A's own surplus is not taken off); each earlier month down to F = the next month minus that next month's surplus; nothing before F. Each month after the first value = the month before + its surplus. |
+| PFAO-20 | MAJOR | Overview with A inside the window: the points before A are worked backwards with the same per-point surplus as the forward roll. |
+| PFAO-21 | BLOCK | Q-AG9: record PUT `overview.asOf` before 2020-01 (from 2000-01) → 400 `Month can't be before 2020-01.`; after the current Toronto month (up to 2100-12) → 400 `Month can't be after the current month.`. The field is `overview.asOf`. Malformed or outside 2000..2100 → `Invalid value.`. Contract 11.2 matches the code; client code `month_out_of_bounds`. |
+| PFAO-22 | BLOCK | The 24-month cap: an in-bounds range of 25+ months on `/reports` POST, `/reports/:id` PUT and legacy `/report` PUT → 400 `Range can't be longer than 24 months.` (field `report.range` / `range`). `/series` and `/chart` accept it (no cap). Contract 12.1 matches the code; client code `range_too_long`. |
+| PFAO-23 | MAJOR | QA tools: pf-series-api PFS-18/20 (backward-aware), pf-reports-api PFRC-06 and pf-report-api PFR-08 (cap case), the pf-helpers list (the three new messages). Each is replayed through the real handlers in `as-of.server.test.ts`. |

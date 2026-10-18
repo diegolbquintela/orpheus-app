@@ -295,3 +295,24 @@ The overview value (`orpheus.finance.overview.v1`, in the existing per-user `per
 | record-error | Invalid value. |
 | export-suffix | (as-of month) |
 | export-note | Starting net assets is the value at the start of its as-of month; each month adds its own surplus. |
+
+**Note (2026-10-17, #171 CFO round):** CFO changed Q-AG1 and Q-AG9.
+- **Q-AG1:** an `asOf` after the first data month is worked backwards to the first data month, never before it. The month before `asOf` equals Starting net assets. Each earlier month is the next month minus that next month's surplus, so the `asOf` month's own surplus is not taken off, matching the forward roll. This replaces section 11's "net assets are null before it" for that case, including a range that ends before `asOf`.
+- **Q-AG9:** the record API's two as-of bound refusals now have their own messages (table 11.2). A malformed month, or one outside 2000..2100, still gets `Invalid value.` (11.1 `record-error`).
+
+### 11.2 Record API as-of bound messages (added 2026-10-17, #171 Q-AG9; machine-checked)
+
+| Message | Status | Field | Example | Code |
+|---|---|---|---|---|
+| `Month can't be before 2020-01.` | 400 | `overview.asOf` | `2019-12` | month_out_of_bounds |
+| `Month can't be after the current month.` | 400 | `overview.asOf` | `2100-01` | month_out_of_bounds |
+
+## 12. The 24-month cap message (added 2026-10-17, #171 CFO round)
+
+The existing 24-month cap on saved-report ranges now says `Range can't be longer than 24 months.`, with the same status (400) and field: `report.range` on R3 and R4, `range` on L1. The cap exists only in save mode, so the message is sent only on saves. **R1 `/series` and R2 `/chart` have no 24-month cap** (query mode), and none was added. The bounds are still checked first (section 10), so a range that is both over the cap and out of bounds gets the bound message. Client code (section 6): `range_too_long`. Sections 5, 8.1 and 10.1 are extended by the table below.
+
+### 12.1 Messages × routes (added; machine-checked with 8.1 and 10.1)
+
+| Message | Status | Routes |
+|---|---|---|
+| `Range can't be longer than 24 months.` | 400 | R3 R4 L1 |

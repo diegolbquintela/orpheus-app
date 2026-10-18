@@ -163,7 +163,8 @@ describe("#156 /api/personal-finance/reports", () => {
       assert.deepEqual(await r.json(), { error, field }, JSON.stringify(body));
     }
     const cap = await list("alice", "POST", { name: "ok", report: { ...R(), range: { from: "2020-01", to: "2026-10" } } });
-    assert.deepEqual([cap.status, await cap.json()], [400, { error: "Invalid value.", field: "report.range" }], "cap only: Invalid value.");
+    // #171 CFO round (2026-10-17): the cap now says why (status and field unchanged).
+    assert.deepEqual([cap.status, await cap.json()], [400, { error: "Range can't be longer than 24 months.", field: "report.range" }], "cap only");
     assert.equal((await list("alice", "POST", "{nope")).status, 400);
     assert.equal((await list("alice", "POST", JSON.stringify({ name: "big", report: R() }) + " ".repeat(5000))).status, 413);
     assert.deepEqual(await rowOf("alice"), before);

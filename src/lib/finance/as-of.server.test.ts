@@ -11,11 +11,11 @@ import {
   handlePersonalFinanceSeriesRequest,
 } from "./account.server.ts";
 import { AS_OF_SUFFIX, NET_ASSETS_AS_OF_NOTE, NET_ASSETS_CAVEAT } from "./export.ts";
-import { asOfBad, fieldErrors, INVALID_VALUE } from "./field-errors.ts";
+import { asOfBad, fieldErrors, INVALID_VALUE, MONTH_AFTER_CURRENT, MONTH_BEFORE_FIRST } from "./field-errors.ts";
 import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER, asOfMonth, asOverview, OVERVIEW_KEY, summarize, type Overview } from "./overview.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import { crc32, headerLines } from "./export.ts";
-import type { Report } from "./report.ts";
+import { RANGE_TOO_LONG, type Report } from "./report.ts";
 
 // #171 (spec section 42, PFAO-01..PFAO-16): an explicit 'as of' month for Starting net assets. PGlite (migrations
 // 0010-0012, unchanged; no migration, no schema change: the month lives in the existing overview JSON value), the real
@@ -119,17 +119,28 @@ describe("#171 PFAO-04..08 the anchor is the as-of month", () => {
     const all = await series({ preset: "all" });
     assert.deepEqual([all.range.from, all.net_assets_from, all.series[1].values[0]], ["2025-03", "2025-01", 10500]);
   });
-  it("as-of AFTER the first data month (2026-06): months before it are null; data before it is left out of net assets (Q-AG1)", async () => {
+  it("as-of AFTER the first data month: #171 Q-AG1 (CFO change) worked BACKWARDS to the first data month, never before it", async () => {
+    // PFAO-19 (2026-10-17): the month before the as-of month = the start (the as-of month's own surplus is not taken
+    // off); each earlier month = the next one minus the next one's surplus; nothing before the first data month.
     await save("2026-06");
-    const s = await series({ preset: "all" });
+    const s = await series({ from: "2025-01", to: "2026-10" });
     assert.equal(s.net_assets_from, "2026-06");
-    assert.deepEqual(s.series[1].values, s.months.map((k: string) => (k < "2026-06" ? null : k < "2026-09" ? 10000 : 12000)));
-    assert.deepEqual(s.series[0].values, (await series({ preset: "all" })).series[0].values, "surplus untouched");
+    assert.deepEqual(s.series[1].values, s.months.map((k: string) => (k < "2025-03" ? null : k < "2026-09" ? 10000 : 12000)));
+    await save("2026-10");
+    const t = await series({ from: "2025-01", to: "2026-10" });
+    assert.equal(t.net_assets_from, "2026-10");
+    // 2026-09 (the month before) = 10,000; 2026-08 and earlier = 10,000 − 2,000 (2026-09's surplus); 2026-10 = 10,000 + 0.
+    assert.deepEqual(t.series[1].values, t.months.map((k: string) => (k < "2025-03" ? null : k < "2026-09" ? 8000 : 10000)));
+    // Forward and backward agree: every month = the one before + its own surplus.
+    const na = t.series[1].values as (number | null)[];
+    const sur = t.series[0].values as (number | null)[];
+    for (let i = t.months.indexOf("2025-03") + 1; i < na.length; i++) assert.equal(na[i], na[i - 1]! + (sur[i] ?? 0), t.months[i]);
+    assert.deepEqual(t.series[0].values, s.series[0].values, "surplus untouched");
   });
-  it("as-of outside the chart range (Q-AG2): after it → every value null; before it → the level carries in", async () => {
+  it("as-of outside the chart range (Q-AG2): before it → the level carries in; after it → #171 Q-AG1 backwards (was all null)", async () => {
     await save("2026-06");
     const early = await series({ from: "2025-01", to: "2025-06" });
-    assert.deepEqual([early.net_assets_from, early.series[1].values], ["2026-06", [null, null, null, null, null, null]]);
+    assert.deepEqual([early.net_assets_from, early.series[1].values], ["2026-06", [null, null, 10000, 10000, 10000, 10000]]);
     await save("2025-01");
     const late = await series({ from: "2026-08", to: "2026-10" });
     assert.deepEqual([late.net_assets_from, late.series[1].values], ["2025-01", [10500, 12500, 12500]]);
@@ -142,12 +153,15 @@ describe("#171 PFAO-04..08 the anchor is the as-of month", () => {
     const s = await series({ preset: "all" });
     assert.deepEqual([s.net_assets_from, s.series[1].values], ["2025-03", oldNet(s.months)]);
   });
-  it("PFAO-09 / 10 Overview: as-of before the window adds each month's own surplus up to it; inside → null before it", () => {
+  it("PFAO-09 / 10 Overview: as-of before the window adds each month's own surplus up to it; inside → backwards (Q-AG1)", () => {
     const pts = (asOf: string) => summarize(asOverview(OV(asOf)), OCT, { expenses: null, income: null }, {}).points.map((p) => p.net);
     // 2025-01: 10,000 + 500 (2025-03) by the window start, then as before → 34,500 now.
     assert.deepEqual(pts("2025-01"), [12500, 14500, 16500, 18500, 20500, 22500, 24500, 26500, 28500, 30500, 32500, 34500]);
-    // 2026-06: Nov 25 … May 26 none; Jun 26 10,000 + 2,000 … Oct 26 20,000.
-    assert.deepEqual(pts("2026-06"), [null, null, null, null, null, null, null, 12000, 14000, 16000, 18000, 20000]);
+    // 2026-06: Jun 26 10,000 + 2,000 … Oct 26 20,000; #171 Q-AG1: May 26 = 10,000 (the start), each earlier point
+    // 2,000 less (the next point's surplus, the same average-filled surplus the forward roll uses).
+    assert.deepEqual(pts("2026-06"), [-2000, 0, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000]);
+    // Q-AG12 kept: an as-of month after the current month (skewed clock only) still blanks everything.
+    assert.deepEqual(pts("2026-12"), Array(12).fill(null));
     // The window's first month as the as-of month = exactly the old Overview.
     assert.deepEqual(pts("2025-11"), summarize(asOverview(OV()), OCT, { expenses: null, income: null }, {}).points.map((p) => p.net));
     // Future projects from the anchored level.
@@ -159,20 +173,22 @@ describe("#171 PFAO-04..08 the anchor is the as-of month", () => {
 describe("#171 PFAO-11..13 bounds: the #179 validator (2020-01 … current Toronto month), 400 Invalid value. overview.asOf", () => {
   it("refuses before 2020-01, after the current month, malformed; accepts the bounds and empty; nothing stored on refusal", async () => {
     await save("2025-01");
-    for (const bad of ["2019-12", "2026-11", "2100-01", "2026-13", "2026-1", "26-10", "abc", " 2025-01x"]) {
+    // #171 Q-AG9 (CFO, 2026-10-17): the two bounds say why; malformed / outside 2000..2100 stays Invalid value.
+    const want: Record<string, string> = { "2019-12": MONTH_BEFORE_FIRST, "2000-01": MONTH_BEFORE_FIRST, "2026-11": MONTH_AFTER_CURRENT, "2100-01": MONTH_AFTER_CURRENT };
+    for (const bad of ["2019-12", "2000-01", "2026-11", "2100-01", "1999-12", "2101-01", "2026-13", "2026-1", "26-10", "abc", " 2025-01x"]) {
       const r = await putRecord(recordOf(bad));
-      assert.deepEqual([r.status, await r.json()], [400, { error: INVALID_VALUE, field: "overview.asOf" }], bad);
+      assert.deepEqual([r.status, await r.json()], [400, { error: want[bad] ?? INVALID_VALUE, field: "overview.asOf" }], bad);
     }
     assert.equal(JSON.parse((await stored())![OVERVIEW_KEY]).asOf, "2025-01", "unchanged");
     for (const ok of ["2020-01", "2026-10", ""]) assert.equal((await putRecord(recordOf(ok))).status, 200, ok);
   });
   it("Toronto month edge: 2026-11-01 03:30Z refuses 2026-11 (still October); 04:30Z accepts it", async () => {
     const r = await putRecord(recordOf("2026-11"), new Date("2026-11-01T03:30:00Z"));
-    assert.deepEqual([r.status, (await r.json()).field], [400, "overview.asOf"]);
+    assert.deepEqual([r.status, await r.json()], [400, { error: MONTH_AFTER_CURRENT, field: "overview.asOf" }]);
     assert.equal((await putRecord(recordOf("2026-11"), new Date("2026-11-01T04:30:00Z"))).status, 200);
     // and /series anchors there at that clock
     const s = await series({ preset: "3m" }, new Date("2026-11-01T04:30:00Z"));
-    assert.deepEqual([s.current, s.net_assets_from, s.series[1].values], ["2026-11", "2026-11", [null, null, 10000]]);
+    assert.deepEqual([s.current, s.net_assets_from, s.series[1].values], ["2026-11", "2026-11", [10000, 10000, 10000]]);
     await save("2025-01");
   });
   it("the page's check (fieldErrors / asOfBad) agrees: same bounds, the field marked overview.asOf", () => {
@@ -210,6 +226,8 @@ describe("#171 PFAO-14 / 15 export and QA lists", () => {
       [c("AS_OF_LABEL"), c("AS_OF_PLACEHOLDER"), c("AS_OF_ERROR"), c("EXPORT_AS_OF_SUFFIX"), c("NET_ASSETS_AS_OF_NOTE")],
       [AS_OF_LABEL, AS_OF_PLACEHOLDER, AS_OF_ERROR, AS_OF_SUFFIX, NET_ASSETS_AS_OF_NOTE],
     );
+    // #171 CFO round: the record bound messages and the 24-month cap message.
+    assert.deepEqual([c("MONTH_BEFORE_FIRST"), c("MONTH_AFTER_CURRENT"), c("RANGE_TOO_LONG")], [MONTH_BEFORE_FIRST, MONTH_AFTER_CURRENT, RANGE_TOO_LONG]);
   });
 });
 
@@ -225,13 +243,15 @@ describe("#171 QA tools: the updated signed-in expectations hold on the real han
     const from = j.net_assets_from ?? null;
     const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);
     const pre = idx < 0 ? na : na.slice(0, idx);
+    const firstVal = na.findIndex((v) => v !== null);
+    void pre;
     let flat = true;
-    if (idx >= 0)
-      for (let i = Math.max(1, idx + 1); i < na.length; i++)
-        if (na[i] === null || (sur[i] === null && na[i] !== na[i - 1])) flat = false;
-    return { pfs20: pre.every((v) => v === null), pfs18: idx < 0 || flat };
+    if (firstVal >= 0)
+      for (let i = firstVal + 1; i < na.length; i++)
+        if (na[i] === null || Math.abs(na[i]! - na[i - 1]! - (sur[i] ?? 0)) > 0.005) flat = false;
+    return { pfs20: idx < 0 || (firstVal >= 0 && firstVal <= idx), pfs18: flat };
   };
-  for (const asOf of [undefined, "2025-01", "2026-06"]) {
+  for (const asOf of [undefined, "2025-01", "2026-06", "2026-10"]) {
     it(`PFS-18 / PFS-20 pass with as-of ${asOf ?? "none"} on all / 24m / a range before and after the anchor`, async () => {
       await save(asOf);
       for (const range of [{ preset: "all" }, { preset: "24m" }, { from: "2025-01", to: "2025-06" }, { from: "2026-08", to: "2026-10" }])
@@ -252,7 +272,8 @@ describe("#171 QA tools: the updated signed-in expectations hold on the real han
   it("the tools carry exactly these lines, the new visible text from pf-helpers, and still call the prod guard", () => {
     const s = tool("pf-series-api.mjs");
     assert.ok(s.includes(`const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);`));
-    assert.ok(s.includes("for (let i = Math.max(1, idx + 1); i < na.length; i++)"));
+    assert.ok(s.includes("check(\"PFS-20 net assets start at or before net_assets_from (Q-AG1); nothing before the first value\", idx < 0 || (firstVal >= 0 && firstVal <= idx)"));
+    assert.ok(s.includes("if (na[i] === null || Math.abs(na[i] - na[i - 1] - (sur[i] ?? 0)) > 0.005) flat = false;"));
     const e = tool("pf-export-api.mjs");
     assert.ok(e.includes("flat.includes(`Net assets from: ${chart.net_assets_from} ${EXPORT_AS_OF_SUFFIX}`) && flat.includes(NET_ASSETS_AS_OF_NOTE.slice(0, 60))"));
     assert.ok(e.includes(`text.includes("Net assets from:") && cav !== asOfNote`));
@@ -267,7 +288,7 @@ describe("#171 drift: contract section 11.1 equals the code", () => {
   it("every row of 11.1 equals its server / client constant", async () => {
     const { AS_OF_FIRST, AS_OF_RECORD_FIELD } = await import("./charts-api.ts");
     const doc = readFileSync(new URL("../../../attachments/pf-charts-api-contract.md", import.meta.url), "utf8");
-    const sec = doc.slice(doc.indexOf("### 11.1"));
+    const sec = doc.slice(doc.indexOf("### 11.1"), doc.indexOf("### 11.2"));
     const rows = Object.fromEntries([...sec.matchAll(/^\| ([a-z-]+) \| (.+?) \|$/gm)].map((m) => [m[1], m[2]]));
     assert.deepEqual(rows, {
       "record-field": AS_OF_RECORD_FIELD,
@@ -277,7 +298,46 @@ describe("#171 drift: contract section 11.1 equals the code", () => {
       "export-note": NET_ASSETS_AS_OF_NOTE,
     });
     // and the record API really answers with that field and message
-    const r = await putRecord(recordOf("2019-12"));
+    // (a malformed month: Invalid value. still; #171 Q-AG9 gave the bounds their own messages, table 11.2)
+    const r = await putRecord(recordOf("2026-13"));
     assert.deepEqual(await r.json(), { error: rows["record-error"], field: rows["record-field"] });
+  });
+  it("#171 Q-AG9: every row of 11.2 equals the code and the record API sends it", async () => {
+    const { RECORD_MESSAGES, errorCode } = await import("./charts-api.ts");
+    const doc = readFileSync(new URL("../../../attachments/pf-charts-api-contract.md", import.meta.url), "utf8");
+    const sec = doc.slice(doc.indexOf("### 11.2"), doc.indexOf("## 12."));
+    const rows = [...sec.matchAll(/^\| `([^`]+)` \| (\d+) \| `([^`]+)` \| `([^`]+)` \| ([a-z_]+) \|$/gm)].map((m) => ({ msg: m[1], status: Number(m[2]), field: m[3], example: m[4], code: m[5] }));
+    assert.deepEqual(rows.map((r) => r.msg).sort(), [MONTH_AFTER_CURRENT, MONTH_BEFORE_FIRST].sort());
+    assert.deepEqual(Object.values(RECORD_MESSAGES).sort(), rows.map((r) => r.msg).sort(), "the typed client's copy");
+    for (const row of rows) {
+      const res = await putRecord(recordOf(row.example));
+      assert.deepEqual([res.status, await res.json()], [row.status, { error: row.msg, field: row.field }], row.msg);
+      assert.equal(errorCode(row.status, row.msg), row.code);
+    }
+  });
+});
+
+// #171 CFO round (2026-10-17): the new / changed signed-in QA expectations replayed through the real handlers, at the
+// fixed clock and the real clock: pf-reports-api PFRC-06 and pf-report-api PFR-08 cap (the 24-month cap message), and
+// the record API's as-of bound messages. The tools' case lines are pinned as text.
+describe("#171 CFO round: QA tool replay (cap message, record bound messages)", () => {
+  const tool = (f: string) => readFileSync(new URL(`../../../qa/tools/${f}`, import.meta.url), "utf8");
+  const REP = { series: [{ kind: "group", id: "all" }], range: { preset: "12m" }, chart: "line" };
+  for (const [label, at] of [["fixed clock", OCT], ["real clock", new Date()]] as const) {
+    it(`${label}: PFRC-06 / PFR-08 cap: 2020-01..2022-01 → 400 '${RANGE_TOO_LONG}' (report.range / range); /series and /chart: 200 (no cap)`, async () => {
+      const a = await handlePersonalFinanceReportsRequest(rq("POST", "/api/personal-finance/reports", { name: "ok", report: { ...REP, range: { from: "2020-01", to: "2022-01" } } }), as("bob"), () => at);
+      assert.deepEqual([a.status, await a.json()], [400, { error: RANGE_TOO_LONG, field: "report.range" }]);
+      const b = await handlePersonalFinanceReportRequest(rq("PUT", "/api/personal-finance/report", { report: { ...REP, range: { from: "2020-01", to: "2022-01" } } }), as("bob"), () => at);
+      assert.deepEqual([b.status, await b.json()], [400, { error: RANGE_TOO_LONG, field: "range" }]);
+      assert.equal((await handlePersonalFinanceSeriesRequest(rq("POST", "/api/personal-finance/series", { series: REP.series, range: { from: "2020-01", to: "2022-01" } }), as("bob"), () => at)).status, 200);
+      assert.equal((await handlePersonalFinanceChartRequest(rq("POST", "/api/personal-finance/chart", { ...REP, range: { from: "2020-01", to: "2022-01" } }), as("bob"), () => at)).status, 200);
+    });
+  }
+  it("the tools carry exactly these cases and still call the prod guard", () => {
+    const r = tool("pf-reports-api.mjs");
+    assert.ok(r.includes(`[{ name: "ok", report: { ...REP, range: { from: "2020-01", to: "2022-01" } } }, "report.range", RANGE_TOO_LONG]`));
+    const p = tool("pf-report-api.mjs");
+    assert.ok(p.includes(`["PFR-08 cap", { report: { ...REPORT, range: { from: "2020-01", to: "2022-01" } } }, 400, "range", RANGE_TOO_LONG],`));
+    for (const t of [r, p]) assert.match(t, /await refuseIfProd\(/);
   });
 });

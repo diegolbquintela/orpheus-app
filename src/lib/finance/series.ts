@@ -138,9 +138,15 @@ export function seriesValues(query: SeriesQuery, record: PfRecord | null, now: D
   // there through M, whatever range is asked. Before the anchor: null. A month without a surplus adds nothing
   // (carried flat, never null). Income / expenses / surplus are unchanged.
   // #171 (spec 42): an explicit as-of month replaces the first data month as the anchor; without one, unchanged.
-  const anchor = asOfMonth(overview) ?? firstDataMonth(record);
+  const asOf = asOfMonth(overview);
+  const first = firstDataMonth(record);
+  const anchor = asOf ?? first;
+  // #171 Q-AG1 (CFO change, 2026-10-17): an as-of month AFTER the first data month works backwards to the first data
+  // month (never before it, as without an as-of month); one at or before it is unchanged. Q-AG12: an as-of month after
+  // the current month (skewed clock only) still blanks everything before it.
+  const back = asOf && first && first < asOf && asOf <= current ? first : undefined;
   const netByMonth = anchor
-    ? netAssetsFrom(orZero(overview.start), anchor, months[months.length - 1], (k) => surplusOf(monthFigures(overview, k, current, none, lines)))
+    ? netAssetsFrom(orZero(overview.start), anchor, months[months.length - 1], (k) => surplusOf(monthFigures(overview, k, current, none, lines)), back)
     : new Map<MonthKey, number>();
   const netAssets = months.map((k) => netByMonth.get(k) ?? null);
   const series = query.series.map((s, i): SeriesOut => {

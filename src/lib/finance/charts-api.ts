@@ -51,6 +51,14 @@ export const CHARTS_MESSAGES = {
   /** #179 Q-AF4 (2026-10-17): 400, field `range` (`report.range` on /reports). */
   rangeBeforeFirst: "Range can't start before 2020-01.",
   rangeAfterCurrent: "Range can't end after the current month.",
+  /** #171 CFO round (2026-10-17): the 24-month cap on saves (R3, R4, L1 only; /series and /chart have no cap). */
+  rangeTooLong: "Range can't be longer than 24 months.",
+} as const;
+
+/** #171 Q-AG9 (2026-10-17; contract 11.2): the record API's as-of bound messages (400, field `overview.asOf`). */
+export const RECORD_MESSAGES = {
+  monthBeforeFirst: "Month can't be before 2020-01.",
+  monthAfterCurrent: "Month can't be after the current month.",
 } as const;
 
 export type ChartsApiErrorCode =
@@ -65,6 +73,8 @@ export type ChartsApiErrorCode =
   | "invalid"
   | "default_name_fixed"
   | "range_out_of_bounds"
+  | "range_too_long"
+  | "month_out_of_bounds"
   | "too_large"
   | "not_found"
   | "name_taken"
@@ -92,6 +102,8 @@ export function errorCode(status: number, error: string): ChartsApiErrorCode {
     if (error === M.badJson || error === M.notObject) return "bad_json";
     if (error === M.defaultNameFixed) return "default_name_fixed";
     if (error === M.rangeBeforeFirst || error === M.rangeAfterCurrent) return "range_out_of_bounds";
+    if (error === M.rangeTooLong) return "range_too_long";
+    if (error === RECORD_MESSAGES.monthBeforeFirst || error === RECORD_MESSAGES.monthAfterCurrent) return "month_out_of_bounds";
     return error === M.invalid ? "invalid" : "unknown";
   }
   return "unknown";

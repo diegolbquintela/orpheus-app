@@ -167,7 +167,7 @@ describe("#179 PFALL-06 / 07 / 08 (#173) save bounds: 2020-01..the current Toron
         const field = name === "legacy PUT /report" ? "range" : "report.range";
         // #179 Q-AF4 (CFO, 2026-10-17): from-bound / to-bound messages; the 24-month cap stays `Invalid value.`.
         const rr = r.range as { from: string; to: string };
-        const error = rr.from < "2020-01" ? "Range can't start before 2020-01." : rr.to > "2026-10" ? "Range can't end after the current month." : "Invalid value.";
+        const error = rr.from < "2020-01" ? "Range can't start before 2020-01." : rr.to > "2026-10" ? "Range can't end after the current month." : "Range can't be longer than 24 months."; // #171 CFO round (2026-10-17): the cap says why (was Invalid value.)
         assert.deepEqual([res.status, await res.json()], [400, { error, field }], `${name} ${JSON.stringify(r.range)}`);
       }
       assert.equal(JSON.stringify(await stored("bob")), before, `${name}: nothing stored`);
@@ -259,15 +259,17 @@ describe("#179 PFALL-09 / 10 old stored reports read, chart and export unchanged
 describe("#179 Q-AF4 (CFO, 2026-10-17) PFALL-15 / 16 bound messages; every other range refusal stays Invalid value.", () => {
   const B = "Range can't start before 2020-01.";
   const A = "Range can't end after the current month.";
+  const T = "Range can't be longer than 24 months.";
   it("validator: which inputs get which text, in every mode", () => {
     const cases: [unknown, string | null, string | null, string | null][] = [
       // range, query, save, stored (null = accepted)
       [{ from: "2019-12", to: "2020-02" }, B, B, null],
       [{ from: "2000-01", to: "2000-02" }, B, B, null],
       [{ from: "2026-09", to: "2026-11" }, A, A, null],
-      [{ from: "2019-12", to: "2026-11" }, B, B, "Invalid value."], // both bounds: from wins; stored: 84 months > cap
-      [{ from: "2018-01", to: "2020-06" }, B, B, "Invalid value."], // bound + over the cap: bound message in save mode
-      [{ from: "2020-01", to: "2026-10" }, null, "Invalid value.", "Invalid value."], // cap only
+      // #171 CFO round (2026-10-17): over the cap → T (was Invalid value.); query mode still has no cap.
+      [{ from: "2019-12", to: "2026-11" }, B, B, T], // both bounds: from wins; stored: 84 months > cap
+      [{ from: "2018-01", to: "2020-06" }, B, B, T], // bound + over the cap: bound message in save mode
+      [{ from: "2020-01", to: "2026-10" }, null, T, T], // cap only
       [{ from: "1999-12", to: "2020-02" }, "Invalid value.", "Invalid value.", "Invalid value."], // before 2000: malformed span
       [{ from: "2026-05", to: "2101-01" }, "Invalid value.", "Invalid value.", "Invalid value."], // after 2100
       [{ from: "2026-06", to: "2026-05" }, "Invalid value.", "Invalid value.", "Invalid value."], // from after to

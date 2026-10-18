@@ -18,7 +18,7 @@ import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { checkRecord, RecordStore, type PfRecord } from "./record.ts";
-import { INVALID_VALUE, recordFieldError } from "./field-errors.ts";
+import { recordRefusal } from "./field-errors.ts";
 import {
   checkReport,
   missingSeries,
@@ -133,8 +133,9 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     record = checked.record;
     // #143 (PF-137, Q-S4): an invalid value is refused, never clamped; nothing is stored.
     // #171: `overview.asOf` is bounded by the current household month (fake clock in tests).
-    const field = recordFieldError(record, householdMonth(clock()));
-    if (field) return dashboardJson({ error: INVALID_VALUE, field }, 400);
+    // #171 Q-AG9 (CFO): an out-of-bounds as-of month says why; every other bad value stays `Invalid value.`.
+    const refusal = recordRefusal(record, householdMonth(clock()));
+    if (refusal) return dashboardJson({ error: refusal.error, field: refusal.field }, 400);
   }
   if (method === "PUT" && record) {
     if (!g.access.owner) {

@@ -177,3 +177,9 @@ export const AS_OF_PLACEHOLDER = "YYYY-MM";
 export const AS_OF_ERROR = "Enter a month as YYYY-MM, from 2020-01 to this month.";
 export const EXPORT_AS_OF_SUFFIX = "(as-of month)";
 export const NET_ASSETS_AS_OF_NOTE = "Starting net assets is the value at the start of its as-of month; each month adds its own surplus.";
+
+// #171 CFO round (2026-10-17): Q-AG9 record as-of bounds (field overview.asOf) and the 24-month cap on saves.
+// Must equal src/lib/finance/field-errors.ts and report.ts (as-of.server.test.ts checks them verbatim).
+export const MONTH_BEFORE_FIRST = "Month can't be before 2020-01.";
+export const MONTH_AFTER_CURRENT = "Month can't be after the current month.";
+export const RANGE_TOO_LONG = "Range can't be longer than 24 months.";
