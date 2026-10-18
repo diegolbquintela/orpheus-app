@@ -1108,3 +1108,26 @@ PGlite real-path tests: `src/lib/finance/as-of.server.test.ts` (TZ=UTC and TZ=Am
 | PFAO-26 | MINOR | A record PUT with `"asOf": ""` stores and replies the overview without `asOf`; every other overview text is stored byte for byte. |
 
 **Additions (2026-10-18, docs consistency after QA):** PFAO-10's "points before it are null" is also superseded by PFAO-20 for an as-of month after the first data month. PFR-08's "more than 24 months → 400 `range`" now carries the message `Range can't be longer than 24 months.` (PFAO-22); PFRC-06 likewise with field `report.range`.
+
+## Personal Finance: historical FX rates (#170; spec section 43; added 2026-10-18; Phase 1: ACs written, nothing built)
+
+Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression); PFFX-07..16 depend on the Q-AH answers named in each row.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-01 | BLOCK | No historical rate stored: `/series` returns `fx_basis: "current"` and values byte-equal to today's for every preset and a custom range, household and foreign lines. |
+| PFFX-02 | BLOCK | No historical rate: `/chart` (both bodies) equals `/series`, `fx_basis: "current"`. |
+| PFFX-03 | BLOCK | No historical rate: PDF and PNG export carry `FX basis: current (every month is valued at today's rates, not historical rates)` and are otherwise unchanged. |
+| PFFX-04 | BLOCK | Each month keeps its own typed line rates under `current` (e.g. Aug line 0.5, Sep 0.8, shared 0.9 → 2,000 and 1,250 for USD 1,000/month). |
+| PFFX-05 | MAJOR | A month without lines (typed totals) is unaffected by FX in every mode. |
+| PFFX-06 | BLOCK | The #171 anchor rule is intact: `net_assets_from`, back-fill and forward roll (spec 42.10) give the same values from the same per-month surplus. |
+| PFFX-07 | BLOCK | (Q-AH1/3) Rates come only from the chosen source; no new secret, env var, paid API or migration. |
+| PFFX-08 | BLOCK | (Q-AH4a/b) A month's historical rate follows the chosen convention and precision, checked against fixtures. |
+| PFFX-09 | BLOCK | (Q-AH4d) A month/currency without a historical rate falls back to its typed rate; no carry-forward unless decided. |
+| PFFX-10 | BLOCK | (Q-AH4e) A non-CAD household converts via CAD; results match hand-worked fixtures. |
+| PFFX-11 | BLOCK | (Q-AH4f) `fx_basis` is `"historical"` exactly when the decided availability rule holds, else `"current"`. |
+| PFFX-12 | MAJOR | (Q-AH4g) The page's figures and typed rates are unchanged; only the decided surfaces use historical rates. |
+| PFFX-13 | MAJOR | (Q-AH2) Backfill is idempotent (a second run inserts nothing) and bounded to 2020-01..current. |
+| PFFX-14 | MAJOR | (Q-AH5) The wire shape is unchanged unless a field is decided; contract and drift tests updated if it is. |
+| PFFX-15 | MAJOR | (Q-AH6) The export says the decided historical text when `fx_basis` is `"historical"`, today's when `"current"`. |
+| PFFX-16 | MINOR | Docs: spec 43, contract and README/AGENTS pointers match the code. |
