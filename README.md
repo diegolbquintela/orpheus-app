@@ -673,3 +673,5 @@ The Charts UI (#160–#162) calls five routes: `/series`, `/chart`, `/reports`, 
 Saved reports accept the `all` range, stored as `all` and resolved each time they run, and saves refuse ranges before 2020-01 or after the current Toronto month (#173). One range validator serves /series, /chart and saved reports. Spec section 41; contract `attachments/pf-charts-api-contract.md` section 9; AC PFALL-01..PFALL-14.
 
 Starting net assets can carry an optional 'as of' month (`As of month`, `YYYY-MM`, 2020-01 to the current Toronto month; #171, added 2026-10-17). When it is set, the net-assets series (`net_assets_from`), the chart, the export and the Overview are anchored at that month; without it, nothing changes. Spec section 42 (Q-AG1..Q-AG12); contract section 11; AC PFAO-01..PFAO-18; tests `src/lib/finance/as-of.server.test.ts`.
+
+Added 2026-10-18 (#171 CFO round): AC PFAO-19..PFAO-26; spec 42.9–42.13; contract 11.2 (the record API's two as-of bound messages) and 12 / 12.1 (the 24-month cap message on saved-report ranges).

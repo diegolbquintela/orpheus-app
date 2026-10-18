@@ -1106,3 +1106,5 @@ PGlite real-path tests: `src/lib/finance/as-of.server.test.ts` (TZ=UTC and TZ=Am
 | PFAO-24 | MAJOR | pf-export-api PFX-06/07 follows the stored `overview.asOf` (via the record API): none → the caveat and no as-of note; set → `Net assets from: <asOf> (as-of month)` and the note, no caveat. A no-asOf export printing the note fails. |
 | PFAO-25 | MAJOR | pf-series-api PFS-20: values start at or before `net_assets_from` (back-filled); the anchor month's value is non-null and equals start + its surplus; the month before it, when shown, equals the start. |
 | PFAO-26 | MINOR | A record PUT with `"asOf": ""` stores and replies the overview without `asOf`; every other overview text is stored byte for byte. |
+
+**Additions (2026-10-18, docs consistency after QA):** PFAO-10's "points before it are null" is also superseded by PFAO-20 for an as-of month after the first data month. PFR-08's "more than 24 months → 400 `range`" now carries the message `Range can't be longer than 24 months.` (PFAO-22); PFRC-06 likewise with field `report.range`.

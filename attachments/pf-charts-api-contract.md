@@ -316,3 +316,5 @@ The existing 24-month cap on saved-report ranges now says `Range can't be longer
 | Message | Status | Routes |
 |---|---|---|
 | `Range can't be longer than 24 months.` | 400 | R3 R4 L1 |
+
+**Superseded statements (added 2026-10-18, docs consistency after QA):** in the #179 save-mode note, "A range that is only over the cap stays `Invalid value.`" is replaced by section 12 (`Range can't be longer than 24 months.`; bounds are still checked first). In section 11, "Net assets are null before it" holds only when `asOf` is at or before the first data month or after the current month (Q-AG1 note above); and the record API's "existing 400 `Invalid value.`" for a bad `asOf` now applies to malformed months only (table 11.2).

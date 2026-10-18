@@ -290,6 +290,11 @@ describe("#171 QA tools: the updated signed-in expectations hold on the real han
     assert.equal(exportNetAssetsCheck(texts["2025-01"], null, c).ok, false, "note printed without an as-of month");
     assert.equal(exportNetAssetsCheck(texts["undefined"], "2025-01", c).ok, false, "caveat printed with an as-of month");
     assert.equal(exportNetAssetsCheck(texts["2025-01"], "2025-02", c).ok, false, "the note must name the stored month");
+    // QA F4 (2026-10-18): a text carrying BOTH the caveat and the note fails either way (pins `!anyNote` and `!cav`).
+    const both = `${texts["undefined"]} ${texts["2025-01"]}`;
+    assert.ok(both.includes(c.caveat.slice(0, 60)) && both.includes(c.note.slice(0, 60)), "fixture has both");
+    assert.equal(exportNetAssetsCheck(both, null, c).ok, false, "caveat + note, no as-of month");
+    assert.equal(exportNetAssetsCheck(both, "2025-01", c).ok, false, "caveat + note, as-of month set");
   });
   it("the tools carry exactly these lines, the new visible text from pf-helpers, and still call the prod guard", () => {
     const s = tool("pf-series-api.mjs");
