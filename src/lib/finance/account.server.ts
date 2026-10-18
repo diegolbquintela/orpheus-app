@@ -31,7 +31,7 @@ import {
   INVALID_REPORT,
   type Report,
 } from "./report.ts";
-import { asOfMonth, householdMonth, readOverview } from "./overview.ts";
+import { asOfMonth, householdMonth, OVERVIEW_KEY, readOverview, withoutEmptyAsOf } from "./overview.ts";
 import {
   checkBody,
   DEFAULT_ID,
@@ -136,6 +136,8 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     // #171 Q-AG9 (CFO): an out-of-bounds as-of month says why; every other bad value stays `Invalid value.`.
     const refusal = recordRefusal(record, householdMonth(clock()));
     if (refusal) return dashboardJson({ error: refusal.error, field: refusal.field }, 400);
+    // #171 (QA early finding 3): an empty as-of month is stored as absent (spec 42.2); nothing else is touched.
+    if (OVERVIEW_KEY in record) record = { ...record, [OVERVIEW_KEY]: withoutEmptyAsOf(record[OVERVIEW_KEY]) };
   }
   if (method === "PUT" && record) {
     if (!g.access.owner) {

@@ -1329,3 +1329,10 @@ Business user: CFO. AC pack: PFAO-01..PFAO-18 (`qa/CANONICAL-AC-PACK.md`). Contr
 - The page error text `Enter a month as YYYY-MM, from 2020-01 to this month.` is kept. It covers both cases and the malformed one in one hint, in the page's "Enter …" style like `Enter a number, 0 or more.`.
 
 42.12 **(2026-10-17, CFO request) 24-month cap message.** The existing cap on saved-report ranges now says `Range can't be longer than 24 months.`, with the same 400 and field (`report.range` on `/reports` POST and `/reports/:id` PUT, `range` on legacy `/report` PUT). The cap exists only in save mode (and in stored mode, which never reaches the wire), so the message is never sent by `/series` or `/chart`, which have no cap. No cap was added anywhere. The bounds are still checked first.
+
+42.13 **(2026-10-17, QA early findings on 1ca3c3d, QA's)**
+- (1) pf-export-api PFX-06/07 now follows the stored `overview.asOf`, read via the record API: none requires the caveat and forbids the as-of note; set requires the note naming that month.
+- (2) PFS-20 expects back-filled values before `net_assets_from` (42.10). The anchor month's own value is non-null and equals the start plus that month's surplus, and the month before it, when shown, equals the start.
+- (3) Storage now matches 42.2: the record API strips an empty `asOf` (`"asOf": ""`) from the stored overview text and from its reply. That is the stored field only; no other reply shape changes. The figures are the same, since empty means none. Any other overview text is stored byte for byte.
+
+The shared tool logic is `qa/tools/pf-asof-checks.mjs`, which `as-of.server.test.ts` imports and replays through the real handlers.

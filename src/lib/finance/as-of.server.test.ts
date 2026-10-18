@@ -14,6 +14,7 @@ import { AS_OF_SUFFIX, NET_ASSETS_AS_OF_NOTE, NET_ASSETS_CAVEAT } from "./export
 import { asOfBad, fieldErrors, INVALID_VALUE, MONTH_AFTER_CURRENT, MONTH_BEFORE_FIRST } from "./field-errors.ts";
 import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER, asOfMonth, asOverview, OVERVIEW_KEY, summarize, type Overview } from "./overview.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
+import { exportNetAssetsCheck, seriesNetChecks, storedAsOf, storedStart } from "../../../qa/tools/pf-asof-checks.mjs";
 import { crc32, headerLines } from "./export.ts";
 import { RANGE_TOO_LONG, type Report } from "./report.ts";
 
@@ -147,6 +148,31 @@ describe("#171 PFAO-04..08 the anchor is the as-of month", () => {
     const c = await chartQ({ from: "2026-08", to: "2026-10" });
     assert.deepEqual([c.net_assets_from, c.series[1].values], ["2025-01", [10500, 12500, 12500]]);
   });
+  it("PFAO-19 the as-of month's own surplus is not taken off going back (2026-09: 08 = start, 09 = start + 2,000)", async () => {
+    await save("2026-09");
+    const s = await series({ from: "2025-01", to: "2026-10" });
+    assert.deepEqual(s.series[1].values, s.months.map((k: string) => (k < "2025-03" ? null : k < "2026-09" ? 10000 : 12000)));
+  });
+  it("Q-AG12 kept: an as-of month after the current month (skewed clock) still blanks the months before it", async () => {
+    await save("2026-10");
+    const s = await series({ from: "2026-07", to: "2026-09" }, new Date("2026-09-15T16:00:00Z"));
+    assert.deepEqual([s.current, s.net_assets_from, s.series[1].values], ["2026-09", "2026-10", [null, null, null]]);
+  });
+  it("QA finding 3: an API save with asOf \"\" stores (and replies) the overview without asOf; other texts byte-identical", async () => {
+    const r = await putRecord(recordOf(""));
+    assert.equal(r.status, 200);
+    const want = JSON.stringify(OV());
+    assert.equal((await stored())![OVERVIEW_KEY], want);
+    assert.equal((await r.json()).data[OVERVIEW_KEY], want);
+    for (const asOf of [undefined, "2025-01"]) {
+      const text = recordOf(asOf)[OVERVIEW_KEY];
+      assert.equal((await putRecord({ [OVERVIEW_KEY]: text })).status, 200);
+      assert.equal((await stored())![OVERVIEW_KEY], text, String(asOf));
+    }
+    const odd = '{ "start": "1",  "asOf": "2025-01" }';
+    assert.equal((await putRecord({ [OVERVIEW_KEY]: odd })).status, 200);
+    assert.equal((await stored())![OVERVIEW_KEY], odd, "formatting kept when asOf isn't empty");
+  });
   it("PFAO-08 clearing it (Q-AG5) reverts to the old anchoring exactly", async () => {
     await save("2026-06");
     await save();
@@ -236,47 +262,41 @@ describe("#171 PFAO-14 / 15 export and QA lists", () => {
 // as text so the tools and this replay can't drift. The QA tools' signed-in checks can't run here (no creds).
 describe("#171 QA tools: the updated signed-in expectations hold on the real handlers", () => {
   const tool = (f: string) => readFileSync(new URL(`../../../qa/tools/${f}`, import.meta.url), "utf8");
-  // pf-series-api PFS-20 / PFS-18, verbatim logic (j = /series reply; series [5] surplus, [6] net assets there).
-  const pfs = (j: { months: string[]; net_assets_from: string | null; series: { values: (number | null)[] }[] }) => {
-    const na = j.series[1].values;
-    const sur = j.series[0].values;
-    const from = j.net_assets_from ?? null;
-    const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);
-    const pre = idx < 0 ? na : na.slice(0, idx);
-    const firstVal = na.findIndex((v) => v !== null);
-    void pre;
-    let flat = true;
-    if (firstVal >= 0)
-      for (let i = firstVal + 1; i < na.length; i++)
-        if (na[i] === null || Math.abs(na[i]! - na[i - 1]! - (sur[i] ?? 0)) > 0.005) flat = false;
-    return { pfs20: idx < 0 || (firstVal >= 0 && firstVal <= idx), pfs18: flat };
+  // #171 QA early findings 1 / 2 (2026-10-17): the tools' shared logic (qa/tools/pf-asof-checks.mjs), imported as is.
+  const pfs = async (j: { months: string[]; net_assets_from: string | null; series: { values: (number | null)[] }[] }) => {
+    const c = seriesNetChecks(j, j.series[1].values, j.series[0].values, storedStart(await stored()));
+    return { pfs20: c.pfs20, pfs18: c.pfs18 };
   };
-  for (const asOf of [undefined, "2025-01", "2026-06", "2026-10"]) {
+  for (const asOf of [undefined, "2025-01", "2026-06", "2026-09", "2026-10"]) {
     it(`PFS-18 / PFS-20 pass with as-of ${asOf ?? "none"} on all / 24m / a range before and after the anchor`, async () => {
       await save(asOf);
       for (const range of [{ preset: "all" }, { preset: "24m" }, { from: "2025-01", to: "2025-06" }, { from: "2026-08", to: "2026-10" }])
-        assert.deepEqual(pfs(await series(range)), { pfs20: true, pfs18: true }, `${asOf} ${JSON.stringify(range)}`);
+        assert.deepEqual(await pfs(await series(range)), { pfs20: true, pfs18: true }, `${asOf} ${JSON.stringify(range)}`);
     });
   }
-  it("PFX-06/07: exactly one of the caveat / the as-of note, with and without an as-of month", async () => {
+  it("PFX-06/07 follows the STORED asOf (QA finding 1): none → caveat, no note; set → the note naming it; wrong pairings fail", async () => {
     const id = (await (await handlePersonalFinanceReportsRequest(rq("POST", "/api/personal-finance/reports", { name: "PFX", report: REPORT }), as("alice"), () => OCT)).json()).id;
+    const c = { caveat: NET_ASSETS_CAVEAT, suffix: AS_OF_SUFFIX, note: NET_ASSETS_AS_OF_NOTE };
+    const texts: Record<string, string> = {};
     for (const asOf of [undefined, "2025-01"]) {
       await save(asOf);
-      const x = await exportText(id);
-      const cav = x.text.includes(NET_ASSETS_CAVEAT.slice(0, 60));
-      const note = x.text.includes(`Net assets from: ${x.data.net_assets_from} ${AS_OF_SUFFIX}`) && x.text.includes(NET_ASSETS_AS_OF_NOTE.slice(0, 60));
-      assert.ok(x.text.includes("Net assets from:") && cav !== note, String(asOf));
-      assert.equal(note, asOf !== undefined);
+      const got = storedAsOf(await stored());
+      assert.equal(got, asOf ?? null);
+      texts[String(asOf)] = (await exportText(id)).text;
+      assert.equal(exportNetAssetsCheck(texts[String(asOf)], got, c).ok, true, String(asOf));
     }
+    // The mutation QA asked for: a no-asOf account whose export prints the note (or an as-of account printing the
+    // caveat) must fail the tool's check.
+    assert.equal(exportNetAssetsCheck(texts["2025-01"], null, c).ok, false, "note printed without an as-of month");
+    assert.equal(exportNetAssetsCheck(texts["undefined"], "2025-01", c).ok, false, "caveat printed with an as-of month");
+    assert.equal(exportNetAssetsCheck(texts["2025-01"], "2025-02", c).ok, false, "the note must name the stored month");
   });
   it("the tools carry exactly these lines, the new visible text from pf-helpers, and still call the prod guard", () => {
     const s = tool("pf-series-api.mjs");
-    assert.ok(s.includes(`const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);`));
-    assert.ok(s.includes("check(\"PFS-20 net assets start at or before net_assets_from (Q-AG1); nothing before the first value\", idx < 0 || (firstVal >= 0 && firstVal <= idx)"));
-    assert.ok(s.includes("if (na[i] === null || Math.abs(na[i] - na[i - 1] - (sur[i] ?? 0)) > 0.005) flat = false;"));
+    assert.ok(s.includes("const nc = seriesNetChecks(j, na, sur, storedStart(record));") && s.includes("nc.pfs20, { from, ...nc });") && s.includes("nc.pfs18, { from });"));
     const e = tool("pf-export-api.mjs");
-    assert.ok(e.includes("flat.includes(`Net assets from: ${chart.net_assets_from} ${EXPORT_AS_OF_SUFFIX}`) && flat.includes(NET_ASSETS_AS_OF_NOTE.slice(0, 60))"));
-    assert.ok(e.includes(`text.includes("Net assets from:") && cav !== asOfNote`));
+    assert.ok(e.includes("const asOf = storedAsOf((await (await request.fetch(`${base}/api/personal-finance`)).json())?.data ?? null);"));
+    assert.ok(e.includes('const na = exportNetAssetsCheck(text.replace(/\\n/g, " "), asOf, { caveat: NET_ASSETS_CAVEAT, suffix: EXPORT_AS_OF_SUFFIX, note: NET_ASSETS_AS_OF_NOTE });') && e.includes("(!net || na.ok)"));
     const p = tool("personal-finance.mjs");
     assert.ok(p.includes(`"As of month", // #171`) && p.includes('import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER } from "./pf-helpers.mjs";'));
     assert.ok(tool("site-style-regression.mjs").includes(`"Starting net assets", "As of month", "Growth rate (%)"`));

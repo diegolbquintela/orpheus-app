@@ -27,6 +27,7 @@ const check = (name, ok, detail) => {
 const API = "/api/personal-finance/series";
 const EXPENSES_KEY = "orpheus.finance.expenses.v2";
 import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
+import { seriesNetChecks, storedStart } from "./pf-asof-checks.mjs";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The current household month (America/Toronto), as the server computes it. */
@@ -138,19 +139,14 @@ try {
       check("PFS-19 fx_basis: current", j.fx_basis === "current", j.fx_basis);
       const na = j.series?.[6]?.values ?? [];
       const from = j.net_assets_from ?? null;
-      // #171 (2026-10-17): with an as-of month the anchor may sit before the range (the level carries in: nothing null)
-      // or after it; otherwise as before. #171 Q-AG1 (CFO change, 2026-10-17): an as-of month after the first data month
-      // is worked BACKWARDS, so values may start before net_assets_from (never after it). Every month after the first
-      // value is the one before plus its own surplus (none → carried flat), forwards and backwards alike.
-      const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);
-      const firstVal = na.findIndex((v) => v !== null);
+      // #171 (2026-10-17) + Q-AG1 (CFO change) + QA early finding 2 (on 1ca3c3d, QA's): months before net_assets_from
+      // are back-filled (not null) when the as-of month is after the first data month; the anchor month's value is
+      // non-null and equals start + its surplus (start = the stored Starting net assets); every month after the first
+      // value = the one before + its own surplus. Shared logic: pf-asof-checks.mjs (replayed in as-of.server.test.ts).
       const sur = j.series?.[5]?.values ?? [];
-      check("PFS-20 net assets start at or before net_assets_from (Q-AG1); nothing before the first value", idx < 0 || (firstVal >= 0 && firstVal <= idx), { from, firstVal });
-      let flat = true;
-      if (firstVal >= 0)
-        for (let i = firstVal + 1; i < na.length; i++)
-          if (na[i] === null || Math.abs(na[i] - na[i - 1] - (sur[i] ?? 0)) > 0.005) flat = false;
-      check("PFS-18 net assets: never null after the first value; each month = the one before + its surplus (none → flat)", flat, { from });
+      const nc = seriesNetChecks(j, na, sur, storedStart(record));
+      check("PFS-20 net assets start at or before net_assets_from (back-filled, Q-AG1); the anchor month = start + its surplus", nc.pfs20, { from, ...nc });
+      check("PFS-18 net assets: never null after the first value; each month = the one before + its surplus (none → flat)", nc.pfs18, { from });
       const pick = j.months?.length ? j.months[Math.max(0, j.months.length - 2)] : null;
       const vals = [];
       for (const range of [{ preset: "all" }, { preset: "24m" }, { from: pick && pick >= "2020-02" ? pick.slice(0, 5) + "01" : pick, to: current }]) {

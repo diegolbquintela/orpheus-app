@@ -1098,3 +1098,11 @@ PGlite real-path tests: `src/lib/finance/as-of.server.test.ts` (TZ=UTC and TZ=Am
 | PFAO-21 | BLOCK | Q-AG9: record PUT `overview.asOf` before 2020-01 (from 2000-01) → 400 `Month can't be before 2020-01.`; after the current Toronto month (up to 2100-12) → 400 `Month can't be after the current month.`. The field is `overview.asOf`. Malformed or outside 2000..2100 → `Invalid value.`. Contract 11.2 matches the code; client code `month_out_of_bounds`. |
 | PFAO-22 | BLOCK | The 24-month cap: an in-bounds range of 25+ months on `/reports` POST, `/reports/:id` PUT and legacy `/report` PUT → 400 `Range can't be longer than 24 months.` (field `report.range` / `range`). `/series` and `/chart` accept it (no cap). Contract 12.1 matches the code; client code `range_too_long`. |
 | PFAO-23 | MAJOR | QA tools: pf-series-api PFS-18/20 (backward-aware), pf-reports-api PFRC-06 and pf-report-api PFR-08 (cap case), the pf-helpers list (the three new messages). Each is replayed through the real handlers in `as-of.server.test.ts`. |
+
+**Additions (2026-10-17, QA early findings on 1ca3c3d, credited to QA; spec 42.13):**
+
+| ID | Severity | Check |
+|---|---|---|
+| PFAO-24 | MAJOR | pf-export-api PFX-06/07 follows the stored `overview.asOf` (via the record API): none → the caveat and no as-of note; set → `Net assets from: <asOf> (as-of month)` and the note, no caveat. A no-asOf export printing the note fails. |
+| PFAO-25 | MAJOR | pf-series-api PFS-20: values start at or before `net_assets_from` (back-filled); the anchor month's value is non-null and equals start + its surplus; the month before it, when shown, equals the start. |
+| PFAO-26 | MINOR | A record PUT with `"asOf": ""` stores and replies the overview without `asOf`; every other overview text is stored byte for byte. |

@@ -421,6 +421,22 @@ export function asOverview(value: unknown): Overview {
   };
 }
 
+/**
+ * #171 (QA early finding 3, 2026-10-17): spec 42.2 says an empty `asOf` is omitted. A stored overview text with
+ * `"asOf": ""` is re-written without it (same figures: empty = none). Any other text is returned unchanged, byte for byte.
+ */
+export function withoutEmptyAsOf(text: string): string {
+  try {
+    const v = JSON.parse(text) as unknown;
+    if (!v || typeof v !== "object" || Array.isArray(v) || (v as Record<string, unknown>).asOf !== "") return text;
+    const { asOf: _drop, ...rest } = v as Record<string, unknown>;
+    void _drop;
+    return JSON.stringify(rest);
+  } catch {
+    return text;
+  }
+}
+
 export function readOverview(storage: StorageLike | null): Overview {
   try {
     const text = storage?.getItem(OVERVIEW_KEY);
