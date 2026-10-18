@@ -1274,3 +1274,67 @@ Business user: CFO. Backend only. No migration, no schema change, no new route, 
 - Q-AF9 What a list or GET returns for `all`: **built**. The stored `{ "preset": "all" }`, not the resolved months; resolved months come only from `/chart` and the export. Recommendation: as built (the UI shows "All data" and asks `/chart` for months).
 41.9 (2026-10-17, correction to 41.3's field) The refusal's `field` follows each route's existing convention: `report.range` on `/reports` POST and `/reports/:id` PUT (body fields carry a `report.` prefix, spec 38 / PFRC-06), and `range` on legacy `/report` PUT. The error text is `Invalid value.` on all three. Contract section 9.
 41.10 (2026-10-17, CFO decision) Q-AF1..Q-AF3 and Q-AF5..Q-AF9 are accepted as built. **Q-AF4 is accepted and built.** The shared validator's two bound refusals now say `Range can't start before 2020-01.` (a well-formed custom `from` from 2000-01 to 2019-12) and `Range can't end after the current month.` (`to` after the current Toronto month). This applies in query mode (`/series`, `/chart`, which already refused exactly these two cases with `Invalid value.` before #179; no bound was added) and in save mode (every saved-report write). Status 400 and the fields (`range`; `report.range` on `/reports` and `/reports/:id`) are unchanged. When both apply, `from` is reported, and save mode checks the bounds before the 24-month cap. Everything else keeps `Invalid value.`: a month before 2000 or after 2100, malformed months, `from` after `to`, missing keys, unknown presets, and a range that is only over the cap. Stored reports are never checked against the bounds. Contract section 10; AC PFALL-15 / PFALL-16; QA list `RANGE_BEFORE_FIRST` / `RANGE_AFTER_CURRENT` in `qa/tools/pf-helpers.mjs`.
+
+## 42. Starting net assets 'as of' month (#171; follow-up to #154 Q-AA10; added 2026-10-17)
+
+Business user: CFO. AC pack: PFAO-01..PFAO-18 (`qa/CANONICAL-AC-PACK.md`). Contract: `attachments/pf-charts-api-contract.md` section 11. Tests: `src/lib/finance/as-of.server.test.ts` (PGlite, real handlers, fixed clocks, TZ=UTC and TZ=America/Los_Angeles) and the `expenses-page.dom.test.tsx` PFAO case.
+
+42.1 **Problem.** The record stores no date for Starting net assets. The Overview treats it as the value at the start of its rolling 12-month window; `/series` anchors it at the first month with data (`net_assets_from`, Q-AA10). The shape is right but the level can differ by the surplus between those two months.
+
+42.2 **Data model.** The overview value (`orpheus.finance.overview.v1`, already in the per-user `personal_finance` JSON) gains an optional `asOf: "yyyy-mm"`. It is kept as typed, so the page can show an error, and omitted when empty. **No migration, no schema change, no stored default.** A record without `asOf` is byte-for-byte what it was, and so is everything computed from it.
+
+42.3 **Meaning.** Starting net assets is the value at the **start** of `asOf`. Net assets at the end of month M (M ≥ `asOf`) are the start plus every month's surplus from `asOf` to M. A month without a surplus adds nothing, as in the #154 rule. Before `asOf`, net assets are null.
+
+42.4 **Series, chart and export.** `net_assets_from` is `asOf` when one is set, else the first data month (unchanged). Values follow 42.3, with no new wire field. With `asOf` set, the export prints `Net assets from: <month> (as-of month)` and the note `Starting net assets is the value at the start of its as-of month; each month adds its own surplus.` in place of the 36.11 caveat (Q-AG7).
+
+42.5 **Overview.** With `asOf` set:
+- If `asOf` is before the window, the window starts from the start plus each earlier month's own surplus (the 42.3 rule), then works as before: empty months in the window use the average.
+- If `asOf` is inside the window, points before it have no net assets (a gap in the line), and from it on the line is as before.
+- Coverage and every other figure are unchanged (Q-AG6, Q-AG11).
+- Setting `asOf` to the window's first month gives exactly the old Overview.
+
+42.6 **UI.** A text field labelled `As of month`, placeholder `YYYY-MM`, sits between Starting net assets and Growth rate (%) in the same `.pf-rates` grid. That is one row on desktop and stacked at 390 px; it is 44 px high, uses the same dark style, has no gold and has an accessible label. A bad month shows `Enter a month as YYYY-MM, from 2020-01 to this month.` (aria-invalid). It blocks Save like any field in red, and the figures leave it out, falling back to the old anchoring. Clearing the field removes `asOf`.
+
+42.7 **Bounds.** A usable month runs from 2020-01 to the current Toronto month. Both the page and the record API use the #179 shared validator (`rangeError` in save mode, as a one-month range). The record API refuses a bad `asOf` with the existing 400 `Invalid value.` and field `overview.asOf`, and stores nothing. It does not reuse the AF4 "Range can't…" texts, which name a range (Q-AG9).
+
+42.8 **Q-calls for CFO** (each with a recommendation; "built" means built as recommended):
+- Q-AG1 `asOf` relative to the first data month: **built**. Before it, the start carries flat until data begins. After it, months before `asOf` are null and their surplus is left out of net assets (income, expenses and surplus series are unchanged). Recommendation: as built.
+- Q-AG2 `asOf` outside the chart range: **built**. Before the range, the level carries in. After the range, every net-assets value is null and `net_assets_from` still names `asOf`. Recommendation: as built.
+- Q-AG3 Default UI value: **built**. Empty, meaning no as-of month and the old behaviour. No guessed default is stored: never pre-filled with the window start or the first data month. Recommendation: as built.
+- Q-AG4 Label text: **built**. `As of month`, placeholder `YYYY-MM`. The alternative was `Starting net assets as of`, which is clearer but too long for a 16rem cell at 390 px. Recommendation: as built.
+- Q-AG5 Clearing it: **built**. It reverts to the old behaviour exactly; the key is removed. Recommendation: as built.
+- Q-AG6 Overview wording: **built (no new text)**. The field itself says what the start means. **Not built:** a dim line under the chart such as `Net assets from <Month YYYY>`. Recommendation: no extra wording now; revisit with #160.
+- Q-AG7 Export: **built**. `Net assets from: <month> (as-of month)` plus a `Note:` line in place of the caveat when `asOf` is set; unchanged otherwise. Recommendation: as built.
+- Q-AG8 A wire field telling the UI the anchor is explicit (e.g. `net_assets_as_of`): **not built**, because it would be a wire change. Recommendation: add it when the #160–#162 Charts UI needs it.
+- Q-AG9 Bounds and message: **built**. The #179 validator with the existing `Invalid value.` and field `overview.asOf` on the record API. The page error text is new but is an obvious validation text. Recommendation: as built.
+- Q-AG10 Should `all` start at `asOf` when it is earlier than the first data month? **Not built**; `all` is unchanged. Recommendation: keep `all` = data months.
+- Q-AG11 Should equity coverage use the anchored net assets instead of the typed start? **Not built**; coverage is unchanged. Recommendation: separate ticket if wanted.
+- Q-AG12 An `asOf` after the current month (only possible with a skewed clock, since saves refuse it): **built**. It still anchors there, so everything is null until then. Recommendation: as built.
+
+42.9 **(2026-10-17, CFO decision)** Q-AG2..Q-AG8, Q-AG10 and Q-AG12 are accepted as built. Q-AG11 is not built, by decision. Q-AG1 and Q-AG9 are changed and built as follows (42.10, 42.11). The 24-month cap message is in 42.12.
+
+42.10 **(2026-10-17, Q-AG1 changed) Work backwards.** An as-of month A after the first data month F no longer blanks the months before A.
+- **Convention, the same as the forward roll:** every value is at the END of its month, and Starting net assets is the value at the START of A, which is the end of A−1. So:
+  - net(A−1) = start (A's own surplus is **not** taken off);
+  - net(M) = net(M+1) − surplus(M+1) for each earlier M, down to F, and never before F (as without an as-of month);
+  - forward from A, as before: net(A) = start + surplus(A).
+  - Every month after the first value is therefore the month before plus its own surplus, in both directions. A month without a surplus changes nothing.
+- **Where it lives:** inside the one anchor rule (`netAssetsFrom`'s `back` argument). The series passes F. The Overview works backwards over its window points before A, using the same per-point surplus as its forward roll, where empty months use the average. FX is unaffected: every month is already valued at current rates (Q-AA3), forwards and backwards alike. Growth only applies to the Future projection, which still starts from the current month.
+- **Consequence for Q-AG2:** a range that ends before A is no longer all null; it shows the backward values. Showing null there would make a month's value depend on the range asked for.
+- **Q-AG12 is kept:** an A after the current month (skewed clock only) still blanks everything before it.
+- **Unchanged:** an A at or before F; no as-of month; the export text.
+
+42.11 **(2026-10-17, Q-AG9 changed) Record bound messages.** The record API (`PUT /api/personal-finance`) refuses an as-of month before 2020-01 with `Month can't be before 2020-01.` and one after the current Toronto month with `Month can't be after the current month.`. Both are 400 with field `overview.asOf`.
+- The mapping is from the #179 validator's two bound refusals; everything else it refuses (malformed, before 2000 or after 2100) stays `Invalid value.`. No awkwardness.
+- The page error text `Enter a month as YYYY-MM, from 2020-01 to this month.` is kept. It covers both cases and the malformed one in one hint, in the page's "Enter …" style like `Enter a number, 0 or more.`.
+
+42.12 **(2026-10-17, CFO request) 24-month cap message.** The existing cap on saved-report ranges now says `Range can't be longer than 24 months.`, with the same 400 and field (`report.range` on `/reports` POST and `/reports/:id` PUT, `range` on legacy `/report` PUT). The cap exists only in save mode (and in stored mode, which never reaches the wire), so the message is never sent by `/series` or `/chart`, which have no cap. No cap was added anywhere. The bounds are still checked first.
+
+42.13 **(2026-10-17, QA early findings on 1ca3c3d, QA's)**
+- (1) pf-export-api PFX-06/07 now follows the stored `overview.asOf`, read via the record API: none requires the caveat and forbids the as-of note; set requires the note naming that month.
+- (2) PFS-20 expects back-filled values before `net_assets_from` (42.10). The anchor month's own value is non-null and equals the start plus that month's surplus, and the month before it, when shown, equals the start.
+- (3) Storage now matches 42.2: the record API strips an empty `asOf` (`"asOf": ""`) from the stored overview text and from its reply. That is the stored field only; no other reply shape changes. The figures are the same, since empty means none. Any other overview text is stored byte for byte.
+
+The shared tool logic is `qa/tools/pf-asof-checks.mjs`, which `as-of.server.test.ts` imports and replays through the real handlers.
+
+42.14 **(2026-10-18, docs consistency after QA)** Earlier statements in this section that 42.10–42.13 change, listed so no reader takes them as current: 42.3 "Before `asOf`, net assets are null" now holds only for an `asOf` at or before the first data month, or after the current month (Q-AG12); after the first data month the months back to it are worked backwards (42.10). 42.7 and the Q-AG9 row ("the existing `Invalid value.`"): the two bound refusals now have their own messages (42.11); `Invalid value.` remains for malformed months. The Q-AG1 row ("months before `asOf` are null"): changed by 42.10. The Q-AG2 row ("after the range, every value is null"): changed by 42.10's consequence.

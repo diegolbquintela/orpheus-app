@@ -31,7 +31,7 @@ const EXPENSES_KEY = "orpheus.finance.expenses.v2";
 // expected value is that shape (the #165 fields are checked on their own in PFD-06).
 const core = (x) => (x && typeof x === "object" && "missing" in x ? { report: x.report, missing: x.missing } : x);
 // #179: the range bound refusals (Q-AF4, CFO 2026-10-17); must equal src/lib/finance/report.ts.
-import { RANGE_AFTER_CURRENT } from "./pf-helpers.mjs";
+import { RANGE_AFTER_CURRENT, RANGE_TOO_LONG } from "./pf-helpers.mjs";
 const same = (a, b) => JSON.stringify(b && typeof b === "object" && "missing" in b ? core(a) : a) === JSON.stringify(b);
 
 /** One HTTP call with the context's cookies; `raw` is sent as the body text as is. */
@@ -119,6 +119,8 @@ try {
           ["PFR-08 reversed", { report: { ...REPORT, range: { from: "2026-09", to: "2026-01" } } }, 400, "range"],
           // #179 Q-AF4: 2025-10..2027-10 ends after the current month; the bound is checked before the 24-month cap.
           ["PFR-08 25 months", { report: { ...REPORT, range: { from: "2025-10", to: "2027-10" } } }, 400, "range", RANGE_AFTER_CURRENT],
+          // #171 CFO round (2026-10-17): 25 months inside the bounds → the cap's own message (same 400, field range).
+          ["PFR-08 cap", { report: { ...REPORT, range: { from: "2020-01", to: "2022-01" } } }, 400, "range", RANGE_TOO_LONG],
           ["PFR-09 chart", { report: { ...REPORT, chart: "pie" } }, 400, "chart"],
           ["PFR-10 unknown key", { report: { ...REPORT, title: "x" } }, 400, "report"],
         ];

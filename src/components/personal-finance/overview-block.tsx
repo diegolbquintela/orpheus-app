@@ -11,7 +11,11 @@ import {
 import { AMOUNT_ERROR, NOT_COMPUTED, parseAmount } from "@/lib/finance/expenses";
 import { formatMoney } from "@/lib/finance/money";
 import { formatRate } from "@/lib/finance/equity";
+import { asOfBad } from "@/lib/finance/field-errors";
 import {
+  AS_OF_ERROR,
+  AS_OF_LABEL,
+  AS_OF_PLACEHOLDER,
   average3Label,
   average12CountLabel,
   COVERAGE_SOURCE_NOTE,
@@ -289,6 +293,36 @@ function AmountField({
   );
 }
 
+/** #171 (spec 42, PFAO-xx): the as-of month for Starting net assets (`yyyy-mm`, optional). Same cell as the amounts. */
+function AsOfField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const id = useId();
+  const bad = asOfBad(value);
+  return (
+    <div className="pf-cell">
+      <label htmlFor={id} className="pf-label">
+        {AS_OF_LABEL}
+      </label>
+      <input
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={7}
+        className="pf-field"
+        data-testid="pf-as-of"
+        placeholder={AS_OF_PLACEHOLDER}
+        {...(bad ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {})}
+      />
+      {bad ? (
+        <span id={`${id}-error`} className="pf-error" data-testid="pf-error" data-field="pf-as-of">
+          {AS_OF_ERROR}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function OverviewFields({
   overview,
   update,
@@ -303,6 +337,17 @@ function OverviewFields({
         value={overview.start}
         onChange={(start) => update((o) => ({ ...o, start }))}
         testId="pf-start"
+      />
+      <AsOfField
+        value={overview.asOf ?? ""}
+        onChange={(asOf) =>
+          update((o) => {
+            // #171 Q-AG5: clearing the field removes it (back to the old anchoring, the record as before).
+            const { asOf: _drop, ...rest } = o;
+            void _drop;
+            return asOf ? { ...rest, asOf } : rest;
+          })
+        }
       />
       <AmountField
         label={GROWTH_LABEL}

@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
-import { DEFAULT_REPORT_NAME, NAME_TAKEN, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
+import { DEFAULT_REPORT_NAME, NAME_TAKEN, RANGE_TOO_LONG, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -77,11 +77,12 @@ try {
       const nf = await call(request, "GET", `${LIST}/r-00000000`);
       check(`PFRC-09 unknown id → 404 '${REPORT_NOT_FOUND}'`, nf.status === 404 && same(nf.body, { error: REPORT_NOT_FOUND }), nf);
       const refusals = [];
-      for (const [body, field] of [[{ name: "", report: REP }, "name"], [{ name: "ok", report: { ...REP, chart: "pie" } }, "report.chart"], [{ name: "ok", report: REP, extra: 1 }, "body"]]) {
+      // #171 CFO round (2026-10-17): + a 25-month in-bounds range → the cap's own message (same 400, field report.range).
+      for (const [body, field, error = "Invalid value."] of [[{ name: "", report: REP }, "name"], [{ name: "ok", report: { ...REP, chart: "pie" } }, "report.chart"], [{ name: "ok", report: REP, extra: 1 }, "body"], [{ name: "ok", report: { ...REP, range: { from: "2020-01", to: "2022-01" } } }, "report.range", RANGE_TOO_LONG]]) {
         const x = await call(request, "POST", LIST, body);
-        refusals.push(x.status === 400 && same(x.body, { error: "Invalid value.", field }) ? "ok" : { field, ...x });
+        refusals.push(x.status === 400 && same(x.body, { error, field }) ? "ok" : { field, error, ...x });
       }
-      check("PFRC-06 refusals: 400 { error: 'Invalid value.', field } (nothing stored)", refusals.every((x) => x === "ok"), refusals);
+      check("PFRC-06 refusals: 400 { error (Invalid value., or the 24-month cap message), field } (nothing stored)", refusals.every((x) => x === "ok"), refusals);
       const charts = [];
       for (const x of reports) {
         const c = await call(request, "POST", "/api/personal-finance/chart", { saved: true, id: x.id });

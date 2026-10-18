@@ -215,6 +215,7 @@ describe("#158 PFAPI-07 / PFAPI-11 / PFAPI-13 one error shape, client codes", ()
     // #179 Q-AF4: both bound messages map to range_out_of_bounds (QA round 1, 2026-10-17).
     assert.equal(errorCode(400, "Range can't start before 2020-01."), "range_out_of_bounds");
     assert.equal(errorCode(400, "Range can't end after the current month."), "range_out_of_bounds");
+    assert.equal(errorCode(400, "Range can't be longer than 24 months."), "range_too_long"); // #171 CFO round
     ok(await deleteReport(a.id, alice));
   });
 });
@@ -313,7 +314,7 @@ describe("#158 PFAPI-09 the contract doc matches the code (drift guard)", () => 
   });
   it("every message is in the doc verbatim and equals the server constant", () => {
     // #179 Q-AF4 (2026-10-17): section 5 plus the messages added in section 10.1.
-    const sec5 = doc.slice(doc.indexOf("## 5. Messages"), doc.indexOf("## 6.")) + doc.slice(doc.indexOf("### 10.1")).split("\n").filter((l) => l.startsWith("| `")).map((l) => l.split("|")[1]).join(" ");
+    const sec5 = doc.slice(doc.indexOf("## 5. Messages"), doc.indexOf("## 6.")) + [doc.slice(doc.indexOf("### 10.1"), doc.indexOf("## 11.")), doc.slice(doc.indexOf("### 12.1"))].join("\n").split("\n").filter((l) => l.startsWith("| `")).map((l) => l.split("|")[1]).join(" "); // #171: + 12.1 (11.2 is the record API's)
     for (const [k, v] of Object.entries(CHARTS_MESSAGES)) assert.ok(sec5.includes(`\`${v}\``), `doc section 5 / 10.1 has ${k}: ${v}`);
     assert.equal((sec5.match(/`[^`]+`/g) ?? []).length, Object.keys(CHARTS_MESSAGES).length, "no extra messages in the doc");
     const M = CHARTS_MESSAGES;
@@ -342,7 +343,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   const sec = (from: string, to?: string) => doc.slice(doc.indexOf(from), to ? doc.indexOf(to, doc.indexOf(from) + 1) : undefined);
   const table = (from: string, to?: string) =>
     sec(from, to).split("\n").filter((l) => /^\| `?[^-|]/.test(l) && !/^\| (Message|Cap) \|/.test(l)).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
-  const MSGS = [...table("### 8.1", "### 8.2"), ...table("### 10.1")].map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
+  const MSGS = [...table("### 8.1", "### 8.2"), ...table("### 10.1", "## 11."), ...table("### 12.1")].map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
   const CAPS = table("### 8.2", "## 9.").map(([cap, value, routes, constant]) => ({ cap, value, routes: routes.split(/\s+/), constant }));
   const ROUTE = { R1: "/api/personal-finance/series", R2: "/api/personal-finance/chart", R3: "/api/personal-finance/reports", R4: "/api/personal-finance/reports/default", R5: "/api/personal-finance/reports/default/export?format=pdf", L1: "/api/personal-finance/report" } as const;
   type RK = keyof typeof ROUTE;
@@ -405,6 +406,13 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
         if (k === "R4") return call(bob, "PUT", ROUTE.R4, JSON.stringify({ report }));
         return call(bob, "PUT", ROUTE.L1, JSON.stringify({ report }));
       }
+      case M.rangeTooLong: {
+        // #171 CFO round: 25 months inside the bounds; saves only (R3 / R4 / L1).
+        const report = { series: [{ kind: "group", id: "all" }], range: { from: "2024-01", to: "2026-01" }, chart: "line" };
+        if (k === "R3") return call(bob, "POST", ROUTE.R3, JSON.stringify({ name: "long", report }));
+        if (k === "R4") return call(bob, "PUT", ROUTE.R4, JSON.stringify({ report }));
+        return call(bob, "PUT", ROUTE.L1, JSON.stringify({ report }));
+      }
       case M.reportLimit: {
         const have = ok(await listReports(bob)).reports.filter((r) => !r.default).length;
         const cap = Number(CAPS.find((c) => c.cap === "named-reports")!.value);
@@ -419,9 +427,9 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   };
 
   it("the 8.1 table lists exactly the section 5 messages (no more, no fewer)", () => {
-    const sec5 = [...(sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1)), ...table("### 10.1").map(([m]) => m.slice(1, -1))];
+    const sec5 = [...(sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1)), ...table("### 10.1", "## 11.").map(([m]) => m.slice(1, -1)), ...table("### 12.1").map(([m]) => m.slice(1, -1))];
     assert.deepEqual(MSGS.map((m) => m.msg).sort(), [...sec5].sort());
-    assert.equal(MSGS.length, 19, "17 (#158) + 2 (#179 Q-AF4)");
+    assert.equal(MSGS.length, 20, "17 (#158) + 2 (#179 Q-AF4) + 1 (#171 24-month cap)");
     assert.deepEqual(Object.values(CHARTS_MESSAGES).sort(), [...sec5].sort(), "the client's copy equals the doc too");
   });
 
@@ -439,7 +447,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
           assert.equal(r.headers.get("cache-control"), "no-store", `${m.msg} on ${k}`);
           n++;
         }
-      assert.equal(n, 71, "message × route pairs driven (61 + 10 for #179 Q-AF4)");
+      assert.equal(n, 74, "message × route pairs driven (61 + 10 for #179 Q-AF4 + 3 for the #171 cap message)");
     } finally {
       console.error = errLog;
     }
@@ -504,7 +512,8 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
 // ---- #179 (spec 41, PFALL-13; contract section 9.1, 2026-10-17): range bounds tied to the server, at their boundaries ----
 describe("#179 contract 9.1 range bounds drive the real handlers", () => {
   const doc = readFileSync(new URL("../../../attachments/pf-charts-api-contract.md", import.meta.url), "utf8");
-  const s91 = doc.slice(doc.indexOf("### 9.1"));
+  // #171 (2026-10-17): bounded at section 10, so later sections (11.1) never leak into these rows.
+  const s91 = doc.slice(doc.indexOf("### 9.1"), doc.indexOf("## 10."));
   const rows = s91.split("\n").filter((l) => /^\| [a-z]/.test(l) && !l.startsWith("| Bound")).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
   const B = Object.fromEntries(rows.map(([k, v, routes, src]) => [k, { v, routes: routes.split(/\s+/), src }]));
   const bob = dispatch("bob");

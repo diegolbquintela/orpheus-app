@@ -17,8 +17,8 @@ import {
 import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
-import { checkRecord, type PfRecord } from "./record.ts";
-import { INVALID_VALUE, recordFieldError } from "./field-errors.ts";
+import { checkRecord, RecordStore, type PfRecord } from "./record.ts";
+import { recordRefusal } from "./field-errors.ts";
 import {
   checkReport,
   missingSeries,
@@ -31,7 +31,7 @@ import {
   INVALID_REPORT,
   type Report,
 } from "./report.ts";
-import { householdMonth } from "./overview.ts";
+import { asOfMonth, householdMonth, OVERVIEW_KEY, readOverview, withoutEmptyAsOf } from "./overview.ts";
 import {
   checkBody,
   DEFAULT_ID,
@@ -109,7 +109,7 @@ async function forViewer(db: Queryable, record: PfRecord | null, g: GateOk): Pro
  * Read and write, DELETE (wipe the whole record) the owner only (Q-D13). The reply carries `access` so the page knows
  * whether it may write. A non-owner's section toggles are kept apart (Q-D11; `/api/personal-finance/view`).
  */
-export async function handlePersonalFinanceRequest(request: Request, deps: DashboardApiDeps) {
+export async function handlePersonalFinanceRequest(request: Request, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
   const g = await gateDashboardRequest(request, PF_ALLOW, deps, { surface: "personal_finance" });
   if ("response" in g) return g.response;
   const { user, db } = g;
@@ -132,8 +132,12 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     if (!checked.ok) return dashboardJson({ error: checked.error }, checked.status);
     record = checked.record;
     // #143 (PF-137, Q-S4): an invalid value is refused, never clamped; nothing is stored.
-    const field = recordFieldError(record);
-    if (field) return dashboardJson({ error: INVALID_VALUE, field }, 400);
+    // #171: `overview.asOf` is bounded by the current household month (fake clock in tests).
+    // #171 Q-AG9 (CFO): an out-of-bounds as-of month says why; every other bad value stays `Invalid value.`.
+    const refusal = recordRefusal(record, householdMonth(clock()));
+    if (refusal) return dashboardJson({ error: refusal.error, field: refusal.field }, 400);
+    // #171 (QA early finding 3): an empty as-of month is stored as absent (spec 42.2); nothing else is touched.
+    if (OVERVIEW_KEY in record) record = { ...record, [OVERVIEW_KEY]: withoutEmptyAsOf(record[OVERVIEW_KEY]) };
   }
   if (method === "PUT" && record) {
     if (!g.access.owner) {
@@ -532,8 +536,11 @@ export async function handlePersonalFinanceReportExportRequest(
   }
   if (!report) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
   const at = now();
-  const data = chartData(fromReport(report), await readRecord(db, user.id), at, "saved");
-  const meta = { name, generatedAt: at.toISOString(), range: report.range };
+  const record = await readRecord(db, user.id);
+  const data = chartData(fromReport(report), record, at, "saved");
+  // #171 Q-AG7: the export says when net assets are anchored at an explicit as-of month.
+  const asOf = asOfMonth(readOverview(new RecordStore(record ?? {})));
+  const meta = { name, generatedAt: at.toISOString(), range: report.range, ...(asOf ? { netAssetsAsOf: asOf } : {}) };
   const f = format as ExportFormat;
   const body = f === "pdf" ? buildPdf(data, meta) : buildPng(data, meta);
   // PFX-17 / PFX-19 (CFO, 2026-10-17): a successful GET is audited BEFORE the file is sent (same actor / role as

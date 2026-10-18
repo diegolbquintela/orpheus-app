@@ -27,6 +27,7 @@ const check = (name, ok, detail) => {
 const API = "/api/personal-finance/series";
 const EXPENSES_KEY = "orpheus.finance.expenses.v2";
 import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
+import { seriesNetChecks, storedStart } from "./pf-asof-checks.mjs";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The current household month (America/Toronto), as the server computes it. */
@@ -138,15 +139,14 @@ try {
       check("PFS-19 fx_basis: current", j.fx_basis === "current", j.fx_basis);
       const na = j.series?.[6]?.values ?? [];
       const from = j.net_assets_from ?? null;
-      const idx = from ? j.months.indexOf(from) : -1;
-      const pre = idx < 0 ? na : na.slice(0, idx);
-      check("PFS-20 months before net_assets_from are null", pre.every((v) => v === null), { from });
+      // #171 (2026-10-17) + Q-AG1 (CFO change) + QA early finding 2 (on 1ca3c3d, QA's): months before net_assets_from
+      // are back-filled (not null) when the as-of month is after the first data month; the anchor month's value is
+      // non-null and equals start + its surplus (start = the stored Starting net assets); every month after the first
+      // value = the one before + its own surplus. Shared logic: pf-asof-checks.mjs (replayed in as-of.server.test.ts).
       const sur = j.series?.[5]?.values ?? [];
-      let flat = true;
-      if (idx >= 0)
-        for (let i = idx + 1; i < na.length; i++)
-          if (na[i] === null || (sur[i] === null && na[i] !== na[i - 1])) flat = false;
-      check("PFS-18 net assets: never null from the anchor; a month without a surplus carries flat", idx < 0 || flat, { from });
+      const nc = seriesNetChecks(j, na, sur, storedStart(record));
+      check("PFS-20 net assets start at or before net_assets_from (back-filled, Q-AG1); the anchor month = start + its surplus", nc.pfs20, { from, ...nc });
+      check("PFS-18 net assets: never null after the first value; each month = the one before + its surplus (none → flat)", nc.pfs18, { from });
       const pick = j.months?.length ? j.months[Math.max(0, j.months.length - 2)] : null;
       const vals = [];
       for (const range of [{ preset: "all" }, { preset: "24m" }, { from: pick && pick >= "2020-02" ? pick.slice(0, 5) + "01" : pick, to: current }]) {

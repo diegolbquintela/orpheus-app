@@ -5,6 +5,7 @@ import { type Income, parsePercent, type Person, personCurrency, readIncome } fr
 import { readMonths } from "./months.ts";
 import { type Overview, readOverview } from "./overview.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
+import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST, rangeError } from "./report.ts";
 
 /**
  * #143 (spec section 28, PF-133..PF-140): the one field check behind the page's Save and the API's PUT. Every field that
@@ -18,7 +19,7 @@ export type FieldState = {
   expenses: Pick<Expenses, "fixed" | "variable">;
   income: Income;
   rates: Rates;
-  overview: Pick<Overview, "start" | "growth">;
+  overview: Pick<Overview, "start" | "growth" | "asOf">;
   household: CurrencyCode;
 };
 
@@ -50,20 +51,42 @@ export function peopleErrors(people: Person[], household: CurrencyCode, o: Optio
   return out;
 }
 
-const sharedErrors = (rates: Rates, overview: Pick<Overview, "start" | "growth">): string[] => [
+/**
+ * #171 (spec 42, Q-AG9): an as-of month is bad unless empty / absent or a real month from 2020-01 to the current
+ * household month: the #179 shared range validator in save mode, as a one-month range. `current` omitted (old callers)
+ * = the validator's own household month of now.
+ */
+export const asOfBad = (asOf: string | undefined, current?: string): boolean => asOfError(asOf, current) !== null;
+
+/** #171 Q-AG9 (CFO, 2026-10-17): the record API's as-of bound messages (400, field `overview.asOf`). */
+export const MONTH_BEFORE_FIRST = "Month can't be before 2020-01.";
+export const MONTH_AFTER_CURRENT = "Month can't be after the current month.";
+/**
+ * The record API's message for a bad as-of month, or null. The #179 validator's two bound refusals map to the month
+ * texts; everything else it refuses (malformed, before 2000 / after 2100) stays `Invalid value.`.
+ */
+export function asOfError(asOf: string | undefined, current?: string): string | null {
+  if (!asOf) return null;
+  const e = rangeError({ from: asOf, to: asOf }, "save", current);
+  if (!e) return null;
+  return e.error === RANGE_BEFORE_FIRST ? MONTH_BEFORE_FIRST : e.error === RANGE_AFTER_CURRENT ? MONTH_AFTER_CURRENT : INVALID_VALUE;
+}
+
+const sharedErrors = (rates: Rates, overview: Pick<Overview, "start" | "growth" | "asOf">, current?: string): string[] => [
   ...(parseWithdrawal(rates.withdrawal) === null ? ["rates.withdrawal"] : []),
   ...(parseRoic(rates.roic) === null ? ["rates.roic"] : []),
   ...(parseAmount(overview.start) === null ? ["overview.start"] : []),
+  ...(asOfBad(overview.asOf, current) ? ["overview.asOf"] : []),
   ...(parseAmount(overview.growth) === null ? ["overview.growth"] : []),
 ];
 
 /** The page (Q-S1): every field in error on the shown month and the shared values; empty → Save may save. */
-export function fieldErrors(s: FieldState, o: Options = { blankRateIsError: true }): string[] {
+export function fieldErrors(s: FieldState, o: Options = { blankRateIsError: true }, current?: string): string[] {
   return [
     ...lineErrors("fixed", s.expenses.fixed, s.household, o),
     ...lineErrors("variable", s.expenses.variable, s.household, o),
     ...peopleErrors(s.income.people, s.household, o),
-    ...sharedErrors(s.rates, s.overview),
+    ...sharedErrors(s.rates, s.overview, current),
   ];
 }
 
@@ -71,7 +94,15 @@ export function fieldErrors(s: FieldState, o: Options = { blankRateIsError: true
  * The API (Q-S4): the first invalid value in a record (read with the page's own readers), or null. Checks the shared
  * values and every stored month's lines; a blank FX rate is accepted (Q14).
  */
-export function recordFieldError(record: PfRecord): string | null {
+/** #171 Q-AG9: the record API's refusal, `{ field, error }`: the as-of month's own message, else `Invalid value.`. */
+export function recordRefusal(record: PfRecord, current?: string): { field: string; error: string } | null {
+  const field = recordFieldError(record, current);
+  if (!field) return null;
+  const asOf = field === "overview.asOf" ? asOfError(readOverview(new RecordStore(record)).asOf, current) : null;
+  return { field, error: asOf ?? INVALID_VALUE };
+}
+
+export function recordFieldError(record: PfRecord, current?: string): string | null {
   const store = new RecordStore(record);
   const o: Options = { blankRateIsError: false };
   const household = readHousehold(store).household;
@@ -80,7 +111,7 @@ export function recordFieldError(record: PfRecord): string | null {
     ...lineErrors("expenses.fixed", shared.fixed, household, o),
     ...lineErrors("expenses.variable", shared.variable, household, o),
     ...peopleErrors(readIncome(store).people, household, o).map((p) => `income.${p}`),
-    ...sharedErrors(readRates(store), readOverview(store)),
+    ...sharedErrors(readRates(store), readOverview(store), current),
   ];
   for (const [key, m] of Object.entries(readMonths(store))) {
     errors.push(

@@ -8,6 +8,8 @@ import {
   monthFigures,
   type MonthKey,
   nextMonth,
+  asOfMonth,
+  netAssetsFrom,
   orZero,
   previousMonth,
   readOverview,
@@ -56,7 +58,10 @@ export type SeriesResult = {
   currency: string;
   /** Q-AA3 (CFO condition): every month is valued at the record's CURRENT FX rates, never that month's own. */
   fx_basis: "current";
-  /** Q-AA10: the month net assets are anchored at (Starting net assets at its start), or null with no data. */
+  /**
+   * Q-AA10: the month net assets are anchored at (Starting net assets at its start), or null with no data. #171: the
+   * record's as-of month when one is set (data or not), else the first month with data as before.
+   */
   net_assets_from: MonthKey | null;
   series: SeriesOut[];
 };
@@ -132,16 +137,17 @@ export function seriesValues(query: SeriesQuery, record: PfRecord | null, now: D
   // no starting-net-assets date): Starting net assets at the start of that month, plus every month's surplus from
   // there through M, whatever range is asked. Before the anchor: null. A month without a surplus adds nothing
   // (carried flat, never null). Income / expenses / surplus are unchanged.
-  const anchor = firstDataMonth(record);
-  const netByMonth = new Map<MonthKey, number>();
-  if (anchor && anchor <= months[months.length - 1]) {
-    let net = orZero(overview.start);
-    for (let k = anchor; ; k = nextMonth(k)) {
-      net += surplusOf(monthFigures(overview, k, current, none, lines)) ?? 0;
-      netByMonth.set(k, net);
-      if (k >= months[months.length - 1]) break;
-    }
-  }
+  // #171 (spec 42): an explicit as-of month replaces the first data month as the anchor; without one, unchanged.
+  const asOf = asOfMonth(overview);
+  const first = firstDataMonth(record);
+  const anchor = asOf ?? first;
+  // #171 Q-AG1 (CFO change, 2026-10-17): an as-of month AFTER the first data month works backwards to the first data
+  // month (never before it, as without an as-of month); one at or before it is unchanged. Q-AG12: an as-of month after
+  // the current month (skewed clock only) still blanks everything before it.
+  const back = asOf && first && first < asOf && asOf <= current ? first : undefined;
+  const netByMonth = anchor
+    ? netAssetsFrom(orZero(overview.start), anchor, months[months.length - 1], (k) => surplusOf(monthFigures(overview, k, current, none, lines)), back)
+    : new Map<MonthKey, number>();
   const netAssets = months.map((k) => netByMonth.get(k) ?? null);
   const series = query.series.map((s, i): SeriesOut => {
     const del = (s.kind === "account" || s.kind === "category") && !missing.has(i) && isDeleted(shared, s.kind, s.id);

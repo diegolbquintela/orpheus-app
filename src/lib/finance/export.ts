@@ -19,7 +19,11 @@ export const FX_LINE = "FX basis: current (every month is valued at today's rate
 export const MIXED_LINE = "Mixed axes: net assets (a level) share this chart with flows (amounts per month).";
 
 /** #179: `range` = the report's range as saved (a saved `all` prints as `All data (...)`, Q-AF1 / Q-AF2). */
-export type ExportMeta = { name: string; generatedAt: string; range?: ReportRange };
+export type ExportMeta = { name: string; generatedAt: string; range?: ReportRange; netAssetsAsOf?: string };
+/** #171 Q-AG7 (spec 42): with an explicit as-of month the caveat no longer applies; these replace it. */
+export const AS_OF_SUFFIX = "(as-of month)";
+export const NET_ASSETS_AS_OF_NOTE =
+  "Starting net assets is the value at the start of its as-of month; each month adds its own surplus.";
 export const ALL_DATA = "All data";
 export const NO_DATA_YET = "no data yet";
 /** The export's range text: `from to to`, or for a saved `all`, `All data (from to to)` / `All data (no data yet, month)`. */
@@ -48,7 +52,12 @@ export function headerLines(d: ChartData, meta: ExportMeta): string[] {
     FX_LINE,
   ];
   if (drawnAsLines(d)) out.splice(2, 0, LINES_NOTE);
-  if (hasNetAssets(d)) out.push(`Net assets from: ${d.net_assets_from ?? "no data"}`, `Caveat: ${NET_ASSETS_CAVEAT}`);
+  if (hasNetAssets(d))
+    out.push(
+      ...(meta.netAssetsAsOf
+        ? [`Net assets from: ${d.net_assets_from ?? meta.netAssetsAsOf} ${AS_OF_SUFFIX}`, `Note: ${NET_ASSETS_AS_OF_NOTE}`]
+        : [`Net assets from: ${d.net_assets_from ?? "no data"}`, `Caveat: ${NET_ASSETS_CAVEAT}`]),
+    );
   if (d.mixed_axes) out.push(MIXED_LINE);
   return out.map(ascii);
 }
