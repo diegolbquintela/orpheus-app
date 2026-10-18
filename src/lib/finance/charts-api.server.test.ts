@@ -212,6 +212,9 @@ describe("#158 PFAPI-07 / PFAPI-11 / PFAPI-13 one error shape, client codes", ()
     assert.equal(errorCode(503, EXPORT_UNAVAILABLE), "export_unavailable");
     assert.equal(errorCode(403, "Change your password first."), "must_change_password");
     assert.equal(errorCode(400, "Body must be a JSON object."), "bad_json");
+    // #179 Q-AF4: both bound messages map to range_out_of_bounds (QA round 1, 2026-10-17).
+    assert.equal(errorCode(400, "Range can't start before 2020-01."), "range_out_of_bounds");
+    assert.equal(errorCode(400, "Range can't end after the current month."), "range_out_of_bounds");
     ok(await deleteReport(a.id, alice));
   });
 });
@@ -542,6 +545,20 @@ describe("#179 contract 9.1 range bounds drive the real handlers", () => {
       assert.equal(await send(k, { from: prev(cur), to: next(cur) }), 400, `${k} to ${next(cur)}`);
     }
     for (const key of ["saved-presets", "query-presets"]) for (const k of B[key].routes) for (const p of B[key].v.split(" ")) assert.ok((await send(k, { preset: p })) < 300, `${k} preset ${p}`);
+    // #179 QA round 1 (2026-10-17): the Routes column is tied to the real routes. Every route that takes a range (R1, R2,
+    // R3, R4, L1) is in exactly one of saved-* / query-* for each bound, R5 in none, and the saved routes are exactly
+    // the ones whose handler validates in save mode (a 25-month in-bounds range: 400 there, 200 in query mode).
+    const all = ["R1", "R2", "R3", "R4", "L1"];
+    for (const [sv, q] of [["saved-from-min", "query-from-min"], ["saved-to-max", "query-to-max"], ["saved-presets", "query-presets"]]) {
+      assert.deepEqual([...B[sv].routes, ...B[q].routes].sort(), [...all].sort(), `${sv} + ${q} cover every range route once`);
+      assert.ok(!B[sv].routes.includes("R5") && !B[q].routes.includes("R5"));
+    }
+    // Presets are accepted on every route, so tie the presets rows to the bounds rows (same saved / query split).
+    for (const r of ["saved-to-max", "saved-presets"]) assert.deepEqual([...B[r].routes].sort(), [...B["saved-from-min"].routes].sort(), `${r} routes = saved-from-min routes`);
+    for (const k of all) {
+      const status = await send(k, { from: "2024-01", to: "2026-01" }); // 25 months, in bounds
+      assert.equal(status === 400, B["saved-from-min"].routes.includes(k), `${k}: save mode (24-month cap) iff listed as saved (status ${status})`);
+    }
     await handlePersonalFinanceReportItemRequest(new Request("http://localhost/x", { method: "DELETE" }), "default", as("bob"));
   });
 });

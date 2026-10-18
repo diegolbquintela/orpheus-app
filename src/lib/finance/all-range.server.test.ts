@@ -291,3 +291,104 @@ describe("#179 Q-AF4 (CFO, 2026-10-17) PFALL-15 / 16 bound messages; every other
     assert.equal(e.status, 200);
   });
 });
+
+// #179 QA round 1 (2026-10-17): the three QA tools' new expectations (pf-report-api PFR-07 / PFR-08, pf-series-api
+// PFS-03..06, pf-chart-api PFC-08..10) replayed with the SAME request bodies against the real handlers, at a fixed clock
+// and at the real clock (the tools run on a preview at the real time). The tools' case lines are pinned as text, so a
+// tool and this replay can't drift apart.
+describe("#179 QA tools: the updated signed-in expectations match the real handlers", () => {
+  const B = "Range can't start before 2020-01.";
+  const A = "Range can't end after the current month.";
+  const tool = (f: string) => readFileSync(new URL(`../../../qa/tools/${f}`, import.meta.url), "utf8");
+  const REPORT: Report = { series: [{ kind: "metric", id: "income" }], range: { preset: "12m" }, chart: "line" };
+  const G = { kind: "group", id: "all" };
+  const MAIN = { series: [G], range: { preset: "12m" }, chart: "line" };
+  for (const [label, at] of [["fixed clock 2026-10-16", OCT], ["real clock", new Date()]] as const) {
+    it(`${label}: pf-report-api PFR-07 (all → 200 stored as all; 5y → range.preset) and PFR-08 (2025-10..2027-10 → end message)`, async () => {
+      const all = await legacyPut("bob", { ...REPORT, range: { preset: "all" } }, at);
+      assert.equal(all.status, 200);
+      assert.deepEqual((await all.json()).report.range, { preset: "all" });
+      assert.deepEqual((await (await legacyGet("bob")).json()).report.range, { preset: "all" });
+      const p5 = await legacyPut("bob", { ...REPORT, range: { preset: "5y" } }, at);
+      assert.deepEqual([p5.status, await p5.json()], [400, { error: "Invalid value.", field: "range.preset" }]);
+      const p8 = await legacyPut("bob", { ...REPORT, range: { from: "2025-10", to: "2027-10" } }, at);
+      assert.deepEqual([p8.status, await p8.json()], [400, { error: A, field: "range" }]);
+      const rev = await legacyPut("bob", { ...REPORT, range: { from: "2026-09", to: "2026-01" } }, at);
+      assert.deepEqual([rev.status, await rev.json()], [400, { error: "Invalid value.", field: "range" }]);
+    });
+    it(`${label}: pf-series-api PFS-03..06 (2019-12 → start message; ..2100-01 → end message; ..2101-01 → Invalid value.)`, async () => {
+      const ser = async (range: object) => {
+        const r = await handlePersonalFinanceSeriesRequest(rq("POST", "/api/personal-finance/series", { series: [G], range }), as("alice"), () => at);
+        return [r.status, await r.json()];
+      };
+      assert.deepEqual(await ser({ from: "2019-12", to: "2020-03" }), [400, { error: B, field: "range" }]);
+      assert.deepEqual(await ser({ from: "2020-01", to: "2100-01" }), [400, { error: A, field: "range" }]);
+      assert.deepEqual(await ser({ from: "2020-01", to: "2101-01" }), [400, { error: "Invalid value.", field: "range" }]);
+    });
+    it(`${label}: pf-chart-api PFC-08..10 (2019-12 → start; 2026-01..2100-01 → end; reversed → Invalid value.)`, async () => {
+      const ch = async (body: object) => {
+        const r = await handlePersonalFinanceChartRequest(rq("POST", "/api/personal-finance/chart", body), as("alice"), () => at);
+        return [r.status, await r.json()];
+      };
+      assert.deepEqual(await ch({ ...MAIN, range: { from: "2019-12", to: "2020-02" } }), [400, { error: B, field: "range" }]);
+      assert.deepEqual(await ch({ ...MAIN, range: { from: "2026-01", to: "2100-01" } }), [400, { error: A, field: "range" }]);
+      assert.deepEqual(await ch({ ...MAIN, range: { from: "2026-05", to: "2026-04" } }), [400, { error: "Invalid value.", field: "range" }]);
+    });
+  }
+  it("the tools carry exactly these cases (pinned as text)", () => {
+    const r = tool("pf-report-api.mjs");
+    assert.ok(r.includes(`["PFR-07 preset", { report: { ...REPORT, range: { preset: "5y" } } }, 400, "range.preset"],`));
+    assert.ok(r.includes(`["PFR-08 25 months", { report: { ...REPORT, range: { from: "2025-10", to: "2027-10" } } }, 400, "range", RANGE_AFTER_CURRENT],`));
+    assert.ok(r.includes(`json: { report: { ...REPORT, range: { preset: "all" } } }`) && r.includes(`same(allBack.body?.report?.range, { preset: "all" })`));
+    const s = tool("pf-series-api.mjs");
+    assert.ok(s.includes(`[{ series: [G("all")], range: { from: "2019-12", to: "2020-03" } }, "range", RANGE_BEFORE_FIRST],`));
+    assert.ok(s.includes(`[{ series: [G("all")], range: { from: "2020-01", to: "2100-01" } }, "range", RANGE_AFTER_CURRENT],`));
+    assert.ok(s.includes(`[{ series: [G("all")], range: { from: "2020-01", to: "2101-01" } }, "range"],`));
+    const c = tool("pf-chart-api.mjs");
+    assert.ok(c.includes(`[{ ...MAIN, range: { from: "2019-12", to: "2020-02" } }, "range", RANGE_BEFORE_FIRST],`));
+    assert.ok(c.includes(`[{ ...MAIN, range: { from: "2026-01", to: "2100-01" } }, "range", RANGE_AFTER_CURRENT],`));
+    assert.ok(c.includes(`[{ ...MAIN, range: { from: "2026-05", to: "2026-04" } }, "range"],`));
+    for (const t of [r, s, c]) assert.match(t, /await refuseIfProd\(/, "each tool still calls the prod guard");
+  });
+});
+
+// #179 QA round 1 item 3 (2026-10-17): /series and /chart at the Toronto month edge with fake clocks (any process TZ).
+describe("#179 /series and /chart use the Toronto month, not the UTC month", () => {
+  const lateOct = new Date("2026-11-01T03:30:00Z"); // 23:30 Oct 31 in Toronto; already November in UTC
+  const nov = new Date("2026-11-01T04:30:00Z"); // 00:30 Nov 1 in Toronto
+  const G = { kind: "group", id: "all" };
+  const ser = async (range: object, at: Date) => handlePersonalFinanceSeriesRequest(rq("POST", "/api/personal-finance/series", { series: [G], range }), as("alice"), () => at);
+  const ch = async (range: object, at: Date) => handlePersonalFinanceChartRequest(rq("POST", "/api/personal-finance/chart", { series: [G], range, chart: "line" }), as("alice"), () => at);
+  for (const [name, call] of [["/series", ser], ["/chart", ch]] as const) {
+    it(`${name}: 03:30Z is still October (current 2026-10; 3m ends 2026-10; to 2026-11 refused); 04:30Z is November`, async () => {
+      const a = await (await call({ preset: "3m" }, lateOct)).json();
+      assert.deepEqual([a.current, a.range.to, a.months], ["2026-10", "2026-10", ["2026-08", "2026-09", "2026-10"]]);
+      const refused = await call({ from: "2026-09", to: "2026-11" }, lateOct);
+      assert.deepEqual([refused.status, await refused.json()], [400, { error: "Range can't end after the current month.", field: "range" }]);
+      const b = await (await call({ preset: "3m" }, nov)).json();
+      assert.deepEqual([b.current, b.range.to], ["2026-11", "2026-11"]);
+      assert.equal((await call({ from: "2026-09", to: "2026-11" }, nov)).status, 200);
+    });
+  }
+});
+
+// #179 QA round 1 (2026-10-17): the client save check must use the save rules (with the current month), never the
+// lenient stored rules: an out-of-bounds save is refused before anything is sent.
+describe("#179 client saveReport checks with the current month", () => {
+  it("a to after the current month and a from before 2020-01 are refused locally (no fetch), with the bound messages", async () => {
+    const { saveReport } = await import("./report-client.ts");
+    const cur = householdMonth(new Date());
+    const [y, m] = cur.split("-").map(Number);
+    const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    let calls = 0;
+    const f = async () => {
+      calls++;
+      return new Response("{}", { status: 200 });
+    };
+    const a = await saveReport({ ...ALL, range: { from: cur, to: next } }, f);
+    assert.deepEqual(a, { ok: false, status: 400, error: "Range can't end after the current month.", field: "range" });
+    const b = await saveReport({ ...ALL, range: { from: "2019-12", to: "2020-01" } }, f);
+    assert.deepEqual(b, { ok: false, status: 400, error: "Range can't start before 2020-01.", field: "range" });
+    assert.equal(calls, 0, "nothing sent");
+  });
+});

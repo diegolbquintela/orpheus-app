@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
-import { FX_BASIS_CURRENT, NO_SAVED_REPORT } from "./pf-helpers.mjs";
+import { FX_BASIS_CURRENT, NO_SAVED_REPORT, RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -92,15 +92,18 @@ try {
         [{ series: MAIN.series, range: MAIN.range }, "chart"],
         [{ ...MAIN, series: [] }, "series"],
         [{ ...MAIN, range: { preset: "5y" } }, "range.preset"],
-        [{ ...MAIN, range: { from: "2019-12", to: "2020-02" } }, "range"],
+        // #179 Q-AF4 (CFO, 2026-10-17): the bounds say why (status and field unchanged); other range errors stay Invalid value.
+        [{ ...MAIN, range: { from: "2019-12", to: "2020-02" } }, "range", RANGE_BEFORE_FIRST],
+        [{ ...MAIN, range: { from: "2026-01", to: "2100-01" } }, "range", RANGE_AFTER_CURRENT],
+        [{ ...MAIN, range: { from: "2026-05", to: "2026-04" } }, "range"],
         [{ saved: false }, "query"],
       ];
       const got = [];
-      for (const [body, field] of cases) {
+      for (const [body, field, error = "Invalid value."] of cases) {
         const x = await call(request, "POST", API, body);
-        got.push(x.status === 400 && same(x.body, { error: "Invalid value.", field }) ? "ok" : { field, ...x });
+        got.push(x.status === 400 && same(x.body, { error, field }) ? "ok" : { field, error, ...x });
       }
-      check("PFC-08..PFC-10 refusals: 400 { error: 'Invalid value.', field }", got.every((g) => g === "ok"), got);
+      check("PFC-08..PFC-10 refusals: 400 { error (Invalid value., or the #179 range bound messages), field }", got.every((g) => g === "ok"), got);
       r = await call(request, "POST", API, undefined, JSON.stringify(MAIN) + " ".repeat(4100));
       check("PFC-11 above 4 KB → 413", r.status === 413, r.status);
       r = await call(request, "POST", API, { saved: true });

@@ -26,6 +26,7 @@ const check = (name, ok, detail) => {
 };
 const API = "/api/personal-finance/series";
 const EXPENSES_KEY = "orpheus.finance.expenses.v2";
+import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The current household month (America/Toronto), as the server computes it. */
@@ -103,16 +104,19 @@ try {
         [{ series: [{ kind: "pie", id: "x" }], range: { preset: "all" } }, "series.0.kind"],
         [{ series: [], range: { preset: "all" } }, "series"],
         [{ series: [G("all")], range: { preset: "5y" } }, "range.preset"],
-        [{ series: [G("all")], range: { from: "2019-12", to: "2020-03" } }, "range"],
-        [{ series: [G("all")], range: { from: "2020-01", to: "2100-01" } }, "range"],
+        // #179 Q-AF4 (CFO, 2026-10-17): the bounds say why (status and field unchanged). 2100-01 is a valid month (inside
+        // 2000..2100) after the current month → the end message; 2101-01 is outside the span → still Invalid value.
+        [{ series: [G("all")], range: { from: "2019-12", to: "2020-03" } }, "range", RANGE_BEFORE_FIRST],
+        [{ series: [G("all")], range: { from: "2020-01", to: "2100-01" } }, "range", RANGE_AFTER_CURRENT],
+        [{ series: [G("all")], range: { from: "2020-01", to: "2101-01" } }, "range"],
         [{ ...MAIN, chart: "line" }, "query"],
       ];
       const got = [];
-      for (const [body, field] of cases) {
+      for (const [body, field, error = "Invalid value."] of cases) {
         const x = await call(request, "POST", body);
-        got.push(x.status === 400 && same(x.body, { error: "Invalid value.", field }) ? "ok" : { field, ...x });
+        got.push(x.status === 400 && same(x.body, { error, field }) ? "ok" : { field, error, ...x });
       }
-      check("PFS-03..PFS-06 refusals: 400 { error: 'Invalid value.', field }", got.every((g) => g === "ok"), got);
+      check("PFS-03..PFS-06 refusals: 400 { error (Invalid value., or the #179 range bound messages), field }", got.every((g) => g === "ok"), got);
       r = await call(request, "POST", undefined, JSON.stringify(MAIN) + " ".repeat(4100));
       check("PFS-07 above 4 KB → 413", r.status === 413, r);
       r = await call(request, "POST", { series: [{ kind: "line", id: "qa-series-gone" }], range: { preset: "3m" } });

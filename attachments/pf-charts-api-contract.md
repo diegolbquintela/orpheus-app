@@ -275,3 +275,5 @@ and the drift test reads them together.
 |---|---|---|
 | `Range can't start before 2020-01.` | 400 | R1 R2 R3 R4 L1 |
 | `Range can't end after the current month.` | 400 | R1 R2 R3 R4 L1 |
+
+**Note (2026-10-17, #179 QA round 1, on section 9):** section 9's "No new error messages; section 8.1 is unchanged" was true at c5bd617. It is superseded by **section 10** (Q-AF4, CFO-accepted), which adds two messages for the range bounds, and by AC PFALL-15. The 9.1 Routes column is machine-checked against the real routes: every route that takes a range is listed exactly once per bound, and the saved routes are exactly the ones that validate in save mode.
