@@ -1,5 +1,5 @@
 import type { ChartData } from "./chart.ts";
-import type { ChartType, Report, Series } from "./report.ts";
+import type { ChartType, RangeMode, Report, ReportRange, Series } from "./report.ts";
 import type { SeriesRange, SeriesResult } from "./series.ts";
 import type { ExportFormat } from "./export.ts";
 
@@ -48,6 +48,9 @@ export const CHARTS_MESSAGES = {
   nameTaken: "Name already used.",
   defaultNameFixed: "The default report cannot be renamed.",
   exportUnavailable: "Export unavailable. Try again.",
+  /** #179 Q-AF4 (2026-10-17): 400, field `range` (`report.range` on /reports). */
+  rangeBeforeFirst: "Range can't start before 2020-01.",
+  rangeAfterCurrent: "Range can't end after the current month.",
 } as const;
 
 export type ChartsApiErrorCode =
@@ -61,6 +64,7 @@ export type ChartsApiErrorCode =
   | "bad_json"
   | "invalid"
   | "default_name_fixed"
+  | "range_out_of_bounds"
   | "too_large"
   | "not_found"
   | "name_taken"
@@ -87,13 +91,19 @@ export function errorCode(status: number, error: string): ChartsApiErrorCode {
   if (status === 400) {
     if (error === M.badJson || error === M.notObject) return "bad_json";
     if (error === M.defaultNameFixed) return "default_name_fixed";
+    if (error === M.rangeBeforeFirst || error === M.rangeAfterCurrent) return "range_out_of_bounds";
     return error === M.invalid ? "invalid" : "unknown";
   }
   return "unknown";
 }
 
 // ---- request / response types (contract section 3) ----
-export type { ChartData, ChartType, Report, Series, SeriesRange, SeriesResult, ExportFormat };
+export type { ChartData, ChartType, RangeMode, Report, ReportRange, Series, SeriesRange, SeriesResult, ExportFormat };
+/** #179 (spec 41): every preset, saved reports included. `all` is stored as `{ preset: "all" }` and resolved when the
+ * report runs (`/chart { saved: true, id }`, export), from the first data month to the current Toronto month. */
+export type RangePreset = "3m" | "6m" | "12m" | "24m" | "ytd" | "all";
+/** #179 / #173: a save's custom range must sit in FIRST_SAVED_MONTH..the current household month (at most 24 months). */
+export const FIRST_SAVED_MONTH = "2020-01";
 export type SeriesQuery = { series: Series[]; range: SeriesRange };
 export type ChartQuery = SeriesQuery & { chart: ChartType };
 export type SavedChartQuery = { saved: true; id?: string };

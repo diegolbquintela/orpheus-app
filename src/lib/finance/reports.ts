@@ -71,12 +71,13 @@ export type BodyCheck = { ok: true; name?: string; report: Report } | ({ ok: fal
 const bad = (field: string): BodyCheck => ({ ok: false, status: 400, error: INVALID_REPORT, field });
 
 /** A create / update body `{ name, report }` (name optional for the default report). Report: the #153 validator. */
-export function checkBody(value: unknown, needName: boolean): BodyCheck {
+/** #179: `current` (the household month) applies the `save` range rules (2020-01..current, `all` allowed). */
+export function checkBody(value: unknown, needName: boolean, current?: string): BodyCheck {
   if (!value || typeof value !== "object" || Array.isArray(value)) return bad("body");
   const v = value as Record<string, unknown>;
   if (!Object.keys(v).every((k) => k === "name" || k === "report")) return bad("body");
   if ((needName || "name" in v) && nameError(v.name)) return bad("name");
-  const c = checkReport(v.report);
+  const c = checkReport(v.report, current);
   if (!c.ok) return c.field ? { ok: false, status: c.status, error: c.error, field: `report.${c.field}`.replace("report.report", "report") } : { ok: false, status: c.status, error: c.error };
   return { ok: true, name: typeof v.name === "string" ? v.name.trim() : undefined, report: c.report };
 }

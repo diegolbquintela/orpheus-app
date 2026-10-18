@@ -224,3 +224,56 @@ where they and this section disagree, this section and the test win.
 | query-custom-range-months | none | R1 R2 | (no cap: 2020-01..current month) |
 | named-reports | 20 | R3 | `REPORTS_MAX` |
 | name-chars | 60 | R3 | `NAME_MAX` |
+
+## 9. Saved reports: the dynamic `all` range and range bounds (added 2026-10-17, #179, folds in #173; spec 41)
+
+**Note (2026-10-17):** this section supersedes the parts of sections 3 and 4 that say saved reports have "no `all`"
+and only a 2000..2100 bound. From #179:
+
+- **One validator**, `rangeError(range, mode, current)` in `src/lib/finance/report.ts`, serves R1, R2 (`query` mode),
+  every saved-report write on R3 POST, R4 PUT and L1 PUT (`save` mode), and every read of a stored report (`stored`
+  mode, lenient, so old stored reports keep reading).
+- Saved reports accept `{ "preset": "all" }`. It is stored as is and resolved each time the report runs (R2
+  `{ saved: true, id }`, R5), from the first data month to the current Toronto month. R3 and R4 return the stored
+  `all`, not resolved months.
+- A save refuses a custom `from` before 2020-01 or a `to` after the current Toronto month: **400 `Invalid value.`**,
+  field `report.range` on R3 / R4 and `range` on L1 (the series API's wording, Q-AF4). The 24-month cap on explicit
+  saved ranges stays (Q-AF3).
+- R5 prints a saved `all` as `Range: All data (<from> to <to>)`, or `Range: All data (no data yet, <month>)` when there
+  is no data month. No new error messages; section 8.1 is unchanged.
+
+### 9.1 Range bounds (machine-checked; each value against its server source and at its boundary)
+
+| Bound | Value | Routes | Server source |
+|---|---|---|---|
+| saved-from-min | 2020-01 | R3 R4 L1 | `FIRST_MONTH` |
+| saved-to-max | current-month | R3 R4 L1 | `householdMonth` (Toronto) |
+| saved-presets | 3m 6m 12m 24m ytd all | R3 R4 L1 | `RANGE_PRESETS` |
+| query-presets | 3m 6m 12m 24m ytd all | R1 R2 | `RANGE_PRESETS` |
+| query-from-min | 2020-01 | R1 R2 | `FIRST_MONTH` |
+| query-to-max | current-month | R1 R2 | `householdMonth` (Toronto) |
+
+## 10. Range bound messages (added 2026-10-17, #179 Q-AF4, CFO-accepted)
+
+**Note (2026-10-17):** CFO accepted Q-AF4. The two range-bound refusals of the shared validator now say why. **The
+status (400) and the field are unchanged**: `range` on R1, R2 and L1, and `report.range` on R3 and R4. Every other
+refusal keeps its text, including every other `Invalid value.`. Sections 5 and 8.1 are extended by the table below,
+and the drift test reads them together.
+
+- `from` before 2020-01 → `Range can't start before 2020-01.` This needs a well-formed month from 2000-01 on; a month
+  before 2000 or after 2100, a malformed month, or `from` after `to` is still `Invalid value.`.
+- `to` after the current Toronto month → `Range can't end after the current month.`
+- When both apply, `from` is reported. In save mode, the bounds are checked before the 24-month cap, so a range that
+  also exceeds the cap gets the bound message. A range that is only over the cap stays `Invalid value.`.
+- Stored reports are never checked against the bounds (stored mode), so these messages never come from reading a
+  report (R2 `{ saved: true }` or R5).
+- Client code (section 6): both messages map to `range_out_of_bounds` (400).
+
+### 10.1 Messages × routes (added; machine-checked with 8.1)
+
+| Message | Status | Routes |
+|---|---|---|
+| `Range can't start before 2020-01.` | 400 | R1 R2 R3 R4 L1 |
+| `Range can't end after the current month.` | 400 | R1 R2 R3 R4 L1 |
+
+**Note (2026-10-17, #179 QA round 1, on section 9):** section 9's "No new error messages; section 8.1 is unchanged" was true at c5bd617. It is superseded by **section 10** (Q-AF4, CFO-accepted), which adds two messages for the range bounds, and by AC PFALL-15. The 9.1 Routes column is machine-checked against the real routes: every route that takes a range is listed exactly once per bound, and the saved routes are exactly the ones that validate in save mode.

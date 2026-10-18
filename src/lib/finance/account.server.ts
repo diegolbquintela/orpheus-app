@@ -222,7 +222,7 @@ export async function deleteOwnReport(db: Queryable, userId: string): Promise<vo
  * section toggles). GET `{ report, missing }` (`missing`: series not in the owner's record, Q-X4); PUT `{ report }`
  * replaces it (shared `checkReport`: 400 `{ error, field }`, 413 above 4 KB); DELETE removes it.
  */
-export async function handlePersonalFinanceReportRequest(request: Request, deps: DashboardApiDeps) {
+export async function handlePersonalFinanceReportRequest(request: Request, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
   const g = await gateDashboardRequest(request, PF_REPORT_ALLOW, deps, {
     surface: "personal_finance",
     need: "read",
@@ -242,7 +242,8 @@ export async function handlePersonalFinanceReportRequest(request: Request, deps:
     }
     if (!body || typeof body !== "object" || Array.isArray(body))
       return badRequest("Body must be a JSON object.");
-    const checked = checkReport(body.report);
+    // #179 / #173: a write uses the `save` range rules against the household (Toronto) month.
+    const checked = checkReport(body.report, householdMonth(clock()));
     if (!checked.ok)
       return dashboardJson(
         checked.field ? { error: checked.error, field: checked.field } : { error: checked.error },
@@ -408,14 +409,14 @@ const refuse = (e: { status: number; error: string; field?: string }) =>
  * gate as the report API (Personal Finance read grant; reports are the person's own; series resolve against the
  * owner's record).
  */
-export async function handlePersonalFinanceReportsRequest(request: Request, deps: DashboardApiDeps) {
+export async function handlePersonalFinanceReportsRequest(request: Request, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
   const g = await gateDashboardRequest(request, PF_REPORTS_ALLOW, deps, { surface: "personal_finance", need: "read" });
   if ("response" in g) return g.response;
   const { db, viewer, user } = g;
   if (request.method.toUpperCase() === "POST") {
     const b = await readBody(request);
     if ("response" in b) return b.response;
-    const c = checkBody(b.body, true);
+    const c = checkBody(b.body, true, householdMonth(clock()));
     if (!c.ok) return refuse(c);
     const list = await readOwnNamed(db, viewer.id);
     if (list.length >= REPORTS_MAX) return dashboardJson({ error: REPORT_LIMIT }, 409);
@@ -443,7 +444,7 @@ export async function handlePersonalFinanceReportsRequest(request: Request, deps
  * own reports. `default` is the legacy single report (#153 GET / PUT / DELETE on the same stored value; PUT may omit
  * the name and cannot rename it). Unknown id → 404 `Report not found.`.
  */
-export async function handlePersonalFinanceReportItemRequest(request: Request, id: string, deps: DashboardApiDeps) {
+export async function handlePersonalFinanceReportItemRequest(request: Request, id: string, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
   const g = await gateDashboardRequest(request, PF_REPORT_ITEM_ALLOW, deps, { surface: "personal_finance", need: "read" });
   if ("response" in g) return g.response;
   const { db, viewer, user } = g;
@@ -453,7 +454,7 @@ export async function handlePersonalFinanceReportItemRequest(request: Request, i
     if (method === "PUT") {
       const b = await readBody(request);
       if ("response" in b) return b.response;
-      const c = checkBody(b.body, false);
+      const c = checkBody(b.body, false, householdMonth(clock()));
       if (!c.ok) return refuse(c);
       if (c.name !== undefined && c.name.toLowerCase() !== DEFAULT_NAME.toLowerCase())
         return dashboardJson({ error: DEFAULT_NAME_FIXED, field: "name" }, 400);
@@ -476,7 +477,7 @@ export async function handlePersonalFinanceReportItemRequest(request: Request, i
   if (method === "PUT") {
     const b = await readBody(request);
     if ("response" in b) return b.response;
-    const c = checkBody(b.body, true);
+    const c = checkBody(b.body, true, householdMonth(clock()));
     if (!c.ok) return refuse(c);
     if (nameTaken(list, c.name!, id)) return dashboardJson({ error: NAME_TAKEN, field: "name" }, 409);
     const next: Named = { ...list[at], name: c.name!, report: c.report, updated_at: new Date().toISOString() };
@@ -532,7 +533,7 @@ export async function handlePersonalFinanceReportExportRequest(
   if (!report) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
   const at = now();
   const data = chartData(fromReport(report), await readRecord(db, user.id), at, "saved");
-  const meta = { name, generatedAt: at.toISOString() };
+  const meta = { name, generatedAt: at.toISOString(), range: report.range };
   const f = format as ExportFormat;
   const body = f === "pdf" ? buildPdf(data, meta) : buildPng(data, meta);
   // PFX-17 / PFX-19 (CFO, 2026-10-17): a successful GET is audited BEFORE the file is sent (same actor / role as

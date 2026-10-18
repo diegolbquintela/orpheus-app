@@ -72,7 +72,9 @@ describe("#153 report validator", () => {
   it("PFR-07 / PFR-08: presets and custom month ranges", () => {
     for (const preset of RANGE_PRESETS)
       assert.equal(reportError({ ...ok, range: { preset } }), null, preset);
-    assert.equal(field({ ...ok, range: { preset: "all" } }), "range.preset");
+    // #179: `all` is a saved preset now (spec 41); an unknown preset is still refused.
+    assert.equal(reportError({ ...ok, range: { preset: "all" } }), null);
+    assert.equal(field({ ...ok, range: { preset: "5y" } }), "range.preset");
     assert.equal(reportError({ ...ok, range: { from: "2025-10", to: "2027-09" } }), null); // 24 months
     assert.equal(reportError({ ...ok, range: { from: "2026-05", to: "2026-05" } }), null);
     for (const range of [

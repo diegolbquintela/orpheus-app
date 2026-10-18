@@ -39,6 +39,9 @@ import {
 import { DEFAULT_NAME_FIXED, NAME_MAX, NAME_TAKEN, REPORT_LIMIT, REPORT_NOT_FOUND, REPORTS_BODY_MAX, REPORTS_MAX } from "./reports.ts";
 import { INVALID_REPORT, RANGE_MONTHS_MAX, REPORT_MAX_BYTES, REPORT_TOO_LARGE, SERIES_MAX, type Report } from "./report.ts";
 import { CHART_MAX_BYTES, NO_SAVED_REPORT } from "./chart.ts";
+import { RANGE_PRESETS } from "./report.ts";
+import { FIRST_MONTH } from "./months.ts";
+import { householdMonth, nextMonth } from "./overview.ts";
 import { SERIES_MAX_BYTES } from "./series.ts";
 import { crc32 } from "./export.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
@@ -209,6 +212,9 @@ describe("#158 PFAPI-07 / PFAPI-11 / PFAPI-13 one error shape, client codes", ()
     assert.equal(errorCode(503, EXPORT_UNAVAILABLE), "export_unavailable");
     assert.equal(errorCode(403, "Change your password first."), "must_change_password");
     assert.equal(errorCode(400, "Body must be a JSON object."), "bad_json");
+    // #179 Q-AF4: both bound messages map to range_out_of_bounds (QA round 1, 2026-10-17).
+    assert.equal(errorCode(400, "Range can't start before 2020-01."), "range_out_of_bounds");
+    assert.equal(errorCode(400, "Range can't end after the current month."), "range_out_of_bounds");
     ok(await deleteReport(a.id, alice));
   });
 });
@@ -306,8 +312,9 @@ describe("#158 PFAPI-09 the contract doc matches the code (drift guard)", () => 
     }
   });
   it("every message is in the doc verbatim and equals the server constant", () => {
-    const sec5 = doc.slice(doc.indexOf("## 5. Messages"), doc.indexOf("## 6."));
-    for (const [k, v] of Object.entries(CHARTS_MESSAGES)) assert.ok(sec5.includes(`\`${v}\``), `doc section 5 has ${k}: ${v}`);
+    // #179 Q-AF4 (2026-10-17): section 5 plus the messages added in section 10.1.
+    const sec5 = doc.slice(doc.indexOf("## 5. Messages"), doc.indexOf("## 6.")) + doc.slice(doc.indexOf("### 10.1")).split("\n").filter((l) => l.startsWith("| `")).map((l) => l.split("|")[1]).join(" ");
+    for (const [k, v] of Object.entries(CHARTS_MESSAGES)) assert.ok(sec5.includes(`\`${v}\``), `doc section 5 / 10.1 has ${k}: ${v}`);
     assert.equal((sec5.match(/`[^`]+`/g) ?? []).length, Object.keys(CHARTS_MESSAGES).length, "no extra messages in the doc");
     const M = CHARTS_MESSAGES;
     assert.deepEqual(
@@ -335,8 +342,8 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   const sec = (from: string, to?: string) => doc.slice(doc.indexOf(from), to ? doc.indexOf(to, doc.indexOf(from) + 1) : undefined);
   const table = (from: string, to?: string) =>
     sec(from, to).split("\n").filter((l) => /^\| `?[^-|]/.test(l) && !/^\| (Message|Cap) \|/.test(l)).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
-  const MSGS = table("### 8.1", "### 8.2").map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
-  const CAPS = table("### 8.2").map(([cap, value, routes, constant]) => ({ cap, value, routes: routes.split(/\s+/), constant }));
+  const MSGS = [...table("### 8.1", "### 8.2"), ...table("### 10.1")].map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
+  const CAPS = table("### 8.2", "## 9.").map(([cap, value, routes, constant]) => ({ cap, value, routes: routes.split(/\s+/), constant }));
   const ROUTE = { R1: "/api/personal-finance/series", R2: "/api/personal-finance/chart", R3: "/api/personal-finance/reports", R4: "/api/personal-finance/reports/default", R5: "/api/personal-finance/reports/default/export?format=pdf", L1: "/api/personal-finance/report" } as const;
   type RK = keyof typeof ROUTE;
   const OK_METHOD: Record<RK, string> = { R1: "POST", R2: "POST", R3: "GET", R4: "GET", R5: "GET", L1: "GET" };
@@ -386,6 +393,18 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
         await call(bob, "PUT", ROUTE.R4, JSON.stringify({ report: R1 }));
         return call(dispatch("bob", env, failingAudit), "GET", ROUTE.R5);
       }
+      case M.rangeBeforeFirst:
+      case M.rangeAfterCurrent: {
+        // #179 Q-AF4: the bound case per route (clock: the real now; the current month comes from the server).
+        const cur = householdMonth(new Date());
+        const range = msg === M.rangeBeforeFirst ? { from: "2019-12", to: "2020-02" } : { from: cur, to: nextMonth(cur) };
+        const report = { series: [{ kind: "group", id: "all" }], range, chart: "line" };
+        if (k === "R1") return call(bob, "POST", ROUTE.R1, JSON.stringify({ series: report.series, range }));
+        if (k === "R2") return call(bob, "POST", ROUTE.R2, JSON.stringify(report));
+        if (k === "R3") return call(bob, "POST", ROUTE.R3, JSON.stringify({ name: "bound", report }));
+        if (k === "R4") return call(bob, "PUT", ROUTE.R4, JSON.stringify({ report }));
+        return call(bob, "PUT", ROUTE.L1, JSON.stringify({ report }));
+      }
       case M.reportLimit: {
         const have = ok(await listReports(bob)).reports.filter((r) => !r.default).length;
         const cap = Number(CAPS.find((c) => c.cap === "named-reports")!.value);
@@ -400,9 +419,9 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   };
 
   it("the 8.1 table lists exactly the section 5 messages (no more, no fewer)", () => {
-    const sec5 = (sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1));
+    const sec5 = [...(sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1)), ...table("### 10.1").map(([m]) => m.slice(1, -1))];
     assert.deepEqual(MSGS.map((m) => m.msg).sort(), [...sec5].sort());
-    assert.equal(MSGS.length, 17);
+    assert.equal(MSGS.length, 19, "17 (#158) + 2 (#179 Q-AF4)");
     assert.deepEqual(Object.values(CHARTS_MESSAGES).sort(), [...sec5].sort(), "the client's copy equals the doc too");
   });
 
@@ -420,7 +439,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
           assert.equal(r.headers.get("cache-control"), "no-store", `${m.msg} on ${k}`);
           n++;
         }
-      assert.equal(n, 61, "message × route pairs driven");
+      assert.equal(n, 71, "message × route pairs driven (61 + 10 for #179 Q-AF4)");
     } finally {
       console.error = errLog;
     }
@@ -479,5 +498,67 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
     assert.ok(r1.includes(`Series[1..${SERIES_MAX}]`), "R1 series cap");
     for (const s of [`1..${SERIES_MAX}, no duplicates`, `≤ ${RANGE_MONTHS_MAX} months`, `${REPORTS_MAX} per person`, `1..${NAME_MAX} chars`, `${SERIES_MAX_BYTES} B (R1, R2, L1); ${REPORTS_BODY_MAX} B (R3, R4); canonical report ≤ ${REPORT_MAX_BYTES} B`])
       assert.ok(lim.includes(s), `limits table: ${s}`);
+  });
+});
+
+// ---- #179 (spec 41, PFALL-13; contract section 9.1, 2026-10-17): range bounds tied to the server, at their boundaries ----
+describe("#179 contract 9.1 range bounds drive the real handlers", () => {
+  const doc = readFileSync(new URL("../../../attachments/pf-charts-api-contract.md", import.meta.url), "utf8");
+  const s91 = doc.slice(doc.indexOf("### 9.1"));
+  const rows = s91.split("\n").filter((l) => /^\| [a-z]/.test(l) && !l.startsWith("| Bound")).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
+  const B = Object.fromEntries(rows.map(([k, v, routes, src]) => [k, { v, routes: routes.split(/\s+/), src }]));
+  const bob = dispatch("bob");
+  const at = new Date("2026-10-16T16:00:00Z");
+  const cur = "2026-10";
+  const prev = (m: string) => { const [y, mo] = m.split("-").map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`; };
+  const next = (m: string) => { const [y, mo] = m.split("-").map(Number); return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`; };
+  const send = async (k: string, range: unknown): Promise<number> => {
+    const report = { series: [{ kind: "group", id: "all" }], range, chart: "line" };
+    const J = { "content-type": "application/json" };
+    const req = (m: string, p: string, b: unknown) => new Request(`http://localhost${p}`, { method: m, headers: J, body: JSON.stringify(b) });
+    const d = as("bob");
+    if (k === "R1") return (await handlePersonalFinanceSeriesRequest(req("POST", "/x", { series: report.series, range }), d, () => at)).status;
+    if (k === "R2") return (await handlePersonalFinanceChartRequest(req("POST", "/x", report), d, () => at)).status;
+    if (k === "R3") {
+      const r = await handlePersonalFinanceReportsRequest(req("POST", "/x", { name: `b${Math.random()}`, report }), d, () => at);
+      if (r.status === 201) await handlePersonalFinanceReportItemRequest(new Request("http://localhost/x", { method: "DELETE" }), (await r.json()).id, d);
+      return r.status;
+    }
+    if (k === "R4") return (await handlePersonalFinanceReportItemRequest(req("PUT", "/x", { report }), "default", d, () => at)).status;
+    return (await handlePersonalFinanceReportRequest(req("PUT", "/x", { report }), d, () => at)).status;
+  };
+  it("the table names the server sources with the server values", () => {
+    assert.deepEqual(Object.keys(B).sort(), ["query-from-min", "query-presets", "query-to-max", "saved-from-min", "saved-presets", "saved-to-max"]);
+    for (const k of ["saved-from-min", "query-from-min"]) assert.deepEqual([B[k].v, B[k].src], [FIRST_MONTH, "`FIRST_MONTH`"]);
+    for (const k of ["saved-presets", "query-presets"]) assert.deepEqual([B[k].v.split(" "), B[k].src], [[...RANGE_PRESETS], "`RANGE_PRESETS`"]);
+    for (const k of ["saved-to-max", "query-to-max"]) assert.equal(B[k].v, "current-month");
+  });
+  it("each bound holds at its boundary on every route listed (min allowed, min-1 refused; current allowed, next refused; every preset accepted)", async () => {
+    void bob;
+    for (const k of B["saved-from-min"].routes.concat(B["query-from-min"].routes)) {
+      const min = (B["saved-from-min"].routes.includes(k) ? B["saved-from-min"] : B["query-from-min"]).v;
+      assert.ok((await send(k, { from: min, to: next(next(min)) })) < 300, `${k} from ${min}`);
+      assert.equal(await send(k, { from: prev(min), to: next(min) }), 400, `${k} from ${prev(min)}`);
+    }
+    for (const k of B["saved-to-max"].routes.concat(B["query-to-max"].routes)) {
+      assert.ok((await send(k, { from: prev(prev(cur)), to: cur })) < 300, `${k} to ${cur}`);
+      assert.equal(await send(k, { from: prev(cur), to: next(cur) }), 400, `${k} to ${next(cur)}`);
+    }
+    for (const key of ["saved-presets", "query-presets"]) for (const k of B[key].routes) for (const p of B[key].v.split(" ")) assert.ok((await send(k, { preset: p })) < 300, `${k} preset ${p}`);
+    // #179 QA round 1 (2026-10-17): the Routes column is tied to the real routes. Every route that takes a range (R1, R2,
+    // R3, R4, L1) is in exactly one of saved-* / query-* for each bound, R5 in none, and the saved routes are exactly
+    // the ones whose handler validates in save mode (a 25-month in-bounds range: 400 there, 200 in query mode).
+    const all = ["R1", "R2", "R3", "R4", "L1"];
+    for (const [sv, q] of [["saved-from-min", "query-from-min"], ["saved-to-max", "query-to-max"], ["saved-presets", "query-presets"]]) {
+      assert.deepEqual([...B[sv].routes, ...B[q].routes].sort(), [...all].sort(), `${sv} + ${q} cover every range route once`);
+      assert.ok(!B[sv].routes.includes("R5") && !B[q].routes.includes("R5"));
+    }
+    // Presets are accepted on every route, so tie the presets rows to the bounds rows (same saved / query split).
+    for (const r of ["saved-to-max", "saved-presets"]) assert.deepEqual([...B[r].routes].sort(), [...B["saved-from-min"].routes].sort(), `${r} routes = saved-from-min routes`);
+    for (const k of all) {
+      const status = await send(k, { from: "2024-01", to: "2026-01" }); // 25 months, in bounds
+      assert.equal(status === 400, B["saved-from-min"].routes.includes(k), `${k}: save mode (24-month cap) iff listed as saved (status ${status})`);
+    }
+    await handlePersonalFinanceReportItemRequest(new Request("http://localhost/x", { method: "DELETE" }), "default", as("bob"));
   });
 });

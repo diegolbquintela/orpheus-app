@@ -137,7 +137,8 @@ describe("#153 /api/personal-finance/report", () => {
       ],
       [{ report: { ...report, series: [] } }, 400, { error: "Invalid value.", field: "series" }],
       [
-        { report: { ...report, range: { preset: "all" } } },
+        // #179: `all` is now a valid saved preset (spec 41); an unknown preset is still refused.
+        { report: { ...report, range: { preset: "5y" } } },
         400,
         { error: "Invalid value.", field: "range.preset" },
       ],

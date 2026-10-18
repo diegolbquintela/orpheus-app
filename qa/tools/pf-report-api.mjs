@@ -30,6 +30,8 @@ const EXPENSES_KEY = "orpheus.finance.expenses.v2";
 // #165: the GET / PUT / DELETE body also carries `deleted` / `labels`; `same` compares `{ report, missing }` when the
 // expected value is that shape (the #165 fields are checked on their own in PFD-06).
 const core = (x) => (x && typeof x === "object" && "missing" in x ? { report: x.report, missing: x.missing } : x);
+// #179: the range bound refusals (Q-AF4, CFO 2026-10-17); must equal src/lib/finance/report.ts.
+import { RANGE_AFTER_CURRENT } from "./pf-helpers.mjs";
 const same = (a, b) => JSON.stringify(b && typeof b === "object" && "missing" in b ? core(a) : a) === JSON.stringify(b);
 
 /** One HTTP call with the context's cookies; `raw` is sent as the body text as is. */
@@ -112,9 +114,11 @@ try {
           ["PFR-06 none", { report: { ...REPORT, series: [] } }, 400, "series"],
           ["PFR-06 13", { report: { ...REPORT, series: Array.from({ length: 13 }, (_, i) => ({ kind: "line", id: `l${i}` })) } }, 400, "series"],
           ["PFR-06 duplicate", { report: { ...REPORT, series: [REPORT.series[0], REPORT.series[0]] } }, 400, "series"],
-          ["PFR-07 preset", { report: { ...REPORT, range: { preset: "all" } } }, 400, "range.preset"],
+          // #179 (spec 41): `all` is a saved preset now (asserted accepted below); an unknown preset is still refused.
+          ["PFR-07 preset", { report: { ...REPORT, range: { preset: "5y" } } }, 400, "range.preset"],
           ["PFR-08 reversed", { report: { ...REPORT, range: { from: "2026-09", to: "2026-01" } } }, 400, "range"],
-          ["PFR-08 25 months", { report: { ...REPORT, range: { from: "2025-10", to: "2027-10" } } }, 400, "range"],
+          // #179 Q-AF4: 2025-10..2027-10 ends after the current month; the bound is checked before the 24-month cap.
+          ["PFR-08 25 months", { report: { ...REPORT, range: { from: "2025-10", to: "2027-10" } } }, 400, "range", RANGE_AFTER_CURRENT],
           ["PFR-09 chart", { report: { ...REPORT, chart: "pie" } }, 400, "chart"],
           ["PFR-10 unknown key", { report: { ...REPORT, title: "x" } }, 400, "report"],
         ];
@@ -122,25 +126,34 @@ try {
           const p = await call(request, "PUT", API, { json: { report: { ...REPORT, range: { preset } } } });
           check(`PFR-07 preset ${preset} accepted`, p.status === 200, p.status);
         }
+        // #179 PFALL-02: a saved `all` → 200, stored and read back as { preset: "all" } (resolved only when charted).
+        const all = await call(request, "PUT", API, { json: { report: { ...REPORT, range: { preset: "all" } } } });
+        const allBack = await call(request, "GET", API);
+        check("PFR-07 / PFALL-02 preset all accepted: 200, stored as { preset: 'all' }", all.status === 200 && same(all.body?.report?.range, { preset: "all" }) && same(allBack.body?.report?.range, { preset: "all" }), { all: all.status, range: allBack.body?.report?.range });
         for (const chart of ["line", "bar", "stacked-bar"]) {
           const p = await call(request, "PUT", API, { json: { report: { ...REPORT, chart } } });
           check(`PFR-09 chart ${chart} accepted`, p.status === 200, p.status);
         }
+        // #179: re-baseline right before the refusals, so PFR-10 holds whatever the earlier steps stored.
         await call(request, "PUT", API, { json: { report: REPORT } });
-        for (const [name, body, status, field] of refusals) {
+        const baseline = await call(request, "GET", API);
+        for (const [name, body, status, field, error = "Invalid value."] of refusals) {
           const p = await call(request, "PUT", API, { json: body });
-          check(`${name} → ${status} { error: "Invalid value.", field: "${field}" }`, p.status === status && same(p.body, { error: "Invalid value.", field }), p);
+          check(`${name} → ${status} { error: "${error}", field: "${field}" }`, p.status === status && same(p.body, { error, field }), p);
         }
         const notJson = await call(request, "PUT", API, { raw: "{not json" });
         const big = await call(request, "PUT", API, { json: { report: REPORT, pad: "x".repeat(5000) } });
         const kept = await call(request, "GET", API);
-        check("PFR-10 not JSON → 400; > 4 KB → 413 \"Report too large.\"; nothing stored on any refusal", notJson.status === 400 && big.status === 413 && same(big.body, { error: "Report too large." }) && same(kept.body, { report: REPORT, missing: [1] }), { notJson, big: big.status, kept: kept.body });
+        check("PFR-10 not JSON → 400; > 4 KB → 413 \"Report too large.\"; nothing stored on any refusal", notJson.status === 400 && big.status === 413 && same(big.body, { error: "Report too large." }) && same(core(kept.body), core(baseline.body)) && same(kept.body?.report, REPORT), { notJson, big: big.status, kept: kept.body, baseline: baseline.body });
 
+        // #179: PFR-13 compares against what is stored right now (REPORT), whatever earlier steps did.
+        await call(request, "PUT", API, { json: { report: REPORT } });
+        const before13 = await call(request, "GET", API);
         const recGet = await call(request, "GET", RECORD_API);
         const recPut = await call(request, "PUT", RECORD_API, { json: { data: record } });
         const named = await call(request, "PUT", RECORD_API, { json: { data: { ...record, [REPORT_KEY]: "{}" } } });
         const after = await call(request, "GET", API);
-        check("PFR-13 the record API: GET has no report; a record PUT keeps the report; naming it → 400 Unknown name", !(REPORT_KEY in (recGet.body?.data ?? {})) && recPut.status === 200 && named.status === 400 && /^Unknown name/.test(named.body?.error ?? "") && same(after.body, { report: REPORT, missing: [1] }), { recGet: Object.keys(recGet.body?.data ?? {}), recPut: recPut.status, named, after: after.body });
+        check("PFR-13 the record API: GET has no report; a record PUT keeps the report; naming it → 400 Unknown name", !(REPORT_KEY in (recGet.body?.data ?? {})) && recPut.status === 200 && named.status === 400 && /^Unknown name/.test(named.body?.error ?? "") && same(core(after.body), core(before13.body)) && same(after.body?.report, REPORT), { recGet: Object.keys(recGet.body?.data ?? {}), recPut: recPut.status, named, after: after.body });
 
         const del = await call(request, "DELETE", API);
         const gone = await call(request, "GET", API);
