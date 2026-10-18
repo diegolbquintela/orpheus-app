@@ -1063,3 +1063,28 @@ Backend only. PGlite real-path tests: `src/lib/finance/all-range.server.test.ts`
 | PFALL-16 | MAJOR | Every other range refusal still says `Invalid value.`: a month before 2000 or after 2100, malformed months, `from` after `to`, missing keys, unknown preset, over the 24-month cap only. Stored reports are never checked against the bounds. The drift test (contract 10.1) drives both messages on all 5 routes. |
 
 **Note (2026-10-17, #179 QA round 1, on PFALL-06):** PFALL-06's "400 `Invalid value.` `range`" is superseded by Q-AF4 (CFO-accepted). A `from` before 2020-01 now gets `Range can't start before 2020-01.` and a `to` after the current month gets `Range can't end after the current month.`. The status (400) is unchanged, and so is the field: `report.range` on `/reports` POST and `/reports/:id` PUT, `range` on legacy `/report` PUT. Only a range over the 24-month cap alone stays `Invalid value.`. See PFALL-15 / PFALL-16 and contract section 10. The QA tools `pf-report-api`, `pf-series-api` and `pf-chart-api` were updated to match (PFR-07 accepts `all`, PFR-08, PFS-03..06, PFC-08..10).
+
+## Personal Finance: Starting net assets 'as of' month (#171; spec section 42; added 2026-10-17)
+
+PGlite real-path tests: `src/lib/finance/as-of.server.test.ts` (TZ=UTC and TZ=America/Los_Angeles), the DOM test in `expenses-page.dom.test.tsx`, and contract section 11.1 (drift). The UI checks run on mobile (390 px) and desktop in `qa/tools/personal-finance.mjs`; that part is signed in, so QA runs it with creds.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFAO-01 | BLOCK | A record without `asOf`: `/series` and `/chart` `net_assets_from` = first data month, with net-assets values exactly as before (all, 24m, custom ranges). Nothing is added to the stored record. |
+| PFAO-02 | BLOCK | The legacy default report (legacy PUT `/report`, `/chart {saved:true}`, export `default`) is unchanged without `asOf`: `Net assets from: <first data month>` and the 36.11 caveat. |
+| PFAO-03 | BLOCK | The Overview without `asOf` (or with an empty or unusable one) is identical to before: the start sits at the window start. |
+| PFAO-04 | BLOCK | `asOf` before the first data month: `net_assets_from` = `asOf`, the start carried flat until data, then each month's surplus. |
+| PFAO-05 | BLOCK | `asOf` after the first data month: months before it are null; from it, start + surplus. Surplus, income and expenses series are unchanged. |
+| PFAO-06 | MAJOR | `asOf` outside the range: before it, the level carries in; after it, every value is null. `/chart` equals `/series`. |
+| PFAO-07 | MAJOR | `all` still starts at the first data month (Q-AG10). |
+| PFAO-08 | BLOCK | Clearing `asOf` reverts to PFAO-01 exactly. |
+| PFAO-09 | BLOCK | Overview, `asOf` before the window: the window starts from start + those months' own surplus. Future projects from that level. |
+| PFAO-10 | MAJOR | Overview, `asOf` inside the window: points before it are null; `asOf` = window start gives the old Overview. |
+| PFAO-11 | BLOCK | Record PUT: `asOf` before 2020-01, after the current Toronto month, or malformed → 400 `{ error: "Invalid value.", field: "overview.asOf" }`, and nothing is stored. 2020-01, the current month and empty are accepted. |
+| PFAO-12 | MAJOR | Toronto month edge: at 2026-11-01 03:30Z, `2026-11` is refused (still October); at 04:30Z it is accepted and `/series` anchors there. |
+| PFAO-13 | MAJOR | The page check (`fieldErrors` / `asOfBad`) uses the same bounds as the API (the #179 validator). |
+| PFAO-14 | MAJOR | Export with `asOf`: `Net assets from: <month> (as-of month)` and the `Note:` line instead of the caveat (PDF text; the PNG draws the same header lines). |
+| PFAO-15 | MINOR | The pf-helpers QA list carries `As of month`, `YYYY-MM`, the field error, `(as-of month)` and the note verbatim. |
+| PFAO-16 | BLOCK | UI at 390 px and desktop: `As of month` sits between Starting net assets and Growth rate (%): one row on desktop, stacked on mobile, 44 px high, labelled, no gold, axe clean, no horizontal scroll. |
+| PFAO-17 | MAJOR | UI: a bad month shows `Enter a month as YYYY-MM, from 2020-01 to this month.` (aria-invalid), blocks Save, and is left out of the figures. A good month re-anchors the chart live; clearing removes the error. |
+| PFAO-18 | MAJOR | Contract 11.1 (field, first month, record error, export suffix and note) equals the code, and the record API answers with exactly that field and message. |

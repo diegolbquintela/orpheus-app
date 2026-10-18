@@ -277,3 +277,21 @@ and the drift test reads them together.
 | `Range can't end after the current month.` | 400 | R1 R2 R3 R4 L1 |
 
 **Note (2026-10-17, #179 QA round 1, on section 9):** section 9's "No new error messages; section 8.1 is unchanged" was true at c5bd617. It is superseded by **section 10** (Q-AF4, CFO-accepted), which adds two messages for the range bounds, and by AC PFALL-15. The 9.1 Routes column is machine-checked against the real routes: every route that takes a range is listed exactly once per bound, and the saved routes are exactly the ones that validate in save mode.
+
+## 11. Starting net assets 'as of' month (added 2026-10-17, #171; spec 42)
+
+The overview value (`orpheus.finance.overview.v1`, in the existing per-user `personal_finance` JSON) gains an optional `asOf` (`yyyy-mm`). There is no migration and no schema change. Records without `asOf` behave exactly as before.
+
+- **R1 `/series`, R2 `/chart` (both bodies), R5 export:** `net_assets_from` is `asOf` when one is set, whether or not that month has data. Otherwise it is the first month with data, as before. Net assets are null before it. From it on, each month adds its own surplus to Starting net assets, which is the value at the start of `asOf`. When `asOf` is before the range, the level carries in. When it is after the range, every value is null. The `all` preset still starts at the first data month (Q-AG10). **No new wire field and no new message on R1..R5 or L1.**
+- **Record API (`PUT /api/personal-finance`, outside this contract's routes):** a bad `asOf` gets the existing 400 `{ error: "Invalid value.", field: "overview.asOf" }`. Bad means not a real month, before 2020-01, or after the current Toronto month; it is checked by the #179 validator in save mode. An empty `asOf` is accepted and means none.
+- **Export (R5):** with `asOf` set, the header prints `Net assets from: <month> (as-of month)` and a `Note:` line in place of the 36.11 caveat. Without it, the header is unchanged.
+
+### 11.1 Machine-checked (as-of.server.test.ts)
+
+| Key | Value |
+|---|---|
+| record-field | overview.asOf |
+| first-month | 2020-01 |
+| record-error | Invalid value. |
+| export-suffix | (as-of month) |
+| export-note | Starting net assets is the value at the start of its as-of month; each month adds its own surplus. |
