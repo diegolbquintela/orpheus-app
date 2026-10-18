@@ -16,7 +16,7 @@ import { qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { readPdf, readPng } from "./export-parse.mjs";
-import { EXPORT_FX_LINE, EXPORT_LINES_NOTE, NET_ASSETS_CAVEAT, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
+import { EXPORT_AS_OF_SUFFIX, EXPORT_FX_LINE, EXPORT_LINES_NOTE, NET_ASSETS_AS_OF_NOTE, NET_ASSETS_CAVEAT, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -66,7 +66,12 @@ try {
           if (format === "pdf" && parsed) {
             const text = parsed.text.join("\n");
             const net = chart.series?.some((s) => s.id === "net-assets" && s.kind === "metric");
-            check(`PFX-06/07 ${rep.id} pdf: as-of, generated, FX basis${net ? ", net assets from and the 36.11 caveat" : ""}`, text.includes(`As of: ${chart.current}`) && text.includes("Generated: ") && text.includes(EXPORT_FX_LINE) && (!net || (text.includes("Net assets from:") && text.replace(/\n/g, " ").includes(NET_ASSETS_CAVEAT.slice(0, 60)))));
+            // #171 Q-AG7 (2026-10-17): with an as-of month stored, 'Net assets from: <month> (as-of month)' and the as-of note
+            // replace the caveat; without one, the caveat as before. Exactly one of the two, never both.
+            const flat = text.replace(/\n/g, " ");
+            const cav = flat.includes(NET_ASSETS_CAVEAT.slice(0, 60));
+            const asOfNote = flat.includes(`Net assets from: ${chart.net_assets_from} ${EXPORT_AS_OF_SUFFIX}`) && flat.includes(NET_ASSETS_AS_OF_NOTE.slice(0, 60));
+            check(`PFX-06/07 ${rep.id} pdf: as-of, generated, FX basis${net ? ", net assets from and either the 36.11 caveat or (#171) the as-of note" : ""}`, text.includes(`As of: ${chart.current}`) && text.includes("Generated: ") && text.includes(EXPORT_FX_LINE) && (!net || (text.includes("Net assets from:") && cav !== asOfNote)), { cav, asOfNote });
           }
         }
       }

@@ -51,6 +51,13 @@ export const INCOME = "Income";
 export const SURPLUS = "Surplus";
 export const NET_ASSETS = "Net assets";
 export const START_LABEL = "Starting net assets";
+/** #171 (spec 42, Q-AG4): the explicit as-of month field beside Starting net assets. */
+export const AS_OF_LABEL = "As of month";
+export const AS_OF_PLACEHOLDER = "YYYY-MM";
+/** #171 Q-AG9: the field's error (an obvious validation text; same bounds as saved report ranges, 2020-01 … this month). */
+export const AS_OF_ERROR = "Enter a month as YYYY-MM, from 2020-01 to this month.";
+/** #171: the earliest as-of month (= `FIRST_MONTH` in months.ts / the #179 range bound; kept here to avoid an import cycle). */
+export const AS_OF_FIRST = "2020-01";
 export const GROWTH_LABEL = "Growth rate (%)";
 export const FUTURE_LABEL = "Future";
 export const MONTH_LABEL = "Month";
@@ -74,6 +81,11 @@ export type MonthKey = string;
 export type MonthEntry = { expenses: string; income: string };
 export type Overview = {
   start: string;
+  /**
+   * #171 (spec 42): the month Starting net assets is the value at the START of (`yyyy-mm`), as typed. Absent / empty =
+   * no as-of month: today's behaviour exactly (series anchored at the first data month, Overview at its window start).
+   */
+  asOf?: string;
   growth: string;
   future: boolean;
   years: Years;
@@ -262,13 +274,25 @@ export function summarize(
     // Q-U1: none of those months has an income figure → `—` (nothing typed yet), not 0.
     income: used.some((f) => f.income !== null) ? mean(used.map((f) => f.income ?? 0)) : null,
   };
+  // #171 (spec 42): with an as-of month A, Starting net assets is the value at the start of A. A before the window:
+  // the window starts from start + every month's own surplus from A to the window (a month without one adds nothing,
+  // the series rule, Q-AG2). A inside the window: points before A have no net assets (null); from A on, as today.
+  // No as-of month: exactly as before (the start at the window start).
+  const asOf = asOfMonth(overview);
   let net: number | null = orZero(overview.start);
+  if (asOf && asOf < months[0]) {
+    const before = netAssetsFrom(net, asOf, previousMonth(months[0]), (k) => surplusOf(monthFigures(overview, k, current, page, lines)));
+    net = before.get(previousMonth(months[0])) ?? net;
+  }
   const points: Point[] = months.map((key, i) => {
     const expenses = figures[i].expenses ?? average.expenses;
     const income = figures[i].income ?? average.income;
+    if (asOf && key < asOf) return { key, label: monthShort(key), expenses, income, net: null, future: false };
     net = net === null ? null : plus(net, minus(income, expenses));
     return { key, label: monthShort(key), expenses, income, net, future: false };
   });
+  // A after the whole window (a skewed clock only): no net assets now, so none projected.
+  if (asOf && asOf > current) net = null;
   if (overview.future) {
     const growth = Math.pow(1 + orZero(overview.growth) / 100, 1 / 12);
     const avgSurplus = surplusOf(average);
@@ -297,6 +321,32 @@ export function summarize(
 }
 
 const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);
+
+/**
+ * #171: the as-of month in use, or null (none, or not a usable month → the old behaviour). Usable = a real `yyyy-mm`
+ * from 2020-01 on; a month after the current one (only possible with a skewed clock) still anchors there (Q-AG2).
+ */
+export function asOfMonth(overview: Pick<Overview, "asOf">): MonthKey | null {
+  const a = overview.asOf?.trim() ?? "";
+  return isKey(a) && a >= AS_OF_FIRST ? a : null;
+}
+
+/**
+ * #171 Q-AG2 / Q-AG3: net assets at the END of each month, Starting net assets being the value at the START of `from`,
+ * adding each month's surplus (a month without one adds nothing); before `from`: null. Used by the series (#154) and by
+ * the Overview for the months before its window.
+ */
+export function netAssetsFrom(start: number, from: MonthKey, until: MonthKey, surplus: (k: MonthKey) => number | null): Map<MonthKey, number> {
+  const out = new Map<MonthKey, number>();
+  if (from > until) return out;
+  let net = start;
+  for (let k = from; ; k = nextMonth(k)) {
+    net += surplus(k) ?? 0;
+    out.set(k, net);
+    if (k >= until) break;
+  }
+  return out;
+}
 
 /** Set one month's field; a month with both fields empty is dropped. */
 export function setMonth(overview: Overview, key: MonthKey, patch: Partial<MonthEntry>): Overview {
@@ -334,6 +384,8 @@ export function asOverview(value: unknown): Overview {
   }
   return {
     start: isText(v.start) ? v.start : "",
+    // #171: kept as typed (so the page can show its error); omitted when absent or empty (old records unchanged).
+    ...(isText(v.asOf) && v.asOf !== "" ? { asOf: v.asOf } : {}),
     growth: isText(v.growth) ? v.growth : "",
     future: v.future === true,
     years: (YEARS as readonly unknown[]).includes(v.years) ? (v.years as Years) : 1,

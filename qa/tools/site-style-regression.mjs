@@ -102,7 +102,8 @@ const PAGES = [
       // #126: + the 3-month column and the Equity coverage line (no rate yet → — and its note).
       // #94: 04 Overview (the table all —, the two fields, the Future toggle; the chart's plot aria-hidden, its legend
       // visible) and 05 Update (Month, Expenses, Income).
-      const overview = ["04", "Overview", "This month", avg3Label(), avg12Label(0), "Expenses", "—", "—", "—", "Income", "—", "—", "—", "Surplus", "—", "—", "—", "Equity coverage:", "—", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", "Starting net assets", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
+      // #171 (2026-10-17, PFAO-16): + "As of month" between Starting net assets and growth.
+      const overview = ["04", "Overview", "This month", avg3Label(), avg12Label(0), "Expenses", "—", "—", "—", "Income", "—", "—", "—", "Surplus", "—", "—", "—", "Equity coverage:", "—", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", "Starting net assets", "As of month", "Growth rate (%)", "Future", "Expenses", "Income", "Net assets", "05", "Update", "Month", "Expenses", "Income"];
       // #131 (Q-W7): the two Withdrawal rate description lines before `Withdrawal rate (%)`.
       // #87: the Household currency select (its label; a closed select's options are not on screen) above Income.
       // #112 / #163 (PFM-12): the month control's labels, Month and Year, under the title.

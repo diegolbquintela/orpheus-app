@@ -169,3 +169,11 @@ export const exportAllNoData = (month) => `Range: ${EXPORT_ALL_DATA} (${EXPORT_N
 // #179 Q-AF4 (CFO, 2026-10-17): range bound refusals (400; field `range`, or `report.range` on /reports); must equal report.ts.
 export const RANGE_BEFORE_FIRST = "Range can't start before 2020-01.";
 export const RANGE_AFTER_CURRENT = "Range can't end after the current month.";
+
+// #171 (spec 42, PFAO-15; 2026-10-17): the as-of month for Starting net assets. Must equal src/lib/finance/overview.ts
+// and export.ts (as-of.server.test.ts checks them verbatim).
+export const AS_OF_LABEL = "As of month";
+export const AS_OF_PLACEHOLDER = "YYYY-MM";
+export const AS_OF_ERROR = "Enter a month as YYYY-MM, from 2020-01 to this month.";
+export const EXPORT_AS_OF_SUFFIX = "(as-of month)";
+export const NET_ASSETS_AS_OF_NOTE = "Starting net assets is the value at the start of its as-of month; each month adds its own surplus.";

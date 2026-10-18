@@ -99,6 +99,15 @@ export function errorCode(status: number, error: string): ChartsApiErrorCode {
 
 // ---- request / response types (contract section 3) ----
 export type { ChartData, ChartType, RangeMode, Report, ReportRange, Series, SeriesRange, SeriesResult, ExportFormat };
+
+/**
+ * #171 (spec 42; contract section 11, added 2026-10-17): `SeriesResult.net_assets_from` / `ChartData.net_assets_from`
+ * is the record's as-of month for Starting net assets when one is set (`asOf` in the overview value), else the first
+ * month with data, as before. No new wire field and no new message on these routes; the record API refuses a bad
+ * `asOf` with the existing 400 `Invalid value.`, field `overview.asOf`.
+ */
+export { AS_OF_FIRST } from "./overview.ts";
+export const AS_OF_RECORD_FIELD = "overview.asOf";
 /** #179 (spec 41): every preset, saved reports included. `all` is stored as `{ preset: "all" }` and resolved when the
  * report runs (`/chart { saved: true, id }`, export), from the first data month to the current Toronto month. */
 export type RangePreset = "3m" | "6m" | "12m" | "24m" | "ytd" | "all";

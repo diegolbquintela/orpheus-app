@@ -138,13 +138,15 @@ try {
       check("PFS-19 fx_basis: current", j.fx_basis === "current", j.fx_basis);
       const na = j.series?.[6]?.values ?? [];
       const from = j.net_assets_from ?? null;
-      const idx = from ? j.months.indexOf(from) : -1;
+      // #171 (2026-10-17): with an as-of month the anchor may sit before the range (the level carries in: nothing null)
+      // or after it (all null); otherwise as before.
+      const idx = !from || from > (j.months?.at(-1) ?? "") ? -1 : from < j.months[0] ? 0 : j.months.indexOf(from);
       const pre = idx < 0 ? na : na.slice(0, idx);
       check("PFS-20 months before net_assets_from are null", pre.every((v) => v === null), { from });
       const sur = j.series?.[5]?.values ?? [];
       let flat = true;
       if (idx >= 0)
-        for (let i = idx + 1; i < na.length; i++)
+        for (let i = Math.max(1, idx + 1); i < na.length; i++)
           if (na[i] === null || (sur[i] === null && na[i] !== na[i - 1])) flat = false;
       check("PFS-18 net assets: never null from the anchor; a month without a surplus carries flat", idx < 0 || flat, { from });
       const pick = j.months?.length ? j.months[Math.max(0, j.months.length - 2)] : null;

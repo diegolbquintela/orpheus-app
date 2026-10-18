@@ -66,6 +66,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER } from "./pf-helpers.mjs"; // #171
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
@@ -186,6 +187,7 @@ const emptyTexts = (wide) => [
   "Equity coverage:", "—",
   "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section.", // #129 PF-101
   "Starting net assets",
+  "As of month", // #171 (PFAO-16, 2026-10-17): the as-of month field
   "Growth rate (%)",
   "Future",
   "Expenses",
@@ -1016,6 +1018,16 @@ try {
         const row = viewport.width >= 640;
         const okLayout = lb.start.h >= 44 && lb.growth.h >= 44 && lb.month.h >= 44 && lb.me.h >= 44 && lb.month.w <= 256 && lb.tog.h >= 44 && lb.years.every((h) => h >= 44) && lb.plot === (wide ? 320 : 240) && (row ? lb.start.y === lb.growth.y && lb.growth.x > lb.start.x && lb.start.w <= 256 : lb.growth.y > lb.start.y && lb.growth.x === lb.start.x) && (Math.abs(lb.month.y + lb.month.h / 2 - (lb.me.y + lb.me.h / 2)) <= 2 && lb.me.x > lb.month.x) && lb.table.w <= 640;
         check(`${tag} PF-32 layout: ${row ? "fields in one row (≤ 16rem)" : "fields stacked full width"}; every control ≥ 44 px; #112 the month select (≤ 16rem) and Save on one row at every width incl. 360 px (PFM-11 supersedes spec 19.4's wrap); chart plot ${wide ? 320 : 240} px; table ≤ 40rem`, okLayout, lb);
+        // #171 (spec 42, PFAO-16 / 17; 2026-10-17): the as-of month field beside Starting net assets, at 390 px and desktop.
+        const asOf = p3.getByTestId("pf-as-of");
+        const ab = await box(asOf);
+        const aLabel = await p3.getByTestId("pf-ov-fields").locator("label").evaluateAll((ls) => ls.map((l) => l.textContent));
+        await asOf.fill("2019-12");
+        const aErr = await p3.getByTestId("pf-ov-fields").locator("[data-field=pf-as-of]").textContent().catch(() => null);
+        const aInv = await asOf.getAttribute("aria-invalid");
+        await asOf.fill("");
+        const aClear = [await asOf.getAttribute("aria-invalid"), await p3.getByTestId("pf-ov-fields").locator("[data-field=pf-as-of]").count(), await asOf.getAttribute("placeholder")];
+        check(`${tag} PFAO-16 / 17 '${AS_OF_LABEL}' between Starting net assets and growth (${row ? "same row" : "stacked"}), ≥ 44 px; 2019-12 → '${AS_OF_ERROR}' (aria-invalid); cleared → no error, placeholder ${AS_OF_PLACEHOLDER}`, JSON.stringify(aLabel) === JSON.stringify(["Starting net assets", AS_OF_LABEL, "Growth rate (%)"]) && ab.h >= 44 && (row ? ab.y === lb.start.y && ab.x > lb.start.x : ab.y > lb.start.y && ab.x === lb.start.x) && aErr === AS_OF_ERROR && aInv === "true" && JSON.stringify(aClear) === JSON.stringify([null, 0, AS_OF_PLACEHOLDER]), { ab, aLabel, aErr, aInv, aClear });
         await p3.getByTestId("pf-growth").focus();
         await p3.keyboard.press("Tab");
         const ring = await tog.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, parseFloat(c.outlineWidth), c.outlineColor, document.activeElement === e]; });
