@@ -389,16 +389,19 @@ try {
       // exactly one GET /reports and writes nothing; New report disabled; rows are not links. The PF header links to it.
       {
         const href = await page.getByTestId("pf-charts-link").getAttribute("href");
+        const linkBox = await page.getByTestId("pf-charts-link").boundingBox();
         const cp = await page.context().newPage();
         await cp.setViewportSize(viewport);
         const calls = [];
         cp.on("request", (r) => { const u = new URL(r.url()); if (u.pathname.startsWith("/api/")) calls.push(`${r.method()} ${u.pathname}`); });
         await cp.goto(`${base}/personal-finance/charts`, { waitUntil: "networkidle" });
         await cp.locator("[data-testid=pf-charts-list], [data-testid=pf-charts-empty], [data-testid=pf-charts-error]").first().waitFor();
-        const ch = await cp.evaluate(() => ({ title: document.title, newDisabled: document.querySelector("[data-testid=pf-charts-new]")?.disabled ?? null, links: document.querySelectorAll("[data-testid=pf-charts-list] a, [data-testid=pf-charts-list] button").length, error: document.querySelector("[data-testid=pf-charts-error]") !== null, back: document.querySelector("[data-testid=pf-charts-back]")?.getAttribute("href"), scroll: document.documentElement.scrollWidth - window.innerWidth }));
+        const ch = await cp.evaluate(() => ({ title: document.title, newDisabled: document.querySelector("[data-testid=pf-charts-new]")?.disabled ?? null, links: document.querySelectorAll("[data-testid=pf-charts-list] a, [data-testid=pf-charts-list] button").length, error: document.querySelector("[data-testid=pf-charts-error]") !== null, back: document.querySelector("[data-testid=pf-charts-back]")?.getAttribute("href"), backH: Math.round(document.querySelector("[data-testid=pf-charts-back]")?.getBoundingClientRect().height ?? 0), scroll: document.documentElement.scrollWidth - window.innerWidth }));
         const reportCalls = calls.filter((c) => c.includes("/api/personal-finance/report"));
         await cp.screenshot({ path: join(CFG.out, `e2e-charts-${viewport.width}.png`) });
         await cp.close();
+        // #160 QA N4 (EL tap-target rule): both links ≥ 44 px tall at every viewport.
+        check(`${tag} N4 (#160) tap targets: pf-charts-link ${Math.round(linkBox?.height ?? 0)} px, pf-charts-back ${ch.backH} px, both ≥ 44`, (linkBox?.height ?? 0) >= 44 && ch.backH >= 44, { link: linkBox, backH: ch.backH });
         check(`${tag} PFCL-02/08/12 (#160) Charts: one GET /api/personal-finance/reports, no write, New report disabled, rows not links, linked both ways`, href === "/personal-finance/charts" && JSON.stringify(reportCalls) === JSON.stringify(["GET /api/personal-finance/reports"]) && !calls.some((c) => !c.startsWith("GET ")) && ch.newDisabled === true && ch.links === 0 && !ch.error && ch.back === "/personal-finance" && ch.scroll <= 0 && ch.title === "Charts · Personal Finance · Orpheus Wisdom", { href, calls, ch });
       }
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();

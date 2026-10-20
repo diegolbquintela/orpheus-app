@@ -1246,3 +1246,5 @@ UI only on R3 `GET /api/personal-finance/reports`; no wire change. Q-AJ1..Q-AJ12
 - **#161 AC (moved here, not built in #160):** with 19 named reports New report is **enabled**; 20 → disabled with `Limit of 20 reports reached.`; a 409 on create shows `Report limit reached.`.
 
 **Note (2026-10-20, #160 QA round 2 N1–N3 + EL; spec 45.11):** PFCL-04 is checked on the accessible text (an `aria-hidden` `—` plus `sr-only` `No date`), not an attribute. PFCL-01 is also checked in `qa/tools/personal-finance.mjs` (signed out). **PFCL-09 is accepted by EL on the DOM test only** (`charts-page.dom.test.tsx`); no live Read-grant check.
+
+**Note (2026-10-20, #160 QA round 3 N4; spec 45.12):** PFCL-13 adds: `pf-charts-link` and `pf-charts-back` are ≥ 44 px tall at 390 px and every other viewport (signed-in `personal-finance-e2e.mjs`; CSS rule pinned in `reports-list.test.ts`).
