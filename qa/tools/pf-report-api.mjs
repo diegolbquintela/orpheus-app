@@ -179,7 +179,7 @@ try {
       const p = await call(request, "PUT", API, { json: { report: mine } });
       const d = await call(request, "DELETE", API);
       const after = await call(request, "GET", API);
-      check("PFR-14 (#162) a Read CFO's PUT and DELETE → 403 `Forbidden.`; GET still 200 and unchanged", p.status === 403 && p.body?.error === "Forbidden." && d.status === 403 && d.body?.error === "Forbidden." && before.status === 200 && after.status === 200 && same(after.body, before.body), { p, d, before: before.body, after: after.body });
+      check("PFR-14 (#162) a Read CFO's PUT and DELETE → 403 `Forbidden.`; GET still 200 and unchanged", p.status === 403 && p.body?.error === "Forbidden." && d.status === 403 && d.body?.error === "Forbidden." && before.status === 200 && after.status === 200 && JSON.stringify(after.body) === JSON.stringify(before.body), { p, d, before: before.body, after: after.body });
       let ownerSees = "not run";
       await signedIn(browser, email, password, async (ownerRequest) => {
         ownerSees = (await call(ownerRequest, "GET", API)).body?.report ?? null;
