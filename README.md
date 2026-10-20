@@ -679,3 +679,5 @@ Added 2026-10-18 (#171 CFO round): AC PFAO-19..PFAO-26; spec 42.9–42.13; contr
 **Personal Finance historical FX rates (#170, added 2026-10-18; Phase 1).** Spec section 43 (facts, Q-AH1..Q-AH6, all not built); AC PFFX-01..PFFX-16. Until decided, `fx_basis` stays `"current"` and nothing changes.
 
 Added 2026-10-20 (#170): Diego decided Q-AH1..Q-AH6 (BoC Valet via `fx_rates`, backfill from 2020-01, no migration, business-day monthly average with typed-rate fallback, export line changes); open Q-AH7..Q-AH12 in spec 43.7; AC PFFX-17..22.
+
+Added 2026-10-20 (#170, CFO/QA round): spec 43.8 (three-value `fx_basis` with `fx_fallback_months`, export lines, page note) and 43.9 (worked examples, backfill bounds, Q-AH13); AC PFFX-17a..22a, 23..28.
