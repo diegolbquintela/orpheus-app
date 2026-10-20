@@ -1248,3 +1248,30 @@ UI only on R3 `GET /api/personal-finance/reports`; no wire change. Q-AJ1..Q-AJ12
 **Note (2026-10-20, #160 QA round 2 N1–N3 + EL; spec 45.11):** PFCL-04 is checked on the accessible text (an `aria-hidden` `—` plus `sr-only` `No date`), not an attribute. PFCL-01 is also checked in `qa/tools/personal-finance.mjs` (signed out). **PFCL-09 is accepted by EL on the DOM test only** (`charts-page.dom.test.tsx`); no live Read-grant check.
 
 **Note (2026-10-20, #160 QA round 3 N4; spec 45.12):** PFCL-13 adds: `pf-charts-link` and `pf-charts-back` are ≥ 44 px tall at 390 px and every other viewport (signed-in `personal-finance-e2e.mjs`; CSS rule pinned in `reports-list.test.ts`).
+
+## Personal Finance Charts: report builder (#161; spec section 46; added 2026-10-20; Phase 1: ACs written, nothing built)
+
+UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 pending CFO (spec 46.9); ACs assume the recommendations.
+
+| AC | Severity | Check |
+|----|----------|-------|
+| PFCB-01 | MAJOR | `/personal-finance/charts/new` and `/<id>/edit` gated like `/personal-finance/charts` (307 signed out, `/account`, 403, noindex); `?next=/personal-finance/charts/new` kept. |
+| PFCB-02 | MAJOR | (#160 carry-over, CFO Q-AJ7) list: 19 named → New report **enabled**, opens `/new`; with the default present still enabled; 20 named → disabled + `Limit of 20 reports reached.` |
+| PFCB-03 | MAJOR | (#160 carry-over) the text `Builder coming next (#161)` appears nowhere. |
+| PFCB-04 | MAJOR | (#160 carry-over) a create answered 409 `Report limit reached.` shows exactly `Report limit reached.`; nothing saved. |
+| PFCB-05 | MAJOR | Picker lists Metrics (4), Groups (3), the record's Accounts, Categories and Expense lines; sends `{ kind, id }` exactly as 46.3. |
+| PFCB-06 | MAJOR | 12 picked → the rest disabled + `Up to 12 series.`; duplicates impossible. |
+| PFCB-07 | MAJOR | Presets send `{ "preset": "3m" | "6m" | "12m" | "24m" | "ytd" | "all" }`; Custom sends exactly `{ "from": "YYYY-MM", "to": "YYYY-MM" }`. |
+| PFCB-08 | MAJOR | Custom 2019-12..2020-03 → `Range can't start before 2020-01.`; to = next month → `Range can't end after the current month.`; 2024-01..2026-01 (25 months) → `Range can't be longer than 24 months.`; 2024-02..2026-01 (24) accepted. |
+| PFCB-09 | MAJOR | Chart `Line` by default; `Bar`, `Stacked bar` send `bar`, `stacked-bar`. |
+| PFCB-10 | MAJOR | Preview: one `POST /chart` per settled change (400 ms), latest wins; none with 0 series (`Pick at least one series.`). |
+| PFCB-11 | MAJOR | Name: blank / 61 chars / a control char → blocked before sending; `Default` or an existing name (any case) → `Name already used.`; server 409 text shown exactly. |
+| PFCB-12 | MAJOR | Save → `POST /reports` body exactly `{ name, report }`; 201 → `/<id>/edit`, button `Update`; Update → `PUT /reports/:id`. |
+| PFCB-13 | MAJOR | Default edit: name read-only `Default`; never sends a different name. |
+| PFCB-14 | MAJOR | Any 400 / 413 shows the server `error` text exactly, under the field named by `field`. |
+| PFCB-15 | MAJOR | Export menu `PDF`, `PNG` (R5 links) only when saved and clean; no Email item (#180). |
+| PFCB-16 | MINOR | Leave warning when there are unsaved changes. |
+| PFCB-17 | MAJOR | Read grant: no Save / Update / Name editing; read-only line shown. |
+| PFCB-18 | MAJOR | Mobile 390 px: picker collapsed (`Series (n)`), chart ≥ 60 vh; ≥ 768 px side panel + chart main; no horizontal scroll; 44 px targets; CLS 0. |
+| PFCB-19 | MAJOR | Style: dark theme, lyre, Orpheus Wisdom footer, no gold, `pf-button`, no new icons; axe clean. |
+| PFCB-20 | MAJOR | DOM tests both TZs for 02–17; signed-out suites green on the preview; QA PASS mobile + desktop. |
