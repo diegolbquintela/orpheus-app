@@ -1455,3 +1455,32 @@ Business user: CFO. Priority MEDIUM (Diego via CoS, 2026-10-18). AC pack: PFEC-0
 44.6 **(2026-10-20, CFO decision; built on PR #192)** CFO accepted the 44.3 rule and Q-AI1..Q-AI8 exactly as recommended; Q-AI7 gets no ticket. Built: Q-AI1 (Future off, usable `asOf` → the Overview's previous-month net assets), Q-AI2 (null → `none`), Q-AI3 (anchored ≤ 0 with a typed start > 0 → `none`), Q-AI5 (`asOf` after the current month → `none`); Q-AI4 unchanged and pinned by a test. Not built, by decision: Q-AI6 (no new copy), Q-AI7 (no wire change, no ticket); Q-AI8 unchanged. No-`asOf` records, no rate and no typed start behave exactly as before. Code: `overviewCoverage` (`src/lib/finance/overview.ts`); tests `overview.test.ts` (#184 block); QA `personal-finance-e2e.mjs` PFEC-04.
 
 44.7 **(2026-10-20, QA L2 on 042c47e) Window rule for 44.3 and PFEC-05.** The anchored value comes from the Overview's own roll (`summarize`, 42.5 / 42.10): a month with no data **inside the 12-month window** uses the 12-month average surplus (#140 / #146); a month **before the window** adds only its own surplus, so an empty one adds nothing (the series rule). Checked in the code and pinned in `overview.test.ts` (#184 QA L1 / L2 block). Example: start 10,000, today 2026-10-13, Jun 2025 surplus +200, Aug 2026 +1,000, Sep 2026 +500, `asOf` 2025-06 → 10,200 + 9 empty window months (Nov 2025..Jul 2026) × the 12-month average 750 + 1,500 = **18,450** at the start of Oct 2026; Jul–Oct 2025 (before the window, empty) add nothing.
+
+## 45. Charts: the reports list page (#160, PF charts UI 1/3; #161 builder and #162 viewer follow; added 2026-10-20; Phase 1: spec and Qs, nothing built)
+
+Business user: CFO. UI only, on the existing endpoints (spec 40, contract `attachments/pf-charts-api-contract.md` R3). No new API route, no wire change, no data-model change, no migration, no new dependency, no Dashboard change. AC PFCL-01..PFCL-14 (`qa/CANONICAL-AC-PACK.md`). Q-calls Q-AJ1..Q-AJ12 (45.8), none built yet.
+
+45.1 **Where.** A Charts page for Personal Finance (Q-AJ1, recommended: a new page route `/personal-finance/charts` with the same gate as `/personal-finance`: signed out → 307 to `/dashboard/sign-in?next=/personal-finance/charts`, temporary password → `/account`, no grant → 403 denied page, Read → read-only). A page route is not an API route and carries no data; the page links to it ("Charts") and it links back ("Personal Finance").
+45.2 **Data.** One call: `listReports()` (`src/lib/finance/charts-api.ts`, `GET /api/personal-finance/reports`) on mount, `cache: no-store`. The page reads `reports`, `limit` and, per item, `id`, `name`, `default`, `report.series` / `report.range` / `report.chart`, `labels`, `deleted` and `updated_at`. It writes nothing and calls no other route.
+45.3 **List.** One row per report, in the order the server returns (the default first if stored, then named reports oldest first; Q-AJ4). Each row shows:
+- the name (the default shows as stored, usually `Default`);
+- last updated: `updated_at` as a Toronto date `YYYY-MM-DD` (Q-AJ3); the default (null timestamps, Q-AE3) shows no date, written `—` with an accessible label `No date` (Q-AJ2);
+- a short series summary (Q-AJ5): the first 3 `labels` joined with `, `, then `+N more` when there are more; a deleted series keeps the label the server sends (`deletedLabel`); plus the chart type and the range (`Line · Last 12 months`, `All data`, `2025-01 to 2025-12`).
+45.4 **New report.** A button `New report` in the page header (existing `pf-button` style, no new colour). Its target is the #161 builder, which does not exist yet (Q-AJ6). It is disabled when named reports ≥ `limit` (contract Q-AE14), with the text `Limit of 20 reports reached.` under it (Q-AJ7), and hidden on a Read grant (Q-AJ8).
+45.5 **States.** Loading: one line `Loading reports…`, with the list's space reserved (no layout shift). Empty (no reports at all, default included): `No saved reports yet.` and the New report button (Q-AJ9). Error: the shared error's `error` text in the existing PF error style, plus `Try again` that repeats the one GET (Q-AJ10). A 401 (session ended) follows the page's existing sign-in redirect rule.
+45.6 **Row action.** Opening a report is #162 (viewer). Until #162, a row's name is plain text, not a link (Q-AJ11). No rename, delete or export on this page (#161 / #162).
+45.7 **Style.** The existing dark site style: lyre header, `Orpheus Wisdom` footer, no gold, the existing type scale, the PF section numeral pattern, `pf-button` for buttons. No new colour system and no new icon set (Q-AJ12). Mobile 390 px: rows stack (name, then date, then summary); desktop: one line per row with the date right-aligned. CLS 0.
+45.8 Q-calls (CFO), each with a recommendation; **none built** (Phase 1):
+- Q-AJ1 Where Charts lives: **rec** a separate page `/personal-finance/charts`, linked both ways (the PF page is already long, and #161/#162 need room). Alternative: a `06 Charts` section at the bottom of `/personal-finance`. Not built.
+- Q-AJ2 The default's missing date: **rec** `—` (label `No date`), per contract Q-AE3 (storing a timestamp would change the data model, out of scope). Not built.
+- Q-AJ3 Date format: **rec** `YYYY-MM-DD` Toronto date (matches the export and the rest of PF). Alternative: relative (`3 days ago`). Not built.
+- Q-AJ4 Order: **rec** the server's order (default first, then oldest first). Newest-first would be client-side only, no wire change; say so if wanted. Not built.
+- Q-AJ5 Series summary: **rec** first 3 labels + `+N more`, then chart type and range. Not built.
+- Q-AJ6 New report before #161 exists: **rec** render it disabled with `Builder coming next (#161)` as its description, then #161 enables it. Alternative: hide it until #161. Not built.
+- Q-AJ7 At the limit: **rec** disabled with `Limit of 20 reports reached.` (the number from `limit`). Not built.
+- Q-AJ8 Read grant: **rec** the list shows, New report hidden. Not built.
+- Q-AJ9 Empty state text: **rec** `No saved reports yet.` plus the button. Not built.
+- Q-AJ10 Error state: **rec** the server's text + `Try again`. Not built.
+- Q-AJ11 Row click before #162: **rec** not a link. Not built.
+- Q-AJ12 Icons: **rec** none (text buttons, as elsewhere on PF); a `+` glyph would be new. Not built.
+Out of scope (each would be a Q for its own ticket): any endpoint or wire change (e.g. a summary field, sorting server-side, a default timestamp), Email export (#180), Dashboard.
