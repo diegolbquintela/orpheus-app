@@ -1372,3 +1372,19 @@ Business user: CFO. AC PFFX-01..PFFX-16 (`qa/CANONICAL-AC-PACK.md`). Every Q-AH 
 - **Q-AH6 Export text.** The `historical` variant of `FX_LINE`, e.g. `FX basis: historical (each month at its own monthly-average rate, Bank of Canada)`. **Recommendation: that text; unchanged when `current`.** Blocks: export change only.
 
 43.5 **Safe to build before the answers (Phase 2 plumbing, behaviour-neutral).** A pure `fxBasisFor(...)`-style seam that today always returns `"current"` and the typed-rate conversion; regression tests that pin today's numbers and texts (PFFX-01..05); tests that the #171 anchor rule is untouched (PFFX-06). Nothing that fetches, stores or changes any response.
+
+43.6 **(2026-10-20, Diego's decisions; supersede the "NOT built" status of Q-AH1..Q-AH4 and Q-AH6 where they agree)**
+- **Q-AH1 Source: DECIDED (Diego)** — Bank of Canada Valet (public, no key), through the existing `fx_rates` table. No new secret.
+- **Q-AH2 Backfill: DECIDED (Diego)** — from 2020-01, idempotent. The run against any shared database (preview or Production) is EL's call; the command lives in a dated runbook under `docs/release/`.
+- **Q-AH3 Storage: DECIDED (Diego)** — no migration. `fx_rates` holds **daily** BoC rows (`quote`, `rate_date`, `cad_per_unit`, source `BOC`); new PF quotes (GBP BRL MXN CHF JPY AUD CNY) fit as is (`quote` is free text; `BOC` is an allowed source). The monthly average is **derived at read time** from those daily rows, so no monthly row, new column or new source value is needed. If a stored monthly row were ever required, that would need a schema change and comes back as a Q.
+- **Q-AH4a/d Convention: DECIDED (Diego)** — a month's rate is the mean of that month's business-day BoC rows (the days BoC published); a month or currency with no rows falls back to the line's typed rate (today's `current`). No carry-forward.
+- **Q-AH6 Export: DECIDED (Diego)** — the export FX line changes when historical rates are used; the exact text is Q-AH8.
+- **Q-AH5 Wire: DECIDED (Diego)** — `fx_basis` may be `"historical"`; no other wire field is proposed.
+
+43.7 **Remaining open choices (NOT built until answered; recommendation in bold, the build follows it unless overruled).**
+- **Q-AH7 The per-response `fx_basis` rule (product choice).** **`"historical"` only when at least one foreign-currency amount was converted in the response's months AND every such conversion used a historical rate; otherwise `"current"`** (including a response with no foreign amounts at all, so a household-only record stays byte-identical to today). Alternative: `"historical"` when any conversion used one (misleading for mixed months). Blocks: the fx_basis literal only.
+- **Q-AH8 Export text.** **`FX basis: historical (each month at its Bank of Canada monthly average rate)`** when `fx_basis` is `"historical"`; today's line unchanged otherwise. Blocks: the export header only.
+- **Q-AH9 Partial current month.** **The average of the business days published so far** (the same rule as any month). Alternative: always `current` for the partial month. Blocks: nothing else.
+- **Q-AH10 Precision.** **Full precision from the stored BoC decimals; cross via CAD for a non-CAD household (rate = CAD per household unit ÷ CAD per line unit, both monthly averages); display rounding unchanged.** Blocks: conversion tests.
+- **Q-AH11 Typed rate vs historical.** **Historical replaces the month's typed line rate on `/series`, `/chart` and the export only; the page keeps the typed rate.** Blocks: which surfaces change.
+- **Q-AH12 Ingestion scope.** **The existing daily job (`refreshFx`, cron unchanged, no `vercel.json` edit) also fetches the seven PF currencies daily.** This adds ~7 Valet series per run; it does not change the schedule. Blocks: the job change.

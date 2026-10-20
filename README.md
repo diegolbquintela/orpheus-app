@@ -677,3 +677,5 @@ Starting net assets can carry an optional 'as of' month (`As of month`, `YYYY-MM
 Added 2026-10-18 (#171 CFO round): AC PFAO-19..PFAO-26; spec 42.9–42.13; contract 11.2 (the record API's two as-of bound messages) and 12 / 12.1 (the 24-month cap message on saved-report ranges).
 
 **Personal Finance historical FX rates (#170, added 2026-10-18; Phase 1).** Spec section 43 (facts, Q-AH1..Q-AH6, all not built); AC PFFX-01..PFFX-16. Until decided, `fx_basis` stays `"current"` and nothing changes.
+
+Added 2026-10-20 (#170): Diego decided Q-AH1..Q-AH6 (BoC Valet via `fx_rates`, backfill from 2020-01, no migration, business-day monthly average with typed-rate fallback, export line changes); open Q-AH7..Q-AH12 in spec 43.7; AC PFFX-17..22.

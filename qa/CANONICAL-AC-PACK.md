@@ -1131,3 +1131,14 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFFX-14 | MAJOR | (Q-AH5) The wire shape is unchanged unless a field is decided; contract and drift tests updated if it is. |
 | PFFX-15 | MAJOR | (Q-AH6) The export says the decided historical text when `fx_basis` is `"historical"`, today's when `"current"`. |
 | PFFX-16 | MINOR | Docs: spec 43, contract and README/AGENTS pointers match the code. |
+
+**Additions (2026-10-20, #170 Diego's decisions; spec 43.6–43.7):** PFFX-07..11, 13 and 15 now test the decided rules (BoC via `fx_rates`, backfill from 2020-01, no migration, business-day monthly average, typed-rate fallback, export line changes) and the recommended Q-AH7..Q-AH12 unless overruled.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-17 | BLOCK | No `fx_rates` rows for the record's currencies: every response, chart and export is **byte-identical** to d1308bc (same values, `fx_basis: "current"`, same FX line). |
+| PFFX-18 | BLOCK | A household-only record (no foreign line) is byte-identical to today whatever `fx_rates` holds. |
+| PFFX-19 | BLOCK | Monthly average = mean of that month's stored BoC daily rows, from recorded Valet fixtures; no live network call in tests. |
+| PFFX-20 | BLOCK | Ingestion and backfill are idempotent (second run inserts 0 rows), start no earlier than 2020-01, write only source `BOC`, and need no key, secret, migration or `vercel.json` change. |
+| PFFX-21 | BLOCK | The #171 anchor rule (spec 42.10) is unchanged: same `net_assets_from`, back-fill and forward roll from the (possibly historical) per-month surplus. |
+| PFFX-22 | MAJOR | The backfill / ingestion has NOT been run against preview or Production by SWE; the runbook in `docs/release/` gives the command. |
