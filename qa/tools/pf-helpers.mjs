@@ -183,3 +183,24 @@ export const NET_ASSETS_AS_OF_NOTE = "Starting net assets is the value at the st
 export const MONTH_BEFORE_FIRST = "Month can't be before 2020-01.";
 export const MONTH_AFTER_CURRENT = "Month can't be after the current month.";
 export const RANGE_TOO_LONG = "Range can't be longer than 24 months.";
+// #170 (spec 43.8 / 43.10, CFO 2026-10-20): historical FX texts. fx_basis values; export lines; the page note.
+export const FX_BASIS_HISTORICAL = "historical";
+export const FX_BASIS_MIXED = "mixed";
+export const EXPORT_FX_LINE_HISTORICAL = "FX basis: historical (each month at its Bank of Canada monthly average rate)";
+/** The mixed line: the earliest 5 fallback months (sorted), then " and N more". */
+export const exportFxMixedLine = (months) => {
+  const s = [...months].sort();
+  const more = s.length - 5;
+  return `FX basis: mixed (Bank of Canada monthly averages; typed rate used for ${s.slice(0, 5).join(", ")}${more > 0 ? ` and ${more} more` : ""})`;
+};
+/** The expected export FX line for a /chart reply's fx_basis (and fx_fallback_months when mixed). */
+export const expectedFxLine = (j) =>
+  j?.fx_basis === FX_BASIS_HISTORICAL ? EXPORT_FX_LINE_HISTORICAL : j?.fx_basis === FX_BASIS_MIXED ? exportFxMixedLine(j.fx_fallback_months ?? []) : EXPORT_FX_LINE;
+/** PFFX-23/24: a valid fx_basis, with fx_fallback_months (sorted, distinct yyyy-mm, non-empty) exactly when mixed. */
+export const fxBasisOk = (j) => {
+  const m = j?.fx_fallback_months;
+  if (j?.fx_basis === FX_BASIS_MIXED)
+    return Array.isArray(m) && m.length > 0 && m.every((x, i) => /^\d{4}-(0[1-9]|1[0-2])$/.test(x) && (i === 0 || m[i - 1] < x));
+  return (j?.fx_basis === FX_BASIS_CURRENT || j?.fx_basis === FX_BASIS_HISTORICAL) && !("fx_fallback_months" in (j ?? {}));
+};
+export const FX_HISTORY_NOTE = "Charts and exports use Bank of Canada rates where available";

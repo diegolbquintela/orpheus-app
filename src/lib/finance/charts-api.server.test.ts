@@ -343,7 +343,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   const sec = (from: string, to?: string) => doc.slice(doc.indexOf(from), to ? doc.indexOf(to, doc.indexOf(from) + 1) : undefined);
   const table = (from: string, to?: string) =>
     sec(from, to).split("\n").filter((l) => /^\| `?[^-|]/.test(l) && !/^\| (Message|Cap) \|/.test(l)).map((l) => l.split("|").slice(1, -1).map((c) => c.trim()));
-  const MSGS = [...table("### 8.1", "### 8.2"), ...table("### 10.1", "## 11."), ...table("### 12.1")].map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
+  const MSGS = [...table("### 8.1", "### 8.2"), ...table("### 10.1", "## 11."), ...table("### 12.1", "## 13.")].map(([m, st, routes]) => ({ msg: m.replace(/^`|`$/g, ""), status: Number(st), routes: routes.split(/\s+/) }));
   const CAPS = table("### 8.2", "## 9.").map(([cap, value, routes, constant]) => ({ cap, value, routes: routes.split(/\s+/), constant }));
   const ROUTE = { R1: "/api/personal-finance/series", R2: "/api/personal-finance/chart", R3: "/api/personal-finance/reports", R4: "/api/personal-finance/reports/default", R5: "/api/personal-finance/reports/default/export?format=pdf", L1: "/api/personal-finance/report" } as const;
   type RK = keyof typeof ROUTE;
@@ -427,7 +427,7 @@ describe("#158 F2 contract section 8: every message × route and every cap, driv
   };
 
   it("the 8.1 table lists exactly the section 5 messages (no more, no fewer)", () => {
-    const sec5 = [...(sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1)), ...table("### 10.1", "## 11.").map(([m]) => m.slice(1, -1)), ...table("### 12.1").map(([m]) => m.slice(1, -1))];
+    const sec5 = [...(sec("## 5. Messages", "## 6.").match(/`[^`]+`/g) ?? []).map((m) => m.slice(1, -1)), ...table("### 10.1", "## 11.").map(([m]) => m.slice(1, -1)), ...table("### 12.1", "## 13.").map(([m]) => m.slice(1, -1))];
     assert.deepEqual(MSGS.map((m) => m.msg).sort(), [...sec5].sort());
     assert.equal(MSGS.length, 20, "17 (#158) + 2 (#179 Q-AF4) + 1 (#171 24-month cap)");
     assert.deepEqual(Object.values(CHARTS_MESSAGES).sort(), [...sec5].sort(), "the client's copy equals the doc too");

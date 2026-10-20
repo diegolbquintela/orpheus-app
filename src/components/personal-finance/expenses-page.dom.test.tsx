@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { STORAGE_KEY } from "@/lib/finance/expenses";
 import { INCOME_KEY } from "@/lib/finance/income";
 import { EQUITY_KEY } from "@/lib/finance/equity";
-import { CURRENCY_KEY } from "@/lib/finance/currency";
+import { CURRENCY_KEY, FX_HISTORY_NOTE } from "@/lib/finance/currency";
 import { OVERVIEW_KEY } from "@/lib/finance/overview";
 import { VIEW_KEY } from "@/lib/finance/view";
 import { MONTHS_KEY } from "@/lib/finance/months";
@@ -626,6 +626,9 @@ describe("equity cover (#86, option A)", () => {
       condo.querySelector('[data-field="rate"]')!.textContent,
       "Enter a number above 0.",
     );
+    // #170 Q-AH11 (CFO): the dim note beside a foreign FX rate; a household line has none.
+    assert.equal(text(condo, "pf-fx-note"), FX_HISTORY_NOTE);
+    assert.equal(rent.querySelector('[data-testid="pf-fx-note"]'), null);
     const totals = (row: string) =>
       ["pf-total-monthly", "pf-total-yearly"].map((f) => text(q(el, `pf-total-${row}`), f));
     const dashes = () => ({
@@ -992,6 +995,7 @@ describe("foreign income and the rate direction (#102, PF-35, PF-37, PF-38)", ()
     assert.equal(text(p, "pf-person-converted"), "—");
     assert.equal(text(q(el, "pf-net-income"), "pf-income-yearly"), "—");
     await type(q(p, "pf-person-rate"), "3.70");
+    assert.equal(text(p, "pf-fx-note"), FX_HISTORY_NOTE); // #170 Q-AH11
     assert.equal(text(p, "pf-person-net"), "37,000.00", "Net stays in BRL");
     assert.equal(text(p, "pf-person-converted"), "10,000.00");
     const wagesLine = qa(el, "pf-income-line")[0];

@@ -1,3 +1,4 @@
+import { applyHistoricalFx, type FxBasis, type MonthlyFx } from "./fx-history.ts";
 import { readHousehold } from "./currency.ts";
 import { rateUsed, readRates } from "./equity.ts";
 import { deletedLabel, grandTotals, isDeleted, readExpenses, totalsOf, type Line } from "./expenses.ts";
@@ -57,7 +58,10 @@ export type SeriesResult = {
   partial: boolean;
   currency: string;
   /** Q-AA3 (CFO condition): every month is valued at the record's CURRENT FX rates, never that month's own. */
-  fx_basis: "current";
+  /** #170 Q-AH7 (CFO, spec 43.8): historical / current / mixed. */
+  fx_basis: FxBasis;
+  /** #170: only with `fx_basis: "mixed"`: the sorted months where a conversion fell back to the typed rate. */
+  fx_fallback_months?: MonthKey[];
   /**
    * Q-AA10: the month net assets are anchored at (Starting net assets at its start), or null with no data. #171: the
    * record's as-of month when one is set (data or not), else the first month with data as before.
@@ -115,10 +119,23 @@ export function rangeMonths(range: SeriesRange, current: MonthKey, record: PfRec
 }
 
 /** Every series' values over the range (Q-AA2..Q-AA5). Deleted names keep their history (#165). */
-export function seriesValues(query: SeriesQuery, record: PfRecord | null, now: Date, timeZone = HOUSEHOLD_TIME_ZONE): SeriesResult {
-  const store = new RecordStore(record ?? {});
+export function seriesValues(query: SeriesQuery, typed: PfRecord | null, now: Date, timeZone = HOUSEHOLD_TIME_ZONE, fx?: MonthlyFx): SeriesResult {
   const current = householdMonth(now, timeZone);
-  const months = rangeMonths(query.range, current, record);
+  const months = rangeMonths(query.range, current, typed);
+  // #170 (spec 43): each stored month's foreign amounts at that month's BoC average when stored; else as typed.
+  // #170 QA G1 (spec 43.11): fx_basis covers every month whose conversion feeds a value in the reply: the range's
+  // months, plus, when net assets are in the reply, every month from the first data month (the running total and the
+  // #171 back-fill) through the range end, or through the as-of month when that is later (and not in the future).
+  const end = months[months.length - 1];
+  const wantsNet = query.series.some((s) => s.kind === "metric" && s.id === "net-assets");
+  const firstTyped = wantsNet ? firstDataMonth(typed) : null;
+  const asOfTyped = wantsNet ? asOfMonth(readOverview(new RecordStore(typed ?? {}))) : null;
+  const netTo = asOfTyped && asOfTyped > end && asOfTyped <= current ? asOfTyped : end;
+  const inRange = new Set(months);
+  const { record, basis, fallbackMonths } = applyHistoricalFx(typed, fx, netTo, (k) =>
+    inRange.has(k) || (firstTyped !== null && k >= firstTyped && k <= netTo),
+  );
+  const store = new RecordStore(record ?? {});
   const stored = readMonths(store);
   const shared = readExpenses(store);
   const rate = rateUsed(readRates(store));
@@ -181,7 +198,8 @@ export function seriesValues(query: SeriesQuery, record: PfRecord | null, now: D
     current,
     partial: months.includes(current),
     currency: household,
-    fx_basis: "current",
+    fx_basis: basis,
+    ...(basis === "mixed" ? { fx_fallback_months: fallbackMonths } : {}),
     net_assets_from: anchor,
     series,
   };

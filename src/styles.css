@@ -656,6 +656,15 @@
   .pf-month-copy[data-shown="false"] {
     visibility: hidden;
   }
+  /* #170 Q-AH11: the dim note beside a foreign FX rate. */
+  .pf-fx-note {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.3rem;
+    color: var(--color-dim);
+    max-width: 100%;
+    overflow-wrap: anywhere; /* #170 G4: wraps at 390px, never overflows */
+  }
   .pf-month-note {
     margin-top: 0.5rem;
     min-height: 1.3rem;

@@ -1165,3 +1165,20 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFFX-21a | BLOCK | The #171 rule with and without `overview.asOf` (before and after the first data month); the spec 43.9 fixture gives 8,360 / 10,000 / 11,700 for 2024-02..04 with asOf 2024-04; contract 11.2 and 12.1 messages unchanged. |
 | PFFX-22a | MAJOR | `docs/release/2026-10-20-pf-fx-backfill.md` exists with the exact command and the expected row counts. On preview and Production, `min(rate_date)` and `count(*)` per PF quote in `fx_rates` are unchanged by the PR's deploy (SWE did not run it). EL records the run. |
 | PFFX-28 | BLOCK | Q-AH13 (EL): before the backfill, months without a row fall back to the typed rate; `fx_basis` is `"current"` or `"mixed"` and is `"historical"` only when every converted month and currency has rows. |
+
+**Additions (2026-10-20, CFO tweak and Q-AH14; spec 43.10):**
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-29 | BLOCK | Q-AH14: with PF rows (GBP … CNY) stored, `GET /api/dashboard/fx` lists only USD EUR SEK PLN DKK HUF CZK quotes, byte-equal to the output with no PF rows. |
+| PFFX-30 | BLOCK | Mixed export line: exactly 5 fallback months → all 5, no suffix; 6 → the earliest 5 and ` and 1 more`; 17 → the earliest 5 and ` and 12 more`. The months are sorted; `fx_fallback_months` on the wire keeps the full list. |
+
+**Additions (2026-10-20, QA G1–G5 on 66a8561; spec 43.11):** these refine PFFX-11, PFFX-23, PFFX-27 and PFFX-28.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-23b | BLOCK | G1: `fx_basis` / `fx_fallback_months` cover the months feeding the reply. USD lines (typed 0.7) in 2024-01 and 2024-03, USD row only in 2024-03, range 2024-03: without net assets → `"historical"`, no field; with `net-assets` → `"mixed"`, `["2024-01"]` (before the range). |
+| PFFX-11b | MAJOR | G4: `Charts and exports use Bank of Canada rates where available` beside every foreign FX rate field; exact text; AA contrast; inside its line with no overflow at 390px and desktop; page CLS 0. |
+| PFFX-27b | MAJOR | G5: the recorded Valet fixture (9 series) is parsed and stored; dashboard and `ECB_CROSS` rows unchanged; `vercel.json` unchanged. |
+| PFFX-28b | BLOCK | G5: USD rows only from 2026-09; USD lines in 2024-03 and 2026-09; range `all` → `"mixed"`, `["2024-03"]`; after 2024-03 rows exist → `"historical"`. |
+| PFFX-30b | MAJOR | G3: the PDF mixed line wraps; flattened text contains the full 5-month line with ` and N more`. |

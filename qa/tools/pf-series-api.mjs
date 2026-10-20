@@ -26,7 +26,7 @@ const check = (name, ok, detail) => {
 };
 const API = "/api/personal-finance/series";
 const EXPENSES_KEY = "orpheus.finance.expenses.v2";
-import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
+import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST, fxBasisOk } from "./pf-helpers.mjs";
 import { seriesNetChecks, storedStart } from "./pf-asof-checks.mjs";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -136,7 +136,8 @@ try {
         check("PFS-09 deleted names: label '<name> (deleted)', deleted: true (or missing when no line holds them)", r.status === 200 && s.every((x) => x.missing || (x.deleted && x.label === `${x.id} (deleted)`)), s.map((x) => [x.label, x.deleted, x.missing]));
       }
       // #154 2026-10-17: Q-AA3 condition and the anchored net assets (Q-AA4 change, Q-AA10).
-      check("PFS-19 fx_basis: current", j.fx_basis === "current", j.fx_basis);
+      // #170 (spec 43.8, PFFX-23/24): current, historical or mixed; fx_fallback_months exactly when mixed.
+      check("PFS-19 fx_basis: current | historical | mixed (fx_fallback_months only when mixed)", fxBasisOk(j), { fx: j.fx_basis, fallback: j.fx_fallback_months });
       const na = j.series?.[6]?.values ?? [];
       const from = j.net_assets_from ?? null;
       // #171 (2026-10-17) + Q-AG1 (CFO change) + QA early finding 2 (on 1ca3c3d, QA's): months before net_assets_from

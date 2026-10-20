@@ -2,7 +2,7 @@ import { deleteQuestion } from "@/lib/finance/expenses";
 import { formatMoney } from "@/lib/finance/money";
 import { Minus } from "lucide-react";
 import { useId } from "react";
-import { type CurrencyCode, CURRENCIES, RATE_ERROR } from "@/lib/finance/currency";
+import { type CurrencyCode, CURRENCIES, FX_HISTORY_NOTE, RATE_ERROR } from "@/lib/finance/currency";
 import {
   AMOUNT_ERROR,
   NAME_MAX,
@@ -337,6 +337,11 @@ function PersonRow({
                 data-field="person-rate"
               >
                 {RATE_ERROR}
+              </span>
+            ) : null}
+            {foreignHere ? (
+              <span className="pf-fx-note" data-testid="pf-fx-note">
+                {FX_HISTORY_NOTE}
               </span>
             ) : null}
           </div>

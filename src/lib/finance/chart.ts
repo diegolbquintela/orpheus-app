@@ -1,3 +1,4 @@
+import { type MonthlyFx } from "./fx-history.ts";
 import { monthShort, type MonthKey } from "./overview.ts";
 import type { PfRecord } from "./record.ts";
 import { CHART_TYPES, INVALID_REPORT, type ChartType, type Report, type ReportError } from "./report.ts";
@@ -67,8 +68,9 @@ export function chartData(
   now: Date,
   source: "request" | "saved" = "request",
   timeZone = HOUSEHOLD_TIME_ZONE,
+  fx?: MonthlyFx,
 ): ChartData {
-  const r = seriesValues({ series: query.series, range: query.range }, record, now, timeZone);
+  const r = seriesValues({ series: query.series, range: query.range }, record, now, timeZone, fx);
   const series = r.series.map((s): ChartSeries => ({
     ...s,
     axis: s.kind === "metric" && s.id === "net-assets" ? "level" : "flow",

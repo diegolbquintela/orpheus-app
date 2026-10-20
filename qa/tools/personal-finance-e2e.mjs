@@ -20,7 +20,7 @@ import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
-import { API, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
+import { API, FX_HISTORY_NOTE, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -240,6 +240,9 @@ try {
       await condo.getByTestId("pf-currency").selectOption("BRL");
       const fxName = await condo.getByTestId("pf-fx").getAttribute("aria-label");
       await condo.getByTestId("pf-fx").fill("5");
+      // #170 QA G4 (spec 43.11): the note beside every foreign FX rate field: exact text, inside its line, no overflow.
+      const fxNote = await condo.getByTestId("pf-fx-note").evaluate((n) => { const r = n.getBoundingClientRect(); const l = n.closest("[data-testid=pf-line]").getBoundingClientRect(); return { text: n.textContent, inside: r.left >= l.left - 0.5 && r.right <= l.right + 0.5, overflow: n.scrollWidth > n.clientWidth + 1, page: document.documentElement.scrollWidth <= innerWidth }; });
+      check(`${tag} PFFX-11 note '${FX_HISTORY_NOTE}' beside Condo's FX field; inside the line, no overflow`, fxNote.text === FX_HISTORY_NOTE && fxNote.inside && !fxNote.overflow && fxNote.page, fxNote);
       await gifts.getByTestId("pf-name").fill("Gifts");
       await gifts.getByTestId("pf-yearly").fill("1,200");
       await gifts.getByTestId("pf-account").selectOption("__add-account__");

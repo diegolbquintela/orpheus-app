@@ -17,7 +17,7 @@ import { eachViewport } from "./session.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { readPdf, readPng } from "./export-parse.mjs";
 import { exportNetAssetsCheck, storedAsOf } from "./pf-asof-checks.mjs";
-import { EXPORT_AS_OF_SUFFIX, EXPORT_FX_LINE, EXPORT_LINES_NOTE, NET_ASSETS_AS_OF_NOTE, NET_ASSETS_CAVEAT, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
+import { EXPORT_AS_OF_SUFFIX, expectedFxLine, EXPORT_LINES_NOTE, NET_ASSETS_AS_OF_NOTE, NET_ASSETS_CAVEAT, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 const base = CFG.baseUrl;
@@ -72,7 +72,7 @@ try {
             // #171 Q-AG7 (2026-10-17) + QA early finding 1 (on 1ca3c3d, QA's): the expectation follows the STORED
             // overview.asOf read via the record API: none → the caveat and no as-of note; set → the note naming that month.
             const na = exportNetAssetsCheck(text.replace(/\n/g, " "), asOf, { caveat: NET_ASSETS_CAVEAT, suffix: EXPORT_AS_OF_SUFFIX, note: NET_ASSETS_AS_OF_NOTE });
-            check(`PFX-06/07 ${rep.id} pdf: as-of, generated, FX basis${net ? `, net assets from and ${asOf ? `the as-of note (${asOf})` : "the 36.11 caveat (no as-of month stored)"}` : ""}`, text.includes(`As of: ${chart.current}`) && text.includes("Generated: ") && text.includes(EXPORT_FX_LINE) && (!net || na.ok), { asOf, ...na });
+            check(`PFX-06/07 ${rep.id} pdf: as-of, generated, FX basis${net ? `, net assets from and ${asOf ? `the as-of note (${asOf})` : "the 36.11 caveat (no as-of month stored)"}` : ""}`, text.includes(`As of: ${chart.current}`) && text.includes("Generated: ") && text.replace(/\n/g, " ").includes(expectedFxLine(chart)) && (!net || na.ok), { asOf, fx: chart.fx_basis, ...na });
           }
         }
       }
