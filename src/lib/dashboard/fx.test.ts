@@ -14,6 +14,7 @@ import {
   ECB_URL,
   parseBocValet,
   parseEcbXml,
+  PF_BOC_SERIES,
   rateOnOrBefore,
   refreshFx,
 } from "./fx.server.ts";
@@ -62,6 +63,10 @@ const fixtureFetcher = () =>
     if (url === ECB_URL) return ECB;
     throw new Error(`unexpected URL ${url}`);
   });
+
+// #170 Q-AH12: the job also requests the PF quotes (this recorded response has none of their series).
+const PF = Object.keys(PF_BOC_SERIES);
+const notPf = (urls: string[]) => urls.filter((u) => !u.includes("FXGBPCAD"));
 
 const stored = async (quote: string, date: string) =>
   (
@@ -113,7 +118,7 @@ describe("refreshFx (DASH-11)", () => {
   it("stores USD/EUR exactly as BoC Valet publishes them, for every published date", async () => {
     const r = await refreshFx(db, fixtureFetcher(), { today: "2026-10-02" });
     assert.deepEqual(r.errors, []);
-    assert.deepEqual(r.quotes, ["USD", "EUR"]);
+    assert.deepEqual(r.quotes, ["USD", "EUR", ...PF]);
     for (const o of BOC.observations as { d: string; FXUSDCAD: { v: string }; FXEURCAD: { v: string } }[]) {
       assert.deepEqual(await stored("USD", o.d), { v: o.FXUSDCAD.v, source: "BOC" }, o.d);
       assert.deepEqual(await stored("EUR", o.d), { v: o.FXEURCAD.v, source: "BOC" }, o.d);
@@ -121,7 +126,7 @@ describe("refreshFx (DASH-11)", () => {
     assert.equal(r.inserted, 18);
     assert.equal(await stored("USD", "2026-09-30"), undefined);
     // One Valet request for both series, starting 30 days back (nothing stored yet).
-    assert.deepEqual(requests, [`${BOC_URL}/FXUSDCAD,FXEURCAD/json?start_date=2026-09-02&end_date=2026-10-02`]);
+    assert.deepEqual(requests, [`${BOC_URL}/FXUSDCAD,FXEURCAD,${Object.values(PF_BOC_SERIES).join(",")}/json?start_date=2026-09-02&end_date=2026-10-02`]);
   });
 
   it("BoC holiday 2026-09-30: the previous rate (2026-09-29) is used and its date returned", async () => {
@@ -146,7 +151,7 @@ describe("refreshFx (DASH-11)", () => {
     ]);
     const r = await refreshFx(db, fixtureFetcher(), { today: "2026-10-02" });
     assert.deepEqual(r.errors, []);
-    assert.deepEqual(r.quotes, ["USD", "EUR", "PLN", "SEK", "CZK", "DKK", "HUF"]);
+    assert.deepEqual(r.quotes, ["USD", "EUR", "PLN", "SEK", ...PF, "CZK", "DKK", "HUF"]);
     assert.deepEqual(await stored("SEK", "2026-09-29"), { v: "0.1419", source: "BOC" });
     assert.deepEqual(await stored("PLN", "2026-10-02"), { v: "0.3661", source: "BOC" });
     const cross = (eurCad: number, perEur: number) => (eurCad / perEur).toPrecision(10);
@@ -165,10 +170,10 @@ describe("refreshFx (DASH-11)", () => {
     requests.length = 0;
     const again = await refreshFx(db, fixtureFetcher(), { today: "2026-10-02" });
     assert.equal(again.inserted, 0);
-    assert.deepEqual(requests, [], "nothing to fetch");
+    assert.deepEqual(notPf(requests), [], "nothing to fetch (the PF quotes have no rows in this recording)");
     assert.deepEqual((await pg.query("SELECT * FROM fx_rates ORDER BY quote, rate_date")).rows, before);
     await refreshFx(db, fixtureFetcher(), { today: "2026-10-05" });
-    assert.deepEqual(requests, [`${BOC_URL}/FXUSDCAD,FXEURCAD/json?start_date=2026-10-03&end_date=2026-10-05`]);
+    assert.deepEqual(notPf(requests), [`${BOC_URL}/FXUSDCAD,FXEURCAD/json?start_date=2026-10-03&end_date=2026-10-05`]);
   });
 
   it("a source outage is reported, not thrown, and nothing is stored", async () => {
@@ -351,5 +356,41 @@ describe("GET /api/dashboard/fx", () => {
         ["USD", "1.4188", "2026-09-29", true],
       ],
     );
+  });
+});
+
+describe("#170 Q-AH12 / Q-AH14: PF quotes in the daily job; GET /api/dashboard/fx unchanged", () => {
+  // A recorded-shape Valet reply carrying every requested series for 2026-10-01 and 2026-10-02 (no network).
+  const allSeries = (url: string) => {
+    const series = url.slice(BOC_URL.length + 1).split("/")[0].split(",");
+    const obs = ["2026-10-01", "2026-10-02"].map((d, i) => ({ d, ...Object.fromEntries(series.map((k, j) => [k, { v: (0.1 + j / 10 + i / 100).toFixed(4) }])) }));
+    return JSON.stringify({ observations: obs });
+  };
+  const fxGet = async () =>
+    (await handleFxRequest(new Request("http://localhost/api/dashboard/fx?date=2026-10-02"), {
+      env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
+      getUser: async () => ({ id: "alice", email: null }),
+      getDb: async () => db,
+    })).text();
+  it("Q-AH12: refreshFx stores GBP BRL MXN CHF JPY AUD CNY as BOC rows; a second run requests nothing", async () => {
+    const urls: string[] = [];
+    const get = async (u: string) => (urls.push(u), u.startsWith(BOC_URL) ? allSeries(u) : ECB);
+    const r = await refreshFx(db, createFxFetcher(get), { today: "2026-10-02" });
+    assert.deepEqual(r.errors, []);
+    for (const q of PF) assert.equal((await stored(q, "2026-10-02"))?.source, "BOC", q);
+    urls.length = 0;
+    const again = await refreshFx(db, createFxFetcher(get), { today: "2026-10-02" });
+    assert.equal(again.inserted, 0);
+    assert.deepEqual(urls, []);
+  });
+  it("Q-AH14: with PF rows stored, GET /api/dashboard/fx is byte-equal to the reply without them", async () => {
+    await pg.query(`INSERT INTO "user" (id, name, email, "emailVerified") VALUES ('alice', 'alice', 'alice@example.com', false) ON CONFLICT DO NOTHING`);
+    await pg.query("INSERT INTO fx_rates (quote, rate_date, cad_per_unit, source) VALUES ('USD','2026-10-01',1.39,'BOC'),('EUR','2026-10-01',1.6,'BOC'),('DKK','2026-10-01',0.21,'ECB_CROSS')");
+    const without = await fxGet();
+    assert.match(without, /"rates":\[/, without);
+    for (const q of PF) await pg.query("INSERT INTO fx_rates (quote, rate_date, cad_per_unit, source) VALUES ($1,'2026-10-01',1.5,'BOC')", [q]);
+    const withPf = await fxGet();
+    assert.equal(withPf, without, withPf);
+    assert.deepEqual((JSON.parse(withPf).rates as { quote: string }[]).map((r) => r.quote).sort(), ["DKK", "EUR", "USD"]);
   });
 });

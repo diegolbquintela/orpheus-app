@@ -24,6 +24,21 @@ export const BOC_SERIES: Record<string, string> = {
   SEK: "FXSEKCAD",
   PLN: "FXPLNCAD",
 };
+/**
+ * #170 Q-AH12 (EL): Personal Finance currencies the daily job also fetches from BoC (kept for PF historical FX).
+ * Not dashboard currencies: holdings in them stay unsupported, and GET /api/dashboard/fx never lists them (Q-AH14).
+ */
+export const PF_BOC_SERIES: Record<string, string> = {
+  GBP: "FXGBPCAD",
+  BRL: "FXBRLCAD",
+  MXN: "FXMXNCAD",
+  CHF: "FXCHFCAD",
+  JPY: "FXJPYCAD",
+  AUD: "FXAUDCAD",
+  CNY: "FXCNYCAD",
+};
+/** Every series the job can request (dashboard + PF). */
+export const BOC_FETCH_SERIES: Record<string, string> = { ...BOC_SERIES, ...PF_BOC_SERIES };
 /** EU listing currencies the BoC doesn't publish: CAD per X = BoC FXEURCAD ÷ ECB X-per-EUR (same date). */
 export const ECB_CROSS: readonly string[] = ["DKK", "HUF", "CZK"];
 /** Always fetched: the non-CAD bases. */
@@ -55,7 +70,7 @@ export function parseBocValet(json: unknown, quotes: string[]): BocDay[] {
     if (!isCalendarDate(date)) continue;
     const rates: Record<string, string> = {};
     for (const q of quotes) {
-      const v = (o[BOC_SERIES[q]] as { v?: unknown } | undefined)?.v;
+      const v = (o[BOC_FETCH_SERIES[q]] as { v?: unknown } | undefined)?.v;
       if (typeof v === "string" && /^\d+(\.\d+)?$/.test(v) && Number(v) > 0) rates[q] = v;
     }
     if (Object.keys(rates).length) out.push({ date, rates });
@@ -91,7 +106,7 @@ async function fetchText(url: string): Promise<string> {
 export function createFxFetcher(get: (url: string) => Promise<string> = fetchText): FxFetcher {
   return {
     async boc(quotes, start, end) {
-      const series = quotes.map((q) => BOC_SERIES[q]).join(",");
+      const series = quotes.map((q) => BOC_FETCH_SERIES[q]).join(",");
       let text: string;
       try {
         text = await get(`${BOC_URL}/${series}/json?start_date=${start}&end_date=${end}`);
@@ -143,7 +158,8 @@ export async function heldCurrencies(db: Queryable): Promise<string[]> {
 export async function refreshFx(db: Queryable, fetcher: FxFetcher, opts: { today: string }): Promise<FxSummary> {
   const held = await heldCurrencies(db);
   const wanted = [...new Set([...ALWAYS, ...held])].filter((c) => c !== "CAD");
-  const boc = wanted.filter((c) => BOC_SERIES[c]);
+  // #170 Q-AH12: plus the PF quotes, every day (cron and vercel.json unchanged).
+  const boc = [...wanted.filter((c) => BOC_SERIES[c]), ...Object.keys(PF_BOC_SERIES).filter((c) => !wanted.includes(c))];
   const cross = wanted.filter((c) => ECB_CROSS.includes(c));
   const summary: FxSummary = {
     inserted: 0,
@@ -227,6 +243,9 @@ export async function rateOnOrBefore(db: Queryable, quote: string, date: string)
   const r = rows[0];
   return r ? { quote, cadPerUnit: r.cad_per_unit, rateDate: r.rate_date, source: r.source } : null;
 }
+
+/** #170 Q-AH14: the quotes GET /api/dashboard/fx lists (the dashboard's own; never the PF-only quotes). */
+export const DASHBOARD_FX_QUOTES: readonly string[] = [...Object.keys(BOC_SERIES), ...ECB_CROSS];
 
 /** Every stored quote's rate on or before `date` (for `GET /api/dashboard/fx` and the FX note). */
 export async function ratesOnOrBefore(db: Queryable, date: string): Promise<RateUsed[]> {

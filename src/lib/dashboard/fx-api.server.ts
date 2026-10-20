@@ -6,7 +6,7 @@
  * year >= 1) is 400 before any database access. Lets QA compare stored values with BoC Valet (DASH-11).
  */
 import { isCalendarDate } from "./dates.ts";
-import { ratesOnOrBefore } from "./fx.server.ts";
+import { DASHBOARD_FX_QUOTES, ratesOnOrBefore } from "./fx.server.ts";
 import {
   badRequest,
   dashboardJson as json,
@@ -29,7 +29,8 @@ export async function handleFxRequest(request: Request, deps: DashboardApiDeps):
   if ("response" in g) return g.response;
   const db = await (deps.getDb ?? defaultGetDb)(deps.env ?? process.env);
   if (!db) return storageUnavailable();
-  const rates = await ratesOnOrBefore(db, date);
+  // #170 Q-AH14: only the dashboard quotes, so PF rows (Q-AH12 job, backfill) never change this output.
+  const rates = (await ratesOnOrBefore(db, date)).filter((r) => DASHBOARD_FX_QUOTES.includes(r.quote));
   return json({
     date,
     unit: "CAD per 1 unit",
