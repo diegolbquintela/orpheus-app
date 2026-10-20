@@ -1196,6 +1196,7 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFEC-05 | MAJOR | `asOf` before the 12-month window → the carried-in level plus the window's surpluses up to the previous month. |
 | PFEC-06 | MAJOR | Q-AI2: anchored value null → status `none` (amounts `—`, no note). |
 | PFEC-07 | MAJOR | Q-AI3: anchored ≤ 0 with a typed start > 0 → `none`; typed start empty / ≤ 0 → `no_start` as today. |
+- #162 PF Charts viewer (added 2026-10-20, Phase 1): spec 47, AC PFCV-01..13, Q-AL1..Q-AL10 NOT built. UI only on existing R3 calls (DELETE already served). AJ7 19-enabled test already in #161.
 | PFEC-08 | MAJOR | Q-AI4: Future on unchanged (typed start gates; projected anchored value computes), pinned. |
 | PFEC-09 | MINOR | Q-AI5: `asOf` after the current month (skewed clock) → `none`. |
 | PFEC-10 | MAJOR | An invalid typed `asOf` (page error) is ignored by the coverage, as by the figures (42.6). |
@@ -1293,3 +1294,21 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 - PFCL-02 (P1): the list's calls are counted before leaving for `/new`: exactly `["GET /api/personal-finance/reports"]`.
 
 **Note (2026-10-20, #161 EL Q1 / Q3; spec 46.14):** PFCB-05 adds that the picker's accounts and categories each equal the server's known set (`missingSeries` finds nothing missing), checked for both kinds. DOM tests render `Travel (deleted)` and `Amex (deleted)` (an account only on a March line) and send the plain ids `Travel` / `Amex`. `Visa`, only on a month line and in neither the shared nor the deleted list, is cleared by the record reader, so the server calls it missing and the picker doesn't offer it.
+
+## PFCV — PF Charts saved report viewer (#162, spec 47; added 2026-10-20; Phase 1, nothing built)
+
+| AC | Severity | Check |
+|----|----------|-------|
+| PFCV-01 | MAJOR | `/personal-finance/charts/<id>` gated like `/charts` (307 signed out with `next=/personal-finance/charts`, `/account`, 403, noindex). |
+| PFCV-02 | MAJOR | List row names link to `/personal-finance/charts/<id>`; the list still makes exactly one GET. |
+| PFCV-03 | MAJOR | The viewer makes one `GET /reports/:id`; picker, range and chart type equal the saved report; the preview is drawn. |
+| PFCV-04 | MAJOR | Unknown or malformed id → `Report not found.` + a link back to Charts. |
+| PFCV-05 | MAJOR | Update is enabled only with unsaved changes; `PUT` refusals show the exact server text. |
+| PFCV-06 | MAJOR | Delete → in-page confirm; Cancel sends nothing; confirm sends one `DELETE` and lands on the list without the report. |
+| PFCV-07 | MAJOR | DELETE 404 → `Report not found.`; other refusals show the server text, and the report stays. |
+| PFCV-08 | MAJOR | The default report shows no Delete. |
+| PFCV-09 | MAJOR | Read grant: no Update, no Delete; export follows Q-AK13. |
+| PFCV-10 | MINOR | `/<id>/edit` still works (alias). |
+| PFCV-11 | MAJOR | CLS 0 on a cold load; 44 px targets; mobile and desktop layout as 46.8; dark style, no gold. |
+| PFCV-12 | MINOR | Builder follow-up AJ7: the #161 test "19 named → New report enabled" still passes (already in `charts-page.dom.test.tsx`). |
+| PFCV-13 | MAJOR | DOM tests in both TZs; signed-out suites green on the preview; QA PASS mobile + desktop. |
