@@ -46,3 +46,40 @@ After the run: every one of the 9 quotes has `oldest = 2020-01-02` and `n` equal
 | Date | Target | Dry-run rows | Inserted | Second run | Checks |
 |---|---|---|---|---|---|
 | | | | | | |
+
+## Addition (2026-10-20, later): HTTPS driver and `--verify`
+
+EL's first `--confirm` from the box failed with `ETIMEDOUT 198.18.0.1:5432`: outbound Postgres (5432) is blocked there. The script now connects with **`@neondatabase/serverless` 1.2.0** (devDependency, pinned, no transitive dependencies) over **HTTPS (443)** instead of `pg` over 5432. The rows and the insert are unchanged: the same batched `INSERT … SELECT FROM unnest(…) ON CONFLICT (quote, rate_date) DO NOTHING RETURNING quote` with the same parameters (tested). The connection string still comes only from the environment (`DATABASE_URL_UNPOOLED`, else `DATABASE_URL`, else the preview integration names); only the variable's name is printed. Logic and tests: `src/lib/finance/fx-backfill-cli.server.ts` (+ `.test.ts`).
+
+Commands (repo root, Node 22+):
+
+```sh
+# 1. fetch only; no database connection at all
+node --experimental-strip-types scripts/pf-fx-backfill.ts --dry-run
+# expected: [pf-fx-backfill] dry run: 15246 BoC rows for USD,EUR,GBP,BRL,MXN,CHF,JPY,AUD,CNY from 2020-01-01 to 2026-10-20; nothing written.
+
+# 2. read-only check before the run (SELECT only): per currency oldest / newest / count
+node --experimental-strip-types scripts/pf-fx-backfill.ts --verify
+
+# 3. write (idempotent)
+node --experimental-strip-types scripts/pf-fx-backfill.ts --confirm
+# expected: [pf-fx-backfill] using DATABASE_URL_UNPOOLED (HTTPS, @neondatabase/serverless)
+#           [pf-fx-backfill] USD,EUR,GBP,BRL,MXN,CHF,JPY,AUD,CNY 2020-01-01..<today>: fetched 15246, inserted <N>.
+# a second --confirm: … fetched <same>, inserted 0.
+
+# 4. read-only check after the run
+node --experimental-strip-types scripts/pf-fx-backfill.ts --verify
+```
+
+`--verify` output after a successful run on 2026-10-20 (USD/EUR `count` can be higher only by rows the daily job stored after the dry run; `newest` is the last BoC business day on or before the run date):
+
+```
+[pf-fx-backfill] using DATABASE_URL_UNPOOLED (HTTPS, @neondatabase/serverless)
+quote | oldest     | newest     | count
+------|------------|------------|------
+AUD   | 2020-01-02 | <last BoC day> | 1694
+BRL   | 2020-01-02 | <last BoC day> | 1694
+…     (CHF CNY EUR GBP JPY MXN USD the same shape)
+```
+
+A currency with no rows prints `—` for both dates and `0`. With no mode flag the script refuses (exit 2) and never connects; `--confirm` / `--verify` with no database URL in the environment exit 2. **SWE has not run `--confirm` or `--verify` against any database**; only the BoC-only `--dry-run` above.
