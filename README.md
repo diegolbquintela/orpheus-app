@@ -685,3 +685,5 @@ Added 2026-10-20 (#170, CFO/QA round): spec 43.8 (three-value `fx_basis` with `f
 Added 2026-10-20 (#170, Phase 2 built; QA G1–G5): spec 43.10/43.11, contract section 13, runbook `docs/release/2026-10-20-pf-fx-backfill.md` (backfill NOT run); AC PFFX-11b, 23b, 27b..30b.
 
 Added 2026-10-20 (#184, AG11; Phase 1, nothing built): spec section 44 (equity coverage on the anchored net assets, Q-AI1..Q-AI8); AC PFEC-01..PFEC-12.
+
+Added 2026-10-20 (#160, PF Charts UI 1/3; built): `/personal-finance/charts` lists saved reports (R3 `GET /api/personal-finance/reports` only; no wire change), `src/components/personal-finance/charts-page.tsx`, `src/lib/finance/reports-list.ts`; spec section 45 (Q-AJ1..Q-AJ12), AC PFCL-01..PFCL-14; QA `qa/tools/personal-finance.mjs` (signed-out redirect) and `personal-finance-e2e.mjs` (signed-in list).

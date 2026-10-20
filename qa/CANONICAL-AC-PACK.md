@@ -1215,3 +1215,36 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFEC-08 | Future on, 5 years, `asOf` 2026-08 | `190.83 CAD/mo (2,290.00 CAD/yr)`, same as before #184 |
 | PFEC-09 | `asOf` 2026-12 | `none` |
 | PFEC-10 | `asOf` `2026-13` (red) | the no-`asOf` line `33.33 CAD/mo (400.00 CAD/yr)`, 3.33% |
+
+## Personal Finance Charts: reports list page (#160; spec section 45; added 2026-10-20; Phase 1: ACs written, nothing built)
+
+UI only on R3 `GET /api/personal-finance/reports`; no wire change. Q-AJ1..Q-AJ12 pending CFO (spec 45.8); ACs below assume the recommendations.
+
+| AC | Severity | Check |
+|----|----------|-------|
+| PFCL-01 | MAJOR | `/personal-finance/charts` signed out → 307 to `/dashboard/sign-in?next=/personal-finance/charts`; temporary password → `/account`; no grant → 403 denied page with no data; `noindex`. |
+| PFCL-02 | MAJOR | The page makes exactly one API request, `GET /api/personal-finance/reports` (no-store), and no write. |
+| PFCL-03 | MAJOR | Rows in server order; each shows name, date, summary. Example: named `Spend`, `updated_at` `2026-10-18T03:30:00Z` → `2026-10-17` (Toronto). |
+| PFCL-04 | MAJOR | Default row shows `—` with accessible name `No date` (null timestamps). |
+| PFCL-05 | MAJOR | Summary: labels `[Rent, Food, Travel, Amex]`, line, `12m` → `Rent, Food, Travel, +1 more · Line · Last 12 months`; `{preset:"all"}` → `All data`; custom → `2025-01 to 2025-12`. |
+| PFCL-06 | MINOR | A deleted series shows the server's label unchanged. |
+| PFCL-07 | MAJOR | Empty list → `No saved reports yet.` + New report. |
+| PFCL-08 | MAJOR | 20 named reports (limit 20) → New report disabled + `Limit of 20 reports reached.`; 19 → enabled (once #161 exists). |
+| PFCL-09 | MAJOR | Read grant → list shown, no New report. |
+| PFCL-10 | MAJOR | Error → server `error` text + `Try again` repeats the single GET. |
+| PFCL-11 | MINOR | Loading line, then list; CLS 0. |
+| PFCL-12 | MINOR | Row names are not links until #162; no rename/delete/export controls. |
+| PFCL-13 | MAJOR | Style: dark theme, lyre, Orpheus Wisdom footer, no gold, `pf-button`; axe clean; mobile 390 px stacked, desktop one line. |
+| PFCL-14 | MAJOR | DOM tests (both TZs) for 03–12; signed-out suites green on the preview; QA PASS mobile + desktop. |
+
+**Note (2026-10-20, #160 CFO decision + QA round 1 M1–M4 + EL rulings; spec 45.9 / 45.10; supersedes the cells above where they differ, nothing removed):**
+- Q-AJ1..Q-AJ12 built on PR #193.
+- PFCL-05 (M2): `3m` `Last 3 months`, `6m` `Last 6 months`, `24m` `Last 24 months`, `ytd` `Year to date`; `bar` → `Bar`, `stacked-bar` → `Stacked bar`; custom stored `{ "from": "2025-01", "to": "2025-12" }` → `2025-01 to 2025-12`.
+- PFCL-06 (M1): a deleted `Travel` series → the server label `Travel (deleted)` shown unchanged.
+- PFCL-08 (M3): 19 named (with or without the default) → New report disabled, note `Builder coming next (#161)`, no limit text; 20 named → disabled, note `Limit of 20 reports reached.` (page-owned copy, spec 45.10).
+- PFCL-10 (M4): GET answers 500 (no JSON) → `HTTP 500`; 500 / 503 `{ "error": "Storage not configured." }` → `Storage not configured.`; plus `Try again`; one click → exactly one more `GET /api/personal-finance/reports`; page not remounted, URL unchanged.
+- **#161 AC (moved here, not built in #160):** with 19 named reports New report is **enabled**; 20 → disabled with `Limit of 20 reports reached.`; a 409 on create shows `Report limit reached.`.
+
+**Note (2026-10-20, #160 QA round 2 N1–N3 + EL; spec 45.11):** PFCL-04 is checked on the accessible text (an `aria-hidden` `—` plus `sr-only` `No date`), not an attribute. PFCL-01 is also checked in `qa/tools/personal-finance.mjs` (signed out). **PFCL-09 is accepted by EL on the DOM test only** (`charts-page.dom.test.tsx`); no live Read-grant check.
+
+**Note (2026-10-20, #160 QA round 3 N4; spec 45.12):** PFCL-13 adds: `pf-charts-link` and `pf-charts-back` are ≥ 44 px tall at 390 px and every other viewport (signed-in `personal-finance-e2e.mjs`; CSS rule pinned in `reports-list.test.ts`).

@@ -301,6 +301,10 @@ try {
   const ac = await fetch(`${base}/account`, { redirect: "manual" });
   const acTo = new URL(ac.headers.get("location") ?? "/x", base);
   check("signed-out /account → 307 /dashboard/sign-in?next=/account (#90 ROLE-02)", ac.status === 307 && acTo.pathname === "/dashboard/sign-in" && acTo.searchParams.get("next") === "/account", [ac.status, ac.headers.get("location")]);
+  // #160 (spec 45, PFCL-01): /personal-finance/charts signed out → sign-in with ?next=/personal-finance/charts, noindex.
+  const ch = await fetch(`${base}/personal-finance/charts`, { redirect: "manual" });
+  const chTo = new URL(ch.headers.get("location") ?? "/x", base);
+  check("signed-out /personal-finance/charts → 307 /dashboard/sign-in?next=/personal-finance/charts, noindex (#160 PFCL-01)", ch.status === 307 && chTo.pathname === "/dashboard/sign-in" && chTo.searchParams.get("next") === "/personal-finance/charts" && /noindex/i.test(ch.headers.get("x-robots-tag") ?? ""), [ch.status, ch.headers.get("location"), ch.headers.get("x-robots-tag")]);
   // #90 D1 (ROLE-01): the 11 px edge: 11 px at 399 px, 12 px at 400 px; `Personal Finance` on one line at both.
   for (const [w, want] of [[399, 11], [400, 12]]) {
     const pg = await browser.newPage({ viewport: { width: w, height: 800 } });
