@@ -394,7 +394,10 @@ function Shell({ readOnly, children }: { readOnly: boolean; children: React.Reac
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
         </header>
-        {children}
+        {/* QA P2: one reserved area for loading, error and the builder (CLS 0 on a cold load). */}
+        <div className="pf-builder-area" data-testid="pf-builder-area">
+          {children}
+        </div>
       </main>
     </div>
   );

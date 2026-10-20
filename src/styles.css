@@ -756,17 +756,19 @@
   .pf-builder-export > summary { list-style: none; }
   .pf-builder-export > summary::-webkit-details-marker { display: none; }
   .pf-builder-link { display: inline-flex; min-height: 2.75rem; align-items: center; color: var(--color-chalk); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 3px; }
-  .pf-builder-main { min-height: 60vh; display: flex; flex-direction: column; }
-  .pf-builder-figure { display: flex; flex: 1; flex-direction: column; gap: 0.75rem; margin: 0; }
+  /* #161 QA P2 / EL (2026-10-20): reserved layout so a cold load has CLS 0: the builder area fills the screen while
+     loading (the footer starts below the fold), the preview keeps its height for every state, the figure ≥ 60vh. */
+  .pf-builder-area { min-height: 100vh; }
+  .pf-builder-main { min-height: calc(60vh + 3.5rem); display: flex; flex-direction: column; }
+  .pf-builder-figure { display: flex; flex: 1; flex-direction: column; gap: 0.75rem; margin: 0; min-height: 60vh; }
   .pf-builder-plot { height: 60vh; min-height: 16rem; }
-  .pf-builder-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.8125rem; color: var(--color-dim); }
+  .pf-builder-legend { min-height: 2.5rem; align-content: flex-start; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.8125rem; color: var(--color-dim); }
   .pf-builder-legend > li { display: inline-flex; align-items: center; gap: 0.375rem; }
   .pf-builder-swatch { width: 0.75rem; height: 0.125rem; display: inline-block; }
   @media (min-width: 768px) {
     .pf-builder { display: grid; grid-template-columns: 18rem minmax(0, 1fr); align-items: start; gap: 2rem; }
     .pf-builder-toggle[aria-controls="pf-builder-series"] { display: none; }
     .pf-builder-series { display: flex; }
-    .pf-builder-plot { height: 28rem; }
   }
   .pf-cancel {
     display: inline-flex;

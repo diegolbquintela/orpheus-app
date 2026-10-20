@@ -398,6 +398,8 @@ try {
         await cp.locator("[data-testid=pf-charts-list], [data-testid=pf-charts-empty], [data-testid=pf-charts-error]").first().waitFor();
         const ch = await cp.evaluate(() => ({ title: document.title, newTag: document.querySelector("[data-testid=pf-charts-new]")?.tagName ?? null, newHref: document.querySelector("[data-testid=pf-charts-new]")?.getAttribute("href") ?? null, newH: Math.round(document.querySelector("[data-testid=pf-charts-new]")?.getBoundingClientRect().height ?? 0), placeholder: document.body.textContent.includes("Builder coming next"), links: document.querySelectorAll("[data-testid=pf-charts-list] a, [data-testid=pf-charts-list] button").length, error: document.querySelector("[data-testid=pf-charts-error]") !== null, back: document.querySelector("[data-testid=pf-charts-back]")?.getAttribute("href"), backH: Math.round(document.querySelector("[data-testid=pf-charts-back]")?.getBoundingClientRect().height ?? 0), scroll: document.documentElement.scrollWidth - window.innerWidth }));
         const reportCalls = calls.filter((c) => c.includes("/api/personal-finance/report"));
+        // #161 QA P1: freeze the list tab's calls before navigating to /new (the listener keeps recording after it).
+        const listCalls = [...calls];
         await cp.screenshot({ path: join(CFG.out, `e2e-charts-${viewport.width}.png`) });
         // #161 (spec 46; PFCB-05 / 10 / 18; tap targets): the builder from New report. Read-only here: one pick → one
         // POST /chart preview (stores nothing); no Save, so the QA account keeps no report.
@@ -431,9 +433,35 @@ try {
         const narrow = viewport.width < 768;
         check(`${tag} PFCB-05/10/18 (#161) builder: Metrics + Groups listed, one pick → POST /chart preview, Save (no export until saved), no write; ${narrow ? "chart ≥ 60vh" : "side panel"}; no horizontal scroll`, b.sections[0] === "Metrics" && b.sections[1] === "Groups" && chartPosts.length >= 1 && b.figure && b.save === "Save" && !b.exportShown && !bcalls.some((c) => /^(PUT|DELETE) |^POST \/api\/personal-finance\/reports/.test(c)) && (!narrow || b.plotH >= Math.floor(b.vh * 0.6) - 1) && b.scroll <= 0 && b.title === "New report · Charts · Orpheus Wisdom", { b, bcalls });
         check(`${tag} #161 tap targets: every builder control ≥ 44 px tall`, b.small.length === 0, b.small);
+        // #161 QA P2: cold loads of /new and of an edit page have CLS 0 (every viewport, 390 px included). The edit
+        // page needs a saved report: the QA account's own default is written here and deleted after (QA account only;
+        // refuseIfProd already ran).
+        {
+          const api = `${base}/api/personal-finance/reports/default`;
+          const put = await page.context().request.put(api, { data: { report: { series: [{ kind: "metric", id: "income" }, { kind: "group", id: "all" }], range: { preset: "12m" }, chart: "line" } } });
+          const cls = {};
+          try {
+            for (const path of ["/personal-finance/charts/new", "/personal-finance/charts/default/edit"]) {
+              const bp = await page.context().newPage();
+              await bp.setViewportSize(viewport);
+              await bp.addInitScript(() => {
+                window.__cls = 0;
+                new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls += e.value; }).observe({ type: "layout-shift", buffered: true });
+              });
+              await bp.goto(`${base}${path}`, { waitUntil: "networkidle" });
+              await bp.locator("[data-testid=pf-builder-figure], [data-testid=pf-builder-problem], [data-testid=pf-builder-preview-error], [data-testid=pf-builder-load-error]").first().waitFor({ timeout: 15000 }).catch(() => {});
+              await bp.waitForTimeout(1000);
+              cls[path] = await bp.evaluate(() => ({ cls: Math.round(window.__cls * 10000) / 10000, ready: !!document.querySelector("[data-testid=pf-builder]"), figure: !!document.querySelector("[data-testid=pf-builder-figure]") }));
+              await bp.close();
+            }
+          } finally {
+            await page.context().request.delete(api);
+          }
+          check(`${tag} #161 QA P2: cold load CLS 0 on /new and on /default/edit (preview drawn)`, put.status() === 200 && Object.values(cls).every((c) => c.cls === 0 && c.ready) && cls["/personal-finance/charts/default/edit"].figure, { put: put.status(), cls });
+        }
         // #160 QA N4 (EL tap-target rule): both links ≥ 44 px tall at every viewport.
         check(`${tag} N4 (#160) tap targets: pf-charts-link ${Math.round(linkBox?.height ?? 0)} px, pf-charts-back ${ch.backH} px, both ≥ 44`, (linkBox?.height ?? 0) >= 44 && ch.backH >= 44, { link: linkBox, backH: ch.backH });
-        check(`${tag} PFCL-02/08/12 (#160) Charts: one GET /api/personal-finance/reports, no write, New report enabled → /new (#161 PFCB-02/03), rows not links, linked both ways`, href === "/personal-finance/charts" && JSON.stringify(reportCalls) === JSON.stringify(["GET /api/personal-finance/reports"]) && !calls.some((c) => !c.startsWith("GET ")) && ch.newTag === "A" && ch.newHref === "/personal-finance/charts/new" && ch.newH >= 44 && !ch.placeholder && ch.links === 0 && !ch.error && ch.back === "/personal-finance" && ch.scroll <= 0 && ch.title === "Charts · Personal Finance · Orpheus Wisdom", { href, calls, ch });
+        check(`${tag} PFCL-02/08/12 (#160) Charts: one GET /api/personal-finance/reports, no write, New report enabled → /new (#161 PFCB-02/03), rows not links, linked both ways`, href === "/personal-finance/charts" && JSON.stringify(reportCalls) === JSON.stringify(["GET /api/personal-finance/reports"]) && !listCalls.some((c) => !c.startsWith("GET ")) && ch.newTag === "A" && ch.newHref === "/personal-finance/charts/new" && ch.newH >= 44 && !ch.placeholder && ch.links === 0 && !ch.error && ch.back === "/personal-finance" && ch.scroll <= 0 && ch.title === "Charts · Personal Finance · Orpheus Wisdom", { href, listCalls, ch });
       }
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });

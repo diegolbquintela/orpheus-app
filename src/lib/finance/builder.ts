@@ -1,6 +1,6 @@
 // #161 (spec 46, Q-AK1..Q-AK15): pure helpers for the Charts report builder. The checks mirror the server's
 // validators by calling them (report.ts / reports.ts are shared client + server); the server stays the authority.
-import { readExpenses } from "./expenses.ts";
+import { deletedLabel, isDeleted, readExpenses } from "./expenses.ts";
 import { readMonths } from "./months.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import { GROUP_IDS, METRIC_IDS, SERIES_MAX, reportError, type ChartType, type Report, type ReportRange, type Series } from "./report.ts";
@@ -24,19 +24,25 @@ export const GROUP_LABEL: Record<(typeof GROUP_IDS)[number], string> = { fixed: 
 export type Option = { series: Series; label: string };
 export type Section = { title: string; options: Option[] };
 
-/** Q-AK2: the picker's sections. Lines, accounts and categories come from the record (shared + every month's lines). */
+/**
+ * Q-AK2 + QA P3 / EL (2026-10-20): the picker offers exactly the server's known set (`missingSeries`, report.ts): lines
+ * = the shared lines plus every month's lines; accounts / categories = the shared lists plus any name on those lines. A
+ * deleted account or category still on an earlier month's line is offered, labelled `<name> (deleted)` (as #160 / R3).
+ */
 export function pickerSections(record: PfRecord | null): Section[] {
   const store = new RecordStore(record ?? {});
   const shared = readExpenses(store);
+  const all = [...shared.fixed, ...shared.variable, ...Object.values(readMonths(store)).flatMap((m) => [...m.fixed, ...m.variable])];
   const lines = new Map<string, string>();
-  for (const l of [...Object.values(readMonths(store)).flatMap((m) => [...m.fixed, ...m.variable]), ...shared.fixed, ...shared.variable])
-    if (l.id) lines.set(l.id, l.name.trim() || l.id);
-  const uniq = (xs: string[]) => [...new Set(xs.filter((x) => x.trim() !== ""))];
+  for (const l of all) if (l.id && !lines.has(l.id)) lines.set(l.id, l.name.trim() || l.id);
+  const uniq = (xs: string[]) => [...new Set(xs.filter((x) => typeof x === "string" && x.trim() !== ""))];
+  const named = (kind: "account" | "category", ids: string[]): Option[] =>
+    uniq(ids).map((id) => ({ series: { kind, id }, label: isDeleted(shared, kind, id) ? deletedLabel(id) : id }));
   return [
     { title: "Metrics", options: METRIC_IDS.map((id) => ({ series: { kind: "metric", id }, label: METRIC_LABEL[id] })) },
     { title: "Groups", options: GROUP_IDS.map((id) => ({ series: { kind: "group", id }, label: GROUP_LABEL[id] })) },
-    { title: "Accounts", options: uniq(shared.accounts).map((id) => ({ series: { kind: "account", id }, label: id })) },
-    { title: "Categories", options: uniq(shared.categories).map((id) => ({ series: { kind: "category", id }, label: id })) },
+    { title: "Accounts", options: named("account", [...shared.accounts, ...all.map((l) => l.account)]) },
+    { title: "Categories", options: named("category", [...shared.categories, ...all.map((l) => l.category)]) },
     { title: "Expense lines", options: [...lines].map(([id, label]) => ({ series: { kind: "line", id }, label })) },
   ];
 }

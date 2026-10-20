@@ -222,6 +222,25 @@ describe("#161 Charts builder", () => {
     const up = f.calls.find((c) => c.op === "update")!;
     assert.deepEqual([up.arg, up.arg2], ["default", { report: { series: [{ kind: "metric", id: "income" }, { kind: "metric", id: "surplus" }], range: { preset: "all" }, chart: "line" } }]);
   });
+  it("QA P2: loading, the load error and the builder all render inside the one reserved area", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const f = fakeApi({ record: async () => (await gate, RECORD) });
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => root!.render(<ChartsBuilder now={NOW} debounceMs={0} api={f.api} />));
+    const area = q(container, "pf-builder-area")!;
+    assert.ok(area.contains(q(container, "pf-builder-loading")), "loading inside the area");
+    await act(async () => release());
+    await tick();
+    assert.equal(q(container, "pf-builder-area"), area, "the same area node: nothing above it moves");
+    assert.ok(area.contains(q(container, "pf-builder")));
+    await act(async () => root?.unmount());
+    container.remove();
+    const el = await render({ api: fakeApi().api, id: "r-ffffffff" });
+    assert.ok(q(el, "pf-builder-area")!.contains(q(el, "pf-builder-load-error")));
+  });
   it("edit: an unknown id shows the server's `Report not found.`", async () => {
     const el = await render({ api: fakeApi().api, id: "r-ffffffff" });
     assert.equal(q(el, "pf-builder-load-error")!.textContent, "Report not found.");

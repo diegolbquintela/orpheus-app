@@ -1,8 +1,11 @@
 // #161 (spec 46; PFCB-05..09, PFCB-11): the builder's pure helpers mirror the server validators.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
 import { NAME_RULE, NAME_USED, PICK_ONE, atCap, labelFor, nameProblem, pickerSections, reportProblem, toRange, toggle } from "./builder.ts";
 import { STORAGE_KEY } from "./expenses.ts";
+import { MONTHS_KEY } from "./months.ts";
+import { missingSeries } from "./report.ts";
 import type { Series } from "./report.ts";
 
 const record = {
@@ -70,5 +73,50 @@ describe("#161 builder helpers", () => {
     assert.equal(nameProblem("SPEND", others), NAME_USED);
     assert.equal(nameProblem("Spend", others, "r-00000001"), null, "its own name on update");
     assert.equal(nameProblem("Travel", others), null);
+  });
+  it("QA P3 / EL (PFCB-05): exactly the server's known set; month-line names offered; deleted names offered as `<name> (deleted)`", () => {
+    const line = (id: string, name: string, category = "", account = "") => ({ id, name, amount: "200", per: "month", equity: "", account, currency: "", rate: "", category });
+    const rec = (march: unknown[]) => ({
+      [STORAGE_KEY]: JSON.stringify({ fixed: [line("l-rent", "Rent", "Home")], variable: [], accounts: [], categories: ["Home"], deletedCategories: [{ name: "Travel", from: "2026-06" }], deletedAccounts: [{ name: "Amex", from: "2026-06" }] }),
+      [MONTHS_KEY]: JSON.stringify({ "2026-03": { fixed: march, variable: [], people: [] } }),
+    });
+    const kept = rec([line("l-trip", "Trip", "Travel", "Amex"), line("l-gym", "Gym", "Sport", "Visa")]);
+    const s = pickerSections(kept);
+    assert.deepEqual(s[2].options.map((o) => [o.series, o.label]), [[{ kind: "account", id: "Amex" }, "Amex (deleted)"]]);
+    assert.deepEqual(s[3].options.map((o) => [o.series, o.label]), [[{ kind: "category", id: "Home" }, "Home"], [{ kind: "category", id: "Travel" }, "Travel (deleted)"]]);
+    // A month line naming an unknown account / category (`Visa`, `Sport`) is cleared when the record is read, so the
+    // server calls those series missing and the picker doesn't offer them.
+    assert.deepEqual(missingSeries({ series: [{ kind: "account", id: "Visa" }, { kind: "category", id: "Sport" }, { kind: "line", id: "l-gym" }], range: { preset: "12m" }, chart: "line" }, kept), [0, 1]);
+    assert.deepEqual(s[4].options.map((o) => [o.series.id, o.label]), [["l-rent", "Rent"], ["l-trip", "Trip"], ["l-gym", "Gym"]]);
+    // Parity with the server: every offered series is known (not `missing`) …
+    const offered = s.flatMap((x) => x.options.map((o) => o.series));
+    assert.deepEqual(missingSeries({ series: offered.slice(0, 12), range: { preset: "12m" }, chart: "line" }, kept), []);
+    assert.deepEqual(missingSeries({ series: offered.slice(12), range: { preset: "12m" }, chart: "line" }, kept), []);
+    // … and a deleted name with no history left is not offered (the server would call it missing).
+    const gone = pickerSections(rec([line("l-x", "X")]));
+    assert.deepEqual(gone[2].options, []);
+    assert.deepEqual(gone[3].options.map((o) => o.series.id), ["Home"]);
+    assert.deepEqual(missingSeries({ series: [{ kind: "category", id: "Travel" }], range: { preset: "12m" }, chart: "line" }, rec([line("l-x", "X")])), [0]);
+  });
+});
+
+// #161 QA P2 / EL (2026-10-20, PFCB-18): the reserved sizes behind CLS 0 on a cold load.
+describe("#161 P2 reserved builder layout", () => {
+  const css = readFileSync(new URL("../../styles.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rule = (sel: string, inMedia = false) => {
+    const flat = inMedia ? css : css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, "");
+    return [...flat.matchAll(/([^{}]*)\{([^{}]*)\}/g)].filter(([, s]) => s.split(",").some((x) => x.trim() === sel)).map(([, , b]) => b);
+  };
+  it("area min-height 100vh; preview min-height 60vh + legend; figure ≥ 60vh; plot 60vh; legend reserved", () => {
+    assert.match(rule(".pf-builder-area").join(), /min-height:\s*100vh/);
+    assert.match(rule(".pf-builder-main").join(), /min-height:\s*calc\(60vh \+ 3\.5rem\)/);
+    assert.match(rule(".pf-builder-figure").join(), /min-height:\s*60vh/);
+    assert.match(rule(".pf-builder-plot").join(), /height:\s*60vh/);
+    assert.match(rule(".pf-builder-legend").join(), /min-height:\s*2\.5rem/);
+  });
+  it("no breakpoint lowers them", () => {
+    const media = [...css.matchAll(/@media[^{]*\{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/g)].map((m) => m[1]).join("\n");
+    for (const sel of [".pf-builder-area", ".pf-builder-main", ".pf-builder-figure", ".pf-builder-plot", ".pf-builder-legend"])
+      assert.ok(![...media.matchAll(/([^{}]*)\{([^{}]*)\}/g)].some(([, s, b]) => s.split(",").some((x) => x.trim() === sel) && /height/.test(b)), sel);
   });
 });
