@@ -142,6 +142,8 @@ const totalTexts = (label, wide, v = { share: "—", monthly: "0.00", yearly: "0
 const emptyTexts = (wide) => [
   "01",
   "Personal Finance.",
+  // #160 (spec 45, Q-AJ1; QA N2 2026-10-20): the Charts link under the title.
+  "Charts",
   // #112 (PF-48): the month control (the select's own text is not counted); #163 (PFM-12): Month and Year.
   "Month",
   "Year",
@@ -386,6 +388,11 @@ try {
     const body = await r.text();
     const to = new URL(r.headers.get("location") ?? "/x", base);
     check("PF-33 signed out: GET /personal-finance → 307 /dashboard/sign-in?next=/personal-finance, no page copy", r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === PATH && !/pf-area|Personal Finance\./.test(body), [r.status, r.headers.get("location")]);
+    // #160 (spec 45, PFCL-01; QA N2): the Charts page has the same gate: 307 to sign-in with ?next=/personal-finance/charts, noindex, no page copy.
+    const cr = await fetch(`${base}/personal-finance/charts`, { redirect: "manual" });
+    const cbody = await cr.text();
+    const cto = new URL(cr.headers.get("location") ?? "/x", base);
+    check("PFCL-01 signed out: GET /personal-finance/charts → 307 /dashboard/sign-in?next=/personal-finance/charts, noindex, no page copy", cr.status === 307 && cto.pathname === "/dashboard/sign-in" && cto.searchParams.get("next") === "/personal-finance/charts" && /noindex/i.test(cr.headers.get("x-robots-tag") ?? "") && !/pf-charts|Saved reports/.test(cbody), [cr.status, cr.headers.get("location"), cr.headers.get("x-robots-tag")]);
     const calls = [];
     // #157 F7: on production (signed-out prod mode) only the GET is sent.
     for (const method of GUARD.signedOutProd ? ["GET"] : ["GET", "PUT", "DELETE", "POST"]) {

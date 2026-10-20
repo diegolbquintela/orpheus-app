@@ -45,13 +45,21 @@ describe("#160 Charts reports list", () => {
     const el = await render({ load });
     assert.equal(calls.n, 1);
     assert.deepEqual(qa(el, "pf-charts-name").map((n) => n.textContent), ["Default", "Spend", "All", "Custom"]);
-    assert.deepEqual(qa(el, "pf-charts-date").map((n) => n.textContent), ["—", "2026-10-17", "2026-10-01", "2026-10-01"]);
+    assert.deepEqual(qa(el, "pf-charts-date").map((n) => n.textContent), ["—No date", "2026-10-17", "2026-10-01", "2026-10-01"]);
     assert.deepEqual(qa(el, "pf-charts-summary").map((n) => n.textContent), ["Line · Last 12 months", "Rent, Food, Travel, +1 more · Line · Last 12 months", "Net assets · Bar · All data", "Stacked bar · 2025-01 to 2025-12"]);
   });
-  it("PFCL-04: the default's date is — with the accessible name No date", async () => {
+  it("PFCL-04 (QA N1): the default's date shows — (aria-hidden) and reads No date (sr-only)", async () => {
     const el = await render({ load: async () => ok({ limit: 20, reports: [DEFAULT] }) });
-    const dash = q(el, "pf-charts-date")!.firstElementChild!;
-    assert.equal(dash.getAttribute("aria-label"), "No date");
+    // QA N1: assert what assistive tech gets (text not hidden from it), not an attribute. jsdom has no a11y tree, so:
+    // the accessible text = text of nodes not under aria-hidden; the visible dash is aria-hidden; "No date" is sr-only.
+    const date = q(el, "pf-charts-date")!;
+    const accessible = (n: Node): string =>
+      n.nodeType === 3 ? n.textContent ?? "" : (n as Element).getAttribute?.("aria-hidden") === "true" ? "" : [...n.childNodes].map(accessible).join("");
+    assert.equal(accessible(date), "No date");
+    const hidden = [...date.querySelectorAll("[aria-hidden=true]")].map((n) => n.textContent);
+    assert.deepEqual(hidden, ["—"]);
+    assert.equal(date.querySelector(".sr-only")?.textContent, "No date");
+    assert.equal(date.textContent, "—No date");
   });
   it("PFCL-06 (QA M1): deleted Travel → the server label Travel (deleted), unchanged", async () => {
     const el = await render({ load: async () => ok({ limit: 20, reports: [item("x", { deleted: [0], labels: [deletedLabel("Travel")] })] }) });

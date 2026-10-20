@@ -111,7 +111,13 @@ export function ChartsPage({
                         {r.name}
                       </span>
                       <span className="pf-charts-date" data-testid="pf-charts-date">
-                        {day ?? <span aria-label={NO_DATE}>—</span>}
+                        {day ?? (
+                          // QA N1: aria-label on a plain span is ignored; the dash is hidden, the text is read.
+                          <>
+                            <span aria-hidden="true">—</span>
+                            <span className="sr-only">{NO_DATE}</span>
+                          </>
+                        )}
                       </span>
                       <span className="pf-charts-summary" data-testid="pf-charts-summary">
                         {seriesSummary(r)}

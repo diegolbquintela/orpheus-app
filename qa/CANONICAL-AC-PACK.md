@@ -1244,3 +1244,5 @@ UI only on R3 `GET /api/personal-finance/reports`; no wire change. Q-AJ1..Q-AJ12
 - PFCL-08 (M3): 19 named (with or without the default) → New report disabled, note `Builder coming next (#161)`, no limit text; 20 named → disabled, note `Limit of 20 reports reached.` (page-owned copy, spec 45.10).
 - PFCL-10 (M4): GET answers 500 (no JSON) → `HTTP 500`; 500 / 503 `{ "error": "Storage not configured." }` → `Storage not configured.`; plus `Try again`; one click → exactly one more `GET /api/personal-finance/reports`; page not remounted, URL unchanged.
 - **#161 AC (moved here, not built in #160):** with 19 named reports New report is **enabled**; 20 → disabled with `Limit of 20 reports reached.`; a 409 on create shows `Report limit reached.`.
+
+**Note (2026-10-20, #160 QA round 2 N1–N3 + EL; spec 45.11):** PFCL-04 is checked on the accessible text (an `aria-hidden` `—` plus `sr-only` `No date`), not an attribute. PFCL-01 is also checked in `qa/tools/personal-finance.mjs` (signed out). **PFCL-09 is accepted by EL on the DOM test only** (`charts-page.dom.test.tsx`); no live Read-grant check.

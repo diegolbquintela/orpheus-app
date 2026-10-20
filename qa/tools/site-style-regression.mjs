@@ -107,7 +107,8 @@ const PAGES = [
       // #131 (Q-W7): the two Withdrawal rate description lines before `Withdrawal rate (%)`.
       // #87: the Household currency select (its label; a closed select's options are not on screen) above Income.
       // #112 / #163 (PFM-12): the month control's labels, Month and Year, under the title.
-      return ["01", "Personal Finance.", "Month", "Year", "Household currency", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate used to calculate how much equity can cover expenses.", "Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total"), ...overview];
+      // #160 (QA N2): "Charts", the link under the title.
+      return ["01", "Personal Finance.", "Charts", "Month", "Year", "Household currency", "02", "Income", "↳ Add person", "Income table", ...net, "03", "Expenses", "Withdrawal rate used to calculate how much equity can cover expenses.", "Rate Used is the lower of your Withdrawal Rate or half of Portfolio ROIC.", "Withdrawal rate (%)", "Portfolio ROIC (%)", "Rate used", "—", "Fixed", "↳ Add expense", ...total("Fixed total"), "Variable", "↳ Add expense", ...total("Variable total"), ...total("Total"), ...overview];
     },
   },
 ];
