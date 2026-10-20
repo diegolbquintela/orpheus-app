@@ -1352,3 +1352,42 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | PFDU-07 | MAJOR | Delete buttons ≥ 44 px at 390 px; CLS 0 on cold load; no gold; existing dark style. | e2e / hand check |
 | PFDU-08 | MAJOR | Regression: PFD-15's `deleteUi={false}` path still renders no buttons; PFCV-01..17, PFCB, PFCL still pass. | all suites |
 | PFDU-09 | MAJOR | Gates in both TZs; signed-out suites green on the preview; QA PASS mobile + desktop; CFO re-confirm (Q-AM6). | gates, QA |
+
+**PFDU concrete checks (2026-10-20, QA T2 / T4 on b89b42c and the build; spec 48.6–48.7; the table above is unchanged; PFDU-09 is rewritten here).**
+- **Viewports:** 390×844, 768×1024, 1440×900.
+- **Fixture F**, the record `pf-months.mjs` / DOM tests use: shared `accounts: ["Chase", "Amex"]`, `categories: ["Home", "Travel"]`; stored months `2026-03` with a fixed line `t` 200, category `Travel`, account `Amex`, and `2026-10` with a line `h` 100, `Home` / `Chase`.
+- **Test ids:**
+  - `pf-delete-category`, `pf-delete-account`, `pf-rename-category`
+  - `pf-filter` (By category), `pf-acct-filter`
+  - `pf-month-year` + `pf-month` (month picker), `pf-month-save`
+  - `pf-category` / `pf-account` (a line's selects), `pf-cat-name` (summary rows)
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFDU-01 | BLOCKER | `flags.ts`: `PF_DELETE_UI = true`; no env var or Vercel setting. The DOM default follows it (`pf-delete-category` count 1 when the page has a category). | `expenses-page.dom.test.tsx` PFD-15, PFDU-05 |
+| PFDU-02 | BLOCKER | Owner / Write, F, month 2026-10, `pf-filter` = Travel → exactly one `pf-delete-category` (text `Delete category`). `pf-acct-filter` = Amex → one `pf-delete-account` (`Delete account`). At all three viewports. | DOM; `pf-months.mjs` (Delete flow runs, not SKIPPED) |
+| PFDU-03 | BLOCKER | Click `pf-delete-category` (Travel) → `window.confirm` text exactly `Delete Travel? This month and later months lose it; earlier months keep it, marked (deleted).`. **Cancel** → no network request, the page is unchanged, and Save stays hidden. **OK** → an unsaved change; nothing is sent until `pf-month-save`, then exactly one `PUT /api/personal-finance`. | DOM; pf-months |
+| PFDU-04 | BLOCKER | Worked example (Travel, `from` 2026-06): delete Travel on 2026-06 and Save. Then 2026-03's line `pf-category` shows value `Travel`, option text `Travel (deleted)`, and `pf-cat-name` lists `Travel (deleted)`. 2026-06 and later have no Travel; Travel is not offered in `pf-filter` or on other lines. Every month's totals and averages equal their before values. Report GET (series category Travel) → `labels: ["Travel (deleted)"]`, `deleted: [0]`. PFD-01..PFD-14 pass. | DOM; `deleted.test.ts`; `reports.server.test.ts`; pf-months |
+| PFDU-05 | BLOCKER | Read grant (`readOnly`), F → `pf-delete-category` count **0** and `pf-delete-account` count **0**; the text `Delete category` / `Delete account` is absent; no confirm text. Server: `PUT /api/personal-finance` → 403 `Forbidden.`. | DOM PFDU-05; `roles.mjs` ROLE-10 |
+| PFDU-06 | MAJOR | `/personal-finance/charts/default` → no `pf-builder-delete` (#162 Q-AL7). | `charts-builder.dom.test.tsx` PFCV-08 |
+| PFDU-07 | MAJOR | (EL T4 / CFO Q-AM8) Both Delete buttons have class `pf-button pf-button-danger pf-delete` (no longer `pf-cancel pf-rename`): `color` and `border-color` = `--color-danger` (`rgb(255, 65, 54)`), background transparent, height ≥ 44 px at 390 px; disabled → `--color-dim`. Cold load of `/personal-finance` CLS 0. No gold; AA contrast (axe). | DOM (class); hand check + screenshots at 390 / 768 / 1440 |
+| PFDU-08 | MAJOR | Regression: `deleteUi={false}` still renders 0 buttons and no confirm (PFD-15). PFCV-01..17, PFCB-01..21 and PFCL-01..14 still pass. | DOM, server |
+| PFDU-09 | MAJOR | (rewritten, testable) Under TZ=UTC and TZ=America/Los_Angeles: `npx tsc --noEmit` exit 0; `npx eslint .` 0 errors; `npm test` has 0 `not ok`; `npx vite build` exit 0. Signed-out suites exit 0 on the hash preview with these counts: site-style-regression 258/258, site-shell 319/319, personal-finance-e2e 9/9, personal-finance 9/9, pf-series-api / pf-chart-api / pf-export-api / pf-report-api / pf-reports-api 1/1 each, pf-months 0/0, pf-charts-contract 23/23. QA PASS at all three viewports. | gates; suites; QA |
+| PFDU-10 | BLOCKER | (CFO Q-AM7) F with Travel and Amex deleted (`from` 2026-06): re-add `travel` (category) and `AMEX` (account). The live names take the deleted spelling (`Travel`, `Amex`); `deletedCategories` / `deletedAccounts` are empty; the stored months value is **byte-identical** to before; report `labels: ["Travel", "Amex"]`, `deleted: []`, `missing: []`. | `relink.server.test.ts` (PGlite, UTC + LA); mutation caught |
+
+**PFDU-Z: Q-Z1..Q-Z12 for the CFO's sign-off (2026-10-20, CFO Q-AM6).** QA runs these on the preview as the owner, with fixture F, and takes a screenshot of each at 390 and 1440. "Delete X" means: pick X in the bar, click Delete, OK, then `pf-month-save`.
+
+| Step | Q-Z | Do | Expect (exact) |
+|------|-----|----|----------------|
+| Z1 | Q-Z1 label | Month 2026-06: Delete Travel. Open 2026-03. | The line's category reads `Travel (deleted)`; By category shows `Travel (deleted)`. |
+| Z2 | Q-Z2 confirm | 2026-10: pick Home, click `Delete category`, then Cancel. | Confirm text `Delete Home? This month and later months lose it; earlier months keep it, marked (deleted).`; after Cancel, Home is still there and nothing is sent. |
+| Z3 | Q-Z3 not pickable | After Z1, 2026-10: open a line's category select and `pf-filter`. | No `Travel` option; the 2026-03 line still shows its own `Travel (deleted)`. |
+| Z4 | Q-Z4 re-add | Add category `travel`; Save. | The live list shows `Travel`; 2026-03 shows `Travel` (no suffix); 2026-06+ lines that lost it stay without it. |
+| Z5 | Q-Z5 later months | Delete Amex on 2026-03 (an earlier month), with 2026-10 stored. | 2026-03 and 2026-10 lose Amex; months before 2026-03 keep `Amex (deleted)`. |
+| Z6 | Q-Z6 rename to deleted | With Travel deleted, rename Home to `Travel`. | Refused with `That name was deleted. Add it again to restore it.` |
+| Z7 | Q-Z7 copies | With Travel deleted from 2026-06, `Copy from current month` into 2026-07, and into 2026-03. | 2026-07 has no Travel; the 2026-03 copy keeps it. |
+| Z8 | Q-Z8 report | Report with series category Travel (deleted). | GET → `labels: ["Travel (deleted)"]`, `deleted: [0]`; past data still charted. |
+| Z9 | Q-Z9 current month | On the current month, Delete Home. | Every earlier month keeps `Home (deleted)`; saving an earlier month keeps it on its lines. |
+| Z10 | Q-Z10 Read-only (changed by Q-AM3) | Sign in as a Read grant. | **No** Delete buttons (hidden); Rename disabled. |
+| Z11 | Q-Z11 option B | Not built. | There is no "is used in N months" block; deleting works as Z1. |
+| Z12 | Q-Z12 renames then deletes | In one Save: rename Home to `House`, Delete Travel. | Every month shows `House`; Travel follows Z1. |

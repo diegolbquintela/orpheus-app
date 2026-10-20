@@ -5,4 +5,4 @@
  * (deleted names read back on earlier months, `(deleted)` labels for existing data, report `deleted` / `labels`) and
  * every test stay. Flip it in one commit.
  */
-export const PF_DELETE_UI = false;
+export const PF_DELETE_UI = true; // #168 (CFO Q-AM1, 2026-10-20): on. Read grants never see it (Q-AM3, expenses-page.tsx).
