@@ -1338,3 +1338,17 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 
 | PFCV-17 | BLOCKER | (CFO decision 2) No write check on `/series`, `/chart`, `/export`. A Read-grant `GET /reports/default/export?format=pdf|png` → 200 plus one `pf.report_export` audit row each. With audit writes failing → 503 `{ "error": "Export unavailable. Try again." }`, no `Content-Disposition`, no row. | `export.server.test.ts` (PGlite, UTC + LA); signed-in QA |
 **Note (2026-10-20, EL ruling on QA S1 at 5575a6c; the rows above are unchanged):** "Where" for PFCV-04, PFCV-06, PFCV-08 and PFCV-11 is now **DOM tests + hand check** (`charts-builder.dom.test.tsx`; QA ran 23/23 by hand on the preview). No signed-in e2e check is added to `personal-finance-e2e.mjs` for them. EL accepts PFCV-17 and the non-owner Write grant as covered by code, tests and mutation checks (as PFCB-17). S3: `pf-report-api.mjs` PFR-14 and `pf-reports-api.mjs` PFRC-12 now expect a Read CFO's writes → 403 `Forbidden.`, row unchanged, no restore step.
+
+## PFDU — PF Delete buttons on (#168, spec 48; added 2026-10-20; Phase 1, nothing built)
+
+| AC | Severity | Check | Where |
+|----|----------|-------|-------|
+| PFDU-01 | BLOCKER | `src/lib/finance/flags.ts` has `PF_DELETE_UI = true` (code constant); no env var and no Vercel setting is added. | code review; `expenses-page.dom.test.tsx` PFD-15 (default follows the constant) |
+| PFDU-02 | BLOCKER | Write grant / owner: `Delete category` beside `Rename` and `Delete account` beside `Filter by account` are visible on mobile 390×844 and desktop 1280×800. | DOM; `pf-months.mjs` (Delete flow no longer SKIPPED) |
+| PFDU-03 | BLOCKER | The confirm text is exactly `Delete <name>? This month and later months lose it; earlier months keep it, marked (deleted).`; Cancel → no change. | DOM; pf-months |
+| PFDU-04 | BLOCKER | PFD-01..PFD-14 pass with the UI on: earlier months show `<name> (deleted)`, totals and averages unchanged, report `deleted[]`. | DOM, server, pf-months |
+| PFDU-05 | BLOCKER | Read grant: no `Delete category` / `Delete account` in the DOM (hidden, not just disabled); `PUT /api/personal-finance` → 403. | DOM; `roles.mjs` ROLE-10 |
+| PFDU-06 | MAJOR | The Charts default report still has no Delete (#162 Q-AL7 unchanged). | `charts-builder.dom.test.tsx` PFCV-08 |
+| PFDU-07 | MAJOR | Delete buttons ≥ 44 px at 390 px; CLS 0 on cold load; no gold; existing dark style. | e2e / hand check |
+| PFDU-08 | MAJOR | Regression: PFD-15's `deleteUi={false}` path still renders no buttons; PFCV-01..17, PFCB, PFCL still pass. | all suites |
+| PFDU-09 | MAJOR | Gates in both TZs; signed-out suites green on the preview; QA PASS mobile + desktop; CFO re-confirm (Q-AM6). | gates, QA |
