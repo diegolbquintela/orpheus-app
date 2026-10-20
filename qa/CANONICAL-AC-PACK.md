@@ -1201,3 +1201,5 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFEC-10 | MAJOR | An invalid typed `asOf` (page error) is ignored by the coverage, as by the figures (42.6). |
 | PFEC-11 | BLOCK | No wire, API, export or `Equity to cover` (#86) change; #158, #179, #171 drift tests green; no new copy (Q-AI6). |
 | PFEC-12 | MAJOR | QA: `personal-finance-e2e.mjs` (signed in) checks the coverage follows the anchor; signed-out suites green on the preview; mobile 390 px and desktop; CLS 0 unchanged. |
+
+**Note (2026-10-20, CFO decision; spec 44.6):** PFEC-01..PFEC-12 apply as written; Q-AI1..Q-AI5 built on PR #192, Q-AI6/Q-AI7 not built by decision.

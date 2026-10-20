@@ -567,3 +567,65 @@ describe("#144 liveLineFigures: each month as Save would store it (PF-159, PF-16
     assert.equal(live["2026-10"].expenses, 750);
   });
 });
+
+// #184 (spec 44, CFO 2026-10-20): Future-off equity coverage on the anchored net assets (Q-AI1..Q-AI5).
+describe("#184 equity coverage on the anchored net assets (PFEC-01..PFEC-10)", () => {
+  const AT = new Date("2026-10-13T12:00:00-04:00"); // current month 2026-10
+  const P = { expenses: null, income: null };
+  const MONTHS = { "2026-08": { expenses: "1,000", income: "2,000" }, "2026-09": { expenses: "1,000", income: "1,500" } };
+  const cov = (extra: Partial<Overview>) => {
+    const o = ov({ start: "10,000", months: MONTHS, ...extra });
+    return overviewCoverage(o, summarize(o, AT, P), 4);
+  };
+  const amounts = (c: ReturnType<typeof overviewCoverage>) => (c.status === "ok" ? [round2(c.monthly), round2(c.yearly)] : c.status);
+  it("PFEC-03 example rows: no asOf → 33.33 / 400; asOf 2026-08 → 38.33 / 460 (11,500); asOf 2026-10 → 33.33 / 400", () => {
+    assert.deepEqual(amounts(cov({})), [33.33, 400]);
+    assert.deepEqual(amounts(cov({ asOf: "2026-08" })), [38.33, 460]);
+    assert.deepEqual(amounts(cov({ asOf: "2026-10" })), [33.33, 400]);
+  });
+  it("PFEC-02: the anchored value is the chart's previous-month point; the share keeps the 3-month basis", () => {
+    const o = ov({ start: "10,000", months: MONTHS, asOf: "2026-08" });
+    const s = summarize(o, AT, P);
+    const c = overviewCoverage(o, s, 4);
+    assert.equal(s.points.find((p) => p.key === "2026-09")!.net, 11500);
+    assert.ok(c.status === "ok" && c.share === (11500 * 0.04) / 12 / s.average3.expenses!);
+  });
+  it("PFEC-05: asOf before the window → the carried-in level plus the window's surpluses", () => {
+    const o = ov({ start: "10,000", months: { ...MONTHS, "2025-06": { expenses: "1,000", income: "1,200" } }, asOf: "2025-06" });
+    const s = summarize(o, AT, P);
+    const c = overviewCoverage(o, s, 4);
+    const prev = s.points.find((p) => p.key === "2026-09")!.net!;
+    assert.ok(c.status === "ok" && round2(c.yearly) === round2(prev * 0.04) && prev !== 10000);
+  });
+  it("PFEC-09 / Q-AI5: asOf in the future (skewed clock) → none", () => {
+    assert.equal(cov({ asOf: "2026-12" }).status, "none");
+    // The guard itself, independent of summarize blanking the points: a summary whose previous-month point has a value.
+    const plain = summarize(ov({ start: "10,000", months: MONTHS }), AT, P);
+    assert.deepEqual(overviewCoverage(ov({ start: "10,000", months: MONTHS, asOf: "2026-12" }), plain, 4), { status: "none" });
+  });
+  it("PFEC-07 / Q-AI3: anchored ≤ 0 with a positive typed start → none; typed start empty → no_start as today", () => {
+    const deficit = { "2026-08": { expenses: "20,000", income: "0" }, "2026-09": { expenses: "1,000", income: "0" } };
+    assert.equal(cov({ months: deficit, asOf: "2026-08" }).status, "none");
+    assert.equal(cov({ start: "", asOf: "2026-08" }).status, "no_start");
+    assert.equal(overviewCoverage(ov({ start: "10,000", months: MONTHS, asOf: "2026-08" }), summarize(ov({ start: "10,000", months: MONTHS, asOf: "2026-08" }), AT, P), null).status, "no_rate");
+  });
+  it("PFEC-06 / Q-AI2: anchored value null → none", () => {
+    const o = ov({ start: "10,000", months: MONTHS, asOf: "2026-08" });
+    const s = summarize(o, AT, P);
+    const nulled = { ...s, points: s.points.map((p) => (p.key === "2026-09" ? { ...p, net: null } : p)) };
+    assert.deepEqual(overviewCoverage(o, nulled, 4), { status: "none" });
+  });
+  it("PFEC-08 / Q-AI4: Future on unchanged (pinned): projected anchored value, typed start gates", () => {
+    const f = ov({ start: "10,000", months: MONTHS, asOf: "2026-08", future: true, years: 5 });
+    const s = summarize(f, AT, P);
+    const c = overviewCoverage(f, s, 4);
+    assert.ok(c.status === "ok" && round2(c.yearly) === round2(s.points.at(-1)!.net! * 0.04));
+    assert.equal(overviewCoverage({ ...f, start: "" }, s, 4).status, "no_start");
+  });
+  it("PFEC-01 / PFEC-10: no asOf, an empty or unusable asOf → identical to the typed-start coverage", () => {
+    const base = cov({});
+    const typed = equityCoverage(10000, 4, summarize(ov({ start: "10,000", months: MONTHS }), AT, P).average3.expenses);
+    assert.deepEqual(base, typed);
+    for (const bad of ["", "2026-13", "abc", "2019-12"]) assert.deepEqual(cov({ asOf: bad }), base, bad);
+  });
+});

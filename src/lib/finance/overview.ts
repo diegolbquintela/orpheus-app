@@ -478,7 +478,16 @@ export function equityCoverage(netAssets: number | null, rate: number | null, ex
 export function overviewCoverage(overview: Overview, summary: Summary, rate: number | null): Coverage {
   if (!overview.future) {
     const start = typedFigure(overview.start);
-    return equityCoverage(start, rate, summary.average3.expenses);
+    const typed = equityCoverage(start, rate, summary.average3.expenses);
+    // #184 (spec 44.3, CFO 2026-10-20): with a usable as-of month, the anchored net assets at the start of the
+    // current month (the Overview's previous-month point, the value the chart draws) replace the typed start.
+    // No as-of month (or an unusable one): exactly as before. No rate / no typed start keep their statuses.
+    const asOf = asOfMonth(overview);
+    if (!asOf || typed.status !== "ok") return typed;
+    if (asOf > summary.current) return { status: "none" }; // Q-AI5: skewed clock, no net assets yet
+    const anchored = summary.points.find((p) => p.key === previousMonth(summary.current))?.net ?? null;
+    if (anchored === null || !(anchored > 0)) return { status: "none" }; // Q-AI2 / Q-AI3
+    return equityCoverage(anchored, rate, summary.average3.expenses);
   }
   const c = equityCoverage(typedFigure(overview.start), rate, summary.average.expenses);
   if (c.status !== "ok") return c;

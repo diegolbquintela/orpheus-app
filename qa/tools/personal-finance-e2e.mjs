@@ -377,6 +377,14 @@ try {
       check(`${tag} PF-104 (#129) coverage lines 2–3 in a smaller font than line 1 (${covFont.join(" / ")} px)`, covFont.length === 3 && covFont[1] < covFont[0] && covFont[2] < covFont[0], { covFont });
       check(`${tag} PF-89 (#126) Equity coverage directly under the table: start 10,000 × rate used ${rateNow}% → ${wantCov.join(" / ")}`, JSON.stringify(cv) === JSON.stringify(wantCov) && order === "pf-coverage", { cv, wantCov, order });
       check(`${tag} PF-89 (#126) / PF-120 (#132) / PF-128 (#140) This month · 3-month average · ${avg12Label(1)}; C7: ${avg3Label()} = 4,000 / 9,000 / 5,000 (Jul, Aug, Sep empty take the 12-complete-month average, #140 PF-125); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label(1)]) && JSON.stringify(avg3) === JSON.stringify(["4,000.00", "9,000.00", "5,000.00"]) && scroll <= 0, { heads, avg3, scroll });
+      // #184 (spec 44.3, PFEC-04 / PFEC-12): an as-of month = the current Toronto month anchors net assets at the start
+      // (net(A−1) = start), so the coverage equals the typed-start line; clearing it restores it exactly.
+      const curMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+      await page.getByTestId("pf-as-of").fill(curMonth);
+      const cvAsOf = await cov();
+      await page.getByTestId("pf-as-of").fill("");
+      const cvCleared = await cov();
+      check(`${tag} PFEC-04 (#184) as-of month ${curMonth} (current) → coverage equals the typed-start line; cleared → unchanged`, JSON.stringify(cvAsOf) === JSON.stringify(wantCov) && JSON.stringify(cvCleared) === JSON.stringify(wantCov), { cvAsOf, cvCleared });
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 
