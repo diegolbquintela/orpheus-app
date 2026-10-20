@@ -1184,3 +1184,34 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFFX-30b | MAJOR | G3: the PDF mixed line wraps; flattened text contains the full 5-month line with ` and N more`. |
 
 **Note (2026-10-20, QA H2 on 83cd973):** PFFX-11b replaces PFFX-26's note text: the page note is `Charts and exports use Bank of Canada rates where available` (spec 43.11 G4).
+
+## Personal Finance: equity coverage on the anchored net assets (#184, AG11; spec section 44; added 2026-10-20; Phase 1: ACs written, nothing built)
+
+| ID | Sev | Check |
+|---|---|---|
+| PFEC-01 | BLOCK | No `asOf`: the coverage line (amounts, rate note, basis, status) is byte-identical to main c14cf2b for every existing #126 / #129 / #140 / #146 case, Future off and on. |
+| PFEC-02 | BLOCK | Future off with `asOf` (Q-AI1 a): the coverage uses the Overview's previous-month net assets (start of the current month), the value the chart draws; expenses basis unchanged (3-month average of complete months). |
+| PFEC-03 | BLOCK | Spec 44.3 example: start 10,000, rate 4%, current 2026-10, `asOf` 2026-08, surplus Aug 1,000 / Sep 500 → `38.33 CAD/mo (460.00 CAD/yr)`; no `asOf` → `33.33 CAD/mo (400.00 CAD/yr)`. |
+| PFEC-04 | MAJOR | `asOf` = the current month → the typed start (42.10: net(A−1) = start). |
+| PFEC-05 | MAJOR | `asOf` before the 12-month window → the carried-in level plus the window's surpluses up to the previous month. |
+| PFEC-06 | MAJOR | Q-AI2: anchored value null → status `none` (amounts `—`, no note). |
+| PFEC-07 | MAJOR | Q-AI3: anchored ≤ 0 with a typed start > 0 → `none`; typed start empty / ≤ 0 → `no_start` as today. |
+| PFEC-08 | MAJOR | Q-AI4: Future on unchanged (typed start gates; projected anchored value computes), pinned. |
+| PFEC-09 | MINOR | Q-AI5: `asOf` after the current month (skewed clock) → `none`. |
+| PFEC-10 | MAJOR | An invalid typed `asOf` (page error) is ignored by the coverage, as by the figures (42.6). |
+| PFEC-11 | BLOCK | No wire, API, export or `Equity to cover` (#86) change; #158, #179, #171 drift tests green; no new copy (Q-AI6). |
+| PFEC-12 | MAJOR | QA: `personal-finance-e2e.mjs` (signed in) checks the coverage follows the anchor; signed-out suites green on the preview; mobile 390 px and desktop; CLS 0 unchanged. |
+
+**Note (2026-10-20, CFO decision; spec 44.6):** PFEC-01..PFEC-12 apply as written; Q-AI1..Q-AI5 built on PR #192, Q-AI6/Q-AI7 not built by decision.
+
+**Additions (2026-10-20, QA L1 / L2 on 042c47e; spec 44.7).** Concrete inputs and outputs, derived by SWE (no QA run log for PR #192 was found under `qa/runs`). Common input: Starting net assets 10,000, rate used 4%, today 2026-10-13 (Toronto), Aug 2026 expenses 1,000 / income 2,000, Sep 2026 expenses 1,000 / income 1,500 (3-month average expenses 1,000; 12-month average surplus 750), Future off unless stated.
+
+| ID | Input | Expected |
+|---|---|---|
+| PFEC-02 | `asOf` 2026-08 | previous-month net 11,500 → `38.33 CAD/mo (460.00 CAD/yr)`, 3.83% of expenses |
+| PFEC-05 | + Jun 2025 expenses 1,000 / income 1,200, `asOf` 2025-06 | 18,450 (L2: empty months in the window use the 12-month average; months before the window add only their own surplus) → `61.50 CAD/mo (738.00 CAD/yr)`, 6.15%; `asOf` 2025-05 (May empty) → the same 18,450 |
+| PFEC-06 | no month data, `asOf` 2026-08 | `none` (`Equity coverage: —`, no note); without `asOf` → `33.33 CAD/mo (400.00 CAD/yr)`, share `—` |
+| PFEC-07 | Aug expenses 20,000, Sep 1,000, income 0, `asOf` 2026-08 | net −11,000 → `none` |
+| PFEC-08 | Future on, 5 years, `asOf` 2026-08 | `190.83 CAD/mo (2,290.00 CAD/yr)`, same as before #184 |
+| PFEC-09 | `asOf` 2026-12 | `none` |
+| PFEC-10 | `asOf` `2026-13` (red) | the no-`asOf` line `33.33 CAD/mo (400.00 CAD/yr)`, 3.33% |
