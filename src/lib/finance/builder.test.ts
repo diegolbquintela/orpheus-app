@@ -92,6 +92,14 @@ describe("#161 builder helpers", () => {
     const offered = s.flatMap((x) => x.options.map((o) => o.series));
     assert.deepEqual(missingSeries({ series: offered.slice(0, 12), range: { preset: "12m" }, chart: "line" }, kept), []);
     assert.deepEqual(missingSeries({ series: offered.slice(12), range: { preset: "12m" }, chart: "line" }, kept), []);
+    // QA Q3 (2026-10-20): picker set == server known set, for accounts AND categories. Every name anywhere in the raw
+    // record is a candidate; the server's known ones are those `missingSeries` doesn't flag.
+    for (const kind of ["account", "category"] as const) {
+      const candidates = ["Amex", "Visa", "Home", "Travel", "Sport"];
+      const known = candidates.filter((id) => missingSeries({ series: [{ kind, id }], range: { preset: "12m" }, chart: "line" }, kept).length === 0);
+      const picker = s[kind === "account" ? 2 : 3].options.map((o) => o.series.id);
+      assert.deepEqual([...picker].sort(), [...known].sort(), kind);
+    }
     // … and a deleted name with no history left is not offered (the server would call it missing).
     const gone = pickerSections(rec([line("l-x", "X")]));
     assert.deepEqual(gone[2].options, []);

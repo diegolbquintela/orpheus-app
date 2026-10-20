@@ -6,6 +6,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ChartsBuilder, type BuilderApi } from "./charts-builder";
 import { STORAGE_KEY } from "@/lib/finance/expenses";
+import { MONTHS_KEY } from "@/lib/finance/months";
 import type { ChartData, ReportItem, Result } from "@/lib/finance/charts-api";
 import type { Report } from "@/lib/finance/report";
 
@@ -240,6 +241,23 @@ describe("#161 Charts builder", () => {
     container.remove();
     const el = await render({ api: fakeApi().api, id: "r-ffffffff" });
     assert.ok(q(el, "pf-builder-area")!.contains(q(el, "pf-builder-load-error")));
+  });
+  it("QA Q1 / Q3: the picker renders `Travel (deleted)` and a month-line-only account (`Amex (deleted)`); `Visa` (unknown to the server) is not offered", async () => {
+    const line = (id: string, name: string, category = "", account = "") => ({ id, name, amount: "200", per: "month", equity: "", account, currency: "", rate: "", category });
+    const rec = {
+      [STORAGE_KEY]: JSON.stringify({ fixed: [], variable: [], accounts: [], categories: ["Home"], deletedCategories: [{ name: "Travel", from: "2026-06" }], deletedAccounts: [{ name: "Amex", from: "2026-06" }] }),
+      [MONTHS_KEY]: JSON.stringify({ "2026-03": { fixed: [line("l-trip", "Trip", "Travel", "Amex"), line("l-gym", "Gym", "Sport", "Visa")], variable: [], people: [] } }),
+    };
+    const f = fakeApi({ record: async () => rec });
+    const el = await render({ api: f.api });
+    const text = (kind: string) => [...el.querySelectorAll(`[data-testid="pf-builder-pick"][data-kind="${kind}"]`)].map((i) => i.parentElement!.textContent);
+    assert.deepEqual(text("category"), ["Home", "Travel (deleted)"]);
+    assert.deepEqual(text("account"), ["Amex (deleted)"], "only on a month line, still offered");
+    assert.equal(pick(el, "account", "Visa"), null);
+    await click(pick(el, "category", "Travel"));
+    await click(pick(el, "account", "Amex"));
+    await tick();
+    assert.deepEqual((f.calls.filter((c) => c.op === "chart").at(-1)!.arg as { series: unknown }).series, [{ kind: "category", id: "Travel" }, { kind: "account", id: "Amex" }], "the plain id is sent, not the label");
   });
   it("edit: an unknown id shows the server's `Report not found.`", async () => {
     const el = await render({ api: fakeApi().api, id: "r-ffffffff" });
