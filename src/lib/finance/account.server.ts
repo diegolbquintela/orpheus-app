@@ -55,6 +55,8 @@ import { buildPdf, buildPng, EXPORT_FORMATS, exportFilename, type ExportFormat }
 import { CHART_MAX_BYTES, chartData, chartQueryError, fromReport, NO_SAVED_REPORT, type ChartQuery } from "./chart.ts";
 import type { ReportItem } from "./charts-api.ts";
 import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
+import { type MonthlyFx } from "./fx-history.ts";
+import { readMonthlyFx } from "./fx-history.server.ts";
 
 export const PF_ALLOW = ["GET", "HEAD", "PUT", "DELETE"] as const;
 
@@ -309,7 +311,15 @@ export async function handlePersonalFinanceSeriesRequest(
   const e = seriesQueryError(body, householdMonth(at));
   if (e) return dashboardJson(e.field ? { error: e.error, field: e.field } : { error: e.error }, e.status);
   const record = await readRecord(g.db, g.user.id);
-  return dashboardJson(seriesValues(body as SeriesQuery, record, at));
+  const q = body as SeriesQuery;
+  const fx = await readMonthlyFx(g.db, record, householdMonth(at)) /* #170 G1: through the current month (as-of back-fill) */;
+  return dashboardJson(seriesValues(q, record, at, undefined, fx));
+}
+
+/** #170 (spec 43): the stored BoC monthly averages a record needs, up to the range's last month (undefined: none). */
+async function fxFor(db: Queryable, record: PfRecord | null, at: Date): Promise<MonthlyFx | undefined> {
+  // #170 QA G1: rows through the current month, so an as-of month after the range is covered.
+  return readMonthlyFx(db, record, householdMonth(at));
 }
 
 export const PF_CHART_ALLOW = ["POST"] as const;
@@ -348,9 +358,12 @@ export async function handlePersonalFinanceChartRequest(
     const id = "id" in q && q.id ? q.id : DEFAULT_ID;
     const report = id === DEFAULT_ID ? parseReport(await readOwnReport(g.db, g.viewer.id)) : (await readOwnNamed(g.db, g.viewer.id)).find((r) => r.id === id)?.report ?? null;
     if (!report) return dashboardJson({ error: NO_SAVED_REPORT }, 404);
-    return dashboardJson(chartData(fromReport(report), await readRecord(g.db, g.user.id), at, "saved"));
+    const rec = await readRecord(g.db, g.user.id);
+    const fq = fromReport(report);
+    return dashboardJson(chartData(fq, rec, at, "saved", undefined, await fxFor(g.db, rec, at)));
   }
-  return dashboardJson(chartData(q, await readRecord(g.db, g.user.id), at));
+  const rec = await readRecord(g.db, g.user.id);
+  return dashboardJson(chartData(q, rec, at, "request", undefined, await fxFor(g.db, rec, at)));
 }
 
 export const PF_REPORTS_ALLOW = ["GET", "HEAD", "POST"] as const;
@@ -537,7 +550,7 @@ export async function handlePersonalFinanceReportExportRequest(
   if (!report) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);
   const at = now();
   const record = await readRecord(db, user.id);
-  const data = chartData(fromReport(report), record, at, "saved");
+  const data = chartData(fromReport(report), record, at, "saved", undefined, await fxFor(db, record, at));
   // #171 Q-AG7: the export says when net assets are anchored at an explicit as-of month.
   const asOf = asOfMonth(readOverview(new RecordStore(record ?? {})));
   const meta = { name, generatedAt: at.toISOString(), range: report.range, ...(asOf ? { netAssetsAsOf: asOf } : {}) };

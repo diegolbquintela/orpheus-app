@@ -62,6 +62,7 @@ import {
   type CurrencyCode,
   currencyChoices,
   FX_RATE_LABEL,
+  FX_HISTORY_NOTE,
   type Household,
   HOUSEHOLD_LABEL,
   isCurrency,
@@ -1221,6 +1222,9 @@ function LineRow({
             {...check(rateBad, "rate")}
           />
           {error(rateBad, "rate", RATE_ERROR)}
+          <span className="pf-fx-note" data-testid="pf-fx-note">
+            {FX_HISTORY_NOTE}
+          </span>
         </Cell>
       ) : (
         <Cell label={FX_RATE_LABEL} area="fx">

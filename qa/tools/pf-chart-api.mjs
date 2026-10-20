@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
-import { FX_BASIS_CURRENT, NO_SAVED_REPORT, RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
+import { fxBasisOk, NO_SAVED_REPORT, RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST } from "./pf-helpers.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -77,7 +77,7 @@ try {
       const j = r.body ?? {};
       check("PFC-02 200; rows / labels align with months; rows[i].values[j] = series[j].values[i]", r.status === 200 && j.rows?.length === j.months?.length && j.labels?.length === j.months?.length && j.rows.every((row, i) => row.month === j.months[i] && same(row.values, j.series.map((s) => s.values[i]))), { status: r.status });
       const s = await call(request, "POST", "/api/personal-finance/series", { series: MAIN.series, range: MAIN.range });
-      check(`PFC-03 fx_basis '${FX_BASIS_CURRENT}', net_assets_from and values equal to /series`, j.fx_basis === FX_BASIS_CURRENT && s.status === 200 && j.net_assets_from === s.body.net_assets_from && same(j.series.map((x) => x.values), s.body.series.map((x) => x.values)), { fx: j.fx_basis, from: j.net_assets_from });
+      check("PFC-03 fx_basis (and fx_fallback_months), net_assets_from and values equal to /series (#170: current | historical | mixed)", fxBasisOk(j) && j.fx_basis === s.body?.fx_basis && same(j.fx_fallback_months, s.body?.fx_fallback_months) && s.status === 200 && j.net_assets_from === s.body.net_assets_from && same(j.series.map((x) => x.values), s.body.series.map((x) => x.values)), { fx: j.fx_basis, from: j.net_assets_from });
       check("PFC-04 axis: level for net-assets only", same(j.series?.map((x) => x.axis), ["flow", "flow", "flow", "flow", "level"]));
       check("PFC-05 stacked-bar stacks fixed / variable only (not all, not metrics)", same(j.series?.map((x) => x.stack), [true, true, false, false, false]));
       let bad = [];

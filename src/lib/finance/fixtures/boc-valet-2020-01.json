@@ -1,0 +1,936 @@
+{
+    "terms": {
+        "url": "https://www.bankofcanada.ca/terms/"
+    },
+    "seriesDetail": {
+        "FXAUDCAD": {
+            "label": "AUD/CAD",
+            "description": "Daily average exchange rate of the Australian dollar in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per Australian dollar",
+                "frequency": "Business daily"
+            }
+        },
+        "FXBRLCAD": {
+            "label": "BRL/CAD",
+            "description": "Daily average exchange rate of the Brazilian real in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per Brazilian real",
+                "frequency": "Business daily"
+            }
+        },
+        "FXCHFCAD": {
+            "label": "CHF/CAD",
+            "description": "Daily average exchange rate of the Swiss franc in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per Swiss franc",
+                "frequency": "Business daily"
+            }
+        },
+        "FXCNYCAD": {
+            "label": "CNY/CAD",
+            "description": "Daily average exchange rate of the Chinese renminbi in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per Chinese renminbi",
+                "frequency": "Business daily"
+            }
+        },
+        "FXEURCAD": {
+            "label": "EUR/CAD",
+            "description": "Daily average exchange rate of the euro in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per euro",
+                "frequency": "Business daily"
+            }
+        },
+        "FXGBPCAD": {
+            "label": "GBP/CAD",
+            "description": "Daily average exchange rate of the UK pound sterling in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per UK pound sterling",
+                "frequency": "Business daily"
+            }
+        },
+        "FXJPYCAD": {
+            "label": "JPY/CAD",
+            "description": "Daily average exchange rate of the Japanese yen in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per Japanese yen",
+                "frequency": "Business daily"
+            }
+        },
+        "FXMXNCAD": {
+            "label": "MXN/CAD",
+            "description": "Daily average exchange rate of the Mexican peso in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per Mexican peso",
+                "frequency": "Business daily"
+            }
+        },
+        "FXUSDCAD": {
+            "label": "USD/CAD",
+            "description": "Daily average exchange rate of the US dollar in Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Canadian dollars per US dollar",
+                "frequency": "Business daily"
+            }
+        }
+    },
+    "observations": [
+        {
+            "d": "2020-01-02",
+            "FXAUDCAD": {
+                "v": "0.9079"
+            },
+            "FXBRLCAD": {
+                "v": "0.3226"
+            },
+            "FXCNYCAD": {
+                "v": "0.1866"
+            },
+            "FXEURCAD": {
+                "v": "1.4520"
+            },
+            "FXJPYCAD": {
+                "v": "0.01197"
+            },
+            "FXMXNCAD": {
+                "v": "0.06883"
+            },
+            "FXCHFCAD": {
+                "v": "1.3374"
+            },
+            "FXGBPCAD": {
+                "v": "1.7085"
+            },
+            "FXUSDCAD": {
+                "v": "1.2992"
+            }
+        },
+        {
+            "d": "2020-01-03",
+            "FXAUDCAD": {
+                "v": "0.9035"
+            },
+            "FXBRLCAD": {
+                "v": "0.3208"
+            },
+            "FXCNYCAD": {
+                "v": "0.1864"
+            },
+            "FXEURCAD": {
+                "v": "1.4497"
+            },
+            "FXJPYCAD": {
+                "v": "0.01202"
+            },
+            "FXMXNCAD": {
+                "v": "0.06869"
+            },
+            "FXCHFCAD": {
+                "v": "1.3365"
+            },
+            "FXGBPCAD": {
+                "v": "1.6993"
+            },
+            "FXUSDCAD": {
+                "v": "1.2988"
+            }
+        },
+        {
+            "d": "2020-01-06",
+            "FXAUDCAD": {
+                "v": "0.8996"
+            },
+            "FXBRLCAD": {
+                "v": "0.3196"
+            },
+            "FXCNYCAD": {
+                "v": "0.1859"
+            },
+            "FXEURCAD": {
+                "v": "1.4515"
+            },
+            "FXJPYCAD": {
+                "v": "0.01198"
+            },
+            "FXMXNCAD": {
+                "v": "0.06882"
+            },
+            "FXCHFCAD": {
+                "v": "1.3384"
+            },
+            "FXGBPCAD": {
+                "v": "1.7064"
+            },
+            "FXUSDCAD": {
+                "v": "1.2970"
+            }
+        },
+        {
+            "d": "2020-01-07",
+            "FXAUDCAD": {
+                "v": "0.8934"
+            },
+            "FXBRLCAD": {
+                "v": "0.3191"
+            },
+            "FXCNYCAD": {
+                "v": "0.1873"
+            },
+            "FXEURCAD": {
+                "v": "1.4502"
+            },
+            "FXJPYCAD": {
+                "v": "0.01199"
+            },
+            "FXMXNCAD": {
+                "v": "0.06889"
+            },
+            "FXCHFCAD": {
+                "v": "1.3394"
+            },
+            "FXGBPCAD": {
+                "v": "1.7070"
+            },
+            "FXUSDCAD": {
+                "v": "1.3009"
+            }
+        },
+        {
+            "d": "2020-01-08",
+            "FXAUDCAD": {
+                "v": "0.8943"
+            },
+            "FXBRLCAD": {
+                "v": "0.3210"
+            },
+            "FXCNYCAD": {
+                "v": "0.1875"
+            },
+            "FXEURCAD": {
+                "v": "1.4480"
+            },
+            "FXJPYCAD": {
+                "v": "0.01196"
+            },
+            "FXMXNCAD": {
+                "v": "0.06927"
+            },
+            "FXCHFCAD": {
+                "v": "1.3400"
+            },
+            "FXGBPCAD": {
+                "v": "1.7073"
+            },
+            "FXUSDCAD": {
+                "v": "1.3026"
+            }
+        },
+        {
+            "d": "2020-01-09",
+            "FXAUDCAD": {
+                "v": "0.8966"
+            },
+            "FXBRLCAD": {
+                "v": "0.3206"
+            },
+            "FXCNYCAD": {
+                "v": "0.1887"
+            },
+            "FXEURCAD": {
+                "v": "1.4526"
+            },
+            "FXJPYCAD": {
+                "v": "0.01195"
+            },
+            "FXMXNCAD": {
+                "v": "0.06945"
+            },
+            "FXCHFCAD": {
+                "v": "1.3446"
+            },
+            "FXGBPCAD": {
+                "v": "1.7075"
+            },
+            "FXUSDCAD": {
+                "v": "1.3079"
+            }
+        },
+        {
+            "d": "2020-01-10",
+            "FXAUDCAD": {
+                "v": "0.9003"
+            },
+            "FXBRLCAD": {
+                "v": "0.3200"
+            },
+            "FXCNYCAD": {
+                "v": "0.1886"
+            },
+            "FXEURCAD": {
+                "v": "1.4504"
+            },
+            "FXJPYCAD": {
+                "v": "0.01191"
+            },
+            "FXMXNCAD": {
+                "v": "0.06947"
+            },
+            "FXCHFCAD": {
+                "v": "1.3407"
+            },
+            "FXGBPCAD": {
+                "v": "1.7048"
+            },
+            "FXUSDCAD": {
+                "v": "1.3051"
+            }
+        },
+        {
+            "d": "2020-01-13",
+            "FXAUDCAD": {
+                "v": "0.9013"
+            },
+            "FXBRLCAD": {
+                "v": "0.3156"
+            },
+            "FXCNYCAD": {
+                "v": "0.1893"
+            },
+            "FXEURCAD": {
+                "v": "1.4528"
+            },
+            "FXJPYCAD": {
+                "v": "0.01187"
+            },
+            "FXMXNCAD": {
+                "v": "0.06935"
+            },
+            "FXCHFCAD": {
+                "v": "1.3442"
+            },
+            "FXGBPCAD": {
+                "v": "1.6949"
+            },
+            "FXUSDCAD": {
+                "v": "1.3048"
+            }
+        },
+        {
+            "d": "2020-01-14",
+            "FXAUDCAD": {
+                "v": "0.9016"
+            },
+            "FXBRLCAD": {
+                "v": "0.3158"
+            },
+            "FXCNYCAD": {
+                "v": "0.1897"
+            },
+            "FXEURCAD": {
+                "v": "1.4530"
+            },
+            "FXJPYCAD": {
+                "v": "0.01187"
+            },
+            "FXMXNCAD": {
+                "v": "0.06947"
+            },
+            "FXCHFCAD": {
+                "v": "1.3491"
+            },
+            "FXGBPCAD": {
+                "v": "1.6995"
+            },
+            "FXUSDCAD": {
+                "v": "1.3062"
+            }
+        },
+        {
+            "d": "2020-01-15",
+            "FXAUDCAD": {
+                "v": "0.9005"
+            },
+            "FXBRLCAD": {
+                "v": "0.3128"
+            },
+            "FXCNYCAD": {
+                "v": "0.1894"
+            },
+            "FXEURCAD": {
+                "v": "1.4554"
+            },
+            "FXJPYCAD": {
+                "v": "0.01187"
+            },
+            "FXMXNCAD": {
+                "v": "0.06941"
+            },
+            "FXCHFCAD": {
+                "v": "1.3537"
+            },
+            "FXGBPCAD": {
+                "v": "1.6996"
+            },
+            "FXUSDCAD": {
+                "v": "1.3050"
+            }
+        },
+        {
+            "d": "2020-01-16",
+            "FXAUDCAD": {
+                "v": "0.9003"
+            },
+            "FXBRLCAD": {
+                "v": "0.3118"
+            },
+            "FXCNYCAD": {
+                "v": "0.1896"
+            },
+            "FXEURCAD": {
+                "v": "1.4532"
+            },
+            "FXJPYCAD": {
+                "v": "0.01185"
+            },
+            "FXMXNCAD": {
+                "v": "0.06941"
+            },
+            "FXCHFCAD": {
+                "v": "1.3526"
+            },
+            "FXGBPCAD": {
+                "v": "1.7041"
+            },
+            "FXUSDCAD": {
+                "v": "1.3045"
+            }
+        },
+        {
+            "d": "2020-01-17",
+            "FXAUDCAD": {
+                "v": "0.8987"
+            },
+            "FXBRLCAD": {
+                "v": "0.3127"
+            },
+            "FXCNYCAD": {
+                "v": "0.1904"
+            },
+            "FXEURCAD": {
+                "v": "1.4493"
+            },
+            "FXJPYCAD": {
+                "v": "0.01186"
+            },
+            "FXMXNCAD": {
+                "v": "0.06976"
+            },
+            "FXCHFCAD": {
+                "v": "1.3494"
+            },
+            "FXGBPCAD": {
+                "v": "1.7017"
+            },
+            "FXUSDCAD": {
+                "v": "1.3062"
+            }
+        },
+        {
+            "d": "2020-01-20",
+            "FXAUDCAD": {
+                "v": "0.8965"
+            },
+            "FXBRLCAD": {
+                "v": "0.3119"
+            },
+            "FXCNYCAD": {
+                "v": "0.1901"
+            },
+            "FXEURCAD": {
+                "v": "1.4471"
+            },
+            "FXJPYCAD": {
+                "v": "0.01185"
+            },
+            "FXMXNCAD": {
+                "v": "0.06992"
+            },
+            "FXCHFCAD": {
+                "v": "1.3473"
+            },
+            "FXGBPCAD": {
+                "v": "1.6968"
+            },
+            "FXUSDCAD": {
+                "v": "1.3053"
+            }
+        },
+        {
+            "d": "2020-01-21",
+            "FXAUDCAD": {
+                "v": "0.8958"
+            },
+            "FXBRLCAD": {
+                "v": "0.3111"
+            },
+            "FXCNYCAD": {
+                "v": "0.1892"
+            },
+            "FXEURCAD": {
+                "v": "1.4502"
+            },
+            "FXJPYCAD": {
+                "v": "0.01189"
+            },
+            "FXMXNCAD": {
+                "v": "0.06979"
+            },
+            "FXCHFCAD": {
+                "v": "1.3502"
+            },
+            "FXGBPCAD": {
+                "v": "1.7058"
+            },
+            "FXUSDCAD": {
+                "v": "1.3067"
+            }
+        },
+        {
+            "d": "2020-01-22",
+            "FXAUDCAD": {
+                "v": "0.8975"
+            },
+            "FXBRLCAD": {
+                "v": "0.3134"
+            },
+            "FXCNYCAD": {
+                "v": "0.1899"
+            },
+            "FXEURCAD": {
+                "v": "1.4541"
+            },
+            "FXJPYCAD": {
+                "v": "0.01193"
+            },
+            "FXMXNCAD": {
+                "v": "0.07017"
+            },
+            "FXCHFCAD": {
+                "v": "1.3532"
+            },
+            "FXGBPCAD": {
+                "v": "1.7225"
+            },
+            "FXUSDCAD": {
+                "v": "1.3116"
+            }
+        },
+        {
+            "d": "2020-01-23",
+            "FXAUDCAD": {
+                "v": "0.9000"
+            },
+            "FXBRLCAD": {
+                "v": "0.3154"
+            },
+            "FXCNYCAD": {
+                "v": "0.1895"
+            },
+            "FXEURCAD": {
+                "v": "1.4533"
+            },
+            "FXJPYCAD": {
+                "v": "0.01201"
+            },
+            "FXMXNCAD": {
+                "v": "0.07000"
+            },
+            "FXCHFCAD": {
+                "v": "1.3563"
+            },
+            "FXGBPCAD": {
+                "v": "1.7234"
+            },
+            "FXUSDCAD": {
+                "v": "1.3143"
+            }
+        },
+        {
+            "d": "2020-01-24",
+            "FXAUDCAD": {
+                "v": "0.8973"
+            },
+            "FXBRLCAD": {
+                "v": "0.3143"
+            },
+            "FXCNYCAD": {
+                "v": "0.1894"
+            },
+            "FXEURCAD": {
+                "v": "1.4493"
+            },
+            "FXJPYCAD": {
+                "v": "0.01202"
+            },
+            "FXMXNCAD": {
+                "v": "0.06985"
+            },
+            "FXCHFCAD": {
+                "v": "1.3536"
+            },
+            "FXGBPCAD": {
+                "v": "1.7189"
+            },
+            "FXUSDCAD": {
+                "v": "1.3140"
+            }
+        },
+        {
+            "d": "2020-01-27",
+            "FXAUDCAD": {
+                "v": "0.8914"
+            },
+            "FXBRLCAD": {
+                "v": "0.3127"
+            },
+            "FXCNYCAD": {
+                "v": "0.1900"
+            },
+            "FXEURCAD": {
+                "v": "1.4525"
+            },
+            "FXJPYCAD": {
+                "v": "0.01210"
+            },
+            "FXMXNCAD": {
+                "v": "0.06967"
+            },
+            "FXCHFCAD": {
+                "v": "1.3594"
+            },
+            "FXGBPCAD": {
+                "v": "1.7211"
+            },
+            "FXUSDCAD": {
+                "v": "1.3182"
+            }
+        },
+        {
+            "d": "2020-01-28",
+            "FXAUDCAD": {
+                "v": "0.8899"
+            },
+            "FXBRLCAD": {
+                "v": "0.3136"
+            },
+            "FXCNYCAD": {
+                "v": "0.1900"
+            },
+            "FXEURCAD": {
+                "v": "1.4509"
+            },
+            "FXJPYCAD": {
+                "v": "0.01208"
+            },
+            "FXMXNCAD": {
+                "v": "0.07014"
+            },
+            "FXCHFCAD": {
+                "v": "1.3542"
+            },
+            "FXGBPCAD": {
+                "v": "1.7132"
+            },
+            "FXUSDCAD": {
+                "v": "1.3179"
+            }
+        },
+        {
+            "d": "2020-01-29",
+            "FXAUDCAD": {
+                "v": "0.8903"
+            },
+            "FXBRLCAD": {
+                "v": "0.3132"
+            },
+            "FXCNYCAD": {
+                "v": "0.1902"
+            },
+            "FXEURCAD": {
+                "v": "1.4520"
+            },
+            "FXJPYCAD": {
+                "v": "0.01209"
+            },
+            "FXMXNCAD": {
+                "v": "0.07054"
+            },
+            "FXCHFCAD": {
+                "v": "1.3537"
+            },
+            "FXGBPCAD": {
+                "v": "1.7166"
+            },
+            "FXUSDCAD": {
+                "v": "1.3196"
+            }
+        },
+        {
+            "d": "2020-01-30",
+            "FXAUDCAD": {
+                "v": "0.8870"
+            },
+            "FXBRLCAD": {
+                "v": "0.3105"
+            },
+            "FXCNYCAD": {
+                "v": "0.1905"
+            },
+            "FXEURCAD": {
+                "v": "1.4579"
+            },
+            "FXJPYCAD": {
+                "v": "0.01215"
+            },
+            "FXMXNCAD": {
+                "v": "0.07030"
+            },
+            "FXCHFCAD": {
+                "v": "1.3636"
+            },
+            "FXGBPCAD": {
+                "v": "1.7303"
+            },
+            "FXUSDCAD": {
+                "v": "1.3217"
+            }
+        },
+        {
+            "d": "2020-01-31",
+            "FXAUDCAD": {
+                "v": "0.8860"
+            },
+            "FXBRLCAD": {
+                "v": "0.3093"
+            },
+            "FXCNYCAD": {
+                "v": "0.1908"
+            },
+            "FXEURCAD": {
+                "v": "1.4653"
+            },
+            "FXJPYCAD": {
+                "v": "0.01219"
+            },
+            "FXMXNCAD": {
+                "v": "0.07009"
+            },
+            "FXCHFCAD": {
+                "v": "1.3715"
+            },
+            "FXGBPCAD": {
+                "v": "1.7435"
+            },
+            "FXUSDCAD": {
+                "v": "1.3233"
+            }
+        },
+        {
+            "d": "2020-02-03",
+            "FXAUDCAD": {
+                "v": "0.8883"
+            },
+            "FXBRLCAD": {
+                "v": "0.3127"
+            },
+            "FXCNYCAD": {
+                "v": "0.1891"
+            },
+            "FXEURCAD": {
+                "v": "1.4681"
+            },
+            "FXJPYCAD": {
+                "v": "0.01222"
+            },
+            "FXMXNCAD": {
+                "v": "0.07065"
+            },
+            "FXCHFCAD": {
+                "v": "1.3746"
+            },
+            "FXGBPCAD": {
+                "v": "1.7274"
+            },
+            "FXUSDCAD": {
+                "v": "1.3275"
+            }
+        },
+        {
+            "d": "2020-02-04",
+            "FXAUDCAD": {
+                "v": "0.8937"
+            },
+            "FXBRLCAD": {
+                "v": "0.3128"
+            },
+            "FXCNYCAD": {
+                "v": "0.1897"
+            },
+            "FXEURCAD": {
+                "v": "1.4662"
+            },
+            "FXJPYCAD": {
+                "v": "0.01214"
+            },
+            "FXMXNCAD": {
+                "v": "0.07104"
+            },
+            "FXCHFCAD": {
+                "v": "1.3696"
+            },
+            "FXGBPCAD": {
+                "v": "1.7302"
+            },
+            "FXUSDCAD": {
+                "v": "1.3278"
+            }
+        },
+        {
+            "d": "2020-02-05",
+            "FXAUDCAD": {
+                "v": "0.8971"
+            },
+            "FXBRLCAD": {
+                "v": "0.3128"
+            },
+            "FXCNYCAD": {
+                "v": "0.1906"
+            },
+            "FXEURCAD": {
+                "v": "1.4622"
+            },
+            "FXJPYCAD": {
+                "v": "0.01211"
+            },
+            "FXMXNCAD": {
+                "v": "0.07140"
+            },
+            "FXCHFCAD": {
+                "v": "1.3653"
+            },
+            "FXGBPCAD": {
+                "v": "1.7272"
+            },
+            "FXUSDCAD": {
+                "v": "1.3289"
+            }
+        },
+        {
+            "d": "2020-02-06",
+            "FXAUDCAD": {
+                "v": "0.8957"
+            },
+            "FXBRLCAD": {
+                "v": "0.3117"
+            },
+            "FXCNYCAD": {
+                "v": "0.1907"
+            },
+            "FXEURCAD": {
+                "v": "1.4596"
+            },
+            "FXJPYCAD": {
+                "v": "0.01209"
+            },
+            "FXMXNCAD": {
+                "v": "0.07126"
+            },
+            "FXCHFCAD": {
+                "v": "1.3631"
+            },
+            "FXGBPCAD": {
+                "v": "1.7198"
+            },
+            "FXUSDCAD": {
+                "v": "1.3290"
+            }
+        },
+        {
+            "d": "2020-02-07",
+            "FXAUDCAD": {
+                "v": "0.8883"
+            },
+            "FXBRLCAD": {
+                "v": "0.3086"
+            },
+            "FXCNYCAD": {
+                "v": "0.1901"
+            },
+            "FXEURCAD": {
+                "v": "1.4574"
+            },
+            "FXJPYCAD": {
+                "v": "0.01212"
+            },
+            "FXMXNCAD": {
+                "v": "0.07090"
+            },
+            "FXCHFCAD": {
+                "v": "1.3620"
+            },
+            "FXGBPCAD": {
+                "v": "1.7183"
+            },
+            "FXUSDCAD": {
+                "v": "1.3305"
+            }
+        }
+    ]
+}

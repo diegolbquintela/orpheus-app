@@ -1108,3 +1108,79 @@ PGlite real-path tests: `src/lib/finance/as-of.server.test.ts` (TZ=UTC and TZ=Am
 | PFAO-26 | MINOR | A record PUT with `"asOf": ""` stores and replies the overview without `asOf`; every other overview text is stored byte for byte. |
 
 **Additions (2026-10-18, docs consistency after QA):** PFAO-10's "points before it are null" is also superseded by PFAO-20 for an as-of month after the first data month. PFR-08's "more than 24 months → 400 `range`" now carries the message `Range can't be longer than 24 months.` (PFAO-22); PFRC-06 likewise with field `report.range`.
+
+## Personal Finance: historical FX rates (#170; spec section 43; added 2026-10-18; Phase 1: ACs written, nothing built)
+
+Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression); PFFX-07..16 depend on the Q-AH answers named in each row.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-01 | BLOCK | No historical rate stored: `/series` returns `fx_basis: "current"` and values byte-equal to today's for every preset and a custom range, household and foreign lines. |
+| PFFX-02 | BLOCK | No historical rate: `/chart` (both bodies) equals `/series`, `fx_basis: "current"`. |
+| PFFX-03 | BLOCK | No historical rate: PDF and PNG export carry `FX basis: current (every month is valued at today's rates, not historical rates)` and are otherwise unchanged. |
+| PFFX-04 | BLOCK | Each month keeps its own typed line rates under `current` (e.g. Aug line 0.5, Sep 0.8, shared 0.9 → 2,000 and 1,250 for USD 1,000/month). |
+| PFFX-05 | MAJOR | A month without lines (typed totals) is unaffected by FX in every mode. |
+| PFFX-06 | BLOCK | The #171 anchor rule is intact: `net_assets_from`, back-fill and forward roll (spec 42.10) give the same values from the same per-month surplus. |
+| PFFX-07 | BLOCK | (Q-AH1/3) Rates come only from the chosen source; no new secret, env var, paid API or migration. |
+| PFFX-08 | BLOCK | (Q-AH4a/b) A month's historical rate follows the chosen convention and precision, checked against fixtures. |
+| PFFX-09 | BLOCK | (Q-AH4d) A month/currency without a historical rate falls back to its typed rate; no carry-forward unless decided. |
+| PFFX-10 | BLOCK | (Q-AH4e) A non-CAD household converts via CAD; results match hand-worked fixtures. |
+| PFFX-11 | BLOCK | (Q-AH4f) `fx_basis` is `"historical"` exactly when the decided availability rule holds, else `"current"`. |
+| PFFX-12 | MAJOR | (Q-AH4g) The page's figures and typed rates are unchanged; only the decided surfaces use historical rates. |
+| PFFX-13 | MAJOR | (Q-AH2) Backfill is idempotent (a second run inserts nothing) and bounded to 2020-01..current. |
+| PFFX-14 | MAJOR | (Q-AH5) The wire shape is unchanged unless a field is decided; contract and drift tests updated if it is. |
+| PFFX-15 | MAJOR | (Q-AH6) The export says the decided historical text when `fx_basis` is `"historical"`, today's when `"current"`. |
+| PFFX-16 | MINOR | Docs: spec 43, contract and README/AGENTS pointers match the code. |
+
+**Additions (2026-10-20, #170 Diego's decisions; spec 43.6–43.7):** PFFX-07..11, 13 and 15 now test the decided rules (BoC via `fx_rates`, backfill from 2020-01, no migration, business-day monthly average, typed-rate fallback, export line changes) and the recommended Q-AH7..Q-AH12 unless overruled.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-17 | BLOCK | No `fx_rates` rows for the record's currencies: every response, chart and export is **byte-identical** to d1308bc (same values, `fx_basis: "current"`, same FX line). |
+| PFFX-18 | BLOCK | A household-only record (no foreign line) is byte-identical to today whatever `fx_rates` holds. |
+| PFFX-19 | BLOCK | Monthly average = mean of that month's stored BoC daily rows, from recorded Valet fixtures; no live network call in tests. |
+| PFFX-20 | BLOCK | Ingestion and backfill are idempotent (second run inserts 0 rows), start no earlier than 2020-01, write only source `BOC`, and need no key, secret, migration or `vercel.json` change. |
+| PFFX-21 | BLOCK | The #171 anchor rule (spec 42.10) is unchanged: same `net_assets_from`, back-fill and forward roll from the (possibly historical) per-month surplus. |
+| PFFX-22 | MAJOR | The backfill / ingestion has NOT been run against preview or Production by SWE; the runbook in `docs/release/` gives the command. |
+
+**Additions (2026-10-20, CFO on Q-AH7 / Q-AH11; spec 43.8):** these supersede PFFX-11's two-value rule.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-23 | BLOCK | `fx_basis` is `"historical"` when every foreign conversion used a stored BoC monthly average, `"current"` when none did, `"mixed"` otherwise; `/chart` equals `/series`. |
+| PFFX-24 | BLOCK | `"mixed"` carries `fx_fallback_months` (sorted distinct `yyyy-mm` with a typed-rate fallback), right after `fx_basis`; the field is absent for `"current"` and `"historical"`. |
+| PFFX-25 | BLOCK | Export FX line: historical → `FX basis: historical (each month at its Bank of Canada monthly average rate)`; mixed → `FX basis: mixed (Bank of Canada monthly averages; typed rate used for <months>)`; current → today's line. |
+| PFFX-26 | MAJOR | Page: each `FX rate` field shows the dim note `Charts and exports use historical FX`; the typed rate and the page figures are unchanged. |
+| PFFX-27 | MAJOR | `refreshFx` fetches the seven PF currencies from BoC (source `BOC`), with no cron or `vercel.json` change; the dashboard's own quotes are unchanged. |
+
+**Additions (2026-10-20, QA F1–F5 on febf0ec and EL's Q-AH13 ruling; spec 43.9):** these rows supersede PFFX-17..PFFX-22 as first written.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-17a | BLOCK | Input: a record with foreign lines in USD, EUR and GBP, in months for which `fx_rates` has no row of that quote (a test DB, or months before the oldest stored row). Output byte-equal to d1308bc for: record GET; `/report` (legacy); `/reports` and `/reports/:id`; `/series` for every preset (`3m 6m 12m 24m ytd all`) and one custom range; `/chart` query and saved; PDF and PNG export with the Generated timestamp masked. `fx_basis: "current"` and today's `FX basis: current (…)` line. |
+| PFFX-18a | BLOCK | Input: a CAD household with lines only in CAD, with seeded USD and GBP rows for those months. The same surfaces as PFFX-17a are byte-equal to d1308bc. |
+| PFFX-19a | BLOCK | Worked examples of spec 43.9 from recorded fixtures: March average 1.3600 → USD 1,000 = CAD 1,360.00; EUR household → EUR 918.92; partial month (1.38, 1.40) → CAD 1,390.00; GBP without rows, typed 0.5 → CAD 2,000.00 and `fx_basis: "mixed"`, `fx_fallback_months: ["2024-03"]`. No live network call in tests. |
+| PFFX-20a | BLOCK | Backfill writes source `BOC` rows for USD EUR GBP BRL MXN CHF JPY AUD CNY on every BoC business day from 2020-01-02 to the last published day on or before the run date; per quote `min(rate_date)` = 2020-01-02. A second run inserts 0: `count(*)` per quote unchanged, no duplicates (PK (quote, rate_date) + ON CONFLICT DO NOTHING). No key, secret, migration or `vercel.json` change. |
+| PFFX-20b | BLOCK | The daily job requests each quote only from the day after its last stored row; the backfill requests the whole window per quote, so USD and EUR are filled before their oldest existing row (tested with a DB whose USD/EUR rows start later than 2020-01-02). |
+| PFFX-21a | BLOCK | The #171 rule with and without `overview.asOf` (before and after the first data month); the spec 43.9 fixture gives 8,360 / 10,000 / 11,700 for 2024-02..04 with asOf 2024-04; contract 11.2 and 12.1 messages unchanged. |
+| PFFX-22a | MAJOR | `docs/release/2026-10-20-pf-fx-backfill.md` exists with the exact command and the expected row counts. On preview and Production, `min(rate_date)` and `count(*)` per PF quote in `fx_rates` are unchanged by the PR's deploy (SWE did not run it). EL records the run. |
+| PFFX-28 | BLOCK | Q-AH13 (EL): before the backfill, months without a row fall back to the typed rate; `fx_basis` is `"current"` or `"mixed"` and is `"historical"` only when every converted month and currency has rows. |
+
+**Additions (2026-10-20, CFO tweak and Q-AH14; spec 43.10):**
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-29 | BLOCK | Q-AH14: with PF rows (GBP … CNY) stored, `GET /api/dashboard/fx` lists only USD EUR SEK PLN DKK HUF CZK quotes, byte-equal to the output with no PF rows. |
+| PFFX-30 | BLOCK | Mixed export line: exactly 5 fallback months → all 5, no suffix; 6 → the earliest 5 and ` and 1 more`; 17 → the earliest 5 and ` and 12 more`. The months are sorted; `fx_fallback_months` on the wire keeps the full list. |
+
+**Additions (2026-10-20, QA G1–G5 on 66a8561; spec 43.11):** these refine PFFX-11, PFFX-23, PFFX-27 and PFFX-28.
+
+| ID | Sev | Check |
+|---|---|---|
+| PFFX-23b | BLOCK | G1: `fx_basis` / `fx_fallback_months` cover the months feeding the reply. USD lines (typed 0.7) in 2024-01 and 2024-03, USD row only in 2024-03, range 2024-03: without net assets → `"historical"`, no field; with `net-assets` → `"mixed"`, `["2024-01"]` (before the range). |
+| PFFX-11b | MAJOR | G4: `Charts and exports use Bank of Canada rates where available` beside every foreign FX rate field; exact text; AA contrast; inside its line with no overflow at 390px and desktop; page CLS 0. |
+| PFFX-27b | MAJOR | G5: the recorded Valet fixture (9 series) is parsed and stored; dashboard and `ECB_CROSS` rows unchanged; `vercel.json` unchanged. |
+| PFFX-28b | BLOCK | G5: USD rows only from 2026-09; USD lines in 2024-03 and 2026-09; range `all` → `"mixed"`, `["2024-03"]`; after 2024-03 rows exist → `"historical"`. |
+| PFFX-30b | MAJOR | G3: the PDF mixed line wraps; flattened text contains the full 5-month line with ` and N more`. |
+
+**Note (2026-10-20, QA H2 on 83cd973):** PFFX-11b replaces PFFX-26's note text: the page note is `Charts and exports use Bank of Canada rates where available` (spec 43.11 G4).

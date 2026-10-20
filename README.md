@@ -675,3 +675,11 @@ Saved reports accept the `all` range, stored as `all` and resolved each time the
 Starting net assets can carry an optional 'as of' month (`As of month`, `YYYY-MM`, 2020-01 to the current Toronto month; #171, added 2026-10-17). When it is set, the net-assets series (`net_assets_from`), the chart, the export and the Overview are anchored at that month; without it, nothing changes. Spec section 42 (Q-AG1..Q-AG12); contract section 11; AC PFAO-01..PFAO-18; tests `src/lib/finance/as-of.server.test.ts`.
 
 Added 2026-10-18 (#171 CFO round): AC PFAO-19..PFAO-26; spec 42.9–42.13; contract 11.2 (the record API's two as-of bound messages) and 12 / 12.1 (the 24-month cap message on saved-report ranges).
+
+**Personal Finance historical FX rates (#170, added 2026-10-18; Phase 1).** Spec section 43 (facts, Q-AH1..Q-AH6, all not built); AC PFFX-01..PFFX-16. Until decided, `fx_basis` stays `"current"` and nothing changes.
+
+Added 2026-10-20 (#170): Diego decided Q-AH1..Q-AH6 (BoC Valet via `fx_rates`, backfill from 2020-01, no migration, business-day monthly average with typed-rate fallback, export line changes); open Q-AH7..Q-AH12 in spec 43.7; AC PFFX-17..22.
+
+Added 2026-10-20 (#170, CFO/QA round): spec 43.8 (three-value `fx_basis` with `fx_fallback_months`, export lines, page note) and 43.9 (worked examples, backfill bounds, Q-AH13); AC PFFX-17a..22a, 23..28.
+
+Added 2026-10-20 (#170, Phase 2 built; QA G1–G5): spec 43.10/43.11, contract section 13, runbook `docs/release/2026-10-20-pf-fx-backfill.md` (backfill NOT run); AC PFFX-11b, 23b, 27b..30b.

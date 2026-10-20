@@ -318,3 +318,25 @@ The existing 24-month cap on saved-report ranges now says `Range can't be longer
 | `Range can't be longer than 24 months.` | 400 | R3 R4 L1 |
 
 **Superseded statements (added 2026-10-18, docs consistency after QA):** in the #179 save-mode note, "A range that is only over the cap stays `Invalid value.`" is replaced by section 12 (`Range can't be longer than 24 months.`; bounds are still checked first). In section 11, "Net assets are null before it" holds only when `asOf` is at or before the first data month or after the current month (Q-AG1 note above); and the record API's "existing 400 `Invalid value.`" for a bad `asOf` now applies to malformed months only (table 11.2).
+
+## 13. Historical FX: `fx_basis` values, `fx_fallback_months` and the export FX line (added 2026-10-20, #170; spec 43)
+
+R1 `/series`, R2 `/chart` (both bodies) and the R5 export convert each month's foreign lines and foreign people at that month's Bank of Canada monthly average: the mean of the business-day `fx_rates` rows (`source = 'BOC'`) in the month, or the days published so far in the current month. The rate is CAD per household unit / CAD per line unit. A month with no row for either side uses the typed rate. The stored record, the record API and the page are unchanged (the page keeps the typed rate and shows `Charts and exports use Bank of Canada rates where available` beside each foreign FX rate field).
+
+- `fx_basis` is `"current"` when no historical rate was used (the output is byte-identical to before), `"historical"` when every foreign line and person in the computed months used one, and `"mixed"` otherwise. This supersedes the `fx_basis: "current"` literal in section 2.
+- `fx_fallback_months` (sorted `yyyy-mm` list, every month that used a typed rate) is present only when `fx_basis` is `"mixed"`, and comes right after `fx_basis`.
+- The export header's FX line follows `fx_basis` (table 13.1). The mixed line names at most the earliest 5 fallback months, then ` and N more`.
+- Scope (spec 43.11 G1): both fields cover every month whose conversion feeds a value in the reply; with `net-assets` in the reply that is every month from the first data month (so `fx_fallback_months` can list months before the range).
+- No new route, status or message. Client code: none.
+
+### 13.1 Machine-checked (fx-history.server.test.ts)
+
+| Key | Value |
+|---|---|
+| basis-values | current, historical, mixed |
+| fallback-field | fx_fallback_months |
+| first-month | 2020-01 |
+| line-current | FX basis: current (every month is valued at today's rates, not historical rates) |
+| line-historical | FX basis: historical (each month at its Bank of Canada monthly average rate) |
+| line-mixed | FX basis: mixed (Bank of Canada monthly averages; typed rate used for <months>) |
+| mixed-shown | 5 |

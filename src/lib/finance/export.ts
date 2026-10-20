@@ -16,6 +16,17 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 export const NET_ASSETS_CAVEAT =
   "Starting net assets is defined at the Overview window start but anchored here at the first data month, so the absolute level can be off by the surplus between those dates. The month-to-month shape is right; the level isn't trustworthy until an explicit as-of month is stored (follow-up ticket).";
 export const FX_LINE = "FX basis: current (every month is valued at today's rates, not historical rates)";
+/** #170 Q-AH6 (Diego) / Q-AH8: printed instead of FX_LINE when `fx_basis` is "historical" (spec 43.7). */
+export const FX_LINE_HISTORICAL = "FX basis: historical (each month at its Bank of Canada monthly average rate)";
+/** #170 (CFO, spec 43.8 / 43.10): the mixed line names the earliest 5 fallback months (sorted), then " and N more". */
+export const FX_MIXED_SHOWN = 5;
+export const fxMixedLine = (months: readonly string[]): string => {
+  const sorted = [...months].sort();
+  const more = sorted.length - FX_MIXED_SHOWN;
+  return `FX basis: mixed (Bank of Canada monthly averages; typed rate used for ${sorted.slice(0, FX_MIXED_SHOWN).join(", ")}${more > 0 ? ` and ${more} more` : ""})`;
+};
+export const fxLine = (d: Pick<ChartData, "fx_basis" | "fx_fallback_months">): string =>
+  d.fx_basis === "historical" ? FX_LINE_HISTORICAL : d.fx_basis === "mixed" ? fxMixedLine(d.fx_fallback_months ?? []) : FX_LINE;
 export const MIXED_LINE = "Mixed axes: net assets (a level) share this chart with flows (amounts per month).";
 
 /** #179: `range` = the report's range as saved (a saved `all` prints as `All data (...)`, Q-AF1 / Q-AF2). */
@@ -49,7 +60,7 @@ export function headerLines(d: ChartData, meta: ExportMeta): string[] {
     `Orpheus - Personal Finance report: ${meta.name}`,
     `Chart: ${d.chart} - Range: ${rangeLabel(d, meta.range)} - Currency: ${d.currency}`,
     `As of: ${d.current} (${d.partial ? "current month included, partial" : "current month not in range"}) - Generated: ${meta.generatedAt}`,
-    FX_LINE,
+    fxLine(d),
   ];
   if (drawnAsLines(d)) out.splice(2, 0, LINES_NOTE);
   if (hasNetAssets(d))
