@@ -1562,3 +1562,28 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
 - Q-AL8 Delete on a Read grant: **rec** hidden (the server already refuses). Not built.
 - Q-AL9 Unsaved changes when leaving: **rec** no prompt in this ticket (polish later). Not built.
 - Q-AL10 (out of ticket, not built) An undo / soft-delete for reports would need a data-model change: **rec** no; park it.
+47.9 (2026-10-20, CFO decision) Q-AL1..Q-AL10 are accepted as recommended, with two conditions. The answers are now **built** on PR #195:
+- Q-AL1 built: route `src/routes/personal-finance_.charts_.$id.tsx`; signed out → `next=/personal-finance/charts`.
+- Q-AL2 built: list row names are links to `/personal-finance/charts/<id>`.
+- Q-AL3 built: the viewer is the #161 `ChartsBuilder`, opened with the saved report; Update is disabled until there is a change.
+- Q-AL4 built: `/<id>/edit` is unchanged.
+- Q-AL5 built: in-page confirm `Delete "<name>"? This cannot be undone.` with `Delete` / `Cancel`.
+- Q-AL6 built: 200 → `/personal-finance/charts`; any refusal (404 `Report not found.` included) shows the server text exactly, and the report stays.
+- **Q-AL7 condition:** the default report has **no Delete** in the UI (hidden). Whether to enable it is Diego's call via CoS in issue #165; the server is unchanged for the default (owner / Write grant may still `DELETE /reports/default`).
+- Q-AL8 built: Delete is hidden on a Read grant (and the server now refuses, see 47.10).
+- **Q-AL9 condition (supersedes "no prompt"):** the viewer is editable (Q-AL3), so it uses the #161 Q-AK11 leave warning (`beforeunload`) while there are unsaved changes; none after Update or Delete. A Read-grant viewer is truly read-only (every control disabled, no Update or Delete), so it never prompts.
+- Q-AL10 parked, not built.
+47.10 (2026-10-20, QA R2 on 5db4dcd, Diego's decision folded into #162; corrects 47.4 and Q-AL8, nothing above removed)
+- **Before:** a Read grant could `POST /reports`, `PUT` / `DELETE /reports/:id` and `PUT` / `DELETE /report`. Those routes asked for `need: "read"` (`account.server.ts`), while the gate's default (`session.server.ts` `gateDashboardRequest`) would have asked for write on non-GET methods. So 47.4's and Q-AL8's "the server already refuses" was wrong.
+- **Now:** those five writes ask for **write** (`reportNeed` in `account.server.ts`: GET / HEAD read, every other method write). A Read grant gets 403 `Forbidden.` (no-store, the access-denied audit row), and its stored row is unchanged. Owner and Write grant work as before. Signed out → 401. GET stays read.
+- `/series`, `/chart` (POST queries that store nothing) and `/export` (GET) stay read, so a Read-grant viewer still previews and exports.
+- This reverses spec 33 / 38's "a Read CFO saves their own" (PFR-14, PFRC-12). Those server tests now give bob a Write grant. Read-grant refusals are in `reports-write.server.test.ts`; mutating `reportNeed` to always `read` is caught.
+- The UI matches: a Read grant gets no Save, Update or Delete.
+47.11 (2026-10-20, QA R1, R3–R5 on 5db4dcd; additions only) QA's run log `qa/runs/run-2026-10-20-pr195.md` is not in the repo (checked with `git ls-files`), so the ACs below are made concrete from the code and the EL rulings.
+- R1: README and AGENTS.md gain a #162 pointer.
+- R4: the Delete style is `pf-button pf-button-danger`, which uses the existing `--color-danger` token for text and border (no new colour); a 44 px minimum height.
+- R5 carries #161's rulings over to the viewer:
+  - O3 / 46.12: viewer and edit URLs sign in to the list (`EDIT_SIGN_IN_NEXT`); only the exact `/new` is allowlisted.
+  - P2 / 46.13: one reserved area, CLS 0.
+  - 46.11 / 46.14: deleted names on a line are offered as `<name> (deleted)` (e.g. `Travel (deleted)`). The picker equals the server's known set. A saved series the server lists in `missing[]` is still shown, as missing.
+  - Q-AK9 / Q-AK13: export as in #161.

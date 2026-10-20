@@ -151,9 +151,12 @@ describe("#160 Charts reports list", () => {
     await act(async () => resolve(ok({ limit: 20, reports: named(1) })));
     assert.equal(q(el, "pf-charts-loading"), null);
   });
-  it("PFCL-12 / Q-AJ11 / Q-AJ12: rows are not links; no rename/delete/export; no icons; back link", async () => {
+  it("PFCL-12 / Q-AJ12, amended by #162 Q-AL2 (PFCV-02): each row's name is the one link (to its viewer); no rename/delete/export; no icons; back link", async () => {
     const el = await render({ load: async () => ok({ limit: 20, reports: [DEFAULT, ...named(2)] }) });
-    assert.equal(q(el, "pf-charts-list")!.querySelectorAll("a, button, svg").length, 0);
+    const links = [...q(el, "pf-charts-list")!.querySelectorAll("a")];
+    assert.deepEqual(links.map((a) => a.dataset.testid), qa(el, "pf-charts-row").map(() => "pf-charts-name"));
+    assert.deepEqual(links.map((a) => a.getAttribute("href")), qa(el, "pf-charts-row").map((r) => `/personal-finance/charts/${r.dataset.id}`));
+    assert.equal(q(el, "pf-charts-list")!.querySelectorAll("button, svg").length, 0);
     assert.equal(el.querySelectorAll("svg").length, 0);
     assert.equal(q(el, "pf-charts-back")!.getAttribute("href"), "/personal-finance");
   });

@@ -691,3 +691,5 @@ Added 2026-10-20 (#160, PF Charts UI 1/3; built): `/personal-finance/charts` lis
 Added 2026-10-20 (#161, PF Charts UI 2/3; Phase 1, nothing built): spec section 46 (report builder; Q-AK1..Q-AK15), AC PFCB-01..PFCB-20.
 
 Added 2026-10-20 (#161, built): `/personal-finance/charts/new` and `/personal-finance/charts/<id>/edit` (report builder on R2–R5 and the record GET; no wire change); spec 46.10–46.12; QA `site-shell.mjs` (signed-out redirects) and `personal-finance-e2e.mjs` (signed-in builder, read-only).
+
+Added 2026-10-20 (#162, PF Charts UI 3/3): `/personal-finance/charts/<id>` is the saved report viewer (the #161 builder opened with the saved report; Update, Delete with in-page confirm; no Delete for the default report or a Read grant). List names link to it. Server: saving, replacing or deleting a report now needs a Personal Finance write grant (Read → 403). Spec section 47, AC PFCV-01..16.

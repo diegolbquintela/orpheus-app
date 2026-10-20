@@ -61,6 +61,7 @@ function fakeApi(over: Partial<BuilderApi> = {}) {
     chart: async (qq) => log("chart", { ok: true, status: 200, data: chartOf(qq as never) }, qq),
     create: async (b) => log("create", { ok: true, status: 201, data: item("r-0000abcd", b.name, b.report) }, b),
     update: async (id, b) => log("update", { ok: true, status: 200, data: item(id, (b as { name?: string }).name ?? "Default", b.report, id === "default") }, id, b),
+    remove: async (id) => log("remove", { ok: true, status: 200, data: { deleted: id } }, id),
     ...over,
   };
   return { api, calls, ops: () => calls.map((c) => c.op) };
@@ -300,5 +301,101 @@ describe("#161 Charts builder", () => {
     assert.equal(t.getAttribute("aria-expanded"), "true");
     assert.equal(q(el, "pf-builder-series")!.dataset.open, "true");
     assert.equal(q(el, "pf-builder-back")!.getAttribute("href"), "/personal-finance/charts");
+  });
+  describe("#162 saved report viewer (spec 47, Q-AL1..Q-AL10)", () => {
+    const saved = item("r-00000001", "Spend", { series: [{ kind: "group", id: "all" }], range: { preset: "6m" }, chart: "bar" });
+    const withSaved = (over: Partial<BuilderApi> = {}) => fakeApi({ get: async () => ({ ok: true, status: 200, data: saved }), ...over });
+    const fire = () => {
+      const e = new dom.window.Event("beforeunload", { cancelable: true });
+      dom.window.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    it("PFCV-03 / PFCV-05 / Q-AL3: pre-loaded as saved, one GET; Update disabled until a change, then enabled", async () => {
+      const gets: string[] = [];
+      const f = withSaved({ get: async (id) => (gets.push(id), { ok: true, status: 200, data: saved }) });
+      const el = await render({ api: f.api, id: "r-00000001" });
+      assert.deepEqual(gets, ["r-00000001"]);
+      assert.equal((q(el, "pf-builder-name") as HTMLInputElement).value, "Spend");
+      assert.equal((q(el, "pf-builder-range") as HTMLSelectElement).value, "6m");
+      assert.equal((q(el, "pf-builder-chart") as HTMLSelectElement).value, "bar");
+      assert.equal(pick(el, "group", "all").checked, true);
+      assert.deepEqual(f.calls.find((c) => c.op === "chart")!.arg, { series: [{ kind: "group", id: "all" }], range: { preset: "6m" }, chart: "bar" }, "preview drawn from the saved report");
+      const up = q(el, "pf-builder-save") as HTMLButtonElement;
+      assert.equal(up.textContent, "Update");
+      assert.equal(up.disabled, true, "clean → Update disabled");
+      await type(q(el, "pf-builder-chart")!, "line");
+      assert.equal((q(el, "pf-builder-save") as HTMLButtonElement).disabled, false, "dirty → enabled");
+    });
+    it("PFCV-06 / Q-AL5 / Q-AL6: Delete → in-page confirm; Cancel sends nothing; confirm sends one DELETE and goes to the list", async () => {
+      const f = withSaved();
+      const went: string[] = [];
+      const el = await render({ api: f.api, id: "r-00000001", goTo: (p) => went.push(p) });
+      await click(q(el, "pf-builder-delete")!);
+      assert.equal(q(el, "pf-builder-delete-confirm")!.textContent, 'Delete "Spend"? This cannot be undone.');
+      await click(q(el, "pf-builder-delete-cancel")!);
+      assert.equal(q(el, "pf-builder-delete-confirm"), null);
+      assert.equal(f.ops().filter((o) => o === "remove").length, 0, "cancel → no DELETE");
+      await type(q(el, "pf-builder-chart")!, "line");
+      await click(q(el, "pf-builder-delete")!);
+      await click(q(el, "pf-builder-delete-yes")!);
+      assert.deepEqual(f.calls.filter((c) => c.op === "remove").map((c) => c.arg), ["r-00000001"]);
+      assert.deepEqual(went, ["/personal-finance/charts"]);
+      assert.equal(fire(), false, "Q-AL9: after delete, no leave warning");
+    });
+    it("PFCV-07: DELETE refusals show the server text exactly; the report stays", async () => {
+      for (const r of [
+        { ok: false, status: 404, code: "not_found", error: "Report not found." },
+        { ok: false, status: 403, code: "forbidden", error: "Forbidden." },
+      ] as const) {
+        const went: string[] = [];
+        const f = withSaved({ remove: async () => r as never });
+        const el = await render({ api: f.api, id: "r-00000001", goTo: (p) => went.push(p) });
+        await click(q(el, "pf-builder-delete")!);
+        await click(q(el, "pf-builder-delete-yes")!);
+        assert.equal(q(el, "pf-builder-delete-error")!.textContent, r.error);
+        assert.deepEqual(went, []);
+        assert.ok(q(el, "pf-builder"), "still on the report");
+        assert.equal(q(el, "pf-builder-back")!.getAttribute("href"), "/personal-finance/charts");
+        await act(async () => root?.unmount());
+        container?.remove();
+      }
+    });
+    it("PFCV-08 / Q-AL7 (CFO condition): the default report has no Delete", async () => {
+      const def = item("default", "Default", { series: [{ kind: "metric", id: "income" }], range: { preset: "all" }, chart: "line" }, true);
+      const el = await render({ api: fakeApi({ get: async () => ({ ok: true, status: 200, data: def }) }).api, id: "default" });
+      assert.ok(q(el, "pf-builder"));
+      assert.equal(q(el, "pf-builder-delete"), null);
+      assert.equal(q(el, "pf-builder-delete-area"), null);
+    });
+    it("PFCV-09 / Q-AL8 / Q-AL9: Read grant: no Update, no Delete, controls disabled, so no leave warning", async () => {
+      const el = await render({ api: withSaved().api, id: "r-00000001", readOnly: true });
+      assert.equal(q(el, "pf-builder-save"), null);
+      assert.equal(q(el, "pf-builder-delete"), null);
+      assert.ok(qa(el, "pf-builder-pick").every((c) => (c as HTMLInputElement).disabled));
+      assert.equal(fire(), false);
+    });
+    it("PFCV-09b / Q-AL9 (CFO condition): Write grant: the viewer warns on leave while there are unsaved changes (AK11)", async () => {
+      const el = await render({ api: withSaved().api, id: "r-00000001" });
+      assert.equal(fire(), false, "clean");
+      await type(q(el, "pf-builder-chart")!, "line");
+      assert.equal(fire(), true, "dirty");
+      await click(q(el, "pf-builder-save")!);
+      assert.equal(fire(), false, "updated");
+    });
+    it("PFCV-04: unknown id → `Report not found.` and the link back to Charts; no Delete", async () => {
+      const el = await render({ api: fakeApi().api, id: "r-ffffffff" });
+      assert.equal(q(el, "pf-builder-load-error")!.textContent, "Report not found.");
+      assert.equal(q(el, "pf-builder-back")!.getAttribute("href"), "/personal-finance/charts");
+      assert.equal(q(el, "pf-builder-delete"), null);
+    });
+    it("PFCV-15 (R5): a saved series the server no longer knows is still shown, checked, labelled `(missing)`; unchecking removes it", async () => {
+      const gone = item("r-00000002", "Old", { series: [{ kind: "group", id: "all" }, { kind: "category", id: "Gone" }], range: { preset: "12m" }, chart: "line" });
+      const el = await render({ api: fakeApi({ get: async () => ({ ok: true, status: 200, data: { ...gone, missing: [1] } }) }).api, id: "r-00000002" });
+      const m = pick(el, "category", "Gone");
+      assert.equal(m.checked, true);
+      assert.equal(m.parentElement!.textContent, "Gone (missing)");
+      await click(m);
+      assert.equal(pick(el, "category", "Gone"), null);
+    });
   });
 });

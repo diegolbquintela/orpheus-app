@@ -1197,6 +1197,7 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFEC-06 | MAJOR | Q-AI2: anchored value null → status `none` (amounts `—`, no note). |
 | PFEC-07 | MAJOR | Q-AI3: anchored ≤ 0 with a typed start > 0 → `none`; typed start empty / ≤ 0 → `no_start` as today. |
 - #162 PF Charts viewer (added 2026-10-20, Phase 1): spec 47, AC PFCV-01..13, Q-AL1..Q-AL10 NOT built. UI only on existing R3 calls (DELETE already served). AJ7 19-enabled test already in #161.
+- #162 built + R2 (added 2026-10-20): viewer route `personal-finance_.charts_.$id.tsx` (the #161 builder opened with the saved report; Delete with in-page confirm, hidden for default and Read; leave warning only when editable and dirty); list names link to it. **Server:** report writes (POST /reports, PUT/DELETE /reports/:id, PUT/DELETE /report) now need a write grant (`reportNeed`); a Read grant gets 403. Tests: `reports-write.server.test.ts`. Spec 47.9–47.11, AC PFCV-01..16.
 | PFEC-08 | MAJOR | Q-AI4: Future on unchanged (typed start gates; projected anchored value computes), pinned. |
 | PFEC-09 | MINOR | Q-AI5: `asOf` after the current month (skewed clock) → `none`. |
 | PFEC-10 | MAJOR | An invalid typed `asOf` (page error) is ignored by the coverage, as by the figures (42.6). |
@@ -1312,3 +1313,22 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | PFCV-11 | MAJOR | CLS 0 on a cold load; 44 px targets; mobile and desktop layout as 46.8; dark style, no gold. |
 | PFCV-12 | MINOR | Builder follow-up AJ7: the #161 test "19 named → New report enabled" still passes (already in `charts-page.dom.test.tsx`). |
 | PFCV-13 | MAJOR | DOM tests in both TZs; signed-out suites green on the preview; QA PASS mobile + desktop. |
+
+**PFCV concrete checks (2026-10-20, QA R3 / R5 on 5db4dcd and the build; spec 47.9–47.11; the table above is unchanged).** Viewports are 390×844 (mobile) and 1280×800 (desktop). "e2e" is `qa/tools/personal-finance-e2e.mjs`, signed in; "DOM" is `src/components/personal-finance/charts-builder.dom.test.tsx`; "server" is `src/lib/finance/reports-write.server.test.ts`.
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFCV-01 | MAJOR | Signed out, GET `/personal-finance/charts/r-00000001` → 307 `Location: /dashboard/sign-in?next=%2Fpersonal-finance%2Fcharts`. Temporary password → `/account`. No PF grant → 403 denied page. `robots: noindex, nofollow`; title `Report · Charts · Orpheus Wisdom`. | site-shell (signed out); e2e |
+| PFCV-02 | MAJOR | List with N rows → exactly N links, each `a[data-testid=pf-charts-name]` with `href=/personal-finance/charts/<row id>` and ≥ 44 px tall at both viewports. The list still makes exactly `["GET /api/personal-finance/reports"]`. | e2e; `charts-page.dom.test.tsx` PFCL-12 |
+| PFCV-03 | MAJOR | `/charts/<id>` → exactly one `GET /api/personal-finance/reports/<id>`. The name, range and chart controls and the checked series equal the saved report. The first `POST /chart` body is `{ series, range, chart }` as saved. | DOM |
+| PFCV-04 | MAJOR | `/charts/r-ffffffff` → `pf-builder-load-error` reads exactly `Report not found.`; `pf-builder-back` href is `/personal-finance/charts`; no Delete. | DOM; e2e |
+| PFCV-05 | MAJOR | Clean → `Update` disabled. One change → enabled. A refusal shows the exact server text under its field (as PFCB-14). | DOM |
+| PFCV-06 | MAJOR | `Delete` → `Delete "<name>"? This cannot be undone.` `Cancel` → no request. `Delete` → exactly one `DELETE /api/personal-finance/reports/<id>`; 200 → `/personal-finance/charts`, and the row is gone from the list. | DOM; e2e (a throwaway report only) |
+| PFCV-07 | MAJOR | DELETE 404 → `Report not found.`; 403 → `Forbidden.` (`pf-builder-delete-error`). The page stays on the report. | DOM |
+| PFCV-08 | MAJOR | `/charts/default` → no `pf-builder-delete` (CFO Q-AL7; #165 decides any change). | DOM; e2e |
+| PFCV-09 | MAJOR | Read grant → no `pf-builder-save`, no `pf-builder-delete`, every control disabled, `beforeunload` not prevented; export as Q-AK13. | DOM |
+| PFCV-09b | MAJOR | Write grant, unsaved change → `beforeunload` prevented; after Update or Delete → not prevented (Q-AL9 condition). | DOM |
+| PFCV-11 | MAJOR | Cold load of `/charts/<id>` and `/charts/default` at both viewports: CLS 0. Delete, Cancel and the name links are ≥ 44 px at 390 px. No horizontal scroll. Delete uses `--color-danger` (R4); no gold. | e2e |
+| PFCV-14 | BLOCKER | (R2, Diego) Read grant: `POST /reports`, `PUT` / `DELETE /reports/<id>`, `PUT` / `DELETE /reports/default`, `PUT` / `DELETE /report` → 403 `Forbidden.`, no-store, stored row byte-identical. Owner and Write grant → 201 / 200. Signed out → 401. GET `/reports`, GET `/reports/<id>` and POST `/chart` on a Read grant → 200. QA-runnable signed in with a Read-grant test account on the preview (no prod writes); signed out → 401 on the preview. | server (PGlite, UTC + LA); QA |
+| PFCV-15 | MAJOR | (R5 carry-over) the viewer picker shows `Travel (deleted)` for a deleted category still on a line; the picker set == the server's known set (accounts and categories); a saved series the server lists in `missing[]` still shows and is labelled missing. | `builder.test.ts`, DOM |
+| PFCV-16 | MAJOR | Regression: PFCB-01..21 and PFCL-01..14 still pass (PFCL-12 amended by Q-AL2: the name is the row's one link). | all suites |

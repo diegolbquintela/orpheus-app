@@ -228,11 +228,18 @@ export async function deleteOwnReport(db: Queryable, userId: string): Promise<vo
  * section toggles). GET `{ report, missing }` (`missing`: series not in the owner's record, Q-X4); PUT `{ report }`
  * replaces it (shared `checkReport`: 400 `{ error, field }`, 413 above 4 KB); DELETE removes it.
  */
+/**
+ * #162 R2 (Diego, 2026-10-20; spec 47.10): saving, replacing or deleting a report needs a Personal Finance **write** grant
+ * (or the owner). A Read grant gets 403 on POST /reports, PUT / DELETE /reports/:id and PUT / DELETE /report; GET / HEAD
+ * stay read. /series, /chart and /export are read-only queries and keep `need: "read"`.
+ */
+export const reportNeed = (request: Request): "read" | "write" => {
+  const m = request.method.toUpperCase();
+  return m === "GET" || m === "HEAD" ? "read" : "write";
+};
+
 export async function handlePersonalFinanceReportRequest(request: Request, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
-  const g = await gateDashboardRequest(request, PF_REPORT_ALLOW, deps, {
-    surface: "personal_finance",
-    need: "read",
-  });
+  const g = await gateDashboardRequest(request, PF_REPORT_ALLOW, deps, { surface: "personal_finance", need: reportNeed(request) });
   if ("response" in g) return g.response;
   const { db, viewer, user } = g;
   const method = request.method.toUpperCase();
@@ -427,7 +434,7 @@ const refuse = (e: { status: number; error: string; field?: string }) =>
  * owner's record).
  */
 export async function handlePersonalFinanceReportsRequest(request: Request, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
-  const g = await gateDashboardRequest(request, PF_REPORTS_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  const g = await gateDashboardRequest(request, PF_REPORTS_ALLOW, deps, { surface: "personal_finance", need: reportNeed(request) });
   if ("response" in g) return g.response;
   const { db, viewer, user } = g;
   if (request.method.toUpperCase() === "POST") {
@@ -462,7 +469,7 @@ export async function handlePersonalFinanceReportsRequest(request: Request, deps
  * the name and cannot rename it). Unknown id → 404 `Report not found.`.
  */
 export async function handlePersonalFinanceReportItemRequest(request: Request, id: string, deps: DashboardApiDeps, clock: () => Date = () => new Date()) {
-  const g = await gateDashboardRequest(request, PF_REPORT_ITEM_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  const g = await gateDashboardRequest(request, PF_REPORT_ITEM_ALLOW, deps, { surface: "personal_finance", need: reportNeed(request) });
   if ("response" in g) return g.response;
   const { db, viewer, user } = g;
   if (!isReportId(id)) return dashboardJson({ error: REPORT_NOT_FOUND }, 404);

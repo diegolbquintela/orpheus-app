@@ -74,7 +74,7 @@ before(async () => {
     await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, import.meta.url), "utf8"));
   for (const id of ["alice", "bob", "carol"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
-    ('bob', 'personal_finance', true, false, 'alice'), ('carol', 'personal_finance', true, false, 'alice')`);
+    ('bob', 'personal_finance', true, true, 'alice'), ('carol', 'personal_finance', true, true, 'alice')`);
   await saveRecord(recordWith({ "2025-03": "900", "2026-09": "1000" }));
 });
 

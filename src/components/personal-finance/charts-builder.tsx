@@ -7,6 +7,7 @@ import { ReadOnlyLine } from "@/components/access/denied";
 import {
   chartQuery,
   createReport,
+  deleteReport,
   exportUrl,
   getReport,
   listReports,
@@ -15,6 +16,7 @@ import {
   type ChartQuery,
   type ReportBody,
   type DefaultReportBody,
+  type Deleted,
   type ReportItem,
   type ReportList,
   type Result,
@@ -23,12 +25,15 @@ import {
   PICK_ONE,
   SERIES_CAP,
   atCap,
+  canDelete,
+  deleteConfirm,
   editPath,
   fromRange,
   isPicked,
   labelFor,
   nameProblem,
   pickerSections,
+  withMissing,
   reportProblem,
   toggle,
   toRange,
@@ -46,6 +51,7 @@ export type BuilderApi = {
   chart: (q: ChartQuery) => Promise<Result<ChartData>>;
   create: (b: ReportBody) => Promise<Result<ReportItem>>;
   update: (id: string, b: ReportBody | DefaultReportBody) => Promise<Result<ReportItem>>;
+  remove: (id: string) => Promise<Result<Deleted>>;
 };
 
 async function fetchRecord(): Promise<PfRecord | null> {
@@ -60,6 +66,7 @@ const liveApi: BuilderApi = {
   chart: (q) => chartQuery(q),
   create: (b) => createReport(b),
   update: (id, b) => updateReport(id, b),
+  remove: (id) => deleteReport(id),
 };
 
 const PRESETS = [
@@ -93,6 +100,7 @@ export function ChartsBuilder({
   api = liveApi,
   debounceMs = 400,
   replaceUrl = (path: string) => window.history.replaceState(window.history.state, "", path),
+  goTo = (path: string) => window.location.assign(path),
 }: {
   /** Edit mode: the report id (`default` or `r-…`); omitted: a new report. */
   id?: string;
@@ -101,6 +109,7 @@ export function ChartsBuilder({
   api?: BuilderApi;
   debounceMs?: number;
   replaceUrl?: (path: string) => void;
+  goTo?: (path: string) => void;
 }) {
   const current = householdMonth(now);
   const [load, setLoad] = useState<{ kind: "loading" } | { kind: "error"; error: string } | { kind: "ready" }>({ kind: "loading" });
@@ -118,6 +127,9 @@ export function ChartsBuilder({
   const [panelOpen, setPanelOpen] = useState(false);
   const [preview, setPreview] = useState<{ kind: "idle" | "loading" } | { kind: "error"; error: string } | { kind: "ready"; data: ChartData }>({ kind: "idle" });
   const seq = useRef(0);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -146,7 +158,7 @@ export function ChartsBuilder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sections = useMemo(() => pickerSections(record), [record]);
+  const sections = useMemo(() => withMissing(pickerSections(record), picked), [record, picked]);
   const problem = reportProblem(picked, range, chart, current);
 
   // Q-AK6: the live preview, debounced; the latest answer wins. Nothing is sent while the report is invalid.
@@ -208,6 +220,20 @@ export function ChartsBuilder({
       setOthers((o) => [...o, { id: r.data.id, name: r.data.name }]);
       replaceUrl(editPath(r.data.id));
     }
+  }
+
+  // #162 Q-AL5/Q-AL6: confirm in-page, one DELETE; 200 → the list; any refusal shows the server text, report stays.
+  async function remove() {
+    if (!savedId) return;
+    setDeleting(true);
+    const r = await api.remove(savedId);
+    setDeleting(false);
+    if (!r.ok) {
+      setConfirming(false);
+      return setDeleteError(r.error);
+    }
+    setDirty(false); // Q-AL9: nothing left to lose, so no leave warning.
+    goTo(CHARTS_PATH);
   }
 
   if (load.kind === "loading")
@@ -341,11 +367,47 @@ export function ChartsBuilder({
           </label>
           {err("chart")}
           {readOnly ? null : (
-            <button type="button" className="pf-button" disabled={saving} onClick={() => void save()} data-testid="pf-builder-save">
+            <button type="button" className="pf-button" disabled={saving || (!!savedId && !dirty)} onClick={() => void save()} data-testid="pf-builder-save">
               {savedId ? "Update" : "Save"}
             </button>
           )}
           {err("general")}
+          {canDelete(savedId, isDefault, readOnly) ? (
+            <div className="pf-builder-delete" data-testid="pf-builder-delete-area">
+              {confirming ? (
+                <>
+                  <p className="pf-charts-note" role="alert" data-testid="pf-builder-delete-confirm">
+                    {deleteConfirm(name)}
+                  </p>
+                  <div className="pf-builder-delete-actions">
+                    <button type="button" className="pf-button pf-button-danger" disabled={deleting} onClick={() => void remove()} data-testid="pf-builder-delete-yes">
+                      Delete
+                    </button>
+                    <button type="button" className="pf-button" disabled={deleting} onClick={() => setConfirming(false)} data-testid="pf-builder-delete-cancel">
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="pf-button pf-button-danger"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setConfirming(true);
+                  }}
+                  data-testid="pf-builder-delete"
+                >
+                  Delete
+                </button>
+              )}
+              {deleteError ? (
+                <p className="pf-error" role="alert" data-testid="pf-builder-delete-error">
+                  {deleteError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {exportable ? (
             <details className="pf-builder-export" data-testid="pf-builder-export">
               <summary className="pf-builder-toggle">Export</summary>

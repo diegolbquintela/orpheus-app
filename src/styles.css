@@ -1338,3 +1338,10 @@
     visibility: hidden;
   }
 }
+
+/* #162 Q-AL5: Delete (existing danger token, no new colour); 44 px targets at every width. */
+.pf-button-danger { color: var(--color-danger); border-color: var(--color-danger); }
+.pf-builder-delete { display: flex; flex-direction: column; gap: 0.5rem; }
+.pf-builder-delete-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.pf-builder-delete .pf-button { min-height: 2.75rem; }
+.pf-charts-name { display: inline-flex; align-items: center; min-height: 2.75rem; color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
