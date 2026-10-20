@@ -1042,6 +1042,8 @@ Design and CFO calls Q-X1..Q-X8: `attachments/pf-chart-report-design.md`.
 33.8 Gate as for `/api/personal-finance`. A read grant is enough (the report is the person's own). Audit actions: `pf.report_save` / `pf.report_delete`.
 33.9 The record API never shows or changes the report, except that the owner's record `DELETE` removes the owner's report.
 
+33.10 (2026-10-20, CFO decision 1 on PR #195, #162 R2; nothing above removed) **Read means read only.** A Personal Finance Read grant gets 403 `Forbidden.` on `PUT` / `DELETE /api/personal-finance/report`, and its stored row is unchanged. This supersedes this section's "a Read grant is enough (a preference)" for writes. GET is unchanged; owner and Write grant are unchanged. Spec 47.10; tests `reports-write.server.test.ts`.
+
 ## 34. Month control: any past month, Month + Year (#163; PFM-01..PFM-14)
 
 Design and CFO calls Q-Y1..Q-Y9: `attachments/pf-any-month-design.md`. Supersedes 19.1's "a select of the last 12 months" and 19.3's "24 months kept". Nothing else in section 19 changes.
@@ -1127,6 +1129,8 @@ Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFR
 38.9 The record API never shows reports and a record save keeps them. A stored named report that is no longer valid is skipped on read. Removing the last report from a row that holds nothing else removes the row.
 38.10 Not built: the #173 range refusal (Q-AC12, shared validator unchanged), concurrency control (Q-AC13) and the Q-AC14 list.
 38.11 (2026-10-17, CFO on PR #174) Q-AC1..Q-AC14 accepted as written (Q-AC12..Q-AC14 stay not built). **Pre-merge condition:** a rollback runbook, `docs/release/pf-reports-rollback.md`: do NOT roll back past #174 without first exporting every user's PF report keys (`orpheus.finance.report.v1`, `orpheus.finance.reports.v1` in `personal_finance.data`) with the documented read-only SELECT, a dated file and a row-count check; the restore is a separate, marked WRITE. The SQL is tested against PGlite only. A snapshot at every deploy was not built (not cheap: build-time access to the shared database plus storage and a secret; estimate in the runbook).
+
+38.12 (2026-10-20, CFO decision 1 on PR #195, #162 R2; nothing above removed) **Read means read only.** A Read grant gets 403 `Forbidden.` on `POST /reports` and on `PUT` / `DELETE /reports/:id` (`default` included), and its stored reports are unchanged. Reports stay per person, but a person needs Write (or to be the owner) to save, replace or delete their own. GET, `/series`, `/chart` and `/export` stay read (CFO decision 2: a Read-grant export is still audited and fails closed, PFCV-17). Spec 47.10.
 
 ## 39. Report export stubs: PDF + PNG (#157, backend only)
 
@@ -1540,3 +1544,51 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
 46.12 (2026-10-20, EL ruling on O3, matches Q-AK1) Only the exact `/personal-finance/charts/new` joins the `?next=` allowlist (`NEW_SIGN_IN_NEXT`). Every edit route (`/personal-finance/charts/<id>/edit`, `default` included) passes `next=/personal-finance/charts` (`EDIT_SIGN_IN_NEXT`), so after sign-in it lands on the Charts list, never `/dashboard`. Near-misses of `/new` (trailing slash, other case, a query, a fragment, another host, a leading space, edit paths) → `/dashboard` (`next.test.ts`); `site-shell.mjs` checks the three redirects signed out.
 46.13 (2026-10-20, QA round 2 on 74d8bd2: P1–P3 and EL rulings; nothing above removed) P1: the e2e list check freezes the list tab's calls before going to `/new`, so the list still shows exactly one `GET /api/personal-finance/reports`. P2 (PFCB-18): a cold load of `/new` or an edit page has CLS 0 at every viewport. Loading, the load error and the builder render in one reserved area (`.pf-builder-area`, min-height 100vh); the preview keeps `calc(60vh + 3.5rem)` in every state; the figure is ≥ 60vh, the plot 60vh at every width, the legend reserves 2.5rem. Pinned in `builder.test.ts`, with an e2e CLS check (new and default edit). P3: the picker rule is stated in 46.11 (dated addition).
 46.14 (2026-10-20, EL hold Q1 / Q3 on ea3f9bc; nothing above removed) The picker's accounts already use the same union as its categories: the shared list plus every name on the shared and month lines (`builder.ts` since ea3f9bc). A name the server keeps on a month line is offered. A deleted one is labelled `<name> (deleted)`. The server's record reader checks month lines against the shared and deleted lists (`asLines` in `months.ts`), so an account that is only on a month line and in neither list (e.g. `Visa`) is cleared on read. `missingSeries` then calls it missing, and the picker doesn't offer it. The account that can be "only on a month line" is a deleted one still on an earlier month (e.g. `Amex (deleted)`), and that one is offered. The parity test now asserts picker set == server known set for accounts and categories; DOM tests render `Travel (deleted)` and the month-line-only `Amex (deleted)`, and check `Visa` is absent.
+
+## 47. Charts: the saved report viewer (#162, PF charts UI 3/3; added 2026-10-20; Phase 1: spec and Qs, nothing built)
+
+47.0 **Scope.** Open a saved report pre-loaded, with the same controls as the #161 builder so the user can change its series or range and update it, plus delete. UI only, on the existing R3 client (`src/lib/finance/charts-api.ts`): `getReport`, `chartSaved` / `chartQuery`, `updateReport`, `deleteReport` (`DELETE /api/personal-finance/reports/:id` → `{ deleted }`, server since #156), `exportUrl`. No wire, endpoint or data-model change. Parked, not in this ticket: POST /chart validation of unknown names; Q2 (drawn chart vs real month data). #93 / PR #117 untouched.
+47.1 **Where (Q-AL1).** `/personal-finance/charts/<id>` (view), with the same gate as spec 45.1 / 46.1. Signed out it passes `next=/personal-finance/charts`, like edit URLs (46.12); no new allowlist entry. An unknown or malformed id shows the server's `Report not found.` and a link back to Charts.
+47.2 **List rows (Q-AL2).** On the list (spec 45.6, Q-AJ11), a row's name becomes a link to its viewer. Nothing else on the list changes (it still makes exactly one GET).
+47.3 **Viewer = builder (Q-AL3).** The viewer loads `getReport(id)` once and renders the #161 builder already filled in: picker, range and chart type as saved, the preview drawn from the saved report, and an `Update` button (`PUT`) that is enabled only when there are unsaved changes. Every server refusal is shown with its exact text, as in 46.7. `/charts/<id>/edit` stays as an alias (Q-AL4).
+47.4 **Delete (Q-AL5, Q-AL6, Q-AL7).** Named reports get a `Delete` button (`pf-button`, existing danger style if one exists, otherwise the plain one; no new colour). It asks to confirm in-page (`Delete "<name>"? This cannot be undone.` with `Delete` / `Cancel`). Then it calls `DELETE`: on 200 it goes to `/personal-finance/charts`; on 404 it shows `Report not found.` and a link back; any other refusal shows the server text and the report stays. The default report has no Delete. A Read grant sees no Update and no Delete.
+47.5 **Export.** Same as Q-AK9 (PDF / PNG only when saved and clean; Email is #180).
+47.6 **States, style, layout.** The loading, error and reserved-area rules are the same as 46.13 (CLS 0 on a cold load), with the same mobile and desktop layout as 46.8. Existing dark style, lyre header, `Orpheus Wisdom` footer, no gold, 44 px targets.
+47.7 **Builder follow-up (CFO "AJ7: 19 enabled").** Already closed in #161: `charts-page.dom.test.tsx` "#161 PFCB-02 / PFCB-03 (CFO Q-AJ7, Q-AK15): 19 named → New report enabled …" (with and without the default) and `reports-list.test.ts` PFCL-08. Nothing new is built; PFCV-12 re-runs it.
+47.8 Q-calls (CFO), each with a recommendation; **none built** (Phase 1):
+- Q-AL1 Route: **rec** `/personal-finance/charts/<id>`, with sign-in returning to the list. Not built.
+- Q-AL2 List names link to the viewer: **rec** yes. Not built.
+- Q-AL3 The viewer reuses the builder component in its "saved" mode: **rec** yes (no second chart UI). Not built.
+- Q-AL4 Keep `/<id>/edit`: **rec** keep it as an alias of the viewer (no redirect, so no old link breaks). Not built.
+- Q-AL5 Delete confirm: **rec** an in-page confirm (no browser `confirm()`), with the copy as in 47.4. Not built.
+- Q-AL6 After delete: **rec** go to the list. A 404 shows `Report not found.`. Not built.
+- Q-AL7 Default report: **rec** no Delete in the UI (today's server `DELETE /reports/default` behaviour is not changed by this ticket; any change is a wire Q). Not built.
+- Q-AL8 Delete on a Read grant: **rec** hidden (the server already refuses). Not built.
+- Q-AL9 Unsaved changes when leaving: **rec** no prompt in this ticket (polish later). Not built.
+- Q-AL10 (out of ticket, not built) An undo / soft-delete for reports would need a data-model change: **rec** no; park it.
+47.9 (2026-10-20, CFO decision) Q-AL1..Q-AL10 are accepted as recommended, with two conditions. The answers are now **built** on PR #195:
+- Q-AL1 built: route `src/routes/personal-finance_.charts_.$id.tsx`; signed out → `next=/personal-finance/charts`.
+- Q-AL2 built: list row names are links to `/personal-finance/charts/<id>`.
+- Q-AL3 built: the viewer is the #161 `ChartsBuilder`, opened with the saved report; Update is disabled until there is a change.
+- Q-AL4 built: `/<id>/edit` is unchanged.
+- Q-AL5 built: in-page confirm `Delete "<name>"? This cannot be undone.` with `Delete` / `Cancel`.
+- Q-AL6 built: 200 → `/personal-finance/charts`; any refusal (404 `Report not found.` included) shows the server text exactly, and the report stays.
+- **Q-AL7 condition:** the default report has **no Delete** in the UI (hidden). Whether to enable it is Diego's call via CoS in issue #165; the server is unchanged for the default (owner / Write grant may still `DELETE /reports/default`).
+- Q-AL8 built: Delete is hidden on a Read grant (and the server now refuses, see 47.10).
+- **Q-AL9 condition (supersedes "no prompt"):** the viewer is editable (Q-AL3), so it uses the #161 Q-AK11 leave warning (`beforeunload`) while there are unsaved changes; none after Update or Delete. A Read-grant viewer is truly read-only (every control disabled, no Update or Delete), so it never prompts.
+- Q-AL10 parked, not built.
+47.10 (2026-10-20, QA R2 on 5db4dcd, Diego's decision folded into #162; corrects 47.4 and Q-AL8, nothing above removed)
+- **Before:** a Read grant could `POST /reports`, `PUT` / `DELETE /reports/:id` and `PUT` / `DELETE /report`. Those routes asked for `need: "read"` (`account.server.ts`), while the gate's default (`session.server.ts` `gateDashboardRequest`) would have asked for write on non-GET methods. So 47.4's and Q-AL8's "the server already refuses" was wrong.
+- **Now:** those five writes ask for **write** (`reportNeed` in `account.server.ts`: GET / HEAD read, every other method write). A Read grant gets 403 `Forbidden.` (no-store, the access-denied audit row), and its stored row is unchanged. Owner and Write grant work as before. Signed out → 401. GET stays read.
+- `/series`, `/chart` (POST queries that store nothing) and `/export` (GET) stay read, so a Read-grant viewer still previews and exports.
+- This reverses spec 33 / 38's "a Read CFO saves their own" (PFR-14, PFRC-12). Those server tests now give bob a Write grant. Read-grant refusals are in `reports-write.server.test.ts`; mutating `reportNeed` to always `read` is caught.
+- The UI matches: a Read grant gets no Save, Update or Delete.
+47.11 (2026-10-20, QA R1, R3–R5 on 5db4dcd; additions only) QA's run log `qa/runs/run-2026-10-20-pr195.md` is not in the repo (checked with `git ls-files`), so the ACs below are made concrete from the code and the EL rulings.
+- R1: README and AGENTS.md gain a #162 pointer.
+- R4: the Delete style is `pf-button pf-button-danger`, which uses the existing `--color-danger` token for text and border (no new colour); a 44 px minimum height.
+- R5 carries #161's rulings over to the viewer:
+  - O3 / 46.12: viewer and edit URLs sign in to the list (`EDIT_SIGN_IN_NEXT`); only the exact `/new` is allowlisted.
+  - P2 / 46.13: one reserved area, CLS 0.
+  - 46.11 / 46.14: deleted names on a line are offered as `<name> (deleted)` (e.g. `Travel (deleted)`). The picker equals the server's known set. A saved series the server lists in `missing[]` is still shown, as missing.
+  - Q-AK9 / Q-AK13: export as in #161.
+47.12 (2026-10-20, CFO decisions 1–3 on PR #195 at 18117b1; additions only) (1) Read means read only: spec 33.10 and 38.12, AC PFR-14 / PFRC-12 notes. (2) No write check on `/series`, `/chart`, `/export`. A Read-grant export still writes its #157 `pf.report_export` row and answers 503 `Export unavailable. Try again.` with no file if that row can't be written (PFCV-17, `export.server.test.ts`, PGlite, both TZs). (3) `PUT /api/personal-finance/view` (section toggles) still needs only Read; it is parked, out of #162.

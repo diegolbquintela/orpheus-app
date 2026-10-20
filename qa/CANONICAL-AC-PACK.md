@@ -850,6 +850,7 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 > **Addendum (2026-10-16, #163, PFR-14):** `qa/tools/pf-report-api.mjs` now also checks per-person isolation (with the CFO's report saved, the owner's GET does not return it) and, with `QA_NOGRANT_EMAIL` / `QA_NOGRANT_PASSWORD`, 403 for GET / PUT / DELETE without a Personal Finance grant. This is QA's optional #153 follow-up.
 
 > **Note (2026-10-16, EL):** the PFR-14 no-grant 403 check uses the existing 'none' login, `QA_NONE_EMAIL` / `QA_NONE_PASSWORD` (the same as `roles.mjs`). `QA_NOGRANT_*` above is superseded and no longer read.
+> **Note (2026-10-20, CFO decision 1 on PR #195, #162 R2):** PFR-14 now reads "Read means read only". A Read-grant CFO's `PUT` / `DELETE /report` → 403 `Forbidden.`, row unchanged; saving their own needs Write. Per-person storage, owner-record `missing` and no grant → 403 are unchanged.
 
 > **Change (2026-10-16, #163, CFO): Q-Y6 rejected.** PFM-05 ("an empty past month opens as a copy") is superseded by PFM-15..PFM-17. The PFM-04/06/08 checks open a past month blank and use the button.
 
@@ -976,6 +977,8 @@ Backend only. Design and Q-calls: `attachments/pf-report-crud-design.md` (Q-AC1.
 | PFRC-16 | MINOR | Deleting the last named report from a row holding nothing else removes the row. |
 | PFRC-17 | MINOR | Create / update audit `pf.report_save`; delete `pf.report_delete`; reads audit nothing. |
 | PFRC-18 | BLOCK | Q-AC1: legacy `PUT` / `DELETE /report` never touch named reports. |
+
+> **Note (2026-10-20, CFO decision 1 on PR #195, #162 R2):** PFRC-12 now reads "Read means read only". A Read CFO's `POST /reports` and `PUT` / `DELETE /reports/:id` → 403 `Forbidden.`, reports unchanged; keeping their own needs Write. Another person's id → 404 and owner-record series are unchanged.
 
 ## Personal Finance report export stubs: PDF + PNG (#157, spec section 39; added 2026-10-17)
 
@@ -1196,6 +1199,8 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFEC-05 | MAJOR | `asOf` before the 12-month window → the carried-in level plus the window's surpluses up to the previous month. |
 | PFEC-06 | MAJOR | Q-AI2: anchored value null → status `none` (amounts `—`, no note). |
 | PFEC-07 | MAJOR | Q-AI3: anchored ≤ 0 with a typed start > 0 → `none`; typed start empty / ≤ 0 → `no_start` as today. |
+- #162 PF Charts viewer (added 2026-10-20, Phase 1): spec 47, AC PFCV-01..13, Q-AL1..Q-AL10 NOT built. UI only on existing R3 calls (DELETE already served). AJ7 19-enabled test already in #161.
+- #162 built + R2 (added 2026-10-20): viewer route `personal-finance_.charts_.$id.tsx` (the #161 builder opened with the saved report; Delete with in-page confirm, hidden for default and Read; leave warning only when editable and dirty); list names link to it. **Server:** report writes (POST /reports, PUT/DELETE /reports/:id, PUT/DELETE /report) now need a write grant (`reportNeed`); a Read grant gets 403. Tests: `reports-write.server.test.ts`. Spec 47.9–47.11, AC PFCV-01..16.
 | PFEC-08 | MAJOR | Q-AI4: Future on unchanged (typed start gates; projected anchored value computes), pinned. |
 | PFEC-09 | MINOR | Q-AI5: `asOf` after the current month (skewed clock) → `none`. |
 | PFEC-10 | MAJOR | An invalid typed `asOf` (page error) is ignored by the coverage, as by the figures (42.6). |
@@ -1293,3 +1298,43 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 - PFCL-02 (P1): the list's calls are counted before leaving for `/new`: exactly `["GET /api/personal-finance/reports"]`.
 
 **Note (2026-10-20, #161 EL Q1 / Q3; spec 46.14):** PFCB-05 adds that the picker's accounts and categories each equal the server's known set (`missingSeries` finds nothing missing), checked for both kinds. DOM tests render `Travel (deleted)` and `Amex (deleted)` (an account only on a March line) and send the plain ids `Travel` / `Amex`. `Visa`, only on a month line and in neither the shared nor the deleted list, is cleared by the record reader, so the server calls it missing and the picker doesn't offer it.
+
+## PFCV — PF Charts saved report viewer (#162, spec 47; added 2026-10-20; Phase 1, nothing built)
+
+| AC | Severity | Check |
+|----|----------|-------|
+| PFCV-01 | MAJOR | `/personal-finance/charts/<id>` gated like `/charts` (307 signed out with `next=/personal-finance/charts`, `/account`, 403, noindex). |
+| PFCV-02 | MAJOR | List row names link to `/personal-finance/charts/<id>`; the list still makes exactly one GET. |
+| PFCV-03 | MAJOR | The viewer makes one `GET /reports/:id`; picker, range and chart type equal the saved report; the preview is drawn. |
+| PFCV-04 | MAJOR | Unknown or malformed id → `Report not found.` + a link back to Charts. |
+| PFCV-05 | MAJOR | Update is enabled only with unsaved changes; `PUT` refusals show the exact server text. |
+| PFCV-06 | MAJOR | Delete → in-page confirm; Cancel sends nothing; confirm sends one `DELETE` and lands on the list without the report. |
+| PFCV-07 | MAJOR | DELETE 404 → `Report not found.`; other refusals show the server text, and the report stays. |
+| PFCV-08 | MAJOR | The default report shows no Delete. |
+| PFCV-09 | MAJOR | Read grant: no Update, no Delete; export follows Q-AK13. |
+| PFCV-10 | MINOR | `/<id>/edit` still works (alias). |
+| PFCV-11 | MAJOR | CLS 0 on a cold load; 44 px targets; mobile and desktop layout as 46.8; dark style, no gold. |
+| PFCV-12 | MINOR | Builder follow-up AJ7: the #161 test "19 named → New report enabled" still passes (already in `charts-page.dom.test.tsx`). |
+| PFCV-13 | MAJOR | DOM tests in both TZs; signed-out suites green on the preview; QA PASS mobile + desktop. |
+
+**PFCV concrete checks (2026-10-20, QA R3 / R5 on 5db4dcd and the build; spec 47.9–47.11; the table above is unchanged).** Viewports are 390×844 (mobile) and 1280×800 (desktop). "e2e" is `qa/tools/personal-finance-e2e.mjs`, signed in; "DOM" is `src/components/personal-finance/charts-builder.dom.test.tsx`; "server" is `src/lib/finance/reports-write.server.test.ts`.
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFCV-01 | MAJOR | Signed out, GET `/personal-finance/charts/r-00000001` → 307 `Location: /dashboard/sign-in?next=%2Fpersonal-finance%2Fcharts`. Temporary password → `/account`. No PF grant → 403 denied page. `robots: noindex, nofollow`; title `Report · Charts · Orpheus Wisdom`. | site-shell (signed out); e2e |
+| PFCV-02 | MAJOR | List with N rows → exactly N links, each `a[data-testid=pf-charts-name]` with `href=/personal-finance/charts/<row id>` and ≥ 44 px tall at both viewports. The list still makes exactly `["GET /api/personal-finance/reports"]`. | e2e; `charts-page.dom.test.tsx` PFCL-12 |
+| PFCV-03 | MAJOR | `/charts/<id>` → exactly one `GET /api/personal-finance/reports/<id>`. The name, range and chart controls and the checked series equal the saved report. The first `POST /chart` body is `{ series, range, chart }` as saved. | DOM |
+| PFCV-04 | MAJOR | `/charts/r-ffffffff` → `pf-builder-load-error` reads exactly `Report not found.`; `pf-builder-back` href is `/personal-finance/charts`; no Delete. | DOM; e2e |
+| PFCV-05 | MAJOR | Clean → `Update` disabled. One change → enabled. A refusal shows the exact server text under its field (as PFCB-14). | DOM |
+| PFCV-06 | MAJOR | `Delete` → `Delete "<name>"? This cannot be undone.` `Cancel` → no request. `Delete` → exactly one `DELETE /api/personal-finance/reports/<id>`; 200 → `/personal-finance/charts`, and the row is gone from the list. | DOM; e2e (a throwaway report only) |
+| PFCV-07 | MAJOR | DELETE 404 → `Report not found.`; 403 → `Forbidden.` (`pf-builder-delete-error`). The page stays on the report. | DOM |
+| PFCV-08 | MAJOR | `/charts/default` → no `pf-builder-delete` (CFO Q-AL7; #165 decides any change). | DOM; e2e |
+| PFCV-09 | MAJOR | Read grant → no `pf-builder-save`, no `pf-builder-delete`, every control disabled, `beforeunload` not prevented; export as Q-AK13. | DOM |
+| PFCV-09b | MAJOR | Write grant, unsaved change → `beforeunload` prevented; after Update or Delete → not prevented (Q-AL9 condition). | DOM |
+| PFCV-11 | MAJOR | Cold load of `/charts/<id>` and `/charts/default` at both viewports: CLS 0. Delete, Cancel and the name links are ≥ 44 px at 390 px. No horizontal scroll. Delete uses `--color-danger` (R4); no gold. | e2e |
+| PFCV-14 | BLOCKER | (R2, Diego) Read grant: `POST /reports`, `PUT` / `DELETE /reports/<id>`, `PUT` / `DELETE /reports/default`, `PUT` / `DELETE /report` → 403 `Forbidden.`, no-store, stored row byte-identical. Owner and Write grant → 201 / 200. Signed out → 401. GET `/reports`, GET `/reports/<id>` and POST `/chart` on a Read grant → 200. QA-runnable signed in with a Read-grant test account on the preview (no prod writes); signed out → 401 on the preview. | server (PGlite, UTC + LA); QA |
+| PFCV-15 | MAJOR | (R5 carry-over) the viewer picker shows `Travel (deleted)` for a deleted category still on a line; the picker set == the server's known set (accounts and categories); a saved series the server lists in `missing[]` still shows and is labelled missing. | `builder.test.ts`, DOM |
+| PFCV-16 | MAJOR | Regression: PFCB-01..21 and PFCL-01..14 still pass (PFCL-12 amended by Q-AL2: the name is the row's one link). | all suites |
+
+| PFCV-17 | BLOCKER | (CFO decision 2) No write check on `/series`, `/chart`, `/export`. A Read-grant `GET /reports/default/export?format=pdf|png` → 200 plus one `pf.report_export` audit row each. With audit writes failing → 503 `{ "error": "Export unavailable. Try again." }`, no `Content-Disposition`, no row. | `export.server.test.ts` (PGlite, UTC + LA); signed-in QA |
+**Note (2026-10-20, EL ruling on QA S1 at 5575a6c; the rows above are unchanged):** "Where" for PFCV-04, PFCV-06, PFCV-08 and PFCV-11 is now **DOM tests + hand check** (`charts-builder.dom.test.tsx`; QA ran 23/23 by hand on the preview). No signed-in e2e check is added to `personal-finance-e2e.mjs` for them. EL accepts PFCV-17 and the non-owner Write grant as covered by code, tests and mutation checks (as PFCB-17). S3: `pf-report-api.mjs` PFR-14 and `pf-reports-api.mjs` PFRC-12 now expect a Read CFO's writes → 403 `Forbidden.`, row unchanged, no restore step.

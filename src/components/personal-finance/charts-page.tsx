@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ReadOnlyLine } from "@/components/access/denied";
 import { listReports, type ReportList, type Result } from "@/lib/finance/charts-api";
-import { NEW_PATH } from "@/lib/finance/builder";
+import { NEW_PATH, viewPath } from "@/lib/finance/builder";
 import {
   CHARTS_PATH,
   LOADING_REPORTS,
@@ -107,9 +107,10 @@ export function ChartsPage({
                   const day = torontoDate(r.updated_at);
                   return (
                     <li key={r.id} className="pf-charts-row" data-testid="pf-charts-row" data-id={r.id}>
-                      <span className="pf-charts-name" data-testid="pf-charts-name">
+                      {/* #162 Q-AL2: the name opens the saved report viewer. */}
+                      <a className="pf-charts-name" href={viewPath(r.id)} data-testid="pf-charts-name">
                         {r.name}
-                      </span>
+                      </a>
                       <span className="pf-charts-date" data-testid="pf-charts-date">
                         {day ?? (
                           // QA N1: aria-label on a plain span is ignored; the dash is hidden, the text is read.

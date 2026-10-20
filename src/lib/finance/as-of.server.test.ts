@@ -72,7 +72,7 @@ before(async () => {
   for (const f of ["0010_personal_finance.sql", "0011_access.sql", "0012_audit.sql"])
     await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, import.meta.url), "utf8"));
   for (const id of ["alice", "bob"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
-  await pg.exec("INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES ('bob', 'personal_finance', true, false, 'alice')");
+  await pg.exec("INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES ('bob', 'personal_finance', true, true, 'alice') /* #162 R2: bob now has Write so his own report saves still run; Read-grant refusals are in reports-write.server.test.ts */");
 });
 
 describe("#171 PFAO-01..03 no as-of month: today's behaviour exactly (regression)", () => {

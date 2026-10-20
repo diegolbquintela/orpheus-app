@@ -11,6 +11,12 @@ export const NEW_PATH = "/personal-finance/charts/new";
  * URL (an id pattern, `default` included) is not, so it passes the list path and lands on `/personal-finance/charts`. */
 export const NEW_SIGN_IN_NEXT = NEW_PATH;
 export const EDIT_SIGN_IN_NEXT = "/personal-finance/charts";
+/** #162 (spec 47, Q-AL1): the saved report viewer. */
+export const viewPath = (id: string) => `/personal-finance/charts/${encodeURIComponent(id)}`;
+/** #162 Q-AL5: the in-page delete confirm (page-owned copy). */
+export const deleteConfirm = (name: string) => `Delete "${name}"? This cannot be undone.`;
+/** #162 Q-AL7 (CFO condition): the default report has no Delete in the UI; Q-AL8: nor does a Read grant. */
+export const canDelete = (savedId: string | undefined, isDefault: boolean, readOnly: boolean) => !!savedId && !isDefault && !readOnly;
 export const editPath = (id: string) => `/personal-finance/charts/${encodeURIComponent(id)}/edit`;
 /** Page-owned copy (spec 46.4–46.7). Server refusals are shown with the server's own text. */
 export const PICK_ONE = "Pick at least one series.";
@@ -83,4 +89,12 @@ export function nameProblem(name: string, others: Pick<Named, "id" | "name">[], 
   if (nameError(name)) return NAME_RULE;
   if (nameTaken(others as Named[], name, exceptId)) return NAME_USED;
   return null;
+}
+
+/** #162 R5 (spec 47.11, PFCV-15): a saved series the server no longer knows (`missing[]`) is still shown, labelled. */
+export const missingLabel = (id: string) => `${id} (missing)`;
+export function withMissing(sections: Section[], picked: Series[]): Section[] {
+  const offered = new Set(sections.flatMap((s) => s.options.map((o) => `${o.series.kind}:${o.series.id}`)));
+  const gone = picked.filter((s) => !offered.has(`${s.kind}:${s.id}`));
+  return gone.length ? [...sections, { title: "Missing", options: gone.map((s) => ({ series: s, label: missingLabel(s.id) })) }] : sections;
 }

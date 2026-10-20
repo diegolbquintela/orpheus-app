@@ -306,7 +306,7 @@ try {
   const chTo = new URL(ch.headers.get("location") ?? "/x", base);
   check("signed-out /personal-finance/charts → 307 /dashboard/sign-in?next=/personal-finance/charts, noindex (#160 PFCL-01)", ch.status === 307 && chTo.pathname === "/dashboard/sign-in" && chTo.searchParams.get("next") === "/personal-finance/charts" && /noindex/i.test(ch.headers.get("x-robots-tag") ?? ""), [ch.status, ch.headers.get("location"), ch.headers.get("x-robots-tag")]);
   // #161 (spec 46, PFCB-01; EL O3): /new keeps its exact next; every edit URL (default included) returns to the list.
-  for (const [path, next] of [["/personal-finance/charts/new", "/personal-finance/charts/new"], ["/personal-finance/charts/default/edit", "/personal-finance/charts"], ["/personal-finance/charts/r-0000abcd/edit", "/personal-finance/charts"]]) {
+  for (const [path, next] of [["/personal-finance/charts/new", "/personal-finance/charts/new"], ["/personal-finance/charts/default/edit", "/personal-finance/charts"], ["/personal-finance/charts/r-0000abcd/edit", "/personal-finance/charts"], ["/personal-finance/charts/r-00000001", "/personal-finance/charts"], ["/personal-finance/charts/default", "/personal-finance/charts"]]) {
     const b = await fetch(`${base}${path}`, { redirect: "manual" });
     const bTo = new URL(b.headers.get("location") ?? "/x", base);
     check(`signed-out ${path} → 307 /dashboard/sign-in?next=${next}, noindex (#161 PFCB-01)`, b.status === 307 && bTo.pathname === "/dashboard/sign-in" && bTo.searchParams.get("next") === next && /noindex/i.test(b.headers.get("x-robots-tag") ?? ""), [b.status, b.headers.get("location"), b.headers.get("x-robots-tag")]);
