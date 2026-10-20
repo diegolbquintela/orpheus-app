@@ -382,6 +382,12 @@ export function PersonalFinancePage({
         <header className="relative">
           <p className="pf-label">01</p>
           <h1 className="pf-title mt-2">Personal Finance.</h1>
+          {/* #160 (spec 45, Q-AJ1): the Charts page, linked both ways. */}
+          <p className="pf-charts-back mt-3">
+            <a href="/personal-finance/charts" data-testid="pf-charts-link">
+              Charts
+            </a>
+          </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           <p className="pf-save" role="status" data-testid="pf-save">
             {saveFailed ? "Not saved." : ""}

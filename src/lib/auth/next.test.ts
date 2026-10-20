@@ -7,6 +7,11 @@ describe("sign-in ?next allowlist (#102 D1)", () => {
   it("keeps the exact relative path /personal-finance", () => {
     assert.equal(safeNext("/personal-finance"), "/personal-finance");
   });
+  it("#160 PFCL-01: keeps the exact path /personal-finance/charts; near-misses → /dashboard", () => {
+    assert.equal(safeNext("/personal-finance/charts"), "/personal-finance/charts");
+    for (const v of ["/personal-finance/charts/", "/personal-finance/Charts", "/personal-finance/charts?x=1", "//personal-finance/charts", "https://evil.example/personal-finance/charts", "/personal-finance/charts#a"])
+      assert.equal(safeNext(v), "/dashboard", v);
+  });
   it("#90 ROLE-02: keeps the exact relative path /account; near-misses → /dashboard", () => {
     assert.equal(safeNext("/account"), "/account");
     for (const v of ["/account/", "/Account", "/account?x=1", "//account", "https://evil.example/account"])

@@ -717,6 +717,23 @@
     color: var(--color-night);
     font-size: 0.875rem;
   }
+  /* #160 (spec 45): Charts reports list. Existing palette only; rows stack on mobile, one line on desktop. */
+  .pf-charts-top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
+  .pf-charts-new { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .pf-charts-new > .pf-button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pf-charts-note { min-height: 1.3rem; font-size: 0.875rem; line-height: 1.3rem; color: var(--color-dim); }
+  .pf-charts-back a { font-size: 0.875rem; color: var(--color-chalk); text-decoration: underline; text-underline-offset: 3px; }
+  .pf-charts-body { margin-top: 1.5rem; min-height: 6rem; }
+  .pf-charts-error, .pf-charts-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .pf-charts-list { display: flex; flex-direction: column; border-top: 1px solid var(--color-hair); }
+  .pf-charts-row { display: grid; grid-template-areas: "name" "date" "summary"; gap: 0.25rem; padding: 1rem 0; border-bottom: 1px solid var(--color-hair); }
+  .pf-charts-name { grid-area: name; color: var(--color-chalk); }
+  .pf-charts-date { grid-area: date; font-size: 0.875rem; color: var(--color-dim); }
+  .pf-charts-summary { grid-area: summary; font-size: 0.875rem; color: var(--color-dim); }
+  @media (min-width: 768px) {
+    .pf-charts-row { grid-template-areas: "name summary date"; grid-template-columns: minmax(10rem, 1fr) 2fr auto; align-items: baseline; gap: 1.5rem; }
+    .pf-charts-date { text-align: right; }
+  }
   .pf-cancel {
     display: inline-flex;
     height: 2.75rem;

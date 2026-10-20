@@ -1236,3 +1236,11 @@ UI only on R3 `GET /api/personal-finance/reports`; no wire change. Q-AJ1..Q-AJ12
 | PFCL-12 | MINOR | Row names are not links until #162; no rename/delete/export controls. |
 | PFCL-13 | MAJOR | Style: dark theme, lyre, Orpheus Wisdom footer, no gold, `pf-button`; axe clean; mobile 390 px stacked, desktop one line. |
 | PFCL-14 | MAJOR | DOM tests (both TZs) for 03–12; signed-out suites green on the preview; QA PASS mobile + desktop. |
+
+**Note (2026-10-20, #160 CFO decision + QA round 1 M1–M4 + EL rulings; spec 45.9 / 45.10; supersedes the cells above where they differ, nothing removed):**
+- Q-AJ1..Q-AJ12 built on PR #193.
+- PFCL-05 (M2): `3m` `Last 3 months`, `6m` `Last 6 months`, `24m` `Last 24 months`, `ytd` `Year to date`; `bar` → `Bar`, `stacked-bar` → `Stacked bar`; custom stored `{ "from": "2025-01", "to": "2025-12" }` → `2025-01 to 2025-12`.
+- PFCL-06 (M1): a deleted `Travel` series → the server label `Travel (deleted)` shown unchanged.
+- PFCL-08 (M3): 19 named (with or without the default) → New report disabled, note `Builder coming next (#161)`, no limit text; 20 named → disabled, note `Limit of 20 reports reached.` (page-owned copy, spec 45.10).
+- PFCL-10 (M4): GET answers 500 (no JSON) → `HTTP 500`; 500 / 503 `{ "error": "Storage not configured." }` → `Storage not configured.`; plus `Try again`; one click → exactly one more `GET /api/personal-finance/reports`; page not remounted, URL unchanged.
+- **#161 AC (moved here, not built in #160):** with 19 named reports New report is **enabled**; 20 → disabled with `Limit of 20 reports reached.`; a 409 on create shows `Report limit reached.`.
