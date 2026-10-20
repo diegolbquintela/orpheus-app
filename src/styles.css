@@ -735,6 +735,41 @@
     .pf-charts-row { grid-template-areas: "name summary date"; grid-template-columns: minmax(10rem, 1fr) 2fr auto; align-items: baseline; gap: 1.5rem; }
     .pf-charts-date { text-align: right; }
   }
+  /* #161 (spec 46.8, Q-AK10): the report builder. Existing tokens only; every control ≥ 44 px; mobile: the series list
+     collapses behind its toggle and the chart takes ≥ 60vh; ≥ 768 px: a side panel and the chart as the main area. */
+  .pf-charts-new > a.pf-button { text-decoration: none; }
+  .pf-builder { display: flex; flex-direction: column; gap: 1.5rem; }
+  .pf-builder-panel { display: flex; flex-direction: column; gap: 0.75rem; }
+  .pf-builder-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .pf-builder-input { min-height: 2.75rem; border: 0; border-bottom: 1px solid var(--color-rule); background: transparent; color: var(--color-chalk); font-size: 1rem; color-scheme: dark; }
+  .pf-builder-input:focus-visible { outline: 2px solid var(--color-chalk); outline-offset: 2px; }
+  .pf-builder-toggle { display: inline-flex; min-height: 2.75rem; align-items: center; color: var(--color-chalk); font-size: 0.875rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .pf-builder-series { display: none; flex-direction: column; gap: 0.5rem; border: 0; padding: 0; margin: 0; }
+  .pf-builder-series[data-open="true"] { display: flex; }
+  .pf-builder-series > legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .pf-builder-section-title { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--color-dim); }
+  .pf-builder-option { display: flex; min-height: 2.75rem; align-items: center; gap: 0.75rem; color: var(--color-chalk); font-size: 0.875rem; }
+  .pf-builder-option > input { width: 1.25rem; height: 1.25rem; accent-color: var(--color-chalk); }
+  .pf-builder-option > input:disabled + span { color: var(--color-dim); }
+  .pf-builder-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .pf-builder-export { display: flex; flex-direction: column; }
+  .pf-builder-export > summary { list-style: none; }
+  .pf-builder-export > summary::-webkit-details-marker { display: none; }
+  .pf-builder-link { display: inline-flex; min-height: 2.75rem; align-items: center; color: var(--color-chalk); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 3px; }
+  /* #161 QA P2 / EL (2026-10-20): reserved layout so a cold load has CLS 0: the builder area fills the screen while
+     loading (the footer starts below the fold), the preview keeps its height for every state, the figure ≥ 60vh. */
+  .pf-builder-area { min-height: 100vh; }
+  .pf-builder-main { min-height: calc(60vh + 3.5rem); display: flex; flex-direction: column; }
+  .pf-builder-figure { display: flex; flex: 1; flex-direction: column; gap: 0.75rem; margin: 0; min-height: 60vh; }
+  .pf-builder-plot { height: 60vh; min-height: 16rem; }
+  .pf-builder-legend { min-height: 2.5rem; align-content: flex-start; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.8125rem; color: var(--color-dim); }
+  .pf-builder-legend > li { display: inline-flex; align-items: center; gap: 0.375rem; }
+  .pf-builder-swatch { width: 0.75rem; height: 0.125rem; display: inline-block; }
+  @media (min-width: 768px) {
+    .pf-builder { display: grid; grid-template-columns: 18rem minmax(0, 1fr); align-items: start; gap: 2rem; }
+    .pf-builder-toggle[aria-controls="pf-builder-series"] { display: none; }
+    .pf-builder-series { display: flex; }
+  }
   .pf-cancel {
     display: inline-flex;
     height: 2.75rem;

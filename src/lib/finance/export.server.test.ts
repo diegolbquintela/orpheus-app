@@ -307,6 +307,35 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     assert.deepEqual((await audits(t)).map((r) => r.action), ["pf.report_export"]);
   });
 
+  it("#161 Q-AK13 (CFO, 2026-10-20): a read-only (Read grant) export keeps the #157 rule: audited, and fails closed when the audit row can't be written", async () => {
+    // Saved reports are the viewer's own (spec 38); bob (Read grant) saves his own default over the owner's figures.
+    assert.equal((await rep("bob", "PUT", { report: NET })).status, 200, "a Read grant keeps its own report");
+    const t = await top();
+    const okR = await ex("bob", "default", "pdf");
+    assert.equal(okR.status, 200, "Read grant may export");
+    const rows = await audits(t);
+    assert.deepEqual(rows.map((r) => r.action), ["pf.report_export"], "audited");
+    const t2 = await top();
+    const failing = { query: async (text: string, params?: unknown[]) => {
+      if (/INSERT INTO audit_event/.test(text)) throw new Error("audit down");
+      return (await pg.query(text, params)).rows;
+    } };
+    const broken = { ...as("bob"), getDb: async () => failing };
+    const err = console.error;
+    console.error = () => {};
+    try {
+      for (const f of ["pdf", "png"]) {
+        const r = await handlePersonalFinanceReportExportRequest(req("GET", undefined, `/api/personal-finance/reports/default/export?format=${f}`), "default", broken as never, () => NOW);
+        assert.equal(r.status, 503, f);
+        assert.equal(r.headers.get("content-disposition"), null, "no file");
+        assert.deepEqual(await r.json(), { error: "Export unavailable. Try again." });
+      }
+    } finally {
+      console.error = err;
+    }
+    assert.deepEqual(await audits(t2), [], "no row from the failed read-only GETs");
+  });
+
   it("Q-AD14 (CFO, 2026-10-17): the encoded report id round-trips losslessly and always fits the audit detail CHECK", () => {
     const CHECK = /^[a-z_:+ A-Z]{1,40}$/;
     const enc = (id: string) => exportDetail("png", id).slice("format:png id:".length);

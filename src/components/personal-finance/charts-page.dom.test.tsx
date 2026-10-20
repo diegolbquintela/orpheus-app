@@ -73,17 +73,24 @@ describe("#160 Charts reports list", () => {
     assert.equal(q(el, "pf-charts-list"), null);
   });
   for (const withDefault of [false, true]) {
-    it(`PFCL-08 / Q-AJ6 / Q-AJ7 (EL M3): 19 named → disabled + Builder coming next (#161), no limit text; 20 → limit text${withDefault ? " (default present, not counted)" : ""}`, async () => {
+    it(`#161 PFCB-02 / PFCB-03 (CFO Q-AJ7, Q-AK15): 19 named → New report enabled, opens the builder; 20 → disabled + limit text${withDefault ? " (default present, not counted)" : ""}`, async () => {
       const pre = withDefault ? [DEFAULT] : [];
       let el = await render({ load: async () => ok({ limit: 20, reports: [...pre, ...named(19)] }) });
-      assert.equal((q(el, "pf-charts-new") as HTMLButtonElement).disabled, true);
-      assert.equal(q(el, "pf-charts-new-note")!.textContent, "Builder coming next (#161)");
+      const open = q(el, "pf-charts-new")!;
+      assert.equal(open.tagName, "A", "an enabled link");
+      assert.equal(open.getAttribute("href"), "/personal-finance/charts/new");
+      assert.equal(open.textContent, "New report");
+      assert.equal(q(el, "pf-charts-new-note")!.textContent, "");
+      assert.ok(!el.textContent!.includes("Builder coming next"), "PFCB-03: the #160 placeholder is gone");
       await act(async () => root?.unmount());
       container?.remove();
       el = await render({ load: async () => ok({ limit: 20, reports: [...pre, ...named(20)] }) });
-      assert.equal((q(el, "pf-charts-new") as HTMLButtonElement).disabled, true);
+      const shut = q(el, "pf-charts-new") as HTMLButtonElement;
+      assert.equal(shut.tagName, "BUTTON");
+      assert.equal(shut.disabled, true);
       assert.equal(q(el, "pf-charts-new-note")!.textContent, "Limit of 20 reports reached.");
-      assert.equal(q(el, "pf-charts-new")!.getAttribute("aria-describedby"), "pf-charts-new-note");
+      assert.equal(shut.getAttribute("aria-describedby"), "pf-charts-new-note");
+      assert.ok(!el.textContent!.includes("Builder coming next"));
     });
   }
   it("PFCL-09 / Q-AJ8: Read grant → list shown, no New report", async () => {

@@ -1248,3 +1248,48 @@ UI only on R3 `GET /api/personal-finance/reports`; no wire change. Q-AJ1..Q-AJ12
 **Note (2026-10-20, #160 QA round 2 N1–N3 + EL; spec 45.11):** PFCL-04 is checked on the accessible text (an `aria-hidden` `—` plus `sr-only` `No date`), not an attribute. PFCL-01 is also checked in `qa/tools/personal-finance.mjs` (signed out). **PFCL-09 is accepted by EL on the DOM test only** (`charts-page.dom.test.tsx`); no live Read-grant check.
 
 **Note (2026-10-20, #160 QA round 3 N4; spec 45.12):** PFCL-13 adds: `pf-charts-link` and `pf-charts-back` are ≥ 44 px tall at 390 px and every other viewport (signed-in `personal-finance-e2e.mjs`; CSS rule pinned in `reports-list.test.ts`).
+
+## Personal Finance Charts: report builder (#161; spec section 46; added 2026-10-20; Phase 1: ACs written, nothing built)
+
+UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 pending CFO (spec 46.9); ACs assume the recommendations.
+
+| AC | Severity | Check |
+|----|----------|-------|
+| PFCB-01 | MAJOR | `/personal-finance/charts/new` and `/<id>/edit` gated like `/personal-finance/charts` (307 signed out, `/account`, 403, noindex); `?next=/personal-finance/charts/new` kept. |
+| PFCB-02 | MAJOR | (#160 carry-over, CFO Q-AJ7) list: 19 named → New report **enabled**, opens `/new`; with the default present still enabled; 20 named → disabled + `Limit of 20 reports reached.` |
+| PFCB-03 | MAJOR | (#160 carry-over) the text `Builder coming next (#161)` appears nowhere. |
+| PFCB-04 | MAJOR | (#160 carry-over) a create answered 409 `Report limit reached.` shows exactly `Report limit reached.`; nothing saved. |
+| PFCB-05 | MAJOR | Picker lists Metrics (4), Groups (3), the record's Accounts, Categories and Expense lines; sends `{ kind, id }` exactly as 46.3. |
+| PFCB-06 | MAJOR | 12 picked → the rest disabled + `Up to 12 series.`; duplicates impossible. |
+| PFCB-07 | MAJOR | Presets send `{ "preset": "3m" | "6m" | "12m" | "24m" | "ytd" | "all" }`; Custom sends exactly `{ "from": "YYYY-MM", "to": "YYYY-MM" }`. |
+| PFCB-08 | MAJOR | Custom 2019-12..2020-03 → `Range can't start before 2020-01.`; to = next month → `Range can't end after the current month.`; 2024-01..2026-01 (25 months) → `Range can't be longer than 24 months.`; 2024-02..2026-01 (24) accepted. |
+| PFCB-09 | MAJOR | Chart `Line` by default; `Bar`, `Stacked bar` send `bar`, `stacked-bar`. |
+| PFCB-10 | MAJOR | Preview: one `POST /chart` per settled change (400 ms), latest wins; none with 0 series (`Pick at least one series.`). |
+| PFCB-11 | MAJOR | Name: blank / 61 chars / a control char → blocked before sending; `Default` or an existing name (any case) → `Name already used.`; server 409 text shown exactly. |
+| PFCB-12 | MAJOR | Save → `POST /reports` body exactly `{ name, report }`; 201 → `/<id>/edit`, button `Update`; Update → `PUT /reports/:id`. |
+| PFCB-13 | MAJOR | Default edit: name read-only `Default`; never sends a different name. |
+| PFCB-14 | MAJOR | Any 400 / 413 shows the server `error` text exactly, under the field named by `field`. |
+| PFCB-15 | MAJOR | Export menu `PDF`, `PNG` (R5 links) only when saved and clean; no Email item (#180). |
+| PFCB-16 | MINOR | Leave warning when there are unsaved changes. |
+| PFCB-17 | MAJOR | Read grant: no Save / Update / Name editing; read-only line shown. |
+| PFCB-18 | MAJOR | Mobile 390 px: picker collapsed (`Series (n)`), chart ≥ 60 vh; ≥ 768 px side panel + chart main; no horizontal scroll; 44 px targets; CLS 0. |
+| PFCB-19 | MAJOR | Style: dark theme, lyre, Orpheus Wisdom footer, no gold, `pf-button`, no new icons; axe clean. |
+| PFCB-20 | MAJOR | DOM tests both TZs for 02–17; signed-out suites green on the preview; QA PASS mobile + desktop. |
+
+**Note (2026-10-20, #161 CFO decision + QA round 1 O1–O8 + EL O3 ruling; spec 46.10–46.12; SWE-derived concrete cases, QA's run log not in the repo; supersedes the cells above where they differ, nothing removed):**
+- Q-AK1..Q-AK15 built on PR #194; Email export deferred to #180 (not built).
+- PFCB-01: signed out `GET /personal-finance/charts/new` → 307 `/dashboard/sign-in?next=%2Fpersonal-finance%2Fcharts%2Fnew`; `/personal-finance/charts/default/edit` and `/personal-finance/charts/r-0000abcd/edit` → 307 `…?next=%2Fpersonal-finance%2Fcharts`; all `X-Robots-Tag: noindex`. `safeNext("/personal-finance/charts/new/")`, `"/personal-finance/charts/New"`, `"…/new?x=1"`, `"…/new#a"`, `"https://evil.example/personal-finance/charts/new"` → `/dashboard`.
+- PFCB-05: a record with fixed line `{ id: "l-rent", name: "Rent", account: "Amex", category: "Home" }` → sections `Metrics` (Income, Expenses, Surplus, Net assets), `Groups` (Fixed, Variable, All expenses), `Accounts` (Amex), `Categories` (Home), `Expense lines` (Rent); picking Rent sends `{ "kind": "line", "id": "l-rent" }` and the legend shows `Rent` (not `l-rent`).
+- PFCB-11: name `""` or `"   "` or 61 × `x` or `a\u0007b` → `Name: 1 to 60 characters, no control characters.`, no request; `default` or `SPEND` (with `Spend` saved) → `Name already used.`, no request; `  Net worth  ` → sent as `Net worth`; 60 × `x` with spaces around → accepted.
+- PFCB-14: create answered 409 `{ "error": "Name already used.", "field": "name" }` → `Name already used.` under Name; 400 `{ "error": "Range can't end after the current month.", "field": "report.range" }` → that text under Range; 400 `Invalid value.` `report.series.0.id` → under Series; 413 `Report too large.` and 400 `Body must be JSON.` → under the Save button.
+- PFCB-15: new report → no Export; after Save of `r-0000abcd` → Export with exactly `PDF` (`/api/personal-finance/reports/r-0000abcd/export?format=pdf`) and `PNG` (`…?format=png`), no Email; any change → Export hidden until Update.
+- PFCB-16: `beforeunload` is prevented only while there are unsaved changes (clean → not prevented; after a pick → prevented; after Save → not prevented).
+- PFCB-17: Read grant on `/personal-finance/charts/r-00000001/edit` → no Save / Update, Name read-only, every series checkbox and the Range / Chart selects disabled, the read-only line shown; the preview still loads and Export PDF / PNG is offered. A Read grant's export GET is audited, and with the audit insert failing → 503 `{ "error": "Export unavailable. Try again." }`, no `Content-Disposition`, no row (Q-AK13).
+- **PFCB-21 (MAJOR, new):** #160's PFCL-01..PFCL-14 still pass, as amended by PFCB-02 / PFCB-03 (New report is now enabled below the limit and opens the builder): `charts-page.dom.test.tsx`, `personal-finance.mjs` PFCL-01, `site-shell.mjs` PFCL-01, `personal-finance-e2e.mjs` Charts block.
+
+**Note (2026-10-20, #161 QA round 2 P1–P3 + EL; spec 46.11 addition / 46.13):**
+- PFCB-05 (P3): the picker offers exactly the server's known set. Shared lines plus every month's lines; accounts / categories from the shared lists plus those lines. A deleted category `Travel` (or account `Amex`) still on a March line is offered as `Travel (deleted)` / `Amex (deleted)`. With no line left it is not offered. A month line's unknown `Visa` / `Sport` is not offered (the server calls them missing).
+- PFCB-18 (P2): signed in, cold load of `/personal-finance/charts/new` and `/personal-finance/charts/default/edit` → CLS 0 at 390 px and desktop. The e2e writes the QA account's default report for this and deletes it after.
+- PFCL-02 (P1): the list's calls are counted before leaving for `/new`: exactly `["GET /api/personal-finance/reports"]`.
+
+**Note (2026-10-20, #161 EL Q1 / Q3; spec 46.14):** PFCB-05 adds that the picker's accounts and categories each equal the server's known set (`missingSeries` finds nothing missing), checked for both kinds. DOM tests render `Travel (deleted)` and `Amex (deleted)` (an account only on a March line) and send the plain ids `Travel` / `Amex`. `Visa`, only on a month line and in neither the shared nor the deleted list, is cleared by the record reader, so the server calls it missing and the picker doesn't offer it.

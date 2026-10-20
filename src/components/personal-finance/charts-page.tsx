@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ReadOnlyLine } from "@/components/access/denied";
 import { listReports, type ReportList, type Result } from "@/lib/finance/charts-api";
+import { NEW_PATH } from "@/lib/finance/builder";
 import {
-  BUILDER_NEXT,
   CHARTS_PATH,
   LOADING_REPORTS,
   NO_DATE,
@@ -40,21 +40,21 @@ export function ChartsPage({
 
   const list = state.kind === "ready" ? state.list : null;
   const full = list ? atLimit(list) : false;
-  // Q-AJ6: disabled until the #161 builder exists (#161 enables it below the limit). Q-AJ7: at the limit the page's own
-  // note replaces the builder note (spec 45.10: the list GET never carries the server's 409 text).
+  // #161 (Q-AK15, PFCB-02..03): below the limit New report opens the builder; at the limit (named reports only, the
+  // default not counted, Q-AJ7) it is disabled with the page-owned note (spec 45.10). The #160 builder placeholder note is gone.
   const newButton = readOnly ? null : (
     <div className="pf-charts-new">
-      <button
-        type="button"
-        className="pf-button"
-        disabled
-        aria-describedby="pf-charts-new-note"
-        data-testid="pf-charts-new"
-      >
-        New report
-      </button>
+      {full ? (
+        <button type="button" className="pf-button" disabled aria-describedby="pf-charts-new-note" data-testid="pf-charts-new">
+          New report
+        </button>
+      ) : (
+        <a className="pf-button" href={NEW_PATH} data-testid="pf-charts-new">
+          New report
+        </a>
+      )}
       <p id="pf-charts-new-note" className="pf-charts-note" data-testid="pf-charts-new-note">
-        {full && list ? limitText(list.limit) : BUILDER_NEXT}
+        {full && list ? limitText(list.limit) : ""}
       </p>
     </div>
   );
