@@ -3,7 +3,7 @@ import { before, beforeEach, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { backfillPfFx } from "./fx-backfill.server.ts";
-import { redact, runBackfillCli, VERIFY_SQL, verifyPfFx, type CliDeps, type QueryFn } from "./fx-backfill-cli.server.ts";
+import { redact, runBackfillCli, runGuarded, VERIFY_SQL, verifyPfFx, type CliDeps, type QueryFn } from "./fx-backfill-cli.server.ts";
 
 // #170 follow-up (2026-10-20): the backfill CLI with an injected query function (the script wires
 // @neondatabase/serverless over HTTPS). PGlite + the recorded Valet fixture; no network, no real database.
@@ -151,5 +151,55 @@ describe("#170 QA J1: database errors are redacted, exit 1", () => {
     assert.equal(redact(`x ${URL_VALUE} y`, URL_VALUE), "x [redacted] y");
     assert.equal(redact("bad (connection string: abc:def@h)", "zzz"), "bad (connection string: [redacted]");
     assert.equal(redact("see postgresql://a:b@c/d now", ""), "see [redacted] now");
+  });
+});
+
+// #170 QA J3 (2026-10-20): errors that echo only a PART of the URL. Fake values only.
+describe("#170 QA J3: partial URL echoes are redacted (factory and query paths, --verify and --confirm, last resort)", () => {
+  const ID = "ep-fake-moon-a1b2c3";
+  const HOST = `${ID}.us-east-2.aws.example.invalid`;
+  const RAW_PW = "p@ss%w\nrd9"; // raw @, % and a newline
+  const ENC_PW = encodeURIComponent(RAW_PW);
+  const USER = "fakeowner";
+  const URLV = `postgresql://${USER}:${ENC_PW}@${HOST}/fakedb?sslmode=require&options=endpoint%3D${ID}`;
+  const SHORT_PW_URL = `postgresql://${USER}:x9@${HOST}/fakedb`;
+  const cases: [string, string, string[], string][] = [
+    ["password raw (@ % \\n)", URLV, [RAW_PW, ENC_PW], `password authentication failed: "${RAW_PW}"`],
+    ["password encoded", URLV, [ENC_PW, RAW_PW], `bad password ${ENC_PW}`],
+    ["host only", URLV, [HOST, ID], `getaddrinfo ENOTFOUND ${HOST}`],
+    ["user@host", URLV, [USER, HOST, `${USER}@${HOST}`], `could not connect as ${USER}@${HOST}`],
+    ["https://<host>/sql", URLV, [HOST, `https://${HOST}/sql`], `fetch failed: POST https://${HOST}/sql 503`],
+    ["options=endpoint%3D<id>", URLV, [ID, `endpoint%3D${ID}`, `endpoint=${ID}`], `options=endpoint%3D${ID} rejected (endpoint=${ID})`],
+    ["raw password inside the URL (@ % \\n)", `postgresql://${USER}:${RAW_PW}@${HOST}/fakedb`, [RAW_PW, ENC_PW, "p@ss"], `auth failed for ${RAW_PW} / ${ENC_PW}`],
+    ["short password (any length)", SHORT_PW_URL, ["x9"], `password x9 is wrong`],
+  ];
+  const leaks = (lines: string[], parts: string[]) => lines.filter((l) => parts.some((p) => l.includes(p)));
+  for (const [name, url, parts, msg] of cases)
+    for (const argv of [["--verify"], ["--confirm"]])
+      for (const path of ["factory", "query"] as const)
+        it(`${name}: ${path} error, ${argv[0]} → exit 1, no part printed`, async () => {
+          const boom = () => { throw new Error(msg); };
+          const r = deps([], {
+            env: { DATABASE_URL_UNPOOLED: url },
+            connect: path === "factory" ? boom : () => async () => boom(),
+          });
+          assert.equal(await runBackfillCli(argv, r.d), 1);
+          assert.deepEqual(leaks([...r.out, ...r.err], parts), []);
+          assert.match(r.err.at(-1)!, /^\[pf-fx-backfill\] database error via DATABASE_URL_UNPOOLED: .*\[redacted\]/);
+        });
+  it("the last-resort catch (runGuarded) redacts every part too, exit 1", async () => {
+    for (const [, url, parts, msg] of cases) {
+      const err: string[] = [];
+      assert.equal(await runGuarded(async () => { throw new Error(msg); }, () => url, (s) => err.push(s)), 1);
+      assert.deepEqual(leaks(err, parts), [], msg);
+      assert.match(err[0], /^\[pf-fx-backfill\] error: .*\[redacted\]/);
+    }
+    const ok: string[] = [];
+    assert.equal(await runGuarded(async () => 0, () => URLV, (s) => ok.push(s)), 0);
+    assert.deepEqual(ok, []);
+  });
+  it("ordinary words survive: tokens under 4 characters (other than the password) are not redacted", () => {
+    assert.equal(redact("the db is down", "postgresql://ab:longpassword@db/x"), "the db is down");
+    assert.equal(redact("using sslmode=require now", URLV), "using sslmode=[redacted] now");
   });
 });

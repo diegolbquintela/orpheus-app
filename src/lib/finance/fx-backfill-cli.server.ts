@@ -35,16 +35,85 @@ export function verifyTable(rows: VerifyRow[]): string {
   return [head, "------|------------|------------|------", ...rows.map((r) => `${r.quote.padEnd(5)} | ${(r.oldest ?? "—").padEnd(10)} | ${(r.newest ?? "—").padEnd(10)} | ${r.n}`)].join("\n");
 }
 
+/** Safe decode / encode (a malformed % sequence keeps the raw text). */
+const dec = (t: string): string => {
+  try {
+    return decodeURIComponent(t);
+  } catch {
+    return t;
+  }
+};
+const forms = (t: string): string[] => [t, dec(t), encodeURIComponent(dec(t)), encodeURIComponent(t)];
+
 /**
- * #170 QA J1 (2026-10-20): never print the connection string. Replaces every occurrence of the value, any
- * "connection string: …" tail and any postgres(ql)://… substring with [redacted].
+ * #170 QA J3 (2026-10-20): the strings to hide for a connection string `secret`: the whole value and, when it has
+ * parts, the password (raw, decoded, encoded; any length), the username, host, hostname, endpoint id (first hostname
+ * label) and every query-param value (raw, decoded, encoded, and nested `k=v` values such as
+ * `options=endpoint%3D<id>`). Tokens under 4 characters are skipped (except the password). Longest first.
+ */
+export function secretParts(secret: string): string[] {
+  if (!secret) return [];
+  const always = new Set<string>([secret]);
+  const maybe = new Set<string>();
+  // The password and user straight from the text (works for raw @, % or newlines that new URL() rejects or rewrites):
+  // scheme://user:password@host..., the LAST @ before the path ends the password.
+  const m = /^[a-z][a-z0-9+.-]*:\/\/([^:/@]*)(?::([\s\S]*))?@([^@/?#]*)(?=[/?#]|$)/i.exec(secret);
+  if (m) {
+    if (m[2] !== undefined && m[2] !== "") for (const f of forms(m[2])) always.add(f);
+    for (const f of forms(m[1])) maybe.add(f);
+    maybe.add(m[3]);
+  }
+  let u: URL | null = null;
+  try {
+    u = new URL(secret);
+  } catch {
+    u = null;
+  }
+  if (u) {
+    if (u.password) for (const f of forms(u.password)) always.add(f);
+    for (const f of forms(u.username)) maybe.add(f);
+    maybe.add(u.host);
+    maybe.add(u.hostname);
+    maybe.add(u.hostname.split(".")[0]);
+    const values = (v: string): string[] => {
+      const out = forms(v);
+      for (const piece of dec(v).split(/[&,;\s]+/)) {
+        const eq = piece.indexOf("=");
+        if (eq >= 0) out.push(...values(piece.slice(eq + 1)));
+      }
+      return out;
+    };
+    for (const piece of u.search.replace(/^\?/, "").split("&")) {
+      const eq = piece.indexOf("=");
+      if (eq >= 0) for (const f of values(piece.slice(eq + 1))) maybe.add(f);
+    }
+  }
+  const all = [...always].filter((t) => t !== "");
+  for (const t of maybe) if (t.length >= 4) all.push(t);
+  return [...new Set(all)].sort((a, b) => b.length - a.length);
+}
+
+/**
+ * #170 QA J1 + J3 (2026-10-20): never print the connection string or any part of it. Replaces each secretParts()
+ * token, any "connection string: …" tail and any postgres(ql)://… substring with [redacted]. Shared by the CLI's
+ * database-error path and the script's last-resort catch (runGuarded).
  */
 export function redact(message: string, secret: string): string {
   let m = message;
-  if (secret) m = m.split(secret).join("[redacted]");
+  for (const t of secretParts(secret)) m = m.split(t).join("[redacted]");
   return m
     .replace(/connection string:[^\n]*/gi, "connection string: [redacted]")
     .replace(/postgres(?:ql)?:\/\/[^\s'")]*/gi, "[redacted]");
+}
+
+/** The script's last-resort guard: runs `main`; any uncaught error is printed redacted and gives exit 1. */
+export async function runGuarded(main: () => Promise<number>, secret: () => string, error: (s: string) => void): Promise<number> {
+  try {
+    return await main();
+  } catch (e) {
+    error(`[pf-fx-backfill] error: ${redact(e instanceof Error ? e.message : String(e), secret())}`);
+    return 1;
+  }
 }
 
 export type CliDeps = {
