@@ -172,22 +172,19 @@ try {
   const cfoPassword = process.env.QA_CFO_PASSWORD;
   if (email && password && !prod && cfoEmail && cfoPassword)
     await signedIn(browser, cfoEmail, cfoPassword, async (request) => {
-      const original = (await call(request, "GET", API)).body?.report ?? null;
-      try {
-        const mine = { series: [{ kind: "metric", id: "income" }, { kind: "line", id: "qa-cfo-gone" }], range: { preset: "ytd" }, chart: "line" };
-        const p = await call(request, "PUT", API, { json: { report: mine } });
-        const g = await call(request, "GET", API);
-        check("PFR-14 a CFO (Read is enough) saves and reads their own report; missing checked against the owner's record", p.status === 200 && same(g.body?.report, mine) && same(g.body?.missing, [1]), { p: p.status, g: g.body });
-        // #153 QA follow-up (folded into #163): per-person isolation — the owner never sees the CFO's report.
-        let ownerSees = "not run";
-        await signedIn(browser, email, password, async (ownerRequest) => {
-          ownerSees = (await call(ownerRequest, "GET", API)).body?.report ?? null;
-        });
-        check("PFR-14 isolation: with the CFO's report saved, the owner's GET does not return it (each person's own)", ownerSees !== "not run" && !same(ownerSees, mine), { ownerSees });
-      } finally {
-        const rep = original ? await call(request, "PUT", API, { json: { report: original } }) : await call(request, "DELETE", API);
-        check("the CFO account's report restored", rep.status === 200, rep.status);
-      }
+      // #162 R2 / CFO decision 1 (2026-10-20, spec 33.10): Read means read only. A Read CFO's PUT / DELETE → 403
+      // `Forbidden.` and the stored report is unchanged, so there is nothing to restore (no write is made).
+      const before = await call(request, "GET", API);
+      const mine = { series: [{ kind: "metric", id: "income" }, { kind: "line", id: "qa-cfo-gone" }], range: { preset: "ytd" }, chart: "line" };
+      const p = await call(request, "PUT", API, { json: { report: mine } });
+      const d = await call(request, "DELETE", API);
+      const after = await call(request, "GET", API);
+      check("PFR-14 (#162) a Read CFO's PUT and DELETE → 403 `Forbidden.`; GET still 200 and unchanged", p.status === 403 && p.body?.error === "Forbidden." && d.status === 403 && d.body?.error === "Forbidden." && before.status === 200 && after.status === 200 && same(after.body, before.body), { p, d, before: before.body, after: after.body });
+      let ownerSees = "not run";
+      await signedIn(browser, email, password, async (ownerRequest) => {
+        ownerSees = (await call(ownerRequest, "GET", API)).body?.report ?? null;
+      });
+      check("PFR-14 isolation: the owner's GET never returns the CFO's attempted report", ownerSees !== "not run" && !same(ownerSees, mine), { ownerSees });
     });
   else if (email && password && !prod) console.log("INFO PFR-14 SKIPPED: set QA_CFO_EMAIL / QA_CFO_PASSWORD (an account with a Personal Finance Read grant)");
 

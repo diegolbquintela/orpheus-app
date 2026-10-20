@@ -114,6 +114,23 @@ try {
       const l2 = await call(request, "GET", LIST);
       check("PFRC-16 the list is back as it was", same(l2.body?.reports?.map((x) => x.id), reports.map((x) => x.id)));
     });
+  // #162 R2 / CFO decision 1 (2026-10-20, spec 38.12): PFRC-12 Read means read only. A Read CFO's POST, PUT and DELETE →
+  // 403 `Forbidden.`; the CFO's list is unchanged (nothing is written, so nothing to restore).
+  if (process.env.QA_CFO_EMAIL && process.env.QA_CFO_PASSWORD)
+    await signedIn(browser, process.env.QA_CFO_EMAIL, process.env.QA_CFO_PASSWORD, async (request) => {
+      const before = await call(request, "GET", LIST);
+      const id = before.body?.reports?.find((x) => !x.default)?.id ?? "r-0000beef";
+      const st = [
+        await call(request, "POST", LIST, { name: "QA CFO attempt", report: REP }),
+        await call(request, "PUT", `${LIST}/${id}`, { name: "QA CFO attempt", report: REP }),
+        await call(request, "DELETE", `${LIST}/${id}`),
+        await call(request, "PUT", `${LIST}/default`, { report: REP }),
+        await call(request, "DELETE", `${LIST}/default`),
+      ];
+      const after = await call(request, "GET", LIST);
+      check("PFRC-12 (#162) a Read CFO's POST / PUT / DELETE (named and default) → 403 `Forbidden.`; the list is unchanged", st.every((r) => r.status === 403 && r.body?.error === "Forbidden.") && before.status === 200 && same(after.body, before.body), { st: st.map((r) => [r.status, r.body?.error]), before: before.status });
+    });
+  else console.log("INFO PFRC-12 SKIPPED: set QA_CFO_EMAIL / QA_CFO_PASSWORD (an account with a Personal Finance Read grant)");
   if (process.env.QA_NONE_EMAIL && process.env.QA_NONE_PASSWORD)
     await signedIn(browser, process.env.QA_NONE_EMAIL, process.env.QA_NONE_PASSWORD, async (request) => {
       const r = await call(request, "GET", LIST);
