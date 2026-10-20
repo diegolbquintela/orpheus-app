@@ -1182,3 +1182,5 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFFX-27b | MAJOR | G5: the recorded Valet fixture (9 series) is parsed and stored; dashboard and `ECB_CROSS` rows unchanged; `vercel.json` unchanged. |
 | PFFX-28b | BLOCK | G5: USD rows only from 2026-09; USD lines in 2024-03 and 2026-09; range `all` → `"mixed"`, `["2024-03"]`; after 2024-03 rows exist → `"historical"`. |
 | PFFX-30b | MAJOR | G3: the PDF mixed line wraps; flattened text contains the full 5-month line with ` and N more`. |
+
+**Note (2026-10-20, QA H2 on 83cd973):** PFFX-11b replaces PFFX-26's note text: the page note is `Charts and exports use Bank of Canada rates where available` (spec 43.11 G4).

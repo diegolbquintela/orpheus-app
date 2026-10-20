@@ -388,3 +388,26 @@ describe("#170 QA G1 / G5 (spec 43.11): fx_basis scope and the concrete PFFX-23/
     assert.equal("fx_fallback_months" in after, false);
   });
 });
+
+// #170 QA H1 (2026-10-20, on 83cd973): every foreign conversion out of scope must stay on the typed-rate path
+// (kills `if (!used && foreign > 0) return none`).
+describe("#170 QA H1: foreign months only out of scope → current, untouched", () => {
+  it("(a) USD line only in 2024-03 (rows stored), range 2024-05, no net assets → current, no field, byte-equal to no rows", async () => {
+    await put(recordOf({ "2024-03": [L("u", "1000", "USD", "0.7")], "2024-05": [L("c", "500")] }));
+    const IE = [{ kind: "metric", id: "income" }, { kind: "metric", id: "expenses" }];
+    const noRows = await (await series({ from: "2024-05", to: "2024-05" }, IE)).text();
+    await rows([["USD", "2024-03-04", "1.3600"]]);
+    const withRows = await (await series({ from: "2024-05", to: "2024-05" }, IE)).text();
+    const j = JSON.parse(withRows);
+    assert.equal(j.fx_basis, "current");
+    assert.equal("fx_fallback_months" in j, false);
+    assert.equal(withRows, noRows);
+  });
+  it("(b) pure: every foreign month out of scope → the same object, basis current", () => {
+    const rec = recordOf({ "2024-03": [L("u", "1000", "USD", "0.7")] });
+    const r = applyHistoricalFx(rec, { "2024-03": { USD: 1.36 } }, "2026-10", () => false);
+    assert.equal(r.record, rec);
+    assert.equal(r.basis, "current");
+    assert.deepEqual(r.fallbackMonths, []);
+  });
+});
