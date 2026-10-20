@@ -6,7 +6,6 @@ export const CHARTS_PATH = "/personal-finance/charts";
 export const NO_REPORTS = "No saved reports yet.";
 export const LOADING_REPORTS = "Loading reports…";
 export const NO_DATE = "No date";
-export const BUILDER_NEXT = "Builder coming next (#161)";
 export const limitText = (limit: number) => `Limit of ${limit} reports reached.`;
 
 /** Q-AJ7 / contract Q-AE14: the limit counts named reports only; the default is extra. */

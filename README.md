@@ -689,3 +689,5 @@ Added 2026-10-20 (#184, AG11; Phase 1, nothing built): spec section 44 (equity c
 Added 2026-10-20 (#160, PF Charts UI 1/3; built): `/personal-finance/charts` lists saved reports (R3 `GET /api/personal-finance/reports` only; no wire change), `src/components/personal-finance/charts-page.tsx`, `src/lib/finance/reports-list.ts`; spec section 45 (Q-AJ1..Q-AJ12), AC PFCL-01..PFCL-14; QA `qa/tools/personal-finance.mjs` (signed-out redirect) and `personal-finance-e2e.mjs` (signed-in list).
 
 Added 2026-10-20 (#161, PF Charts UI 2/3; Phase 1, nothing built): spec section 46 (report builder; Q-AK1..Q-AK15), AC PFCB-01..PFCB-20.
+
+Added 2026-10-20 (#161, built): `/personal-finance/charts/new` and `/personal-finance/charts/<id>/edit` (report builder on R2–R5 and the record GET; no wire change); spec 46.10–46.12; QA `site-shell.mjs` (signed-out redirects) and `personal-finance-e2e.mjs` (signed-in builder, read-only).

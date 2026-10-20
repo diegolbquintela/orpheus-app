@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { safeNext } from "./next.ts";
+import { EDIT_SIGN_IN_NEXT, NEW_SIGN_IN_NEXT } from "../finance/builder.ts";
 
 // #102 QA D1 (open redirect via ?next=): spec section 16.4 / PF-34.
 describe("sign-in ?next allowlist (#102 D1)", () => {
@@ -11,6 +12,16 @@ describe("sign-in ?next allowlist (#102 D1)", () => {
     assert.equal(safeNext("/personal-finance/charts"), "/personal-finance/charts");
     for (const v of ["/personal-finance/charts/", "/personal-finance/Charts", "/personal-finance/charts?x=1", "//personal-finance/charts", "https://evil.example/personal-finance/charts", "/personal-finance/charts#a"])
       assert.equal(safeNext(v), "/dashboard", v);
+  });
+  it("#161 PFCB-01: keeps the exact path /personal-finance/charts/new; near-misses (and edit paths) → /dashboard", () => {
+    assert.equal(safeNext("/personal-finance/charts/new"), "/personal-finance/charts/new");
+    for (const v of ["/personal-finance/charts/new/", "/personal-finance/charts/New", "/personal-finance/charts/new?x=1", "/personal-finance/charts/new#a", "//personal-finance/charts/new", "https://evil.example/personal-finance/charts/new", "/personal-finance/charts/r-0000abcd/edit", "/personal-finance/charts/default/edit", "/personal-finance/charts/new/edit", " /personal-finance/charts/new"])
+      assert.equal(safeNext(v), "/dashboard", v);
+  });
+  it("#161 EL O3: the builder routes' sign-in next: /new kept; every edit route (default included) lands on the list", () => {
+    assert.equal(safeNext(NEW_SIGN_IN_NEXT), "/personal-finance/charts/new");
+    assert.equal(EDIT_SIGN_IN_NEXT, "/personal-finance/charts");
+    assert.equal(safeNext(EDIT_SIGN_IN_NEXT), "/personal-finance/charts", "not /dashboard");
   });
   it("#90 ROLE-02: keeps the exact relative path /account; near-misses → /dashboard", () => {
     assert.equal(safeNext("/account"), "/account");

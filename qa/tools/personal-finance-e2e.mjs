@@ -396,13 +396,44 @@ try {
         cp.on("request", (r) => { const u = new URL(r.url()); if (u.pathname.startsWith("/api/")) calls.push(`${r.method()} ${u.pathname}`); });
         await cp.goto(`${base}/personal-finance/charts`, { waitUntil: "networkidle" });
         await cp.locator("[data-testid=pf-charts-list], [data-testid=pf-charts-empty], [data-testid=pf-charts-error]").first().waitFor();
-        const ch = await cp.evaluate(() => ({ title: document.title, newDisabled: document.querySelector("[data-testid=pf-charts-new]")?.disabled ?? null, links: document.querySelectorAll("[data-testid=pf-charts-list] a, [data-testid=pf-charts-list] button").length, error: document.querySelector("[data-testid=pf-charts-error]") !== null, back: document.querySelector("[data-testid=pf-charts-back]")?.getAttribute("href"), backH: Math.round(document.querySelector("[data-testid=pf-charts-back]")?.getBoundingClientRect().height ?? 0), scroll: document.documentElement.scrollWidth - window.innerWidth }));
+        const ch = await cp.evaluate(() => ({ title: document.title, newTag: document.querySelector("[data-testid=pf-charts-new]")?.tagName ?? null, newHref: document.querySelector("[data-testid=pf-charts-new]")?.getAttribute("href") ?? null, newH: Math.round(document.querySelector("[data-testid=pf-charts-new]")?.getBoundingClientRect().height ?? 0), placeholder: document.body.textContent.includes("Builder coming next"), links: document.querySelectorAll("[data-testid=pf-charts-list] a, [data-testid=pf-charts-list] button").length, error: document.querySelector("[data-testid=pf-charts-error]") !== null, back: document.querySelector("[data-testid=pf-charts-back]")?.getAttribute("href"), backH: Math.round(document.querySelector("[data-testid=pf-charts-back]")?.getBoundingClientRect().height ?? 0), scroll: document.documentElement.scrollWidth - window.innerWidth }));
         const reportCalls = calls.filter((c) => c.includes("/api/personal-finance/report"));
         await cp.screenshot({ path: join(CFG.out, `e2e-charts-${viewport.width}.png`) });
+        // #161 (spec 46; PFCB-05 / 10 / 18; tap targets): the builder from New report. Read-only here: one pick → one
+        // POST /chart preview (stores nothing); no Save, so the QA account keeps no report.
+        const bcalls = [];
+        cp.on("request", (r) => { const u = new URL(r.url()); if (u.pathname.startsWith("/api/")) bcalls.push(`${r.method()} ${u.pathname}`); });
+        await cp.getByTestId("pf-charts-new").click();
+        await cp.waitForURL(`${base}/personal-finance/charts/new`);
+        await cp.getByTestId("pf-builder").waitFor();
+        const toggle = cp.getByTestId("pf-builder-series-toggle");
+        if (await toggle.isVisible()) await toggle.click();
+        await cp.locator("[data-testid=pf-builder-pick][data-kind=metric][data-id=income]").check();
+        await cp.getByTestId("pf-builder-figure").waitFor({ timeout: 10000 }).catch(() => {});
+        const b = await cp.evaluate(() => {
+          const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden"; };
+          const sel = "[data-testid=pf-builder] input:not([type=checkbox]), [data-testid=pf-builder] select, [data-testid=pf-builder] button, [data-testid=pf-builder] a, [data-testid=pf-builder] summary, .pf-builder-option, [data-testid=pf-builder-back]";
+          return {
+            title: document.title,
+            small: [...document.querySelectorAll(sel)].filter(vis).filter((e) => e.getBoundingClientRect().height < 44).map((e) => `${e.getAttribute("data-testid") ?? e.className}:${Math.round(e.getBoundingClientRect().height)}`),
+            figure: !!document.querySelector("[data-testid=pf-builder-figure]"),
+            plotH: Math.round(document.querySelector(".pf-builder-plot")?.getBoundingClientRect().height ?? 0),
+            vh: window.innerHeight,
+            scroll: document.documentElement.scrollWidth - window.innerWidth,
+            sections: [...document.querySelectorAll(".pf-builder-section-title")].map((e) => e.textContent),
+            save: document.querySelector("[data-testid=pf-builder-save]")?.textContent ?? null,
+            exportShown: !!document.querySelector("[data-testid=pf-builder-export]"),
+          };
+        });
+        await cp.screenshot({ path: join(CFG.out, `e2e-builder-${viewport.width}.png`) });
         await cp.close();
+        const chartPosts = bcalls.filter((c) => c === "POST /api/personal-finance/chart");
+        const narrow = viewport.width < 768;
+        check(`${tag} PFCB-05/10/18 (#161) builder: Metrics + Groups listed, one pick → POST /chart preview, Save (no export until saved), no write; ${narrow ? "chart ≥ 60vh" : "side panel"}; no horizontal scroll`, b.sections[0] === "Metrics" && b.sections[1] === "Groups" && chartPosts.length >= 1 && b.figure && b.save === "Save" && !b.exportShown && !bcalls.some((c) => /^(PUT|DELETE) |^POST \/api\/personal-finance\/reports/.test(c)) && (!narrow || b.plotH >= Math.floor(b.vh * 0.6) - 1) && b.scroll <= 0 && b.title === "New report · Charts · Orpheus Wisdom", { b, bcalls });
+        check(`${tag} #161 tap targets: every builder control ≥ 44 px tall`, b.small.length === 0, b.small);
         // #160 QA N4 (EL tap-target rule): both links ≥ 44 px tall at every viewport.
         check(`${tag} N4 (#160) tap targets: pf-charts-link ${Math.round(linkBox?.height ?? 0)} px, pf-charts-back ${ch.backH} px, both ≥ 44`, (linkBox?.height ?? 0) >= 44 && ch.backH >= 44, { link: linkBox, backH: ch.backH });
-        check(`${tag} PFCL-02/08/12 (#160) Charts: one GET /api/personal-finance/reports, no write, New report disabled, rows not links, linked both ways`, href === "/personal-finance/charts" && JSON.stringify(reportCalls) === JSON.stringify(["GET /api/personal-finance/reports"]) && !calls.some((c) => !c.startsWith("GET ")) && ch.newDisabled === true && ch.links === 0 && !ch.error && ch.back === "/personal-finance" && ch.scroll <= 0 && ch.title === "Charts · Personal Finance · Orpheus Wisdom", { href, calls, ch });
+        check(`${tag} PFCL-02/08/12 (#160) Charts: one GET /api/personal-finance/reports, no write, New report enabled → /new (#161 PFCB-02/03), rows not links, linked both ways`, href === "/personal-finance/charts" && JSON.stringify(reportCalls) === JSON.stringify(["GET /api/personal-finance/reports"]) && !calls.some((c) => !c.startsWith("GET ")) && ch.newTag === "A" && ch.newHref === "/personal-finance/charts/new" && ch.newH >= 44 && !ch.placeholder && ch.links === 0 && !ch.error && ch.back === "/personal-finance" && ch.scroll <= 0 && ch.title === "Charts · Personal Finance · Orpheus Wisdom", { href, calls, ch });
       }
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
