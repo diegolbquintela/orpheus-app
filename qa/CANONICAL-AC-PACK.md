@@ -1203,3 +1203,15 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFEC-12 | MAJOR | QA: `personal-finance-e2e.mjs` (signed in) checks the coverage follows the anchor; signed-out suites green on the preview; mobile 390 px and desktop; CLS 0 unchanged. |
 
 **Note (2026-10-20, CFO decision; spec 44.6):** PFEC-01..PFEC-12 apply as written; Q-AI1..Q-AI5 built on PR #192, Q-AI6/Q-AI7 not built by decision.
+
+**Additions (2026-10-20, QA L1 / L2 on 042c47e; spec 44.7).** Concrete inputs and outputs, derived by SWE (no QA run log for PR #192 was found under `qa/runs`). Common input: Starting net assets 10,000, rate used 4%, today 2026-10-13 (Toronto), Aug 2026 expenses 1,000 / income 2,000, Sep 2026 expenses 1,000 / income 1,500 (3-month average expenses 1,000; 12-month average surplus 750), Future off unless stated.
+
+| ID | Input | Expected |
+|---|---|---|
+| PFEC-02 | `asOf` 2026-08 | previous-month net 11,500 → `38.33 CAD/mo (460.00 CAD/yr)`, 3.83% of expenses |
+| PFEC-05 | + Jun 2025 expenses 1,000 / income 1,200, `asOf` 2025-06 | 18,450 (L2: empty months in the window use the 12-month average; months before the window add only their own surplus) → `61.50 CAD/mo (738.00 CAD/yr)`, 6.15%; `asOf` 2025-05 (May empty) → the same 18,450 |
+| PFEC-06 | no month data, `asOf` 2026-08 | `none` (`Equity coverage: —`, no note); without `asOf` → `33.33 CAD/mo (400.00 CAD/yr)`, share `—` |
+| PFEC-07 | Aug expenses 20,000, Sep 1,000, income 0, `asOf` 2026-08 | net −11,000 → `none` |
+| PFEC-08 | Future on, 5 years, `asOf` 2026-08 | `190.83 CAD/mo (2,290.00 CAD/yr)`, same as before #184 |
+| PFEC-09 | `asOf` 2026-12 | `none` |
+| PFEC-10 | `asOf` `2026-13` (red) | the no-`asOf` line `33.33 CAD/mo (400.00 CAD/yr)`, 3.33% |

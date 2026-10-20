@@ -629,3 +629,54 @@ describe("#184 equity coverage on the anchored net assets (PFEC-01..PFEC-10)", (
     for (const bad of ["", "2026-13", "abc", "2019-12"]) assert.deepEqual(cov({ asOf: bad }), base, bad);
   });
 });
+
+// #184 QA L1 / L2 (2026-10-20, on 042c47e): concrete PFEC inputs and outputs (derived by SWE; no QA run log for
+// PR #192), and the window rule: empty months inside the 12-month window use the 12-month average; months before
+// the window add only their own surplus (an empty one adds nothing). Start 10,000, rate 4%, today 2026-10-13.
+describe("#184 QA L1 / L2: concrete PFEC examples and the window rule", () => {
+  const AT = new Date("2026-10-13T12:00:00-04:00");
+  const P = { expenses: null, income: null };
+  const M = { "2026-08": { expenses: "1,000", income: "2,000" }, "2026-09": { expenses: "1,000", income: "1,500" } };
+  const run = (o: Partial<Overview>) => {
+    const v = ov({ start: "10,000", months: M, ...o });
+    const s = summarize(v, AT, P);
+    return { c: overviewCoverage(v, s, 4), prev: s.points.find((p) => p.key === "2026-09")!.net };
+  };
+  const ok = (c: ReturnType<typeof overviewCoverage>) => (c.status === "ok" ? [round2(c.monthly), round2(c.yearly), c.share === null ? null : round2(c.share * 100)] : c.status);
+  const JUN25 = { ...M, "2025-06": { expenses: "1,000", income: "1,200" } };
+  it("PFEC-02: asOf 2026-08 → net 11,500 → 38.33 / 460.00, 3.83% of the 3-month average 1,000", () => {
+    const r = run({ asOf: "2026-08" });
+    assert.equal(r.prev, 11500);
+    assert.deepEqual(ok(r.c), [38.33, 460, 3.83]);
+  });
+  it("PFEC-05 / L2: asOf 2025-06 (+200, before the window) → 10,200 + 9 empty window months × avg 750 + 1,000 + 500 = 18,450 → 61.50 / 738.00", () => {
+    const r = run({ asOf: "2025-06", months: JUN25 });
+    assert.equal(r.prev, 18450);
+    assert.deepEqual(ok(r.c), [61.5, 738, 6.15]);
+  });
+  it("L2: an empty month before the window adds nothing (asOf 2025-05, May empty → the same 18,450)", () => {
+    assert.equal(run({ asOf: "2025-05", months: JUN25 }).prev, 18450);
+  });
+  it("L2: an empty month inside the window uses the 12-month average (Nov 2025 typed at the average surplus 750 → unchanged)", () => {
+    const typed = { ...JUN25, "2025-11": { expenses: "1,000", income: "1,750" } };
+    assert.equal(run({ asOf: "2025-06", months: typed }).prev, 18450);
+  });
+  it("PFEC-06: no month data, asOf 2026-08 → none; the same without asOf → 33.33 / 400.00, share —", () => {
+    assert.equal(run({ asOf: "2026-08", months: {} }).c.status, "none");
+    assert.deepEqual(ok(run({ months: {} }).c), [33.33, 400, null]);
+  });
+  it("PFEC-07: Aug 20,000 / Sep 1,000 expenses, income 0, asOf 2026-08 → net −11,000 → none", () => {
+    const r = run({ asOf: "2026-08", months: { "2026-08": { expenses: "20,000", income: "0" }, "2026-09": { expenses: "1,000", income: "0" } } });
+    assert.equal(r.prev, -11000);
+    assert.equal(r.c.status, "none");
+  });
+  it("PFEC-08: Future on, 5 years, asOf 2026-08 → 190.83 / 2,290.00 (projected), the same as before #184", () => {
+    assert.deepEqual(ok(run({ asOf: "2026-08", future: true, years: 5 }).c), [190.83, 2290, 19.08]);
+  });
+  it("PFEC-09: asOf 2026-12 (after the current month) → none", () => {
+    assert.equal(run({ asOf: "2026-12" }).c.status, "none");
+  });
+  it("PFEC-10: asOf '2026-13' (invalid, shown in red) → the no-asOf line 33.33 / 400.00", () => {
+    assert.deepEqual(ok(run({ asOf: "2026-13" }).c), [33.33, 400, 3.33]);
+  });
+});
