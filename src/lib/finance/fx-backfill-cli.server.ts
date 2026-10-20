@@ -35,6 +35,18 @@ export function verifyTable(rows: VerifyRow[]): string {
   return [head, "------|------------|------------|------", ...rows.map((r) => `${r.quote.padEnd(5)} | ${(r.oldest ?? "—").padEnd(10)} | ${(r.newest ?? "—").padEnd(10)} | ${r.n}`)].join("\n");
 }
 
+/**
+ * #170 QA J1 (2026-10-20): never print the connection string. Replaces every occurrence of the value, any
+ * "connection string: …" tail and any postgres(ql)://… substring with [redacted].
+ */
+export function redact(message: string, secret: string): string {
+  let m = message;
+  if (secret) m = m.split(secret).join("[redacted]");
+  return m
+    .replace(/connection string:[^\n]*/gi, "connection string: [redacted]")
+    .replace(/postgres(?:ql)?:\/\/[^\s'")]*/gi, "[redacted]");
+}
+
 export type CliDeps = {
   env: Record<string, string | undefined>;
   today: string;
@@ -65,13 +77,27 @@ export async function runBackfillCli(argv: readonly string[], d: CliDeps): Promi
     d.error(`${tag} no database URL set.`);
     return 2;
   }
-  d.log(`${tag} using ${target.name} (HTTPS, @neondatabase/serverless)`);
-  const query = d.connect(target.url);
-  if (verify) {
-    d.log(verifyTable(await verifyPfFx(query)));
-    return 0;
+  const fail = (e: unknown) => {
+    d.error(`${tag} database error via ${target.name}: ${redact(e instanceof Error ? e.message : String(e), target.url)}`);
+    return 1;
+  };
+  try {
+    new URL(target.url);
+  } catch {
+    return fail(new Error(`${target.name} is not a valid URL.`));
   }
-  const s = await backfillPfFx({ query }, d.get, { today: d.today });
-  d.log(`${tag} ${s.quotes.join(",")} ${s.from}..${s.to}: fetched ${s.fetched}, inserted ${s.inserted}.`);
-  return 0;
+  d.log(`${tag} using ${target.name} (HTTPS, @neondatabase/serverless)`);
+  // Client creation, connect and every query stay inside the guard (J1).
+  try {
+    const query = d.connect(target.url);
+    if (verify) {
+      d.log(verifyTable(await verifyPfFx(query)));
+      return 0;
+    }
+    const s = await backfillPfFx({ query }, d.get, { today: d.today });
+    d.log(`${tag} ${s.quotes.join(",")} ${s.from}..${s.to}: fetched ${s.fetched}, inserted ${s.inserted}.`);
+    return 0;
+  } catch (e) {
+    return fail(e);
+  }
 }

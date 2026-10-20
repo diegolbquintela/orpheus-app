@@ -3,7 +3,7 @@ import { before, beforeEach, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { backfillPfFx } from "./fx-backfill.server.ts";
-import { runBackfillCli, VERIFY_SQL, verifyPfFx, type CliDeps, type QueryFn } from "./fx-backfill-cli.server.ts";
+import { redact, runBackfillCli, VERIFY_SQL, verifyPfFx, type CliDeps, type QueryFn } from "./fx-backfill-cli.server.ts";
 
 // #170 follow-up (2026-10-20): the backfill CLI with an injected query function (the script wires
 // @neondatabase/serverless over HTTPS). PGlite + the recorded Valet fixture; no network, no real database.
@@ -111,5 +111,45 @@ describe("#170 backfill CLI (HTTPS driver injected)", () => {
       assert.equal(r.connects(), 0);
       assert.match(r.err[0], /no database URL set/);
     }
+  });
+});
+
+// #170 QA J1 (2026-10-20): a driver error must never print the connection string.
+describe("#170 QA J1: database errors are redacted, exit 1", () => {
+  const SECRET = "not-a-real-secret";
+  const noLeak = (out: string[], err: string[]) => {
+    for (const s of [...out, ...err]) {
+      assert.ok(!s.includes(SECRET), s);
+      assert.ok(!s.includes(URL_VALUE), s);
+    }
+  };
+  it("(a) the client factory throws with the URL in its message → exit 1, redacted, no leak", async () => {
+    for (const argv of [["--confirm"], ["--verify"]]) {
+      const r = deps([], { connect: () => { throw new Error(`Database connection string provided to \`neon()\` is not a valid URL (connection string: ${URL_VALUE})`); } });
+      assert.equal(await runBackfillCli(argv, r.d), 1);
+      noLeak(r.out, r.err);
+      assert.match(r.err.at(-1)!, /^\[pf-fx-backfill\] database error via DATABASE_URL_UNPOOLED: .*\[redacted\]/);
+    }
+  });
+  it("(b) a query throws with the URL in its message → exit 1, redacted, no leak", async () => {
+    for (const argv of [["--confirm"], ["--verify"]]) {
+      const r = deps([], { connect: () => async () => { throw new Error(`fetch failed for ${URL_VALUE}; retry ${URL_VALUE.replace("postgres://", "postgresql://")}`); } });
+      assert.equal(await runBackfillCli(argv, r.d), 1);
+      noLeak(r.out, r.err);
+      assert.match(r.err.at(-1)!, /database error via DATABASE_URL_UNPOOLED: fetch failed for \[redacted\]; retry \[redacted\]$/);
+    }
+  });
+  it("(c) a malformed URL → redacted pre-check error, exit 1, the factory is never called", async () => {
+    const bad = `postgres//user:${SECRET}@host`;
+    const r = deps([], { env: { DATABASE_URL_UNPOOLED: bad } });
+    assert.equal(await runBackfillCli(["--confirm"], r.d), 1);
+    assert.equal(r.connects(), 0);
+    for (const s of [...r.out, ...r.err]) assert.ok(!s.includes(SECRET) && !s.includes(bad), s);
+    assert.equal(r.err.at(-1), "[pf-fx-backfill] database error via DATABASE_URL_UNPOOLED: DATABASE_URL_UNPOOLED is not a valid URL.");
+  });
+  it("redact: the value, a 'connection string:' tail and any postgres(ql):// substring", () => {
+    assert.equal(redact(`x ${URL_VALUE} y`, URL_VALUE), "x [redacted] y");
+    assert.equal(redact("bad (connection string: abc:def@h)", "zzz"), "bad (connection string: [redacted]");
+    assert.equal(redact("see postgresql://a:b@c/d now", ""), "see [redacted] now");
   });
 });

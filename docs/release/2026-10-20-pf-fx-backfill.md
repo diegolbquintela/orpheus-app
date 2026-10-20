@@ -83,3 +83,5 @@ BRL   | 2020-01-02 | <last BoC day> | 1694
 ```
 
 A currency with no rows prints `—` for both dates and `0`. With no mode flag the script refuses (exit 2) and never connects; `--confirm` / `--verify` with no database URL in the environment exit 2. **SWE has not run `--confirm` or `--verify` against any database**; only the BoC-only `--dry-run` above.
+
+**Addition (2026-10-20, QA J1):** a database error (bad URL, driver or query failure) prints `[pf-fx-backfill] database error via <variable name>: <message>` with the URL value, any `connection string: …` tail and any `postgres(ql)://…` text replaced by `[redacted]`, and exits 1. A value that is not a valid URL is refused before the driver is created.

@@ -9,7 +9,7 @@
  */
 import { neon } from "@neondatabase/serverless";
 import { resolveMigrationUrl } from "./db-env.mjs";
-import { runBackfillCli, type QueryFn } from "../src/lib/finance/fx-backfill-cli.server.ts";
+import { redact, runBackfillCli, type QueryFn } from "../src/lib/finance/fx-backfill-cli.server.ts";
 
 const get = async (url: string): Promise<string> => {
   const res = await fetch(url, { headers: { "User-Agent": "orpheus-app PF FX backfill" }, signal: AbortSignal.timeout(60_000) });
@@ -21,7 +21,8 @@ const connect = (url: string): QueryFn => {
   return async <T,>(text: string, params?: unknown[]) => (await sql.query(text, params ?? [])) as T[];
 };
 
-process.exitCode = await runBackfillCli(process.argv.slice(2), {
+try {
+  process.exitCode = await runBackfillCli(process.argv.slice(2), {
   env: process.env,
   today: new Date().toISOString().slice(0, 10),
   get,
@@ -30,3 +31,9 @@ process.exitCode = await runBackfillCli(process.argv.slice(2), {
   log: (s) => console.log(s),
   error: (s) => console.error(s),
 });
+} catch (e) {
+  // Last resort (QA J1): never let Node print an uncaught error that could carry a connection string.
+  const secret = resolveMigrationUrl(process.env)?.url ?? "";
+  console.error(`[pf-fx-backfill] error: ${redact(e instanceof Error ? e.message : String(e), secret)}`);
+  process.exitCode = 1;
+}
