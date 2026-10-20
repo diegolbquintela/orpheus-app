@@ -1184,3 +1184,20 @@ Severity BLOCK / MAJOR / MINOR as elsewhere. PFFX-01..06 apply now (regression);
 | PFFX-30b | MAJOR | G3: the PDF mixed line wraps; flattened text contains the full 5-month line with ` and N more`. |
 
 **Note (2026-10-20, QA H2 on 83cd973):** PFFX-11b replaces PFFX-26's note text: the page note is `Charts and exports use Bank of Canada rates where available` (spec 43.11 G4).
+
+## Personal Finance: equity coverage on the anchored net assets (#184, AG11; spec section 44; added 2026-10-20; Phase 1: ACs written, nothing built)
+
+| ID | Sev | Check |
+|---|---|---|
+| PFEC-01 | BLOCK | No `asOf`: the coverage line (amounts, rate note, basis, status) is byte-identical to main c14cf2b for every existing #126 / #129 / #140 / #146 case, Future off and on. |
+| PFEC-02 | BLOCK | Future off with `asOf` (Q-AI1 a): the coverage uses the Overview's previous-month net assets (start of the current month), the value the chart draws; expenses basis unchanged (3-month average of complete months). |
+| PFEC-03 | BLOCK | Spec 44.3 example: start 10,000, rate 4%, current 2026-10, `asOf` 2026-08, surplus Aug 1,000 / Sep 500 → `38.33 CAD/mo (460.00 CAD/yr)`; no `asOf` → `33.33 CAD/mo (400.00 CAD/yr)`. |
+| PFEC-04 | MAJOR | `asOf` = the current month → the typed start (42.10: net(A−1) = start). |
+| PFEC-05 | MAJOR | `asOf` before the 12-month window → the carried-in level plus the window's surpluses up to the previous month. |
+| PFEC-06 | MAJOR | Q-AI2: anchored value null → status `none` (amounts `—`, no note). |
+| PFEC-07 | MAJOR | Q-AI3: anchored ≤ 0 with a typed start > 0 → `none`; typed start empty / ≤ 0 → `no_start` as today. |
+| PFEC-08 | MAJOR | Q-AI4: Future on unchanged (typed start gates; projected anchored value computes), pinned. |
+| PFEC-09 | MINOR | Q-AI5: `asOf` after the current month (skewed clock) → `none`. |
+| PFEC-10 | MAJOR | An invalid typed `asOf` (page error) is ignored by the coverage, as by the figures (42.6). |
+| PFEC-11 | BLOCK | No wire, API, export or `Equity to cover` (#86) change; #158, #179, #171 drift tests green; no new copy (Q-AI6). |
+| PFEC-12 | MAJOR | QA: `personal-finance-e2e.mjs` (signed in) checks the coverage follows the anchor; signed-out suites green on the preview; mobile 390 px and desktop; CLS 0 unchanged. |

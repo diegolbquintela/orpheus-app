@@ -683,3 +683,5 @@ Added 2026-10-20 (#170): Diego decided Q-AH1..Q-AH6 (BoC Valet via `fx_rates`, b
 Added 2026-10-20 (#170, CFO/QA round): spec 43.8 (three-value `fx_basis` with `fx_fallback_months`, export lines, page note) and 43.9 (worked examples, backfill bounds, Q-AH13); AC PFFX-17a..22a, 23..28.
 
 Added 2026-10-20 (#170, Phase 2 built; QA G1–G5): spec 43.10/43.11, contract section 13, runbook `docs/release/2026-10-20-pf-fx-backfill.md` (backfill NOT run); AC PFFX-11b, 23b, 27b..30b.
+
+Added 2026-10-20 (#184, AG11; Phase 1, nothing built): spec section 44 (equity coverage on the anchored net assets, Q-AI1..Q-AI8); AC PFEC-01..PFEC-12.
