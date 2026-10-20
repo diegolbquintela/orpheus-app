@@ -17,6 +17,7 @@ import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
+import { REPORT_KEY } from "./report.ts";
 
 // #157 (spec section 39, PFX-01..PFX-03, PFX-05..PFX-19; PFX-04 is reserved, unused: spec 39.10): GET /api/personal-finance/reports/:id/export?format=pdf|png on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
@@ -63,9 +64,9 @@ before(async () => {
   await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');
   for (const f of ["0010_personal_finance.sql", "0011_access.sql", "0012_audit.sql"])
     await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, import.meta.url), "utf8"));
-  for (const id of ["alice", "bob", "dave"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
+  for (const id of ["alice", "bob", "dave", "rita"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
-    ('bob', 'personal_finance', true, true, 'alice') /* #162 R2: bob now has Write so his own report saves still run; Read-grant refusals are in reports-write.server.test.ts */, ('dave', 'dashboard', true, true, 'alice')`);
+    ('bob', 'personal_finance', true, true, 'alice') /* #162 R2: bob now has Write so his own report saves still run; Read-grant refusals are in reports-write.server.test.ts */, ('dave', 'dashboard', true, true, 'alice'), ('rita', 'personal_finance', true, false, 'alice') /* #162 PFCV-17: a true Read grant */`);
   const r = await handlePersonalFinanceRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
   assert.equal(r.status, 200);
 });
@@ -334,6 +335,34 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
       console.error = err;
     }
     assert.deepEqual(await audits(t2), [], "no row from the failed read-only GETs");
+  });
+
+  it("#162 PFCV-17 (CFO decision 2): a true Read grant cannot save, but its export still writes the #157 audit row and fails closed (503) without it", async () => {
+    // rita has Read only (no Write), so PUT /report is 403 (#162 R2). Her default report is seeded directly, as saved before #162.
+    assert.equal((await rep("rita", "PUT", { report: NET })).status, 403, "Read means read only");
+    await pg.query("INSERT INTO personal_finance (user_id, data) VALUES ($1, $2)", ["rita", { [REPORT_KEY]: JSON.stringify(NET) }]);
+    const t = await top();
+    for (const f of ["pdf", "png"]) assert.equal((await ex("rita", "default", f)).status, 200, `Read grant exports ${f}`);
+    assert.deepEqual((await audits(t)).map((r) => r.action), ["pf.report_export", "pf.report_export"], "one audit row per export");
+    const t2 = await top();
+    const failing = { query: async (text: string, params?: unknown[]) => {
+      if (/INSERT INTO audit_event/.test(text)) throw new Error("audit down");
+      return (await pg.query(text, params)).rows;
+    } };
+    const broken = { ...as("rita"), getDb: async () => failing };
+    const err = console.error;
+    console.error = () => {};
+    try {
+      for (const f of ["pdf", "png"]) {
+        const r = await handlePersonalFinanceReportExportRequest(req("GET", undefined, `/api/personal-finance/reports/default/export?format=${f}`), "default", broken as never, () => NOW);
+        assert.equal(r.status, 503, f);
+        assert.equal(r.headers.get("content-disposition"), null, "no file");
+        assert.deepEqual(await r.json(), { error: "Export unavailable. Try again." });
+      }
+    } finally {
+      console.error = err;
+    }
+    assert.deepEqual(await audits(t2), [], "no row from the failed GETs");
   });
 
   it("Q-AD14 (CFO, 2026-10-17): the encoded report id round-trips losslessly and always fits the audit detail CHECK", () => {

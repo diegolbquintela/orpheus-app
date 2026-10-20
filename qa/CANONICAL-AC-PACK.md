@@ -850,6 +850,7 @@ Signed in (`qa/tools/pf-months.mjs`, `qa/tools/personal-finance.mjs`, `qa/tools/
 > **Addendum (2026-10-16, #163, PFR-14):** `qa/tools/pf-report-api.mjs` now also checks per-person isolation (with the CFO's report saved, the owner's GET does not return it) and, with `QA_NOGRANT_EMAIL` / `QA_NOGRANT_PASSWORD`, 403 for GET / PUT / DELETE without a Personal Finance grant. This is QA's optional #153 follow-up.
 
 > **Note (2026-10-16, EL):** the PFR-14 no-grant 403 check uses the existing 'none' login, `QA_NONE_EMAIL` / `QA_NONE_PASSWORD` (the same as `roles.mjs`). `QA_NOGRANT_*` above is superseded and no longer read.
+> **Note (2026-10-20, CFO decision 1 on PR #195, #162 R2):** PFR-14 now reads "Read means read only". A Read-grant CFO's `PUT` / `DELETE /report` → 403 `Forbidden.`, row unchanged; saving their own needs Write. Per-person storage, owner-record `missing` and no grant → 403 are unchanged.
 
 > **Change (2026-10-16, #163, CFO): Q-Y6 rejected.** PFM-05 ("an empty past month opens as a copy") is superseded by PFM-15..PFM-17. The PFM-04/06/08 checks open a past month blank and use the button.
 
@@ -976,6 +977,8 @@ Backend only. Design and Q-calls: `attachments/pf-report-crud-design.md` (Q-AC1.
 | PFRC-16 | MINOR | Deleting the last named report from a row holding nothing else removes the row. |
 | PFRC-17 | MINOR | Create / update audit `pf.report_save`; delete `pf.report_delete`; reads audit nothing. |
 | PFRC-18 | BLOCK | Q-AC1: legacy `PUT` / `DELETE /report` never touch named reports. |
+
+> **Note (2026-10-20, CFO decision 1 on PR #195, #162 R2):** PFRC-12 now reads "Read means read only". A Read CFO's `POST /reports` and `PUT` / `DELETE /reports/:id` → 403 `Forbidden.`, reports unchanged; keeping their own needs Write. Another person's id → 404 and owner-record series are unchanged.
 
 ## Personal Finance report export stubs: PDF + PNG (#157, spec section 39; added 2026-10-17)
 
@@ -1332,3 +1335,5 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | PFCV-14 | BLOCKER | (R2, Diego) Read grant: `POST /reports`, `PUT` / `DELETE /reports/<id>`, `PUT` / `DELETE /reports/default`, `PUT` / `DELETE /report` → 403 `Forbidden.`, no-store, stored row byte-identical. Owner and Write grant → 201 / 200. Signed out → 401. GET `/reports`, GET `/reports/<id>` and POST `/chart` on a Read grant → 200. QA-runnable signed in with a Read-grant test account on the preview (no prod writes); signed out → 401 on the preview. | server (PGlite, UTC + LA); QA |
 | PFCV-15 | MAJOR | (R5 carry-over) the viewer picker shows `Travel (deleted)` for a deleted category still on a line; the picker set == the server's known set (accounts and categories); a saved series the server lists in `missing[]` still shows and is labelled missing. | `builder.test.ts`, DOM |
 | PFCV-16 | MAJOR | Regression: PFCB-01..21 and PFCL-01..14 still pass (PFCL-12 amended by Q-AL2: the name is the row's one link). | all suites |
+
+| PFCV-17 | BLOCKER | (CFO decision 2) No write check on `/series`, `/chart`, `/export`. A Read-grant `GET /reports/default/export?format=pdf|png` → 200 plus one `pf.report_export` audit row each. With audit writes failing → 503 `{ "error": "Export unavailable. Try again." }`, no `Content-Disposition`, no row. | `export.server.test.ts` (PGlite, UTC + LA); signed-in QA |

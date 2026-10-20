@@ -1042,6 +1042,8 @@ Design and CFO calls Q-X1..Q-X8: `attachments/pf-chart-report-design.md`.
 33.8 Gate as for `/api/personal-finance`. A read grant is enough (the report is the person's own). Audit actions: `pf.report_save` / `pf.report_delete`.
 33.9 The record API never shows or changes the report, except that the owner's record `DELETE` removes the owner's report.
 
+33.10 (2026-10-20, CFO decision 1 on PR #195, #162 R2; nothing above removed) **Read means read only.** A Personal Finance Read grant gets 403 `Forbidden.` on `PUT` / `DELETE /api/personal-finance/report`, and its stored row is unchanged. This supersedes this section's "a Read grant is enough (a preference)" for writes. GET is unchanged; owner and Write grant are unchanged. Spec 47.10; tests `reports-write.server.test.ts`.
+
 ## 34. Month control: any past month, Month + Year (#163; PFM-01..PFM-14)
 
 Design and CFO calls Q-Y1..Q-Y9: `attachments/pf-any-month-design.md`. Supersedes 19.1's "a select of the last 12 months" and 19.3's "24 months kept". Nothing else in section 19 changes.
@@ -1127,6 +1129,8 @@ Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFR
 38.9 The record API never shows reports and a record save keeps them. A stored named report that is no longer valid is skipped on read. Removing the last report from a row that holds nothing else removes the row.
 38.10 Not built: the #173 range refusal (Q-AC12, shared validator unchanged), concurrency control (Q-AC13) and the Q-AC14 list.
 38.11 (2026-10-17, CFO on PR #174) Q-AC1..Q-AC14 accepted as written (Q-AC12..Q-AC14 stay not built). **Pre-merge condition:** a rollback runbook, `docs/release/pf-reports-rollback.md`: do NOT roll back past #174 without first exporting every user's PF report keys (`orpheus.finance.report.v1`, `orpheus.finance.reports.v1` in `personal_finance.data`) with the documented read-only SELECT, a dated file and a row-count check; the restore is a separate, marked WRITE. The SQL is tested against PGlite only. A snapshot at every deploy was not built (not cheap: build-time access to the shared database plus storage and a secret; estimate in the runbook).
+
+38.12 (2026-10-20, CFO decision 1 on PR #195, #162 R2; nothing above removed) **Read means read only.** A Read grant gets 403 `Forbidden.` on `POST /reports` and on `PUT` / `DELETE /reports/:id` (`default` included), and its stored reports are unchanged. Reports stay per person, but a person needs Write (or to be the owner) to save, replace or delete their own. GET, `/series`, `/chart` and `/export` stay read (CFO decision 2: a Read-grant export is still audited and fails closed, PFCV-17). Spec 47.10.
 
 ## 39. Report export stubs: PDF + PNG (#157, backend only)
 
@@ -1587,3 +1591,4 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
   - P2 / 46.13: one reserved area, CLS 0.
   - 46.11 / 46.14: deleted names on a line are offered as `<name> (deleted)` (e.g. `Travel (deleted)`). The picker equals the server's known set. A saved series the server lists in `missing[]` is still shown, as missing.
   - Q-AK9 / Q-AK13: export as in #161.
+47.12 (2026-10-20, CFO decisions 1–3 on PR #195 at 18117b1; additions only) (1) Read means read only: spec 33.10 and 38.12, AC PFR-14 / PFRC-12 notes. (2) No write check on `/series`, `/chart`, `/export`. A Read-grant export still writes its #157 `pf.report_export` row and answers 503 `Export unavailable. Try again.` with no file if that row can't be written (PFCV-17, `export.server.test.ts`, PGlite, both TZs). (3) `PUT /api/personal-finance/view` (section toggles) still needs only Read; it is parked, out of #162.
