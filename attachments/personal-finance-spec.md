@@ -1230,7 +1230,7 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
 The issue asks for its ACs to go under spec 39. They are in **section 50** (next spec number) and the AC pack `PFU-01..PFU-16`. Everything in 39.1–39.13 still holds until 50 is built.
 
 ### 39.15 Email export (2026-10-21, #180; pointer only, nothing above changed)
-Email export of a saved report is specced in **section 51** and the AC pack `PFEM-01..PFEM-16`. Everything in 39.1–39.14 still holds; 51 reuses the 39.9 fail-closed audit (PFX-19) for every send. Nothing is built.
+Email export of a saved report is specced in **section 52** and the AC pack `PFEM-01..PFEM-16`. Everything in 39.1–39.14 still holds; 52 reuses the 39.9 fail-closed audit (PFX-19) for every send. Nothing is built.
 
 ## 40. Chart report API contract (#158, backend only)
 
@@ -1814,49 +1814,49 @@ The test strings, with code points above U+007E listed:
 
 50.10 (2026-10-21, QA Z1 on dd23170; text-only correction of 50.9, nothing above removed, no golden changed.) The **fallback golden crop** `qa/evidence/176/u-fallback.png` (PFU-08, `export-golden/crops.ts`) renders fixture U with the report name **`Сбережения 貯金 🏠`** (U5 + space + U6 + space + U7). Its title line prints `Orpheus - Personal Finance report: ?????????? ?? ?`: 10, 2 and 1 `?`. The name `貯金 🏠` given in 50.9 is only the **PGlite fallback report** (`U_FALLBACK_NAME`, whose title prints `?? ?` and whose category U5 prints `??????????`). It is not the name in the golden crop.
 
-## 51. Report export: Email with fail-closed audit and explicit recipient (#180, LOW, CFO; follow-up to #157 / spec 39 and Q-AE5 / Q-AK9; added 2026-10-21; Phase 1: spec, ACs and Qs, nothing built)
+## 52. Report export: Email with fail-closed audit and explicit recipient (#180, LOW, CFO; follow-up to #157 / spec 39 and Q-AE5 / Q-AK9; added 2026-10-21; Phase 1: spec, ACs and Qs, nothing built)
 
-51.0 **Facts at 958c8be.** The repo has **no email capability**: no mail provider dependency in `package.json` (no Resend, SendGrid, Postmark, Mailgun, nodemailer, SMTP), no mailer module, no email env var, and Better Auth runs with `requireEmailVerification: false` (`src/lib/auth/instance.server.ts`), so auth sends no mail either. The only "email" code is the account e-mail change form (`/api/account/email`), which sends nothing. The #161 builder Export menu (`charts-builder.tsx`) offers `PDF` and `PNG` only; Email is not rendered (Q-AK9, 46.10). The contract (`attachments/pf-charts-api-contract.md`, Q-AE5) has no email route.
+52.0 **Facts at 958c8be.** The repo has **no email capability**: no mail provider dependency in `package.json` (no Resend, SendGrid, Postmark, Mailgun, nodemailer, SMTP), no mailer module, no email env var, and Better Auth runs with `requireEmailVerification: false` (`src/lib/auth/instance.server.ts`), so auth sends no mail either. The only "email" code is the account e-mail change form (`/api/account/email`), which sends nothing. The #161 builder Export menu (`charts-builder.tsx`) offers `PDF` and `PNG` only; Email is not rendered (Q-AK9, 46.10). The contract (`attachments/pf-charts-api-contract.md`, Q-AE5) has no email route.
 
-51.1 **Goal (issue #180).** A signed-in user with access to a saved report can email that report's PDF or PNG export to one explicit recipient.
+52.1 **Goal (issue #180).** A signed-in user with access to a saved report can email that report's PDF or PNG export to one explicit recipient.
 - Every send writes the same fail-closed audit row as #157 (39.9, PFX-19) **before** anything is handed to the provider. If the audit write fails, nothing is sent.
 - The recipient is explicit: typed in the request every time. No default, no owner address, no "send to me", no address book, no address taken from the session.
 - Until this ships, the #161 / #162 UI keeps the Email option hidden (true today; PFEM-01 pins it).
 - Harness and spec first (this section), then code.
 
-51.2 **Proposed shape (all gated on Q-AP1..Q-AP12; nothing built).**
-- Route (Q-AP2): `POST /api/personal-finance/reports/:id/email`, JSON body `{ "format": "pdf" | "png", "to": "<address>" }`. Other methods 405 (`Allow: POST`).
-- Access exactly as 39.2: flag off 404, signed out 401, no grant 403 (write grant or read grant per Q-AP6), unknown / other user's id 404 `Report not found.`.
-- Validation: `format` not `pdf` / `png` → 400 `{ "error": "Invalid value.", "field": "format" }`. `to` missing, empty or whitespace → 400 `{ "error": "Enter a recipient.", "field": "to" }`. `to` not one syntactically valid address (Q-AP4), or more than one address → 400 `{ "error": "Enter one valid email address.", "field": "to" }`. Recipients outside the allow-list (Q-AP5) → 403 `{ "error": "Recipient not allowed.", "field": "to" }`.
+52.2 **Proposed shape (all gated on Q-AQ1..Q-AQ12; nothing built).**
+- Route (Q-AQ2): `POST /api/personal-finance/reports/:id/email`, JSON body `{ "format": "pdf" | "png", "to": "<address>" }`. Other methods 405 (`Allow: POST`).
+- Access exactly as 39.2: flag off 404, signed out 401, no grant 403 (write grant or read grant per Q-AQ6), unknown / other user's id 404 `Report not found.`.
+- Validation: `format` not `pdf` / `png` → 400 `{ "error": "Invalid value.", "field": "format" }`. `to` missing, empty or whitespace → 400 `{ "error": "Enter a recipient.", "field": "to" }`. `to` not one syntactically valid address (Q-AQ4), or more than one address → 400 `{ "error": "Enter one valid email address.", "field": "to" }`. Recipients outside the allow-list (Q-AQ5) → 403 `{ "error": "Recipient not allowed.", "field": "to" }`.
 - Order on success: validate → render the file with the same function as the #157 export (byte-identical to `GET …/export?format=` for the same report and clock) → write the `pf.report_email` audit row → hand to the provider → 202 `{ "ok": true }` (`Cache-Control: no-store`).
 - Audit failure: 503 `{ "error": "Email unavailable. Try again." }`, no provider call, logged `[audit] could not record pf.report_email` (action code only).
-- Provider failure after a successful audit row (Q-AP8): 502 `{ "error": "Email could not be sent. Try again." }`; the audit row stays (it records the attempt).
+- Provider failure after a successful audit row (Q-AQ8): 502 `{ "error": "Email could not be sent. Try again." }`; the audit row stays (it records the attempt).
 - Not configured (no provider / secret on the deployment): 503 `{ "error": "Email is not configured on this deployment." }`, no audit row, no provider call, same pattern as `Sign-in is not configured on this deployment.`.
-- Audit row detail (Q-AP7): `format:<pdf|png> id:<encoded id> to:<hash>`; the 0012 CHECK allows only letters, `_`, `:`, `+`, spaces, so the recipient is never written raw; the encoding is decided in Q-AP7. No migration.
-- Rate limit (Q-AP9): proposed 10 sends per user per Toronto day, 429 `{ "error": "Email limit reached for today." }` beyond that.
-- Message content (Q-AP10): subject `Orpheus report: <report name>`, plain-text body with the as-of line, one attachment named as the #157 filename. No HTML, no tracking, no link.
+- Audit row detail (Q-AQ7): `format:<pdf|png> id:<encoded id> to:<hash>`; the 0012 CHECK allows only letters, `_`, `:`, `+`, spaces, so the recipient is never written raw; the encoding is decided in Q-AQ7. No migration.
+- Rate limit (Q-AQ9): proposed 10 sends per user per Toronto day, 429 `{ "error": "Email limit reached for today." }` beyond that.
+- Message content (Q-AQ10): subject `Orpheus report: <report name>`, plain-text body with the as-of line, one attachment named as the #157 filename. No HTML, no tracking, no link.
 
-51.3 **Unchanged.** `GET|HEAD /reports/:id/export` (39.x, PFX-01..19), the #176 fonts (50), every other `/api/personal-finance` route, every signed-out 401 and every page route. The client bundle gets no provider SDK.
+52.3 **Unchanged.** `GET|HEAD /reports/:id/export` (39.x, PFX-01..19), the #176 fonts (50), every other `/api/personal-finance` route, every signed-out 401 and every page route. The client bundle gets no provider SDK.
 
-51.4 **Harness.** AGENTS.md gets one dated #180 index line. Rule change only when built: a QA tool must never trigger a real send (51.6).
+52.4 **Harness.** AGENTS.md gets one dated #180 index line. Rule change only when built: a QA tool must never trigger a real send (52.6).
 
-51.5 **Fixture E (exact inputs).** Owner `cfo`, household CAD, clock `2026-10-21T12:00:00Z` (Toronto day 2026-10-21), no FX. One saved report: id `r-1a2b3c4d`, name `Q3 cash`, chart `line`, range `2026-08..2026-10`, one category series `Rent`, values 1,234.56 / 1,234.56 / 789.00. Recipients: `E1` = `cfo.reports@example.com` (valid, allow-listed in the test config), `E2` = `not-an-address`, `E3` = `a@example.com, b@example.com`, `E4` = `   ` (whitespace), `E5` = `outsider@example.org` (valid, not allow-listed when Q-AP5 picks an allow-list). Provider is a **fake** in every test (records calls; never sends). Expected attachment filename `orpheus-report-q3-cash-2026-10-21.pdf` / `.png`; encoded id `r_BaCbDcEd`.
+52.5 **Fixture E (exact inputs).** Owner `cfo`, household CAD, clock `2026-10-21T12:00:00Z` (Toronto day 2026-10-21), no FX. One saved report: id `r-1a2b3c4d`, name `Q3 cash`, chart `line`, range `2026-08..2026-10`, one category series `Rent`, values 1,234.56 / 1,234.56 / 789.00. Recipients: `E1` = `cfo.reports@example.com` (valid, allow-listed in the test config), `E2` = `not-an-address`, `E3` = `a@example.com, b@example.com`, `E4` = `   ` (whitespace), `E5` = `outsider@example.org` (valid, not allow-listed when Q-AQ5 picks an allow-list). Provider is a **fake** in every test (records calls; never sends). Expected attachment filename `orpheus-report-q3-cash-2026-10-21.pdf` / `.png`; encoded id `r_BaCbDcEd`.
 
-51.6 **Never a real send.** Unit / server tests use the injected fake provider only. QA tools may only hit a preview with the provider in its sandbox / test mode or the fake (Q-AP11); `refuseIfProd` first; a send against production is refused by the tool.
+52.6 **Never a real send.** Unit / server tests use the injected fake provider only. QA tools may only hit a preview with the provider in its sandbox / test mode or the fake (Q-AQ11); `refuseIfProd` first; a send against production is refused by the tool.
 
-51.7 **Q-calls (CFO / EL / Diego), each with a recommendation; none built (Phase 1).**
-- **Q-AP1 Provider — HARD STOP.** **rec** Resend (simple HTTPS API, callable with `fetch`, no SDK dependency; free tier 3,000/month, 100/day). Alternatives: Postmark, SendGrid, AWS SES. Needs a new account sign-up, an API key secret (`RESEND_API_KEY` or similar), a Vercel env change and a verified sending domain (DNS). Possibly a paid plan later. Diego decides; agents never sign up or set env. Not built.
-- **Q-AP2 Route.** **rec** `POST /api/personal-finance/reports/:id/email` as 51.2, recorded in the contract in the build PR (wire change → CFO Q-call per #158). Not built.
-- **Q-AP3 No new npm dependency.** **rec** yes: call the provider's HTTPS API with `fetch`, attachment as base64. Not built.
-- **Q-AP4 Address check.** **rec** one address, trimmed, ≤ 254 chars, one `@`, a dotted domain, no spaces / commas / semicolons / angle brackets / CR / LF (header-injection safe); no display names. Not built.
-- **Q-AP5 Recipient allow-list.** **rec** the recipient must be the signed-in user's own account email OR on a server-side allow-list held in code (not env), starting with the household members' account emails; anyone else 403. Alternative: any address (higher exfiltration risk). Either way the address is typed explicitly (51.1). Not built.
-- **Q-AP6 Who can send.** **rec** same as export: any grant that can export (Read included, per Q-AK13). Alternative: write grant only. Not built.
-- **Q-AP7 Recipient in the audit.** **rec** `to:` + the address hashed (SHA-256, first 16 hex chars mapped through the existing digit→A-J letter encoding), so the row identifies the recipient without storing it raw and fits the 0012 CHECK with no migration. Alternative: store the domain only. Not built.
-- **Q-AP8 Provider failure after audit.** **rec** 502 as 51.2; the row stays as an attempt record, no second row, no retry. Not built.
-- **Q-AP9 Rate limit.** **rec** 10 per user per Toronto day, counted from `pf.report_email` audit rows (no new table). Not built.
-- **Q-AP10 Message content.** **rec** as 51.2: plain text, one attachment, from a fixed no-reply sender on the verified domain (part of Q-AP1). Not built.
-- **Q-AP11 QA without real email.** **rec** fake provider in tests; on previews only the provider's test mode / sandbox recipient (requires Q-AP1). Not built.
-- **Q-AP12 UI.** **rec** a separate small UI ticket after the route ships: an `Email` item in the #161 / #162 Export menu (saved and clean only), an empty `To` field with no prefill, `Send` and the server's exact error texts. Until then Email stays hidden (PFEM-01). Not built.
+52.7 **Q-calls (CFO / EL / Diego), each with a recommendation; none built (Phase 1).**
+- **Q-AQ1 Provider — HARD STOP.** **rec** Resend (simple HTTPS API, callable with `fetch`, no SDK dependency; free tier 3,000/month, 100/day). Alternatives: Postmark, SendGrid, AWS SES. Needs a new account sign-up, an API key secret (`RESEND_API_KEY` or similar), a Vercel env change and a verified sending domain (DNS). Possibly a paid plan later. Diego decides; agents never sign up or set env. Not built.
+- **Q-AQ2 Route.** **rec** `POST /api/personal-finance/reports/:id/email` as 52.2, recorded in the contract in the build PR (wire change → CFO Q-call per #158). Not built.
+- **Q-AQ3 No new npm dependency.** **rec** yes: call the provider's HTTPS API with `fetch`, attachment as base64. Not built.
+- **Q-AQ4 Address check.** **rec** one address, trimmed, ≤ 254 chars, one `@`, a dotted domain, no spaces / commas / semicolons / angle brackets / CR / LF (header-injection safe); no display names. Not built.
+- **Q-AQ5 Recipient allow-list.** **rec** the recipient must be the signed-in user's own account email OR on a server-side allow-list held in code (not env), starting with the household members' account emails; anyone else 403. Alternative: any address (higher exfiltration risk). Either way the address is typed explicitly (52.1). Not built.
+- **Q-AQ6 Who can send.** **rec** same as export: any grant that can export (Read included, per Q-AK13). Alternative: write grant only. Not built.
+- **Q-AQ7 Recipient in the audit.** **rec** `to:` + the address hashed (SHA-256, first 16 hex chars mapped through the existing digit→A-J letter encoding), so the row identifies the recipient without storing it raw and fits the 0012 CHECK with no migration. Alternative: store the domain only. Not built.
+- **Q-AQ8 Provider failure after audit.** **rec** 502 as 52.2; the row stays as an attempt record, no second row, no retry. Not built.
+- **Q-AQ9 Rate limit.** **rec** 10 per user per Toronto day, counted from `pf.report_email` audit rows (no new table). Not built.
+- **Q-AQ10 Message content.** **rec** as 52.2: plain text, one attachment, from a fixed no-reply sender on the verified domain (part of Q-AQ1). Not built.
+- **Q-AQ11 QA without real email.** **rec** fake provider in tests; on previews only the provider's test mode / sandbox recipient (requires Q-AQ1). Not built.
+- **Q-AQ12 UI.** **rec** a separate small UI ticket after the route ships: an `Email` item in the #161 / #162 Export menu (saved and clean only), an empty `To` field with no prefill, `Send` and the server's exact error texts. Until then Email stays hidden (PFEM-01). Not built.
 
-51.8 **HARD STOPs (Diego).** Q-AP1 (new provider account, API key secret, Vercel env vars, DNS for the sending domain, possible paid plan) blocks the whole build; Q-AP11 depends on it. Everything else can be built behind a fake provider and the `not configured` 503, but nothing ships to users until Q-AP1 is decided.
+52.8 **HARD STOPs (Diego).** Q-AQ1 (new provider account, API key secret, Vercel env vars, DNS for the sending domain, possible paid plan) blocks the whole build; Q-AQ11 depends on it. Everything else can be built behind a fake provider and the `not configured` 503, but nothing ships to users until Q-AQ1 is decided.
 
