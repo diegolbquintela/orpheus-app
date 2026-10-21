@@ -1532,3 +1532,13 @@ Backend first; PFEM-01 is the only UI check (viewports 390 / 768 / 1440). Fixtur
 
 **Expected counts once built.** Baseline at 958c8be is the gate run on this PR. The build adds about 15 tests in `email-export.server.test.ts` (PFEM-02..13, 15, 16) and one DOM assertion for PFEM-01.
 
+
+### PFEM addendum: CFO answers (2026-10-21; spec 52.9; additions only)
+
+- **Accepted as recommended (CFO, 2026-10-21):** Q-AQ2..Q-AQ10 and Q-AQ12. So the "gated on" notes for Q-AQ2, Q-AQ4, Q-AQ5, Q-AQ7, Q-AQ8, Q-AQ9 and Q-AQ10 in PFEM-02, 04, 07, 09, 11, 12 and 13 are resolved as written above.
+- **Gated on Q-AQ1 (Diego)** (need a real provider to pass on a deployment; fake-provider server tests unaffected): **PFEM-06, PFEM-09, PFEM-10 (configured branch), PFEM-13**, and PFEM-16's preview sandbox run (also Q-AQ11).
+
+| ID | Severity | Check |
+|---|---|---|
+| PFEM-08 (addendum, Condition 2) | BLOCK | Test `PFEM-08 fail closed: audit write fails → 503, zero provider calls` in `src/lib/finance/email-export.server.test.ts`. Setup: fixture E, owner session, audit insert forced to throw. `POST /api/personal-finance/reports/r-1a2b3c4d/email` `{ "format": "pdf", "to": "cfo.reports@example.com" }` → status **503**, body exactly `{ "error": "Email unavailable. Try again." }`, `Cache-Control: no-store`; fake provider call count **0**; `pf.report_email` rows **0**; log `[audit] could not record pf.report_email`. Same for `png`. The audit insert precedes the provider call on every 202 (call-order log `["audit","provider"]`). Not gated (fake provider). |
+| PFEM-17 | BLOCK | Condition 1 (Q-AQ5 / Q-AQ6). Fixture E plus user `reader` with a **Read** grant on `cfo`'s finance, account email `reader@example.com`; `cfo.reports@example.com` is on the in-code allow-list. As `reader`: (a) `to` = `cfo.reports@example.com` (allow-listed) → **403** `{ "error": "Recipient not allowed.", "field": "to" }`, 0 provider calls, 0 rows; (b) `to` = `outsider@example.org` → same 403; (c) `to` = `  Reader@Example.com ` → **202** `{ "ok": true }`, one fake call with `to` = `["reader@example.com"]`, one row. As owner `cfo`, `to` = `cfo.reports@example.com` → 202 (allow-list still works for owner / Write). Test name `PFEM-17 read grant: own address only`. 202 branch release gated on Q-AQ1 (Diego). |

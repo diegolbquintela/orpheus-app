@@ -1860,3 +1860,9 @@ The test strings, with code points above U+007E listed:
 
 52.8 **HARD STOPs (Diego).** Q-AQ1 (new provider account, API key secret, Vercel env vars, DNS for the sending domain, possible paid plan) blocks the whole build; Q-AQ11 depends on it. Everything else can be built behind a fake provider and the `not configured` 503, but nothing ships to users until Q-AQ1 is decided.
 
+
+52.9 **CFO answers (2026-10-21; additions only, 52.0–52.8 stand where not changed here).**
+- **Accepted as recommended (CFO, 2026-10-21):** Q-AQ2, Q-AQ3, Q-AQ4, Q-AQ5, Q-AQ6, Q-AQ7, Q-AQ8, Q-AQ9, Q-AQ10 and Q-AQ12. Still **not built** (Phase 1). Q-AQ1 (provider) and Q-AQ11 (QA sandbox) stay open: **HARD STOP, Diego**.
+- **Condition 1 (Q-AQ5 / Q-AQ6):** a **Read** grant may email **only its own account address** (case-insensitive, trimmed compare), never an allow-list address. A Read grant sending to any other address, allow-listed or not → 403 `{ "error": "Recipient not allowed.", "field": "to" }`, 0 provider calls, 0 audit rows. Owner / Write grants keep Q-AQ5 (own address or the in-code allow-list). AC PFEM-17.
+- **Condition 2 (Q-AQ8):** keep the #157 rule (39.9, PFX-19) unchanged. The `pf.report_email` audit row is written **before** the send; if that write fails → 503 `{ "error": "Email unavailable. Try again." }` with **zero** provider calls and no row. Q-AQ8's 502 applies only after a successful audit write. AC PFEM-08 (addendum).
+- **Provider gating:** every AC that needs a real provider to pass on a deployment (PFEM-06, PFEM-09, PFEM-10's configured branch, PFEM-13, and any live QA run) is **gated on Q-AQ1 (Diego)**. Their fake-provider server tests can run once built; release waits on Q-AQ1.
