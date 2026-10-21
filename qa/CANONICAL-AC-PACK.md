@@ -1604,3 +1604,12 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | PFHT-18 | MAJOR | Style: the dark site palette only, the lyre in the bar, the Orpheus Wisdom footer, no gold. axe: 0 serious/critical at 390 and 1440. |
 | PFHT-19 | BLOCK | Access: the owner and a Personal Finance Read grant (CFO) see the table. No grant → 403 denied page with no figures. Temporary password → `/account`. |
 | PFHT-20 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0, eslint 0 errors, npm test 0 fail / 0 cancelled / 0 `not ok` (including `history.test.ts`, `history-page.dom.test.tsx`, DCA-06), `npx vite build` OK. CI `check` green. |
+
+PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. Per-month values and CSV export are PARKED.)
+
+| ID | Severity | Check |
+|---|---|---|
+| PFHT-21 | BLOCK | Q-HT2 (CFO): a month whose expenses are zero or missing (zero lines, or a typed `0`) shows `—` in `Equity coverage (% of expenses)`, never `Infinity%` / `NaN`. The monthly coverage still shows when the rate and net assets are set (`history.test.ts`). Mutation: dividing without the guard turns the test red. |
+| PFHT-22 | BLOCK | Q-HT6 (CFO): once a year is chosen, the note `pf-history-shared-note` shows `SHARED_VALUES_NOTE` above the grid. There is no note before a year is chosen (DOM test). |
+| PFHT-23 | MAJOR | The note text names Rate used, household currency and starting net assets as "today's values, not per-month values" (`history.test.ts`). |
+| PFHT-24 | MAJOR | 390 px: the note wraps inside the page column (no horizontal page scroll), is readable (`--color-dim` on night), and sits between the caption line and the grid. |

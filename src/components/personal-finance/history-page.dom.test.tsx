@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { HistoryPage, type LoadResult } from "./history-page";
 import { writeRates } from "@/lib/finance/equity";
 import { writeExpenses } from "@/lib/finance/expenses";
-import { CHOOSE_YEAR, LOAD_ERROR, NO_MONTHS, PICK_YEAR_NOTE } from "@/lib/finance/history";
+import { SHARED_VALUES_NOTE, CHOOSE_YEAR, LOAD_ERROR, NO_MONTHS, PICK_YEAR_NOTE } from "@/lib/finance/history";
 import { writeMonths } from "@/lib/finance/months";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
 
@@ -85,6 +85,14 @@ describe("#214 History page", () => {
     assert.equal(scroll.getAttribute("role"), "region");
     assert.equal(scroll.getAttribute("tabindex"), "0");
     assert.ok(el.querySelector("caption")?.textContent?.startsWith("Stored months in 2025"));
+  });
+  it("PFHT-22 (CFO, Q-HT6): the shared-values note shows with the grid, above it, and not before a year is chosen", async () => {
+    const el = await render(async () => ({ ok: true, record: record() }));
+    assert.equal(q(el, "pf-history-shared-note"), null);
+    await pick(el, "2025");
+    const note = q(el, "pf-history-shared-note")!;
+    assert.equal(note.textContent, SHARED_VALUES_NOTE);
+    assert.ok(note.compareDocumentPosition(q(el, "pf-history-scroll")!) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
   });
   it("PFHT-06: read-only: no inputs or buttons in the grid, and no write request", async () => {
     const seen: string[] = [];

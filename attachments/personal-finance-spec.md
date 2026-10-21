@@ -1875,3 +1875,9 @@ The test strings, with code points above U+007E listed:
 - Tests: `src/lib/finance/history.test.ts` (year filter and grid) and `src/components/personal-finance/history-page.dom.test.tsx` (page).
 - The signed-out QA check is in `qa/tools/site-shell.mjs`.
 - AC `PFHT-01..PFHT-20`.
+
+53.5 **CFO decision (2026-10-21, added the same day).** The CFO accepted Q-HT1..Q-HT8, with two changes that are built in this PR:
+- **Q-HT2:** when a month's expenses are zero (or missing), the `Equity coverage (% of expenses)` cell shows `—` and never divides. The monthly coverage amount still shows. AC PFHT-21.
+- **Q-HT6:** a visible note sits above the grid: *"Rate used, household currency and starting net assets are today's values, not per-month values. Every month in this table uses them."* (`SHARED_VALUES_NOTE`). It shows only with the grid. AC PFHT-22..PFHT-24.
+- **Q-HT1, Q-HT3, Q-HT4, Q-HT5, Q-HT7:** CFO-accepted as built.
+- **PARKED:** per-month stored values for Rate used, household currency and starting net assets (Q-HT6 alternative; a data-model change), and CSV / any export of the table (Q-HT8). Neither is built; each needs its own ticket.

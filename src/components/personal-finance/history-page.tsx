@@ -12,6 +12,7 @@ import {
   NO_MONTHS,
   PICK_YEAR_NOTE,
   READ_ONLY_NOTE,
+  SHARED_VALUES_NOTE,
   storedYears,
   YEAR_LABEL,
   yearTable,
@@ -118,6 +119,9 @@ export function HistoryPage({
                   <>
                     <p className="pf-history-note mt-4" data-testid="pf-history-caption">
                       {`${table.year}: ${table.rows.length} stored ${table.rows.length === 1 ? "month" : "months"}, monthly figures in ${table.currency}.`}
+                    </p>
+                    <p className="pf-history-note mt-2" data-testid="pf-history-shared-note">
+                      {SHARED_VALUES_NOTE}
                     </p>
                     <div
                       className="pf-history-scroll mt-3"

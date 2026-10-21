@@ -26,6 +26,9 @@ export const LOAD_ERROR = "Couldn't load your figures.";
 export const READ_ONLY_NOTE = "Read-only. Change a month on the Personal Finance page.";
 export const NO_VALUE = "—";
 export const MONTH_COLUMN = "Month";
+/** #214 CFO change on Q-HT6 (2026-10-21, PFHT-23): shared values are today's, not per-month. */
+export const SHARED_VALUES_NOTE =
+  "Rate used, household currency and starting net assets are today's values, not per-month values. Every month in this table uses them.";
 
 export type ColumnKind = "income-line" | "expense-line" | "total" | "coverage";
 export type Column = { id: string; label: string; kind: ColumnKind };
@@ -121,8 +124,10 @@ export function yearTable(record: PfRecord | null, year: number, now: Date): Yea
     const [inc, fixed, variable, exp, surplus, net] = [0, 1, 2, 3, 4, 5].map((i) => value(i, k));
     // Q-HT2: a month's coverage = that month's end net assets × Rate used ÷ 12, and ÷ that month's expenses.
     const c = equityCoverage(net, rate, exp);
+    // CFO change on Q-HT2 (2026-10-21, PFHT-21): zero or missing expenses → the % cell is a dash, never a division.
+    const share = c.status === "ok" && exp !== null && exp > 0 && c.share !== null ? formatCoverageShare(c.share) : NO_VALUE;
     cells.push(money(inc), money(fixed), money(variable), money(exp), money(surplus), money(net));
-    cells.push(c.status === "ok" ? money(c.monthly) : NO_VALUE, c.status === "ok" ? formatCoverageShare(c.share) : NO_VALUE);
+    cells.push(c.status === "ok" ? money(c.monthly) : NO_VALUE, share);
     return { month: k, label: monthName(k), cells };
   });
   return { year, currency: household, columns, rows };

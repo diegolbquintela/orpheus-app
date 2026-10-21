@@ -6,7 +6,7 @@ import { type Person } from "./income.ts";
 import { MONTHS_KEY, writeMonths } from "./months.ts";
 import { NO_OVERVIEW, writeOverview } from "./overview.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
-import { NO_VALUE, storedMonths, storedYears, TOTAL_COLUMNS, yearTable } from "./history.ts";
+import { NO_VALUE, SHARED_VALUES_NOTE, storedMonths, storedYears, TOTAL_COLUMNS, yearTable } from "./history.ts";
 
 // #214 (personal-finance-spec 53; PFHT-08..PFHT-14): the History table's year filter and grid, from a record.
 // Runs under TZ=UTC and TZ=America/Los_Angeles (npm test both ways); the household month is Toronto's.
@@ -86,6 +86,27 @@ describe("#214 History table: grid", () => {
     const none = yearTable(s.data, 2025, NOW);
     assert.equal(cell(none, "2025-11", "coverage"), NO_VALUE);
     assert.equal(cell(none, "2025-11", "coverage-share"), NO_VALUE);
+  });
+  it("PFHT-21 (CFO, Q-HT2): a month with zero expenses shows — for the coverage %, never a division by zero", () => {
+    const s = new RecordStore(fixture());
+    writeMonths(s, {
+      "2025-11": { fixed: [L("rent", "0")], variable: [], people: [ann] },
+      "2025-12": { fixed: [L("rent", "1000")], variable: [], people: [ann] },
+    });
+    writeOverview(s, { ...NO_OVERVIEW, start: "100000", months: { "2025-10": { expenses: "0", income: "5000" } } });
+    const t = yearTable(s.data, 2025, NOW);
+    for (const m of ["2025-10", "2025-11"]) {
+      assert.equal(cell(t, m, "coverage-share"), NO_VALUE, m);
+      assert.notEqual(cell(t, m, "coverage"), NO_VALUE, m); // the monthly amount still shows (rate and net assets set)
+    }
+    assert.match(cell(t, "2025-12", "coverage-share"), /^\d+\.\d{2}%$/);
+    for (const r of t.rows) for (const c of r.cells) assert.doesNotMatch(c, /Infinity|NaN/);
+  });
+  it("PFHT-23 (CFO, Q-HT6): the shared-values note names Rate used, household currency and starting net assets as today's values", () => {
+    assert.match(SHARED_VALUES_NOTE, /Rate used/);
+    assert.match(SHARED_VALUES_NOTE, /household currency/);
+    assert.match(SHARED_VALUES_NOTE, /starting net assets/);
+    assert.match(SHARED_VALUES_NOTE, /today's values, not per-month values/);
   });
   it("PFHT-15: read-only: building the grid never changes the record", () => {
     const r = fixture();

@@ -1221,3 +1221,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Never add a write, a new endpoint or a stored value to this page without a ticket; it is a view.
 - Gate as `/personal-finance` (Read is enough); `?next=/personal-finance/history` is allow-listed.
 - Spec section 53, AC PFHT-01..PFHT-20, Q-HT1..Q-HT8.
+- 2026-10-21 (CFO): Q-HT1..8 accepted. Coverage % is `—` when the month's expenses are zero (PFHT-21), and a note above the grid says Rate used, household currency and starting net assets are today's values (`SHARED_VALUES_NOTE`, PFHT-22..24). PARKED: per-month stored values and CSV export (each needs a ticket). Spec 53.5.
