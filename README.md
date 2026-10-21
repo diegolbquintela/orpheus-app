@@ -698,3 +698,5 @@ Added 2026-10-20 (#162, PF Charts UI 3/3): `/personal-finance/charts/<id>` is th
 Added 2026-10-20 (#168, Phase 1, nothing built): spec section 48 (turn on the category and account Delete buttons, `PF_DELETE_UI` code constant; Q-AM1..Q-AM8), AC PFDU-01..PFDU-09.
 
 Added 2026-10-20 (#166, Phase 1, nothing built): spec section 49 (Overview `This month` counts the current month's unsaved copy whenever it has no stored lines; Q-AN1..Q-AN7), AC PFTM-01..PFTM-14.
+
+Added 2026-10-21 (#214, CFO): `/personal-finance/history` is a read-only History table. Pick a year, then see that year's stored months in a grid: income lines, expense lines, totals, net assets and Equity coverage. It is linked beside `Charts`. Spec section 53, AC PFHT-01..20.

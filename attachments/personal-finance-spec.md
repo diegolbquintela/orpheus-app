@@ -1810,3 +1810,68 @@ The test strings, with code points above U+007E listed:
 - **Harness:** AGENTS.md gets one dated line (built; fonts licence). README is unchanged: README describes how to run, deploy and test the app, not the export internals, and no command or deploy step changed.
 
 50.10 (2026-10-21, QA Z1 on dd23170; text-only correction of 50.9, nothing above removed, no golden changed.) The **fallback golden crop** `qa/evidence/176/u-fallback.png` (PFU-08, `export-golden/crops.ts`) renders fixture U with the report name **`Сбережения 貯金 🏠`** (U5 + space + U6 + space + U7). Its title line prints `Orpheus - Personal Finance report: ?????????? ?? ?`: 10, 2 and 1 `?`. The name `貯金 🏠` given in 50.9 is only the **PGlite fallback report** (`U_FALLBACK_NAME`, whose title prints `?? ?` and whose category U5 prints `??????????`). It is not the name in the golden crop.
+
+## 53. Personal Finance: History, a read-only table of stored months by year (#214, MEDIUM, CFO; added 2026-10-21; built in the same PR)
+
+(Section number 53: open PRs #205 and #206 hold sections 51 and 52.)
+
+53.0 **Brief, with the 2026-10-21 scope update approved by Diego.** A read-only, spreadsheet-style table of the months stored for the account. The person **picks a year first**; the table then shows **that year's stored months only**, not every month on one screen. There is one column per stored key figure: income lines, expense lines, totals and Equity coverage. The table uses the existing dark site style (lyre, Orpheus Wisdom footer, no gold) and must work at 390 px and 1440 px. CFO is the business user.
+
+53.1 **Facts at be7cc97.**
+- Each month's own lines live in `orpheus.finance.months.v1`: `{ "<yyyy-mm>": { fixed, variable, people } }`, from `FIRST_MONTH` (2020-01).
+- Older months may instead have typed Overview totals in `orpheus.finance.overview.v1` `months`.
+- Accounts, categories, Rate used, the household currency and Starting net assets / As of month are shared values.
+- The Charts series (`seriesValues`, #154) already turns these into monthly income, expenses, surplus, group totals and net assets.
+
+53.2 **What is built.**
+- **Route:** `/personal-finance/history`, with the same gate as `/personal-finance`:
+  - signed out → 307 to `/dashboard/sign-in?next=/personal-finance/history` (added to the `?next` allow-list);
+  - a temporary password → `/account`;
+  - no Personal Finance grant → the 403 denied page;
+  - **Read is enough**, so the CFO with Read sees the table.
+- **Entry point:** a `History` link next to `Charts` under the Personal Finance title. The History page links back.
+- **Data:** one `GET /api/personal-finance` on mount. It never writes: no PUT, and no import or migration of this browser's old values (it does not use `loadAccountStore`). There is no new endpoint, no new stored value, no migration and no env change.
+- **Year first:** a `Year` select listing only the years that have at least one stored month, newest first, with a `Choose a year` placeholder. Until a year is chosen, the page shows `Choose a year to see its stored months.` and no table. With no stored months at all, it shows `No months stored yet.` and no select.
+- **Stored month:** a month with saved lines, or a month with a typed Overview expenses or income total. An empty month is not stored. The current month appears only when it is stored; the Overview's unsaved copy (#166) is never shown.
+- **The grid** is a semantic `<table>`: a visually hidden caption, one row per stored month of the chosen year (oldest first, `<th scope="row">` month name), and one `<th scope="col">` per column. Columns, in order:
+  1. The year's **income lines**: each counted person · Wages / Bonus line, monthly net in the household currency.
+  2. The year's **expense lines**: each fixed then variable line, by line id in first-seen order, labelled with its name; monthly in the household currency.
+  3. **Income**, **Fixed expenses**, **Variable expenses**, **Expenses**, **Surplus**, **Net assets**.
+  4. **Equity coverage (monthly)** and **Equity coverage (% of expenses)**.
+- **Cell values:**
+  - A line the month doesn't hold shows `—`.
+  - A month with typed totals only has no line or group cells (`—`).
+  - Money uses the #142 format (two decimals, no symbol). The share has two decimals and `%`.
+- **Totals and net assets** are `seriesValues` for the year's stored range, so they match the Charts series.
+- **Layout:** the grid scrolls sideways inside its own focusable region (`role="region"`, `tabindex="0"`, labelled by the caption). The page itself never scrolls sideways, at 390 px included. The Month column stays fixed while scrolling.
+- **Style:** the dark site palette (`--color-night`, `--color-chalk`, `--color-dim`, `--color-hair`), the site shell's lyre and footer, no gold.
+
+53.3 **Q-items (recommendation; built or not built).**
+- **Q-HT1, FX basis.** The table uses the record's rates as typed, like the Personal Finance page and Overview. It does not use the Bank of Canada monthly averages that the Charts series applies on the server (#170).
+  - **Rec:** keep the typed rates. Built.
+  - Alternative, not built: a read-only server endpoint applying the historical rates. That would be a new API, so it needs a go.
+- **Q-HT2, Equity coverage for a past month.** It uses that month's end-of-month net assets × Rate used ÷ 12 (monthly), and that amount ÷ that month's expenses (share).
+  - The Overview's figure is different: current net assets against the 3-month average (#126 / #184).
+  - **Rec:** this per-month definition. Built. CFO to confirm.
+- **Q-HT3, columns.**
+  - Line columns are per line id within the chosen year, labelled with the first name seen. A renamed line keeps one column.
+  - Accounts and categories are not separate columns, because they are groupings of the same lines.
+  - **Rec:** as built.
+- **Q-HT4, default year.** No year is preselected, per the scope update ("user picks a year first").
+  - **Rec:** keep. Built.
+  - Alternative, not built: preselect the newest year.
+- **Q-HT5, Year choices.** Only years with a stored month, not every year from 2020.
+  - **Rec:** as built (no empty years).
+- **Q-HT6, shared values.**
+  - Rate used, the household currency and Starting net assets are stored once, not per month. Every past month is therefore valued with today's values, as on the Overview and in Charts.
+  - **Rec:** accept. Storing them per month would be a data-model change. Not built; it needs a ticket.
+- **Q-HT7, entry point.** A `History` link beside `Charts` on the Personal Finance page, not a new site-menu item.
+  - **Rec:** as built.
+- **Q-HT8, export or download** of the table.
+  - **Rec:** out of scope (read-only view). Not built.
+
+53.4 **Harness.**
+- AGENTS.md gets a dated `## Personal Finance: History table (#214)` section, and README a dated line.
+- Tests: `src/lib/finance/history.test.ts` (year filter and grid) and `src/components/personal-finance/history-page.dom.test.tsx` (page).
+- The signed-out QA check is in `qa/tools/site-shell.mjs`.
+- AC `PFHT-01..PFHT-20`.

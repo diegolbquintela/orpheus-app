@@ -412,6 +412,10 @@ export function PersonalFinancePage({
             <a href="/personal-finance/charts" data-testid="pf-charts-link">
               Charts
             </a>
+            {/* #214 (spec 53, PFHT-01): the read-only History table. */}
+            <a href="/personal-finance/history" className="ml-6" data-testid="pf-history-link">
+              History
+            </a>
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           <p className="pf-save" role="status" data-testid="pf-save">
