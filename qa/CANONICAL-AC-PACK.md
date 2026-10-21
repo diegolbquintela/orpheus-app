@@ -1504,3 +1504,5 @@ DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the ot
 > | PFU-23 | BLOCK | Access is unchanged on U: the owner 200; qa-cfo-read (a Read grant, no saved reports) 404 `Report not found.` on `default` and on the owner's id; no grant 403. |
 >
 > **Counts at the build:** npm test passes 86 + 837 + 235 (was 86 + 819 + 235). There are +19 `export-unicode.server.test.ts` tests (PFU-01..23; 12 to 16 are folded together as listed), and −1 retired F3 font test. The DOM count is unchanged. Signed-out suites are unchanged.
+
+> **Correction (2026-10-21, QA Z1 on dd23170; text only, no golden changed).** PFU-08's golden crop `qa/evidence/176/u-fallback.png` uses the report name **`Сбережения 貯金 🏠`**, which prints `Orpheus - Personal Finance report: ?????????? ?? ?`. The `貯金 🏠` named in the correction above is the PGlite fallback report only (its title prints `?? ?`). Spec 50.10.
