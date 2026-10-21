@@ -1391,3 +1391,28 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | Z10 | Q-Z10 Read-only (changed by Q-AM3) | Sign in as a Read grant. | **No** Delete buttons (hidden); Rename disabled. |
 | Z11 | Q-Z11 option B | Not built. | There is no "is used in N months" block; deleting works as Z1. |
 | Z12 | Q-Z12 renames then deletes | In one Save: rename Home to `House`, Delete Travel. | Every month shows `House`; Travel follows Z1. |
+
+## PFTM — Overview `This month` stable on an unsaved copy (#166, spec 49; added 2026-10-20; Phase 1, nothing built)
+
+- **Fixture T** (owner, household CAD, Rate used empty): stored months `2026-09` only, with one fixed line `rent` 1,000 / month (category `Home`, account `Chase`) and one person `Me` with net income 3,000 / month. Overview: no typed months; `Starting net assets` empty. No other keys.
+- **Clock:** 2026-10-16T16:00:00Z (Toronto 2026-10-16, current month **2026-10**, which has no stored lines).
+- **Test ids:** `pf-ov-table`, `pf-ov-now` (three cells: Expenses, Income, Surplus), `pf-ov-avg3`, `pf-ov-avg`, `pf-chart` (`data-months`), `pf-month-year` + `pf-month`, `pf-month-save`, `pf-month-note`.
+- **Viewports:** 390×844, 768×1024, 1440×900.
+- **Tests:** DOM `expenses-page.dom.test.tsx`; unit `months.test.ts`. Both run under `TZ=UTC` and `TZ=America/Los_Angeles` (npm test).
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFTM-01 | BLOCKER | T, page opens on October 2026: `pf-month-note` = `Copied from September 2026 — edit and save.`; `pf-ov-now` = `1,000`, `3,000`, `2,000` (Expenses, Income, Surplus). | DOM |
+| PFTM-02 | BLOCKER | T, then show September 2026 (`pf-month` = 09), no Save: `pf-ov-now` is still `1,000`, `3,000`, `2,000` (today it reads `—`). | DOM; unit (`lineFigures` with the copy) |
+| PFTM-03 | BLOCKER | T, show September, edit `rent` to `1,200`, then Save: `pf-ov-now` = `1,200`, `3,000`, `1,800` (the copy follows the latest month with lines); October is still not stored (`GET /api/personal-finance` months keys = `["2026-09"]`). | DOM; e2e hand check |
+| PFTM-04 | BLOCKER | T, save October as is: stored keys `["2026-09","2026-10"]`; `pf-ov-now` = `1,000` / `3,000` / `2,000`; then edit September to `1,200` and Save → October stays `1,000` (its own lines win once stored). | DOM |
+| PFTM-05 | MAJOR | Read-only (Read grant), owner record T: `pf-ov-now` = `1,000`, `3,000`, `2,000` (Q-AN3); no write request is sent. | DOM (`readOnly`) |
+| PFTM-06 | MAJOR | Q-AN2: with T, `pf-ov-avg3` / `pf-ov-avg` and the chart's October point are equal whether October or September is shown (one value each, no flip). | DOM |
+| PFTM-07 | MAJOR | Q-AN7: stored months empty (no source) → `pf-ov-now` = `—`, `—`, `—`; no copy note. | DOM |
+| PFTM-08 | MAJOR | Q-AN6: T plus a typed `05` Update for October (Expenses `900`, Income `2,500`) and October not stored with lines → `pf-ov-now` = `900`, `2,500`, `1,600` (typed wins over the copy). | DOM; unit |
+| PFTM-09 | MAJOR | #165 Q-Z7: T with `Home` deleted from 2026-10 → the October copy counts the line without its category, and the totals are still `1,000`. | unit |
+| PFTM-10 | BLOCKER | Toronto month boundary: clock 2026-11-01T03:30Z (still October in Toronto) → current = 2026-10 and PFTM-01 holds; clock 2026-11-01T04:30Z (November) → current = 2026-11, the copy is the November one, and `pf-ov-now` = `1,000` / `3,000` / `2,000`. Under `TZ=UTC` and `TZ=America/Los_Angeles`. | DOM; unit |
+| PFTM-11 | MAJOR | Empty current month with an empty source: T with September's lines removed (stored but empty) → as PFTM-07. | unit |
+| PFTM-12 | MAJOR | UI unchanged otherwise: no new text, control or colour; cold load CLS 0 at 390 / 768 / 1440; existing targets ≥ 44 px (no new ones). | hand check |
+| PFTM-13 | MAJOR | Server unchanged (Q-AN4): `/series` / `/chart` for October with T return the stored data (null for October), as today. | `series.server.test.ts` (existing) |
+| PFTM-14 | MAJOR | Gates under `TZ=UTC` and `TZ=America/Los_Angeles`: `npx tsc --noEmit` 0; `npx eslint .` 0 errors; `npm test` 0 `not ok`; `npx vite build` 0. Signed-out suites exit 0 on the hash preview: site-style-regression 258/258, site-shell 319/319, personal-finance-e2e 9/9, personal-finance 9/9, pf-series-api / pf-chart-api / pf-export-api / pf-report-api / pf-reports-api 1/1 each, pf-months 0/0, pf-charts-contract 23/23. QA PASS at all three viewports. | gates; suites; QA |

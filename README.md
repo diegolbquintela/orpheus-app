@@ -695,3 +695,5 @@ Added 2026-10-20 (#161, built): `/personal-finance/charts/new` and `/personal-fi
 Added 2026-10-20 (#162, PF Charts UI 3/3): `/personal-finance/charts/<id>` is the saved report viewer (the #161 builder opened with the saved report; Update, Delete with in-page confirm; no Delete for the default report or a Read grant). List names link to it. Server: saving, replacing or deleting a report now needs a Personal Finance write grant (Read → 403). Spec section 47, AC PFCV-01..16.
 
 Added 2026-10-20 (#168, Phase 1, nothing built): spec section 48 (turn on the category and account Delete buttons, `PF_DELETE_UI` code constant; Q-AM1..Q-AM8), AC PFDU-01..PFDU-09.
+
+Added 2026-10-20 (#166, Phase 1, nothing built): spec section 49 (Overview `This month` counts the current month's unsaved copy whenever it has no stored lines; Q-AN1..Q-AN7), AC PFTM-01..PFTM-14.

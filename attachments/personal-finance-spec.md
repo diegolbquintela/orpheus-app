@@ -1623,3 +1623,22 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
 48.7 (2026-10-20, QA T1–T3 on b89b42c; corrects 48.3, nothing above removed)
 - **T1:** 48.3 said the buttons render "inside the read-only `Lock` fieldset (disabled), because `onDelete` depends on `deleteUi` only". That reason is wrong. The account / category bar (`CategoryFilter` in `expenses-page.tsx`) sits **outside** `Lock` (which wraps only `EquityRates`). Before #168 a Read grant's buttons were disabled by their own `disabled={readOnly || account === ALL}` / `disabled={readOnly || value === ALL || renaming}`, not by the fieldset. #168 hides them (Q-AM3). Design Q-Z10 ("both buttons are disabled, as Rename is") is superseded for Delete: hidden.
 - **T3:** the harness (AGENTS.md) gets only the one dated #168 index line (added at b89b42c). No harness rule changes, because #168 adds no route, endpoint, flag mechanism or QA process; it flips an existing constant and reuses existing tools (`pf-months.mjs` already runs the Delete flow when the buttons exist).
+
+## 49. Personal Finance: a stable Overview `This month` while the current month is an unsaved copy (#166, LOW; added 2026-10-20; Phase 1: spec and Qs, nothing built)
+
+49.0 **Problem (facts at 8ee66dd).** When the current month (Toronto) has no stored lines, opening it shows an unsaved auto-copy of the latest month with lines (`openMonth` in `months.ts`, decision 5 / PF-56), with the note `Copied from <Month YYYY> — edit and save.`.
+- Overview counts each month "as Save would store it" (#144, `liveLineFigures`), so while the current month is shown its copied lines count, and `This month` reads e.g. `1,000`.
+- When another month is shown (or saved), the figures come from the stored months only, where the current month has none. `This month` then reads `—` until the current month is saved.
+- Read-only always uses the stored months (`lineFigures`), so it shows `—`.
+- Nothing is wrong in storage; only the display flips.
+49.1 **Proposed rule (Q-AN1).** Whenever the current month has **no stored lines** and a copy source exists, Overview counts the current month as its copy: the lines `openMonth` would show, minus names deleted on or before the current month (`withoutDeletedFor`, #165 Q-Z7). This applies whichever month is shown, signed in or read-only. Once the current month is saved with lines, its own lines count (unchanged). Nothing is stored by this: it is display only, and a copy is still saved only by the user's Save.
+49.2 **Where.** Client only: `lineFigures` / `liveLineFigures` (`src/lib/finance/months.ts`), used by `expenses-page.tsx` for `04` Overview (the `This month` column `pf-ov-now`, the averages `pf-ov-avg3` / `pf-ov-avg`, the chart `pf-chart`, the coverage `pf-coverage`). No endpoint, wire or data change. The server-side `/series` and `/chart` read stored months and are **not** changed (Q-AN4).
+49.3 **Harness.** AGENTS.md gets one dated #166 index line only; there is no harness rule change, because #166 adds no route, endpoint, flag or QA process (it changes one client figure rule).
+49.4 Q-calls (CFO), each with a recommendation; **none built** (Phase 1):
+- Q-AN1 Count the current month's copy whenever it has no stored lines (49.1): **rec** yes (the issue's proposed fix). Not built.
+- Q-AN2 The averages and chart too: **rec** yes. The current month's copy figure feeds `This month`, the 3- and 12-month averages, the chart and the coverage alike, so every Overview figure is stable (today they all flip together). Not built.
+- Q-AN3 Read-only grant (CFO): **rec** the same rule (the copy is computed from the owner's stored months; nothing is written). Not built.
+- Q-AN4 Server `/series` / `/chart` (Charts): **rec** unchanged in #166 (they show stored data). Matching them would be a wire / out-of-ticket Q. Not built.
+- Q-AN5 A note that the figure is a copy: **rec** none on Overview (the Expenses section already shows `Copied from … — edit and save.` when the month is shown); no new copy. Not built.
+- Q-AN6 Typed Update totals for the current month (`05` Update): **rec** unchanged. A month saved with lines uses its own; else its typed totals win over the copy (as #112 decision 7 orders them: lines, then typed, then none, with the copy taking the "lines" place only while nothing is stored). Not built.
+- Q-AN7 No copy source (no month with lines): **rec** unchanged, `—`. Not built.
