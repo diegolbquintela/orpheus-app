@@ -2610,6 +2610,95 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     }
   });
 
+  describe("#166 PFTM (spec 49, CFO Q-AN1..Q-AN7, EL V2/V3)", () => {
+    const L = (id: string, amount: string) => ({ id, name: id, amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "" });
+    // Fixture T (spec 49.6): shared expenses empty; months 2026-08 rent 2,000 and 2026-09 rent 1,000 (people: [] each,
+    // so no income); no overview (no typed months, no start); October (current, NOW 2026-10-11) not stored.
+    const MONTHS_T = { "2026-08": { fixed: [L("rent", "2000")], variable: [], people: [] }, "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [] } };
+    const T = (extra: Record<string, unknown> = {}) => {
+      dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
+      dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ ...MONTHS_T, ...extra }));
+    };
+    const row = (el: ParentNode) => ["pf-ov-now", "pf-ov-avg3", "pf-ov-avg"].map((c) => text(q(el, "pf-ov-expenses"), c));
+    const unmount = async () => {
+      await act(async () => root!.unmount());
+      container!.remove();
+      root = undefined;
+      container = undefined;
+    };
+    it("PFTM-01 / 02 / 05: This month = the copy (1,000.00) with October shown, with September shown, and read-only", async () => {
+      T();
+      const el = await render();
+      assert.equal(text(el, "pf-month-note"), "Copied from September 2026 — edit and save.");
+      const onOct = row(el);
+      await pick(el, "2026-09");
+      const onSep = row(el);
+      await unmount();
+      T();
+      const ro = row(await render(NOW, true));
+      assert.deepEqual(onOct, ["1,000.00", "1,500.00", "1,500.00"]);
+      assert.deepEqual(onSep, onOct, "no flip");
+      assert.deepEqual(ro, onOct, "read-only (Q-AN3)");
+    });
+    it("PFTM-06 (CFO Q-AN2 change): avg3 / avg identical with and without the copy; the chart is 12 months", async () => {
+      T();
+      const el = await render();
+      const withCopy = row(el);
+      const months = q(el, "pf-chart").getAttribute("data-months");
+      await unmount();
+      T({ "2026-10": { fixed: [L("own", "7000")], variable: [], people: [] } });
+      const own = row(await render());
+      assert.deepEqual(own, ["7,000.00", "1,500.00", "1,500.00"], "October's own lines; same averages");
+      assert.deepEqual(withCopy.slice(1), own.slice(1), "averages never include the current month or its copy");
+      assert.equal(months, "12");
+    });
+    it("PFTM-08 (EL V2): stored lines > typed Update > copy > —; typed beats the copy with October shown AND with September shown", async () => {
+      T();
+      dom.window.localStorage.setItem(OVERVIEW_KEY, JSON.stringify({ start: "", growth: "", future: false, years: 1, months: { "2026-10": { expenses: "900", income: "" } } }));
+      const el = await render();
+      assert.equal(text(el, "pf-month-note"), "Copied from September 2026 — edit and save.", "October shows the copy");
+      assert.equal(row(el)[0], "900.00", "typed wins while October (the copy) is on screen");
+      await pick(el, "2026-09");
+      assert.equal(row(el)[0], "900.00", "typed wins with September shown");
+    });
+    it("PFTM-08 (EL W1): per field — typed income only → typed income + the copy's expenses; typed expenses only → typed expenses + the copy's income (October shown and September shown)", async () => {
+      const ME = { id: "p", name: "Me", wages: "36000", bonus: "", tax: "", share: "100", countWages: true, countBonus: false };
+      const inc = (el: ParentNode) => text(q(el, "pf-ov-income"), "pf-ov-now");
+      const exp = (el: ParentNode) => text(q(el, "pf-ov-expenses"), "pf-ov-now");
+      const seen: Record<string, string[]> = {};
+      for (const [tag, typed] of [["income", { expenses: "", income: "2500" }], ["expenses", { expenses: "900", income: "" }]] as const) {
+        T({ "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [ME] } });
+        dom.window.localStorage.setItem(OVERVIEW_KEY, JSON.stringify({ start: "", growth: "", future: false, years: 1, months: { "2026-10": typed } }));
+        const el = await render();
+        const sur = () => text(q(el, "pf-ov-surplus"), "pf-ov-now");
+        const oct = [exp(el), inc(el)];
+        const octS = sur();
+        await pick(el, "2026-09");
+        const sep = [exp(el), inc(el)];
+        const sepS = sur();
+        seen[tag] = [...oct, ...sep];
+        // CFO (W1): surplus = resolved income − resolved expenses, exact to two decimals, in both shown cases.
+        const num = (t: string) => Number(t.replace(/,/g, ""));
+        const want = (num(oct[1]) - num(oct[0])).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        assert.equal(octS, want, `${tag}: surplus October shown`);
+        assert.equal(sepS, want, `${tag}: surplus September shown`);
+        await unmount();
+      }
+      // The copy's own income (no typed months): the same record without the typed value.
+      T({ "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [ME] } });
+      dom.window.localStorage.removeItem(OVERVIEW_KEY);
+      const copyIncome = inc(await render());
+      assert.notEqual(copyIncome, "—", "the copy has an income");
+      assert.equal(copyIncome, "3,000.00");
+      assert.deepEqual(seen.income, ["1,000.00", "2,500.00", "1,000.00", "2,500.00"], "typed income + copy expenses (surplus 1,500.00)");
+      assert.deepEqual(seen.expenses, ["900.00", copyIncome, "900.00", copyIncome], "typed expenses + copy income (surplus 2,100.00)");
+    });
+    it("PFTM-07: no source month → This month —", async () => {
+      dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
+      assert.equal(row(await render())[0], "—");
+    });
+  });
+
   it("#165 PFD-15 (PF_DELETE_UI): flag off → no Delete buttons, no confirm; existing deleted data still reads back and shows `(deleted)`; the default follows the constant", async () => {
     const L = (id: string, amount: string, category: string, account: string) => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
     dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: ["Chase"], categories: ["Home"], deletedCategories: [{ name: "Travel", from: "2026-06" }], deletedAccounts: [{ name: "Amex", from: "2026-06" }] }));

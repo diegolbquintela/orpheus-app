@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { STORAGE_KEY } from "./expenses.ts";
+import { STORAGE_KEY, type Expenses } from "./expenses.ts";
 import {
   chosenMonth,
   copyOfCurrent,
@@ -11,6 +11,7 @@ import {
   readMonths,
   writeMonths,
   yearChoices,
+  withCurrentCopy,
 } from "./months.ts";
 import { RecordStore } from "./record.ts";
 import { RANGE_MONTHS_MAX } from "./report.ts";
@@ -94,5 +95,30 @@ describe("#163 Q-Y6 rejected: an empty past month opens blank (PFM-15, PFM-16, P
   it("PFM-16: Copy from current month = the current month's saved lines, or nothing when it has none", () => {
     assert.equal(copyOfCurrent(months, "2026-10"), lines);
     assert.equal(copyOfCurrent({ "2026-08": lines }, "2026-10"), null);
+  });
+});
+
+describe("#166 W2 withCurrentCopy (spec 49.5)", () => {
+  const line = (id: string, category = "") => ({ id, name: id, amount: "100", per: "month" as const, equity: "", account: "", currency: "", rate: "", category });
+  const sep: MonthLines = { fixed: [line("rent", "Travel")], variable: [], people: [] };
+  const shared = { fixed: [], variable: [], accounts: [], categories: ["Travel"] } as unknown as Expenses;
+  it("an empty current month gets the latest month's lines; stored months are not changed", () => {
+    const months = { "2026-09": sep };
+    const out = withCurrentCopy(months, shared, "2026-10");
+    assert.deepEqual(out["2026-10"], sep);
+    assert.deepEqual(Object.keys(months), ["2026-09"], "input untouched");
+  });
+  it("a current month with stored lines, or no source, is returned as is", () => {
+    const own: MonthLines = { fixed: [line("own")], variable: [], people: [] };
+    const m1 = { "2026-09": sep, "2026-10": own };
+    assert.equal(withCurrentCopy(m1, shared, "2026-10"), m1);
+    const m2 = {};
+    assert.equal(withCurrentCopy(m2, shared, "2026-10"), m2);
+  });
+  it("#165 Q-Z7: a name deleted on or before the current month is dropped from the copy", () => {
+    const del = { ...shared, categories: [], deletedCategories: [{ name: "Travel", from: "2026-10" }] } as unknown as Expenses;
+    const out = withCurrentCopy({ "2026-09": sep }, del, "2026-10");
+    assert.equal(out["2026-10"].fixed[0].category, "");
+    assert.equal(out["2026-10"].fixed[0].amount, "100");
   });
 });

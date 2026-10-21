@@ -1391,3 +1391,52 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | Z10 | Q-Z10 Read-only (changed by Q-AM3) | Sign in as a Read grant. | **No** Delete buttons (hidden); Rename disabled. |
 | Z11 | Q-Z11 option B | Not built. | There is no "is used in N months" block; deleting works as Z1. |
 | Z12 | Q-Z12 renames then deletes | In one Save: rename Home to `House`, Delete Travel. | Every month shows `House`; Travel follows Z1. |
+
+## PFTM — Overview `This month` stable on an unsaved copy (#166, spec 49; added 2026-10-20; Phase 1, nothing built)
+
+- **Fixture T** (owner, household CAD, Rate used empty): stored months `2026-09` only, with one fixed line `rent` 1,000 / month (category `Home`, account `Chase`) and one person `Me` with net income 3,000 / month. Overview: no typed months; `Starting net assets` empty. No other keys.
+- **Clock:** 2026-10-16T16:00:00Z (Toronto 2026-10-16, current month **2026-10**, which has no stored lines).
+- **Test ids:** `pf-ov-table`, `pf-ov-now` (three cells: Expenses, Income, Surplus), `pf-ov-avg3`, `pf-ov-avg`, `pf-chart` (`data-months`), `pf-month-year` + `pf-month`, `pf-month-save`, `pf-month-note`.
+- **Viewports:** 390×844, 768×1024, 1440×900.
+- **Tests:** DOM `expenses-page.dom.test.tsx`; unit `months.test.ts`. Both run under `TZ=UTC` and `TZ=America/Los_Angeles` (npm test).
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFTM-01 | BLOCKER | T, page opens on October 2026: `pf-month-note` = `Copied from September 2026 — edit and save.`; `pf-ov-now` = `1,000`, `3,000`, `2,000` (Expenses, Income, Surplus). | DOM |
+| PFTM-02 | BLOCKER | T, then show September 2026 (`pf-month` = 09), no Save: `pf-ov-now` is still `1,000`, `3,000`, `2,000` (today it reads `—`). | DOM; unit (`lineFigures` with the copy) |
+| PFTM-03 | BLOCKER | T, show September, edit `rent` to `1,200`, then Save: `pf-ov-now` = `1,200`, `3,000`, `1,800` (the copy follows the latest month with lines); October is still not stored (`GET /api/personal-finance` months keys = `["2026-09"]`). | DOM; e2e hand check |
+| PFTM-04 | BLOCKER | T, save October as is: stored keys `["2026-09","2026-10"]`; `pf-ov-now` = `1,000` / `3,000` / `2,000`; then edit September to `1,200` and Save → October stays `1,000` (its own lines win once stored). | DOM |
+| PFTM-05 | MAJOR | Read-only (Read grant), owner record T: `pf-ov-now` = `1,000`, `3,000`, `2,000` (Q-AN3); no write request is sent. | DOM (`readOnly`) |
+| PFTM-06 | MAJOR | Q-AN2: with T, `pf-ov-avg3` / `pf-ov-avg` and the chart's October point are equal whether October or September is shown (one value each, no flip). | DOM |
+| PFTM-07 | MAJOR | Q-AN7: stored months empty (no source) → `pf-ov-now` = `—`, `—`, `—`; no copy note. | DOM |
+| PFTM-08 | MAJOR | Q-AN6: T plus a typed `05` Update for October (Expenses `900`, Income `2,500`) and October not stored with lines → `pf-ov-now` = `900`, `2,500`, `1,600` (typed wins over the copy). | DOM; unit |
+| PFTM-09 | MAJOR | #165 Q-Z7: T with `Home` deleted from 2026-10 → the October copy counts the line without its category, and the totals are still `1,000`. | unit |
+| PFTM-10 | BLOCKER | Toronto month boundary: clock 2026-11-01T03:30Z (still October in Toronto) → current = 2026-10 and PFTM-01 holds; clock 2026-11-01T04:30Z (November) → current = 2026-11, the copy is the November one, and `pf-ov-now` = `1,000` / `3,000` / `2,000`. Under `TZ=UTC` and `TZ=America/Los_Angeles`. | DOM; unit |
+| PFTM-11 | MAJOR | Empty current month with an empty source: T with September's lines removed (stored but empty) → as PFTM-07. | unit |
+| PFTM-12 | MAJOR | UI unchanged otherwise: no new text, control or colour; cold load CLS 0 at 390 / 768 / 1440; existing targets ≥ 44 px (no new ones). | hand check |
+| PFTM-13 | MAJOR | Server unchanged (Q-AN4): `/series` / `/chart` for October with T return the stored data (null for October), as today. | `series.server.test.ts` (existing) |
+| PFTM-14 | MAJOR | Gates under `TZ=UTC` and `TZ=America/Los_Angeles`: `npx tsc --noEmit` 0; `npx eslint .` 0 errors; `npm test` 0 `not ok`; `npx vite build` 0. Signed-out suites exit 0 on the hash preview: site-style-regression 258/258, site-shell 319/319, personal-finance-e2e 9/9, personal-finance 9/9, pf-series-api / pf-chart-api / pf-export-api / pf-report-api / pf-reports-api 1/1 each, pf-months 0/0, pf-charts-contract 23/23. QA PASS at all three viewports. | gates; suites; QA |
+
+**PFTM corrections and additions (2026-10-20, QA V1–V5 on de7b684, EL rulings, CFO Q-AN2 change; spec 49.5–49.6; the table above stays for history and these rows supersede it where they differ).**
+- Fixture **T** is the spec 49.6 one: Aug 2,000 / Sep 1,000, no income fields stored.
+- Clock 2026-10-11 (Toronto).
+- Figures are written as rendered (two decimals).
+- Each row of `pf-ov-expenses` reads `[pf-ov-now, pf-ov-avg3, pf-ov-avg]`. Income and Surplus rows: `pf-ov-income` is `—` in every column for T.
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFTM-01 | BLOCKER | T, page opens on October 2026: `pf-month-note` = `Copied from September 2026 — edit and save.`; `pf-ov-expenses` = `["1,000.00", "1,500.00", "1,500.00"]`. | DOM "PFTM-01 / 02 / 05" |
+| PFTM-02 | BLOCKER | T, show September (no Save): `pf-ov-expenses` = `["1,000.00", "1,500.00", "1,500.00"]` (before #166: `["—", …]`). | DOM |
+| PFTM-05 | MAJOR | T, read-only: `["1,000.00", "1,500.00", "1,500.00"]`; no write request. | DOM |
+| PFTM-06 | BLOCKER | (CFO Q-AN2 change; EL V3) avg3 / avg never include the current month or its copy. T with the copy → avg3 `1,500.00`, avg `1,500.00`. T plus October stored with its own line 7,000 → `["7,000.00", "1,500.00", "1,500.00"]`: the averages are identical. `pf-chart` `data-months` = `12`, and its October point is This month's figure: `1,000.00` with the copy, `7,000.00` with October's own line (the chart tooltip; there is no DOM attribute per point, so this is a hand check). | DOM "PFTM-06"; hand check (chart) |
+| PFTM-07 | MAJOR | No month with lines → `pf-ov-expenses` `pf-ov-now` = `—`. | DOM |
+| PFTM-08 | BLOCKER | (EL V2) The order is stored lines > typed Update > unsaved copy > `—`. T plus a typed Update for October (Expenses `900`, Income empty; October not stored with lines). **October shown** (copy note visible) → `pf-ov-now` = `900.00`. **September shown** → `900.00`. Then Save October with its copy → `1,000.00` (stored lines win). | DOM "PFTM-08" (both shown cases; mutations caught) |
+| PFTM-12 | MAJOR | No new UI. At 390×844, these existing elements stay ≥ 44 px tall: `pf-month-year`, `pf-month`, `pf-month-save`, `pf-future-toggle`, `pf-charts-link`. CLS 0 on a cold load of `/personal-finance` at 390 / 768 / 1440. | e2e (existing CLS check); hand check |
+| PFTM-15 | MAJOR | (EL V4) Signed-in regression on the preview, all exit 0 with these counts: personal-finance 383, personal-finance-e2e 201, pf-months 36, pf-charts-contract 23, site-shell 471, site-style-regression 258. PFDU-01..10, PFCV-01..17, PFCB-01..21 and PFCL-01..14 still pass. | QA signed-in run |
+| PFTM-16 | MAJOR | Q-AN4 parked: the Overview chart vs `/chart` / export may differ for the current month while it is an unsaved copy. This is not a defect in #166; it is a possible follow-up. | — |
+
+**PFTM-08 per field (2026-10-20, QA interim W1 on b7a5758, EL / CFO; supersedes the PFTM-08 rows above where they differ).** Fixture T, with September also holding one person `Me` (`wages` 36000, `share` 100, `countWages` true; the copy's income is `3,000.00`). Rows `pf-ov-expenses` / `pf-ov-income` / `pf-ov-surplus`, column `pf-ov-now`:
+- **Typed income only** (October Update: Income `2500`, Expenses empty), with October shown and with September shown: Expenses `1,000.00` (copy), Income `2,500.00` (typed), Surplus `1,500.00`.
+- **Typed expenses only** (Expenses `900`, Income empty), with both shown: Expenses `900.00` (typed), Income `3,000.00` (copy), Surplus `2,100.00`.
+- Surplus always equals resolved income − resolved expenses.
+- Where: DOM "PFTM-08 (EL W1)". Mutation caught: reverting to the whole-month rule fails it. Unit: `months.test.ts` "#166 W2 withCurrentCopy".
