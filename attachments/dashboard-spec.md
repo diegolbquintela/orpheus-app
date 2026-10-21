@@ -1673,7 +1673,7 @@ The live auth path is unchanged: `getSessionUserFromHeaders` (`verify.server.ts`
 | `src/lib/auth/instance.server.ts` | `type OrpheusAuth` |
 | `src/lib/dca/format.ts` | `shareCount`, `weightLabel` (labels only; no engine math touched) |
 
-22.2 **Change.** Only those lines, 20 deletions in total. `METRICS`, `METRIC_KEYS`, `MetricKey` and `createOrpheusAuth` are still used and are kept. The build output is unchanged, because the bundler had already dropped these unused exports. AC DCC-01..10.
+22.2 **Change.** Only those lines, 20 deletions in total. `METRICS`, `METRIC_KEYS`, `MetricKey` and `createOrpheusAuth` are still used and are kept. Build output against main: the same 169 files. The only size change is the server chunk `_ssr/esef.server.mjs`, which is 43 B smaller because the unused string is gone. No client chunk changes. AC DCC-01..10.
 
 22.3 **Q-items (EL).**
 - **Q-DCC1:** the auth tests spell `ReturnType<typeof createOrpheusAuth>` inline, so `OrpheusAuth` had no users. **Rec:** keep the inline form, and don't reintroduce the alias. Not built.

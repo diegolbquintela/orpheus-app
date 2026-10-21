@@ -1575,7 +1575,7 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | DCC-04 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0; eslint 0 errors; npm test 0 fail, 0 cancelled, 0 `not ok`, with the same counts as main. `npx vite build` OK. |
 | DCC-05 | BLOCK | The DCA-06 advice scan (`src/lib/dca/fixtures.test.ts`) ran and passed. |
 | DCC-06 | BLOCK | The PF and dashboard DOM tests (`node scripts/run-dom-tests.mjs`: `src/components/personal-finance/*.dom.test.tsx`, `src/components/dashboard/*.dom.test.tsx`) ran and passed. |
-| DCC-07 | MAJOR | Build compare against main at a checkout path of the same length: the same file list and sizes after hash normalisation. |
+| DCC-07 | MAJOR | Build compare against main at a checkout path of the same length: the same file list after hash normalisation. Sizes are the same, or smaller in server chunks only (at f23c372: `_ssr/esef.server.mjs` −43 B). No client chunk size change. |
 | DCC-08 | BLOCK | Mutation: a file referencing a removed name (e.g. `CANCEL` from overview.ts) makes DCC-02 print a hit, and tsc fails. |
 | DCC-09 | MAJOR | CI `check` green. The preview, signed out, behaves as on main (`/dashboard` 307, `/api/dashboard/fx` 401). |
 | DCC-10 | MINOR | Docs additions only: dashboard-spec §22 and one dated AGENTS.md #188 line. README unchanged (it never named these). |
