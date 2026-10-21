@@ -702,6 +702,7 @@ curl -s -X POST -i http://localhost:8080/api/dashboard/db | head -1   # 405, All
   drop provider rows with impossible dates the same way. Tests: `dates.test.ts`, `fx.test.ts`.
   `gate.ts` adds `baseCurrency` and `valuation` to the page data; `holdings.tsx` has the "Base currency"
   select, the "Value (BASE)" column with an FX line per rate, and the total row.
+  - Note (2026-10-21, #187): `convert()` was removed; it had no callers. Callers use `fxFactor()`.
 - Sources: BoC Valet `https://www.bankofcanada.ca/valet/observations/<series>/json?start_date=&end_date=`
   (USD, EUR always; SEK, PLN only when held). ECB: `https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml`
   (DKK, HUF, CZK only when held). The ECB data API (`data-api.ecb.europa.eu`) answered 502 on 2026-10-02,
@@ -1208,3 +1209,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - 2026-10-21 #183 (tooling): every `npm test` stage runs through `scripts/test-runner.mjs` (TAP, exit 1 on a non-zero node exit or any `not ok` line except `# TODO` / `# SKIP`), because node can print `not ok` for a nested suite that throws while loading and still exit 0 with `# fail 0`. Add new test stages through it, never a bare `node --test`. Design `attachments/test-runner-load-failure-design.md`, AC TLF-01..08, Q-TLF1..4 (EL).
 - 2026-10-21 #185 (cleanup): the orphaned template WebRTC module `src/lib/multiplayer/` (P2PRoom, which needed a `/api/rtc` route that never existed) is deleted. The proof that it was unused is in AC DMP-03; the build output is byte-size-identical (DMP-04). No doc referenced it. Don't reintroduce template multiplayer code without a ticket.
 - 2026-10-21 #186 (cleanup): the unused template auth layer is gone: `gates.tsx`, `use-current-user.ts`, `sign-in-gate.ts` (+ test), `middleware.ts`, and in `verify.server.ts` `getSessionUser` / `requireUserId` / `UnauthorizedError` / `DEV_USER_ID`, plus `authEnabled` in `client.ts`. The one auth path is `getSessionUserFromHeaders` + `/api/account/*`. `isolation.server.ts` is kept (app-data uses it). AC TAR-01..10, dashboard-spec §20.
+- 2026-10-21 #187 (cleanup): `store.server.ts` holds per-user data access only. The superseded shared market-data helpers (`upsertInstrument` … `lastSuccessfulRun`, their row types, `Region` / `FxSource` / `IsoDate`) and their `store.test.ts` block are gone, as is the uncalled `convert()` in `fx.server.ts`. The daily job (cron and the preview Refresh button) never imported them; it writes with its own SQL. AC DMH-01..10, dashboard-spec §21.

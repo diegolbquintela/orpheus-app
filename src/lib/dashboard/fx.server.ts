@@ -258,21 +258,6 @@ export async function ratesOnOrBefore(db: Queryable, date: string): Promise<Rate
 }
 
 /**
- * Convert `amount` in `from` to `base` at the rates for `date` (crossing through CAD):
- * amount × (CAD per `from`) / (CAD per `base`). Null when a rate is missing.
- */
-export async function convert(
-  db: Queryable,
-  amount: number,
-  from: string,
-  base: BaseCurrency,
-  date: string,
-): Promise<{ value: number; rates: RateUsed[] } | null> {
-  const f = await fxFactor(db, from, base, date);
-  return f ? { value: amount * f.factor, rates: f.rates } : null;
-}
-
-/**
  * Units of `base` per 1 unit of `from` on `date` (crossing through CAD), with the non-CAD rates used.
  * 1 with no rates when `from` is the base. Null when a rate is missing.
  */
