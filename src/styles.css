@@ -731,7 +731,7 @@
   .pf-history-year option { color: var(--color-ink); }
   .pf-history-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-hair); }
   .pf-history-scroll:focus-visible { outline: 2px solid var(--color-chalk); outline-offset: 2px; }
-  .pf-history-grid { border-collapse: separate; border-spacing: 0; font-size: 0.875rem; font-variant-numeric: tabular-nums slashed-zero; color: var(--color-chalk); }
+  .pf-history-grid { border-collapse: separate; border-spacing: 0; font-size: 0.875rem; font-variant-numeric: slashed-zero; color: var(--color-chalk); }
   .pf-history-grid th, .pf-history-grid td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-hair); border-right: 1px solid var(--color-hair); white-space: nowrap; }
   .pf-history-grid thead th { font-weight: 400; color: var(--color-dim); text-align: right; vertical-align: bottom; }
   .pf-history-grid td { text-align: right; }

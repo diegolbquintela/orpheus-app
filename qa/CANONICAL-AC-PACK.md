@@ -1600,7 +1600,7 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | PFHT-14 | BLOCK | Equity coverage (Q-HT2) = month-end net assets × Rate used ÷ 12, and that ÷ the month's expenses (two-decimal %). With no Rate used or no positive net assets → `—`. |
 | PFHT-15 | BLOCK | Building the grid never changes the record. No new stored value, endpoint, migration, env or provider. |
 | PFHT-16 | BLOCK | 390 px (preview, signed in as owner and as CFO Read): the page has no horizontal scroll. The grid scrolls sideways inside its region, the Month column stays visible, and the Year select and grid are usable by touch and keyboard. |
-| PFHT-17 | MAJOR | 1440 px: the grid sits in the page column (max-w-6xl). Headers are readable, numbers right-aligned with tabular figures, and there is no layout shift when a year is chosen. |
+| PFHT-17 | MAJOR | 1440 px: the grid sits in the page column (max-w-6xl). Headers are readable, numbers right-aligned (no tabular figures on dark pages, ST6-07), and there is no layout shift when a year is chosen. |
 | PFHT-18 | MAJOR | Style: the dark site palette only, the lyre in the bar, the Orpheus Wisdom footer, no gold. axe: 0 serious/critical at 390 and 1440. |
 | PFHT-19 | BLOCK | Access: the owner and a Personal Finance Read grant (CFO) see the table. No grant → 403 denied page with no figures. Temporary password → `/account`. |
 | PFHT-20 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0, eslint 0 errors, npm test 0 fail / 0 cancelled / 0 `not ok` (including `history.test.ts`, `history-page.dom.test.tsx`, DCA-06), `npx vite build` OK. CI `check` green. |
