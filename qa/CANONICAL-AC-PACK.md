@@ -1506,3 +1506,29 @@ DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the ot
 > **Counts at the build:** npm test passes 86 + 837 + 235 (was 86 + 819 + 235). There are +19 `export-unicode.server.test.ts` tests (PFU-01..23; 12 to 16 are folded together as listed), and −1 retired F3 font test. The DOM count is unchanged. Signed-out suites are unchanged.
 
 > **Correction (2026-10-21, QA Z1 on dd23170; text only, no golden changed).** PFU-08's golden crop `qa/evidence/176/u-fallback.png` uses the report name **`Сбережения 貯金 🏠`**, which prints `Orpheus - Personal Finance report: ?????????? ?? ?`. The `貯金 🏠` named in the correction above is the PGlite fallback report only (its title prints `?? ?`). Spec 50.10.
+
+## PFEM — Report export: Email with fail-closed audit and explicit recipient (#180, spec 51; added 2026-10-21; Phase 1, nothing built)
+
+Backend first; PFEM-01 is the only UI check (viewports 390 / 768 / 1440). Fixture **E** (spec 51.5). Tests use the injected fake provider only; **no real email is ever sent**. Real-path tests in a new `src/lib/finance/email-export.server.test.ts` (PGlite, under TZ=UTC and TZ=America/Los_Angeles), names prefixed `PFEM-NN`. Route / texts are per spec 51.2 and gated where marked.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFEM-01 | BLOCK | Until #180 ships (and its UI ticket, Q-AP12): the #161 builder and #162 viewer Export menus on a saved clean report list exactly `PDF`, `PNG`; no element with text `Email` and no `/email` request, at 390 / 768 / 1440. Holds at 958c8be today. |
+| PFEM-02 | BLOCK | Signed out: `POST /api/personal-finance/reports/r-1a2b3c4d/email` with `{format:"pdf",to:E1}` → 401, fake provider 0 calls, 0 audit rows. Flag off → 404. No grant → 403. Unknown id `r-00000000` / another user's id → 404 `Report not found.`. `GET` / `PUT` → 405. (Gated on Q-AP2 for the path; status codes hold for any route.) |
+| PFEM-03 | BLOCK | Recipient required: `to` missing, `""` or E4 → 400 `{ "error": "Enter a recipient.", "field": "to" }`; 0 provider calls, 0 rows. No default or owner address is ever used (a request without `to` never sends, whatever the session user's email). |
+| PFEM-04 | BLOCK | Recipient invalid: E2 and E3 → 400 `{ "error": "Enter one valid email address.", "field": "to" }`; also `"a@example.com\r\nBcc: x@example.com"` → same 400. 0 provider calls, 0 rows. (Exact rule gated on Q-AP4.) |
+| PFEM-05 | BLOCK | `format` missing or `"svg"` → 400 `{ "error": "Invalid value.", "field": "format" }`; 0 calls, 0 rows. |
+| PFEM-06 | BLOCK | Happy path, E1, pdf: 202 `{ "ok": true }`, `Cache-Control: no-store`; exactly **one** fake-provider call with `to` = `["cfo.reports@example.com"]` exactly (one entry, no cc/bcc), one attachment named `orpheus-report-q3-cash-2026-10-21.pdf`, `application/pdf`, bytes **identical** to `GET /reports/r-1a2b3c4d/export?format=pdf` at the same clock. Same for png (`.png`, `image/png`). |
+| PFEM-07 | BLOCK | Audit row: each 202 writes exactly one `pf.report_email` row (actor / role as `pf.report_export`) whose detail starts `format:pdf id:r_BaCbDcEd` and fits the 0012 CHECK (`^[A-Za-z_:+ ]*$`), and the row is inserted **before** the provider call (fake records call order). The raw address never appears in the row (encoding gated on Q-AP7). |
+| PFEM-08 | BLOCK | Fail closed: with the audit insert forced to fail, E1 pdf → 503 `{ "error": "Email unavailable. Try again." }`, **0** provider calls, 0 rows, log line `[audit] could not record pf.report_email` with no address, id or secret in it. Audit restored → next send 202. |
+| PFEM-09 | MAJOR | Provider failure (fake throws) after the row: 502 `{ "error": "Email could not be sent. Try again." }`, exactly 1 row, 1 call, no retry. (Gated on Q-AP8.) |
+| PFEM-10 | BLOCK | Not configured: with no provider configured → 503 `{ "error": "Email is not configured on this deployment." }`, 0 rows, 0 network requests. No secret value or env var name appears in any response body. |
+| PFEM-11 | MAJOR | Allow-list: E5 → 403 `{ "error": "Recipient not allowed.", "field": "to" }`, 0 calls, 0 rows. (Gated on Q-AP5; if the CFO picks "any address", E5 → 202 like PFEM-06 instead.) |
+| PFEM-12 | MAJOR | Rate limit: the 11th send by the same user on Toronto day 2026-10-21 → 429 `{ "error": "Email limit reached for today." }`, 0 calls; at clock `2026-10-22T04:30:00Z` (Toronto 2026-10-22 00:30) sends resume. (Gated on Q-AP9.) |
+| PFEM-13 | MAJOR | Message: subject exactly `Orpheus report: Q3 cash`; plain-text body contains `As of 2026-10 (current month, partial)`; no HTML part, no link. (Gated on Q-AP10.) |
+| PFEM-14 | BLOCK | No regressions: every signed-out request in the existing `/api/personal-finance` suite (`/series`, `/chart`, `/reports`, `/reports/:id`, `/reports/:id/export`, legacy `/report`, record) still → 401 with its existing body; PFX-01..03, PFX-05..19, PFU and PFAPI tests still pass; the route table (`CHARTS_ROUTES` / `CHARTS_ALLOW` plus page routes `/personal-finance/charts`, `/new`, `/:id`, `/:id/edit`) is unchanged except the one Q-AP2 addition; signed-out page routes keep their current redirects. |
+| PFEM-15 | BLOCK | No new dependency (Q-AP3): `package.json` / `package-lock.json` dependency sets unchanged; the client bundle (`npx vite build` output) contains no provider host string. |
+| PFEM-16 | BLOCK | QA safety: no test or QA tool can reach a real provider: tests inject the fake; any new QA tool calls `refuseIfProd` first and is covered by `scripts/qa-tools-session.test.mjs`; no real address other than fixture `example.com` / `example.org` appears in tests. |
+
+**Expected counts once built.** Baseline at 958c8be is the gate run on this PR. The build adds about 15 tests in `email-export.server.test.ts` (PFEM-02..13, 15, 16) and one DOM assertion for PFEM-01.
+
