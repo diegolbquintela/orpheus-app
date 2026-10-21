@@ -126,3 +126,5 @@ PGOPTIONS='-c default_transaction_read_only=on' psql "$PF_DB_URL" ...   # the se
 
 and when done, clear the URL from the shell: `unset PF_DB_URL`. (The restore step is a write and is not covered by
 this; it still must NEVER be run against any real or preview DB without the owner's go.)
+
+> **2026-10-21 (#177, Phase 1, not built):** an automatic snapshot at each production deploy is specified in `attachments/personal-finance-spec.md` §51 (AC PFS-01..16). Until it ships, §1 above is the only backup; after it ships, §1 is still taken before any rollback (Q-AP10).
