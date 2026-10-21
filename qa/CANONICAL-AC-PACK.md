@@ -1534,3 +1534,18 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | DMP-06 | MAJOR | The preview's signed-out smoke is unchanged: `/`, `/calculator` and `/dashboard/sign-in` return 200. |
 
 - Note (2026-10-21, QA AD1 / AD2 on PR #209): DMP-02 now excludes `CANONICAL-AC-PACK.md`. The old grep matched its own AC text, so it could never pass. DMP-04 is reworded: server bundle files embed the absolute checkout path, so sizes compare only between builds at checkout paths of the same length. The tanstack manifest's hash name always follows the path. The earlier 10,387,643 B figure was for `/workspace/swe/t185` (both builds).
+
+## TAR — Remove the unused template auth layer (#186, dashboard-spec §20; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+| ID | Severity | Check |
+|---|---|---|
+| TAR-01 | BLOCK | Gone: `src/lib/auth/gates.tsx`, `use-current-user.ts`, `sign-in-gate.ts`, `sign-in-gate.test.ts`, `middleware.ts`. `package.json` `test` no longer lists `sign-in-gate.test.ts`. |
+| TAR-02 | BLOCK | `grep -rnE "auth/gates\|gates\.tsx\|use-current-user\|sign-in-gate\|authMiddleware\|requireUserId\|authEnabled\|useCurrentUser\|DEV_USER_ID\|UnauthorizedError\|getSessionUser\(" src scripts package.json vite.config.ts` prints nothing (exit 1). The AC pack and docs are outside these paths, so the grep never matches itself. The issue's bare `gates` matches only prose (Q-TAR1). |
+| TAR-03 | BLOCK | Kept and unchanged in behaviour: `getSessionUserFromHeaders`, `VerifiedUser` and the `authConfigured` re-export in `verify.server.ts` (body byte-identical to 7453109); `authClient` / `signOut` in `client.ts`; `isolation.server.ts` code (only its header comment changes); `src/lib/app-data/client.server.ts` still imports it. |
+| TAR-04 | BLOCK | Proof of non-use at 7453109: the only importers of the removed files or exports are the removed files themselves (proof log in the PR). No route, live import, server function or env var depended on them. `VITE_AUTH_ENABLED` stays, read by `authReadiness`. |
+| TAR-05 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0; eslint 0 errors; npm test 0 fail / 0 cancelled / 0 `not ok`. The src count drops only by sign-in-gate's tests (main 837 → 837 − n, with n stated in the PR); scripts and DOM counts are unchanged. `npx vite build` OK. |
+| TAR-06 | MAJOR | Build compare against main at a checkout path of the same length: the file list and sizes are the same or smaller, except the path-dependent tanstack manifest. Any client chunk change is listed in the PR. |
+| TAR-07 | BLOCK | Mutation: reintroducing a reference (e.g. `import { authMiddleware } from "@/lib/auth/middleware"`) makes TAR-02's grep print a hit, and tsc fails (the module is missing). |
+| TAR-08 | BLOCK | Preview, signed out: `/dashboard/sign-in` 200 with the sign-in form; `/account`, `/dashboard` and `/personal-finance` 307 to sign-in, as before. The signed-out suites (`site-shell`, `site-style-regression`, `signin-page`) pass with the same counts as main. |
+| TAR-09 | MAJOR | CI `check` green, including `check:dashboard-built`. |
+| TAR-10 | MINOR | README unchanged (no user-facing or env change; reason in the PR body). AGENTS.md has one dated #186 line plus a dated note under the stale `requireUserId()` line; dashboard-spec has a dated note under §5 and a new §20. |

@@ -3,7 +3,7 @@
  * (attachments/dashboard-spec.md §5). Server-only.
  *
  * - Every per-user function takes `userId` as its first argument. Callers must pass
- *   the id from the verified session (`requireUserId()`), never one sent by the client.
+ *   the id from the verified session (`getSessionUserFromHeaders`), never one sent by the client.
  *   Every per-user query filters on it, so a user can only read or change their own rows.
  * - Shared market-data writers (instruments, closes, FX, fundamentals, metrics, runs) are
  *   for the daily job only. Pages only read.
