@@ -394,8 +394,8 @@ npm run fixtures:hand-check     # must print "hand check: MATCH"
 
 The scripts in `qa/tools/` drive the deployed app (they do not start a local server). Pass the URL as
 `--base-url` or `QA_BASE_URL`; the default is production, https://orpheus-app-beta.vercel.app. Output
-(screenshots, JSON) goes to `--out` / `QA_OUT_DIR`, default a temp dir outside the repo. Never point them
-at the frozen Grok copy except as an explicit `--compare-url` for `sidebyside.mjs`.
+(screenshots, JSON) goes to `--out` / `QA_OUT_DIR`, default a temp dir outside the repo. For `sidebyside.mjs`,
+pass production (https://orpheus-app-beta.vercel.app) as the explicit `--compare-url` target.
 
 ```bash
 npx playwright install chromium                     # once; playwright is already a devDependency
@@ -1045,9 +1045,8 @@ The Grok App Builder template's files are gone (#50: the PWA / OG middleware, `/
 #51: `.grok/`, `startup.sh`, `scripts/preview*.mjs`, `with-app-env`, `app-env-plugin`, `check-auth-invariant`,
 `write-atomic`, `browser-smoke*`, `browser-guard`, `screenshots/app-builder-*`). `dev` / `build` / `preview` run
 Vite directly; never re-add them. Deploying
-through Grok has stopped: Vercel is the only deploy path. https://island-pearl-eagle-hill.grok.me stays
-published as a frozen old copy until the Chief of Staff confirms its retirement with Diego; never deploy
-to it or treat it as production. The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
+through Grok has stopped: Vercel is the only deploy path, and production is https://orpheus-app-beta.vercel.app.
+The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
 chat rules) was replaced by this file. Still from the template (parked, #50 N2): `src/lib/app-data/*`
 (the `GROK_*` connector env, `connectors.grok.me`), unused by any page.
 
@@ -1204,3 +1203,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - 2026-10-20 (#200 QA X2): the docs-only preview skip never applies to `public/**` or `src/**`. Those paths always build, even `.md` files, because public files are served.
 - #176 PF export Unicode fonts (added 2026-10-21, Phase 1): spec 50 (pointer at 39.14), AC PFU-01..16, Q-AO1..Q-AO10 NOT built. Server-only text rendering in `export.ts`; recommended font Noto Sans subset (OFL 1.1, ~28 KB per weight). No harness rule change.
 - 2026-10-21 #176 built (PR #203): PF exports embed Noto Sans subsets (OFL 1.1, `src/lib/finance/fonts/` with `OFL.txt` + `FONTS.md`; regenerate the base64 module with `node scripts/gen-export-fonts.mjs`). A rendering change must regenerate and re-sign-off the golden crops in `qa/evidence/176/` (spec 50.9).
+- 2026-10-21: grok.me is retired; production is https://orpheus-app-beta.vercel.app (the only deploy path is Vercel).
