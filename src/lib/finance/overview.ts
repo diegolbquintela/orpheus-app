@@ -12,7 +12,6 @@ type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 export const OVERVIEW_KEY = "orpheus.finance.overview.v1";
 export const OVERVIEW_TITLE = "Overview";
-export const UPDATE_TITLE = "Update";
 export const THIS_MONTH = "This month";
 export const AVERAGE = "12-month average";
 /** #126 (PF-85): the 3-month column. */
@@ -60,14 +59,10 @@ export const AS_OF_ERROR = "Enter a month as YYYY-MM, from 2020-01 to this month
 export const AS_OF_FIRST = "2020-01";
 export const GROWTH_LABEL = "Growth rate (%)";
 export const FUTURE_LABEL = "Future";
-export const MONTH_LABEL = "Month";
-/** #105 (PF-43): the Update panel. */
-export const UPDATE_MONTH = "Update month";
 export const SAVE = "Save";
 export const UNSAVED = "Unsaved changes";
 /** #144 Q-V3 (CFO option c, PF-172): shown above the Overview while any field is in error. */
 export const FIGURES_LEAVE_OUT = "Figures leave out fields marked in red.";
-export const CANCEL = "Cancel";
 export const CHART_CAPTION = "Expenses, income and net assets by month";
 export const YEARS = [1, 5, 10, 15] as const;
 export type Years = (typeof YEARS)[number];

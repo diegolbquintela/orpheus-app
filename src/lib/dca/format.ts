@@ -24,11 +24,3 @@ export function quote(value: number | null): string {
   const digits = value >= 1000 ? 0 : value >= 1 ? 2 : 4;
   return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
-
-export function shareCount(value: number): string {
-  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
-}
-
-export function weightLabel(weight: number): string {
-  return `${(weight * 100).toFixed(1)}%`;
-}

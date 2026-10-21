@@ -16,8 +16,6 @@ export const METRICS = [
 
 export type MetricKey = (typeof METRICS)[number]["key"];
 export const METRIC_KEYS: MetricKey[] = METRICS.map((m) => m.key);
-export const isMetricKey = (k: unknown): k is MetricKey => typeof k === "string" && (METRIC_KEYS as string[]).includes(k);
-export const metricLabel = (k: string) => METRICS.find((m) => m.key === k)?.label ?? k;
 
 /**
  * Chips (epic #53 ticket 4, #57; spec §0.2 "Metrics sheet", §0.5 items 3–4): the eight metrics plus

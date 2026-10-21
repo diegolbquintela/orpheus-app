@@ -8,7 +8,6 @@
 
 export const CURRENCY_KEY = "orpheus.finance.currency.v1";
 export const HOUSEHOLD_LABEL = "Household currency";
-export const CURRENCY_LABEL = "Currency";
 export const FX_RATE_LABEL = "FX rate";
 export const RATE_ERROR = "Enter a number above 0.";
 /** #170 Q-AH11 (CFO, spec 43.8): dim note beside a foreign `FX rate`; the page itself keeps the typed rate. */
