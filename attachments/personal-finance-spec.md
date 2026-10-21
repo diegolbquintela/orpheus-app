@@ -1592,3 +1592,34 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
   - 46.11 / 46.14: deleted names on a line are offered as `<name> (deleted)` (e.g. `Travel (deleted)`). The picker equals the server's known set. A saved series the server lists in `missing[]` is still shown, as missing.
   - Q-AK9 / Q-AK13: export as in #161.
 47.12 (2026-10-20, CFO decisions 1–3 on PR #195 at 18117b1; additions only) (1) Read means read only: spec 33.10 and 38.12, AC PFR-14 / PFRC-12 notes. (2) No write check on `/series`, `/chart`, `/export`. A Read-grant export still writes its #157 `pf.report_export` row and answers 503 `Export unavailable. Try again.` with no file if that row can't be written (PFCV-17, `export.server.test.ts`, PGlite, both TZs). (3) `PUT /api/personal-finance/view` (section toggles) still needs only Read; it is parked, out of #162.
+
+## 48. Personal Finance: Delete buttons for categories and accounts (#168, flip `PF_DELETE_UI`; added 2026-10-20; Phase 1: spec and Qs, nothing built)
+
+48.0 **Scope.** #168 turns on the `Delete category` and `Delete account` buttons that #165 built and kept off (spec 35.9 / 35.10; PR #167 at fd00400 QA'd them with the flag on). The protection is unchanged: earlier months keep a deleted name as `<name> (deleted)`, totals and averages don't change, and the report returns `deleted[]`. It applies to **categories and accounts only**. It is not the Charts report Delete (#162 Q-AL7, the default report), which is a separate decision tracked under #165's follow-up. Out of scope: `PUT /api/personal-finance/view` (parked), #93 / PR #117.
+48.1 **What `PF_DELETE_UI` is (facts).** A **code constant**, `export const PF_DELETE_UI = false` in `src/lib/finance/flags.ts`, read once as the default of `PersonalFinancePage`'s `deleteUi` prop (`expenses-page.tsx`). It is **not** an environment variable, so no Vercel or env change is needed (none will be made). Flipping it is one line, and it applies to every deployment that builds the commit (preview, then prod after merge).
+48.2 **What turns on.** `Delete category` beside `Rename` and `Delete account` beside `Filter by account`. The confirm is CFO-accepted (Q-Z2): `Delete <name>? This month and later months lose it; earlier months keep it, marked (deleted).`. Today it is shown with the browser's `window.confirm` (#165 build). A delete is an unsaved change until Save (35.2), and Save applies it to the shown month and later months (35.2–35.8 as written).
+48.3 **Read grant (fact and gap).**
+- Server: a Read grant cannot save the record. `PUT /api/personal-finance` needs write (ROLE-10, `roles.mjs`), so a delete never stores.
+- UI gap: on a Read grant the Delete buttons are not hidden today. They render inside the read-only `Lock` fieldset (disabled), because `onDelete` depends on `deleteUi` only. #168 must hide them (`deleteUi && !readOnly`, Q-AM3), matching the #162 rule (Delete hidden for Read).
+48.4 **Tests to re-run with the UI on.** PFD-01..PFD-15 (DOM tests already pass `deleteUi` both ways). The flag-off case of PFD-15 becomes the guard for the `deleteUi={false}` prop path. In `pf-months.mjs`, the PFD Delete flow (today SKIPPED when the buttons are absent) runs again on the preview.
+48.5 Q-calls (CFO), each with a recommendation; **none built** (Phase 1):
+- Q-AM1 Flip `PF_DELETE_UI` to `true` (code constant, one commit): **rec** yes. Not built.
+- Q-AM2 Is it an env flag? **Answer:** no, a code constant (48.1). **rec** keep it a constant, with no env var and no Vercel change. Making it an env flag would be a separate Q (out of ticket). Not built.
+- Q-AM3 Read grant: **rec** hide both Delete buttons and the confirm (`deleteUi && !readOnly`); the server already refuses the save. Not built.
+- Q-AM4 Does #168 include the Charts default report Delete (#162 Q-AL7)? **rec** no. #168 is categories and accounts only; the default report Delete stays hidden until Diego decides via CoS (#165 follow-up). Not built.
+- Q-AM5 Confirm style: **rec** keep the CFO-accepted text and the browser `window.confirm` as built and QA'd in #167. An in-page confirm like #162 Q-AL5 would be polish, out of ticket. Not built.
+- Q-AM6 The CFO re-confirms the Q-Z1..Q-Z12 behaviour with the UI on (issue "CFO re-confirm"): **rec** yes, on the preview after the flip. Not built.
+- Q-AM7 Undo of a saved delete: **rec** none (as #165: re-adding the name re-links it, Q-Z4). Not built.
+- Q-AM8 Tap targets and style: **rec** the existing `pf-button` style with `--color-danger` like #162's Delete, and ≥ 44 px at 390 px. The #167 build's style is otherwise unchanged. Not built.
+48.6 (2026-10-20, CFO decision) Q-AM1..Q-AM8 are accepted as recommended, with two changes. The answers are now **built** on PR #196:
+- Q-AM1 built: `PF_DELETE_UI = true` (`src/lib/finance/flags.ts`).
+- Q-AM2: a code constant, with no env var and no Vercel change.
+- Q-AM3 built: `onDelete={!deleteUi || readOnly ? null : …}` in `expenses-page.tsx`, so a Read grant renders neither button nor any confirm.
+- Q-AM4: the Charts default report Delete stays hidden (#162 Q-AL7, unchanged).
+- Q-AM5: `window.confirm` with the #167 text, unchanged.
+- **Q-AM6 change:** the CFO can't sign in, so QA runs Q-Z1..Q-Z12 on the preview with screenshots for the CFO's sign-off (steps PFDU-Z1..Z12 in the AC pack).
+- **Q-AM7 addition:** re-adding a deleted name (any case) clears its `(deleted)` label and does **not** rewrite earlier months. Pinned on PGlite in `src/lib/finance/relink.server.test.ts` (both TZs); keeping the deleted entry on re-add is caught.
+- Q-AM8 built (EL ruling T4): both Delete buttons change from `pf-cancel pf-rename` to `pf-button pf-button-danger pf-delete`. That is a transparent fill, with text and a 1 px border in the existing `--color-danger` token (`#ff4136`), min-height 2.75rem (44 px), and `--color-dim` when disabled. No new colour.
+48.7 (2026-10-20, QA T1–T3 on b89b42c; corrects 48.3, nothing above removed)
+- **T1:** 48.3 said the buttons render "inside the read-only `Lock` fieldset (disabled), because `onDelete` depends on `deleteUi` only". That reason is wrong. The account / category bar (`CategoryFilter` in `expenses-page.tsx`) sits **outside** `Lock` (which wraps only `EquityRates`). Before #168 a Read grant's buttons were disabled by their own `disabled={readOnly || account === ALL}` / `disabled={readOnly || value === ALL || renaming}`, not by the fieldset. #168 hides them (Q-AM3). Design Q-Z10 ("both buttons are disabled, as Rename is") is superseded for Delete: hidden.
+- **T3:** the harness (AGENTS.md) gets only the one dated #168 index line (added at b89b42c). No harness rule changes, because #168 adds no route, endpoint, flag mechanism or QA process; it flips an existing constant and reuses existing tools (`pf-months.mjs` already runs the Delete flow when the buttons exist).

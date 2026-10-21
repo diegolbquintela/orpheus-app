@@ -474,7 +474,8 @@ export function PersonalFinancePage({
                           setFilter(result.name);
                           return null;
                         }}
-                        onDelete={!deleteUi ? null : (kind, name) => {
+                        onDelete={!deleteUi || readOnly ? null : (kind, name) => {
+                          // #168 Q-AM3: hidden (not just disabled) for a Read grant; the server refuses the save anyway.
                           // #165 (PFD-01, Q-Z2): confirm, then the shown month loses it now; Save applies it onwards.
                           if (!month || !window.confirm(deleteNameQuestion(name))) return;
                           update((e) => deleteName(e, kind, name, month));
@@ -894,7 +895,7 @@ function CategoryFilter({
         {onDelete && accounts.length > 0 ? (
           <button
             type="button"
-            className="pf-cancel pf-rename"
+            className="pf-button pf-button-danger pf-delete"
             disabled={readOnly || account === ALL}
             onClick={() => onDelete("account", account)}
             data-testid="pf-delete-account"
@@ -935,7 +936,7 @@ function CategoryFilter({
             {onDelete ? (
               <button
                 type="button"
-                className="pf-cancel pf-rename"
+                className="pf-button pf-button-danger pf-delete"
                 disabled={readOnly || value === ALL || renaming}
                 onClick={() => onDelete("category", value)}
                 data-testid="pf-delete-category"

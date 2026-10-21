@@ -2640,6 +2640,27 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     assert.equal(qa(el, "pf-delete-category").length, PF_DELETE_UI ? 1 : 0, `the default follows PF_DELETE_UI (${PF_DELETE_UI})`);
   });
 
+  it("#168 PFDU-05 / Q-AM3: Read grant → no Delete category / Delete account and no confirm text (hidden, not disabled); owner / Write sees both, danger style", async () => {
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: ["Chase"], categories: ["Home"] }));
+    for (const readOnly of [true, false]) {
+      container = dom.window.document.createElement("div");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadLocalStore} deleteUi readOnly={readOnly} />));
+      const el = container;
+      assert.equal(qa(el, "pf-delete-category").length, readOnly ? 0 : 1, `category readOnly=${readOnly}`);
+      assert.equal(qa(el, "pf-delete-account").length, readOnly ? 0 : 1, `account readOnly=${readOnly}`);
+      assert.equal(el.textContent!.includes("Delete category") || el.textContent!.includes("Delete account"), !readOnly);
+      assert.equal(el.textContent!.includes("This month and later months lose it"), false);
+      if (!readOnly) for (const b of [...qa(el, "pf-delete-category"), ...qa(el, "pf-delete-account")]) assert.ok(b.classList.contains("pf-button") && b.classList.contains("pf-button-danger") && b.classList.contains("pf-delete"), "Q-AM8 style");
+      await act(async () => root!.unmount());
+      container.remove();
+      root = undefined;
+      container = undefined;
+    }
+    assert.equal(PF_DELETE_UI, true, "#168 Q-AM1: the constant is on");
+  });
+
   it("PFM-10 / PFM-19: read-only opens any month (an empty past one blank, no copy button), never Save", async () => {
     dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
     dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ ...months(14, 14, "300"), "2026-10": { fixed: [LINE("1,750")], variable: [], people: [] } }));
