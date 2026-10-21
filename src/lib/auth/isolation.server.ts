@@ -17,8 +17,8 @@ import { getRequest } from "@tanstack/react-start/server";
  * requests (SSR / server-to-server, which send no `Sec-Fetch-Site`), and
  * top-level GET navigations (how normal page loads arrive). Every cross-site / same-site *scripted* request is rejected.
  * Together with `__Host-` cookies and Better Auth's `trustedOrigins`, this
- * closes the sibling-tenant attack surface. Enforced at the `authMiddleware`
- * chokepoint (see `middleware.ts`).
+ * closes the sibling-tenant attack surface. Callers assert it before touching per-user data
+ * (today: `src/lib/app-data/client.server.ts`; #186 removed the unused template middleware).
  */
 export class CrossSiteRequestError extends Error {
   readonly status = 403;

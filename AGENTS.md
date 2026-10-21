@@ -521,6 +521,7 @@ curl -s  http://localhost:8080/api/dashboard/status
   verified session (`requireUserId()`), never from the client. Connection and status:
   `src/lib/dashboard/db.server.ts`. It has no PGLite fallback, so a deployment without a database URL
   reports "not configured".
+  - Note (2026-10-21, #186): `requireUserId()` and the template `authMiddleware` no longer exist. The verified session comes from `getSessionUserFromHeaders` (`src/lib/auth/verify.server.ts`, via `src/lib/dashboard/session.server.ts`).
 - `GET /api/dashboard/db` follows the dashboard API pattern. Flag off: 404 JSON for every method. Flag on:
   GET/HEAD return the status JSON and any other method gets **405 JSON with `Allow: GET, HEAD`**. On
   production (`VERCEL_ENV=production`) it's 404 JSON for every method, and `/dashboard` has no status line.
@@ -1206,3 +1207,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - 2026-10-21: grok.me is retired; production is https://orpheus-app-beta.vercel.app (the only deploy path is Vercel).
 - 2026-10-21 #183 (tooling): every `npm test` stage runs through `scripts/test-runner.mjs` (TAP, exit 1 on a non-zero node exit or any `not ok` line except `# TODO` / `# SKIP`), because node can print `not ok` for a nested suite that throws while loading and still exit 0 with `# fail 0`. Add new test stages through it, never a bare `node --test`. Design `attachments/test-runner-load-failure-design.md`, AC TLF-01..08, Q-TLF1..4 (EL).
 - 2026-10-21 #185 (cleanup): the orphaned template WebRTC module `src/lib/multiplayer/` (P2PRoom, which needed a `/api/rtc` route that never existed) is deleted. The proof that it was unused is in AC DMP-03; the build output is byte-size-identical (DMP-04). No doc referenced it. Don't reintroduce template multiplayer code without a ticket.
+- 2026-10-21 #186 (cleanup): the unused template auth layer is gone: `gates.tsx`, `use-current-user.ts`, `sign-in-gate.ts` (+ test), `middleware.ts`, and in `verify.server.ts` `getSessionUser` / `requireUserId` / `UnauthorizedError` / `DEV_USER_ID`, plus `authEnabled` in `client.ts`. The one auth path is `getSessionUserFromHeaders` + `/api/account/*`. `isolation.server.ts` is kept (app-data uses it). AC TAR-01..10, dashboard-spec §20.

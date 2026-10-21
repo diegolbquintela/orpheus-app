@@ -708,6 +708,8 @@ template's migration header asks. Per-user tables have `user_id TEXT NOT NULL` (
 and every query is scoped to the verified session user on the server (`requireUserId()` in
 `src/lib/auth/verify.server.ts`). A client-supplied user id is never trusted.
 
+> Note (2026-10-21, #186): `requireUserId()` was removed with the unused template auth layer. The verified session user now comes from `getSessionUserFromHeaders` in the same file (spec §20).
+
 Per-user tables:
 
 | Table | Columns | Keys |
@@ -1605,3 +1607,29 @@ Business user: Portfolio Manager. Design and Q-T1..Q-T4: [`attachments/roic-tool
 ### 19.1 Addendum: short wording (Q-T1, PM decision)
 
 PM chose the short wording for Q-T1, which supersedes the long wording quoted in §19 above. The tooltip text is now exactly: `Operating income after tax ÷ average (equity + debt − cash). Cash excluded.` Behaviour, placement and layout are unchanged (PM accepted Q-T2..Q-T4 as built). The tax clamp, the 25% fallback and the two-year-end average stay in §8. AC CV-22.
+
+## 20. Remove the unused template auth layer (#186; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+20.1 **Facts at 7453109.** The template shipped a client sign-in kit and a server-function auth middleware that nothing imports. The only importers were the kit files themselves (proof: `grep -rn` for each removed module path and identifier across `src scripts` returned only the removed files themselves; full log in [PR #211 comment](https://github.com/diegolbquintela/orpheus-app/pull/211#issuecomment-6319137365)):
+- `src/lib/auth/gates.tsx` (`SignedIn`, `SignedOut`, `RedirectToSignIn`, `SignInGate`, `UserButton`, `SIGN_IN_PATH`).
+- `use-current-user.ts` (`useCurrentUser*`, `DEV_USER`).
+- `sign-in-gate.ts` + `sign-in-gate.test.ts`.
+- `middleware.ts` (`authMiddleware`).
+- In `verify.server.ts`: `getSessionUser`, `requireUserId`, `UnauthorizedError`, `DEV_USER_ID`, `databaseConfigured`.
+- In `client.ts`: `authEnabled`.
+
+The live auth path is unchanged: `getSessionUserFromHeaders` (`verify.server.ts`) via `src/lib/dashboard/session.server.ts`, plus `/api/account/*` and Better Auth at `/api/auth/*`.
+
+20.2 **Change.**
+- Delete the 5 files.
+- Drop `src/lib/auth/sign-in-gate.test.ts` from the `npm test` script.
+- Trim `verify.server.ts`, keeping `getSessionUserFromHeaders`, `VerifiedUser` and the `authConfigured` re-export.
+- Trim `client.ts` by removing `authEnabled`; `authClient` and `signOut` stay.
+- Update the stale comment in `store.server.ts` and the comment in `isolation.server.ts`. **`isolation.server.ts` is kept**, because `src/lib/app-data/client.server.ts` imports it.
+- `VITE_AUTH_ENABLED` is still read at runtime by `authReadiness` (`config.ts`), so the env var, README and release docs are unchanged. No env or Vercel change.
+
+20.3 **Q-calls (EL), each with a recommendation.**
+- **Q-TAR1:** the issue's verify grep pattern `gates` also matches English words in comments (`page gates`, `aggregates`, `navigates`). **rec:** the AC grep uses the precise identifiers and paths (TAR-02); bare-word hits are prose, not code. **Built** (as the AC).
+- **Q-TAR2:** the `app-data` module (parked) keeps `isolation.server.ts`. **rec:** keep it as the issue says; its header now points at app-data instead of the removed middleware. **Built.**
+- **Q-TAR3:** `VITE_AUTH_ENABLED` stays (server readiness). **rec:** no env change; a separate ticket if it should be retired. **Not built.**
+
