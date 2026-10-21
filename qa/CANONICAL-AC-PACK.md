@@ -1521,3 +1521,14 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | TLF-06 | BLOCK | Local repro: with `scripts/zz-broken-load.test.mjs` (the design note §1 file) present, `npm test` exits **non-zero** under TZ=UTC and TZ=America/Los_Angeles (it exited 0 before the fix). Removed → exit 0. |
 | TLF-07 | BLOCK | CI mutation proof: the PR commit that adds the broken file has a red `check` (Test step, npm test non-zero). The next commit removes it and `check` is green. Both run URLs are in the PR body. |
 | TLF-08 | BLOCK | No suite weakened: the test file lists are unchanged. With the fix, `npm test` passes with the baseline counts plus the new TLF tests: scripts 86 → 94 (+8), src 837, DOM 235. 0 `not ok` and 0 cancelled in both TZs. |
+
+## DMP — Remove the orphaned WebRTC multiplayer module (#185; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+| ID | Severity | Check |
+|---|---|---|
+| DMP-01 | BLOCK | `src/lib/multiplayer/` (`index.ts`, `p2p.ts`; 579 lines) is gone, and nothing else in the diff changes except docs (this pack, AGENTS.md). |
+| DMP-02 | BLOCK | `grep -rn "multiplayer\|P2PRoom\|/api/rtc" src scripts qa` prints nothing (exit 1). |
+| DMP-03 | BLOCK | No live dependent existed before the delete. At 80f2d4e, the only hits for `P2PRoom`, `defaultIceServers`, `VITE_STUN_URLS`, `/api/rtc`, an `import(` of the module or `from '…multiplayer'` were inside `src/lib/multiplayer/`. There was no `api/` dir, no rtc route under `src/routes`, no `signaling*` file, and no hit in `vercel.json`, `package.json`, `tsconfig.json`, `eslint.config.mjs`, `vite.config.ts`, `.github` or any `*.md`. |
+| DMP-04 | BLOCK | Build unchanged or smaller: `npx vite build` `.vercel/output` (excluding `node_modules`) has 169 files and 10,387,643 bytes both before and after, with the same file names and sizes. Functions: `__server.func` only, both times. |
+| DMP-05 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0; eslint 0 errors; npm test 94 + 837 + 235 pass, 0 fail, 0 cancelled, 0 `not ok`, the same counts as main (the module had no tests); `npx vite build` OK. |
+| DMP-06 | MAJOR | The preview's signed-out smoke is unchanged: `/`, `/calculator` and `/dashboard/sign-in` return 200. |
