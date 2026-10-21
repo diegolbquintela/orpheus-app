@@ -1549,3 +1549,18 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | TAR-08 | BLOCK | Preview, signed out: `/dashboard/sign-in` 200 with the sign-in form; `/account`, `/dashboard` and `/personal-finance` 307 to sign-in, as before. The signed-out suites (`site-shell`, `site-style-regression`, `signin-page`) pass with the same counts as main. |
 | TAR-09 | MAJOR | CI `check` green, including `check:dashboard-built`. |
 | TAR-10 | MINOR | README unchanged (no user-facing or env change; reason in the PR body). AGENTS.md has one dated #186 line plus a dated note under the stale `requireUserId()` line; dashboard-spec has a dated note under §5 and a new §20. |
+
+## DMH — Drop the superseded market-data helpers and the unused FX `convert` (#187, dashboard-spec §21; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+| ID | Severity | Check |
+|---|---|---|
+| DMH-01 | BLOCK | `store.server.ts` has no section after the per-user metric chips. Gone: the 13 helpers, their 6 row types, and `Region`, `FxSource`, `IsoDate`. `fx.server.ts` has no `convert()`. `store.test.ts` has no `describe("shared market data access")` block (5 tests). |
+| DMH-02 | BLOCK | `grep -rnwE "upsertInstrument\|getInstruments\|insertDailyCloses\|latestCloses\|upsertFxRates\|fxRateOnOrBefore\|upsertFundamentals\|listFundamentals\|upsertMetricValues\|listMetricValues\|claimRefreshRun\|finishRefreshRun\|lastSuccessfulRun\|Instrument\|DailyCloseRow\|FxRate\|FundamentalFact\|MetricValue\|RefreshRun\|FxSource\|IsoDate\|convert\(" src scripts package.json vite.config.ts` prints nothing (exit 1). Its paths exclude the AC pack and docs, so it never matches itself. `grep -rnw Region src` prints only the `src/lib/dca/venues.ts` comment. |
+| DMH-03 | BLOCK | Refresh path untouched (#210 paused): the transitive import graphs from `src/routes/api/cron/daily-refresh.ts`, `src/routes/api/dashboard/refresh.ts` and `src/routes/dashboard.tsx` contain no use of any removed name (spec 21.2). `daily-refresh.server.ts`, `refresh-api.server.ts` and the cron route are byte-identical to c030bbc. |
+| DMH-04 | BLOCK | Kept, with the same exports: the per-user functions, `DASHBOARD_TABLES`, `Queryable`, `BaseCurrency`, `BASE_CURRENCIES`, `DEFAULT_BASE_CURRENCY`, `MetricStatus`, `Decimal`; `fxFactor`, `rateOnOrBefore` and `ratesOnOrBefore` in `fx.server.ts`. |
+| DMH-05 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0; eslint 0 errors; npm test 0 fail, 0 cancelled, 0 `not ok`. The src count is main's minus exactly the 5 removed tests; the scripts and DOM counts are unchanged. `npx vite build` OK. |
+| DMH-06 | MAJOR | Build compare against main at a checkout path of the same length: the same file list. Sizes are the same or smaller (server chunks only), except the path-dependent tanstack manifest. No client chunk size change. |
+| DMH-07 | BLOCK | Mutation: a reference to a removed name (e.g. `store.claimRefreshRun`) makes DMH-02 print a hit, and tsc fails. |
+| DMH-08 | MAJOR | CI `check` green, including `check:dashboard-built`. |
+| DMH-09 | MAJOR | Preview, signed out, when one exists: `/dashboard` 307 to sign-in, `/api/dashboard/fx` 401 JSON, `/api/cron/daily-refresh` 401 JSON, as on main. The signed-out suites pass with main's counts. |
+| DMH-10 | MINOR | Docs additions only: dashboard-spec §21, a dated note under AGENTS.md's `convert()` line, one dated AGENTS.md #187 line. README is unchanged because it never named these helpers (reason in the PR body). |

@@ -1633,3 +1633,28 @@ The live auth path is unchanged: `getSessionUserFromHeaders` (`verify.server.ts`
 - **Q-TAR2:** the `app-data` module (parked) keeps `isolation.server.ts`. **rec:** keep it as the issue says; its header now points at app-data instead of the removed middleware. **Built.**
 - **Q-TAR3:** `VITE_AUTH_ENABLED` stays (server readiness). **rec:** no env change; a separate ticket if it should be retired. **Not built.**
 
+## 21. Drop the superseded market-data helpers in `store.server.ts` and the unused FX `convert` (#187; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+21.1 **Facts at c030bbc.**
+- **Typed shared-data helpers in `src/lib/dashboard/store.server.ts`:** `upsertInstrument`, `getInstruments`, `insertDailyCloses`, `latestCloses`, `upsertFxRates`, `fxRateOnOrBefore`, `upsertFundamentals`, `listFundamentals`, `upsertMetricValues`, `listMetricValues`, `claimRefreshRun`, `finishRefreshRun` and `lastSuccessfulRun`, with the types `Instrument`, `DailyCloseRow`, `FxRate`, `FundamentalFact`, `MetricValue` and `RefreshRun`.
+  - They were called only by one `describe` block in `store.test.ts`.
+  - The daily job writes with its own SQL, which carries newer columns (`adj_close_src`, `mic`, `provider_ids`): `daily-refresh.server.ts` (its own `acquireRunLock` on `refresh_runs`), `fx.server.ts` and `fundamentals.server.ts`.
+- **`fx.server.ts` `convert()`:** had no callers; they use `fxFactor()`.
+- **`Region`, `FxSource`, `IsoDate`:** used only inside the removed section.
+
+21.2 **Proof.**
+- **Word grep of every removed name** over `src scripts qa` (`.ts`, `.tsx`, `.mjs`): the only hits outside the removed code are the removed test block, `convert`'s own definition, and prose comments ("Region of a US…" in `venues.ts`, "…months convert between…" in `fx-history.server.ts`).
+- **Refresh path (paused review #210):** a transitive import graph (relative and `@/` imports, static and dynamic) was walked from `src/routes/api/cron/daily-refresh.ts` (33 modules), `src/routes/api/dashboard/refresh.ts` (the preview Refresh button, 33 modules) and `src/routes/dashboard.tsx` (48 modules). It includes `store.server.ts`, for the kept per-user code and types, but no module in it uses `claimRefreshRun`, `finishRefreshRun`, `lastSuccessfulRun` or any other removed name. The only `convert` hit is its own definition.
+- The full command log is in the proof comment on the #187 pull request.
+
+21.3 **Change.**
+- Delete the section from `// --- shared: instruments` to the end of `store.server.ts`, plus `Region`, `FxSource` and `IsoDate`.
+- Rewrite the header's market-data bullet.
+- Delete the `describe("shared market data access")` block in `store.test.ts` (5 tests) and `convert()` in `fx.server.ts`.
+- **Kept:** the per-user section, `DASHBOARD_TABLES`, `Queryable`, `BaseCurrency`, `BASE_CURRENCIES`, `DEFAULT_BASE_CURRENCY`, `MetricStatus` and `Decimal`.
+- No schema, job, cron, route or env change.
+
+21.4 **Q-calls (EL), each with a recommendation.**
+- **Q-DMH1 Lost schema coverage:** the removed tests also exercised DB rules on the shared tables: idempotent closes (DASH-09), the FX holiday fallback, and the `metric_values` CHECK rejecting `ok` with a null value. **rec:** accept. The live code's tests cover the job paths (`daily-close.test.ts`, `fx.test.ts`, `fundamentals.test.ts`, `metric-compute.test.ts`). If EL wants the CHECK pinned, a follow-up adds one SQL-level test against the real writer. **Not built.**
+- **Q-DMH2 Verify grep:** the issue's `grep -rnw` over bare `Region` and `convert` matches prose. **rec:** the AC grep (DMH-02) lists the identifiers, with `convert\(` in place of bare `convert`; `Region`'s only remaining hit is the `venues.ts` comment. **Built** (as the AC).
+
