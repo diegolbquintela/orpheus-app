@@ -111,6 +111,7 @@ The app is hosted on Vercel.
 
 - `main` deploys automatically to production: https://orpheus-app-beta.vercel.app.
 - Every pull request gets its own public preview URL, which vercel[bot] posts as a comment on the PR.
+- 2026-10-20: a preview build is skipped when a push changes only docs (`*.md`, `docs/**`, `qa/runs/**`, `qa/evidence/**`; never anything under `public/` or `src/`). See `scripts/vercel-ignore.mjs`. Production and `main` always build.
 - Vercel is the only deploy path. Deploying through Grok has stopped. The old Grok copy at
   https://island-pearl-eagle-hill.grok.me stays published as a frozen old copy until the Chief of Staff
   confirms its retirement with Diego. It is not production and does not get updates.
