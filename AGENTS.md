@@ -1045,9 +1045,8 @@ The Grok App Builder template's files are gone (#50: the PWA / OG middleware, `/
 #51: `.grok/`, `startup.sh`, `scripts/preview*.mjs`, `with-app-env`, `app-env-plugin`, `check-auth-invariant`,
 `write-atomic`, `browser-smoke*`, `browser-guard`, `screenshots/app-builder-*`). `dev` / `build` / `preview` run
 Vite directly; never re-add them. Deploying
-through Grok has stopped: Vercel is the only deploy path. https://island-pearl-eagle-hill.grok.me stays
-published as a frozen old copy until the Chief of Staff confirms its retirement with Diego; never deploy
-to it or treat it as production. The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
+through Grok has stopped: Vercel is the only deploy path, and production is https://orpheus-app-beta.vercel.app.
+The old template `AGENTS.md` (sandbox, port-8080 preview proxy, Grok
 chat rules) was replaced by this file. Still from the template (parked, #50 N2): `src/lib/app-data/*`
 (the `GROK_*` connector env, `connectors.grok.me`), unused by any page.
 
@@ -1202,3 +1201,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - #166 PF Overview `This month` stable on an unsaved copy (added 2026-10-20, Phase 1): spec 49, AC PFTM-01..14, Q-AN1..Q-AN7 NOT built. Client figure rule only (`lineFigures` / `liveLineFigures`); no harness rule change.
 - 2026-10-20 (#vercel-ignore): `vercel.json` `ignoreCommand` runs `scripts/vercel-ignore.mjs`: preview builds are skipped when every changed path is docs-only (`*.md`, `docs/**`, `qa/runs/**`, `qa/evidence/**`); production, `main` and any error always build.
 - 2026-10-20 (#200 QA X2): the docs-only preview skip never applies to `public/**` or `src/**`. Those paths always build, even `.md` files, because public files are served.
+- 2026-10-21: grok.me is retired; production is https://orpheus-app-beta.vercel.app (the only deploy path is Vercel).
