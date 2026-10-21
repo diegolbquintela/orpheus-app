@@ -1506,3 +1506,18 @@ DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the ot
 > **Counts at the build:** npm test passes 86 + 837 + 235 (was 86 + 819 + 235). There are +19 `export-unicode.server.test.ts` tests (PFU-01..23; 12 to 16 are folded together as listed), and −1 retired F3 font test. The DOM count is unchanged. Signed-out suites are unchanged.
 
 > **Correction (2026-10-21, QA Z1 on dd23170; text only, no golden changed).** PFU-08's golden crop `qa/evidence/176/u-fallback.png` uses the report name **`Сбережения 貯金 🏠`**, which prints `Orpheus - Personal Finance report: ?????????? ?? ?`. The `貯金 🏠` named in the correction above is the PGlite fallback report only (its title prints `?? ?`). Spec 50.10.
+
+## TLF — npm test fails when a test file errors while loading (#183, `attachments/test-runner-load-failure-design.md`; added 2026-10-21; tooling, no business user)
+
+Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures `test-fixtures/test-runner/*.fixture.mjs`. Gates run under TZ=UTC and TZ=America/Los_Angeles on Node 22.
+
+| ID | Severity | Check |
+|---|---|---|
+| TLF-01 | BLOCK | Baseline pinned: bare `node --test --test-reporter=tap test-fixtures/test-runner/nested-broken-import.fixture.mjs` exits **0** with `# fail 0` and a `not ok N - inner` line (the bug, so the wrapper stays needed). |
+| TLF-02 | BLOCK | `node scripts/test-runner.mjs --test <fixture>` exits **1** for `nested-broken-import`, `nested-throw` and `top-level-broken-import`. On `nested-broken-import`, stderr has `[test-runner] FAIL: node exited 0 but printed 2 'not ok' line(s)`. |
+| TLF-03 | BLOCK | `pass.fixture.mjs` → exit 0. `todo.fixture.mjs` (`not ok … # TODO`) → exit 0 (Q-TLF2). |
+| TLF-04 | MAJOR | `notOkLines` ignores `# TODO` / `# SKIP` lines and keeps indented subtest `not ok` lines. `stageExit(0,[])=0`, `stageExit(0,[x])=1`, `stageExit(1,[])=1`. |
+| TLF-05 | BLOCK | `package.json` `test` has exactly 3 stages: `node scripts/test-runner.mjs --test 'scripts/**/*.test.mjs'`, `node scripts/test-runner.mjs --experimental-strip-types --test <list>` and `node scripts/run-dom-tests.mjs`. No bare `node --test`. `run-dom-tests.mjs` calls `runNodeTest(["--test", ...files]` and no longer uses `spawnSync`. |
+| TLF-06 | BLOCK | Local repro: with `scripts/zz-broken-load.test.mjs` (the design note §1 file) present, `npm test` exits **non-zero** under TZ=UTC and TZ=America/Los_Angeles (it exited 0 before the fix). Removed → exit 0. |
+| TLF-07 | BLOCK | CI mutation proof: the PR commit that adds the broken file has a red `check` (Test step, npm test non-zero). The next commit removes it and `check` is green. Both run URLs are in the PR body. |
+| TLF-08 | BLOCK | No suite weakened: the test file lists are unchanged. With the fix, `npm test` passes with the baseline counts plus the new TLF tests: scripts 86 → 94 (+8), src 837, DOM 235. 0 `not ok` and 0 cancelled in both TZs. |
