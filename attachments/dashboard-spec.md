@@ -1610,7 +1610,7 @@ PM chose the short wording for Q-T1, which supersedes the long wording quoted in
 
 ## 20. Remove the unused template auth layer (#186; added 2026-10-21; cleanup, no business user, no behaviour change)
 
-20.1 **Facts at 7453109.** The template shipped a client sign-in kit and a server-function auth middleware that nothing imports. The only importers were the kit files themselves (`/workspace/swe/186-t186-proof.txt`; summary in the PR):
+20.1 **Facts at 7453109.** The template shipped a client sign-in kit and a server-function auth middleware that nothing imports. The only importers were the kit files themselves (proof: `grep -rn` for each removed module path and identifier across `src scripts` returned only the removed files themselves; full log in [PR #211 comment](https://github.com/diegolbquintela/orpheus-app/pull/211#issuecomment-6319137365)):
 - `src/lib/auth/gates.tsx` (`SignedIn`, `SignedOut`, `RedirectToSignIn`, `SignInGate`, `UserButton`, `SIGN_IN_PATH`).
 - `use-current-user.ts` (`useCurrentUser*`, `DEV_USER`).
 - `sign-in-gate.ts` + `sign-in-gate.test.ts`.
