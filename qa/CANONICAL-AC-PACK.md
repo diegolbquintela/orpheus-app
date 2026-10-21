@@ -1474,3 +1474,33 @@ Backend only, with no UI, so viewports 390 / 768 / 1440 don't apply.
 - The PFU-14 font tests.
 
 DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the other 10.
+
+> **Correction (2026-10-21, CFO decisions on PR #203 + QA Y1–Y12 on dbf4881; spec 50.9).** PFU is **built** on PR #203. The CFO answered every Q-AO (Q-AO8 changed). Where these notes differ from the PFU rows above, these notes win, and the "Phase 1, nothing built" heading above is superseded.
+> - **Fixture U** is now spec 50.9's exact record (Y1 / Y2), in `src/lib/finance/export-golden/fixture-u.ts`:
+>   - The report name is **U1** verbatim.
+>   - The category is **U2** `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş Ő`.
+>   - The account is `Konto € £ ¥ R$ ₩ pgqyj`.
+>   - The range is the closed months 2026-07..09, with the clock at 2026-10-21T12:00Z.
+>   - The `/chart` rows are `[1234.56, 789]` × 3.
+> - Every PFU now runs on fixture U (or the #157 golden record for PFU-09 / 10 / 11), in `src/lib/finance/export-unicode.server.test.ts` (new; in `npm test`).
+> - **PFU-01** reads `Orpheus - Personal Finance report: Épargne café crème — Zürich, Ñandú, Øresund, Straße`, then `1. Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş Ő (category, flow)` and `2. Konto € £ ¥ R$ ₩ pgqyj (account, flow)`. The rows read `Month 1 2 | 2026-07 1,234.56 789.00 | …`.
+> - **PFU-03** constants are in spec 50.9 (Y9).
+> - **PFU-04 / 05 / 06 / 07 / 08 / 11** are also pinned to the committed golden crops `qa/evidence/176/*.png` (raw-RGB SHA-256 in spec 50.9 and `goldens.json`) for QA's visual sign-off (Y3). The PFU-07 baseline is defined in 50.9 (Y10).
+> - **PFU-08** uses the fallback report: its name `貯金 🏠` prints `?? ?`, and the category U5 prints `??????????` (10 code points, Y5).
+> - **PFU-09 / 10** compare against `export-golden/3f59104.json`, captured on the 3f59104 code (Y10).
+> - **PFU-14** includes U+20A9 ₩ (Y6). The budget is ≤ 32,768 bytes per weight; measured 21,748 / 21,696.
+> - **PFU-15** is a signed-in check only. `pf-export-api` checks that the PDF title line equals the report name through the same text rule. QA runs it on a non-prod preview. The signed-out run is unchanged (PFX-01 1/1).
+> - **Y4:** PFU-01 / PFU-08 supersede **PFX-11**. PFX-14 stays under 100 KB with the fonts included: measured 75,170 bytes for the PDF.
+> - **Y8:** PFX-01..PFX-19 are otherwise unchanged. PFX-03's filename example is now `orpheus-report-spend-ete-…` (Q-AO8).
+>
+> | ID | Severity | Check (added 2026-10-21, Y7 / Y8 / Q-AO8) |
+> |---|---|---|
+> | PFU-17 | MAJOR | NFC: `Cafe` + U+0301 prints `Café`; `C` + U+0327 + `a` prints `Ça`. |
+> | PFU-18 | MAJOR | NBSP U+00A0 is kept (`a\u00a0b` stays, with a glyph); the soft hyphen U+00AD is dropped (`Spar\u00adkonto` → `Sparkonto`). |
+> | PFU-19 | MAJOR | Controls: tab / CR / LF → one space each (`a\tb\r\nc` → `a b  c`); U+0007, U+007F and U+0085 → `?` each (`a?b?c?d`). |
+> | PFU-20 | MAJOR | Long-name wrap: the name `WWWWWWWWWW` × 8 (space-separated) wraps the PNG title over at least 2 lines. No word is lost (the first two lines rejoin to the name), and every line ends before W − M px. |
+> | PFU-21 | MAJOR | Bold coverage: Bold maps exactly Regular's code points; `é` differs between the weights. |
+> | PFU-22 | BLOCK | Q-AO8: `asciiName("Épargne")` = `Epargne`; `asciiName("Ça")` = `Ca`; `asciiName("Łódź")` = `-odz`. U's file is `orpheus-report-epargne-cafe-creme-zurich-nandu-resund-s-2026-10-21.pdf`. |
+> | PFU-23 | BLOCK | Access is unchanged on U: the owner 200; qa-cfo-read (a Read grant, no saved reports) 404 `Report not found.` on `default` and on the owner's id; no grant 403. |
+>
+> **Counts at the build:** npm test passes 86 + 837 + 235 (was 86 + 819 + 235). There are +19 `export-unicode.server.test.ts` tests (PFU-01..23; 12 to 16 are folded together as listed), and −1 retired F3 font test. The DOM count is unchanged. Signed-out suites are unchanged.

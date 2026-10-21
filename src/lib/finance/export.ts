@@ -2,11 +2,20 @@ import { deflateSync } from "node:zlib";
 import type { ChartData } from "./chart.ts";
 import type { ReportRange } from "./report.ts";
 import { formatMoney } from "./money.ts";
+import { TrueTypeFont } from "./ttf.ts";
+import { NOTO_SANS_BOLD_B64, NOTO_SANS_REGULAR_B64 } from "./fonts/noto-sans-subset.ts";
+
+/**
+ * #176 (spec 50): both formats print with the embedded Noto Sans subsets (OFL 1.1, `fonts/`): Latin-1, Latin
+ * Extended-A, `– — … − € ₩`. The PDF embeds them as Type0 / CIDFontType2 fonts; the PNG rasterizes them (`ttf.ts`).
+ */
+export const FONT_REGULAR = new TrueTypeFont(Buffer.from(NOTO_SANS_REGULAR_B64, "base64"));
+export const FONT_BOLD = new TrueTypeFont(Buffer.from(NOTO_SANS_BOLD_B64, "base64"));
 
 /**
  * #157 (spec section 39, PFX-01..PFX-18; design `attachments/pf-export-design.md`): PDF and PNG exports of a saved
- * report. Zero dependencies (Q-AD6): a minimal hand-written PDF 1.4 (Helvetica, uncompressed text) and a PNG drawn
- * into an RGB buffer with a built-in 5x7 font, compressed with `node:zlib`. The numbers are the `/chart` data passed in
+ * report. Zero dependencies (Q-AD6): a minimal hand-written PDF 1.4 (uncompressed text) and a PNG drawn into an RGB
+ * buffer, compressed with `node:zlib`. Since #176 both print with the embedded Noto Sans subsets (see below). The numbers are the `/chart` data passed in
  * (`chartData`, never re-derived); both files also carry that exact data as JSON (PDF Info `/OrpheusData`, PNG
  * `tEXt` `orpheus-data`) so a reader can check it.
  */
@@ -48,6 +57,23 @@ export const rangeLabel = (d: Pick<ChartData, "range" | "current" | "net_assets_
 /** ASCII only (Q-AD9): other characters print as `?` in both formats. */
 export const ascii = (s: string): string => s.replace(/[\u2013\u2014]/g, "-").replace(/[^\x20-\x7e]/g, "?");
 
+/**
+ * #176 (spec 50.5): the text both formats print. NFC first; tab / CR / LF become a space; the soft hyphen (U+00AD) is
+ * dropped; then each **code point** the embedded font has is kept and every other one (C0 / C1 controls, Cyrillic,
+ * CJK, emoji, ...) prints as exactly one `?`.
+ */
+export function printable(s: string): string {
+  let out = "";
+  for (const ch of s.normalize("NFC").replace(/[\t\r\n]/g, " ").replace(/\u00ad/g, "")) {
+    const cp = ch.codePointAt(0) ?? 0;
+    out += cp >= 0x20 && FONT_REGULAR.glyphId(cp) !== 0 ? ch : "?";
+  }
+  return out;
+}
+
+/** #176 Q-AO8 (CFO change): filenames stay ASCII: NFD, drop combining marks (\p{M}), then any other non-ASCII → `-`. */
+export const asciiName = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").replace(/[^ -~]/gu, "-");
+
 /** #157 PFX-18 (CFO, 2026-10-17): bar and stacked-bar reports are drawn as lines in the stub; both formats say so. */
 export const LINES_NOTE = "Rendered as lines";
 export const drawnAsLines = (d: Pick<ChartData, "chart">): boolean => d.chart !== "line";
@@ -70,12 +96,12 @@ export function headerLines(d: ChartData, meta: ExportMeta): string[] {
         : [`Net assets from: ${d.net_assets_from ?? "no data"}`, `Caveat: ${NET_ASSETS_CAVEAT}`]),
     );
   if (d.mixed_axes) out.push(MIXED_LINE);
-  return out.map(ascii);
+  return out.map(printable);
 }
 
 const cell = (v: number | null): string => (v === null ? "-" : formatMoney(v));
 const legend = (d: ChartData): string[] =>
-  d.series.map((s, i) => ascii(`${i + 1}. ${s.label} (${s.kind}, ${s.axis}${s.stack ? ", stacked" : ""}${s.missing ? ", missing" : ""})`));
+  d.series.map((s, i) => printable(`${i + 1}. ${s.label} (${s.kind}, ${s.axis}${s.stack ? ", stacked" : ""}${s.missing ? ", missing" : ""})`));
 
 const wrap = (text: string, max: number): string[] => {
   const out: string[] = [];
@@ -96,9 +122,35 @@ export const dataJson = (d: ChartData): string =>
 
 // ---------- PDF ----------
 
-const W_HELV: Record<string, number> = { " ": 278, ",": 278, ".": 278, "-": 333, "(": 333, ")": 333, ":": 278 };
-const textWidth = (s: string, size: number): number => [...s].reduce((a, c) => a + (W_HELV[c] ?? (/[0-9]/.test(c) ? 556 : 560)), 0) * (size / 1000);
-const pdfText = (s: string): string => `(${ascii(s).replace(/[\\()]/g, (c) => `\\${c}`)})`;
+/** Glyph ids for printed text (`printable` first, so a missing code point is the `?` glyph). */
+const glyphs = (font: TrueTypeFont, s: string): number[] => [...printable(s)].map((ch) => font.glyphId(ch.codePointAt(0) ?? 0));
+/** #176 PFU-03: widths from the embedded font's `hmtx` (units per em 1000 in both subsets). */
+export const pdfTextWidth = (s: string, size: number, font: TrueTypeFont = FONT_REGULAR): number =>
+  glyphs(font, s).reduce((a, g) => a + font.advance(g), 0) * (size / font.unitsPerEm);
+/** A hex string of 2-byte glyph ids (Identity-H). */
+const pdfText = (s: string, font: TrueTypeFont): string => `<${glyphs(font, s).map((g) => g.toString(16).padStart(4, "0")).join("")}>`;
+/** PDF text string for metadata: UTF-16BE with a BOM (#176 Q-AO9). */
+const pdfUtf16 = (s: string): string => `<FEFF${[...Buffer.from(s, "utf16le").swap16()].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase()}>`;
+export const PDF_FONT_NAMES = ["ORPHAA+NotoSans-Regular", "ORPHAB+NotoSans-Bold"] as const;
+
+/** A ToUnicode CMap for every code point the font maps (glyph id → its first code point). */
+function toUnicode(font: TrueTypeFont): string {
+  const byGid = new Map<number, number>();
+  for (const [cp, g] of [...font.cmap.entries()].sort((a, z) => a[0] - z[0])) if (!byGid.has(g)) byGid.set(g, cp);
+  const hex = (n: number, w: number) => n.toString(16).toUpperCase().padStart(w, "0");
+  const utf16 = (cp: number) => [...Buffer.from(String.fromCodePoint(cp), "utf16le").swap16()].map((b) => hex(b, 2)).join("");
+  const pairs = [...byGid.entries()].sort((a, z) => a[0] - z[0]);
+  const blocks: string[] = [];
+  for (let i = 0; i < pairs.length; i += 100) {
+    const part = pairs.slice(i, i + 100);
+    blocks.push(`${part.length} beginbfchar\n${part.map(([g, cp]) => `<${hex(g, 4)}> <${utf16(cp)}>`).join("\n")}\nendbfchar`);
+  }
+  return [
+    "/CIDInit /ProcSet findresource begin", "12 dict begin", "begincmap",
+    "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def", "/CMapName /Adobe-Identity-UCS def", "/CMapType 2 def",
+    "1 begincodespacerange", "<0000> <FFFF>", "endcodespacerange", ...blocks, "endcmap", "CMapName currentdict /CMap defineresource pop", "end", "end",
+  ].join("\n");
+}
 
 /** A landscape A4 PDF: header, legend, then one row per month with one column per series (Q-AD5). */
 export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
@@ -117,7 +169,7 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
   const line = (text: string, size = 8, bold = false, x = M) => {
     room(size + 3);
     y -= size + 3;
-    put(`BT /${bold ? "F2" : "F1"} ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td ${pdfText(text)} Tj ET`);
+    put(`BT /${bold ? "F2" : "F1"} ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td ${pdfText(text, bold ? FONT_BOLD : FONT_REGULAR)} Tj ET`);
   };
   const [title, ...rest] = headerLines(d, meta);
   line(title, 12, true);
@@ -133,10 +185,11 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
     room(10);
     y -= 10;
     const f = bold ? "F2" : "F1";
-    put(`BT /${f} 7 Tf ${M} ${y.toFixed(2)} Td ${pdfText(cells[0])} Tj ET`);
+    const font = bold ? FONT_BOLD : FONT_REGULAR;
+    put(`BT /${f} 7 Tf ${M} ${y.toFixed(2)} Td ${pdfText(cells[0], font)} Tj ET`);
     cells.slice(1).forEach((c, i) => {
       const right = M + monthW + colW * (i + 1) - 4;
-      put(`BT /${f} 7 Tf ${(right - textWidth(c, 7)).toFixed(2)} ${y.toFixed(2)} Td ${pdfText(c)} Tj ET`);
+      put(`BT /${f} 7 Tf ${(right - pdfTextWidth(c, 7, font)).toFixed(2)} ${y.toFixed(2)} Td ${pdfText(c, font)} Tj ET`);
     });
   };
   row(["Month", ...d.series.map((_, i) => `${i + 1}`)], true);
@@ -147,10 +200,27 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
   const add = (body: string) => objs.push(body);
   add("<< /Type /Catalog /Pages 2 0 R >>"); // 1
   add(""); // 2 Pages, set below
-  add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"); // 3
-  add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"); // 4
+  add(""); // 3 F1 (Type0, set below)
+  add(""); // 4 F2 (Type0, set below)
   const hex = Buffer.from(dataJson(d), "latin1").toString("hex");
-  add(`<< /Title ${pdfText(`Orpheus report: ${meta.name}`)} /Producer (Orpheus #157) /CreationDate (D:${meta.generatedAt.replace(/[-:T]/g, "").slice(0, 14)}Z) /OrpheusData <${hex}> >>`); // 5
+  add(`<< /Title ${pdfUtf16(`Orpheus report: ${printable(meta.name)}`)} /Producer (Orpheus #157) /CreationDate (D:${meta.generatedAt.replace(/[-:T]/g, "").slice(0, 14)}Z) /OrpheusData <${hex}> >>`); // 5
+  // #176 PFU-02: each font is Type0 (Identity-H) → CIDFontType2 → FontDescriptor → FontFile2 (the subset, Flate), with ToUnicode.
+  [FONT_REGULAR, FONT_BOLD].forEach((font, k) => {
+    const name = PDF_FONT_NAMES[k];
+    const file = deflateSync(font.bytes, { level: 9 });
+    add(`<< /Length ${file.length} /Length1 ${font.bytes.length} /Filter /FlateDecode >>\nstream\n${file.toString("latin1")}\nendstream`);
+    const fileId = objs.length;
+    const [x0, y0, x1, y1] = font.bbox;
+    add(`<< /Type /FontDescriptor /FontName /${name} /Flags 32 /FontBBox [${x0} ${y0} ${x1} ${y1}] /ItalicAngle 0 /Ascent ${font.ascent} /Descent ${font.descent} /CapHeight ${font.capHeight} /StemV ${k ? 140 : 80} /FontFile2 ${fileId} 0 R >>`);
+    const descId = objs.length;
+    const widths = Array.from({ length: font.numGlyphs }, (_, g) => Math.round((font.advance(g) * 1000) / font.unitsPerEm));
+    add(`<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descId} 0 R /DW 1000 /W [0 [${widths.join(" ")}]] /CIDToGIDMap /Identity >>`);
+    const cidId = objs.length;
+    const cmap = toUnicode(font);
+    add(`<< /Length ${Buffer.byteLength(cmap, "latin1")} >>\nstream\n${cmap}\nendstream`);
+    const tuId = objs.length;
+    objs[2 + k] = `<< /Type /Font /Subtype /Type0 /BaseFont /${name} /Encoding /Identity-H /DescendantFonts [${cidId} 0 R] /ToUnicode ${tuId} 0 R >>`;
+  });
   const kids: number[] = [];
   for (const p of pages) {
     const stream = p.join("\n");
@@ -174,106 +244,46 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
 
 // ---------- PNG ----------
 
-export const GLYPHS: Record<string, string> = {
-  "A": "0e11111f111111",
-  "B": "1e11111e11111e",
-  "C": "0e11101010110e",
-  "D": "1e11111111111e",
-  "E": "1f10101e10101f",
-  "F": "1f10101e101010",
-  "G": "0e11101711110f",
-  "H": "1111111f111111",
-  "I": "0e04040404040e",
-  "J": "0702020202120c",
-  "K": "11121418141211",
-  "L": "1010101010101f",
-  "M": "111b1515111111",
-  "N": "11111915131111",
-  "O": "0e11111111110e",
-  "P": "1e11111e101010",
-  "Q": "0e11111115120d",
-  "R": "1e11111e141211",
-  "S": "0f10100e01011e",
-  "T": "1f040404040404",
-  "U": "1111111111110e",
-  "V": "11111111110a04",
-  "W": "1111111515150a",
-  "X": "11110a040a1111",
-  "Y": "11110a04040404",
-  "Z": "1f01020408101f",
-  "0": "0e11131519110e",
-  "1": "040c040404040e",
-  "2": "0e11010204081f",
-  "3": "1f02040201110e",
-  "4": "02060a121f0202",
-  "5": "1f101e0101110e",
-  "6": "0608101e11110e",
-  "7": "1f010204080808",
-  "8": "0e11110e11110e",
-  "9": "0e11110f01020c",
-  " ": "00000000000000",
-  ".": "00000000000c0c",
-  ",": "000000000c0408",
-  ":": "000c0c000c0c00",
-  "-": "0000001f000000",
-  "(": "02040808080402",
-  ")": "08040202020408",
-  "/": "00010204081000",
-  "%": "18190204081303",
-  "'": "0c040800000000",
-  "_": "0000000000001f",
-  "+": "0004041f040400",
-  "=": "00001f001f0000",
-  "?": "0e110102040004",
-  "&": "0c12140815120d",
-  "#": "0a0a1f0a1f0a0a",
-  // QA 2026-10-17 F3: lowercase and the rest of printable ASCII, so the PNG prints text verbatim.
-  "a": "00000e010f110f",
-  "b": "1010161911111e",
-  "c": "00000e1010110e",
-  "d": "01010d1311110f",
-  "e": "00000e111f100e",
-  "f": "0609081c080808",
-  "g": "000f11110f010e",
-  "h": "10101619111111",
-  "i": "04000c0404040e",
-  "j": "0200060202120c",
-  "k": "10101214181412",
-  "l": "0c04040404040e",
-  "m": "00001a15151111",
-  "n": "00001619111111",
-  "o": "00000e1111110e",
-  "p": "00001e111e1010",
-  "q": "00000d130f0101",
-  "r": "00001619101010",
-  "s": "00000e100e011e",
-  "t": "08081c08080906",
-  "u": "0000111111130d",
-  "v": "00001111110a04",
-  "w": "0000111115150a",
-  "x": "0000110a040a11",
-  "y": "000011110f010e",
-  "z": "00001f0204081f",
-  "!": "04040404040004",
-  "\"": "0a0a0a00000000",
-  "$": "040f140e051e04",
-  "*": "0004150e150400",
-  ";": "000c0c000c0408",
-  "<": "02040810080402",
-  ">": "08040201020408",
-  "@": "0e11010d15150e",
-  "[": "0e08080808080e",
-  "\\": "00100804020100",
-  "]": "0e02020202020e",
-  "^": "040a1100000000",
-  "`": "08040200000000",
-  "{": "02040408040402",
-  "|": "04040404040404",
-  "}": "08040402040408",
-  "~": "00000815020000",
+type RGB = [number, number, number];
+
+/**
+ * #176 (spec 50, Q-AO6): PNG text is Noto Sans Regular at PX pixels per em (cap height 10 px, as the #157 5x7 x 2 font),
+ * baseline BASE px below the line origin, anti-aliased FG over the pixels below. Descenders reach about 4 px under
+ * the baseline (still inside LH); accented capitals stay at or below the line origin.
+ */
+export const PNG_TEXT = { PX: 14, BASE: 13 } as const;
+export const pngTextWidth = (s: string, font: TrueTypeFont = FONT_REGULAR): number =>
+  [...printable(s)].reduce((a, ch) => a + font.advance(font.glyphId(ch.codePointAt(0) ?? 0)), 0) * (PNG_TEXT.PX / font.unitsPerEm);
+/** Paints `s` with its line origin at (x, y): `blend(x, y, c, alpha 0..255)` for each covered pixel (exported for the tests). */
+export function paintText(blend: (x: number, y: number, c: RGB, a: number) => void, s: string, x: number, y: number, c: RGB = FG, font: TrueTypeFont = FONT_REGULAR) {
+  const { PX, BASE } = PNG_TEXT;
+  let pen = x;
+  for (const ch of printable(s)) {
+    const g = font.glyphId(ch.codePointAt(0) ?? 0);
+    const bm = font.raster(g, PX);
+    const ox = Math.round(pen) + bm.left;
+    const oy = y + BASE + bm.top;
+    for (let r = 0; r < bm.h; r++) for (let q = 0; q < bm.w; q++) if (bm.alpha[r * bm.w + q]) blend(ox + q, oy + r, c, bm.alpha[r * bm.w + q]);
+    pen += font.advance(g) * (PX / font.unitsPerEm);
+  }
+}
+/** `under` with `c` on top at alpha a/255 (rounded per channel). */
+export const over = (under: readonly number[], c: RGB, a: number): RGB => c.map((v, k) => Math.round(under[k] + ((v - under[k]) * a) / 255)) as RGB;
+/** #176: wrap by the #157 character budget (so ASCII layout is unchanged, PFU-10), and also break before a line would overflow `maxPx`. */
+const wrapPx = (text: string, maxChars: number, maxPx: number): string[] => {
+  const out: string[] = [];
+  let line = "";
+  for (const w of text.split(" ")) {
+    const next = line ? `${line} ${w}` : w;
+    if (line && (next.length > maxChars || pngTextWidth(next) > maxPx)) {
+      out.push(line);
+      line = w;
+    } else line = next;
+  }
+  if (line) out.push(line);
+  return out;
 };
 
-type RGB = [number, number, number];
 export const BG: RGB = [0x12, 0x14, 0x18];
 export const FG: RGB = [0xe6, 0xe6, 0xe6];
 const DIM: RGB = [0x5a, 0x60, 0x6b];
@@ -317,15 +327,15 @@ export const PNG_LAYOUT = { S: 2, ADV: 12, LH: 18, W: 1200, M: 24 } as const;
 export function pngText(d: ChartData, meta: ExportMeta) {
   const { ADV, LH, W, M } = PNG_LAYOUT;
   const maxChars = Math.floor((W - 2 * M) / ADV);
-  const head = headerLines(d, meta).flatMap((l) => wrap(l, maxChars));
-  const leg = legend(d).flatMap((l) => wrap(l, maxChars - 4));
+  const head = headerLines(d, meta).flatMap((l) => wrapPx(l, maxChars, W - 2 * M));
+  const leg = legend(d).flatMap((l) => wrapPx(l, maxChars - 4, W - 2 * M - 4 * ADV));
   const PLOT = 360;
   const legendY = M + head.length * LH + 16 + PLOT + 2 * LH;
   return { head, leg, PLOT, legendY };
 }
 
 export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
-  const { S, ADV, LH, W, M } = PNG_LAYOUT; // font scale 2: 10 x 14 px glyphs, 12 px advance
+  const { S, ADV, LH, W, M } = PNG_LAYOUT; // S and ADV: the #157 layout units (axis gutters, legend indent)
   const { head, leg, PLOT } = pngText(d, meta);
   const H = M + head.length * LH + 16 + PLOT + 3 * LH + leg.length * LH + M;
   const px = Buffer.alloc(W * H * 3);
@@ -337,16 +347,15 @@ export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
     px[i + 1] = c[1];
     px[i + 2] = c[2];
   };
-  const text = (s: string, x: number, y: number, c: RGB = FG) => {
-    [...ascii(s)].forEach((ch, n) => {
-      const g = GLYPHS[ch] ?? GLYPHS["?"];
-      for (let r = 0; r < 7; r++) {
-        const bits = parseInt(g.slice(r * 2, r * 2 + 2), 16);
-        for (let b = 0; b < 5; b++)
-          if (bits & (1 << (4 - b))) for (let dy = 0; dy < S; dy++) for (let dx = 0; dx < S; dx++) set(x + n * ADV + b * S + dx, y + r * S + dy, c);
-      }
-    });
+  const blend = (x: number, y: number, c: RGB, a: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const i = (y * W + x) * 3;
+    const v = over([px[i], px[i + 1], px[i + 2]], c, a);
+    px[i] = v[0];
+    px[i + 1] = v[1];
+    px[i + 2] = v[2];
   };
+  const text = (s: string, x: number, y: number, c: RGB = FG) => paintText(blend, s, x, y, c);
   const lineTo = (x0: number, y0: number, x1: number, y1: number, c: RGB) => {
     const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
     for (let i = 0; i <= n; i++) {
@@ -387,7 +396,7 @@ export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
   const n = d.months.length;
   const xAt = (i: number) => (n === 1 ? (left + right) / 2 : left + ((right - left) * i) / (n - 1));
   text(d.months[0], left, bottom + 6);
-  if (n > 1) text(d.months[n - 1], right - d.months[n - 1].length * ADV, bottom + 6);
+  if (n > 1) text(d.months[n - 1], Math.round(right - pngTextWidth(d.months[n - 1])), bottom + 6);
   d.series.forEach((s, si) => {
     const c = PALETTE[si % PALETTE.length];
     const sc = s.axis === "level" ? level : flow;
@@ -432,7 +441,7 @@ export function buildPng(d: ChartData, meta: ExportMeta): Buffer {
 
 /** `orpheus-report-<slug>-<YYYY-MM-DD>.<ext>` (Q-AD7; the generation day in Toronto, the household's zone). */
 export function exportFilename(name: string, generatedAt: string, format: ExportFormat): string {
-  const slug = ascii(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "report";
+  const slug = asciiName(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "report";
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(generatedAt));
   return `orpheus-report-${slug}-${day}.${format}`;
 }

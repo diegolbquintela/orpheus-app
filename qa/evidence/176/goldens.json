@@ -1,0 +1,67 @@
+[
+  {
+    "name": "u-name",
+    "file": "u-name.png",
+    "pfu": "PFU-04 / PFU-05",
+    "text": "Orpheus - Personal Finance report: Épargne café crème — Zürich, Ñandú, Øresund, Straße",
+    "box": {
+      "x": 24,
+      "y": 24,
+      "w": 1152,
+      "h": 18
+    },
+    "rawRgbSha256": "25c73eecf8560e8863df09beb4a159b9ffad8560e936604d5f30dc97e931ee67"
+  },
+  {
+    "name": "u-legend-category",
+    "file": "u-legend-category.png",
+    "pfu": "PFU-04 / PFU-05",
+    "text": "1. Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş Ő (category, flow)",
+    "box": {
+      "x": 72,
+      "y": 508,
+      "w": 1104,
+      "h": 18
+    },
+    "rawRgbSha256": "d1157c939725da3f590da0abcf659ff5105b46216ffbf74296296d6ca9072ee9"
+  },
+  {
+    "name": "u-legend-account",
+    "file": "u-legend-account.png",
+    "pfu": "PFU-06 / PFU-07",
+    "text": "2. Konto € £ ¥ R$ ₩ pgqyj (account, flow)",
+    "box": {
+      "x": 72,
+      "y": 526,
+      "w": 1104,
+      "h": 18
+    },
+    "rawRgbSha256": "9e8c74a351571645c7402f528039316e9eba5c85a5f353766584d205623a6115"
+  },
+  {
+    "name": "golden-caveat",
+    "file": "golden-caveat.png",
+    "pfu": "PFU-11",
+    "text": "Caveat: Starting net assets is defined at the Overview window start but anchored here at the",
+    "box": {
+      "x": 24,
+      "y": 114,
+      "w": 1152,
+      "h": 18
+    },
+    "rawRgbSha256": "b309fcae21e0bec39049953f956221d3ce51e5c1315e8683a52a9d35d8b3864c"
+  },
+  {
+    "name": "u-fallback",
+    "file": "u-fallback.png",
+    "pfu": "PFU-08",
+    "text": "Orpheus - Personal Finance report: ?????????? ?? ?",
+    "box": {
+      "x": 24,
+      "y": 24,
+      "w": 1152,
+      "h": 18
+    },
+    "rawRgbSha256": "0ff94de877c1b8c9395d9949164f121e22e87ae62ad649de9f739ddb5912c73b"
+  }
+]
