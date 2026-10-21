@@ -94,3 +94,7 @@ any other non-local host gets one `HEAD /` and must answer `X-Orpheus-Env: previ
 
 - #171 (added 2026-10-17; spec 42, AC PFAO-xx): `personal-finance.mjs` (the `As of month` label in the text list, plus a signed-in PFAO-16 / 17 check at every viewport incl. 390 px), `site-style-regression.mjs` (the label in the Overview text list), `pf-series-api.mjs` (PFS-18 / PFS-20 accept an anchor before or after the range) and `pf-export-api.mjs` (PFX-06/07: either the 36.11 caveat or the as-of note, exactly one). The new text is in `pf-helpers.mjs`. All of them still call `refuseIfProd`. `as-of.server.test.ts` replays the changed signed-in expectations through the real handlers.
 - #171 CFO round + QA early findings (2026-10-17): `pf-asof-checks.mjs` (new; a helper with no network, imported by `pf-series-api.mjs` PFS-18/20 and `pf-export-api.mjs` PFX-06/07, which now follow the stored overview `asOf` / start). Also `pf-reports-api.mjs` PFRC-06 and `pf-report-api.mjs` PFR-08 gain a 25-month cap case (`Range can't be longer than 24 months.`). `pf-helpers.mjs` gains the three new messages. `as-of.server.test.ts` imports the same check functions and replays them through the real handlers.
+
+## `npm test` fails on load errors (#183, added 2026-10-21)
+
+Every `npm test` stage runs through `scripts/test-runner.mjs`. It exits 1 if node exits non-zero **or** prints any `not ok` line (`# TODO` / `# SKIP` excepted), so a suite that throws while loading can't pass with `# fail 0`. Output is TAP. AC `TLF-01..08`; design note `attachments/test-runner-load-failure-design.md`.

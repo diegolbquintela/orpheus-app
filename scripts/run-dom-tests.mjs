@@ -4,10 +4,10 @@
  * Node can't load TSX, so each test is bundled with rolldown (already in the toolchain via Vite) into
  * node_modules/.cache/dom-tests (git-ignored), keeping packages external, then run with `node --test`.
  */
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { rolldown } from "rolldown";
+import { runNodeTest } from "./test-runner.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const out = join(root, "node_modules/.cache/dom-tests");
@@ -38,5 +38,5 @@ for (const input of tests) {
   await bundle.close();
   files.push(file);
 }
-const r = spawnSync(process.execPath, ["--test", ...files], { stdio: "inherit" });
-process.exit(r.status ?? 1);
+// #183: fail on a non-zero exit or any `not ok` line (a suite that throws while loading).
+process.exit(await runNodeTest(["--test", ...files], { label: "dom-tests" }));
