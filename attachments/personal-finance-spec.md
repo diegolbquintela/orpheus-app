@@ -1226,6 +1226,9 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
 - **Note (EL, 2026-10-17), added in #158; it doesn't edit 39.11 or 39.12:** in signed-out prod mode, **zero** `/api/auth/` requests reach the server. SWE confirmed this with a real no-credential prod run of `site-style-regression --smoke-mode on` at be306f7 (an SWE run, not a QA run): 258/258 passed, 0 `/api/auth/` POSTs reached the server, and no node process sent anything other than GET / HEAD.
 - personal-finance PF-34 makes **mocked** sign-in attempts: 4 browser `POST /api/auth/sign-in/email`, answered inside the browser by the tool's own `page.route` (`route.fulfill`; no server address). They never leave the browser and **do not count** as requests to the server. PF-34 stays as built.
 
+### 39.14 Unicode text in the exports (2026-10-21, #176; pointer only, nothing above changed)
+The issue asks for its ACs to go under spec 39. They are in **section 50** (next spec number) and the AC pack `PFU-01..PFU-16`. Everything in 39.1–39.13 still holds until 50 is built.
+
 ## 40. Chart report API contract (#158, backend only)
 
 Contract (single source of truth): `attachments/pf-charts-api-contract.md`. AC PFAPI-01..PFAPI-14. No UI, no new route, no migration, no schema change, **no wire change**.
@@ -1664,3 +1667,146 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
 - Surplus = resolved income − resolved expenses.
 - Built as `typedOverCopy` in `months.ts`, replacing 49.5's `dropUnsavedCurrent`, which dropped both fields whenever either was typed (the bug).
 - **W2:** a unit test for `withCurrentCopy` (`months.test.ts`): a copy into an empty current month, stored lines kept, no source, and the #165 Q-Z7 deleted-name drop.
+
+## 50. Report export: Unicode text in PDF and PNG (#176, MEDIUM, CFO; follow-up to #157 / spec 39; added 2026-10-21; Phase 1: spec, ACs and Qs, nothing built)
+
+50.0 **Problem (facts at 3f59104).** `src/lib/finance/export.ts` (#157, PR #175) passes every printed string through `ascii()`, which turns `–` / `—` into `-` and every other character outside U+0020–U+007E into `?`.
+- The PDF uses the standard Type1 Helvetica / Helvetica-Bold with WinAnsiEncoding; no font is embedded.
+- The PNG draws a hand-made 5x7 bitmap font (`GLYPHS`) covering printable ASCII only. Lowercase `g j p q y` sit on the baseline with no descenders.
+- So `Café € — Zürich` prints as `Caf? ? - Z?rich` in both files.
+- The data copies (PDF `/OrpheusData`, PNG `tEXt orpheus-data`) are **already lossless**: `dataJson` escapes non-ASCII as `\uXXXX`. Only the printed text is lossy.
+
+50.1 **Goal.** Both files print the following verbatim, using one embedded font:
+- Latin-1 (U+00A0–U+00FF) and Latin Extended-A (U+0100–U+017F).
+- The currency signs `€ £ ¥ R$`. `£` and `¥` are in Latin-1, `€` is U+20AC, and `R$` is ASCII.
+- `–` (U+2013), `—` (U+2014), `…` (U+2026) and `−` (U+2212).
+
+The PNG's lowercase `g j p q y` get descenders.
+
+Everything else is unchanged:
+- The values and their order.
+- The layout: page size, PNG width, line origins, plot area, legend and table positions.
+- The 36.11 caveat verbatim, the `Rendered as lines` label (PFX-18), the fail-closed audit (PFX-19), the data JSON, the filenames and the route.
+
+50.2 **Where.** Server only, in `export.ts` plus a font asset under `src/lib/finance/fonts/`.
+- No endpoint, wire, data, flag or UI change.
+- `qa/tools/export-parse.mjs` learns to read text drawn with an embedded font (via its ToUnicode map) so QA can check the text.
+
+50.3 **Harness.** AGENTS.md gets one dated #176 index line. There is no harness rule change: no route, flag, QA process or sign-in tool is added.
+
+50.4 **Fixture U (exact inputs).** One saved report, owner `cfo`. Household CAD; clock 2026-10-21T12:00:00Z; no FX.
+- **Name:** `Épargne € £ ¥ R$ — pgqyj`.
+- **Chart:** `line`. **Range:** `2026-08..2026-10`.
+- **Two series (the labels come from the stored names):**
+  - Category `Café crème — Zürich, Ñandú, Øresund, Straße` (string **U1** below).
+  - Account `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş, Ő` (string **U2** below).
+- Values: 1,234.56 / 789.00 per month.
+
+The test strings, with code points above U+007E listed:
+
+| Id | String | Above U+007E |
+|---|---|---|
+| U1 | `Épargne café crème — Zürich, Ñandú, Øresund, Straße` | U+00C9 U+00E9 U+00E8 U+2014 U+00FC U+00D1 U+00FA U+00D8 U+00DF |
+| U2 | `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş, Ő` | U+0141 U+00F3 U+017A U+0160 U+010C U+0152 U+011E U+0130 U+015F U+0150 |
+| U3 | `€ £ ¥ R$` | U+20AC U+00A3 U+00A5 |
+| U4 | `pgqyj` | none (descenders) |
+| U5 | `Сбережения` (Cyrillic) | U+0421 … U+044F, out of scope (Q-AO3) |
+| U6 | `貯金` (CJK) | U+8CAF U+91D1, out of scope |
+| U7 | `🏠` (emoji, one code point, two UTF-16 units) | U+1F3E0, out of scope |
+
+50.5 **Fallback.** A code point the embedded font lacks (U5–U7) prints as **one** `?` per code point, never two for a surrogate pair. Today an emoji prints as `??`. The export never fails because of text, and the data JSON keeps the original.
+
+50.6 **Font (for the CFO).** Recommended: **Noto Sans** Regular and Bold (Q-AO1).
+- **Licence:** SIL Open Font License 1.1. "Copyright 2022 The Noto Project Authors" is read from the font's name table. OFL allows embedding in PDFs and pictures and redistributing it inside software. It requires shipping the licence text with the font (`OFL.txt`) and not selling the font by itself.
+- **Full font files:** Regular 621,572 bytes, Bold 631,484 bytes.
+- **Subset:** U+0020–007E, U+00A0–017F, U+2013, U+2014, U+2026, U+20AC, U+2212 and U+20A9, unhinted. Regular 28,004 bytes, Bold 27,936 bytes; Regular gzips to 16,313 bytes. These were measured on 2026-10-21 with `pyftsubset` (fontTools, a Python tool run on the dev box, not an npm dependency).
+- **Size increase:** about **56 KB raw** (about 75 KB as base64 in a TS module), in the `/api/personal-finance` function only. The client bundle doesn't change.
+- **Exports:**
+  - PDFs grow by the embedded subset: about 28–56 KB per file, or less compressed.
+  - PNGs stay about the same size, since only the pixels change.
+
+50.7 Q-calls (CFO / EL), each with a recommendation; **none built** (Phase 1):
+- **Q-AO1 Font:** **rec** Noto Sans Regular + Bold subset (OFL 1.1, 50.6).
+  - Alternatives: DejaVu Sans (Bitstream Vera licence; bigger and less even), or hand-drawing about 190 more bitmap glyphs (no licence, no font file, but a 5x7 grid can't hold stacked accents, so it would need a 7x11 grid and a new layout).
+  - Not built. Licence decision.
+- **Q-AO2 No new npm dependency:** **rec** yes.
+  - The PDF embeds the subset as a Type0 / CIDFontType2 font (Identity-H) with a ToUnicode CMap, using the widths from `hmtx`.
+  - The PNG uses a small hand-written TrueType reader and scanline rasterizer (quadratic outlines, nonzero fill, grey anti-aliasing blended FG over BG), of about 250 lines.
+  - Rejected: pdf-lib / fontkit / opentype.js / @napi-rs/canvas. These are new dependencies, and canvas is a native binary.
+  - Not built.
+- **Q-AO3 Coverage:** **rec** exactly 50.1. Noto Sans also has Greek and Cyrillic for about +25 KB more per weight, but that's outside the ticket's minimum. CJK (megabytes) and emoji (a colour font) are no. U5–U7 use the 50.5 fallback. Not built.
+- **Q-AO4 Font source:** **rec** commit the two subset `.ttf` files with `OFL.txt` and a `FONTS.md`. `FONTS.md` records the upstream URL and commit, the exact `pyftsubset` command and the SHA-256 of each file. A unit test checks the SHA-256 and that every 50.1 code point is in the `cmap`. Not built.
+- **Q-AO5 Where the bytes live:** **rec** a generated base64 TS module (`fonts/noto-sans-subset.ts`), so the Vercel function bundles it without any `vercel.json` `includeFiles` change. That change would be a deploy-config Q. The function grows by about 75 KB. Not built.
+- **Q-AO6 PNG text metrics:** **rec** keep `PNG_LAYOUT` (W 1200, M 24, LH 18), with 14 px glyphs (cap height ≈ 10 px, as today's 5x7 × 2). Proportional widths come from `hmtx`, and wrapping measures pixel width against `W − 2M` instead of character count. Line origins (M, M + i·LH) are unchanged, and descenders fit inside LH. Not built.
+- **Q-AO7 PDF font for all text:** **rec** use the embedded Noto Sans (F1) and Noto Sans Bold (F2) for every string, so the look is uniform. Alternative: Helvetica with WinAnsi for Latin-1 + `€` (0 bytes added), but that has no Latin Extended-A (`Ł ő Č`), so it fails U2. Not built.
+- **Q-AO8 Filename slug:** **rec** unchanged in #176. It is outside the ticket: `Épargne` → `-pargne` today. Transliterating with NFD (`epargne`) would be a separate small Q. Not built.
+- **Q-AO9 PDF `/Title`:** **rec** write it as UTF-16BE (`<FEFF…>`) so viewers show `Orpheus report: Épargne € …`. This is metadata only, inside the ticket's "renders Unicode text". Not built.
+- **Q-AO10 PFX-18 pixel test:** **rec** its helper changes from "matches the 5x7 dots" to "matches the rasterizer's output for the same string at the same origin". The assertion (the note is drawn on line 3) is unchanged. Not built.
+
+50.8 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFU (PFU-01..PFU-16).
+
+50.9 (2026-10-21, CFO decisions on PR #203 and QA Y1–Y12 on dbf4881; **built** on PR #203; corrects 50.0–50.8, nothing above removed. Where 50.1–50.8 differ, this section wins, and the "Phase 1 / not built" markers above are superseded.)
+- **CFO decisions.** These are accepted as recommended and **built**: Q-AO1 (Noto Sans Regular + Bold subsets, OFL 1.1), Q-AO2 (no new dependency: `src/lib/finance/ttf.ts`), Q-AO4 (the subset `.ttf` files, `OFL.txt`, `FONTS.md` and a checksum test), Q-AO5 (a base64 TS module, `vercel.json` untouched), Q-AO6, Q-AO7, Q-AO9 and Q-AO10.
+  - **Q-AO3:** accepted for this coverage. No Cyrillic; that may be a later ticket.
+  - **Q-AO8 CHANGED (CFO):** filenames stay ASCII. First NFD, then drop combining marks (`\p{M}`), then any other character outside printable ASCII → `-` (`asciiName`). So `Épargne` → `Epargne` and `Ça` → `Ca`; `Ł` and `Ø` have no decomposition, so they become `-`. Then the #157 slug rules apply (lowercase, runs of non-`[a-z0-9]` → `-`, at most 40 characters).
+- **Y6 / 50.1 coverage:** U+0020–007E, U+00A0–017F, U+2013, U+2014, U+2026, U+20AC, U+2212 and **U+20A9 (₩)**, in both weights. This is the same set as the subset command in `fonts/FONTS.md`.
+- **50.5 text rule (`printable`, used by both formats), in order:**
+  1. NFC.
+  2. Tab, CR and LF → a space.
+  3. Soft hyphen U+00AD → dropped.
+  4. Each code point the font maps (≥ U+0020) is kept; every other code point (C0 / C1 controls, U+007F, Cyrillic, CJK, emoji) → exactly one `?`.
+  NBSP U+00A0 is kept and drawn as its own (blank) glyph. Report names already refuse controls (`reports.ts` `nameError`), so controls can only come from category, account or line names.
+- **50.6 sizes, measured 2026-10-21 on the built subsets.** These are smaller than the Phase 1 estimate because GSUB / GPOS / GDEF are dropped (no shaping is needed) and the fonts are unhinted.
+  - `NotoSans-Regular-subset.ttf`: **21,748 bytes**, SHA-256 `049f5754c037199c4e209aed9e654ef31ccb850d628279e5cf761577a5364804`.
+  - `NotoSans-Bold-subset.ttf`: **21,696 bytes**, SHA-256 `af10b9d3570e032b0dbe42fa3eeed557e08711a99c780a47a2d00104f9ecf230`.
+  - `noto-sans-subset.ts` (base64): 61,820 bytes.
+  - **Function size:** `npx vite build` `.vercel/output/functions/__server.func` went from 5,520,409 to **5,591,287 bytes (+70,878, +1.3%)**. The server router chunk went from 210,835 to 281,773 bytes. The client (`.vercel/output/static`) is unchanged at 4,806,363 bytes.
+  - Each PDF embeds both subsets (Flate) plus ToUnicode and `/W`.
+- **Y1 / Y2, fixture U (replaces 50.4's fixture).** The exact literals live in `src/lib/finance/export-golden/fixture-u.ts`. Report and category names are limited by `NAME_MAX` 60 and `CATEGORY_MAX` / `ACCOUNT_MAX` 40.
+  - **U1 = the report name:** `Épargne café crème — Zürich, Ñandú, Øresund, Straße` (51 characters).
+  - **U2 = the category:** `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş Ő` (40 characters; 50.4's U2 is shortened by one comma to fit).
+  - **U3:** `€ £ ¥ R$ ₩`. **U4:** `pgqyj`. The account is `Konto € £ ¥ R$ ₩ pgqyj`.
+  - **U5:** `Сбережения`, 10 code points: U+0421 U+0431 U+0435 U+0440 U+0435 U+0436 U+0435 U+043D U+0438 U+044F (Y5).
+  - **U6:** `貯金` (U+8CAF U+91D1). **U7:** `🏠` (U+1F3E0).
+  - **Stored record (`personal_finance.data`, owner `olga`):**
+    - The `orpheus.finance.expenses` shared value is `fixed: [rent 1234.56 / month, category U2, account Chequing]`, `variable: [t 789 / month, category Home, account "Konto € £ ¥ R$ ₩ pgqyj"; s 10 / month, category U5, account Chequing]`, with `accounts: ["Chequing", "Konto € £ ¥ R$ ₩ pgqyj"]` and `categories: [U2, "Home", U5]`.
+    - The months `2026-07`, `2026-08` and `2026-09` each hold those same lines, with `people: []`.
+    - No overview, no income. Household CAD, no FX.
+  - **Clock:** 2026-10-21T12:00:00Z (Toronto month 2026-10, not in the range). The range uses closed months only.
+  - **Report:** `POST /reports { name: U1, report: { series: [{ kind: "category", id: U2 }, { kind: "account", id: "Konto € £ ¥ R$ ₩ pgqyj" }], range: { from: "2026-07", to: "2026-09" }, chart: "line" } }`.
+  - **Fallback report:** name `貯金 🏠`, series `[{ kind: "category", id: U5 }]`, same range and chart.
+  - **Expected `/chart { saved: true, id }` rows:** `2026-07` / `Jul 26`, `2026-08` / `Aug 26` and `2026-09` / `Sep 26`, each `partial: false`, `values: [1234.56, 789]`. `current` is `2026-10` and `partial` is false. The series labels are U2 and `Konto € £ ¥ R$ ₩ pgqyj`, with `missing: false`.
+  - The PDF table rows read `1,234.56` and `789.00`.
+- **Y8, exact filename for U:** `orpheus-report-epargne-cafe-creme-zurich-nandu-resund-s-2026-10-21.pdf` (`.png` likewise).
+- **Y8, access runs (unchanged):**
+  - The owner gets 200.
+  - qa-cfo-read (a Read grant with no saved reports of its own) gets 404 `Report not found.`, both on `default` and on the owner's report id.
+  - No Personal Finance grant gets 403.
+- **Y9, PFU-03 width constants:** both subsets have `unitsPerEm` 1000, and `/W` is the `hmtx` advance for every glyph id.
+  - **Regular 7 pt:** `1,234.56` = 27.776 pt; `789.00` = 21.896 pt.
+  - **Bold 7 pt:** `2` = 4.004 pt; `Month` = 23.114 pt.
+  - Column right edges are 182 and 272 pt (M 36 + month 60 + colW 90 · (i + 1) − 4).
+- **Y10, PFU-07 baseline:** the glyph baseline is at line origin y + `PNG_TEXT.BASE` (13 px); 14 px per em. Round letters may antialias into the first row under the baseline (y + 13), so "below the baseline" means rows y + 14 and lower.
+  - `p g q y j` each light at least one pixel there (alpha ≥ 32), reaching at least 3 rows under the baseline and staying inside LH 18.
+  - `a e o x` light none.
+- **Y10, PFU-09 / PFU-10 goldens:** `src/lib/finance/export-golden/3f59104.json` was written by `export-golden/capture.ts` running on the **3f59104 code**. It holds, for the #157 ASCII record with a net-assets line report and a 12m bar report: the PDF text strings, page count, MediaBox, PNG width × height and the SHA-256 of `dataJson`. The built code reproduces it exactly.
+- **Y3, golden PNG crops for QA's visual sign-off:** in `qa/evidence/176/` (listed in `goldens.json`). The test compares the SHA-256 of each crop's raw RGB bytes; the file SHA-256 is given for the committed PNGs.
+
+  | Crop | ACs | Box (x, y, w, h) | Raw RGB SHA-256 | File SHA-256 |
+  |---|---|---|---|---|
+  | `u-name.png` | PFU-04 / 05 | 24, 24, 1152, 18 | `25c73eecf8560e8863df09beb4a159b9ffad8560e936604d5f30dc97e931ee67` | `be1ed473443edebaef1ad987ee470e1292b96d2921ace628639cc7400714d934` |
+  | `u-legend-category.png` | PFU-04 / 05 | 72, 508, 1104, 18 | `d1157c939725da3f590da0abcf659ff5105b46216ffbf74296296d6ca9072ee9` | `dec70962b76fd1bff2a94e06a0ce4705a1ed00efbe33c9b558b05f9eb4d6ed60` |
+  | `u-legend-account.png` | PFU-06 / 07 | 72, 526, 1104, 18 | `9e8c74a351571645c7402f528039316e9eba5c85a5f353766584d205623a6115` | `247fc0b6f399ff75b3a25c298c90fb62ea0ac5abd19584881a2d9cfdc9161c42` |
+  | `golden-caveat.png` | PFU-11 | 24, 114, 1152, 18 | `b309fcae21e0bec39049953f956221d3ce51e5c1315e8683a52a9d35d8b3864c` | `56f21fda20866e01bee9b3d13d061a60be016a16096711cc7eea613c49fa116d` |
+  | `u-fallback.png` | PFU-08 | 24, 24, 1152, 18 | `0ff94de877c1b8c9395d9949164f121e22e87ae62ad649de9f739ddb5912c73b` | `28901d5a243ef31357168b24041e821018f1f3cc60c90407db756ef48aef6f2c` |
+
+  - After QA signs off, a rendering change must regenerate the crops (`node --experimental-strip-types src/lib/finance/export-golden/crops.ts`) and be signed off again.
+- **Y4:** PFU-01 and PFU-08 **supersede PFX-11** (non-ASCII no longer prints `?`).
+  - **PFX-14 budget:** under 100 KB, now with both fonts included. Measured on the 12 series × 24 months case: PDF **75,170 bytes** (28,866 at 3f59104), 7 ms; PNG 67,739 bytes (21,402; antialiasing), 114 ms. Both are well inside the PFX-14 limits (100 KB / 600 KB, 2 s).
+- **Y8, PFX-01..PFX-19:** unchanged except that **PFX-11** is superseded by PFU-01 / PFU-08. Two other results change only through Q-AO8:
+  - PFX-03's example filename for `Spend été` is now `orpheus-report-spend-ete-…`.
+  - The #157 F3 checks now compare against the rasterizer (Q-AO10); the F3 "printable ASCII 5x7 font" test is retired along with the 5x7 font.
+- **Q-AO6 wrap (as built):** the PNG wraps by the #157 character budget (`floor((W − 2M) / ADV)`) **and** also breaks before a line would overflow `W − 2M` px. This keeps every ASCII export's PNG height identical (PFU-10). The legend indent and axis gutters keep the #157 units (`ADV` 12, `S` 2).
+- **Harness:** AGENTS.md gets one dated line (built; fonts licence). README is unchanged: README describes how to run, deploy and test the app, not the export internals, and no command or deploy step changed.
+
+50.10 (2026-10-21, QA Z1 on dd23170; text-only correction of 50.9, nothing above removed, no golden changed.) The **fallback golden crop** `qa/evidence/176/u-fallback.png` (PFU-08, `export-golden/crops.ts`) renders fixture U with the report name **`Сбережения 貯金 🏠`** (U5 + space + U6 + space + U7). Its title line prints `Orpheus - Personal Finance report: ?????????? ?? ?`: 10, 2 and 1 `?`. The name `貯金 🏠` given in 50.9 is only the **PGlite fallback report** (`U_FALLBACK_NAME`, whose title prints `?? ?` and whose category U5 prints `??????????`). It is not the name in the golden crop.

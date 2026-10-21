@@ -1440,3 +1440,69 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 - **Typed expenses only** (Expenses `900`, Income empty), with both shown: Expenses `900.00` (typed), Income `3,000.00` (copy), Surplus `2,100.00`.
 - Surplus always equals resolved income − resolved expenses.
 - Where: DOM "PFTM-08 (EL W1)". Mutation caught: reverting to the whole-month rule fails it. Unit: `months.test.ts` "#166 W2 withCurrentCopy".
+
+## PFU — Report export: Unicode text in PDF and PNG (#176, spec 50; added 2026-10-21; Phase 1, nothing built)
+
+Backend only, with no UI, so viewports 390 / 768 / 1440 don't apply.
+- **Fixture:** U (spec 50.4) with strings U1–U7.
+- **Real-path tests:** `src/lib/finance/export.server.test.ts` (PGlite, under TZ=UTC and TZ=America/Los_Angeles), test names prefixed `PFU-NN`. They decode text with `qa/tools/export-parse.mjs`.
+- **Text checks:**
+  - **PDF:** decode every `Tj` / `TJ` through the font's ToUnicode CMap.
+  - **PNG:** compare against the rasterizer's own reference cells, since a PNG has no text layer.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFU-01 | BLOCK | PDF of U: the decoded page text contains the name `Épargne € £ ¥ R$ — pgqyj`, U1 and U2 **verbatim** in the legend, and `Currency: CAD`. It has zero `?` characters. |
+| PFU-02 | BLOCK | PDF fonts: F1 and F2 are `/Type0` with `/Encoding /Identity-H`, a `/ToUnicode` stream and an embedded `/FontFile2`. No `/Helvetica` remains. Every code point of U1–U3 maps to a glyph id other than 0. |
+| PFU-03 | BLOCK | PDF widths: each embedded font's `/W` array matches its `hmtx` advance widths. The right-aligned value `1,234.56` ends at the same x (± 0.5 pt) as the column's right edge (`M + monthW + colW·(i+1) − 4`). |
+| PFU-04 | BLOCK | PNG of U: for each of the name, U1 and U2, the pixels of header / legend line *i* in the box (M, M + i·LH, W − 2M, LH) equal the rasterizer's reference cells for that exact string. They do **not** equal the cells for the same string after `ascii()`. |
+| PFU-05 | BLOCK | PNG accents: the cells for `é` and `e`, `Ł` and `L`, `Ő` and `O`, and `ß` and `B` all differ. None of `É é è ü Ñ ú Ø ß Ł ó ź Š Č Œ Ğ İ ş Ő` equals the cell for `?`. |
+| PFU-06 | BLOCK | PNG currency: `€`, `£` and `¥` each give cells other than `?` and other than each other, and `R$` renders as `R` then `$`. The same holds for the PDF ToUnicode decode (PFU-01). |
+| PFU-07 | MAJOR | PNG descenders: for `p g q y j` at scale 1, at least one lit pixel (luma > BG + 32) is **below** the baseline row of `x`. For `a e o x` none is. |
+| PFU-08 | MAJOR | Fallback: a report whose category is U5, U6 or U7 still exports 200 with the audit row.<br>The PDF decode and the PNG cells show exactly **one** `?` per code point: 10, 2 and **1** respectively. Today an emoji prints `??`.<br>The data JSON keeps the originals: `JSON.parse` of `/OrpheusData` gives U5, U6 and U7. |
+| PFU-09 | BLOCK | Values unchanged: for the #157 fixture with ASCII names only, the PDF decode's row texts (`Month`, the series numbers, every `formatMoney` cell, `* current month, partial`) equal today's, and `dataJson` is byte-identical. |
+| PFU-10 | BLOCK | Layout unchanged: the PNG size (W 1200 × H) equals today's for the #157 fixture, and so do the PDF page count and MediaBox `0 0 842 595`. Header line origins are (M, M + i·LH). |
+| PFU-11 | BLOCK | The 36.11 caveat line, starting `Caveat: `, is in both files verbatim (the PDF decode, and PNG cells against the reference). It is unchanged when the report has net assets. |
+| PFU-12 | BLOCK | PFX-18 still passes for bar and stacked-bar, with the Q-AO10 helper: `Rendered as lines` is drawn on PNG line 3, `tEXt orpheus-note` is set, and the PDF header line is present. Line reports don't have it. |
+| PFU-13 | BLOCK | PFX-19 still passes: when the audit insert fails, the response is 503 `{ error: "Export unavailable. Try again." }` with no bytes. PFX-17's audit row detail is unchanged. |
+| PFU-14 | MAJOR | Font asset: the SHA-256 of each committed subset equals `FONTS.md`. Its `cmap` contains every 50.1 code point. `OFL.txt` is present next to the fonts. Regular ≤ 32,768 bytes and Bold ≤ 32,768 bytes. |
+| PFU-15 | MAJOR | `qa/tools/pf-export-api.mjs` (signed in, a non-prod preview only; `refuseIfProd` first): on a preview report named with U1, the PDF ToUnicode decode contains U1. The signed-out run is unchanged (PFX-01: 1/1). |
+| PFU-16 | MINOR | PDF `/Title` is UTF-16BE `<FEFF…>` and decodes to `Orpheus report: Épargne € £ ¥ R$ — pgqyj` (Q-AO9). |
+
+**Expected counts once built.** Today's baseline at 3f59104: `export.server.test.ts` has 27 test blocks; npm test passes 86 + 819 + 235 (scripts, server and lib, DOM). The build adds:
+- PFU-01..14 and PFU-16 as about 15 tests in `export.server.test.ts`.
+- The PFU-14 font tests.
+
+DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the other 10.
+
+> **Correction (2026-10-21, CFO decisions on PR #203 + QA Y1–Y12 on dbf4881; spec 50.9).** PFU is **built** on PR #203. The CFO answered every Q-AO (Q-AO8 changed). Where these notes differ from the PFU rows above, these notes win, and the "Phase 1, nothing built" heading above is superseded.
+> - **Fixture U** is now spec 50.9's exact record (Y1 / Y2), in `src/lib/finance/export-golden/fixture-u.ts`:
+>   - The report name is **U1** verbatim.
+>   - The category is **U2** `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş Ő`.
+>   - The account is `Konto € £ ¥ R$ ₩ pgqyj`.
+>   - The range is the closed months 2026-07..09, with the clock at 2026-10-21T12:00Z.
+>   - The `/chart` rows are `[1234.56, 789]` × 3.
+> - Every PFU now runs on fixture U (or the #157 golden record for PFU-09 / 10 / 11), in `src/lib/finance/export-unicode.server.test.ts` (new; in `npm test`).
+> - **PFU-01** reads `Orpheus - Personal Finance report: Épargne café crème — Zürich, Ñandú, Øresund, Straße`, then `1. Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş Ő (category, flow)` and `2. Konto € £ ¥ R$ ₩ pgqyj (account, flow)`. The rows read `Month 1 2 | 2026-07 1,234.56 789.00 | …`.
+> - **PFU-03** constants are in spec 50.9 (Y9).
+> - **PFU-04 / 05 / 06 / 07 / 08 / 11** are also pinned to the committed golden crops `qa/evidence/176/*.png` (raw-RGB SHA-256 in spec 50.9 and `goldens.json`) for QA's visual sign-off (Y3). The PFU-07 baseline is defined in 50.9 (Y10).
+> - **PFU-08** uses the fallback report: its name `貯金 🏠` prints `?? ?`, and the category U5 prints `??????????` (10 code points, Y5).
+> - **PFU-09 / 10** compare against `export-golden/3f59104.json`, captured on the 3f59104 code (Y10).
+> - **PFU-14** includes U+20A9 ₩ (Y6). The budget is ≤ 32,768 bytes per weight; measured 21,748 / 21,696.
+> - **PFU-15** is a signed-in check only. `pf-export-api` checks that the PDF title line equals the report name through the same text rule. QA runs it on a non-prod preview. The signed-out run is unchanged (PFX-01 1/1).
+> - **Y4:** PFU-01 / PFU-08 supersede **PFX-11**. PFX-14 stays under 100 KB with the fonts included: measured 75,170 bytes for the PDF.
+> - **Y8:** PFX-01..PFX-19 are otherwise unchanged. PFX-03's filename example is now `orpheus-report-spend-ete-…` (Q-AO8).
+>
+> | ID | Severity | Check (added 2026-10-21, Y7 / Y8 / Q-AO8) |
+> |---|---|---|
+> | PFU-17 | MAJOR | NFC: `Cafe` + U+0301 prints `Café`; `C` + U+0327 + `a` prints `Ça`. |
+> | PFU-18 | MAJOR | NBSP U+00A0 is kept (`a\u00a0b` stays, with a glyph); the soft hyphen U+00AD is dropped (`Spar\u00adkonto` → `Sparkonto`). |
+> | PFU-19 | MAJOR | Controls: tab / CR / LF → one space each (`a\tb\r\nc` → `a b  c`); U+0007, U+007F and U+0085 → `?` each (`a?b?c?d`). |
+> | PFU-20 | MAJOR | Long-name wrap: the name `WWWWWWWWWW` × 8 (space-separated) wraps the PNG title over at least 2 lines. No word is lost (the first two lines rejoin to the name), and every line ends before W − M px. |
+> | PFU-21 | MAJOR | Bold coverage: Bold maps exactly Regular's code points; `é` differs between the weights. |
+> | PFU-22 | BLOCK | Q-AO8: `asciiName("Épargne")` = `Epargne`; `asciiName("Ça")` = `Ca`; `asciiName("Łódź")` = `-odz`. U's file is `orpheus-report-epargne-cafe-creme-zurich-nandu-resund-s-2026-10-21.pdf`. |
+> | PFU-23 | BLOCK | Access is unchanged on U: the owner 200; qa-cfo-read (a Read grant, no saved reports) 404 `Report not found.` on `default` and on the owner's id; no grant 403. |
+>
+> **Counts at the build:** npm test passes 86 + 837 + 235 (was 86 + 819 + 235). There are +19 `export-unicode.server.test.ts` tests (PFU-01..23; 12 to 16 are folded together as listed), and −1 retired F3 font test. The DOM count is unchanged. Signed-out suites are unchanged.
+
+> **Correction (2026-10-21, QA Z1 on dd23170; text only, no golden changed).** PFU-08's golden crop `qa/evidence/176/u-fallback.png` uses the report name **`Сбережения 貯金 🏠`**, which prints `Orpheus - Personal Finance report: ?????????? ?? ?`. The `貯金 🏠` named in the correction above is the PGlite fallback report only (its title prints `?? ?`). Spec 50.10.

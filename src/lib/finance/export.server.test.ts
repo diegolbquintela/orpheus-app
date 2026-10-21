@@ -10,7 +10,7 @@ import {
   handlePersonalFinanceRequest,
 } from "./account.server.ts";
 import { inflateSync } from "node:zlib";
-import { crc32, BG, FG, GLYPHS, LINES_NOTE, NET_ASSETS_CAVEAT, PNG_LAYOUT, exportFilename, pngText } from "./export.ts";
+import { crc32, BG, LINES_NOTE, NET_ASSETS_CAVEAT, PNG_LAYOUT, exportFilename, over, paintText, pngText } from "./export.ts";
 import { decodeReportId, exportDetail, maskCode } from "../access/audit.server.ts";
 import { formatMoney } from "./money.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
@@ -123,7 +123,7 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     const r = await ex("alice", named, "png");
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("content-type"), "image/png");
-    assert.equal(r.headers.get("content-disposition"), 'attachment; filename="orpheus-report-spend-t-2026-10-16.png"');
+    assert.equal(r.headers.get("content-disposition"), 'attachment; filename="orpheus-report-spend-ete-2026-10-16.png"');
     const b = await bytes(r);
     assert.deepEqual([...b.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const p = readPng(b, crc32);
@@ -182,9 +182,9 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     }
   });
 
-  it("PFX-11: names and labels are ASCII in the files (other characters print as ?)", async () => {
+  it("PFX-11 (superseded by #176 PFU-01 / PFU-08): names and labels print verbatim in the embedded font", async () => {
     const t = readPdf(await bytes(await ex("alice", named, "pdf"))).text;
-    assert.equal(t[0], "Orpheus - Personal Finance report: Spend ?t?");
+    assert.equal(t[0], "Orpheus - Personal Finance report: Spend été");
   });
 
   it("PFX-12: #165 deleted names keep their (deleted) label in the legend", async () => {
@@ -418,22 +418,12 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     const rowLen = 1 + 3 * p.width;
     return { p, rgb: (x: number, y: number) => [...raw.subarray(y * rowLen + 1 + x * 3, y * rowLen + 4 + x * 3)] };
   };
-  // Every pixel of the glyph cells for `text` at header line `line` is exactly FG where the 5x7 font has a dot and BG elsewhere.
+  // #176 Q-AO10: every pixel the font rasterizer paints for `text` at (x0, y0) is exactly that coverage of FG over BG.
   const drawnAt = (b: Buffer, text: string, x0: number, y0: number) => {
-    const { S, ADV } = PNG_LAYOUT;
     const { rgb } = pixels(b);
-    return [...text].every((ch, n) => {
-      const g = GLYPHS[ch];
-      if (!g) return false;
-      for (let r = 0; r < 7; r++)
-        for (let c = 0; c < 6; c++) {
-          const on = c < 5 && (parseInt(g.slice(r * 2, r * 2 + 2), 16) & (1 << (4 - c))) !== 0;
-          for (let dy = 0; dy < S; dy++)
-            for (let dx = 0; dx < S; dx++)
-              if (rgb(x0 + n * ADV + c * S + dx, y0 + r * S + dy).join() !== (on ? FG : BG).join()) return false;
-        }
-      return true;
-    });
+    const ref = new Map<string, number[]>();
+    paintText((x, y, c, a) => ref.set(`${x},${y}`, over(ref.get(`${x},${y}`) ?? BG, c, a)), text, x0, y0);
+    return ref.size > 0 && [...ref].every(([k, v]) => rgb(...(k.split(",").map(Number) as [number, number])).join() === v.join());
   };
   const drawn = (b: Buffer, text: string, line: number) => drawnAt(b, text, PNG_LAYOUT.M, PNG_LAYOUT.M + line * PNG_LAYOUT.LH);
 
@@ -455,13 +445,6 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     assert.ok(!readPdf(await bytes(await ex("alice", "default", "pdf"))).text.includes(LINES_NOTE));
   });
 
-  it("F3 (QA 2026-10-17): the font covers printable ASCII with distinct glyphs; non-ASCII has none (prints ?)", () => {
-    for (let c = 32; c < 127; c++) assert.match(GLYPHS[String.fromCharCode(c)] ?? "", /^[0-9a-f]{14}$/, `glyph for ${String.fromCharCode(c)}`);
-    const bitmaps = Object.values(GLYPHS);
-    assert.equal(new Set(bitmaps).size, bitmaps.length, "no two characters share a bitmap (case and punctuation are distinguishable)");
-    assert.equal(GLYPHS["\u00e9"], undefined);
-  });
-
   it("F3 (QA 2026-10-17): the PNG draws every header and legend line verbatim, incl. the 36.11 caveat, glyph by glyph", async () => {
     assert.equal((await rep("alice", "PUT", { report: { ...NET, chart: "bar" } })).status, 200);
     const b = await bytes(await ex("alice", "default", "png"));
@@ -481,9 +464,10 @@ describe("#157 /api/personal-finance/reports/:id/export", () => {
     assert.ok(!drawn(b, head[0].toUpperCase(), 0), "not uppercased any more");
   });
 
-  it("F3 / Q-AD5: non-ASCII still prints as ? in the PNG", async () => {
+  it("F3 / Q-AD5 (superseded by #176 PFU-04): non-ASCII prints verbatim in the PNG, not as ?", async () => {
     const b = await bytes(await ex("alice", named, "png"));
-    assert.ok(drawn(b, "Orpheus - Personal Finance report: Spend ?t?", 0));
+    assert.ok(drawn(b, "Orpheus - Personal Finance report: Spend été", 0));
+    assert.ok(!drawn(b, "Orpheus - Personal Finance report: Spend ?t?", 0));
   });
 
   it("Q-AD7: the filename date is the generation day in Toronto", () => {

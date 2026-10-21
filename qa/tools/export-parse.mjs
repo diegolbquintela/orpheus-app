@@ -55,7 +55,27 @@ export function readPdf(buf) {
     if (!s.startsWith(`${i + 1} 0 obj`, off)) throw new Error(`xref object ${i + 1}`);
   });
   const hex = /\/OrpheusData <([0-9a-f]*)>/.exec(s)?.[1];
-  const strings = [...s.matchAll(/\((?:[^()\\]|\\.)*\) Tj/g)].map((x) => x[0].slice(1, -4).replace(/\\([\\()])/g, "$1"));
+  // #176: text drawn with an embedded Type0 font is hex glyph ids; decode each through that font's ToUnicode CMap.
+  // Binary font streams (`/Length1`) are blanked first so their bytes can't look like text operators.
+  const obj = (/** @type {number} */ id) => {
+    const at = s.indexOf(`\n${id} 0 obj\n`);
+    return at < 0 ? "" : s.slice(at, s.indexOf("\nendobj", at));
+  };
+  /** @type {Record<string, Map<string, string>>} */
+  const fonts = {};
+  for (const m of s.matchAll(/\/(F\d+) (\d+) 0 R/g)) {
+    if (fonts[m[1]]) continue;
+    const tu = /\/ToUnicode (\d+) 0 R/.exec(obj(Number(m[2])))?.[1];
+    const map = new Map();
+    if (tu) for (const e of obj(Number(tu)).matchAll(/<([0-9A-Fa-f]{4})> <([0-9A-Fa-f]+)>/g)) map.set(e[1].toUpperCase(), Buffer.from(e[2], "hex").swap16().toString("utf16le"));
+    fonts[m[1]] = map;
+  }
+  const body = s.replace(/\/Length1 \d+[^>]*>>\nstream\n[\s\S]*?\nendstream/g, "");
+  const strings = [...body.matchAll(/\/(F\d+) [\d.]+ Tf [^<(\n]*?(?:<([0-9A-Fa-f]*)>|\(((?:[^()\\]|\\.)*)\)) Tj/g)].map((x) =>
+    x[2] !== undefined
+      ? (x[2].match(/.{4}/g) ?? []).map((g) => fonts[x[1]]?.get(g.toUpperCase()) ?? "\ufffd").join("")
+      : x[3].replace(/\\([\\()])/g, "$1"),
+  );
   const pages = Number(/\/Type \/Pages \/Kids \[[^\]]*\] \/Count (\d+)/.exec(s)?.[1] ?? 0);
   return { objects: n - 1, pages, text: strings, data: hex ? JSON.parse(Buffer.from(hex, "hex").toString("latin1")) : null };
 }

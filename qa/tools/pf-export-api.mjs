@@ -1,4 +1,5 @@
-// Personal Finance report export (#157; spec section 39; design attachments/pf-export-design.md; AC PFX-01..PFX-18).
+// Personal Finance report export (#157; spec section 39; design attachments/pf-export-design.md; AC PFX-01..PFX-18;
+// #176 spec 50 adds PFU-15, signed in only).
 // Backend only: GET /api/personal-finance/reports/:id/export?format=pdf|png on a preview. READ-ONLY (exports are made
 // on request and stored nowhere; this tool only GETs). Refuses production before any request (qa/tools/prod-guard.mjs).
 //
@@ -67,6 +68,11 @@ try {
             check(`PFX-18 ${rep.id} ${format}: '${EXPORT_LINES_NOTE}' ${chart.chart === "line" ? "absent (line chart)" : `present (${chart.chart})`}`, note === (chart.chart !== "line"));
           }
           if (format === "pdf" && parsed) {
+            // #176 PFU-15 (spec 50.5): the title line prints the report name verbatim through the embedded font's
+            // ToUnicode map. Out-of-scope code points (above U+017F, except – — … − € ₩) print one ? each.
+            const inScope = (c) => { const cp = c.codePointAt(0); return (cp >= 0x20 && cp <= 0x7e) || (cp >= 0xa0 && cp <= 0x17f) || [0x2013, 0x2014, 0x2026, 0x20ac, 0x2212, 0x20a9].includes(cp); };
+            const want = `Orpheus - Personal Finance report: ${[...(rep.name ?? "Default").normalize("NFC").replace(/\u00ad/g, "")].map((c) => (inScope(c) ? c : "?")).join("")}`;
+            check(`PFU-15 ${rep.id} pdf: the title line is the report name verbatim (embedded font, ToUnicode)`, parsed.text[0] === want, { got: parsed.text[0], want });
             const text = parsed.text.join("\n");
             const net = chart.series?.some((s) => s.id === "net-assets" && s.kind === "metric");
             // #171 Q-AG7 (2026-10-17) + QA early finding 1 (on 1ca3c3d, QA's): the expectation follows the STORED
