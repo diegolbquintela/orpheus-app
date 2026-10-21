@@ -16,7 +16,6 @@ export const GLEIF_BASE = "https://api.gleif.org/api/v1";
 export const ESEF_USER_AGENT = "OrpheusWisdom/1.0 (orpheus-app dashboard; +https://github.com/diegolbquintela/orpheus-app)";
 export const ESEF_MIN_INTERVAL_MS = 1000;
 export const ESEF_MAX_DOCUMENTS = 6;
-export const ESEF_SOURCE_LINE = "ESEF annual reports via filings.xbrl.org";
 
 /** Pinned ticker → LEI (wins over GLEIF). */
 export const PINNED_LEI: Record<string, { lei: string; name: string }> = {

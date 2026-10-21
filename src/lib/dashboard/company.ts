@@ -97,7 +97,6 @@ export const RANGES = [
 ] as const;
 export type RangeKey = (typeof RANGES)[number]["key"];
 
-export const SECTION_TITLES = ["Profile", "Margins", "Returns", "Valuation", "Growth", "Dividends"] as const;
 export const SOURCE_LINE = "SEC filings (companyfacts) · daily closes as stored by the Dashboard";
 /** #123 (ES-08): an ESEF-covered listing's source line (figures in the filing currency). */
 export const SOURCE_LINE_ESEF = "ESEF annual reports via filings.xbrl.org · daily closes as stored by the Dashboard";

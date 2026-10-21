@@ -1564,3 +1564,18 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | DMH-08 | MAJOR | CI `check` green, including `check:dashboard-built`. |
 | DMH-09 | MAJOR | Preview, signed out, when one exists: `/dashboard` 307 to sign-in, `/api/dashboard/fx` 401 JSON, `/api/cron/daily-refresh` 401 JSON, as on main. The signed-out suites pass with main's counts. |
 | DMH-10 | MINOR | Docs additions only: dashboard-spec §21, a dated note under AGENTS.md's `convert()` line, one dated AGENTS.md #187 line. README is unchanged because it never named these helpers (reason in the PR body). |
+
+## DCC — Remove unused copy constants and helpers left by UI rewrites (#188, dashboard-spec §22; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+| ID | Severity | Check |
+|---|---|---|
+| DCC-01 | BLOCK | Removed, and nothing else in those files: `UPDATE_TITLE`, `MONTH_LABEL`, `UPDATE_MONTH` with its comment, `CANCEL` (overview.ts); `CURRENCY_LABEL` (currency.ts); `isMetricKey`, `metricLabel` (metrics.ts); `SECTION_TITLES` (company.ts); `ESEF_SOURCE_LINE` (esef.server.ts); `type OrpheusAuth` (instance.server.ts); `shareCount`, `weightLabel` (dca/format.ts). The diff is deletions only (20 lines). |
+| DCC-02 | BLOCK | `grep -rnwE "UPDATE_TITLE\|MONTH_LABEL\|UPDATE_MONTH\|CANCEL\|CURRENCY_LABEL\|isMetricKey\|metricLabel\|SECTION_TITLES\|ESEF_SOURCE_LINE\|OrpheusAuth\|shareCount\|weightLabel" src scripts qa --exclude=CANONICAL-AC-PACK.md` prints nothing (exit 1). The pack is excluded so that the grep doesn't match this row. |
+| DCC-03 | BLOCK | Kept and still used: `METRICS`, `METRIC_KEYS`, `MetricKey`, `createOrpheusAuth`, `SOURCE_LINE_ESEF` (still the ESEF company-view source line; `esef.test.ts` and `openfigi.test.ts` pass). |
+| DCC-04 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0; eslint 0 errors; npm test 0 fail, 0 cancelled, 0 `not ok`, with the same counts as main. `npx vite build` OK. |
+| DCC-05 | BLOCK | The DCA-06 advice scan (`src/lib/dca/fixtures.test.ts`) ran and passed. |
+| DCC-06 | BLOCK | The PF and dashboard DOM tests (`node scripts/run-dom-tests.mjs`: `src/components/personal-finance/*.dom.test.tsx`, `src/components/dashboard/*.dom.test.tsx`) ran and passed. |
+| DCC-07 | MAJOR | Build compare against main at a checkout path of the same length: the same file list after hash normalisation. Sizes are the same, or smaller in server chunks only (at f23c372: `_ssr/esef.server.mjs` −43 B). No client chunk size change. |
+| DCC-08 | BLOCK | Mutation: a file referencing a removed name (e.g. `CANCEL` from overview.ts) makes DCC-02 print a hit, and tsc fails. |
+| DCC-09 | MAJOR | CI `check` green. The preview, signed out, behaves as on main (`/dashboard` 307, `/api/dashboard/fx` 401). |
+| DCC-10 | MINOR | Docs additions only: dashboard-spec §22 and one dated AGENTS.md #188 line. README unchanged (it never named these). |

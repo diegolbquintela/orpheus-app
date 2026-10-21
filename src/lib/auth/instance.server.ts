@@ -78,5 +78,3 @@ export function createOrpheusAuth(opts: OrpheusAuthOptions) {
     plugins: opts.plugins ?? [],
   });
 }
-
-export type OrpheusAuth = ReturnType<typeof createOrpheusAuth>;

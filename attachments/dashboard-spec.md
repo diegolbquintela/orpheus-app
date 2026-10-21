@@ -1658,3 +1658,23 @@ The live auth path is unchanged: `getSessionUserFromHeaders` (`verify.server.ts`
 - **Q-DMH1 Lost schema coverage:** the removed tests also exercised DB rules on the shared tables: idempotent closes (DASH-09), the FX holiday fallback, and the `metric_values` CHECK rejecting `ok` with a null value. **rec:** accept. The live code's tests cover the job paths (`daily-close.test.ts`, `fx.test.ts`, `fundamentals.test.ts`, `metric-compute.test.ts`). If EL wants the CHECK pinned, a follow-up adds one SQL-level test against the real writer. **Not built.**
 - **Q-DMH2 Verify grep:** the issue's `grep -rnw` over bare `Region` and `convert` matches prose. **rec:** the AC grep (DMH-02) lists the identifiers, with `convert\(` in place of bare `convert`; `Region`'s only remaining hit is the `venues.ts` comment. **Built** (as the AC).
 
+
+## 22. Remove unused copy constants and helpers left by UI rewrites (#188; added 2026-10-21; cleanup, no business user, no behaviour change)
+
+22.1 **Facts at f23c372.** Each name below was referenced only by its own definition. A whole-word search over `src`, `scripts` and `qa` found nothing else, and no doc named them.
+
+| File | Removed |
+|---|---|
+| `src/lib/finance/overview.ts` | `UPDATE_TITLE`, `MONTH_LABEL`, `UPDATE_MONTH` with its `#105 (PF-43)` comment, `CANCEL` |
+| `src/lib/finance/currency.ts` | `CURRENCY_LABEL` |
+| `src/lib/dashboard/metrics.ts` | `isMetricKey`, `metricLabel` |
+| `src/lib/dashboard/company.ts` | `SECTION_TITLES` |
+| `src/lib/dashboard/esef.server.ts` | `ESEF_SOURCE_LINE` (the shown ESEF copy is `SOURCE_LINE_ESEF` in `company.ts`, kept) |
+| `src/lib/auth/instance.server.ts` | `type OrpheusAuth` |
+| `src/lib/dca/format.ts` | `shareCount`, `weightLabel` (labels only; no engine math touched) |
+
+22.2 **Change.** Only those lines, 20 deletions in total. `METRICS`, `METRIC_KEYS`, `MetricKey` and `createOrpheusAuth` are still used and are kept. Build output against main: the same 169 files. The only size change is the server chunk `_ssr/esef.server.mjs`, which is 43 B smaller because the unused string is gone. No client chunk changes. AC DCC-01..10.
+
+22.3 **Q-items (EL).**
+- **Q-DCC1:** the auth tests spell `ReturnType<typeof createOrpheusAuth>` inline, so `OrpheusAuth` had no users. **Rec:** keep the inline form, and don't reintroduce the alias. Not built.
+- **Q-DCC2:** the ESEF source line has one home, `SOURCE_LINE_ESEF` in `company.ts`, so it can't drift. **Rec:** yes. Built (by the removal).
