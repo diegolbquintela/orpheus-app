@@ -394,8 +394,8 @@ npm run fixtures:hand-check     # must print "hand check: MATCH"
 
 The scripts in `qa/tools/` drive the deployed app (they do not start a local server). Pass the URL as
 `--base-url` or `QA_BASE_URL`; the default is production, https://orpheus-app-beta.vercel.app. Output
-(screenshots, JSON) goes to `--out` / `QA_OUT_DIR`, default a temp dir outside the repo. Never point them
-at the frozen Grok copy except as an explicit `--compare-url` for `sidebyside.mjs`.
+(screenshots, JSON) goes to `--out` / `QA_OUT_DIR`, default a temp dir outside the repo. For `sidebyside.mjs`,
+pass production (https://orpheus-app-beta.vercel.app) as the explicit `--compare-url` target.
 
 ```bash
 npx playwright install chromium                     # once; playwright is already a devDependency
