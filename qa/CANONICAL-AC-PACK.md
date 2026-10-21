@@ -1434,3 +1434,9 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | PFTM-12 | MAJOR | No new UI. At 390×844, these existing elements stay ≥ 44 px tall: `pf-month-year`, `pf-month`, `pf-month-save`, `pf-future-toggle`, `pf-charts-link`. CLS 0 on a cold load of `/personal-finance` at 390 / 768 / 1440. | e2e (existing CLS check); hand check |
 | PFTM-15 | MAJOR | (EL V4) Signed-in regression on the preview, all exit 0 with these counts: personal-finance 383, personal-finance-e2e 201, pf-months 36, pf-charts-contract 23, site-shell 471, site-style-regression 258. PFDU-01..10, PFCV-01..17, PFCB-01..21 and PFCL-01..14 still pass. | QA signed-in run |
 | PFTM-16 | MAJOR | Q-AN4 parked: the Overview chart vs `/chart` / export may differ for the current month while it is an unsaved copy. This is not a defect in #166; it is a possible follow-up. | — |
+
+**PFTM-08 per field (2026-10-20, QA interim W1 on b7a5758, EL / CFO; supersedes the PFTM-08 rows above where they differ).** Fixture T, with September also holding one person `Me` (`wages` 36000, `share` 100, `countWages` true; the copy's income is `3,000.00`). Rows `pf-ov-expenses` / `pf-ov-income` / `pf-ov-surplus`, column `pf-ov-now`:
+- **Typed income only** (October Update: Income `2500`, Expenses empty), with October shown and with September shown: Expenses `1,000.00` (copy), Income `2,500.00` (typed), Surplus `1,500.00`.
+- **Typed expenses only** (Expenses `900`, Income empty), with both shown: Expenses `900.00` (typed), Income `3,000.00` (copy), Surplus `2,100.00`.
+- Surplus always equals resolved income − resolved expenses.
+- Where: DOM "PFTM-08 (EL W1)". Mutation caught: reverting to the whole-month rule fails it. Unit: `months.test.ts` "#166 W2 withCurrentCopy".

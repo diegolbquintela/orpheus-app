@@ -154,14 +154,20 @@ export function lineFigures(storage: StorageLike | null, current?: MonthKey): Re
  * Without `current` (the server's /series, Q-AN4) the stored months are used unchanged.
  */
 /**
- * #166 V2 (EL / CFO): when the current month has typed Update totals and no STORED lines, its unsaved on-screen lines
- * (the copy, edited or not) don't count, so the typed totals win. `typedCurrent` null → `figures` unchanged.
+ * #166 V2 + W1 (EL / CFO): the current month's order, PER FIELD (expenses and income separately): stored lines > the typed
+ * Update total for that field > the unsaved copy (or on-screen lines) > none. When the current month has STORED lines,
+ * `figures` is unchanged; otherwise each typed field replaces that field of the unsaved figure.
  */
-export function dropUnsavedCurrent(figures: Record<MonthKey, Figures>, storage: StorageLike | null, typedCurrent: MonthKey | null | undefined): Record<MonthKey, Figures> {
-  if (!typedCurrent || hasLines(readMonths(storage)[typedCurrent]) || !(typedCurrent in figures)) return figures;
-  const out = { ...figures };
-  delete out[typedCurrent];
-  return out;
+export function typedOverCopy(
+  figures: Record<MonthKey, Figures>,
+  storage: StorageLike | null,
+  current: MonthKey | null | undefined,
+  typed: Figures,
+): Record<MonthKey, Figures> {
+  if (!current || !(current in figures) || hasLines(readMonths(storage)[current])) return figures;
+  if (typed.expenses === null && typed.income === null) return figures;
+  const unsaved = figures[current];
+  return { ...figures, [current]: { expenses: typed.expenses ?? unsaved.expenses, income: typed.income ?? unsaved.income } };
 }
 
 export function withCurrentCopy(months: Months, shared: Expenses, current: MonthKey): Months {

@@ -1659,3 +1659,8 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
   - No overview value (no typed months, `start` / `growth` empty, Future off). Household CAD; Rate used empty.
 - Clock 2026-10-11 (Toronto), current month 2026-10, not stored.
 - **Harness:** unchanged (49.3).
+49.7 (2026-10-20, QA interim W1 / W2 on b7a5758, EL ruling, CFO-accepted; refines 49.5 Q-AN6, nothing above removed)
+- **W1:** the current month's order applies **per field**. For expenses and income separately: stored lines > the typed `05` Update total for that field > the unsaved copy > `—`. Typed income with no typed expenses gives the typed income and the copy's expenses, and the reverse.
+- Surplus = resolved income − resolved expenses.
+- Built as `typedOverCopy` in `months.ts`, replacing 49.5's `dropUnsavedCurrent`, which dropped both fields whenever either was typed (the bug).
+- **W2:** a unit test for `withCurrentCopy` (`months.test.ts`): a copy into an empty current month, stored lines kept, no source, and the #165 Q-Z7 deleted-name drop.

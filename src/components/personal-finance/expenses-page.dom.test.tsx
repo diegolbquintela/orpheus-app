@@ -2661,6 +2661,38 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       await pick(el, "2026-09");
       assert.equal(row(el)[0], "900.00", "typed wins with September shown");
     });
+    it("PFTM-08 (EL W1): per field — typed income only → typed income + the copy's expenses; typed expenses only → typed expenses + the copy's income (October shown and September shown)", async () => {
+      const ME = { id: "p", name: "Me", wages: "36000", bonus: "", tax: "", share: "100", countWages: true, countBonus: false };
+      const inc = (el: ParentNode) => text(q(el, "pf-ov-income"), "pf-ov-now");
+      const exp = (el: ParentNode) => text(q(el, "pf-ov-expenses"), "pf-ov-now");
+      const seen: Record<string, string[]> = {};
+      for (const [tag, typed] of [["income", { expenses: "", income: "2500" }], ["expenses", { expenses: "900", income: "" }]] as const) {
+        T({ "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [ME] } });
+        dom.window.localStorage.setItem(OVERVIEW_KEY, JSON.stringify({ start: "", growth: "", future: false, years: 1, months: { "2026-10": typed } }));
+        const el = await render();
+        const sur = () => text(q(el, "pf-ov-surplus"), "pf-ov-now");
+        const oct = [exp(el), inc(el)];
+        const octS = sur();
+        await pick(el, "2026-09");
+        const sep = [exp(el), inc(el)];
+        const sepS = sur();
+        seen[tag] = [...oct, ...sep];
+        // CFO (W1): surplus = resolved income − resolved expenses, exact to two decimals, in both shown cases.
+        const num = (t: string) => Number(t.replace(/,/g, ""));
+        const want = (num(oct[1]) - num(oct[0])).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        assert.equal(octS, want, `${tag}: surplus October shown`);
+        assert.equal(sepS, want, `${tag}: surplus September shown`);
+        await unmount();
+      }
+      // The copy's own income (no typed months): the same record without the typed value.
+      T({ "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [ME] } });
+      dom.window.localStorage.removeItem(OVERVIEW_KEY);
+      const copyIncome = inc(await render());
+      assert.notEqual(copyIncome, "—", "the copy has an income");
+      assert.equal(copyIncome, "3,000.00");
+      assert.deepEqual(seen.income, ["1,000.00", "2,500.00", "1,000.00", "2,500.00"], "typed income + copy expenses (surplus 1,500.00)");
+      assert.deepEqual(seen.expenses, ["900.00", copyIncome, "900.00", copyIncome], "typed expenses + copy income (surplus 2,100.00)");
+    });
     it("PFTM-07: no source month → This month —", async () => {
       dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
       assert.equal(row(await render())[0], "—");

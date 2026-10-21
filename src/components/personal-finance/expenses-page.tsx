@@ -85,11 +85,12 @@ import {
   SAVE,
   UNSAVED,
   writeOverview,
+  typedFigure,
 } from "@/lib/finance/overview";
 import {
   copiedNote,
   DISCARD_CONFIRM,
-  dropUnsavedCurrent,
+  typedOverCopy,
   lineFigures,
   liveLineFigures,
   deleteInMonths,
@@ -277,11 +278,13 @@ export function PersonalFinancePage({
   // is shown (so typed totals beat the copy even while October's copy is on screen).
   const typedNow = current ? overview?.months[current] : undefined;
   const hasTypedNow = !!(typedNow && (typedNow.expenses?.trim() || typedNow.income?.trim()));
-  const copyMonth = current && !hasTypedNow ? current : undefined;
+  const copyMonth = current ?? undefined;
+  const typedE = typedFigure(typedNow?.expenses);
+  const typedI = typedFigure(typedNow?.income);
   // #144 (Q-V1, PF-159..PF-161): every figure is live: each month as Save would store it (read-only: the saved record).
   const figures = useMemo(
     () =>
-      dropUnsavedCurrent(
+      typedOverCopy(
         readOnly || !month || !expenses || !income || !rates || !household
           ? lineFigures(storage(), copyMonth)
           : liveLineFigures(
@@ -296,10 +299,11 @@ export function PersonalFinancePage({
             copyMonth,
           ),
         storage(),
-        hasTypedNow ? current : null,
+        current,
+        { expenses: typedE, income: typedI },
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [saved, month, readOnly, expenses, income, rates, household, copyMonth, hasTypedNow],
+    [saved, month, readOnly, expenses, income, rates, household, copyMonth, typedE, typedI],
   );
   // #144: Save drops the shown month's old typed totals, so while something is unsaved the live Overview does too
   // (unedited, the page shows exactly the saved figures).
