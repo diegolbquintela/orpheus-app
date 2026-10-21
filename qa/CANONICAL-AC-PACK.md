@@ -1416,3 +1416,21 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 | PFTM-12 | MAJOR | UI unchanged otherwise: no new text, control or colour; cold load CLS 0 at 390 / 768 / 1440; existing targets ≥ 44 px (no new ones). | hand check |
 | PFTM-13 | MAJOR | Server unchanged (Q-AN4): `/series` / `/chart` for October with T return the stored data (null for October), as today. | `series.server.test.ts` (existing) |
 | PFTM-14 | MAJOR | Gates under `TZ=UTC` and `TZ=America/Los_Angeles`: `npx tsc --noEmit` 0; `npx eslint .` 0 errors; `npm test` 0 `not ok`; `npx vite build` 0. Signed-out suites exit 0 on the hash preview: site-style-regression 258/258, site-shell 319/319, personal-finance-e2e 9/9, personal-finance 9/9, pf-series-api / pf-chart-api / pf-export-api / pf-report-api / pf-reports-api 1/1 each, pf-months 0/0, pf-charts-contract 23/23. QA PASS at all three viewports. | gates; suites; QA |
+
+**PFTM corrections and additions (2026-10-20, QA V1–V5 on de7b684, EL rulings, CFO Q-AN2 change; spec 49.5–49.6; the table above stays for history and these rows supersede it where they differ).**
+- Fixture **T** is the spec 49.6 one: Aug 2,000 / Sep 1,000, no income fields stored.
+- Clock 2026-10-11 (Toronto).
+- Figures are written as rendered (two decimals).
+- Each row of `pf-ov-expenses` reads `[pf-ov-now, pf-ov-avg3, pf-ov-avg]`. Income and Surplus rows: `pf-ov-income` is `—` in every column for T.
+
+| AC | Severity | Input → expected | Where |
+|----|----------|------------------|-------|
+| PFTM-01 | BLOCKER | T, page opens on October 2026: `pf-month-note` = `Copied from September 2026 — edit and save.`; `pf-ov-expenses` = `["1,000.00", "1,500.00", "1,500.00"]`. | DOM "PFTM-01 / 02 / 05" |
+| PFTM-02 | BLOCKER | T, show September (no Save): `pf-ov-expenses` = `["1,000.00", "1,500.00", "1,500.00"]` (before #166: `["—", …]`). | DOM |
+| PFTM-05 | MAJOR | T, read-only: `["1,000.00", "1,500.00", "1,500.00"]`; no write request. | DOM |
+| PFTM-06 | BLOCKER | (CFO Q-AN2 change; EL V3) avg3 / avg never include the current month or its copy. T with the copy → avg3 `1,500.00`, avg `1,500.00`. T plus October stored with its own line 7,000 → `["7,000.00", "1,500.00", "1,500.00"]`: the averages are identical. `pf-chart` `data-months` = `12`, and its October point is This month's figure: `1,000.00` with the copy, `7,000.00` with October's own line (the chart tooltip; there is no DOM attribute per point, so this is a hand check). | DOM "PFTM-06"; hand check (chart) |
+| PFTM-07 | MAJOR | No month with lines → `pf-ov-expenses` `pf-ov-now` = `—`. | DOM |
+| PFTM-08 | BLOCKER | (EL V2) The order is stored lines > typed Update > unsaved copy > `—`. T plus a typed Update for October (Expenses `900`, Income empty; October not stored with lines). **October shown** (copy note visible) → `pf-ov-now` = `900.00`. **September shown** → `900.00`. Then Save October with its copy → `1,000.00` (stored lines win). | DOM "PFTM-08" (both shown cases; mutations caught) |
+| PFTM-12 | MAJOR | No new UI. At 390×844, these existing elements stay ≥ 44 px tall: `pf-month-year`, `pf-month`, `pf-month-save`, `pf-future-toggle`, `pf-charts-link`. CLS 0 on a cold load of `/personal-finance` at 390 / 768 / 1440. | e2e (existing CLS check); hand check |
+| PFTM-15 | MAJOR | (EL V4) Signed-in regression on the preview, all exit 0 with these counts: personal-finance 383, personal-finance-e2e 201, pf-months 36, pf-charts-contract 23, site-shell 471, site-style-regression 258. PFDU-01..10, PFCV-01..17, PFCB-01..21 and PFCL-01..14 still pass. | QA signed-in run |
+| PFTM-16 | MAJOR | Q-AN4 parked: the Overview chart vs `/chart` / export may differ for the current month while it is an unsaved copy. This is not a defect in #166; it is a possible follow-up. | — |

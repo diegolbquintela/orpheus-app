@@ -142,8 +142,33 @@ export function copyOfCurrent(months: Months, current: MonthKey): MonthLines | n
 export const COPY_FROM_CURRENT = "Copy from current month";
 
 /** Decision 7: each saved month's figures from its lines (a figure above 0, else none). */
-export function lineFigures(storage: StorageLike | null): Record<MonthKey, Figures> {
-  return figuresOf(readMonths(storage), readExpenses(storage), rateUsed(readRates(storage)), readHousehold(storage).household);
+export function lineFigures(storage: StorageLike | null, current?: MonthKey): Record<MonthKey, Figures> {
+  const shared = readExpenses(storage);
+  const months = readMonths(storage);
+  return figuresOf(current ? withCurrentCopy(months, shared, current) : months, shared, rateUsed(readRates(storage)), readHousehold(storage).household);
+}
+
+/**
+ * #166 (CFO Q-AN1, spec 49.5): while the current month has no stored lines, Overview counts it as the copy the page would
+ * open (`openMonth`, decision 5), minus names deleted on or before it (#165 Q-Z7). Display only: nothing is written.
+ * Without `current` (the server's /series, Q-AN4) the stored months are used unchanged.
+ */
+/**
+ * #166 V2 (EL / CFO): when the current month has typed Update totals and no STORED lines, its unsaved on-screen lines
+ * (the copy, edited or not) don't count, so the typed totals win. `typedCurrent` null → `figures` unchanged.
+ */
+export function dropUnsavedCurrent(figures: Record<MonthKey, Figures>, storage: StorageLike | null, typedCurrent: MonthKey | null | undefined): Record<MonthKey, Figures> {
+  if (!typedCurrent || hasLines(readMonths(storage)[typedCurrent]) || !(typedCurrent in figures)) return figures;
+  const out = { ...figures };
+  delete out[typedCurrent];
+  return out;
+}
+
+export function withCurrentCopy(months: Months, shared: Expenses, current: MonthKey): Months {
+  if (hasLines(months[current])) return months;
+  const opened = openMonth(months, current, current, true);
+  if (!opened.copiedFrom) return months;
+  return { ...months, [current]: withoutDeletedFor(opened.lines, shared, current) };
 }
 
 /** What is on screen (#144): the shown month, its lines and the shared values, as Save would store them. */
@@ -160,9 +185,9 @@ export type Shown = {
  * month's lines replaced by the on-screen ones, and the on-screen shared values, Rate used and household currency
  * applied to every month (Save writes those for every month). Nothing is written.
  */
-export function liveLineFigures(storage: StorageLike | null, shown: Shown): Record<MonthKey, Figures> {
+export function liveLineFigures(storage: StorageLike | null, shown: Shown, current?: MonthKey): Record<MonthKey, Figures> {
   const months = { ...readMonths(storage), [shown.month]: shown.lines };
-  return figuresOf(months, shown.expenses, rateUsed(shown.rates), shown.household);
+  return figuresOf(current ? withCurrentCopy(months, shown.expenses, current) : months, shown.expenses, rateUsed(shown.rates), shown.household);
 }
 
 function figuresOf(months: Months, shared: Expenses, rate: number | null, household: CurrencyCode): Record<MonthKey, Figures> {

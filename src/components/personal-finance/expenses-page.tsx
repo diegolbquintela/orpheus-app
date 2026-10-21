@@ -89,6 +89,7 @@ import {
 import {
   copiedNote,
   DISCARD_CONFIRM,
+  dropUnsavedCurrent,
   lineFigures,
   liveLineFigures,
   deleteInMonths,
@@ -101,6 +102,7 @@ import {
   MONTH_CONTROL_LABEL,
   MONTH_OPTIONS,
   openMonth,
+  hasLines,
   readMonths,
   renameInMonths,
   writeMonths,
@@ -268,29 +270,48 @@ export function PersonalFinancePage({
     !!(expenses && income && rates && household && overview) &&
     fieldErrors({ expenses, income, rates, overview, household: household.household }).length > 0;
 
+  // #166 (CFO Q-AN1 / Q-AN3 / Q-AN6): an empty current month counts as its copy whichever month is shown (read-only too),
+  // unless it has typed `05` Update totals, which win as before. The averages use complete months only, so they never
+  // include it (Q-AN2 as changed by the CFO).
+  // EL / CFO V2 order for the current month: stored lines > typed Update totals > unsaved copy > `—`, whichever month
+  // is shown (so typed totals beat the copy even while October's copy is on screen).
+  const typedNow = current ? overview?.months[current] : undefined;
+  const hasTypedNow = !!(typedNow && (typedNow.expenses?.trim() || typedNow.income?.trim()));
+  const copyMonth = current && !hasTypedNow ? current : undefined;
   // #144 (Q-V1, PF-159..PF-161): every figure is live: each month as Save would store it (read-only: the saved record).
   const figures = useMemo(
     () =>
-      readOnly || !month || !expenses || !income || !rates || !household
-        ? lineFigures(storage())
-        : liveLineFigures(storage(), {
-            month,
-            lines: { fixed: expenses.fixed, variable: expenses.variable, people: income.people },
-            expenses,
-            rates,
-            household: household.household,
-          }),
+      dropUnsavedCurrent(
+        readOnly || !month || !expenses || !income || !rates || !household
+          ? lineFigures(storage(), copyMonth)
+          : liveLineFigures(
+            storage(),
+            {
+              month,
+              lines: { fixed: expenses.fixed, variable: expenses.variable, people: income.people },
+              expenses,
+              rates,
+              household: household.household,
+            },
+            copyMonth,
+          ),
+        storage(),
+        hasTypedNow ? current : null,
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [saved, month, readOnly, expenses, income, rates, household],
+    [saved, month, readOnly, expenses, income, rates, household, copyMonth, hasTypedNow],
   );
   // #144: Save drops the shown month's old typed totals, so while something is unsaved the live Overview does too
   // (unedited, the page shows exactly the saved figures).
   const liveOverview = useMemo(() => {
     if (!dirty || !overview || !month || !(month in overview.months)) return overview;
+    // #166 V2: the current month with typed totals and no stored lines keeps them (typed > unsaved copy).
+    if (hasTypedNow && month === current && !hasLines(readMonths(storage())[month])) return overview;
     const months = { ...overview.months };
     delete months[month];
     return { ...overview, months };
-  }, [overview, month, dirty]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overview, month, dirty, hasTypedNow, current, saved]);
 
   function choose(key: MonthKey) {
     if (!now || key === month) return;

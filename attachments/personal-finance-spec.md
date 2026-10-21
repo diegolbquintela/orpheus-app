@@ -1642,3 +1642,20 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
 - Q-AN5 A note that the figure is a copy: **rec** none on Overview (the Expenses section already shows `Copied from … — edit and save.` when the month is shown); no new copy. Not built.
 - Q-AN6 Typed Update totals for the current month (`05` Update): **rec** unchanged. A month saved with lines uses its own; else its typed totals win over the copy (as #112 decision 7 orders them: lines, then typed, then none, with the copy taking the "lines" place only while nothing is stored). Not built.
 - Q-AN7 No copy source (no month with lines): **rec** unchanged, `—`. Not built.
+49.5 (2026-10-20, CFO decision, with EL rulings V2 / V3; corrects 49.1–49.4, nothing above removed) Q-AN1..Q-AN7 are accepted, with one change, and **built** on PR #198:
+- Q-AN1 built: `withCurrentCopy` in `months.ts`. `lineFigures` / `liveLineFigures` take the current month and count its copy while it has no stored lines.
+- **Q-AN2 CHANGED (CFO):** the copy feeds `This month` (`pf-ov-now`), the Overview chart (`pf-chart`) and the coverage (`pf-coverage`), but **never** the averages. `pf-ov-avg3` / `pf-ov-avg` use complete months only (#126 / #132 / #146), so they are identical with and without the copy.
+- Q-AN3 built: the read-only grant uses the same rule.
+- Q-AN4: the server is unchanged (`lineFigures` without a current month, as `series.ts` calls it). Overview chart vs `/chart` / export can now differ for the current month; this is **parked** as a possible follow-up.
+- Q-AN5: no new note.
+- **Q-AN6 (EL V2, CFO-confirmed):** the current month's order is **stored lines > typed `05` Update totals > unsaved copy > `—`**, whichever month is shown. Typed totals beat the copy even while October's copy is on screen: `dropUnsavedCurrent` (months.ts), and the live Overview keeps October's typed totals while its copy is unsaved (`expenses-page.tsx`). A Save of October still stores its lines, which then win (#112 decision 7).
+- Q-AN7: no source → `—`.
+49.6 (2026-10-20, QA V1–V5 on de7b684; additions only)
+- V1: every figure is written as rendered, with two decimals (`1,000.00`).
+- **V5, fixture T (replaces PFTM's fixture T):**
+  - The shared expenses value is `{ fixed: [], variable: [], accounts: [], categories: [] }`.
+  - Months: `2026-08`: fixed `rent` 2,000 / month, `variable: []`, `people: []`; `2026-09`: fixed `rent` 1,000 / month, `variable: []`, `people: []`.
+  - **Income fields stored:** none. Each month's `people` is `[]`, and `orpheus.finance.income.v1` is not set, so every Income figure is `—`.
+  - No overview value (no typed months, `start` / `growth` empty, Future off). Household CAD; Rate used empty.
+- Clock 2026-10-11 (Toronto), current month 2026-10, not stored.
+- **Harness:** unchanged (49.3).
