@@ -5,12 +5,15 @@ import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const DOCS_PREFIXES = ["docs/", "qa/runs/", "qa/evidence/"];
+// Served or bundled: always build, even for .md (public/ files are served as-is).
+const ALWAYS_BUILD_PREFIXES = ["public/", "src/"];
 
 /** True when a repo-relative path is docs-only (never needs a build). */
 export function isDocsOnlyPath(path) {
   if (typeof path !== "string") return false;
   const p = path.trim().replace(/^\.\//, "");
   if (!p) return false;
+  if (ALWAYS_BUILD_PREFIXES.some((prefix) => p.startsWith(prefix))) return false;
   if (p.toLowerCase().endsWith(".md")) return true; // *.md anywhere, incl. attachments/*.md
   return DOCS_PREFIXES.some((prefix) => p.startsWith(prefix) && p.length > prefix.length);
 }
