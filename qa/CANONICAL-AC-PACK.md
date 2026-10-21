@@ -1440,3 +1440,37 @@ UI only on R2 / R3 / R4 / R5 and the record GET; no wire change. Q-AK1..Q-AK15 p
 - **Typed expenses only** (Expenses `900`, Income empty), with both shown: Expenses `900.00` (typed), Income `3,000.00` (copy), Surplus `2,100.00`.
 - Surplus always equals resolved income − resolved expenses.
 - Where: DOM "PFTM-08 (EL W1)". Mutation caught: reverting to the whole-month rule fails it. Unit: `months.test.ts` "#166 W2 withCurrentCopy".
+
+## PFU — Report export: Unicode text in PDF and PNG (#176, spec 50; added 2026-10-21; Phase 1, nothing built)
+
+Backend only, with no UI, so viewports 390 / 768 / 1440 don't apply.
+- **Fixture:** U (spec 50.4) with strings U1–U7.
+- **Real-path tests:** `src/lib/finance/export.server.test.ts` (PGlite, under TZ=UTC and TZ=America/Los_Angeles), test names prefixed `PFU-NN`. They decode text with `qa/tools/export-parse.mjs`.
+- **Text checks:**
+  - **PDF:** decode every `Tj` / `TJ` through the font's ToUnicode CMap.
+  - **PNG:** compare against the rasterizer's own reference cells, since a PNG has no text layer.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFU-01 | BLOCK | PDF of U: the decoded page text contains the name `Épargne € £ ¥ R$ — pgqyj`, U1 and U2 **verbatim** in the legend, and `Currency: CAD`. It has zero `?` characters. |
+| PFU-02 | BLOCK | PDF fonts: F1 and F2 are `/Type0` with `/Encoding /Identity-H`, a `/ToUnicode` stream and an embedded `/FontFile2`. No `/Helvetica` remains. Every code point of U1–U3 maps to a glyph id other than 0. |
+| PFU-03 | BLOCK | PDF widths: each embedded font's `/W` array matches its `hmtx` advance widths. The right-aligned value `1,234.56` ends at the same x (± 0.5 pt) as the column's right edge (`M + monthW + colW·(i+1) − 4`). |
+| PFU-04 | BLOCK | PNG of U: for each of the name, U1 and U2, the pixels of header / legend line *i* in the box (M, M + i·LH, W − 2M, LH) equal the rasterizer's reference cells for that exact string. They do **not** equal the cells for the same string after `ascii()`. |
+| PFU-05 | BLOCK | PNG accents: the cells for `é` and `e`, `Ł` and `L`, `Ő` and `O`, and `ß` and `B` all differ. None of `É é è ü Ñ ú Ø ß Ł ó ź Š Č Œ Ğ İ ş Ő` equals the cell for `?`. |
+| PFU-06 | BLOCK | PNG currency: `€`, `£` and `¥` each give cells other than `?` and other than each other, and `R$` renders as `R` then `$`. The same holds for the PDF ToUnicode decode (PFU-01). |
+| PFU-07 | MAJOR | PNG descenders: for `p g q y j` at scale 1, at least one lit pixel (luma > BG + 32) is **below** the baseline row of `x`. For `a e o x` none is. |
+| PFU-08 | MAJOR | Fallback: a report whose category is U5, U6 or U7 still exports 200 with the audit row.<br>The PDF decode and the PNG cells show exactly **one** `?` per code point: 10, 2 and **1** respectively. Today an emoji prints `??`.<br>The data JSON keeps the originals: `JSON.parse` of `/OrpheusData` gives U5, U6 and U7. |
+| PFU-09 | BLOCK | Values unchanged: for the #157 fixture with ASCII names only, the PDF decode's row texts (`Month`, the series numbers, every `formatMoney` cell, `* current month, partial`) equal today's, and `dataJson` is byte-identical. |
+| PFU-10 | BLOCK | Layout unchanged: the PNG size (W 1200 × H) equals today's for the #157 fixture, and so do the PDF page count and MediaBox `0 0 842 595`. Header line origins are (M, M + i·LH). |
+| PFU-11 | BLOCK | The 36.11 caveat line, starting `Caveat: `, is in both files verbatim (the PDF decode, and PNG cells against the reference). It is unchanged when the report has net assets. |
+| PFU-12 | BLOCK | PFX-18 still passes for bar and stacked-bar, with the Q-AO10 helper: `Rendered as lines` is drawn on PNG line 3, `tEXt orpheus-note` is set, and the PDF header line is present. Line reports don't have it. |
+| PFU-13 | BLOCK | PFX-19 still passes: when the audit insert fails, the response is 503 `{ error: "Export unavailable. Try again." }` with no bytes. PFX-17's audit row detail is unchanged. |
+| PFU-14 | MAJOR | Font asset: the SHA-256 of each committed subset equals `FONTS.md`. Its `cmap` contains every 50.1 code point. `OFL.txt` is present next to the fonts. Regular ≤ 32,768 bytes and Bold ≤ 32,768 bytes. |
+| PFU-15 | MAJOR | `qa/tools/pf-export-api.mjs` (signed in, a non-prod preview only; `refuseIfProd` first): on a preview report named with U1, the PDF ToUnicode decode contains U1. The signed-out run is unchanged (PFX-01: 1/1). |
+| PFU-16 | MINOR | PDF `/Title` is UTF-16BE `<FEFF…>` and decodes to `Orpheus report: Épargne € £ ¥ R$ — pgqyj` (Q-AO9). |
+
+**Expected counts once built.** Today's baseline at 3f59104: `export.server.test.ts` has 27 test blocks; npm test passes 86 + 819 + 235 (scripts, server and lib, DOM). The build adds:
+- PFU-01..14 and PFU-16 as about 15 tests in `export.server.test.ts`.
+- The PFU-14 font tests.
+
+DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the other 10.

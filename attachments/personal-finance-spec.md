@@ -1226,6 +1226,9 @@ Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
 - **Note (EL, 2026-10-17), added in #158; it doesn't edit 39.11 or 39.12:** in signed-out prod mode, **zero** `/api/auth/` requests reach the server. SWE confirmed this with a real no-credential prod run of `site-style-regression --smoke-mode on` at be306f7 (an SWE run, not a QA run): 258/258 passed, 0 `/api/auth/` POSTs reached the server, and no node process sent anything other than GET / HEAD.
 - personal-finance PF-34 makes **mocked** sign-in attempts: 4 browser `POST /api/auth/sign-in/email`, answered inside the browser by the tool's own `page.route` (`route.fulfill`; no server address). They never leave the browser and **do not count** as requests to the server. PF-34 stays as built.
 
+### 39.14 Unicode text in the exports (2026-10-21, #176; pointer only, nothing above changed)
+The issue asks for its ACs to go under spec 39. They are in **section 50** (next spec number) and the AC pack `PFU-01..PFU-16`. Everything in 39.1–39.13 still holds until 50 is built.
+
 ## 40. Chart report API contract (#158, backend only)
 
 Contract (single source of truth): `attachments/pf-charts-api-contract.md`. AC PFAPI-01..PFAPI-14. No UI, no new route, no migration, no schema change, **no wire change**.
@@ -1664,3 +1667,80 @@ Out of scope (each a Q for its own ticket): any endpoint / wire change (server l
 - Surplus = resolved income − resolved expenses.
 - Built as `typedOverCopy` in `months.ts`, replacing 49.5's `dropUnsavedCurrent`, which dropped both fields whenever either was typed (the bug).
 - **W2:** a unit test for `withCurrentCopy` (`months.test.ts`): a copy into an empty current month, stored lines kept, no source, and the #165 Q-Z7 deleted-name drop.
+
+## 50. Report export: Unicode text in PDF and PNG (#176, MEDIUM, CFO; follow-up to #157 / spec 39; added 2026-10-21; Phase 1: spec, ACs and Qs, nothing built)
+
+50.0 **Problem (facts at 3f59104).** `src/lib/finance/export.ts` (#157, PR #175) passes every printed string through `ascii()`, which turns `–` / `—` into `-` and every other character outside U+0020–U+007E into `?`.
+- The PDF uses the standard Type1 Helvetica / Helvetica-Bold with WinAnsiEncoding; no font is embedded.
+- The PNG draws a hand-made 5x7 bitmap font (`GLYPHS`) covering printable ASCII only. Lowercase `g j p q y` sit on the baseline with no descenders.
+- So `Café € — Zürich` prints as `Caf? ? - Z?rich` in both files.
+- The data copies (PDF `/OrpheusData`, PNG `tEXt orpheus-data`) are **already lossless**: `dataJson` escapes non-ASCII as `\uXXXX`. Only the printed text is lossy.
+
+50.1 **Goal.** Both files print the following verbatim, using one embedded font:
+- Latin-1 (U+00A0–U+00FF) and Latin Extended-A (U+0100–U+017F).
+- The currency signs `€ £ ¥ R$`. `£` and `¥` are in Latin-1, `€` is U+20AC, and `R$` is ASCII.
+- `–` (U+2013), `—` (U+2014), `…` (U+2026) and `−` (U+2212).
+
+The PNG's lowercase `g j p q y` get descenders.
+
+Everything else is unchanged:
+- The values and their order.
+- The layout: page size, PNG width, line origins, plot area, legend and table positions.
+- The 36.11 caveat verbatim, the `Rendered as lines` label (PFX-18), the fail-closed audit (PFX-19), the data JSON, the filenames and the route.
+
+50.2 **Where.** Server only, in `export.ts` plus a font asset under `src/lib/finance/fonts/`.
+- No endpoint, wire, data, flag or UI change.
+- `qa/tools/export-parse.mjs` learns to read text drawn with an embedded font (via its ToUnicode map) so QA can check the text.
+
+50.3 **Harness.** AGENTS.md gets one dated #176 index line. There is no harness rule change: no route, flag, QA process or sign-in tool is added.
+
+50.4 **Fixture U (exact inputs).** One saved report, owner `cfo`. Household CAD; clock 2026-10-21T12:00:00Z; no FX.
+- **Name:** `Épargne € £ ¥ R$ — pgqyj`.
+- **Chart:** `line`. **Range:** `2026-08..2026-10`.
+- **Two series (the labels come from the stored names):**
+  - Category `Café crème — Zürich, Ñandú, Øresund, Straße` (string **U1** below).
+  - Account `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş, Ő` (string **U2** below).
+- Values: 1,234.56 / 789.00 per month.
+
+The test strings, with code points above U+007E listed:
+
+| Id | String | Above U+007E |
+|---|---|---|
+| U1 | `Épargne café crème — Zürich, Ñandú, Øresund, Straße` | U+00C9 U+00E9 U+00E8 U+2014 U+00FC U+00D1 U+00FA U+00D8 U+00DF |
+| U2 | `Łódź, Kraków, Škoda, Čapek, Œuvre, Ğİş, Ő` | U+0141 U+00F3 U+017A U+0160 U+010C U+0152 U+011E U+0130 U+015F U+0150 |
+| U3 | `€ £ ¥ R$` | U+20AC U+00A3 U+00A5 |
+| U4 | `pgqyj` | none (descenders) |
+| U5 | `Сбережения` (Cyrillic) | U+0421 … U+044F, out of scope (Q-AO3) |
+| U6 | `貯金` (CJK) | U+8CAF U+91D1, out of scope |
+| U7 | `🏠` (emoji, one code point, two UTF-16 units) | U+1F3E0, out of scope |
+
+50.5 **Fallback.** A code point the embedded font lacks (U5–U7) prints as **one** `?` per code point, never two for a surrogate pair. Today an emoji prints as `??`. The export never fails because of text, and the data JSON keeps the original.
+
+50.6 **Font (for the CFO).** Recommended: **Noto Sans** Regular and Bold (Q-AO1).
+- **Licence:** SIL Open Font License 1.1. "Copyright 2022 The Noto Project Authors" is read from the font's name table. OFL allows embedding in PDFs and pictures and redistributing it inside software. It requires shipping the licence text with the font (`OFL.txt`) and not selling the font by itself.
+- **Full font files:** Regular 621,572 bytes, Bold 631,484 bytes.
+- **Subset:** U+0020–007E, U+00A0–017F, U+2013, U+2014, U+2026, U+20AC, U+2212 and U+20A9, unhinted. Regular 28,004 bytes, Bold 27,936 bytes; Regular gzips to 16,313 bytes. These were measured on 2026-10-21 with `pyftsubset` (fontTools, a Python tool run on the dev box, not an npm dependency).
+- **Size increase:** about **56 KB raw** (about 75 KB as base64 in a TS module), in the `/api/personal-finance` function only. The client bundle doesn't change.
+- **Exports:**
+  - PDFs grow by the embedded subset: about 28–56 KB per file, or less compressed.
+  - PNGs stay about the same size, since only the pixels change.
+
+50.7 Q-calls (CFO / EL), each with a recommendation; **none built** (Phase 1):
+- **Q-AO1 Font:** **rec** Noto Sans Regular + Bold subset (OFL 1.1, 50.6).
+  - Alternatives: DejaVu Sans (Bitstream Vera licence; bigger and less even), or hand-drawing about 190 more bitmap glyphs (no licence, no font file, but a 5x7 grid can't hold stacked accents, so it would need a 7x11 grid and a new layout).
+  - Not built. Licence decision.
+- **Q-AO2 No new npm dependency:** **rec** yes.
+  - The PDF embeds the subset as a Type0 / CIDFontType2 font (Identity-H) with a ToUnicode CMap, using the widths from `hmtx`.
+  - The PNG uses a small hand-written TrueType reader and scanline rasterizer (quadratic outlines, nonzero fill, grey anti-aliasing blended FG over BG), of about 250 lines.
+  - Rejected: pdf-lib / fontkit / opentype.js / @napi-rs/canvas. These are new dependencies, and canvas is a native binary.
+  - Not built.
+- **Q-AO3 Coverage:** **rec** exactly 50.1. Noto Sans also has Greek and Cyrillic for about +25 KB more per weight, but that's outside the ticket's minimum. CJK (megabytes) and emoji (a colour font) are no. U5–U7 use the 50.5 fallback. Not built.
+- **Q-AO4 Font source:** **rec** commit the two subset `.ttf` files with `OFL.txt` and a `FONTS.md`. `FONTS.md` records the upstream URL and commit, the exact `pyftsubset` command and the SHA-256 of each file. A unit test checks the SHA-256 and that every 50.1 code point is in the `cmap`. Not built.
+- **Q-AO5 Where the bytes live:** **rec** a generated base64 TS module (`fonts/noto-sans-subset.ts`), so the Vercel function bundles it without any `vercel.json` `includeFiles` change. That change would be a deploy-config Q. The function grows by about 75 KB. Not built.
+- **Q-AO6 PNG text metrics:** **rec** keep `PNG_LAYOUT` (W 1200, M 24, LH 18), with 14 px glyphs (cap height ≈ 10 px, as today's 5x7 × 2). Proportional widths come from `hmtx`, and wrapping measures pixel width against `W − 2M` instead of character count. Line origins (M, M + i·LH) are unchanged, and descenders fit inside LH. Not built.
+- **Q-AO7 PDF font for all text:** **rec** use the embedded Noto Sans (F1) and Noto Sans Bold (F2) for every string, so the look is uniform. Alternative: Helvetica with WinAnsi for Latin-1 + `€` (0 bytes added), but that has no Latin Extended-A (`Ł ő Č`), so it fails U2. Not built.
+- **Q-AO8 Filename slug:** **rec** unchanged in #176. It is outside the ticket: `Épargne` → `-pargne` today. Transliterating with NFD (`epargne`) would be a separate small Q. Not built.
+- **Q-AO9 PDF `/Title`:** **rec** write it as UTF-16BE (`<FEFF…>`) so viewers show `Orpheus report: Épargne € …`. This is metadata only, inside the ticket's "renders Unicode text". Not built.
+- **Q-AO10 PFX-18 pixel test:** **rec** its helper changes from "matches the 5x7 dots" to "matches the rasterizer's output for the same string at the same origin". The assertion (the note is drawn on line 3) is unchanged. Not built.
+
+50.8 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFU (PFU-01..PFU-16).
