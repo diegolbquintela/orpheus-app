@@ -1132,6 +1132,8 @@ Design and Q-calls Q-AC1..Q-AC14: `attachments/pf-report-crud-design.md`. AC PFR
 
 38.12 (2026-10-20, CFO decision 1 on PR #195, #162 R2; nothing above removed) **Read means read only.** A Read grant gets 403 `Forbidden.` on `POST /reports` and on `PUT` / `DELETE /reports/:id` (`default` included), and its stored reports are unchanged. Reports stay per person, but a person needs Write (or to be the owner) to save, replace or delete their own. GET, `/series`, `/chart` and `/export` stay read (CFO decision 2: a Read-grant export is still audited and fails closed, PFCV-17). Spec 47.10.
 
+38.12 (2026-10-21, #177; pointer only, nothing above changed) The per-deploy snapshot that 38.11 left unbuilt is specified in **section 51** (AC pack `PFS-01..PFS-16`). It is Phase 1 only and not built; the manual runbook stays the restore path.
+
 ## 39. Report export stubs: PDF + PNG (#157, backend only)
 
 Design note `attachments/pf-export-design.md` (Q-AD1..Q-AD13). No UI, no email.
@@ -1810,3 +1812,62 @@ The test strings, with code points above U+007E listed:
 - **Harness:** AGENTS.md gets one dated line (built; fonts licence). README is unchanged: README describes how to run, deploy and test the app, not the export internals, and no command or deploy step changed.
 
 50.10 (2026-10-21, QA Z1 on dd23170; text-only correction of 50.9, nothing above removed, no golden changed.) The **fallback golden crop** `qa/evidence/176/u-fallback.png` (PFU-08, `export-golden/crops.ts`) renders fixture U with the report name **`Сбережения 貯金 🏠`** (U5 + space + U6 + space + U7). Its title line prints `Orpheus - Personal Finance report: ?????????? ?? ?`: 10, 2 and 1 `?`. The name `貯金 🏠` given in 50.9 is only the **PGlite fallback report** (`U_FALLBACK_NAME`, whose title prints `?? ?` and whose category U5 prints `??????????`). It is not the name in the golden crop.
+
+## 51. Personal Finance records snapshot at each production deploy (#177, LOW, CFO; follow-up to #156 / 38.11; added 2026-10-21; Phase 1: spec, ACs and Qs, nothing built)
+
+51.0 **Problem (facts at 958c8be).** Rolling back past #174 drops users' named reports on their next save (38.11). Today the only cover is the manual runbook export, `docs/release/pf-reports-rollback.md` §1: a read-only SELECT of the two report keys into a dated JSONL file, plus a row-count check. Nothing runs automatically.
+- Production builds run `vite build && npm run db:migrate` (`package.json`).
+- `scripts/migrate.mjs` reads the database URL by name only (`scripts/db-env.mjs`), never logs it, and is skipped in production while `DASHBOARD_ENABLED` isn't exactly `true`.
+- Vercel Instant Rollback re-serves an old build **without** rebuilding. So a snapshot taken at build time covers the moment each new deploy goes out, not the moment of a rollback.
+
+51.1 **Goal.** At each **production** build, before `db:migrate`, take one snapshot of the `personal_finance` records and store it in private storage, with a retention rule.
+- **Contents:** at least `orpheus.finance.report.v1` and `orpheus.finance.reports.v1`. **rec (Q-AP2)** every row's whole `data`.
+- **Read-only:** the snapshot is read-only against the database. It never logs the database URL, the storage token or any record contents. It logs only counts, the size, the snapshot key and the skip / fail reason.
+- **Restore** stays manual: the runbook gets a dated section on where the snapshots are and how to read one into its §2 restore input.
+
+51.2 **Shape (recommended, Q-AP1).** `scripts/pf-snapshot.mjs`, called from the build as `vite build && npm run db:snapshot && npm run db:migrate`.
+- **When it runs:** only when `VERCEL_ENV=production` and `DASHBOARD_ENABLED=true`, mirroring the migration guard. Otherwise it exits 0 with `[pf-snapshot] skipped: <reason>`. Previews never snapshot (Q-AP7).
+- **Read:** one `BEGIN TRANSACTION READ ONLY` with `SELECT user_id, data, updated_at FROM personal_finance ORDER BY user_id`, plus the runbook's count query in the same transaction, then `COMMIT`. No other statement.
+- **Payload:**
+  - gzip JSONL, one `{user_id, data, updated_at}` per line.
+  - A first header line `{format:"pf-snapshot.v1", commit: VERCEL_GIT_COMMIT_SHA, deployment: VERCEL_DEPLOYMENT_ID, taken_at, rows, report_rows}`.
+  - `report_rows` is the runbook's count.
+- **Store:**
+  - Key: `pf-snapshots/<YYYYMMDDTHHMMSSZ>-<commit7>.jsonl.gz`.
+  - Where: private storage (Q-AP1), written over HTTPS with global `fetch`. No new npm dependency (Q-AP5).
+- **Retention:** after a successful write, keep the newest 20 snapshots **and** everything from the last 30 days. Delete older ones in storage only (Q-AP4).
+- **Failure:** any error → `[pf-snapshot] failed: <reason>` (redacted) and **exit 1, failing the production build** (Q-AP6, fail closed). The migration then never runs either.
+
+51.3 **Testable core (PGlite, no network).** `snapshot({ query, put, list, del, now, env })` with injected functions:
+- `query`: a PGlite-backed fake of `db.query`.
+- `put` / `list` / `del`: an in-memory store.
+- `retain(keys, now)`: pure.
+
+Tests in `scripts/pf-snapshot.test.mjs`, in the existing `scripts/**/*.test.mjs` glob, so no package.json test change. A script-level run with no env shows the skip line.
+
+51.4 **Harness.** AGENTS.md gets one dated #177 line. When built, it also gets the snapshot rule (production only; read-only; never log values) and the new secret's **name**.
+
+51.5 **HARD STOP items (flagged, not touched in Phase 1).** All of these are owner actions or need an explicit go: Q-AP1, Q-AP3, Q-AP8.
+- A production build reading the production database. That is the same access `db:migrate` already has, but new code using it.
+- A new secret: a storage token or a Neon API key.
+- A Vercel env change to add that secret.
+- Phase 1 touched **no** database, secret, migration or Vercel setting.
+
+51.6 Q-calls (CFO / EL), each with a recommendation; **none built**:
+- **Q-AP1 Storage.** **rec** a **private Vercel Blob store**, holding only `personal_finance` rows (smallest blast radius; a per-file retention rule is easy). It is written with a store-scoped read-write token via the Blob REST API, through `fetch`.
+  - **Alternative:** a **Neon branch** per deploy. It needs no serialization and restore is the runbook SELECT against the branch. But it copies the **whole** database (auth and dashboard tables too), needs a project-wide Neon API key, and counts against the Neon branch limit, which previews also use.
+  - **Still to verify before building:** the current Blob private-access offering and limits on the team plan.
+  - Not built. **HARD STOP: new storage plus a secret.**
+- **Q-AP2 Contents.** **rec** the whole `data` of every row (all PF keys), so a rollback past *any* future key change is covered. The minimum is the two report keys plus `user_id` and `updated_at` (the runbook columns). Not built.
+- **Q-AP3 New secret.** **rec** one store-scoped token named `PF_SNAPSHOT_BLOB_TOKEN`, Production environment only, requested through the usual owner path and set by the owner, never by a bot. Its value is never committed, logged or pasted. Not built. **HARD STOP: Vercel env change.**
+- **Q-AP4 Retention.** **rec** keep the newest 20 and everything under 30 days old; older snapshots are deleted by the snapshot step after a successful write. Not built.
+- **Q-AP5 Dependencies.** **rec** none: `fetch`, `node:zlib` and the existing `pg` client used by `migrate.mjs`. `@vercel/blob` or the Neon SDK would be a new dependency. Not built.
+- **Q-AP6 Failure policy.** **rec** fail closed: a failed snapshot fails the production build, so the deploy doesn't go out without its safety net. Alternative: log and continue, so deploys keep going during a storage outage. Not built.
+- **Q-AP7 Previews.** **rec** never snapshot previews: their databases are Neon preview branches with test data, and it would spend storage. Not built.
+- **Q-AP8 Database role.** **rec** use the existing direct URL read by name (as `migrate.mjs`) inside a READ ONLY transaction. A separate read-only Postgres role would be stronger but needs an owner DB change. Not built. **HARD STOP: real DB / role change.**
+- **Q-AP9 Encryption at rest.** **rec** rely on the private store's encryption. Client-side encryption would need another secret (outside the ticket). Not built.
+- **Q-AP10 Rollback coverage.** Instant Rollback doesn't rebuild, so no snapshot is taken at rollback time. **rec** the runbook says to use the newest snapshot (taken at the last production deploy) **plus** the runbook §1 export taken right before rolling back, as today. Not built.
+- **Q-AP11 Size and time.** **rec** cap the step at 60 s and 50 MB compressed; above that it fails closed with a size reason. Measure on a PGlite fixture of 100 users × 24 months when building. Not built.
+- **Q-AP12 Who can read snapshots.** **rec** owner-only, from the Vercel dashboard or with the token in the owner's shell. No app route lists or serves them (a route would be a wire change, outside the ticket). Not built.
+
+51.7 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFS (PFS-01..PFS-16).

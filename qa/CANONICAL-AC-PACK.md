@@ -1506,3 +1506,34 @@ DOM count unchanged. Signed-out suites unchanged: pf-export-api 1/1, plus the ot
 > **Counts at the build:** npm test passes 86 + 837 + 235 (was 86 + 819 + 235). There are +19 `export-unicode.server.test.ts` tests (PFU-01..23; 12 to 16 are folded together as listed), and −1 retired F3 font test. The DOM count is unchanged. Signed-out suites are unchanged.
 
 > **Correction (2026-10-21, QA Z1 on dd23170; text only, no golden changed).** PFU-08's golden crop `qa/evidence/176/u-fallback.png` uses the report name **`Сбережения 貯金 🏠`**, which prints `Orpheus - Personal Finance report: ?????????? ?? ?`. The `貯金 🏠` named in the correction above is the PGlite fallback report only (its title prints `?? ?`). Spec 50.10.
+
+## PFS — PF records snapshot at each production deploy (#177, spec 51; added 2026-10-21; Phase 1, nothing built)
+
+Deploy tooling only: no UI, so viewports don't apply, and no route, so the signed-out suites are unchanged.
+- **Tests:** `scripts/pf-snapshot.test.mjs` (node:test, PGlite with migration `0010_personal_finance.sql`, in-memory store, injected clock). Run under TZ=UTC and TZ=America/Los_Angeles.
+- **Fixture S:**
+  - 3 users: `u-a` with the default and named report keys; `u-b` with expenses only; `u-c` with `{}`.
+  - `updated_at` 2026-10-20T12:00:00Z.
+  - Clock 2026-10-21T10:00:00Z.
+  - Env: `VERCEL_ENV=production`, `DASHBOARD_ENABLED=true`, `VERCEL_GIT_COMMIT_SHA=abcdef1234…`, `VERCEL_DEPLOYMENT_ID=dpl_test`, plus a **fake** URL / token (`postgres://user:SECRET@host/db`, `tok_SECRET`) so tests can grep logs for leaks.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFS-01 | BLOCK | Skips: `VERCEL_ENV` ≠ `production` → exit 0 and `[pf-snapshot] skipped: not production`. `DASHBOARD_ENABLED` ≠ exactly `true` → `skipped: dashboard flag off`. No database or store call in either case. |
+| PFS-02 | BLOCK | Read-only: the statements sent are exactly `BEGIN TRANSACTION READ ONLY`, the SELECT, the count, then `COMMIT`. No `INSERT / UPDATE / DELETE / ALTER / CREATE / DROP / TRUNCATE`. Inside READ ONLY, a write attempt fails (PGlite). |
+| PFS-03 | BLOCK | Payload: gunzip gives line 1 `{format:"pf-snapshot.v1", commit:"abcdef1234…", deployment:"dpl_test", taken_at:"2026-10-21T10:00:00.000Z", rows:3, report_rows:1}`, then 3 lines ordered `u-a, u-b, u-c`. Each `data` deep-equals the PGlite row; `u-a` keeps both report key strings byte-for-byte. |
+| PFS-04 | BLOCK | Key: exactly `pf-snapshots/20261021T100000Z-abcdef1.jsonl.gz`. It is written once with private access, content type `application/gzip`. |
+| PFS-05 | BLOCK | No leaks: the combined stdout and stderr of every test run contain neither `SECRET`, `tok_SECRET`, `postgres://`, any `user_id` nor any report name or amount. The log lines are only `[pf-snapshot] ok: rows=3 report_rows=1 bytes=<n> key=<key> kept=<k> deleted=<d>` or a skip / failed line. |
+| PFS-06 | BLOCK | Row count: `report_rows` equals the runbook's `pf-reports-count` query on the same data, in the same transaction. |
+| PFS-07 | MAJOR | Retention: 25 existing keys spread over 60 days → keep the newest 20 plus every key under 30 days old; delete the rest. Exact kept and deleted lists for the fixture are in the test. `retain()` is pure and order-independent. |
+| PFS-08 | MAJOR | Retention runs only after a successful `put`; a failed `put` deletes nothing. |
+| PFS-09 | BLOCK | Fail closed (Q-AP6): `query` throws, `put` → 500, `put` times out, or the payload is over 50 MB → exit 1 with `[pf-snapshot] failed: <reason>` (reason redacted). The build command stops before `db:migrate`. |
+| PFS-10 | BLOCK | Redaction: an error message containing the fake URL or token is logged with `[redacted]` in place of each. |
+| PFS-11 | MAJOR | Missing config in production with the flag on: no database URL or no `PF_SNAPSHOT_BLOB_TOKEN` → exit 1, `failed: not configured (<NAME>)`, naming only the variable. |
+| PFS-12 | MAJOR | Empty table: `rows:0`, `report_rows:0`; the file is still written (header only). |
+| PFS-13 | MAJOR | Build order: `package.json` `build` is `vite build && npm run db:snapshot && npm run db:migrate` (Q-AP1 accepted). `vercel.json` is unchanged. |
+| PFS-14 | MAJOR | Runbook: `docs/release/pf-reports-rollback.md` gains a dated section on where the snapshots are, how to download one (owner, dashboard or token in the owner's shell), and how to turn its lines into the §2 restore input. A PGlite test proves the conversion matches the §1 export for fixture S. |
+| PFS-15 | MINOR | Previews: no snapshot on any preview build (Q-AP7), checked by PFS-01 with `VERCEL_ENV=preview`. |
+| PFS-16 | BLOCK | Script-level: `node scripts/pf-snapshot.mjs` with an empty env exits 0 and prints exactly one skip line. It makes no network call (fetch stubbed to throw). |
+
+**Expected counts once built:** about 16 new tests in `scripts/pf-snapshot.test.mjs`, adding to the first npm test group (today 86 at 958c8be). Server and DOM counts are unchanged; signed-out suites are unchanged.
