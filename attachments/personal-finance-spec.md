@@ -2144,3 +2144,54 @@ The CFO's worked checks at 9 %/yr:
 - **Q-PJ13 (not built, recommend a follow-up):** with a negative growth on this screen, the Overview block's own Future line still reads growth with the main rule (negative → 0 %). The projection below uses the signed value. Alternative: the scenario feeds the signed growth to the Overview (a small change to `summarize`'s input).
 
 57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..57, PFPJ-60..78). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.
+
+## 58. Personal Finance: scenario screen full validation run (#222, Diego / CFO; added 2026-10-22; fixes built in the same PR)
+
+58.0 **Brief.** Issue #222 and its four comments. Diego's two overriding points (2026-10-22, via CoS):
+- **(1) Sandbox:** every "net-assets save path" check becomes a zero-writes check (no PUT / POST / DELETE, one GET).
+- **(2) Monthly / Yearly:** the select sits on the income lines (57.14). Also check the AO5 "Net assets now" as-of basis: what it is based on, and how that is labelled.
+
+Not touched: Q-PJ13 / AP2 (negative growth on the Overview Future line), AN8, and the stored scenario.v1 save code (Q-PJ7).
+
+58.1 **e2e (built).** `qa/tools/pf-scenario-e2e.mjs` runs on a preview (it refuses production) at 390 × 844 and 1440 × 900, as owner, CFO Read and no grant, plus signed out. It is read-only; accounts come from env and are never logged. It checks:
+- **Layout:** the main page's sections; no category or account filter, month control, Save, or Account / Category select; title and basis.
+- **Seeding:** net assets is seeded, with its stated basis.
+- **Scenario column:** equals the screen's own Overview `This month`.
+- **Chart:** `Now` is the first tick with `horizon + 1` points on every horizon.
+- **Monthly / Yearly:** on every income line, default Monthly. A switch shows ×12 and keeps the totals; Yearly 12,000 = Monthly 1,000.
+- **CFO cases A / B / C** on the live page at 9 %: the first expense line is set so the month's surplus hits the case.
+- **No `Not saved.`** after a field error plus a toggle.
+- **Zero writes:** no PUT / POST / PATCH / DELETE and one GET of the record; the record is byte-for-byte unchanged after the edits and after a reload; the reload shows the seed again.
+- **Read:** the read-only line is in its landmark.
+- **No horizontal overflow.**
+- **No grant:** the 403 page and a 403 from the API. **Signed out:** 307 to sign-in with `next`.
+- **Main-page regression (owner and Read):** `/personal-finance`, `/charts` and `/history` answer 200 and write nothing; the Overview shows; there is no Monthly / Yearly select there; the reports list answers; the first report exports as PDF and PNG.
+
+An empty record (a fresh preview database) shows the empty state first. The data checks then run on lines typed in the sandbox itself (a Read user may type there; nothing is sent).
+
+58.2 **Math audit (built, passing).** At 9 % a year over 12 months, on the shared step (`projectNet`) and on the screen's `project` (cents):
+- **A:** 10,000 and +500 give **17,143.65**.
+- **B:** 0 and −1,460 give exactly **−17,520**.
+- **C:** −2,000 and +500 give **4,102.37** ±0.01.
+
+These are also run on the live page (58.1).
+
+58.3 **AO5: the basis of "Net assets now" (built).** The seeded value is the Overview's own net assets at the end of the current month (`summarize`, spec 42). It is correct, but the basis was not stated: the hint said only "Starts from the Overview's X". It is now stated under the field (`netBasis`, `pf-scenario-net-basis`):
+- **As-of month A:** `Basis: Starting net assets S at the start of <A> (the as-of month), plus each month's surplus to the end of <current month>.`
+- **No as-of month:** `Basis: no as-of month is set, so Starting net assets S counts from the start of <first month of the Overview's 12-month window> (the Overview's 12-month window), plus each month's surplus to the end of <current month>; a month without figures counts the 12-month average.`
+- **No Overview figure (F2):** `Basis: the Overview has no net-assets figure yet (it needs income and expenses for its months), so this starts at 0.00.` This replaces the old misleading "Starts from the Overview's 0.00".
+
+QA's AO5 numbers (153,245.33 here, 107,704 on `/series`) are the two bases differing when no as-of month is set: `/series` starts at `net_assets_from` and adds nothing for an empty month. See Q-SV2.
+
+58.4 **Findings and fixes.**
+- **F1 (fixed):** on the scenario screen, a field error plus a section toggle showed `Not saved.` This is wrong on a sandbox, where nothing is ever saved. The scenario no longer sets it, and the save-status line is hidden there. The main page is unchanged (PF-142).
+- **F2 (fixed):** the misleading "Starts from the Overview's 0.00" when the Overview has no figure (58.3).
+- **F3 (fixed):** the as-of basis was not stated (AO5, 58.3).
+- **F4 (not a defect):** the preview's owner record is empty, so the live seeding values cannot be compared there. Seeding from the latest month, net assets included, is pinned by the DOM tests (PFPJ-07 / PFPJ-30 / PFSV-35).
+
+58.5 **Questions.**
+- **Q-SV1 (not built, recommend: EL provides the owner's QA password in the run env):** the owner role of the e2e is SKIPPED here because no owner password is available on the runner. The CFO Read, no-grant and signed-out runs ran. The owner path differs from Read only in access (the same sandbox, no writes), and the DOM tests cover it.
+- **Q-SV2 (not built, recommend: the CFO sets an as-of month, or a ticket aligns `/series` and the Overview when none is set):** with no as-of month, the Overview counts Starting net assets from its 12-month window and averages empty months, while `/series` starts at `net_assets_from` and adds nothing for an empty month. The screen now states its basis, so the difference is visible, not hidden.
+- **Q-SV3 (not built, recommend leave):** the main page's Overview shows no "Net assets now" figure or basis line of its own (it shows the chart). Stating it there is a main-page change, out of scope here.
+
+58.6 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFSV (PFSV-01..PFSV-40).
