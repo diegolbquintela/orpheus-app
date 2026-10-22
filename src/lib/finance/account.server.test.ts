@@ -3,6 +3,7 @@ import { before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { handlePersonalFinanceRequest, handlePersonalFinanceViewRequest } from "./account.server.ts";
+import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { STORAGE_KEY } from "./expenses.ts";
 import { VIEW_KEY } from "./view.ts";
 import { MONTHS_KEY } from "./months.ts";
@@ -96,7 +97,12 @@ describe("/api/personal-finance (#102, #90)", () => {
     assert.deepEqual(await r.json(), { data, access: { owner: false, write: false } });
     assert.equal((await pf("PUT", "bob", { data: {} })).status, 403);
     assert.equal((await pf("DELETE", "bob")).status, 403);
-    assert.equal((await view("bob", '{"closed":["expenses"]}')).status, 200);
+    // #197 (PFVW-03): the view route now needs write; Read gets 403 and nothing is stored.
+    assert.equal((await view("bob", '{"closed":["expenses"]}')).status, 403);
+    r = await pf("GET", "bob");
+    assert.equal(((await r.json()) as { data: Record<string, string> }).data[VIEW_KEY], undefined);
+    // A view stored for bob before #197 (Q-D11) is still his, never the owner's.
+    await writeOwnView(db, "bob", '{"closed":["expenses"]}');
     r = await pf("GET", "bob");
     assert.deepEqual(((await r.json()) as { data: Record<string, string> }).data[VIEW_KEY], '{"closed":["expenses"]}');
     // The owner's toggles and figures are untouched.
@@ -105,7 +111,7 @@ describe("/api/personal-finance (#102, #90)", () => {
       ...data,
       [VIEW_KEY]: '{"closed":["income"]}',
     });
-    assert.equal((await view("dave", "{}")).status, 403, "the view route still needs a read grant");
+    assert.equal((await view("dave", "{}")).status, 403, "the view route needs a grant (#197: write)");
   });
 
   it("ROLE-11 / Q-D13: Read and write (carol) edits the owner's record; her toggles stay hers; DELETE is owner-only", async () => {
@@ -172,5 +178,68 @@ describe("#143 PUT refuses invalid values, never clamps (PF-137)", () => {
   it("Read and write (carol) is checked the same way", async () => {
     const r = await pf("PUT", "carol", { data: rec("-5") });
     assert.equal(r.status, 400);
+  });
+});
+
+// #197 (spec 54, PFVW-01..PFVW-08): PUT /api/personal-finance/view needs a Personal Finance write grant.
+describe("PUT /api/personal-finance/view needs write (#197)", () => {
+  const rowCount = async () => (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM account_state WHERE pf_view IS NOT NULL")).rows[0].n;
+  const record = async () => JSON.stringify((await pg.query<{ data: unknown }>("SELECT data FROM personal_finance WHERE user_id = 'alice'")).rows[0]?.data ?? null);
+  const gets = async () => {
+    const out: Record<string, unknown> = {};
+    for (const who of ["alice", "bob", "carol", "dave"]) {
+      const r = await pf("GET", who);
+      out[who] = { status: r.status, body: await r.json() };
+    }
+    return out;
+  };
+  const viewGet = async (who: string) =>
+    (await handlePersonalFinanceViewRequest(req("GET", undefined, "", "/api/personal-finance/view"), as(who))).status;
+
+  it("PFVW-01: the owner's PUT succeeds and writes the record's view value", async () => {
+    const r = await view("alice", '{"closed":["overview"]}');
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { view: '{"closed":["overview"]}' });
+    const g = (await (await pf("GET", "alice")).json()) as { data: Record<string, string> };
+    assert.equal(g.data[VIEW_KEY], '{"closed":["overview"]}');
+  });
+  it("PFVW-02: Read and write (carol, not owner) succeeds and writes her own view only", async () => {
+    const before = await record();
+    assert.equal((await view("carol", '{"closed":["income"]}')).status, 200);
+    assert.equal(await readOwnView(db, "carol"), '{"closed":["income"]}');
+    assert.equal(await record(), before, "the owner's record is untouched");
+  });
+  it("PFVW-03: a Read grant (bob) → 403, nothing written (own view, owner record)", async () => {
+    await writeOwnView(db, "bob", '{"closed":["expenses"]}'); // a view stored before #197
+    const [n, rec] = [await rowCount(), await record()];
+    const r = await view("bob", '{"closed":["income"]}');
+    assert.equal(r.status, 403);
+    assert.equal(await readOwnView(db, "bob"), '{"closed":["expenses"]}');
+    assert.equal(await rowCount(), n);
+    assert.equal(await record(), rec);
+  });
+  it("PFVW-04: no Personal Finance grant (dave) → 403, nothing written", async () => {
+    const [n, rec] = [await rowCount(), await record()];
+    assert.equal((await view("dave", '{"closed":["income"]}')).status, 403);
+    assert.equal(await readOwnView(db, "dave"), null);
+    assert.equal(await rowCount(), n);
+    assert.equal(await record(), rec);
+  });
+  it("PFVW-05: GET unchanged for each role: refused PUTs change no GET reply; a Read user's stored view still applies", async () => {
+    const before = await gets();
+    await view("bob", '{"closed":["overview"]}');
+    await view("dave", '{"closed":["overview"]}');
+    assert.deepEqual(await gets(), before);
+    const b = before.bob as { status: number; body: { data: Record<string, string>; access: unknown } };
+    assert.equal(b.status, 200);
+    assert.equal(b.body.data[VIEW_KEY], '{"closed":["expenses"]}');
+    assert.deepEqual(b.body.access, { owner: false, write: false });
+    assert.equal((before.dave as { status: number }).status, 403);
+    assert.equal((before.alice as { status: number }).status, 200);
+    assert.equal((before.carol as { status: number }).status, 200);
+  });
+  it("PFVW-06: GET on the view route stays 405 for every role; signed out stays 401", async () => {
+    for (const who of ["alice", "bob", "carol", "dave"]) assert.equal(await viewGet(who), 405, who);
+    assert.equal((await handlePersonalFinanceViewRequest(req("PUT", { view: "{}" }, "", "/api/personal-finance/view"), as(null))).status, 401);
   });
 });
