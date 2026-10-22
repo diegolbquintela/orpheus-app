@@ -1988,3 +1988,25 @@ The test strings, with code points above U+007E listed:
 - Growth resumes in the first month whose opening balance is above 0, which is the month after the balance crosses above 0.
 - An opening balance of exactly 0 gets no growth. 0 × the growth factor is 0 anyway, so this is the same either way.
 - Today's positive-balance projections are unchanged (PFSC-07). Totals and coverage use the same path. AC PFSC-31..33.
+
+## 56. Personal Finance: /series, /chart and the export count the current month's unsaved copy as Overview does (#199, LOW; added 2026-10-22; built in the same PR)
+
+56.1 Problem. Since #166 (spec 49, PR #198) the Overview counts the current month's unsaved copy while that month has no stored lines: the copy of the latest month with lines, minus names deleted on or before the current month, with the typed Update totals per field over it, never in averages. Spec 49 Q-AN4 left the server's `/series` and `/chart` (and so the saved-report export, which is built on `/chart`'s data) on stored months only, "parked as a possible follow-up". So the current month showed "-" in a chart or export while Overview showed a figure.
+
+56.2 Rule (built). `seriesValues` (`src/lib/finance/series.ts`), which `/series`, `/chart` and the PDF/PNG export all use, now takes the current month the way the read-only Overview does, through the existing helpers in `months.ts` (no second copy of the logic):
+- Income, expenses, surplus and net assets: `savedOverviewFigures(storage, current)` = `typedOverCopy(lineFigures(storage, current), storage, current, typed Update totals of the current month)`. These are the same two calls the Overview makes (`expenses-page.tsx`, read-only branch), with the typed totals read from the saved record. The page keeps its own call because it also passes on-screen, unsaved typed totals.
+- Line, account, category and group series: the stored months with `withCurrentCopy(months, shared, current)`, the same copy `lineFigures` uses.
+- Stored current-month lines still win (no copy). Past months are unchanged. Nothing is written. There are no averages on these surfaces.
+
+56.3 Access (unchanged). Read can view `/series`, `/chart` and export their own saved report, as before; no Personal Finance grant → 403; signed out → 401.
+
+56.4 Other users of `seriesValues`. History (#214) lists stored months only, so it is unchanged. The scenario screen (#215) starts from the net assets at the current month; when the current month has no stored lines, that start now includes the copy's surplus, as Overview's net assets do (Q-CC3).
+
+56.5 Tests. `src/lib/finance/current-copy.server.test.ts` (AC PFCC-01..11) checks the same value on `/series`, `/chart` (request and saved), the PDF data and the PNG data, and compares it with the Overview expression. PFU-09 (`export-unicode.server.test.ts`) now expects the golden record's 2026-10 bar cell to be 1,000.00 (its copy of 2026-09), the one intended change (PFCC-12).
+
+56.6 Questions.
+- Q-CC1 (BUILT, recommend accept): `/series` changes too, not only `/chart` and the export; the issue names it and both are built on it.
+- Q-CC2 (BUILT, recommend accept): line, account, category and group series read the copy's lines. With a typed expenses total but no stored lines, the expenses metric shows the typed total while the "all" group shows the copy's lines (PFCC-07), as Overview's per-field rule. Alternative: blank the per-line series in that case (needs a decision).
+- Q-CC3 (BUILT, recommend accept): the scenario screen's starting net assets follow the same rule when the current month is unsaved, so they match Overview. Alternative: keep the scenario on stored months only (a one-line change; say so).
+- Q-CC4 (NOT BUILT, recommend leave): the copy is not re-valued at historical FX on its own; it carries its source lines as the #170 FX step left them. The current month has no Bank of Canada monthly average until it ends.
+- Q-CC5 (NOT BUILT, recommend leave): a deleted category's series reads 0 in the copied current month (its line stays, without the name), as in any stored month without that category.

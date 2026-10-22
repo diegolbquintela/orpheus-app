@@ -200,6 +200,13 @@ describe("#176 PF export: Unicode text (spec 50)", () => {
   it("PFU-09 / PFU-10: ASCII exports are unchanged against the 3f59104 goldens (PDF text, pages, MediaBox, PNG size, data JSON)", () => {
     const golden = JSON.parse(readFileSync(new URL("./export-golden/3f59104.json", import.meta.url), "utf8"));
     const now = goldenCases();
+    // #199 (spec 56, PFCC-12, 2026-10-22): the golden record's current month (2026-10) has no stored lines, so its
+    // unsaved copy of 2026-09 (rent 1,000) now counts as on Overview (#166). That is the one intended change to the
+    // "bar" case: its 2026-10 cell is 1,000.00, not "-", and so its data JSON hash moves. Everything else is unchanged.
+    const bar = golden.bar as { pdfText: string[]; dataJsonSha256: string };
+    const cell = bar.pdfText.indexOf("2026-10 *") + 1;
+    assert.equal(bar.pdfText[cell], "-");
+    golden.bar = { ...bar, pdfText: bar.pdfText.map((t, i) => (i === cell ? "1,000.00" : t)), dataJsonSha256: "18e5fd7495aded8b2dbc5d350e9f2c786585733e57127ff07c9b0aeed8dd028a" };
     for (const k of ["net", "bar"]) assert.deepEqual(now[k], golden[k], k);
   });
 

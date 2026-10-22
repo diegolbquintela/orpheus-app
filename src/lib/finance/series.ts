@@ -2,7 +2,7 @@ import { applyHistoricalFx, type FxBasis, type MonthlyFx } from "./fx-history.ts
 import { readHousehold } from "./currency.ts";
 import { rateUsed, readRates } from "./equity.ts";
 import { deletedLabel, grandTotals, isDeleted, readExpenses, totalsOf, type Line } from "./expenses.ts";
-import { FIRST_MONTH, hasLines, lineFigures, readMonths } from "./months.ts";
+import { FIRST_MONTH, hasLines, readMonths, savedOverviewFigures, withCurrentCopy } from "./months.ts";
 import {
   HOUSEHOLD_TIME_ZONE,
   householdMonth,
@@ -136,12 +136,15 @@ export function seriesValues(query: SeriesQuery, typed: PfRecord | null, now: Da
     inRange.has(k) || (firstTyped !== null && k >= firstTyped && k <= netTo),
   );
   const store = new RecordStore(record ?? {});
-  const stored = readMonths(store);
   const shared = readExpenses(store);
+  // #199 (spec 56, PFCC): the current month's unsaved copy counts as Overview counts it (#166): line / account /
+  // category / group series read the copy (`withCurrentCopy`); income / expenses / surplus / net assets read Overview's
+  // own figures (`savedOverviewFigures`: the copy, typed Update totals per field over it). Past months are unchanged.
+  const stored = withCurrentCopy(readMonths(store), shared, current);
   const rate = rateUsed(readRates(store));
   const household = readHousehold(store).household;
   const overview = readOverview(store);
-  const lines = lineFigures(store);
+  const lines = savedOverviewFigures(store, current);
   const none = { expenses: null, income: null };
   const figures = months.map((k) => monthFigures(overview, k, current, none, lines));
   const missing = new Set(missingSeries({ series: query.series, range: { preset: "12m" }, chart: "line" }, record));

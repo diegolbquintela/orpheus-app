@@ -1695,3 +1695,20 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 - PFSC-16: an invalid value → 400 `{ field: "scenario" }`.
 - PFSC-13: the owner saves → 200; Read GETs it; every other value is unchanged; then a reset to PF_RECORD leaves no scenario value.
 - PFSC-03: Read opens `/personal-finance/scenario` → 200.
+
+## PFCC — /series, /chart and the export count the current month's unsaved copy as Overview does (#199, personal-finance-spec §56; added 2026-10-22; LOW)
+
+| ID | Level | Check |
+|---|---|---|
+| PFCC-01 | BLOCK | No stored current month: expenses equal the copy of the latest month with lines on `/series`, `/chart`, saved `/chart`, PDF data and PNG data, and equal Overview's figure (`current-copy.server.test.ts`). |
+| PFCC-02 | BLOCK | The copy's lines feed group (all, fixed, variable), line, account and category series. |
+| PFCC-03 | BLOCK | A name deleted on or before the current month is not in the copy; its past months keep their values. |
+| PFCC-04 | BLOCK | Past months are unchanged. |
+| PFCC-05 | BLOCK | Typed income only: income is typed, expenses stay the copy (per field); surplus follows. |
+| PFCC-06 | BLOCK | Net assets move by the current month's surplus. |
+| PFCC-07 | BLOCK | Typed expenses replace the copy's expenses metric; group series still read the copy's lines (Q-CC2). |
+| PFCC-08 | BLOCK | Stored current-month lines win over typed totals and the copy, as before. |
+| PFCC-09 | BLOCK | Every month in range equals Overview's expenses and income figure. |
+| PFCC-10 | BLOCK | Read grant: `/series`, `/chart` and both exports 200, with the copy in their own record. |
+| PFCC-11 | BLOCK | No Personal Finance grant: `/series`, `/chart` and both exports 403; signed out 401. |
+| PFCC-12 | BLOCK | PFU-09 golden: the only change is the 2026-10 bar cell (1,000.00, was "-") and its data JSON hash. |
