@@ -2195,3 +2195,36 @@ QA's AO5 numbers (153,245.33 here, 107,704 on `/series`) are the two bases diffe
 - **Q-SV3 (not built, recommend leave):** the main page's Overview shows no "Net assets now" figure or basis line of its own (it shows the chart). Stating it there is a main-page change, out of scope here.
 
 58.6 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFSV (PFSV-01..PFSV-40).
+
+## 59. Personal Finance: future months on the main page (open / edit, copy from the previous month, Reset) (#229, HIGH, Diego / CFO; added 2026-10-22; built in the same PR)
+
+Dated note 2026-10-22 (#229): main PF page only. The scenario screen, the PJ7 `scenario.v1` save code, AN8 and #223/#225/#226/#228 are untouched. No new table, migration, env or dependency: a future month is one more key in the existing `orpheus.finance.months.v1` value (the server already stores any month key; `checkRecord` is unchanged).
+
+### 59.1 Opening a future month
+- The Month / Year control opens any month from `FIRST_MONTH` (2020-01) up to the **last open month** = current household month + 12 (`FUTURE_MONTHS`, `lastOpenMonth`; October 2026 → October 2027). The Year select runs from the last open month's year down to 2020; Month options after the last open month are disabled; a choice past it opens the last open month (`chosenMonth`). This supersedes #163 Q-Y1/Q-Y2's "no future month".
+- Leaving a month with unsaved changes still asks `Discard unsaved changes?` (#163 Q-Y8).
+
+### 59.2 Empty future month: a copy of the latest saved previous month
+- A future month with no saved lines opens with an **unsaved** copy of the latest month BEFORE it that has saved lines (`copySourceFor` = `latestWithLines(months, previousMonth(key))`): this may be a past month, the current month (if saved) or an earlier saved future month. The note reads `Copied from <Month YYYY> — edit and save.`, Save shows, nothing is stored until Save (decision 2). Names deleted on or before the month are left out (#165 Q-Z7, `withoutDeletedFor`).
+- Nothing saved before it: the month opens blank.
+- An empty PAST month still opens blank with `Copy from current month` (#163, unchanged); that button is never shown on a future month.
+
+### 59.3 Saved future month: its own values
+- Once saved, a future month opens with its own lines (`copiedFrom` null) and never refreshes from earlier months, whatever later changes they get.
+
+### 59.4 Reset
+- A SAVED future month with a saved month before it shows `Reset` (writers only) in the copy line's reserved slot (no layout shift). Click → `Reset this month to <Month YYYY>'s values? This replaces what is saved for this month.` Cancel: nothing changes. OK: the shown month's lines become the copy (deleted names left out) and are **saved at once** through the normal Save path (field check, one PUT; on failure `Not saved.` as Save). Shared values (accounts, categories, rates, household) are saved as Save would.
+- Not shown on the current month, a past month, an empty future month or a read-only page. **Q-FM5 (built, recommend keep):** Reset saves immediately rather than leaving an unsaved copy, because the confirmation is already the explicit act; alternative: put the copy on screen as unsaved.
+
+### 59.5 #199 unsaved current-month copy (`savedOverviewFigures`)
+- The empty current month's copy (decision 5 / #166 / #199) now also comes only from months BEFORE the current one (`openMonth` uses `copySourceFor`). Before #229 it took the latest month with lines overall, which with saved future months would have been a plan month. So a saved future month never feeds the current month's Overview, /series, /chart or export figures. With no saved future months the result is identical to before.
+
+### 59.6 Charts, history, exports and Overview (CFO Q-items)
+- **Q-FM1 (built, recommend accept):** how far ahead: 12 months past the current one.
+- **Q-FM2 (built, recommend accept):** charts (/series, /chart) and the saved-report export stay current-month-bounded: presets end at the current month, a custom range can't end after it (existing 400), and `all` never starts after it (a record whose only data is future gives the current month alone). Saved future months are plans and are not plotted. Showing them as a dashed "plan" segment is a later ticket on Diego's yes (not built).
+- **Q-FM3 (built, recommend accept):** History lists stored months up to the current month only (`storedMonths(record, through)`); future years do not appear in its Year select. Alternative (not built): a separate "Planned" grid.
+- **Q-FM4 (no change needed, recommend accept):** Overview's This month / 3- and 12-month averages / Future projection are built from `lastTwelve` (ending at the current month), so future months never count. Opening a future month shows the same Overview as the current month.
+- **Q-FM6 (not built, recommend later ticket):** when a month that was "future" becomes the current or a past month it simply keeps its saved lines (no conversion step); a "planned vs actual" view is out of scope.
+
+### 59.7 Roles
+- Read users (CFO grant, #197) can open future months (copy shown read-only, as decision 5) but get no Save and no Reset; the API refuses their PUT (write needed, unchanged). No grant: the page and API give 403 (unchanged).

@@ -1799,3 +1799,26 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFSV-38 | BLOCK | Mutations: `Not saved.` set on the scenario fails PFSV-36; the status line not hidden fails PFSV-36; the wrong window month fails PFSV-31; no no-figure branch fails PFSV-33. |
 | PFSV-39 | BLOCK | `scripts/qa-prod-guard.test.mjs` pins `pf-scenario-e2e.mjs` among the guarded sign-in tools (20 sign-in / 26 guarded). |
 | PFSV-40 | MINOR | Q-SV1..3 recorded with a recommendation (spec 58.5). |
+
+## PFFM — Main PF page: future months (#229, personal-finance-spec §59; added 2026-10-22; HIGH, Diego / CFO)
+
+Dated note 2026-10-22: CFO Q-FM1..FM6 raised in spec §59 (FM1-5 built, FM6 not built). PFM-01/PFM-03 and the DOM PFM-02 path are updated where #229 supersedes #163 Q-Y1/Q-Y2.
+
+- PFFM-01: In October 2026 the month control opens November 2026 … October 2027; a choice past October 2027 opens October 2027. (unit, DOM)
+- PFFM-02: The Year select runs 2027 … 2020; no Month option in 2026 is disabled. (unit, DOM)
+- PFFM-03: Opening a future month shows its month in the control and allows editing (writer). (DOM)
+- PFFM-10: An empty future month opens as an unsaved copy of the latest saved month before it, with `Copied from <Month YYYY> — edit and save.`; nothing is stored until Save. (unit, DOM)
+- PFFM-11: With nothing saved before it, an empty future month opens blank. (unit)
+- PFFM-12: A saved future month opens with its own values and never re-copies after the source month changes. (unit, DOM)
+- PFFM-13: The current month's unsaved copy (#199) never comes from a saved future month (page and `savedOverviewFigures`). (unit, DOM)
+- PFFM-14: An empty past month still opens blank (#163 unchanged); no `Copy from current month` on a future month. (unit)
+- PFFM-20: A saved future month with a saved month before it shows `Reset`, in the copy line's slot. (unit, DOM)
+- PFFM-21: Reset copies from the latest saved month before the shown month. (unit)
+- PFFM-22: Reset asks `Reset this month to <Month YYYY>'s values? This replaces what is saved for this month.`; Cancel changes nothing. (DOM)
+- PFFM-23: OK replaces the lines with the copy and saves at once (stored value matches; nothing unsaved). (DOM)
+- PFFM-25: No Reset on the current month, a past month or an empty future month. (unit, DOM)
+- PFFM-30: Save on a future month stores it under its own key in `orpheus.finance.months.v1` (no new name, no schema change). (DOM)
+- PFFM-31: Read-only: a future month opens, with no Save and no Reset. (DOM; API PUT refusal unchanged, #197)
+- PFFM-32: No grant: 403 (unchanged). (existing role tests)
+- PFFM-40: History lists months up to the current month only. (unit)
+- PFFM-41: The series `all` preset ends at the current month and never starts after it. (unit)
