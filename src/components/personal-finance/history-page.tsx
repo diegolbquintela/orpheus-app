@@ -17,6 +17,7 @@ import {
   YEAR_LABEL,
   yearTable,
 } from "@/lib/finance/history";
+import { lastTwelve } from "@/lib/finance/overview";
 import type { PfRecord } from "@/lib/finance/record";
 
 export type { LoadResult };
@@ -50,7 +51,11 @@ export function HistoryPage({
   }, []);
 
   const record = state.kind === "ready" ? state.record : null;
-  const years = useMemo(() => (state.kind === "ready" ? storedYears(record) : []), [state.kind, record]);
+  const years = useMemo(
+    () => (state.kind === "ready" ? storedYears(record, lastTwelve(now())[11]) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.kind, record],
+  );
   const table = useMemo(
     () => (state.kind === "ready" && year !== null ? yearTable(record, year, now()) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps

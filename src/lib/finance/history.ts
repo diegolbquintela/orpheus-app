@@ -3,7 +3,7 @@ import { rateUsed, readRates } from "./equity.ts";
 import { householdMonthlyOf, type Line } from "./expenses.ts";
 import { incomeLines, monthly } from "./income.ts";
 import { FIRST_MONTH, hasLines, readMonths } from "./months.ts";
-import { equityCoverage, formatCoverageShare, type MonthKey, monthName, readOverview, typedFigure } from "./overview.ts";
+import { equityCoverage, formatCoverageShare, lastTwelve, type MonthKey, monthName, readOverview, typedFigure } from "./overview.ts";
 import { formatMoney } from "./money.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import { seriesValues } from "./series.ts";
@@ -50,27 +50,30 @@ export const TOTAL_COLUMNS: readonly Column[] = [
 const store = (record: PfRecord | null) => new RecordStore(record ?? {});
 const money = (v: number | null): string => (v === null ? NO_VALUE : formatMoney(v));
 
-/** The stored months (lines or typed Overview totals), oldest first, from `FIRST_MONTH` on. */
-export function storedMonths(record: PfRecord | null): MonthKey[] {
+/**
+ * The stored months (lines or typed Overview totals), oldest first, from `FIRST_MONTH` on; #229 (spec 59.6, CFO Q-FM3):
+ * with `through`, none after it (History shows months up to the current one; saved future months are plans).
+ */
+export function storedMonths(record: PfRecord | null, through?: MonthKey): MonthKey[] {
   const s = store(record);
   const months = readMonths(s);
   const overview = readOverview(s);
   const keys = new Set<MonthKey>(Object.keys(months).filter((k) => hasLines(months[k])));
   for (const [k, e] of Object.entries(overview.months))
     if (typedFigure(e?.expenses) !== null || typedFigure(e?.income) !== null) keys.add(k);
-  return [...keys].filter((k) => /^\d{4}-(0[1-9]|1[0-2])$/.test(k) && k >= FIRST_MONTH).sort();
+  return [...keys].filter((k) => /^\d{4}-(0[1-9]|1[0-2])$/.test(k) && k >= FIRST_MONTH && (!through || k <= through)).sort();
 }
 
-/** The Year select's choices: years with at least one stored month, newest first. */
-export function storedYears(record: PfRecord | null): number[] {
-  return [...new Set(storedMonths(record).map((k) => Number(k.slice(0, 4))))].sort((a, b) => b - a);
+/** The Year select's choices: years with at least one stored month (up to `through`), newest first. */
+export function storedYears(record: PfRecord | null, through?: MonthKey): number[] {
+  return [...new Set(storedMonths(record, through).map((k) => Number(k.slice(0, 4))))].sort((a, b) => b - a);
 }
 
 /** One year's grid: only that year's stored months, oldest first. Display strings; nothing is written. */
 export function yearTable(record: PfRecord | null, year: number, now: Date): YearTable {
   const s = store(record);
   const household = readHousehold(s).household;
-  const months = storedMonths(record).filter((k) => k.startsWith(`${year}-`));
+  const months = storedMonths(record, lastTwelve(now)[11]).filter((k) => k.startsWith(`${year}-`));
   if (!months.length) return { year, currency: household, columns: [], rows: [] };
   const stored = readMonths(s);
 

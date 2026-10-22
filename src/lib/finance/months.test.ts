@@ -31,15 +31,19 @@ const LINE = {
 const lines: MonthLines = { fixed: [LINE], variable: [], people: [] };
 
 describe("#163 month choices", () => {
-  it("PFM-01 / Q-Y2: the years, the current year down to 2020", () => {
-    assert.deepEqual(yearChoices("2026-10"), [2026, 2025, 2024, 2023, 2022, 2021, 2020]);
-    assert.deepEqual(yearChoices("2020-01"), [2020]);
+  // #229 (PFFM-02) supersedes Q-Y2's top year: the years run from the last open month's (current + 12) down to 2020.
+  it("PFM-01 / Q-Y2 (as changed by #229): the years, the last open month's year down to 2020", () => {
+    assert.deepEqual(yearChoices("2026-10"), [2027, 2026, 2025, 2024, 2023, 2022, 2021, 2020]);
+    assert.deepEqual(yearChoices("2020-01"), [2021, 2020]);
   });
-  it("PFM-03 / Q-Y1: a choice opens that month; a future one the current month; before 2020-01 the first month", () => {
+  // #229 (PFFM-01/03) supersedes Q-Y1's future clamp: a future month up to current + 12 opens; past that, the last one.
+  it("PFM-03 / Q-Y1 (as changed by #229): a choice opens that month (future ones up to current + 12); before 2020-01 the first month", () => {
     assert.equal(chosenMonth("2021", "03", "2026-10"), "2021-03");
     assert.equal(chosenMonth(2026, 10, "2026-10"), "2026-10");
-    assert.equal(chosenMonth("2026", "11", "2026-10"), "2026-10");
-    assert.equal(chosenMonth("2027", "01", "2026-10"), "2026-10");
+    assert.equal(chosenMonth("2026", "11", "2026-10"), "2026-11");
+    assert.equal(chosenMonth("2027", "01", "2026-10"), "2027-01");
+    assert.equal(chosenMonth("2027", "10", "2026-10"), "2027-10");
+    assert.equal(chosenMonth("2027", "11", "2026-10"), "2027-10");
     assert.equal(chosenMonth("2019", "12", "2026-10"), FIRST_MONTH);
     assert.equal(chosenMonth("2026", "13", "2026-10"), "2026-10");
     assert.equal(chosenMonth("", "", "2026-10"), "2026-10");
