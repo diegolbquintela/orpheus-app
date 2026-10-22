@@ -1,4 +1,4 @@
-// Scenario screen end-to-end (#222, spec section 58, PFSV-01..PFSV-30 in qa/CANONICAL-AC-PACK.md): the full
+// Scenario screen end-to-end (#222, spec section 58, PFSV-01..PFSV-30 in qa/CANONICAL-AC-PACK.md; #225 PFTT-05/06): the full
 // validation run of /personal-finance/scenario after #221 / #224, on a PREVIEW, at 390 × 844 and 1440 × 900.
 // Diego (2026-10-22): the screen is a SANDBOX, so every check that used to be "the net-assets save path" is a
 // zero-writes check: no PUT / POST / DELETE / PATCH from the page, one GET of the record, the record byte-for-byte
@@ -117,6 +117,24 @@ async function signedIn(browser, role, email, password, fn) {
   }
 }
 
+/** #225 (spec 62, PFTT-05 / -06): every person checkbox's tap target (its label.pf-check) is ≥ 44 × 44 and the whole
+ * of it hits the label or the box (no overlap), measured in the real browser. Read-only: nothing is clicked. */
+async function personTargets(page, tag, ac) {
+  const rows = await page.evaluate(() => [...document.querySelectorAll('[data-testid="pf-person-count-wages"],[data-testid="pf-person-count-bonus"],[data-testid="pf-person-foreign"]')].map((box) => {
+    box.scrollIntoView({ block: "center" });
+    const label = box.closest("label");
+    const r = (label ?? box).getBoundingClientRect();
+    let miss = 0;
+    for (let y = 1; y < r.height; y += 4) for (let x = 1; x < r.width; x += 4) {
+      const hit = document.elementFromPoint(r.left + x, r.top + y);
+      if (hit !== label && hit !== box) miss++;
+    }
+    return { id: box.dataset.testid, w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, label: Boolean(label?.classList.contains("pf-check")), miss };
+  }));
+  if (!rows.length) return info(`${tag} ${ac} person checkboxes: SKIPPED (no person row on this record)`);
+  check(`${tag} ${ac} person checkboxes: each label.pf-check ≥ 44 × 44 and fully tappable (${rows.length} boxes)`, rows.length % 3 === 0 && rows.every((r) => r.label && r.w >= 44 && r.h >= 44 && r.miss === 0), rows.filter((r) => !(r.label && r.w >= 44 && r.h >= 44 && r.miss === 0)));
+}
+
 /** Owner and Read: the scenario screen. */
 async function scenarioChecks({ page, tag, vp }, read) {
   const net = track(page);
@@ -124,6 +142,8 @@ async function scenarioChecks({ page, tag, vp }, read) {
   check(`${tag} PFSV-01 the record is readable before the run`, before.status === 200, before.status);
   const res = await open(page);
   check(`${tag} PFSV-02 ${SCENARIO} 200`, res?.status() === 200, res?.status());
+  await page.getByTestId("pf-person").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  await personTargets(page, tag, "PFTT-06");
   // Layout (spec 57.1): the main page's sections, no categories parts, no month control or Save; the chart below.
   const has = async (id) => (await page.getByTestId(id).count()) > 0;
   // An empty record (e.g. a fresh preview database): the empty state, then lines typed in the sandbox itself (a Read
@@ -251,6 +271,7 @@ async function mainChecks({ page, tag }) {
   }
   await page.goto(`${base}/personal-finance`, { waitUntil: "networkidle" });
   const ov = await page.getByTestId("pf-ov-table").count();
+  await personTargets(page, tag, "PFTT-05");
   check(`${tag} PFSV-21 the main page shows its Overview and its category filter; no Monthly / Yearly select`, ov === 1 && (await page.getByTestId("pf-person-wages-per").count()) === 0);
   check(`${tag} PFSV-22 loading the main page, charts and history writes nothing`, net.writes().length === 0, net.writes());
   const list = await page.request.get(`${base}/api/personal-finance/reports`);

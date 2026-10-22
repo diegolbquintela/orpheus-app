@@ -2860,3 +2860,23 @@ describe("#229 future months on the main page (spec 59, PFFM)", () => {
     assert.equal(monthly(lines(el, "fixed")[0]), "1,000");
   });
 });
+
+describe("#225 PFTT-03: the person checkboxes' tap target is their 44 px label (main page)", () => {
+  const BOXES = ["pf-person-count-wages", "pf-person-count-bonus", "pf-person-foreign"];
+  it("each box sits inside its own label.pf-check, alone, and a click on the label toggles it", async () => {
+    const el = await render();
+    await click(q(el, "pf-add-person"));
+    const p = q(el, "pf-person");
+    for (const id of BOXES) {
+      const box = q(p, id) as HTMLInputElement;
+      const label = box.parentElement as HTMLLabelElement;
+      assert.equal(label.tagName, "LABEL", id);
+      assert.ok(label.classList.contains("pf-check"), id);
+      assert.equal(label.querySelectorAll("input").length, 1, `${id}: the label holds only this box`);
+      assert.equal(box.type, "checkbox");
+      const before = box.checked;
+      await click(label);
+      assert.equal((q(q(el, "pf-person"), id) as HTMLInputElement).checked, !before, `${id}: the label toggles it`);
+    }
+  });
+});
