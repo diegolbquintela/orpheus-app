@@ -279,10 +279,12 @@ try {
     const put = await http(cfo.jar, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, "orpheus.finance.currency.v1": JSON.stringify("USD") } });
     const del = await http(cfo.jar, "DELETE", "/api/personal-finance");
     check("ROLE-10 CFO Read: PUT / DELETE → 403", put.status === 403 && del.status === 403, [put.status, del.status]);
+    // #197 (spec 54, PFVW, 2026-10-21): PUT /view needs write; Read → 403 and nothing stored (this replaces the Q-D11 check).
+    const before = await http(cfo.jar, "GET", "/api/personal-finance");
     const view = await http(cfo.jar, "PUT", "/api/personal-finance/view", { view: JSON.stringify({ closed: ["income"] }) });
     const again = await http(cfo.jar, "GET", "/api/personal-finance");
     const ownerRec = await http(O, "GET", "/api/personal-finance");
-    check("ROLE-10 / Q-D11 the CFO's section toggles are theirs (stored; never in the owner's record)", view.status === 200 && again.json?.data?.["orpheus.finance.view.v1"] === JSON.stringify({ closed: ["income"] }) && ownerRec.json?.data?.["orpheus.finance.view.v1"] !== JSON.stringify({ closed: ["income"] }), { view: view.status, cfoView: again.json?.data?.["orpheus.finance.view.v1"], ownerView: ownerRec.json?.data?.["orpheus.finance.view.v1"] ?? null });
+    check("ROLE-10 / PFVW-03 CFO Read: PUT /api/personal-finance/view → 403, the CFO's view and the owner's record unchanged", view.status === 403 && again.json?.data?.["orpheus.finance.view.v1"] === before.json?.data?.["orpheus.finance.view.v1"] && ownerRec.json?.data?.["orpheus.finance.view.v1"] !== JSON.stringify({ closed: ["income"] }), { view: view.status, cfoView: again.json?.data?.["orpheus.finance.view.v1"] ?? null, ownerView: ownerRec.json?.data?.["orpheus.finance.view.v1"] ?? null });
     const page = await http(cfo.jar, "GET", "/personal-finance");
     check("ROLE-10 CFO Read: /personal-finance 200 with `Read only` (the locked fields are checked in the browser)", page.status === 200 && /data-testid="read-only"[^>]*>Read only</.test(page.text), page.status);
     // ROLE-11: Read and write.
@@ -290,8 +292,11 @@ try {
     const w = await http(cfo.jar, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, "orpheus.finance.currency.v1": JSON.stringify("USD") } });
     const seen = await http(O, "GET", "/api/personal-finance");
     check("ROLE-11 CFO Read and write: the edit lands on the owner's record (the owner sees it)", w.status === 200 && seen.json?.data?.["orpheus.finance.currency.v1"] === JSON.stringify("USD"), [w.status, seen.json?.data?.["orpheus.finance.currency.v1"]]);
+    // #197 PFVW-02: with Read and write the CFO's toggles are stored, and stay theirs (never the owner's record).
+    const vw = await http(cfo.jar, "PUT", "/api/personal-finance/view", { view: JSON.stringify({ closed: ["income"] }) });
     const cfoView = await http(cfo.jar, "GET", "/api/personal-finance");
-    check("ROLE-11 the CFO's toggles stay theirs after a write", cfoView.json?.data?.["orpheus.finance.view.v1"] === JSON.stringify({ closed: ["income"] }) && seen.json?.data?.["orpheus.finance.view.v1"] !== JSON.stringify({ closed: ["income"] }));
+    const seen2 = await http(O, "GET", "/api/personal-finance");
+    check("ROLE-11 / PFVW-02 the CFO's toggles are stored (200) and stay theirs", vw.status === 200 && cfoView.json?.data?.["orpheus.finance.view.v1"] === JSON.stringify({ closed: ["income"] }) && seen2.json?.data?.["orpheus.finance.view.v1"] !== JSON.stringify({ closed: ["income"] }), vw.status);
     const del2 = await http(cfo.jar, "DELETE", "/api/personal-finance");
     check("ROLE-11 / Q-D13 DELETE /api/personal-finance → 403 for the CFO with Read and write", del2.status === 403, del2.status);
     const pageW = await http(cfo.jar, "GET", "/personal-finance");
@@ -532,16 +537,18 @@ try {
           }
           if (name === "pf-read-only") {
             await page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
-            // Q-D11: the CFO closed Income through the API above, so it starts closed (their view, not the owner's);
-            // the toggle still works read-only and opens the owner's figures.
+            // #197 (Q-VW1): a Read user's section toggle works for this visit and sends no PUT /view.
             const income = page.locator("[data-testid=pf-toggle-income]");
-            const startedClosed = (await income.getAttribute("aria-expanded")) === "false";
-            if (vp === "360") check(`${tag} ROLE-10 / Q-D11 the CFO's own view applies (Income closed)`, startedClosed);
-            if (startedClosed) {
-              const saved = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/personal-finance/view" && r.request().method() === "PUT");
-              await income.click();
-              check(`${tag} ROLE-10 a section toggle works read-only and is stored for the CFO (200)`, (await saved).status() === 200 && (await income.getAttribute("aria-expanded")) === "true");
-            }
+            const was = await income.getAttribute("aria-expanded");
+            let viewPuts = 0;
+            const onReq = (q) => { if (new URL(q.url()).pathname === "/api/personal-finance/view" && q.method() === "PUT") viewPuts++; };
+            page.on("request", onReq);
+            await income.click();
+            await page.waitForTimeout(1500);
+            page.off("request", onReq);
+            const now = await income.getAttribute("aria-expanded");
+            check(`${tag} ROLE-10 / PFVW-07 a section toggle works read-only and sends no PUT /view`, now !== was && viewPuts === 0, { was, now, viewPuts });
+            if (now !== was) await income.click();
             const lock = await page.evaluate(() => {
               const ctl = [...document.querySelectorAll("main input, main select, main textarea, main button")];
               return { open: ctl.filter((c) => !c.matches(":disabled")).map((c) => c.getAttribute("data-testid")), n: ctl.length, line: document.querySelector("[data-testid=read-only]")?.textContent, ana: [...document.querySelectorAll("main input")].some((i) => i.value === "Ana") || document.querySelector("main").innerText.includes("Ana") };

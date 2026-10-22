@@ -169,11 +169,12 @@ export const PF_VIEW_ALLOW = ["PUT"] as const;
 
 /**
  * `PUT /api/personal-finance/view` `{ "view": "<the view JSON text>" }` (#90 Q-D11): a person's own section toggles.
- * Needs a Personal Finance **read** grant (a Read-only CFO can still open / close sections). The owner's toggles live
- * in the record, so for the owner this writes the record's view value.
+ * #197 (spec 54, AC PFVW; Diego 2026-10-20): needs a Personal Finance **write** grant, as the other PF writes (#162 R2).
+ * Read or no grant → 403 and nothing is written. The owner's toggles live in the record, so for the owner this writes
+ * the record's view value; a non-owner with write keeps their own (Q-D11).
  */
 export async function handlePersonalFinanceViewRequest(request: Request, deps: DashboardApiDeps) {
-  const g = await gateDashboardRequest(request, PF_VIEW_ALLOW, deps, { surface: "personal_finance", need: "read" });
+  const g = await gateDashboardRequest(request, PF_VIEW_ALLOW, deps, { surface: "personal_finance", need: "write" });
   if ("response" in g) return g.response;
   let body: { view?: unknown } | undefined;
   try {

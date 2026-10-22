@@ -1628,3 +1628,18 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | UDD-08 | MAJOR | Preview smoke, signed out: `/` and `/calculator` return 200; `/dashboard`, `/personal-finance` and `/account` return 307 to sign-in; no console errors (Q-UD2). |
 | UDD-09 | MAJOR | `zod` is still installed through its dependents (`npm ls zod`), per Q-UD1. |
 | UDD-10 | MINOR | Docs additions only: dashboard-spec §23 and one dated AGENTS.md line. README is unchanged because it lists no template packages. |
+
+## PFVW — `PUT /api/personal-finance/view` needs write access (#197, personal-finance-spec §54; added 2026-10-21; security, LOW)
+
+| ID | Sev | Check |
+|---|---|---|
+| PFVW-01 | BLOCK | Owner PUT → 200; the record's view is updated (`account.server.test.ts`). |
+| PFVW-02 | BLOCK | Read and write, not owner → 200; only their own view is stored, the owner's record is untouched (unit; `qa/tools/roles.mjs` ROLE-11). |
+| PFVW-03 | BLOCK | Read grant → 403; their stored view, the row count and the owner's record are unchanged (unit; `roles.mjs` ROLE-10). |
+| PFVW-04 | BLOCK | No Personal Finance grant → 403; nothing is written (unit). |
+| PFVW-05 | BLOCK | `GET /api/personal-finance` is identical for all four roles before and after the refused PUTs; a Read user's earlier stored view still applies (unit). |
+| PFVW-06 | MAJOR | GET on the view route → 405 for every role; signed-out PUT → 401 (unit). |
+| PFVW-07 | MAJOR | Read only in the browser: a section toggle opens or closes and no PUT `/view` is sent (`roles.mjs`). |
+| PFVW-08 | BLOCK | Mutation: with `need: "read"` restored, ROLE-10, PFVW-03 and PFVW-05 fail. PFVW-04 (no grant) still passes, because `need: "read"` already refused it before #197; it guards against the gate being loosened further. |
+| PFVW-09 | BLOCK | Gates green under TZ=UTC and TZ=America/Los_Angeles: npm ci, tsc, eslint (3 baseline warnings), npm test, `npx vite build`, `check:dashboard-built`. |
+| PFVW-10 | MAJOR | Preview deploys; a same-length build compare against main shows only the expected chunks changed. |

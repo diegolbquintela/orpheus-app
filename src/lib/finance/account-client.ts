@@ -1,6 +1,5 @@
 import { migrateExpenses } from "./expenses";
 import { clearLegacy, prepareRecord, RecordStore } from "./record";
-import { VIEW_KEY } from "./view";
 
 /**
  * The page's store when signed in (#102; spec section 16.5): the account's record via `/api/personal-finance`,
@@ -41,8 +40,8 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
     data?: Record<string, string> | null;
     access?: { owner?: boolean; write?: boolean };
   };
-  // #90: the record is the owner's. Only the owner imports this browser's old values; without a write grant only
-  // the person's own section toggles are saved (`/api/personal-finance/view`, Q-D11).
+  // #90: the record is the owner's. Only the owner imports this browser's old values. #197: without a write grant
+  // nothing is saved (the view route needs write); toggles already stored for the person still apply (Q-D11).
   const owner = body.access?.owner !== false;
   const write = body.access?.write !== false;
   const browser = owner ? local() : null;
@@ -51,20 +50,19 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
     : { record: { ...(body.data ?? {}) }, imported: false, migrated: false };
 
   const put = async (keepalive = false): Promise<boolean> => {
+    // #197 (spec 54, Q-VW1): without a write grant nothing is sent (the view route answers 403 to Read); a section
+    // toggle still works on the page for this visit and the page shows no `Not saved.`.
+    if (!write) {
+      onSaved(true);
+      return true;
+    }
     try {
-      const r = write
-        ? await fetch(API, {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ data: store.snapshot() }),
-            keepalive,
-          })
-        : await fetch(VIEW_API, {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ view: store.getItem(VIEW_KEY) ?? "" }),
-            keepalive,
-          });
+      const r = await fetch(API, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data: store.snapshot() }),
+        keepalive,
+      });
       // Read the (small) reply so the request completes (an unread body keeps it open, e.g. for "network idle").
       await r.text().catch(() => "");
       onSaved(r.ok);

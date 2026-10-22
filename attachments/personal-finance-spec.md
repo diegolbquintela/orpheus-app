@@ -1881,3 +1881,23 @@ The test strings, with code points above U+007E listed:
 - **Q-HT6:** a visible note sits above the grid: *"Rate used, household currency and starting net assets are today's values, not per-month values. Every month in this table uses them."* (`SHARED_VALUES_NOTE`). It shows only with the grid. AC PFHT-22..PFHT-24.
 - **Q-HT1, Q-HT3, Q-HT4, Q-HT5, Q-HT7:** CFO-accepted as built.
 - **PARKED:** per-month stored values for Rate used, household currency and starting net assets (Q-HT6 alternative; a data-model change), and CSV / any export of the table (Q-HT8). Neither is built; each needs its own ticket.
+
+## 54. Personal Finance: `PUT /api/personal-finance/view` needs write access (#197, LOW, security; added 2026-10-21; built in the same PR)
+
+54.1 Problem. `PUT /api/personal-finance/view` was gated with `need: "read"`, so anyone with a Read grant could write data (their stored section view). Every other Personal Finance write needs `need: "write"`.
+
+54.2 Rule (built). The handler gates with `gateDashboardRequest(..., { surface: "personal_finance", need: "write" })`, the same helper the record PUT uses.
+- Owner: 200, the view is stored in the record (`VIEW_KEY`), as before.
+- Read and write (not owner): 200, the view is stored in that person's own `account_state.pf_view`; the owner's record is untouched, as before.
+- Read only: 403, nothing stored.
+- No Personal Finance grant: 403, nothing stored. Signed out: 401. GET on the route: 405, unchanged.
+- `GET /api/personal-finance` is unchanged for every role. A view stored for a Read user before #197 still applies to them.
+
+54.3 Client (built). When `access.write` is false the page sends no PUT for a section toggle; the toggle works for this visit and no "Not saved" appears.
+
+54.4 Note. The issue said the UI never called the route for Read users. It did: #90 Q-D11 stored a Read CFO's toggles through it. This ticket reverses Q-D11 for Read users (Q-VW1).
+
+54.5 Questions.
+- Q-VW1 (BUILT, recommend accept): Read users' toggles are per visit only and are no longer stored. Alternative: keep Q-D11 with a narrower view-only grant (needs a ticket).
+- Q-VW2 (NOT BUILT, recommend leave): clearing views stored for Read users before #197. They are harmless and theirs only; clearing would be a DB write.
+- Q-VW3 (NOT BUILT, recommend leave): `VIEW_API` stays exported in `account-client.ts` although the client no longer calls it; removing it is cleanup.
