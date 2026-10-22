@@ -171,9 +171,10 @@ export function ScenarioPage({
   }, []);
 
   const record = state.kind === "ready" ? state.record : null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const base = useMemo<Baseline | null>(
     () => (state.kind === "ready" ? baselineOf(record, now()) : null),
+    // `now` is read once per load (the History page rule); a new clock function each render must not recompute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.kind, record],
   );
   const { scenario, bad } = useMemo(() => leversOf(texts), [texts]);
