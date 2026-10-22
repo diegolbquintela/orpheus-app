@@ -87,12 +87,17 @@ export async function readRecord(db: Queryable, userId: string): Promise<PfRecor
  * a current or past month's plan is frozen; a body without plans (an older tab) keeps them all; nothing is cleared.
  * Same for the owner and non-owner PUT and the view route. Returns the record as stored.
  */
-export async function writeRecord(db: Queryable, userId: string, record: PfRecord, now: Date = new Date()): Promise<PfRecord> {
+/** #231: the plans text stored for a user (undefined when none). */
+export async function readStoredPlans(db: Queryable, userId: string): Promise<string | undefined> {
   const rows = await db.query<{ plans: string | null }>(
     "SELECT data->>$2 AS plans FROM personal_finance WHERE user_id = $1",
     [userId, PLANS_KEY],
   );
-  const merged = mergePlansText(rows[0]?.plans ?? undefined, record[PLANS_KEY], householdMonth(now));
+  return rows[0]?.plans ?? undefined;
+}
+
+export async function writeRecord(db: Queryable, userId: string, record: PfRecord, now: Date = new Date()): Promise<PfRecord> {
+  const merged = mergePlansText(await readStoredPlans(db, userId), record[PLANS_KEY], householdMonth(now));
   const next: PfRecord = { ...record };
   delete next[PLANS_KEY];
   if (merged !== undefined) next[PLANS_KEY] = merged;
@@ -152,7 +157,9 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     // #143 (PF-137, Q-S4): an invalid value is refused, never clamped; nothing is stored.
     // #171: `overview.asOf` is bounded by the current household month (fake clock in tests).
     // #171 Q-AG9 (CFO): an out-of-bounds as-of month says why; every other bad value stays `Invalid value.`.
-    const refusal = recordRefusal(record, householdMonth(clock()));
+    // #231 PV1 (spec 65.7): plans the save would write are checked too, against the plans already stored.
+    const storedPlans = PLANS_KEY in record ? await readStoredPlans(db, user.id) : undefined;
+    const refusal = recordRefusal(record, householdMonth(clock()), storedPlans);
     if (refusal) return dashboardJson({ error: refusal.error, field: refusal.field }, 400);
     // #171 (QA early finding 3): an empty as-of month is stored as absent (spec 42.2); nothing else is touched.
     if (OVERVIEW_KEY in record) record = { ...record, [OVERVIEW_KEY]: withoutEmptyAsOf(record[OVERVIEW_KEY]) };

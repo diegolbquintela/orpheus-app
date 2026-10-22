@@ -123,3 +123,22 @@ describe("#231 PV4 capture time in Eastern time (PFPV-26)", () => {
     assert.equal(formatCaptured("nope"), "");
   });
 });
+
+describe("#231 PV1 no plan from invalid month lines (spec 65.7)", () => {
+  const OCT = "2026-10";
+  const at = new Date("2026-10-15T12:00:00Z");
+  const usd = (rate: string): MonthLines => ({ fixed: [{ ...line("Rent", "100"), currency: "USD", rate }], variable: [], people: [person("60,000")] }) as unknown as MonthLines;
+  it("PFPV-29: Save's plan sync skips a future month that fails the page's checks (bad amount, blank FX rate, bad person)", () => {
+    const store = new RecordStore({});
+    assert.equal(syncFuturePlans(store, { "2026-11": ml("abc"), "2026-12": usd(""), "2027-01": ml("1,000", "x"), "2027-02": ml("900"), "2027-03": usd("1.35") }, OCT, at), true);
+    assert.deepEqual(Object.keys(readPlans(store)), ["2027-02", "2027-03"]);
+  });
+  it("PFPV-30: first-load backfill copies only stored months that pass the page's checks (legacy / blank FX skipped)", () => {
+    const store = new RecordStore({ [MONTHS_KEY]: J({ "2026-11": ml("abc"), "2026-12": usd(""), "2027-01": ml("1,000") }) });
+    assert.equal(backfillPlans(store, OCT, at), true);
+    assert.deepEqual(Object.keys(readPlans(store)), ["2027-01"]);
+    const bad = new RecordStore({ [MONTHS_KEY]: J({ "2026-12": usd("") }) });
+    assert.equal(backfillPlans(bad, OCT, at), false);
+    assert.equal(bad.getItem(PLANS_KEY), null);
+  });
+});

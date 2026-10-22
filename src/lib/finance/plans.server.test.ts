@@ -85,3 +85,37 @@ describe("#231 PFPV record save keeps plans (server merge)", () => {
     assert.equal(await plansNow(), undefined);
   });
 });
+
+describe("#231 PV1 the API checks the plans a save would write (spec 65.7)", () => {
+  // full line shape (the page's readers drop a line missing fields, as for months)
+  const ln = (amount: string, currency = "", rate = "") => ({ id: "r", name: "Rent", amount, per: "month", equity: "", account: "", currency, rate, category: "" });
+  const fp = (rent: string) => ({ lines: { fixed: [ln(rent)], variable: [], people: [] }, capturedAt: "2026-10-01T00:00:00.000Z" });
+  const usd = (rate: string) => ({ lines: { fixed: [ln("100", "USD", rate)], variable: [], people: [] }, capturedAt: "2026-10-01T00:00:00.000Z" });
+  it("PFPV-27: an invalid future plan (bad amount, blank FX rate) is refused 400 under plans.<month>.*; nothing is stored", async () => {
+    await put("alice", { ...base, [PLANS_KEY]: JSON.stringify({ "2026-12": fp("1,100") }) });
+    const r = await put("alice", { ...base, [PLANS_KEY]: JSON.stringify({ "2026-12": fp("abc") }) });
+    assert.equal(r.status, 400);
+    assert.deepEqual(await r.json(), { error: "Invalid value.", field: "plans.2026-12.fixed.0.amount" });
+    const r2 = await put("carol", { ...base, [PLANS_KEY]: JSON.stringify({ "2027-01": usd("") }) });
+    assert.equal(r2.status, 400);
+    assert.equal(((await r2.json()) as { field: string }).field, "plans.2027-01.fixed.0.rate");
+    assert.equal(amt(await plansNow(), "2026-12"), "1,100");
+    assert.equal((await plansNow())?.["2027-01"], undefined);
+    // the same blank rate in months.v1 is still accepted (Q-S4), and a filled rate in a plan is fine
+    assert.equal((await put("alice", { ...base, [MONTHS_KEY]: JSON.stringify({ "2027-01": usd("").lines }) })).status, 200);
+    assert.equal((await put("alice", { ...base, [PLANS_KEY]: JSON.stringify({ "2027-01": usd("1.35") }) })).status, 200);
+  });
+  it("PFPV-28: current/past plans in the body and unchanged stored legacy plans never block a save", async () => {
+    // an invalid plan for the current or a past month is ignored by the merge, so it is not checked
+    assert.equal((await put("alice", { ...base, [PLANS_KEY]: JSON.stringify({ "2026-10": fp("abc"), "2026-09": fp("x") }) })).status, 200);
+    // a legacy invalid future plan already stored (written before this check)
+    const legacy = JSON.stringify({ ...JSON.parse((await stored())![PLANS_KEY]), "2027-02": fp("bad") });
+    await db.query("UPDATE personal_finance SET data = jsonb_set(data, $1, to_jsonb($2::text)) WHERE user_id = 'alice'", [`{${PLANS_KEY}}`, legacy]);
+    assert.equal((await put("alice", { ...base, [PLANS_KEY]: legacy })).status, 200);
+    assert.equal((await put("alice", base)).status, 200);
+    assert.equal(amt(await plansNow(), "2027-02"), "bad");
+    // changing it to another invalid value is refused
+    const changed = JSON.stringify({ ...JSON.parse(legacy), "2027-02": fp("worse") });
+    assert.equal((await put("alice", { ...base, [PLANS_KEY]: changed })).status, 400);
+  });
+});

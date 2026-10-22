@@ -1,7 +1,7 @@
 import { type CurrencyCode, DEFAULT_HOUSEHOLD, readHousehold } from "./currency.ts";
-import { householdMonthlyOf, type Line, readExpenses } from "./expenses.ts";
+import { householdMonthlyOf, type Line } from "./expenses.ts";
 import { incomeLines, monthly, netIncomeYearly } from "./income.ts";
-import { asLines, hasLines, isFuture, type MonthLines, type Months, readMonths } from "./months.ts";
+import { hasLines, isFuture, type MonthLines, type Months, readMonths } from "./months.ts";
 import type { MonthKey } from "./overview.ts";
 
 /**
@@ -11,28 +11,13 @@ import type { MonthKey } from "./overview.ts";
  * future months only, and the server (`mergePlansText`, in `writeRecord`) keeps the stored plan of every current or past
  * month whatever the body says, keeps stored plans the body leaves out (an older tab), and never clears one (Q5).
  */
+import { monthErrors } from "./field-errors.ts";
 import { PLANS_KEY } from "./plans-key.ts";
-export { PLANS_KEY };
-export type Plan = { lines: MonthLines; capturedAt: string };
-export type Plans = Record<MonthKey, Plan>;
+import { type Plan, rawPlans, readPlans } from "./plans-read.ts";
+export { PLANS_KEY, readPlans };
+export type { Plan, Plans } from "./plans-read.ts";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
-const isKey = (k: string): boolean => /^\d{4}-(0[1-9]|1[0-2])$/.test(k) && k >= "2020-01";
-
-/** Raw plans as stored (server side; no shared-value checks): only `yyyy-mm` keys with an object value. */
-function rawPlans(text: string | undefined | null): Record<string, unknown> | null {
-  if (typeof text !== "string") return null;
-  try {
-    const v = JSON.parse(text) as unknown;
-    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
-    const out: Record<string, unknown> = {};
-    for (const [k, p] of Object.entries(v as Record<string, unknown>))
-      if (isKey(k) && p && typeof p === "object" && !Array.isArray(p)) out[k] = p;
-    return out;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * #231 (spec 65.3, PFPV-01..06): the server's plans after a record save. Stored plans are the base; an incoming plan
@@ -51,18 +36,6 @@ export function mergePlansText(stored: string | undefined, incoming: string | un
   return JSON.stringify(out);
 }
 
-/** The page's plans, each plan's lines read like a month's (against the shared accounts / categories). */
-export function readPlans(storage: StorageLike | null): Plans {
-  const raw = rawPlans(storage?.getItem(PLANS_KEY) ?? null) ?? {};
-  const shared = readExpenses(storage);
-  const out: Plans = {};
-  for (const [k, p] of Object.entries(raw)) {
-    const v = p as Record<string, unknown>;
-    out[k] = { lines: asLines(v.lines, shared), capturedAt: typeof v.capturedAt === "string" ? v.capturedAt : "" };
-  }
-  return out;
-}
-
 const sameLines = (a: MonthLines, b: MonthLines): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /**
@@ -73,10 +46,13 @@ const sameLines = (a: MonthLines, b: MonthLines): boolean => JSON.stringify(a) =
 export function syncFuturePlans(storage: StorageLike | null, months: Months, current: MonthKey, at: Date, onlyMissing = false): boolean {
   if (!storage) return false;
   const plans = readPlans(storage);
+  const household = readHousehold(storage).household;
   let changed = false;
   for (const k of Object.keys(months).sort()) {
     const m = months[k];
     if (!isFuture(k, current) || !hasLines(m)) continue;
+    // #231 PV1 (spec 65.7, PFPV-29/30): a month that fails the page's field checks (blank FX rate included) gets no plan.
+    if (monthErrors(m, household).length) continue;
     const have = plans[k];
     if (have && (onlyMissing || sameLines(have.lines, m))) continue;
     plans[k] = { lines: m, capturedAt: at.toISOString() };
