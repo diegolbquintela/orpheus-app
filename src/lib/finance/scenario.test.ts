@@ -1,4 +1,6 @@
-// #215 (personal-finance-spec 55; AC PFSC-04..PFSC-12): the scenario projection math, horizons and the stored value.
+// #215 (spec 55, PFSC-12: the stored value, unchanged) and #221 (spec 57, AC PFPJ): the scenario projection math (CFO
+// 2026-10-22: r_m, positive-only growth, month 0 once, Overview's own figures), the local net-assets parse, and the
+// Overview's Future projection on the shared step (CFO Q-b).
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { writeRates } from "./equity.ts";
@@ -7,17 +9,23 @@ import { recordRefusal } from "./field-errors.ts";
 import { writeMonths } from "./months.ts";
 import { NO_OVERVIEW, writeOverview } from "./overview.ts";
 import { checkRecord, RecordStore, type PfRecord } from "./record.ts";
+import { parseAmount } from "./expenses.ts";
+import { lineFigures, savedOverviewFigures } from "./months.ts";
+import { summarize } from "./overview.ts";
+import { monthlyRate, projectNet, stepNet } from "./projection.ts";
 import {
   asScenario,
-  baselineOf,
-  type Baseline,
   DEFAULT_HORIZON,
+  formatPercent,
+  growthOk,
   HORIZONS,
   horizonLabel,
-  NO_SCENARIO,
-  parseLever,
+  type Inputs,
+  NOW_LABEL,
+  parseNetAssets,
   project,
   readScenario,
+  savedInputs,
   SCENARIO_KEY,
   scenarioText,
   withScenario,
@@ -64,213 +72,140 @@ function record(start = "100,000"): PfRecord {
   });
   return s.data;
 }
-const flat = (over: Partial<Baseline> = {}): Baseline => ({
-  month: "2026-09",
+const at9 = (start: number, surplus: number): Inputs => ({
   current: "2026-10",
-  currency: "CAD",
-  income: [{ id: "a", label: "A", monthly: 5000 }],
-  categories: [
-    { id: "Home", label: "Home", monthly: 2000 },
-    { id: "", label: "No category", monthly: 1000 },
-  ],
-  rate: 4,
-  growth: 0,
-  start: 10000,
-  ...over,
+  start,
+  income: surplus > 0 ? surplus : 0,
+  expenses: surplus < 0 ? -surplus : 0,
+  growth: 9,
+  rate: null,
 });
+const near = (a: number, b: number, eps = 0.005) => assert.ok(Math.abs(a - b) <= eps, `${a} vs ${b}`);
 
-describe("#215 scenario baseline", () => {
-  it("PFSC-04: today's figures come from the latest month with lines (income lines, expenses by category, Rate used)", () => {
-    const b = baselineOf(record(), NOW);
-    assert.equal(b.month, "2026-09");
-    assert.equal(b.current, "2026-10");
-    assert.deepEqual(
-      b.income.map((l) => [l.id, l.monthly]),
-      [["p1-wages", 7500]],
-    ); // 120,000 × 75% ÷ 12
-    assert.deepEqual(
-      b.categories.map((c) => [c.id, c.label, c.monthly]),
-      [
-        ["Food", "Food", 500],
-        ["Home", "Home", 2000],
-        ["", "No category", 100],
-      ],
-    );
-    assert.equal(b.rate, 4);
-    assert.equal(b.growth, 0);
-    assert.ok(Number.isFinite(b.start));
+describe("#221 scenario projection (CFO 2026-10-22)", () => {
+  it("PFPJ-01 A: start 10,000, +500 a month at 9 %/yr → 17,143.65 after 12 months", () => {
+    const p = project(at9(10000, 500), 12);
+    near(p.totals.netEnd, 17143.65);
+    assert.equal(p.points[12].net, 17143.65);
+    assert.notEqual(Math.round(p.totals.netEnd * 100) / 100, 17191.86, "not annual ÷ 12");
   });
-  it("PFSC-04: no month with lines → no baseline month, nothing to move, start = typed Starting net assets", () => {
-    const b = baselineOf({}, NOW);
-    assert.equal(b.month, null);
-    assert.deepEqual([b.income, b.categories], [[], []]);
-    assert.equal(b.start, 0);
+  it("PFPJ-02 B: start 0, −1,460 a month → exactly −17,520 after 12 months, a straight line (no growth on ≤ 0)", () => {
+    const p = project(at9(0, -1460), 12);
+    assert.equal(p.totals.netEnd, -17520);
+    p.points.forEach((pt, i) => assert.equal(pt.net, i === 0 ? 0 : -1460 * i, `month ${i}`));
+    assert.equal(p.totals.growthEarned, 0);
   });
-});
-
-describe("#215 projection math", () => {
-  it("PFSC-05: no levers → today's surplus each month; net assets add it month by month (growth 0)", () => {
-    const p = project(flat(), NO_SCENARIO, 12);
-    assert.equal(p.points.length, 12);
-    assert.deepEqual(
-      [p.points[0].key, p.points[0].label, p.points[11].key],
-      ["2026-11", "Nov 26", "2027-10"],
-    );
-    assert.deepEqual(
-      [p.points[0].income, p.points[0].expenses, p.points[0].surplus, p.points[0].net],
-      [5000, 3000, 2000, 12000],
-    );
-    assert.equal(p.points[11].net, 10000 + 12 * 2000);
-    assert.deepEqual(
-      [p.totals.income, p.totals.expenses, p.totals.surplus, p.totals.netEnd],
-      [60000, 36000, 24000, 34000],
-    );
+  it("PFPJ-03 C: start −2,000, +500 → 0 at month 4, growth only on a positive opening balance, 4,102.37 after 12 (exact 4,102.370180097717)", () => {
+    const p = project(at9(-2000, 500), 12);
+    near(p.totals.netEnd, 4102.37, 0.01);
+    assert.equal(p.totals.netEnd, 4102.370180097717);
+    assert.equal(p.points[4].net, 0);
+    assert.equal(p.points[5].net, 500, "opening 0: no growth that month");
+    near(p.points[6].net, 1003.6, 0.005); // 500 × (1 + r_m) + 500 = 1,003.6037, shown to the cent
   });
-  it("PFSC-06: income and category levers are % changes of today's lines; recalculated from the levers alone", () => {
-    const p = project(
-      flat(),
-      { ...NO_SCENARIO, income: { a: 10 }, expenses: { Home: -50, "": 50 } },
-      12,
-    );
-    assert.deepEqual(
-      [p.totals.monthlyIncome, p.totals.monthlyExpenses, p.totals.monthlySurplus],
-      [5500, 2500, 3000],
-    );
-    assert.equal(p.totals.netEnd, 10000 + 12 * 3000);
-    // A lever on an unknown id moves nothing.
-    assert.equal(
-      project(flat(), { ...NO_SCENARIO, income: { zzz: 50 } }, 12).totals.monthlyIncome,
-      5000,
-    );
-    // -100 % removes a line entirely.
-    assert.equal(
-      project(flat(), { ...NO_SCENARIO, income: { a: -100 } }, 12).totals.monthlyIncome,
-      0,
-    );
+  it("PFPJ-04: r_m = (1 + annual)^(1/12) − 1 (9 % → 0.7207 %), never annual ÷ 12; the step grows N > 0 only, then adds the surplus", () => {
+    near(monthlyRate(9) * 100, 0.7207, 0.0001);
+    assert.notEqual(monthlyRate(9), 0.09 / 12);
+    assert.equal(stepNet(-100, 0, monthlyRate(9)), -100);
+    assert.equal(stepNet(0, 50, monthlyRate(9)), 50);
+    near(stepNet(1000, 0, monthlyRate(9)), 1007.2073, 0.0001);
   });
-  it("PFSC-07: growth compounds monthly at (1 + g)^(1/12) before the surplus (the Overview Future rule)", () => {
-    const p = project(flat({ income: [], categories: [] }), { ...NO_SCENARIO, growth: 12 }, 12);
-    assert.ok(Math.abs(p.totals.netEnd - 11200) < 0.01, String(p.totals.netEnd)); // 10,000 × 1.12 after a year
-    const q = project(flat(), { ...NO_SCENARIO, growth: 5 }, 1);
-    assert.ok(Math.abs(q.points[0].net - (10000 * Math.pow(1.05, 1 / 12) + 2000)) < 0.01);
-  });
-  it("PFSC-08: Rate used, growth and net-assets levers replace today's; coverage at the horizon end", () => {
-    const p = project(flat(), { ...NO_SCENARIO, rate: 6, start: 0 }, 12);
-    assert.equal(p.rate, 6);
-    assert.equal(p.start, 0);
-    assert.equal(p.totals.netEnd, 24000);
-    assert.equal(p.totals.coverageMonthly, (24000 * 0.06) / 12);
-    assert.equal(p.totals.coverageShare, 120 / 3000);
-    // No rate, or net assets ≤ 0 at the end → no coverage (never a division by zero).
-    assert.equal(project(flat({ rate: null }), NO_SCENARIO, 12).totals.coverageMonthly, null);
-    const neg = project(flat({ start: -100000 }), NO_SCENARIO, 12);
-    assert.deepEqual([neg.totals.coverageMonthly, neg.totals.coverageShare], [null, null]);
-    const noExp = project(flat({ categories: [] }), NO_SCENARIO, 12);
-    assert.equal(noExp.totals.coverageShare, null);
-  });
-  it("PFSC-09: horizons are 12 months (default), 3, 5 and 10 years; points and totals follow the horizon", () => {
+  it("PFPJ-05: month 0 is the start, plotted once and labelled Now; horizon + 1 points; horizons 12 / 36 / 60 / 120", () => {
     assert.deepEqual([...HORIZONS], [12, 36, 60, 120]);
     assert.equal(DEFAULT_HORIZON, 12);
     assert.deepEqual(HORIZONS.map(horizonLabel), ["12 months", "3 years", "5 years", "10 years"]);
     for (const h of HORIZONS) {
-      const p = project(flat(), NO_SCENARIO, h);
-      assert.equal(p.points.length, h);
-      assert.equal(p.totals.surplus, 2000 * h);
-      assert.equal(p.totals.netEnd, 10000 + 2000 * h);
+      const p = project(at9(10000, 500), h);
+      assert.equal(p.points.length, h + 1);
+      assert.equal(p.points[0].net, 10000);
+      assert.equal(p.points[0].label, NOW_LABEL);
+      assert.equal(p.points[0].key, "2026-10");
+      assert.equal(p.points.filter((x) => x.key === "2026-10").length, 1);
+      assert.equal(p.points[1].key, "2026-11");
+      assert.deepEqual(p.points.map((x) => x.net), projectNet(10000, 500, 9, h).map((n) => Math.round(n * 100) / 100));
     }
-    assert.equal(project(flat(), NO_SCENARIO, 120).points.at(-1)?.key, "2036-10");
   });
-  it("PFSC-10: pure: projecting never changes the baseline or the levers", () => {
-    const b = flat();
-    const s = { ...NO_SCENARIO, income: { a: 10 } };
-    const before = JSON.stringify([b, s]);
-    project(b, s, 60);
-    assert.equal(JSON.stringify([b, s]), before);
+  it("PFPJ-06: totals: sums over the horizon, net end = the last point, growth earned = net end − start − surplus", () => {
+    const p = project({ ...at9(10000, 0), income: 3000, expenses: 2500, rate: 4 }, 12);
+    assert.equal(p.totals.surplus, 6000);
+    assert.equal(p.totals.income, 36000);
+    assert.equal(p.points[12].net, Math.round(p.totals.netEnd * 100) / 100);
+    near(p.totals.growthEarned, p.totals.netEnd - 10000 - 6000, 1e-9);
+    assert.ok(p.totals.growthEarned > 0);
   });
-});
-
-describe("#215 CFO on Q-SC3 (2026-10-22): growth only on a positive opening balance", () => {
-  const g = Math.pow(1.12, 1 / 12);
-  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.01, `${a} vs ${b}`);
-  const inc = (monthly: number) => [{ id: "a", label: "A", monthly }];
-  it("PFSC-31: a negative start that crosses above 0: growth 0 % while the opening balance is ≤ 0, resumes after", () => {
-    const p = project(
-      flat({ income: inc(600), categories: [], start: -1000 }),
-      { ...NO_SCENARIO, growth: 12 },
-      4,
-    );
-    const n = p.points.map((x) => x.net);
-    assert.equal(n[0], -400); // opens at -1,000: no growth, + 600
-    assert.equal(n[1], 200); // opens at -400: no growth, + 600 (crosses above 0)
-    close(n[2], 200 * g + 600); // opens at 200 > 0: growth resumes on the opening balance
-    close(n[3], (200 * g + 600) * g + 600);
-    // A deficit on a negative balance just adds, with no growth (no "negative compounding").
-    const d = project(
-      flat({ income: [], categories: [{ id: "x", label: "X", monthly: 100 }], start: -1000 }),
-      { ...NO_SCENARIO, growth: 12 },
-      3,
-    );
-    assert.deepEqual(
-      d.points.map((x) => x.net),
-      [-1100, -1200, -1300],
-    );
-    // Negative growth also applies only to a positive balance.
-    const m = project(
-      flat({ income: inc(0), categories: [], start: -500 }),
-      { ...NO_SCENARIO, growth: -50 },
-      2,
-    );
-    assert.deepEqual(
-      m.points.map((x) => x.net),
-      [-500, -500],
-    );
+  it("PFPJ-07: the baseline is the Overview's own current month (the unsaved copy of last month, #199): surplus = its income − expenses", () => {
+    const rec = record();
+    const inp = savedInputs(rec, NOW);
+    const s = new RecordStore(rec);
+    const sum = summarize({ ...JSON.parse(rec["orpheus.finance.overview.v1"] ?? "{}"), future: false, months: {}, years: 1 }, NOW, { expenses: null, income: null }, savedOverviewFigures(s, "2026-10"));
+    const cur = sum.points[sum.points.length - 1];
+    assert.equal(cur.key, "2026-10");
+    assert.equal(inp.expenses, cur.expenses);
+    assert.equal(inp.income, cur.income);
+    assert.equal(inp.start, cur.net);
+    // the copy of 2026-09 (latest month with lines), Q-PJ1: not an average
+    assert.equal(inp.expenses, 2600);
+    assert.equal(inp.expenses, lineFigures(s, "2026-10")["2026-10"].expenses);
+    assert.equal(inp.rate, 4);
   });
-  it("PFSC-32: an opening balance of exactly 0 grows 0 % that month; growth starts the month after it turns positive", () => {
-    const z = project(
-      flat({ income: [], categories: [], start: 0 }),
-      { ...NO_SCENARIO, growth: 12 },
-      3,
-    );
-    assert.deepEqual(
-      z.points.map((x) => x.net),
-      [0, 0, 0],
-    );
-    const p = project(
-      flat({ income: inc(100), categories: [], start: 0 }),
-      { ...NO_SCENARIO, growth: 12 },
-      3,
-    );
-    assert.equal(p.points[0].net, 100); // opens at 0: no growth
-    close(p.points[1].net, 100 * g + 100);
-    close(p.points[2].net, (100 * g + 100) * g + 100);
-    // Crossing exactly to 0 then staying: no growth on the 0 month.
-    const q = project(
-      flat({ income: inc(500), categories: [], start: -500 }),
-      { ...NO_SCENARIO, growth: 12 },
-      2,
-    );
-    assert.deepEqual([q.points[0].net], [0]);
-    assert.equal(q.points[1].net, 500);
+  it("PFPJ-08 (AN8 / AN12 / AN6): the local net-assets field: negatives (- and U+2212), +5, .5, 5., thousands commas as the main page; 1e3 refused", () => {
+    const ok: [string, number][] = [["-1500", -1500], ["\u22121,500.50", -1500.5], ["+5", 5], [".5", 0.5], ["5.", 5], ["1,234.50", 1234.5], [" 25 000 ", 25000], ["$-3", -3], ["-$3", -3]];
+    for (const [t, n] of ok) assert.equal(parseNetAssets(t), n, t);
+    for (const t of ["1e3", "", " ", "abc", "--5", "+-5", "5-", "."]) assert.equal(parseNetAssets(t), null, t);
+    // the main page's parser is unchanged: no negatives there (parked)
+    assert.equal(parseAmount("-5"), null);
+    assert.equal(parseAmount("1,234.50"), 1234.5);
   });
-  it("PFSC-33: a positive balance still compounds every month (PFSC-07 unchanged); totals use the same path", () => {
-    const p = project(
-      flat({ income: [], categories: [], start: 10000 }),
-      { ...NO_SCENARIO, growth: 12 },
-      12,
-    );
-    close(p.totals.netEnd, 11200);
-    close(p.totals.netEnd, p.points[p.points.length - 1].net);
+  it("PFPJ-10 (AN11): percents show thousands separators", () => {
+    assert.equal(formatPercent(123.4567), "12,345.67%");
+    assert.equal(formatPercent(0.005), "0.50%");
+    assert.equal(formatPercent(null), "—");
+  });
+  it("PFPJ-09 (AN9): the scenario's growth bound is −50..+50 % a year", () => {
+    for (const g of [-50, 0, 9, 50]) assert.equal(growthOk(g), true, String(g));
+    for (const g of [-50.01, 50.01, 1000, NaN]) assert.equal(growthOk(g), false, String(g));
   });
 });
 
-describe("#215 levers and the stored scenario", () => {
-  it("PFSC-11: a typed lever is a number in bounds, else null (shown in red, moves nothing)", () => {
-    assert.equal(parseLever("10", -100, 1000), 10);
-    assert.equal(parseLever("-12.5", -100, 1000), -12.5);
-    assert.equal(parseLever("1,000", -100, 1000), 1000);
-    for (const bad of ["", "-", "abc", "1e3", "-101", "1001", "10%"])
-      assert.equal(parseLever(bad, -100, 1000), null, bad);
+describe("#221 Overview Future projection on the shared step (CFO Q-b)", () => {
+  // Typed Update totals: 2024 (before the window, with an as-of month in 2024) a deficit of 1,000 a month; the window's
+  // months as given. The Future projection steps from the current month's net assets with the window's average surplus.
+  const ov = (inc: string) => {
+    const months: Record<string, { expenses: string; income: string }> = {};
+    for (let m = 1; m <= 12; m++) months[`2024-${String(m).padStart(2, "0")}`] = { expenses: "1000", income: "0" };
+    for (const k of ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"])
+      months[k] = { expenses: "1000", income: inc };
+    return { start: "0", growth: "9", future: true, years: 1 as const, asOf: "2024-01", months };
+  };
+  const future = (inc: string) => {
+    const s = summarize(ov(inc), NOW, { expenses: null, income: null });
+    const now = s.points.find((p) => p.key === s.current)!;
+    return { now: now.net as number, fut: s.points.filter((p) => p.future).map((p) => p.net as number) };
+  };
+  it("PFPJ-20: a negative balance with a zero average surplus stays flat (no growth on ≤ 0)", () => {
+    const { now, fut } = future("1000");
+    assert.equal(now, -12000);
+    assert.equal(fut.length, 12);
+    for (const n of fut) assert.equal(n, -12000);
   });
+  it("PFPJ-21: a negative balance crossing above 0: growth only once the opening balance is positive (shared projectNet)", () => {
+    const { now, fut } = future("1500");
+    assert.ok(now < 0, String(now));
+    const want = projectNet(now, 500, 9, 12).slice(1);
+    fut.forEach((n, i) => near(n, want[i], 1e-6));
+    assert.ok(fut[0] < 0 && fut[fut.length - 1] > 0);
+    // before it crosses, each step is exactly the surplus (no growth on a negative balance)
+    assert.equal(fut[1] - fut[0], 500);
+  });
+  it("PFPJ-22: a positive balance still compounds at r_m (the Overview's rate unchanged)", () => {
+    const s = summarize({ start: "10000", growth: "9", future: true, years: 1, months: {} }, NOW, { expenses: 100, income: 100 });
+    const fut = s.points.filter((p) => p.future).map((p) => p.net as number);
+    const now = s.points.find((p) => p.key === s.current)!.net as number;
+    near(fut[0], now * (1 + monthlyRate(9)), 1e-6);
+  });
+});
+
+describe("#215 stored scenario value (unchanged)", () => {
   it("PFSC-12: the stored value: levers only, compact, read back; anything else is refused by the API (400, never clamped)", () => {
     const s = {
       income: { a: 0, b: 10 },

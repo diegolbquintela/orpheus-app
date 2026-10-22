@@ -1,4 +1,5 @@
-// #215 (personal-finance-spec 55; AC PFSC-17..PFSC-23): the Scenario page in jsdom with the real component.
+// #221 (personal-finance-spec 57, AC PFPJ-30..PFPJ-40): the Scenario page in jsdom with the real components: the Personal
+// Finance page in scenario mode (categories removed, prefilled, what-ifs never sent) and the projection below it.
 import { dom } from "../../test/dom-setup";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
@@ -10,16 +11,8 @@ import { writeExpenses } from "@/lib/finance/expenses";
 import { writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
-import {
-  NOT_SAVED,
-  READ_ONLY_NOTE,
-  SAVED,
-  SCENARIO_KEY,
-  type Scenario,
-  UNSAVED,
-  WHAT_IF_NOTE,
-} from "@/lib/finance/scenario";
-import type { SaveResult, ScenarioLoad } from "@/lib/finance/scenario-client";
+import { BASED_ON_LAST_MONTH, GROWTH_ERROR, NET_ASSETS_ERROR, NO_DATA, NOTHING_SAVED, WHAT_IF_NOTE } from "@/lib/finance/scenario";
+import type { ScenarioLoad } from "@/lib/finance/scenario-client";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -29,7 +22,7 @@ afterEach(async () => {
   root = undefined;
 });
 
-const NOW = () => new Date("2026-10-16T16:00:00Z");
+const NOW = new Date("2026-10-16T16:00:00Z");
 const line = (id: string, amount: string, category = "") => ({
   id,
   name: id,
@@ -54,13 +47,14 @@ const person = {
   currency: "",
   rate: "",
 };
-function record(extra: PfRecord = {}): PfRecord {
+/** Saved through 2026-09 only: the current month 2026-10 opens as its unsaved copy (#199). */
+function record(extra: PfRecord = {}, growth = ""): PfRecord {
   const s = new RecordStore({});
   writeExpenses(s, { fixed: [], variable: [], accounts: [], categories: ["Home"] });
   writeRates(s, { withdrawal: "4", roic: "" });
-  writeOverview(s, { ...NO_OVERVIEW, start: "0" });
+  writeOverview(s, { ...NO_OVERVIEW, start: "0", growth });
   writeMonths(s, {
-    "2026-10": {
+    "2026-09": {
       fixed: [line("rent", "2500", "Home")],
       variable: [line("food", "500")],
       people: [person],
@@ -71,15 +65,21 @@ function record(extra: PfRecord = {}): PfRecord {
 const RW = { owner: true, write: true };
 const READ = { owner: false, write: false };
 
-async function render(
-  load: () => Promise<ScenarioLoad>,
-  save: (s: Scenario) => Promise<SaveResult> = async () => ({ ok: true, record: null }),
-) {
+/** Every network call the page makes (it must make none: the load is injected). */
+let fetches: string[] = [];
+async function render(load: () => Promise<ScenarioLoad>) {
+  fetches = [];
+  const spy = async (url: unknown, init?: { method?: string }) => {
+    fetches.push(`${init?.method ?? "GET"} ${String(url)}`);
+    return new Response("{}", { status: 500 });
+  };
+  (dom.window as unknown as { fetch: unknown }).fetch = spy;
+  (globalThis as unknown as { fetch: unknown }).fetch = spy;
   container = dom.window.document.createElement("div");
   dom.window.document.body.appendChild(container);
   root = createRoot(container);
   await act(async () =>
-    root!.render(<ScenarioPage load={load} save={save} now={NOW} chartWidth={360} />),
+    root!.render(<ScenarioPage load={load} now={NOW} chartWidth={360} />),
   );
   await act(async () => {});
   return container;
@@ -112,137 +112,105 @@ async function click(el: Element) {
   });
 }
 
-describe("#215 Scenario page", () => {
-  it("PFSC-17: one load; what-if note; levers per income line and category; table with Net income; chart 12 months by default", async () => {
-    let calls = 0;
-    const el = await render(async () => (calls++, { ok: true, record: record(), access: RW }));
-    assert.equal(calls, 1);
+async function key(field: Element, k: string) {
+  const el = field as HTMLInputElement;
+  const p = Object.keys(el).find((x) => x.startsWith("__reactProps$"))!;
+  const props = (el as unknown as Record<string, { onKeyDown: (e: { key: string; preventDefault: () => void }) => void }>)[p];
+  await act(async () => props.onKeyDown({ key: k, preventDefault: () => {} }));
+}
+const ok = (rec: PfRecord | null, access = RW) => {
+  let n = 0;
+  const load = async (): Promise<ScenarioLoad> => {
+    n++;
+    return { ok: true, record: rec, access };
+  };
+  return { load, count: () => n };
+};
+const monthCell = (el: HTMLElement, row: string) => cell(el, row, "pf-scenario-month");
+
+describe("#221 Scenario page = the Personal Finance page in scenario mode", () => {
+  it("PFPJ-30: one load; Scenario title, what-if note, 'Based on last month'; Income, Expenses, summary, Overview; no categories part, no month control, no Save", async () => {
+    const l = ok(record());
+    const el = await render(l.load);
+    assert.equal(l.count(), 1);
+    assert.equal(el.querySelector("h1")?.textContent, "Scenario.");
     assert.equal(q(el, "pf-scenario-whatif")?.textContent, WHAT_IF_NOTE);
-    assert.equal(qa(el, "pf-lever-income-field").length, 1);
-    assert.equal(qa(el, "pf-lever-expenses-field").length, 2); // Home, No category
-    assert.equal(
-      q(el, "pf-scenario-row-income")?.querySelector("[role=rowheader]")?.textContent,
-      "Net income",
-    );
-    assert.equal(cell(el, "income", "pf-scenario-today"), "7,500.00");
-    assert.equal(cell(el, "surplus", "pf-scenario-month"), "4,500.00");
-    assert.equal(q(el, "pf-scenario-chart")?.dataset.months, "12");
-    assert.equal(q(el, "pf-horizon-12")?.getAttribute("aria-pressed"), "true");
-    assert.equal(q(el, "pf-scenario-total-head")?.textContent, "Over 12 months");
+    assert.equal(q(el, "pf-scenario-basis")?.textContent, `${BASED_ON_LAST_MONTH} (September 2026).`);
+    for (const id of ["pf-income-block", "pf-expenses-block", "pf-summary-block", "pf-overview", "pf-scenario-chart", "pf-scenario-totals"]) assert.ok(q(el, id), id);
+    for (const id of ["pf-filter", "pf-filter-cell", "pf-categories", "pf-month-control", "pf-month-save", "pf-scenario-save"]) assert.equal(q(el, id), null, id);
+    // prefilled: last month's lines (the copy), never empty
+    assert.equal(qa(el, "pf-line").length, 2);
+    assert.equal((qa(el, "pf-monthly")[0] as HTMLInputElement).value, "2,500");
+    assert.deepEqual(fetches, []);
   });
-  it("PFSC-18: a lever recalculates at once, with no request; horizons switch to 3, 5 and 10 years", async () => {
-    let saves = 0;
-    const el = await render(
-      async () => ({ ok: true, record: record(), access: RW }),
-      async () => (saves++, { ok: true, record: null }),
-    );
-    await type(qa(el, "pf-lever-income-field")[0], "10");
-    assert.equal(cell(el, "income", "pf-scenario-month"), "8,250.00");
-    assert.equal(cell(el, "surplus", "pf-scenario-month"), "5,250.00");
-    assert.equal(cell(el, "surplus", "pf-scenario-total"), "63,000.00");
-    await type(qa(el, "pf-lever-expenses-field")[0], "-100"); // Home
-    assert.equal(cell(el, "expenses", "pf-scenario-month"), "500.00");
-    for (const [h, months, head] of [
-      ["36", "36", "Over 3 years"],
-      ["60", "60", "Over 5 years"],
-      ["120", "120", "Over 10 years"],
-    ] as const) {
-      await click(q(el, `pf-horizon-${h}`)!);
-      assert.equal(q(el, "pf-scenario-chart")?.dataset.months, months);
-      assert.equal(q(el, "pf-scenario-total-head")?.textContent, head);
+
+  it("PFPJ-31: month 0 plotted once (13 points at 12 months); the Scenario column is filled for net assets and coverage", async () => {
+    const el = await render(ok(record()).load);
+    assert.equal(q(el, "pf-scenario-chart")?.getAttribute("data-months"), "13");
+    await click(q(el, "pf-horizon-36")!);
+    assert.equal(q(el, "pf-scenario-chart")?.getAttribute("data-months"), "37");
+    assert.notEqual(monthCell(el, "net"), "—");
+    assert.ok(q(el, "pf-scenario-row-growth"), "growth earned row");
+    assert.equal(monthCell(el, "expenses"), "3,000.00");
+  });
+
+  it("PFPJ-32: every edit (a line amount, income, Overview, net assets, a section toggle) recalculates live and sends nothing", async () => {
+    const l = ok(record());
+    const el = await render(l.load);
+    await type(qa(el, "pf-monthly")[0], "3,500");
+    assert.equal(monthCell(el, "expenses"), "4,000.00");
+    await type(q(el, "pf-growth")!, "5");
+    await type(q(el, "pf-scenario-net")!, "-5,000");
+    assert.equal(monthCell(el, "net"), "-5,000.00");
+    await click(q(el, "pf-toggle-income")!);
+    await click(q(el, "pf-toggle-summary")!);
+    assert.equal(l.count(), 1);
+    assert.deepEqual(fetches, [], "no PUT or GET from any edit");
+  });
+
+  it("PFPJ-33 (AN8 / AN12 / AN13): net assets accepts a negative (− too), +5, .5, 5.; Enter commits (formatted); 1e3 shows its own error", async () => {
+    const el = await render(ok(record()).load);
+    const net = q(el, "pf-scenario-net")!;
+    await type(net, "\u22121,500.5");
+    await key(net, "Enter");
+    assert.equal((q(el, "pf-scenario-net") as HTMLInputElement).value, "-1,500.50");
+    assert.equal(monthCell(el, "net"), "-1,500.50");
+    for (const [t, want] of [["+5", "5.00"], [".5", "0.50"], ["5.", "5.00"]]) {
+      await type(q(el, "pf-scenario-net")!, t);
+      assert.equal(monthCell(el, "net"), want, t);
     }
-    assert.equal(
-      cell(el, "surplus", "pf-scenario-total"),
-      (7750 * 120).toLocaleString("en-US", { minimumFractionDigits: 2 }),
-    );
-    assert.equal(saves, 0, "nothing is saved without Save scenario");
-    assert.equal(q(el, "pf-scenario-status")?.textContent, UNSAVED);
+    await type(q(el, "pf-scenario-net")!, "1e3");
+    assert.equal(q(el, "pf-scenario-net-error")?.textContent, NET_ASSETS_ERROR);
+    assert.equal(q(el, "pf-scenario-net")?.getAttribute("aria-invalid"), "true");
+    assert.deepEqual(fetches, []);
   });
-  it("PFSC-19: an invalid lever is shown in red, moves nothing and blocks Save", async () => {
-    const el = await render(async () => ({ ok: true, record: record(), access: RW }));
-    await type(q(el, "pf-lever-rate")!, "150");
-    assert.equal(qa(el, "pf-error").length, 1);
-    assert.equal(q(el, "pf-lever-rate")?.getAttribute("aria-invalid"), "true");
-    assert.equal((q(el, "pf-scenario-save") as HTMLButtonElement).disabled, true);
+
+  it("PFPJ-34 (AN6): amounts use the main page's parser: thousands commas count (3,500 = 3500), as on the main page", async () => {
+    const el = await render(ok(record()).load);
+    await type(q(el, "pf-scenario-net")!, "12,345.67");
+    assert.equal(monthCell(el, "net"), "12,345.67");
   });
-  it("PFSC-20: Save scenario sends the levers once, only on the click; then Saved; a failure says Not saved", async () => {
-    const sent: Scenario[] = [];
-    let ok = true;
-    const el = await render(
-      async () => ({ ok: true, record: record(), access: RW }),
-      async (s) => (sent.push(s), ok ? { ok: true, record: null } : { ok: false, status: 500 }),
-    );
-    assert.equal(
-      (q(el, "pf-scenario-save") as HTMLButtonElement).disabled,
-      true,
-      "nothing to save yet",
-    );
-    await type(qa(el, "pf-lever-income-field")[0], "10");
-    assert.equal(sent.length, 0);
-    await click(q(el, "pf-scenario-save")!);
-    assert.deepEqual(sent, [
-      { income: { "p1-wages": 10 }, expenses: {}, rate: null, growth: null, start: null },
-    ]);
-    assert.equal(q(el, "pf-scenario-status")?.textContent, SAVED);
-    ok = false;
-    await type(qa(el, "pf-lever-income-field")[0], "20");
-    await click(q(el, "pf-scenario-save")!);
-    assert.equal(q(el, "pf-scenario-status")?.textContent, NOT_SAVED);
+
+  it("PFPJ-35 (AN9): growth outside −50..+50 % a year shows its own error here", async () => {
+    const el = await render(ok(record({}, "60")).load);
+    assert.equal(q(el, "pf-scenario-growth-error")?.textContent, GROWTH_ERROR);
   });
-  it("PFSC-21: Read users see the screen and the levers but no Save; nothing is ever sent", async () => {
-    let saves = 0;
-    const el = await render(
-      async () => ({ ok: true, record: record(), access: READ }),
-      async () => (saves++, { ok: true, record: null }),
-    );
-    assert.equal(q(el, "pf-scenario-save"), null);
-    assert.equal(q(el, "pf-scenario-readonly")?.textContent, READ_ONLY_NOTE);
-    await type(qa(el, "pf-lever-income-field")[0], "10");
-    assert.equal(cell(el, "income", "pf-scenario-month"), "8,250.00");
-    assert.equal(q(el, "pf-scenario-status")?.textContent, "");
-    assert.equal(saves, 0);
+
+  it("PFPJ-36: Read users get the same what-if screen (edits live, nothing sent) and the read-only line", async () => {
+    const el = await render(ok(record(), READ).load);
+    assert.ok(el.textContent?.includes("Read only"));
+    await type(q(el, "pf-scenario-net")!, "-100");
+    assert.equal(monthCell(el, "net"), "-100.00");
+    assert.deepEqual(fetches, []);
   });
-  it("PFSC-22: a saved scenario is loaded into the levers; Reset clears the levers without saving", async () => {
-    const saved = JSON.stringify({
-      income: { "p1-wages": 10 },
-      expenses: {},
-      rate: null,
-      growth: null,
-      start: null,
-    });
-    let saves = 0;
-    const el = await render(
-      async () => ({ ok: true, record: record({ [SCENARIO_KEY]: saved }), access: RW }),
-      async () => (saves++, { ok: true, record: null }),
-    );
-    assert.equal((qa(el, "pf-lever-income-field")[0] as HTMLInputElement).value, "10");
-    assert.equal(cell(el, "income", "pf-scenario-month"), "8,250.00");
-    assert.equal(q(el, "pf-scenario-status")?.textContent, "");
-    await click(q(el, "pf-scenario-reset")!);
-    assert.equal(cell(el, "income", "pf-scenario-month"), "7,500.00");
-    assert.equal(q(el, "pf-scenario-status")?.textContent, UNSAVED);
-    assert.equal(saves, 0);
-  });
-  it("PFSC-23: load error → alert; signed out → sign-in; no month with lines → a note", async () => {
-    let el = await render(async () => ({ ok: false, status: 500 }));
-    assert.ok(q(el, "pf-scenario-error"));
+
+  it("PFPJ-37 (AN10): no data → the empty-state note; a load error → the alert", async () => {
+    const el = await render(ok(null).load);
+    assert.equal(q(el, "pf-scenario-empty")?.textContent, NO_DATA);
+    assert.equal(q(el, "pf-scenario-basis")?.textContent, NOTHING_SAVED);
     await act(async () => root?.unmount());
-    let out = 0;
-    container = dom.window.document.createElement("div");
-    root = createRoot(container);
-    await act(async () =>
-      root!.render(
-        <ScenarioPage
-          load={async () => ({ ok: false, status: 401 })}
-          now={NOW}
-          onSignedOut={() => out++}
-        />,
-      ),
-    );
-    await act(async () => {});
-    assert.equal(out, 1);
-    await act(async () => root?.unmount());
-    el = await render(async () => ({ ok: true, record: null, access: RW }));
-    assert.ok(q(el, "pf-scenario-empty"));
+    container?.remove();
+    const bad = await render(async () => ({ ok: false, status: 500 }));
+    assert.ok(q(bad, "pf-scenario-error"));
   });
 });

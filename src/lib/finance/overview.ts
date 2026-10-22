@@ -1,4 +1,5 @@
 import { parseAmount } from "./expenses.ts";
+import { monthlyRate, stepNet } from "./projection.ts";
 
 /**
  * Overview and Update (#94; spec `attachments/personal-finance-spec.md` section 15, PF-26..32). Simplest reading
@@ -299,12 +300,14 @@ export function summarize(
   // A after the whole window (a skewed clock only): no net assets now, so none projected.
   if (asOf && asOf > current) net = null;
   if (overview.future) {
-    const growth = Math.pow(1 + orZero(overview.growth) / 100, 1 / 12);
+    // #221 (spec 57.6, CFO Q-b 2026-10-22, PFPJ-20..22): the shared month step (`projection.ts`): r_m as before, but
+    // growth only on a positive opening balance (a negative or zero balance no longer grows more negative).
+    const rM = monthlyRate(orZero(overview.growth));
     const avgSurplus = surplusOf(average);
     let key = current;
     for (let i = 0; i < overview.years * 12; i++) {
       key = nextMonth(key);
-      net = net === null || avgSurplus === null ? null : net * growth + avgSurplus;
+      net = net === null || avgSurplus === null ? null : stepNet(net, avgSurplus, rM);
       points.push({
         key,
         label: monthShort(key),

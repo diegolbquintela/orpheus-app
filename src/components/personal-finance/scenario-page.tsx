@@ -1,119 +1,45 @@
-// #215 (personal-finance-spec 55, AC PFSC): the destination analysis / scenario screen. A what-if layer: levers move,
-// every figure is recalculated on the spot in the browser, nothing is sent. The only write is `Save scenario`, shown to
-// people with a write grant only (#197 pattern; the server needs write too).
-import { useEffect, useId, useMemo, useState } from "react";
+// #215 (personal-finance-spec 55) / #221 (spec 57, AC PFPJ): the scenario screen. Since #221 it is the Personal Finance
+// page itself in scenario mode (Income through Overview, categories removed; prefilled from the saved record), whose
+// edits are what-ifs that are never sent, then the projection and totals below. Nothing on this screen is ever written
+// (CFO scope cut 2026-10-22): the net-assets field is a local starting value. One GET on open, no PUT, ever.
+import { useId, useState } from "react";
 import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { PersonalFinancePage, type ScenarioLive } from "@/components/personal-finance/expenses-page";
 import { ReadOnlyLine } from "@/components/access/denied";
-import {
-  formatCoverageShare,
-  equityCoverage,
-  EXPENSES,
-  INCOME,
-  NET_ASSETS,
-  SURPLUS,
-} from "@/lib/finance/overview";
+import { equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS, typedFigure } from "@/lib/finance/overview";
 import { formatMoney } from "@/lib/finance/money";
-import { formatRate } from "@/lib/finance/equity";
+import { RecordStore, type PfRecord } from "@/lib/finance/record";
+import type { LoadStore } from "@/lib/finance/account-client";
 import {
-  baselineOf,
-  type Baseline,
-  CHANGE_MAX,
-  CHANGE_MIN,
   DEFAULT_HORIZON,
-  GROWTH_MAX,
-  GROWTH_MIN,
+  formatPercent,
+  GROWTH_ERROR,
+  growthOk,
   type Horizon,
   HORIZONS,
   horizonLabel,
-  LEVER_ERROR,
+  type Inputs,
   LOAD_ERROR,
-  LOADING,
-  NO_BASELINE,
-  NO_SCENARIO,
-  NOT_SAVED,
-  parseLever,
+  NET_ASSETS_ERROR,
+  NO_DATA,
+  overviewNow,
+  parseNetAssets,
   pointName,
   type ProjPoint,
   project,
-  RATE_MAX,
-  RATE_MIN,
-  READ_ONLY_NOTE,
-  readScenario,
-  RESET,
-  SAVE_SCENARIO,
-  SAVED,
+  savedInputs,
   SCENARIO_PATH,
-  SCENARIO_TITLE,
-  type Scenario,
-  scenarioText,
-  UNSAVED,
-  WHAT_IF_NOTE,
 } from "@/lib/finance/scenario";
-import {
-  loadForScenario,
-  saveScenario,
-  type Access,
-  type SaveResult,
-  type ScenarioLoad,
-} from "@/lib/finance/scenario-client";
-import type { PfRecord } from "@/lib/finance/record";
-
-type Texts = {
-  income: Record<string, string>;
-  expenses: Record<string, string>;
-  rate: string;
-  growth: string;
-  start: string;
-};
-const EMPTY_TEXTS: Texts = { income: {}, expenses: {}, rate: "", growth: "", start: "" };
-const num = (n: number | null | undefined) =>
-  n === null || n === undefined || n === 0 ? "" : String(n);
-const textsOf = (s: Scenario): Texts => ({
-  income: Object.fromEntries(Object.entries(s.income).map(([k, v]) => [k, num(v)])),
-  expenses: Object.fromEntries(Object.entries(s.expenses).map(([k, v]) => [k, num(v)])),
-  rate: s.rate === null ? "" : String(s.rate),
-  growth: s.growth === null ? "" : String(s.growth),
-  start: s.start === null ? "" : String(s.start),
-});
-
-/** The levers as numbers; a field in error is left out (it moves nothing) and listed in `bad`. */
-function leversOf(t: Texts): { scenario: Scenario; bad: Set<string> } {
-  const bad = new Set<string>();
-  const changes = (m: Record<string, string>, prefix: string) => {
-    const out: Record<string, number> = {};
-    for (const [k, v] of Object.entries(m)) {
-      if (v.trim() === "") continue;
-      const n = parseLever(v, CHANGE_MIN, CHANGE_MAX);
-      if (n === null) bad.add(`${prefix}:${k}`);
-      else out[k] = n;
-    }
-    return out;
-  };
-  const one = (v: string, id: string, lo: number, hi: number) => {
-    if (v.trim() === "") return null;
-    const n = parseLever(v, lo, hi);
-    if (n === null) bad.add(id);
-    return n;
-  };
-  return {
-    scenario: {
-      income: changes(t.income, "income"),
-      expenses: changes(t.expenses, "expenses"),
-      rate: one(t.rate, "rate", RATE_MIN, RATE_MAX),
-      growth: one(t.growth, "growth", GROWTH_MIN, GROWTH_MAX),
-      start: one(t.start, "start", -1e12, 1e12),
-    },
-    bad,
-  };
-}
+import { loadForScenario, type Access, type ScenarioLoad } from "@/lib/finance/scenario-client";
 
 const money = (v: number | null) => (v === null ? "—" : formatMoney(v));
 const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -123,399 +49,202 @@ const SERIES = [
   { key: "net", name: NET_ASSETS, color: "var(--color-chalk)", axis: "net" },
 ] as const;
 
-type State =
-  | { kind: "loading" }
-  | { kind: "error" }
-  | { kind: "ready"; record: PfRecord | null; access: Access };
-
 export function ScenarioPage({
   load = loadForScenario,
-  save = saveScenario,
-  now = () => new Date(),
+  now,
   chartWidth,
   onSignedOut = () =>
     window.location.assign(`/dashboard/sign-in?next=${encodeURIComponent(SCENARIO_PATH)}`),
 }: {
   load?: () => Promise<ScenarioLoad>;
-  save?: (s: Scenario) => Promise<SaveResult>;
-  now?: () => Date;
+  now?: Date;
   chartWidth?: number;
   onSignedOut?: () => void;
 }) {
-  const uid = useId();
-  const [state, setState] = useState<State>({ kind: "loading" });
-  const [texts, setTexts] = useState<Texts>(EMPTY_TEXTS);
-  const [savedText, setSavedText] = useState(scenarioText(NO_SCENARIO));
-  const [horizon, setHorizon] = useState<Horizon>(DEFAULT_HORIZON);
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    void load().then((r) => {
-      if (!live) return;
-      if (!r.ok) {
-        if (r.status === 401) onSignedOut();
-        else setState({ kind: "error" });
-        return;
-      }
-      const stored = readScenario(r.record) ?? NO_SCENARIO;
-      setTexts(textsOf(stored));
-      setSavedText(scenarioText(stored));
-      setState({ kind: "ready", record: r.record, access: r.access });
-    });
-    return () => {
-      live = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const record = state.kind === "ready" ? state.record : null;
-  const base = useMemo<Baseline | null>(
-    () => (state.kind === "ready" ? baselineOf(record, now()) : null),
-    // `now` is read once per load (the History page rule); a new clock function each render must not recompute.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.kind, record],
-  );
-  const { scenario, bad } = useMemo(() => leversOf(texts), [texts]);
-  const proj = useMemo(
-    () => (base ? project(base, scenario, horizon) : null),
-    [base, scenario, horizon],
-  );
-  const today = useMemo(() => (base ? project(base, NO_SCENARIO, horizon) : null), [base, horizon]);
-  const write = state.kind === "ready" && state.access.write;
-  const dirty = scenarioText(scenario) !== savedText;
-
-  const set = (patch: Partial<Texts>) => {
-    setNote("");
-    setTexts((t) => ({ ...t, ...patch }));
-  };
-  const onSave = async () => {
-    if (!write || bad.size || saving) return;
-    setSaving(true);
-    const r = await save(scenario);
-    setSaving(false);
-    if (r.ok) {
-      setSavedText(scenarioText(scenario));
-      setNote(SAVED);
-    } else if (r.status === 401) onSignedOut();
-    else setNote(NOT_SAVED);
-  };
-
+  const [loaded, setLoaded] = useState<{ record: PfRecord | null; access: Access } | null>(null);
+  const [failed, setFailed] = useState(false);
+  // The page's store: the loaded record in memory, with NO `save`: no edit, toggle or migration can ever be sent.
+  const [loadStore] = useState<LoadStore>(() => async () => {
+    const r = await load();
+    if (!r.ok) {
+      if (r.status === 401) onSignedOut();
+      else setFailed(true);
+      throw new Error(`load ${r.status}`);
+    }
+    setLoaded({ record: r.record, access: r.access });
+    return new RecordStore({ ...(r.record ?? {}) });
+  });
   return (
-    <div className="pf">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 pt-10 pb-20 sm:px-8 lg:pt-14 lg:pb-24">
-        <header className="relative">
-          <p className="pf-label">01</p>
-          <h1 className="pf-title mt-2">{SCENARIO_TITLE}</h1>
-          <p className="pf-charts-back mt-3">
-            <a href="/personal-finance" data-testid="pf-scenario-back">
-              Personal Finance
-            </a>
-          </p>
-          <p className="pf-history-note mt-3" data-testid="pf-scenario-whatif">
-            {WHAT_IF_NOTE}
-          </p>
-          {state.kind === "ready" && !write ? (
-            <>
-              <ReadOnlyLine className="mt-3" />
-              <p className="pf-history-note mt-1" data-testid="pf-scenario-readonly">
-                {READ_ONLY_NOTE}
-              </p>
-            </>
-          ) : null}
-        </header>
-        <div
-          className="pf-scenario-area"
-          aria-busy={state.kind === "loading"}
-          data-testid="pf-scenario"
-        >
-          {state.kind === "loading" ? (
-            <p className="pf-history-note" role="status" data-testid="pf-scenario-loading">
-              {LOADING}
-            </p>
-          ) : state.kind === "error" ? (
-            <p className="pf-error" role="alert" data-testid="pf-scenario-error">
-              {LOAD_ERROR}
-            </p>
-          ) : !base || !proj || !today ? null : (
-            <div className="flex flex-col gap-10">
-              {base.month === null ? (
-                <p className="pf-history-note" data-testid="pf-scenario-empty">
-                  {NO_BASELINE}
-                </p>
-              ) : (
-                <p className="pf-history-note" data-testid="pf-scenario-basis">
-                  {`Starting from ${base.month}'s lines, monthly figures in ${base.currency}. The projection starts next month.`}
-                </p>
-              )}
-              <section aria-labelledby={`${uid}-levers`} data-testid="pf-scenario-levers">
-                <p className="pf-label">02</p>
-                <h2
-                  id={`${uid}-levers`}
-                  className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk"
-                >
-                  Levers
-                </h2>
-                <LeverGroup
-                  title="Income (% change)"
-                  testId="pf-lever-income"
-                  lines={base.income}
-                  values={texts.income}
-                  bad={bad}
-                  prefix="income"
-                  onChange={(id, v) => set({ income: { ...texts.income, [id]: v } })}
-                />
-                <LeverGroup
-                  title="Expenses by category (% change)"
-                  testId="pf-lever-expenses"
-                  lines={base.categories}
-                  values={texts.expenses}
-                  bad={bad}
-                  prefix="expenses"
-                  onChange={(id, v) => set({ expenses: { ...texts.expenses, [id]: v } })}
-                />
-                <div className="pf-scenario-grid mt-6" data-testid="pf-lever-other">
-                  <LeverField
-                    id={`${uid}-rate`}
-                    label="Rate used (%)"
-                    hint={`Today ${formatRate(base.rate)}`}
-                    value={texts.rate}
-                    bad={bad.has("rate")}
-                    testId="pf-lever-rate"
-                    onChange={(v) => set({ rate: v })}
-                  />
-                  <LeverField
-                    id={`${uid}-growth`}
-                    label="Growth rate (% a year)"
-                    hint={`Today ${base.growth}%`}
-                    value={texts.growth}
-                    bad={bad.has("growth")}
-                    testId="pf-lever-growth"
-                    onChange={(v) => set({ growth: v })}
-                  />
-                  <LeverField
-                    id={`${uid}-start`}
-                    label="Net assets now"
-                    hint={`Today ${formatMoney(base.start)}`}
-                    value={texts.start}
-                    bad={bad.has("start")}
-                    testId="pf-lever-start"
-                    onChange={(v) => set({ start: v })}
-                  />
-                </div>
-                <div className="pf-scenario-actions mt-6">
-                  <button
-                    type="button"
-                    className="pf-toggle"
-                    onClick={() => set(EMPTY_TEXTS)}
-                    data-testid="pf-scenario-reset"
-                  >
-                    {RESET}
-                  </button>
-                  {write ? (
-                    <button
-                      type="button"
-                      className="pf-button"
-                      onClick={() => void onSave()}
-                      disabled={!dirty || bad.size > 0 || saving}
-                      data-testid="pf-scenario-save"
-                    >
-                      {SAVE_SCENARIO}
-                    </button>
-                  ) : null}
-                  <p className="pf-charts-note" role="status" data-testid="pf-scenario-status">
-                    {note || (write && dirty ? UNSAVED : "")}
-                  </p>
-                </div>
-              </section>
-              <section aria-labelledby={`${uid}-path`} data-testid="pf-scenario-path">
-                <p className="pf-label">03</p>
-                <h2
-                  id={`${uid}-path`}
-                  className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk"
-                >
-                  Projected path
-                </h2>
-                <div
-                  className="pf-years mt-3"
-                  role="group"
-                  aria-label="Horizon"
-                  data-testid="pf-scenario-horizons"
-                >
-                  {HORIZONS.map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      className="pf-toggle"
-                      aria-pressed={horizon === h}
-                      onClick={() => setHorizon(h)}
-                      data-testid={`pf-horizon-${h}`}
-                    >
-                      {horizonLabel(h)}
-                    </button>
-                  ))}
-                </div>
-                <ScenarioChart points={proj.points} width={chartWidth} />
-              </section>
-              <section aria-labelledby={`${uid}-totals`} data-testid="pf-scenario-totals-section">
-                <p className="pf-label">04</p>
-                <h2
-                  id={`${uid}-totals`}
-                  className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk"
-                >
-                  Totals
-                </h2>
-                <TotalsTable base={base} today={today} proj={proj} horizon={horizon} />
-              </section>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function LeverGroup({
-  title,
-  testId,
-  lines,
-  values,
-  bad,
-  prefix,
-  onChange,
-}: {
-  title: string;
-  testId: string;
-  lines: { id: string; label: string; monthly: number }[];
-  values: Record<string, string>;
-  bad: Set<string>;
-  prefix: string;
-  onChange: (id: string, v: string) => void;
-}) {
-  const uid = useId();
-  if (!lines.length) return null;
-  return (
-    <fieldset className="pf-scenario-fieldset mt-6" data-testid={testId}>
-      <legend className="pf-label">{title}</legend>
-      <div className="pf-scenario-grid mt-3">
-        {lines.map((l, i) => (
-          <LeverField
-            key={l.id}
-            id={`${uid}-${i}`}
-            label={l.label}
-            hint={`Today ${formatMoney(l.monthly)} a month`}
-            value={values[l.id] ?? ""}
-            bad={bad.has(`${prefix}:${l.id}`)}
-            testId={`${testId}-field`}
-            onChange={(v) => onChange(l.id, v)}
-          />
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function LeverField({
-  id,
-  label,
-  hint,
-  value,
-  bad,
-  testId,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  hint: string;
-  value: string;
-  bad: boolean;
-  testId: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="pf-cell">
-      <label htmlFor={id} className="pf-label">
-        {label}
-      </label>
-      <input
-        id={id}
-        className="pf-field"
-        inputMode="decimal"
-        placeholder="0"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-invalid={bad || undefined}
-        aria-describedby={`${id}-hint${bad ? ` ${id}-error` : ""}`}
-        data-testid={testId}
-      />
-      <span id={`${id}-hint`} className="pf-rate-source">
-        {hint}
-      </span>
-      {bad ? (
-        <span id={`${id}-error`} className="pf-error" data-testid="pf-error">
-          {LEVER_ERROR}
-        </span>
+    <>
+      {failed ? (
+        <p className="pf-error mx-auto max-w-6xl px-5 pt-6 sm:px-8" role="alert" data-testid="pf-scenario-error">
+          {LOAD_ERROR}
+        </p>
       ) : null}
-    </div>
+      {loaded && !loaded.access.write ? (
+        <ReadOnlyLine className="mx-auto max-w-6xl px-5 pt-6 sm:px-8" />
+      ) : null}
+      <PersonalFinancePage
+        now={now}
+        loadStore={loadStore}
+        scenario={{
+          render: (live) => (
+            <ScenarioProjection
+              live={live}
+              saved={savedInputs(loaded?.record ?? null, live.now)}
+              chartWidth={chartWidth}
+            />
+          ),
+        }}
+      />
+    </>
+  );
+}
+
+/** The projection under the page: net assets (a local start), horizons, the chart and the totals. Nothing is sent. */
+export function ScenarioProjection({
+  live,
+  saved,
+  chartWidth,
+}: {
+  live: ScenarioLive;
+  saved: Inputs;
+  chartWidth?: number;
+}) {
+  const uid = useId();
+  const [horizon, setHorizon] = useState<Horizon>(DEFAULT_HORIZON);
+  /** The typed net assets; null = not typed (follow the Overview's own value). */
+  const [netText, setNetText] = useState<string | null>(null);
+  const o = overviewNow(live.overview, live.now, live.page, live.lines);
+  const ownNet = o.net ?? 0;
+  const typedNet = netText === null ? null : parseNetAssets(netText);
+  const netBad = netText !== null && typedNet === null;
+  const growth = typedFigure(live.overview.growth) ?? 0;
+  const growthBad = !growthOk(growth);
+  const inputs: Inputs = {
+    current: live.current,
+    start: typedNet ?? ownNet,
+    income: o.income,
+    expenses: o.expenses,
+    growth: growthBad ? 0 : growth,
+    rate: live.rate,
+  };
+  const proj = project(inputs, horizon);
+  const today = project(saved, horizon);
+  const empty = o.net === null && !o.income && !o.expenses && !saved.income && !saved.expenses;
+  const commit = () => {
+    // AN13: Enter (or leaving the field) commits: a valid amount is shown formatted; a bad one keeps its error.
+    if (netText !== null && typedNet !== null) setNetText(formatMoney(typedNet));
+  };
+  return (
+    <>
+      <section aria-labelledby={`${uid}-path`} data-testid="pf-scenario-path" className="flex flex-col gap-6">
+        <p className="pf-label">06</p>
+        <h2 id={`${uid}-path`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
+          Projected path
+        </h2>
+        {empty ? (
+          <p className="pf-history-note" data-testid="pf-scenario-empty">
+            {NO_DATA}
+          </p>
+        ) : null}
+        <div className="pf-cell max-w-xs">
+          <label htmlFor={`${uid}-net`} className="pf-label">
+            {`Net assets now (end of ${monthName(live.current)})`}
+          </label>
+          <input
+            id={`${uid}-net`}
+            className="pf-field"
+            inputMode="decimal"
+            value={netText ?? formatMoney(ownNet)}
+            onChange={(e) => setNetText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              }
+            }}
+            aria-invalid={netBad || undefined}
+            aria-describedby={`${uid}-net-hint${netBad ? ` ${uid}-net-error` : ""}`}
+            data-testid="pf-scenario-net"
+          />
+          <span id={`${uid}-net-hint`} className="pf-rate-source">
+            {`Starts from the Overview's ${formatMoney(ownNet)}. A what-if: never saved. A negative amount is allowed.`}
+          </span>
+          {netBad ? (
+            <span id={`${uid}-net-error`} className="pf-error" data-testid="pf-scenario-net-error">
+              {NET_ASSETS_ERROR}
+            </span>
+          ) : null}
+        </div>
+        {growthBad ? (
+          <p className="pf-error" role="alert" data-testid="pf-scenario-growth-error">
+            {GROWTH_ERROR}
+          </p>
+        ) : null}
+        <div className="pf-years" role="group" aria-label="Horizon" data-testid="pf-scenario-horizons">
+          {HORIZONS.map((h) => (
+            <button
+              key={h}
+              type="button"
+              className="pf-toggle"
+              aria-pressed={horizon === h}
+              onClick={() => setHorizon(h)}
+              data-testid={`pf-horizon-${h}`}
+            >
+              {horizonLabel(h)}
+            </button>
+          ))}
+        </div>
+        <ScenarioChart points={proj.points} width={chartWidth} />
+      </section>
+      <section aria-labelledby={`${uid}-totals`} data-testid="pf-scenario-totals-section">
+        <p className="pf-label">07</p>
+        <h2 id={`${uid}-totals`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
+          Totals
+        </h2>
+        <TotalsTable today={today} proj={proj} horizon={horizon} saved={saved} inputs={inputs} />
+      </section>
+    </>
   );
 }
 
 function TotalsTable({
-  base,
   today,
   proj,
   horizon,
+  saved,
+  inputs,
 }: {
-  base: Baseline;
   today: ReturnType<typeof project>;
   proj: ReturnType<typeof project>;
   horizon: Horizon;
+  saved: Inputs;
+  inputs: Inputs;
 }) {
   const t = proj.totals;
-  const now = equityCoverage(base.start, base.rate, today.totals.monthlyExpenses);
+  const nowCov = equityCoverage(saved.start, saved.rate, saved.expenses);
+  const scCov = equityCoverage(inputs.start, inputs.rate, inputs.expenses);
   const rows: { key: string; name: string; today: string; scenario: string; total: string }[] = [
-    {
-      key: "income",
-      name: "Net income",
-      today: money(today.totals.monthlyIncome),
-      scenario: money(t.monthlyIncome),
-      total: money(t.income),
-    },
-    {
-      key: "expenses",
-      name: EXPENSES,
-      today: money(today.totals.monthlyExpenses),
-      scenario: money(t.monthlyExpenses),
-      total: money(t.expenses),
-    },
-    {
-      key: "surplus",
-      name: SURPLUS,
-      today: money(today.totals.monthlySurplus),
-      scenario: money(t.monthlySurplus),
-      total: money(t.surplus),
-    },
-    {
-      key: "net",
-      name: NET_ASSETS,
-      today: money(base.start),
-      scenario: "—",
-      total: money(t.netEnd),
-    },
+    { key: "income", name: "Net income", today: money(today.totals.monthlyIncome), scenario: money(t.monthlyIncome), total: money(t.income) },
+    { key: "expenses", name: EXPENSES, today: money(today.totals.monthlyExpenses), scenario: money(t.monthlyExpenses), total: money(t.expenses) },
+    { key: "surplus", name: SURPLUS, today: money(today.totals.monthlySurplus), scenario: money(t.monthlySurplus), total: money(t.surplus) },
+    { key: "growth", name: "Growth earned", today: "—", scenario: "—", total: money(t.growthEarned) },
+    { key: "net", name: NET_ASSETS, today: money(saved.start), scenario: money(inputs.start), total: money(t.netEnd) },
     {
       key: "coverage",
       name: "Equity coverage (monthly)",
-      today: now.status === "ok" ? money(now.monthly) : "—",
-      scenario: "—",
+      today: nowCov.status === "ok" ? money(nowCov.monthly) : "—",
+      scenario: scCov.status === "ok" ? money(scCov.monthly) : "—",
       total: money(t.coverageMonthly),
     },
     {
       key: "coverage-share",
       name: "Equity coverage (% of expenses)",
-      today: now.status === "ok" ? formatCoverageShare(now.share) : "—",
-      scenario: "—",
-      total: t.coverageShare === null ? "—" : formatCoverageShare(t.coverageShare),
+      today: nowCov.status === "ok" ? formatPercent(nowCov.share) : "—",
+      scenario: scCov.status === "ok" ? formatPercent(scCov.share) : "—",
+      total: formatPercent(t.coverageShare),
     },
   ];
   return (
@@ -526,12 +255,7 @@ function TotalsTable({
       tabIndex={0}
       data-testid="pf-scenario-scroll"
     >
-      <div
-        className="pf-ov-table pf-scenario-table"
-        role="table"
-        aria-label="Scenario totals"
-        data-testid="pf-scenario-totals"
-      >
+      <div className="pf-ov-table pf-scenario-table" role="table" aria-label="Scenario totals" data-testid="pf-scenario-totals">
         <div className="pf-ov-row pf-ov-head" role="row">
           <span role="columnheader" className="pf-label">
             <span className="sr-only">Figure</span>
@@ -547,12 +271,7 @@ function TotalsTable({
           </span>
         </div>
         {rows.map((r) => (
-          <div
-            key={r.key}
-            className="pf-ov-row"
-            role="row"
-            data-testid={`pf-scenario-row-${r.key}`}
-          >
+          <div key={r.key} className="pf-ov-row" role="row" data-testid={`pf-scenario-row-${r.key}`}>
             <span role="rowheader" className="pf-ov-name">
               {r.name}
             </span>
@@ -572,14 +291,20 @@ function TotalsTable({
   );
 }
 
+/** Axis width that fits the longest compact tick (no clipping): ~7 px a character plus padding. */
+const axisWidth = (values: number[]): number =>
+  Math.max(48, ...values.map((v) => COMPACT.format(v).length * 7 + 14));
+
 function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number }) {
   const last = points[points.length - 1];
+  const flowW = axisWidth(points.flatMap((p) => [p.income, p.expenses]));
+  const netW = axisWidth(points.map((p) => p.net));
   const chart = (h?: number) => (
     <LineChart
       width={width}
       height={h}
       data={points}
-      margin={{ top: 12, right: 4, left: 0, bottom: 0 }}
+      margin={{ top: 12, right: 8, left: 8, bottom: 0 }}
     >
       <CartesianGrid stroke="var(--color-hair)" vertical={false} />
       <XAxis
@@ -594,8 +319,9 @@ function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number 
         tick={{ fill: "var(--color-dim)", fontSize: 12 }}
         tickLine={false}
         axisLine={false}
-        width={44}
+        width={flowW}
         tickFormatter={(v: number) => COMPACT.format(v)}
+        label={{ value: "A month", angle: -90, position: "insideLeft", fill: "var(--color-dim)", fontSize: 11 }}
       />
       <YAxis
         yAxisId="net"
@@ -603,14 +329,17 @@ function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number 
         tick={{ fill: "var(--color-dim)", fontSize: 12 }}
         tickLine={false}
         axisLine={false}
-        width={48}
+        width={netW}
         tickFormatter={(v: number) => COMPACT.format(v)}
+        label={{ value: NET_ASSETS, angle: 90, position: "insideRight", fill: "var(--color-dim)", fontSize: 11 }}
       />
+      {/* #221: the zero line, so a negative path reads at a glance. */}
+      <ReferenceLine yAxisId="net" y={0} stroke="var(--color-rule)" />
       <Tooltip
         formatter={(value, name) => [money(typeof value === "number" ? value : null), String(name)]}
         labelFormatter={(_l, payload) => {
           const p = payload?.[0]?.payload as ProjPoint | undefined;
-          return p ? pointName(p) : "";
+          return p ? pointName(p, points.indexOf(p)) : "";
         }}
         cursor={{ stroke: "var(--color-rule)" }}
         contentStyle={{
@@ -662,7 +391,7 @@ function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number 
         {SERIES.map((s) => (
           <li key={s.key}>
             <span className="pf-swatch" style={{ background: s.color }} aria-hidden="true" />
-            {s.name}
+            {`${s.name} (${s.axis === "net" ? "right axis" : "left axis, a month"})`}
           </li>
         ))}
       </ul>
