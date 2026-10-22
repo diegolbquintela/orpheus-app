@@ -441,3 +441,36 @@ describe("#225 PFTT-04: the person checkboxes' tap target is their 44 px label (
     assert.deepEqual(fetches, []);
   });
 });
+
+describe("#226 PFFG-06/07: Overview Future growth and one growth error on the scenario screen", () => {
+  afterEach(async () => {
+    await act(async () => root?.unmount());
+    container?.remove();
+    root = undefined;
+  });
+  it("PFFG-06: a negative growth moves the Overview's Future figure (no longer treated as 0 %)", async () => {
+    const el = await render(ok(record()).load);
+    await type(q(el, "pf-start")!, "100000");
+    if ((q(el, "pf-future-toggle") as HTMLElement).getAttribute("aria-pressed") !== "true") await click(q(el, "pf-future-toggle")!);
+    await type(q(el, "pf-growth")!, "0");
+    const flat = q(el, "pf-coverage-monthly")?.textContent;
+    await type(q(el, "pf-growth")!, "-10");
+    const neg = q(el, "pf-coverage-monthly")?.textContent;
+    assert.ok(flat && neg, "coverage shown");
+    assert.notEqual(neg, flat, "-10 % is used, not 0 %");
+    assert.deepEqual(fetches, []);
+  });
+  it("PFFG-07 (AP2): typing '-' in Growth shows exactly one error, the scenario bound", async () => {
+    const el = await render(ok(record()).load);
+    for (const t of ["-", "-51", "abc"]) {
+      await type(q(el, "pf-growth")!, t);
+      assert.equal(el.querySelector('[data-field="pf-growth"]'), null, `${t}: no second field error`);
+      assert.equal(qa(el, "pf-scenario-growth-error").length, 1, t);
+      assert.equal(q(el, "pf-scenario-growth-error")?.textContent, GROWTH_ERROR);
+      assert.equal(q(el, "pf-growth")?.getAttribute("aria-invalid"), "true", `${t}: still marked invalid`);
+    }
+    await type(q(el, "pf-growth")!, "-10");
+    assert.equal(q(el, "pf-scenario-growth-error"), null);
+    assert.equal(q(el, "pf-growth")?.getAttribute("aria-invalid"), null);
+  });
+});

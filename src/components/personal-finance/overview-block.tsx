@@ -50,8 +50,8 @@ import {
 } from "@/lib/finance/overview";
 import { Lock, SectionHead } from "./pf-cells";
 import { PeriodChoice } from "./period-choice";
+import { scenarioGrowthBad, scenarioGrowthOrZero } from "@/lib/finance/scenario";
 import { PeriodInput } from "./period-input";
-import { parseScenarioAmount } from "@/lib/finance/scenario-input";
 
 const orDash = (value: number | null): string =>
   value === null ? NOT_COMPUTED : formatMoney(value);
@@ -100,7 +100,9 @@ export function OverviewBlock({
   /** #144 Q-V3 (c), PF-172: a field shows an error (the figures leave it out); null = read-only (no note). */
   fieldsInError?: boolean | null;
 }) {
-  const summary = summarize(overview, now, page, lines);
+  // #226 (spec 63, PFFG-01): on the scenario screen the Future line uses the chart's signed growth (bad → 0, as the chart).
+  const scenarioScreen = useContext(PeriodChoice);
+  const summary = summarize(overview, now, page, lines, undefined, scenarioScreen ? scenarioGrowthOrZero(overview.growth) : undefined);
   const coverage = overviewCoverage(overview, summary, rate);
   return (
     <>
@@ -274,7 +276,10 @@ function AmountField({
 }) {
   const id = useId();
   const scenarioScreen = useContext(PeriodChoice);
-  const bad = scenarioScreen && signed ? parseScenarioAmount(value, true) === null : parseAmount(value) === null;
+  // #226 (spec 63.4, PFFG-05, AP2): the scenario's growth field shows no error of its own; the screen's single
+  // GROWTH_ERROR alert (scenario-page) covers both a bad number and the -50..+50 bound.
+  const scenarioGrowthField = scenarioScreen && signed;
+  const bad = scenarioGrowthField ? scenarioGrowthBad(value) : parseAmount(value) === null;
   return (
     <div className="pf-cell">
       <label htmlFor={id} className="pf-label">
@@ -292,9 +297,9 @@ function AmountField({
         className="pf-field"
         testId={testId}
         placeholder={placeholder}
-        {...(bad ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {})}
+        {...(bad ? { "aria-invalid": true as const, ...(scenarioGrowthField ? {} : { "aria-describedby": `${id}-error` }) } : {})}
       />
-      {bad ? (
+      {bad && !scenarioGrowthField ? (
         <span id={`${id}-error`} className="pf-error" data-testid="pf-error" data-field={testId}>
           {AMOUNT_ERROR}
         </span>
