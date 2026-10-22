@@ -129,14 +129,14 @@ describe("#215 projection math", () => {
   it("PFSC-06: income and category levers are % changes of today's lines; recalculated from the levers alone", () => {
     const p = project(
       flat(),
-      { ...NO_SCENARIO, income: { a: 10 }, expenses: { Home: -50, "": 100 } },
+      { ...NO_SCENARIO, income: { a: 10 }, expenses: { Home: -50, "": 50 } },
       12,
     );
     assert.deepEqual(
       [p.totals.monthlyIncome, p.totals.monthlyExpenses, p.totals.monthlySurplus],
-      [5500, 3000, 2500],
+      [5500, 2500, 3000],
     );
-    assert.equal(p.totals.netEnd, 10000 + 12 * 2500);
+    assert.equal(p.totals.netEnd, 10000 + 12 * 3000);
     // A lever on an unknown id moves nothing.
     assert.equal(
       project(flat(), { ...NO_SCENARIO, income: { zzz: 50 } }, 12).totals.monthlyIncome,
