@@ -305,6 +305,10 @@ try {
   const ch = await fetch(`${base}/personal-finance/charts`, { redirect: "manual" });
   const chTo = new URL(ch.headers.get("location") ?? "/x", base);
   check("signed-out /personal-finance/charts → 307 /dashboard/sign-in?next=/personal-finance/charts, noindex (#160 PFCL-01)", ch.status === 307 && chTo.pathname === "/dashboard/sign-in" && chTo.searchParams.get("next") === "/personal-finance/charts" && /noindex/i.test(ch.headers.get("x-robots-tag") ?? ""), [ch.status, ch.headers.get("location"), ch.headers.get("x-robots-tag")]);
+  // #214 (spec 53, PFHT-02): /personal-finance/history signed out → sign-in with ?next=/personal-finance/history, noindex.
+  const hi = await fetch(`${base}/personal-finance/history`, { redirect: "manual" });
+  const hiTo = new URL(hi.headers.get("location") ?? "/x", base);
+  check("signed-out /personal-finance/history → 307 /dashboard/sign-in?next=/personal-finance/history, noindex (#214 PFHT-02)", hi.status === 307 && hiTo.pathname === "/dashboard/sign-in" && hiTo.searchParams.get("next") === "/personal-finance/history" && /noindex/i.test(hi.headers.get("x-robots-tag") ?? ""), [hi.status, hi.headers.get("location"), hi.headers.get("x-robots-tag")]);
   // #161 (spec 46, PFCB-01; EL O3): /new keeps its exact next; every edit URL (default included) returns to the list.
   for (const [path, next] of [["/personal-finance/charts/new", "/personal-finance/charts/new"], ["/personal-finance/charts/default/edit", "/personal-finance/charts"], ["/personal-finance/charts/r-0000abcd/edit", "/personal-finance/charts"], ["/personal-finance/charts/r-00000001", "/personal-finance/charts"], ["/personal-finance/charts/default", "/personal-finance/charts"]]) {
     const b = await fetch(`${base}${path}`, { redirect: "manual" });

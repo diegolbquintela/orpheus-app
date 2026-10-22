@@ -18,6 +18,7 @@ import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as ApiPersonalFinanceRouteImport } from './routes/api/personal-finance'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
 import { Route as PersonalFinanceChartsRouteImport } from './routes/personal-finance_.charts'
+import { Route as PersonalFinanceHistoryRouteImport } from './routes/personal-finance_.history'
 import { Route as ApiAccountAccessRouteImport } from './routes/api/account/access'
 import { Route as ApiAccountAuditRouteImport } from './routes/api/account/audit'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
@@ -93,6 +94,11 @@ const DashboardSignInRoute = DashboardSignInRouteImport.update({
 const PersonalFinanceChartsRoute = PersonalFinanceChartsRouteImport.update({
   id: '/personal-finance_/charts',
   path: '/personal-finance/charts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalFinanceHistoryRoute = PersonalFinanceHistoryRouteImport.update({
+  id: '/personal-finance_/history',
+  path: '/personal-finance/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAccountAccessRoute = ApiAccountAccessRouteImport.update({
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/personal-finance/charts': typeof PersonalFinanceChartsRoute
+  '/personal-finance/history': typeof PersonalFinanceHistoryRoute
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/personal-finance/charts': typeof PersonalFinanceChartsRoute
+  '/personal-finance/history': typeof PersonalFinanceHistoryRoute
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
   '/personal-finance_/charts': typeof PersonalFinanceChartsRoute
+  '/personal-finance_/history': typeof PersonalFinanceHistoryRoute
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/personal-finance/charts'
+    | '/personal-finance/history'
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
@@ -440,6 +450,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/personal-finance/charts'
+    | '/personal-finance/history'
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
@@ -482,6 +493,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance'
     | '/dashboard_/sign-in'
     | '/personal-finance_/charts'
+    | '/personal-finance_/history'
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
@@ -525,6 +537,7 @@ export interface RootRouteChildren {
   ApiPersonalFinanceRoute: typeof ApiPersonalFinanceRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
   PersonalFinanceChartsRoute: typeof PersonalFinanceChartsRoute
+  PersonalFinanceHistoryRoute: typeof PersonalFinanceHistoryRoute
   ApiAccountAccessRoute: typeof ApiAccountAccessRoute
   ApiAccountAuditRoute: typeof ApiAccountAuditRoute
   ApiAccountEmailRoute: typeof ApiAccountEmailRoute
@@ -621,6 +634,13 @@ declare module '@tanstack/react-router' {
       path: '/personal-finance/charts'
       fullPath: '/personal-finance/charts'
       preLoaderRoute: typeof PersonalFinanceChartsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personal-finance_/history': {
+      id: '/personal-finance_/history'
+      path: '/personal-finance/history'
+      fullPath: '/personal-finance/history'
+      preLoaderRoute: typeof PersonalFinanceHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/account/access': {
@@ -853,6 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPersonalFinanceRoute: ApiPersonalFinanceRoute,
   DashboardSignInRoute: DashboardSignInRoute,
   PersonalFinanceChartsRoute: PersonalFinanceChartsRoute,
+  PersonalFinanceHistoryRoute: PersonalFinanceHistoryRoute,
   ApiAccountAccessRoute: ApiAccountAccessRoute,
   ApiAccountAuditRoute: ApiAccountAuditRoute,
   ApiAccountEmailRoute: ApiAccountEmailRoute,

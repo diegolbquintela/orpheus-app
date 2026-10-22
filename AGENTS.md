@@ -1211,3 +1211,14 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - 2026-10-21 #186 (cleanup): the unused template auth layer is gone: `gates.tsx`, `use-current-user.ts`, `sign-in-gate.ts` (+ test), `middleware.ts`, and in `verify.server.ts` `getSessionUser` / `requireUserId` / `UnauthorizedError` / `DEV_USER_ID`, plus `authEnabled` in `client.ts`. The one auth path is `getSessionUserFromHeaders` + `/api/account/*`. `isolation.server.ts` is kept (app-data uses it). AC TAR-01..10, dashboard-spec §20.
 - 2026-10-21 #187 (cleanup): `store.server.ts` holds per-user data access only. The superseded shared market-data helpers (`upsertInstrument` … `lastSuccessfulRun`, their row types, `Region` / `FxSource` / `IsoDate`) and their `store.test.ts` block are gone, as is the uncalled `convert()` in `fx.server.ts`. The daily job (cron and the preview Refresh button) never imported them; it writes with its own SQL. AC DMH-01..10, dashboard-spec §21.
 - 2026-10-21 #188 (cleanup): unused copy constants and helpers left by UI rewrites are gone (`overview.ts` `UPDATE_TITLE`/`MONTH_LABEL`/`UPDATE_MONTH`/`CANCEL`, `currency.ts` `CURRENCY_LABEL`, `metrics.ts` `isMetricKey`/`metricLabel`, `company.ts` `SECTION_TITLES`, `esef.server.ts` `ESEF_SOURCE_LINE`, `instance.server.ts` `OrpheusAuth`, `dca/format.ts` `shareCount`/`weightLabel`). The ESEF source line lives only in `SOURCE_LINE_ESEF` (`company.ts`). AC DCC-01..10, dashboard-spec §22.
+
+## Personal Finance: History table (#214; added 2026-10-21)
+
+- `/personal-finance/history`: read-only, year first.
+  - The `Year` select lists only years with a stored month. The grid shows that year's stored months: a month with lines, or one with typed Overview totals.
+  - Logic: `src/lib/finance/history.ts` (`storedMonths`, `storedYears`, `yearTable`). Page: `src/components/personal-finance/history-page.tsx`. Its one GET: `src/lib/finance/history-client.ts`.
+- Totals and net assets come from `seriesValues` (typed rates, no BoC table; Q-HT1), so they match Charts. Equity coverage per month is defined in Q-HT2.
+- Never add a write, a new endpoint or a stored value to this page without a ticket; it is a view.
+- Gate as `/personal-finance` (Read is enough); `?next=/personal-finance/history` is allow-listed.
+- Spec section 53, AC PFHT-01..PFHT-20, Q-HT1..Q-HT8.
+- 2026-10-21 (CFO): Q-HT1..8 accepted. Coverage % is `—` when the month's expenses are zero (PFHT-21), and a note above the grid says Rate used, household currency and starting net assets are today's values (`SHARED_VALUES_NOTE`, PFHT-22..24). PARKED: per-month stored values and CSV export (each needs a ticket). Spec 53.5.

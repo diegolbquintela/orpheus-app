@@ -1579,3 +1579,37 @@ Tests: `scripts/test-runner.test.mjs` (test names start `TLF-NN`) with fixtures 
 | DCC-08 | BLOCK | Mutation: a file referencing a removed name (e.g. `CANCEL` from overview.ts) makes DCC-02 print a hit, and tsc fails. |
 | DCC-09 | MAJOR | CI `check` green. The preview, signed out, behaves as on main (`/dashboard` 307, `/api/dashboard/fx` 401). |
 | DCC-10 | MINOR | Docs additions only: dashboard-spec §22 and one dated AGENTS.md #188 line. README unchanged (it never named these). |
+
+## PFHT — Personal Finance History: a read-only table of stored months by year (#214, personal-finance-spec §53; added 2026-10-21; CFO)
+
+| ID | Severity | Check |
+|---|---|---|
+| PFHT-01 | MAJOR | The Personal Finance page shows a `History` link (`pf-history-link`) beside `Charts`, to `/personal-finance/history`. The History page links back (`pf-history-back`). |
+| PFHT-02 | BLOCK | Signed out: `GET /personal-finance/history` → 307 to `/dashboard/sign-in?next=/personal-finance/history`, noindex (`qa/tools/site-shell.mjs`). `safeNext` keeps that exact path; near-misses → `/dashboard` (`next.test.ts`). |
+| PFHT-03 | BLOCK | Year first: one record load on mount. The `Year` select offers `Choose a year`, then only the years with stored months, newest first. There is no grid until a year is chosen (DOM test). |
+| PFHT-04 | BLOCK | Choosing a year shows only that year's stored months, oldest first. Another year swaps them; `Choose a year` hides the grid (DOM test). |
+| PFHT-05 | BLOCK | The grid is a `<table>` with a caption, `<th scope="row">` month names, `<th scope="col">` per figure, and one cell per column. It sits in a focusable `role="region"` (DOM test). |
+| PFHT-06 | BLOCK | Read-only: no input, button, select or editable cell in the grid. The page makes no request besides the one `GET /api/personal-finance`: no PUT, no `/view`, no import of the browser's old values. The read-only note shows. |
+| PFHT-07 | MAJOR | No stored months → `No months stored yet.` and no select. A failed load → `Couldn't load your figures.` (alert). A 401 → sign-in with `?next=/personal-finance/history`. |
+| PFHT-08 | BLOCK | A stored month is one with saved lines, or with a typed Overview expenses or income figure. Empty months and months before 2020-01 are excluded (`history.test.ts`). |
+| PFHT-09 | BLOCK | The Year choices are the distinct years of the stored months, newest first, with no empty years (`history.test.ts`). |
+| PFHT-10 | BLOCK | A year's grid holds exactly that year's stored months, oldest first. A year without any has no rows (`history.test.ts`). |
+| PFHT-11 | MAJOR | Columns, in order: the year's counted income lines, the year's expense lines (by id, first seen, fixed then variable), then Income, Fixed expenses, Variable expenses, Expenses, Surplus, Net assets, Equity coverage (monthly), Equity coverage (% of expenses). |
+| PFHT-12 | BLOCK | Line cells are the month's own monthly amount in the household currency (#142 money format). A line the month doesn't hold is `—`. |
+| PFHT-13 | BLOCK | Income, the group totals, Expenses, Surplus and Net assets equal `seriesValues` (Charts series, typed rates; Q-HT1) for that month. Net assets carry from the first data month or the As of month. |
+| PFHT-14 | BLOCK | Equity coverage (Q-HT2) = month-end net assets × Rate used ÷ 12, and that ÷ the month's expenses (two-decimal %). With no Rate used or no positive net assets → `—`. |
+| PFHT-15 | BLOCK | Building the grid never changes the record. No new stored value, endpoint, migration, env or provider. |
+| PFHT-16 | BLOCK | 390 px (preview, signed in as owner and as CFO Read): the page has no horizontal scroll. The grid scrolls sideways inside its region, the Month column stays visible, and the Year select and grid are usable by touch and keyboard. |
+| PFHT-17 | MAJOR | 1440 px: the grid sits in the page column (max-w-6xl). Headers are readable, numbers right-aligned (no tabular figures on dark pages, ST6-07), and there is no layout shift when a year is chosen. |
+| PFHT-18 | MAJOR | Style: the dark site palette only, the lyre in the bar, the Orpheus Wisdom footer, no gold. axe: 0 serious/critical at 390 and 1440. |
+| PFHT-19 | BLOCK | Access: the owner and a Personal Finance Read grant (CFO) see the table. No grant → 403 denied page with no figures. Temporary password → `/account`. |
+| PFHT-20 | BLOCK | Gates under TZ=UTC and TZ=America/Los_Angeles (Node 22): tsc 0, eslint 0 errors, npm test 0 fail / 0 cancelled / 0 `not ok` (including `history.test.ts`, `history-page.dom.test.tsx`, DCA-06), `npx vite build` OK. CI `check` green. |
+
+PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. Per-month values and CSV export are PARKED.)
+
+| ID | Severity | Check |
+|---|---|---|
+| PFHT-21 | BLOCK | Q-HT2 (CFO): a month whose expenses are zero or missing (zero lines, or a typed `0`) shows `—` in `Equity coverage (% of expenses)`, never `Infinity%` / `NaN`. The monthly coverage still shows when the rate and net assets are set (`history.test.ts`). Mutation: dividing without the guard turns the test red. |
+| PFHT-22 | BLOCK | Q-HT6 (CFO): once a year is chosen, the note `pf-history-shared-note` shows `SHARED_VALUES_NOTE` above the grid. There is no note before a year is chosen (DOM test). |
+| PFHT-23 | MAJOR | The note text names Rate used, household currency and starting net assets as "today's values, not per-month values" (`history.test.ts`). |
+| PFHT-24 | MAJOR | 390 px: the note wraps inside the page column (no horizontal page scroll), is readable (`--color-dim` on night), and sits between the caption line and the grid. |

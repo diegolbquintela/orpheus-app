@@ -8,6 +8,11 @@ describe("sign-in ?next allowlist (#102 D1)", () => {
   it("keeps the exact relative path /personal-finance", () => {
     assert.equal(safeNext("/personal-finance"), "/personal-finance");
   });
+  it("#214 PFHT-02: keeps the exact path /personal-finance/history; near-misses → /dashboard", () => {
+    assert.equal(safeNext("/personal-finance/history"), "/personal-finance/history");
+    for (const v of ["/personal-finance/history/", "/personal-finance/History", "/personal-finance/history?year=2025", "/personal-finance/history#a", "//personal-finance/history", "https://evil.example/personal-finance/history"])
+      assert.equal(safeNext(v), "/dashboard");
+  });
   it("#160 PFCL-01: keeps the exact path /personal-finance/charts; near-misses → /dashboard", () => {
     assert.equal(safeNext("/personal-finance/charts"), "/personal-finance/charts");
     for (const v of ["/personal-finance/charts/", "/personal-finance/Charts", "/personal-finance/charts?x=1", "//personal-finance/charts", "https://evil.example/personal-finance/charts", "/personal-finance/charts#a"])
