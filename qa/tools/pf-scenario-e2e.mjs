@@ -22,6 +22,11 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 
+// #208 (spec 61.2, HTL-04): --help prints the usage and exits before any config, guard probe or browser (no network).
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("usage: node qa/tools/pf-scenario-e2e.mjs --base-url <preview> --out <dir>  (accounts from env: QA_OWNER_*, QA_CFO_*, QA_NONE_*; previews only, read-only)");
+  process.exit(0);
+}
 const CFG = qaConfig(import.meta.url);
 await refuseIfProd(CFG.baseUrl, "pf-scenario-e2e");
 const base = CFG.baseUrl;

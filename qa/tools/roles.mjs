@@ -10,7 +10,7 @@
 //   Manager Read and Read and write on the OWNER's data; own section toggles; PF DELETE owner-only), -14 (no grant:
 //   403 page and APIs), -15, -16 (grant change applies on the next request; Remove signs out, account stays), -17
 //   (/api/account/access owner-only, no widening by userId), -18 (Reset password), -19 (Who has access per person),
-//   -20 (Fetch Metadata: cross-site / same-site writes 403); #215 PFSC-03 / -13 / -15 / -16 (scenario save gating).
+//   -20 (Fetch Metadata: cross-site / same-site writes 403); #215 PFSC-03 / -13 / -15 / -16 (scenario save gating; #208 HTL-05 no grant).
 //   Browser: ROLE-01 (bar: the person glyph below 640 px, the word from 640, accessible name Account, one line),
 //   ROLE-10 / -12 read-only pages, ROLE-14 the 403 page, ROLE-21 (/account, the forced-change view and the 403 page:
 //   44 px controls, AA contrast scan + axe-core with AXE_PATH, no horizontal scroll, strict CLS 0).
@@ -287,6 +287,30 @@ try {
     check("ROLE-10 / PFVW-03 CFO Read: PUT /api/personal-finance/view → 403, the CFO's view and the owner's record unchanged", view.status === 403 && again.json?.data?.["orpheus.finance.view.v1"] === before.json?.data?.["orpheus.finance.view.v1"] && ownerRec.json?.data?.["orpheus.finance.view.v1"] !== JSON.stringify({ closed: ["income"] }), { view: view.status, cfoView: again.json?.data?.["orpheus.finance.view.v1"] ?? null, ownerView: ownerRec.json?.data?.["orpheus.finance.view.v1"] ?? null });
     const page = await http(cfo.jar, "GET", "/personal-finance");
     check("ROLE-10 CFO Read: /personal-finance 200 with `Read only` (the locked fields are checked in the browser)", page.status === 200 && /data-testid="read-only"[^>]*>Read only</.test(page.text), page.status);
+    // #215 (spec 55, PFSC-15 / -16 / -13; QA AK1, 2026-10-22): the scenario save uses the record route, so it needs
+    // write. #208 AL3 (spec 61.3): these run while the CFO still has the Read grant from setup, BEFORE the ROLE-11
+    // Read-and-write flip, and the no-grant user is checked too. The owner's record is restored to PF_RECORD at the end.
+    const SC = "orpheus.finance.scenario.v1";
+    const lev = JSON.stringify({ income: {}, expenses: {}, rate: 3, growth: null, start: null });
+    const scRead = await http(cfo.jar, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: lev } });
+    const scAfterRead = await http(O, "GET", "/api/personal-finance");
+    const scNone = await http(none.jar, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: lev } });
+    const scAfterNone = await http(O, "GET", "/api/personal-finance");
+    check("HTL-05 no grant: saving a scenario → 403 and nothing stored", scNone.status === 403 && scAfterNone.json?.data?.[SC] === undefined, [scNone.status, scAfterNone.json?.data?.[SC] ?? null]);
+    const scNonePage = await http(none.jar, "GET", "/personal-finance/scenario");
+    check("HTL-05 no grant: /personal-finance/scenario → 403", scNonePage.status === 403, scNonePage.status);
+    check("PFSC-15 CFO Read: saving a scenario → 403 and nothing stored", scRead.status === 403 && scAfterRead.json?.data?.[SC] === undefined, [scRead.status, scAfterRead.json?.data?.[SC] ?? null]);
+    const scBad = await http(O, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: JSON.stringify({ income: { a: 5000 } }) } });
+    check("PFSC-16 an invalid scenario value → 400 { field: scenario }", scBad.status === 400 && scBad.json?.field === "scenario", [scBad.status, scBad.json]);
+    const scSave = await http(O, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: lev } });
+    const scSeen = await http(cfo.jar, "GET", "/api/personal-finance");
+    const scSame = Object.entries(PF_RECORD).every(([k, v]) => scSeen.json?.data?.[k] === v);
+    check("PFSC-13 the owner saves a scenario (200); Read GETs it; every other record value unchanged", scSave.status === 200 && scSeen.json?.data?.[SC] === lev && scSame, [scSave.status, scSeen.json?.data?.[SC] ?? null, scSame]);
+    const scReset = await http(O, "PUT", "/api/personal-finance", { data: PF_RECORD });
+    const scGone = await http(O, "GET", "/api/personal-finance");
+    check("PFSC-13 reset: the owner's record is back to PF_RECORD (no scenario value)", scReset.status === 200 && scGone.json?.data?.[SC] === undefined, scReset.status);
+    const scPage = await http(cfo.jar, "GET", "/personal-finance/scenario");
+    check("PFSC-03 CFO Read: /personal-finance/scenario 200", scPage.status === 200, scPage.status);
     // ROLE-11: Read and write.
     await access("PUT", { userId: cfo.id, ...grants("read_write", "none") });
     const w = await http(cfo.jar, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, "orpheus.finance.currency.v1": JSON.stringify("USD") } });
@@ -303,24 +327,6 @@ try {
     check("ROLE-11 no `Read only` line with Read and write", pageW.status === 200 && !/data-testid="read-only"/.test(pageW.text));
     await access("PUT", { userId: cfo.id, ...grants("read", "none") });
     await http(O, "PUT", "/api/personal-finance", { data: PF_RECORD });
-    // #215 (spec 55, PFSC-15 / -16 / -13; QA AK1, 2026-10-22): the scenario save uses the record route, so it needs
-    // write. The CFO is back on Read here. The owner's record is restored to PF_RECORD at the end.
-    const SC = "orpheus.finance.scenario.v1";
-    const lev = JSON.stringify({ income: {}, expenses: {}, rate: 3, growth: null, start: null });
-    const scRead = await http(cfo.jar, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: lev } });
-    const scAfterRead = await http(O, "GET", "/api/personal-finance");
-    check("PFSC-15 CFO Read: saving a scenario → 403 and nothing stored", scRead.status === 403 && scAfterRead.json?.data?.[SC] === undefined, [scRead.status, scAfterRead.json?.data?.[SC] ?? null]);
-    const scBad = await http(O, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: JSON.stringify({ income: { a: 5000 } }) } });
-    check("PFSC-16 an invalid scenario value → 400 { field: scenario }", scBad.status === 400 && scBad.json?.field === "scenario", [scBad.status, scBad.json]);
-    const scSave = await http(O, "PUT", "/api/personal-finance", { data: { ...PF_RECORD, [SC]: lev } });
-    const scSeen = await http(cfo.jar, "GET", "/api/personal-finance");
-    const scSame = Object.entries(PF_RECORD).every(([k, v]) => scSeen.json?.data?.[k] === v);
-    check("PFSC-13 the owner saves a scenario (200); Read GETs it; every other record value unchanged", scSave.status === 200 && scSeen.json?.data?.[SC] === lev && scSame, [scSave.status, scSeen.json?.data?.[SC] ?? null, scSame]);
-    const scReset = await http(O, "PUT", "/api/personal-finance", { data: PF_RECORD });
-    const scGone = await http(O, "GET", "/api/personal-finance");
-    check("PFSC-13 reset: the owner's record is back to PF_RECORD (no scenario value)", scReset.status === 200 && scGone.json?.data?.[SC] === undefined, scReset.status);
-    const scPage = await http(cfo.jar, "GET", "/personal-finance/scenario");
-    check("PFSC-03 CFO Read: /personal-finance/scenario 200", scPage.status === 200, scPage.status);
   }
 
   // ---------------------------------------------------------------- ROLE-12 / -13 (Portfolio Manager)

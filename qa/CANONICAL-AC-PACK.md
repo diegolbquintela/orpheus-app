@@ -1709,7 +1709,7 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFCC-07 | BLOCK | Typed expenses replace the copy's expenses metric; group series still read the copy's lines (Q-CC2). |
 | PFCC-08 | BLOCK | Stored current-month lines win over typed totals and the copy, as before. |
 | PFCC-09 | BLOCK | Every month in range equals Overview's expenses and income figure. |
-| PFCC-10 | BLOCK | Read grant: `/series`, `/chart` and both exports 200, with the copy in their own record. |
+| PFCC-10 | BLOCK | Read grant: `/series`, `/chart` and both exports 200 on the Read user's own record, with the current-month copy. A Read user can't save a report (no PUT, #197), so the test seeds the saved default report directly (#208 AM1). |
 | PFCC-11 | BLOCK | No Personal Finance grant: `/series`, `/chart` and both exports 403; signed out 401. |
 | PFCC-12 | BLOCK | PFU-09 golden: the only change is the 2026-10 bar cell (1,000.00, was "-") and its data JSON hash. |
 
@@ -1848,3 +1848,16 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - PFSS-46: A Read user's PUT → 403; nothing written. (server)
 - PFSS-47: No grant → 403 on GET and PUT. (server)
 - PFSS-50: Regression: the existing scenario DOM/unit tests and `qa/tools/pf-scenario-e2e.mjs` pass. (DOM, e2e on preview)
+
+## HTL — Harness checks and follow-ups (#208, personal-finance-spec §61; added 2026-10-22; LOW, Diego / CFO)
+
+- HTL-01: Every `src/**/*.test.ts(x)` that isn't a `*.dom.test.tsx` is in the explicit `npm test` list; the check names any missing file. (scripts)
+- HTL-02: Mutation: an unlisted src test file makes the check fail (exit 1, file named), and a listed file that doesn't exist fails too. (scripts)
+- HTL-03: Every `qa/tools/*.mjs` is either guarded or in the pinned `UNGUARDED` list; a new unclassified tool fails. (scripts)
+- HTL-04: `pf-scenario-e2e.mjs --help` exits 0 with usage and makes zero network requests (fake network). (scripts)
+- HTL-05: roles.mjs: scenario checks run before the Read-and-write flip; the no-grant user's scenario PUT → 403 with nothing stored, and the scenario page → 403. (e2e on preview; source-order test)
+- HTL-06: Read users see `Showing <Month>'s lines — nothing is saved for this month.`; write users keep `Copied from <Month> — edit and save.` (unit, DOM)
+- HTL-07: Only `changeSaved` writes `orpheus.finance.scenario.v1`; `saveScenario` is gone. (unit, static)
+- HTL-08: `addSaved` stores `inputs.start` rounded to cents. (unit)
+- HTL-09: Spec 55.4 says an invalid lever counts as blank; PFCC-10 says the Read record is seeded directly. (docs)
+

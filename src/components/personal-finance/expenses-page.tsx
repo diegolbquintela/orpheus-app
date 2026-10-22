@@ -526,7 +526,7 @@ export function PersonalFinancePage({
               blocked && hasErrors
                 ? SAVE_BLOCKED
                 : copiedFrom
-                  ? copiedNote(monthName(copiedFrom))
+                  ? copiedNote(monthName(copiedFrom), readOnly)
                   : ""
             }
           />}
