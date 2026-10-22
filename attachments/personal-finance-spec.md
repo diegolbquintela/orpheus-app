@@ -2290,3 +2290,17 @@ Dated note 2026-10-22 (#223): scenario screen only. It replaces the named-scenar
 
 62.4 **No behaviour change.** No new dependency, table, migration or env. The saved-scenario Compare checkbox (`pf-saved-compare`, #223) is not a person checkbox and is out of scope (Q-TT1).
 
+
+## 63. Personal Finance: scenario Overview 'Future' uses the chart's growth, negative included (#226, Q-PJ13 + AP2, MEDIUM, Diego / CFO; added 2026-10-22; built in the same PR)
+
+(2026-10-22 note: this builds Q-PJ13 (57, "not built") and the AP2 finding from QA on #221 / PR #224. The text above is left as written.)
+
+63.1 **Scope.** Only the scenario screen (`/personal-finance/scenario`). The main PF page is unchanged.
+
+63.2 **Future growth.** The Overview block's Future line on the scenario screen uses the same annual growth as the projection chart below it: the signed value from the Growth field, -50..+50 % a year; a refused value counts 0 %, as for the chart. It compounds monthly at r_m = (1 + annual ÷ 100)^(1/12) − 1 with the shared step (`projection.ts`), so a negative growth shrinks a positive balance month by month (10,000 at -10 % with surplus 0 → 9,000 after 12 months). The positive-only Overview clamp (negative → 0 %) no longer applies to this figure on this screen.
+
+63.3 **SC3 kept for both.** Growth applies only to a positive opening balance (#215 Q-SC3 as changed, 55.11), on the chart and on the Overview Future line alike. A negative growth RATE is allowed on both on this screen; a balance at or below 0 never grows or shrinks by growth (Q-FG1).
+
+63.4 **One growth error (AP2).** On the scenario screen, a refused Growth (for example `-`, `-51`, `abc`) shows one error: the screen's `Growth must be from -50 to 50 % a year here.` alert. The field no longer also shows the main page's `Enter a number, 0 or more.`. It is still `aria-invalid`. The main page's growth error is unchanged.
+
+63.5 **No behaviour change elsewhere.** Nothing new is stored or sent. No new dependency, table, migration, env or schema change. The 9 % pinned cases still hold.
