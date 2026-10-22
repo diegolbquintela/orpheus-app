@@ -2010,3 +2010,93 @@ The test strings, with code points above U+007E listed:
 - Q-CC3 (BUILT, recommend accept): the scenario screen's starting net assets follow the same rule when the current month is unsaved, so they match Overview. Alternative: keep the scenario on stored months only (a one-line change; say so).
 - Q-CC4 (NOT BUILT, recommend leave): the copy is not re-valued at historical FX on its own; it carries its source lines as the #170 FX step left them. The current month has no Bank of Canada monthly average until it ends.
 - Q-CC5 (NOT BUILT, recommend leave): a deleted category's series reads 0 in the copied current month (its line stays, without the name), as in any stored month without that category.
+
+## 57. Personal Finance: scenario screen rebuilt on the main page, projection math and Overview Future fix (#221, VERY HIGH, Diego / CFO; added 2026-10-22; built in the same PR)
+
+57.0 **Brief.** Diego's five points on #215's screen (issue #221), the CFO business-user spec (2026-10-22, issue comment), Diego's layout change and the CFO scope cut (2026-10-22, via CoS), and the QA sweep AN1–AN14 (QA's explore run on #221). Where this section differs from section 55, this section wins; section 55 is not edited.
+
+57.1 **Layout (built).** `/personal-finance/scenario` renders the Personal Finance page itself (`PersonalFinancePage`, `scenario` mode), reusing its components directly: household currency, `02` Income, `03` Expenses (equity rates and the Fixed / Variable lines), `03` Expenses summary, `04` Overview and `05` Update, with the same section toggles.
+- **Categories removed:** the category filter (with the account filter, which is the same control) and `By category` are not shown. The #215 levers (income %, expenses by category %, Reset, `Save scenario`) are gone.
+- **Prefill:** the current month's saved lines, or, while it has none, its unsaved copy of last month (#166 / #199). The header reads `Based on last month (<Month YYYY>).`, `Based on this month's saved figures (<Month YYYY>).`, or `Nothing saved yet: every figure starts at 0.`.
+- **No month control and no Save.** Section toggles apply to this visit only.
+- Below Overview: `06` Projected path (the net-assets field, the horizons and the chart), then `07` Totals.
+
+57.2 **Nothing is written (built; CFO scope cut 2026-10-22).** The page's store is the loaded record in memory with **no `save`**, so no edit, toggle or migration is ever sent. The only request is one GET on open. The net-assets field is a local starting value; it is never saved. The earlier net-assets Save / confirm / write-back plan is dropped, so there is no new route and no #199 copy materialising. The stored scenario value (`orpheus.finance.scenario.v1`, #215 Q-SC1), its validation and `saveScenario` are unchanged; the page no longer writes it (Q-PJ7).
+
+57.3 **Projection math (built; CFO).** The shared month step lives in `src/lib/finance/projection.ts`:
+- `monthlyRate(annual) = (1 + annual/100)^(1/12) − 1`. It is never annual ÷ 12.
+- `stepNet(N, surplus, r_m)`: if N > 0 then N × (1 + r_m); then + surplus. There is no growth on N ≤ 0 (#215 Q-SC3 kept).
+- `projectNet` returns month 0 plus `horizon` steps (`horizon + 1` values).
+
+The scenario uses it with:
+- **Month 0 (plotted once, labelled `Now`, tooltip `Now (end of <Month YYYY>)`):** the Overview's own net assets at the end of the current month (`summarize`), or the typed net-assets value.
+- **Surplus:** the Overview's own income − expenses for the current month (the same figures the Overview draws: lines, the unsaved copy, typed Update totals, else the average). It is one number with no double counting (Q-PJ1).
+- **Growth:** the Overview's growth field. Horizons are 12 / 36 / 60 / 120 months.
+
+The CFO's worked checks at 9 %/yr:
+- **A:** 10,000 and +500 give **17,143.65**.
+- **B:** 0 and −1,460 give exactly **−17,520**, a straight line.
+- **C:** −2,000 and +500 give **4,102.37** (exact 4,102.370180097717; the CFO's "≈ 4,104" corrected and confirmed by EL, Q-PJ3). C reaches 0 at month 4, then grows only on a positive opening balance.
+
+57.4 **Chart (built).** The #215 design is kept: income and expenses on the left axis, net assets on the right. Only correctness fixes are made:
+- month 0 once;
+- axis titles (`A month` / `Net assets`);
+- axis widths fitted to the longest tick, so labels are not clipped;
+- a zero reference line on the net-assets axis;
+- the legend names each series' axis.
+
+57.5 **Totals (built).** The columns are `Today, a month` (the saved record), `Scenario, a month` (live) and `Over <horizon>`.
+- **Rows:** Net income, Expenses, Surplus, **Growth earned** (net end − start − total surplus), Net assets, and Equity coverage (monthly and % of expenses).
+- **Scenario column:** it is filled for net assets (month 0) and coverage (AN14).
+- **Percents:** shown with thousands separators (AN11).
+
+57.6 **Overview Future projection (built; CFO Q-b = yes, 2026-10-22).** `summarize`'s Future points now use the shared `stepNet` with r_m. Growth applies only to a positive balance, so a negative balance with a zero average surplus stays flat, and a negative balance crossing 0 grows only once positive. A positive balance compounds exactly as before. **This changes the Overview's Future projection** for negative balances only.
+
+57.7 **Inputs (built; QA AN6–AN13).**
+- **Net-assets field:**
+  - **Parser (`parseNetAssets`):** an optional sign (`+`, `-`, U+2212 `−`), then the main page's own `parseAmount`. Thousands commas and spaces work as on the main page; `.5` and `5.` are accepted; `1e3` is refused.
+  - **Negative amounts:** accepted in this local field only. The main page's `parseAmount` and the record route's 400 validation are unchanged (negative net assets there stay parked).
+  - **Errors:** its own message (`Enter an amount, for example 25,000 or -1,500.50.`).
+  - **Enter** commits the value (shown formatted).
+- **Growth (AN9):** outside −50..+50 % a year, the scenario shows `Growth must be from -50 to 50 % a year here.` and projects at 0 %. The main page's growth field is unchanged.
+- **AN3 (no 1000 cap):** the capped % levers are removed. The page's own fields have no 1000 cap. The stored-scenario bounds stay as they are (57.2).
+- **Empty state (AN10):** with no figures, `No figures yet. Add income and expenses on the Personal Finance page; the projection starts from them.`
+
+57.8 **Access (unchanged).** Signed out → sign-in; a temporary password → `/account`; no Personal Finance grant → the 403 denied page. Read users get the same what-if screen with the read-only line; nothing is sent for anyone.
+
+57.9 **QA sweep AN1–AN14 (resolutions).**
+- **AN1–AN5, AN14:** covered by the new layout.
+  - AN1: prefilled from the saved month or last month's copy.
+  - AN2: the main-page sections.
+  - AN3: the 1000 cap is gone.
+  - AN4: chart fixes (57.4).
+  - AN5: net assets is editable (local).
+  - AN14: the Scenario column is filled.
+- **AN6:** the main page's parser is reused.
+- **AN7:** each scenario field has its own message; the main-page fields keep theirs.
+- **AN8:** negative amounts in the local net-assets field.
+- **AN9:** growth is bounded to −50..+50.
+- **AN10:** the empty state.
+- **AN11:** separators in percents.
+- **AN12:** `+5`, `.5`, `5.` and U+2212 are accepted; `1e3` is refused.
+- **AN13:** Enter commits.
+- **Parked, not touched:** the main page's Bonus % having no upper warning (`income.ts`).
+
+57.10 **Screen sweep at 390 and 1440, owner and Read (findings).**
+- **F1 (fixed):** the net-assets label showed the raw month key (`2026-10`); it now shows `October 2026`.
+- **F2 (fixed):** with nothing saved, the basis note claimed "this month's saved figures"; it now says `Nothing saved yet…`.
+- **F3 (not fixed, main-page component):** the person checkboxes (count wages / bonus, foreign) are under 44 px tall at 390. It is the same on `/personal-finance`, so it should be a separate ticket.
+- **F4 (accepted, Q-PJ6):** the account filter goes with the category filter (one control).
+- **F5 (checked):** there is no horizontal overflow, no clipped chart tick and no request after the load at either width or role.
+
+57.11 **Questions.**
+- **Q-PJ1 (CFO-decided, built):** the surplus is the latest month (the current month as the Overview counts it, i.e. last month's copy while unsaved), not the 12-month average.
+- **Q-PJ2 (CFO-decided, built):** Overview Future uses the shared positive-only step (57.6).
+- **Q-PJ3 (EL-confirmed, built):** case C is pinned at 4,102.37 ±0.01 (exact 4,102.370180097717), not ≈ 4,104.
+- **Q-PJ4 (built, recommend accept):** the `Growth earned` row is net end − start − surplus over the horizon.
+- **Q-PJ5 (built, recommend accept):** growth outside −50..+50 % on this screen projects at 0 % with the error shown, rather than hiding the chart.
+- **Q-PJ6 (built, recommend accept):** the account filter is hidden with the category filter. Alternative: split the control (a small main-page change).
+- **Q-PJ7 (not built, recommend leave):** the stored-scenario value is no longer written by the page; existing values are kept and validated as before. A later cleanup could drop it.
+- **Q-PJ8 (not built, recommend a ticket):** F3, the checkbox tap size on the main page.
+
+57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..54). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.

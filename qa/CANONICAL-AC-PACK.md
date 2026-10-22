@@ -1712,3 +1712,37 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFCC-10 | BLOCK | Read grant: `/series`, `/chart` and both exports 200, with the copy in their own record. |
 | PFCC-11 | BLOCK | No Personal Finance grant: `/series`, `/chart` and both exports 403; signed out 401. |
 | PFCC-12 | BLOCK | PFU-09 golden: the only change is the 2026-10 bar cell (1,000.00, was "-") and its data JSON hash. |
+
+## PFPJ — Scenario screen on the main page, projection math, Overview Future fix (#221, personal-finance-spec §57; added 2026-10-22; VERY HIGH, Diego / CFO)
+
+| ID | Level | Check |
+|---|---|---|
+| PFPJ-01 | BLOCK | CFO case A at 9 %/yr: start 10,000, +500 → 17,143.65 after 12 months (not 17,191.86, annual ÷ 12) (`scenario.test.ts`). |
+| PFPJ-02 | BLOCK | Case B: start 0, −1,460 → exactly −17,520 after 12 months, each month −1,460 × i (no growth). |
+| PFPJ-03 | BLOCK | Case C: start −2,000, +500 → 4,102.37 ±0.01 (exact 4,102.370180097717); 0 at month 4, 500 at month 5 (no growth on 0). |
+| PFPJ-04 | BLOCK | `monthlyRate(9)` ≈ 0.7207 %, not 0.09/12; `stepNet` grows only N > 0, then adds the surplus. |
+| PFPJ-05 | BLOCK | Month 0 = the start, plotted once, labelled `Now`; `horizon + 1` points; horizons 12 / 36 / 60 / 120; the path equals `projectNet`. |
+| PFPJ-06 | BLOCK | Totals: sums over the horizon; net end = the last point; growth earned = net end − start − surplus. |
+| PFPJ-07 | BLOCK | The baseline is the Overview's own current month (`summarize`, the unsaved copy of last month): income, expenses, net assets equal. |
+| PFPJ-08 | BLOCK | AN6 / AN8 / AN12: `parseNetAssets` accepts −, U+2212, +5, .5, 5., thousands commas; refuses 1e3, empty, `--5`; the main `parseAmount` is unchanged (−5 → null). |
+| PFPJ-09 | MAJOR | AN9: growth bound −50..+50 % a year. |
+| PFPJ-10 | MINOR | AN11: percents with thousands separators. |
+| PFPJ-20 | BLOCK | CFO Q-b: Overview Future: a negative balance with zero average surplus stays flat. |
+| PFPJ-21 | BLOCK | Overview Future: a negative balance crossing 0 follows `projectNet` (growth only once positive). |
+| PFPJ-22 | BLOCK | Overview Future: a positive balance still compounds at r_m. |
+| PFPJ-30 | BLOCK | AN1 / AN2: the page is the PF page in scenario mode: one load; `Scenario.`, the what-if note, `Based on last month (September 2026).`; Income, Expenses, summary, Overview; no category filter, no `By category`, no month control, no Save; prefilled lines (`scenario-page.dom.test.tsx`). |
+| PFPJ-31 | BLOCK | AN4 / AN14: 13 chart points at 12 months, 37 at 3 years; the Scenario column filled for net assets; Growth earned row. |
+| PFPJ-32 | BLOCK | Every edit (line amount, Overview growth, net assets, section toggles) recalculates live and makes **no request** (fetch spy empty; one load). |
+| PFPJ-33 | BLOCK | AN8 / AN12 / AN13: −1,500.50 (U+2212) accepted; Enter commits and formats; +5, .5, 5. accepted; 1e3 shows its own error. |
+| PFPJ-34 | MAJOR | AN6: 12,345.67 reads as the main page reads it. |
+| PFPJ-35 | MAJOR | AN9: growth 60 % → the scenario's own error. |
+| PFPJ-36 | BLOCK | Read: the same what-if screen with the read-only line; edits live; nothing sent. |
+| PFPJ-37 | MAJOR | AN10: no data → the empty note and `Nothing saved yet…`; load error → alert. |
+| PFPJ-40 | MAJOR | AN7: each scenario field shows its own message (net assets, growth); main-page fields keep theirs. |
+| PFPJ-41 | MAJOR | Sweep at 390 and 1440, owner and Read: no horizontal overflow, no clipped tick, no request after the load (F1–F5, spec 57.10). |
+| PFPJ-42 | BLOCK | No new route, no env / schema / dependency change; `/api/personal-finance` validation and the stored scenario (PFSC-12..16) unchanged. |
+| PFPJ-50 | BLOCK | Mutation: annual ÷ 12 fails PFPJ-01 / 04. |
+| PFPJ-51 | BLOCK | Mutation: no month 0 fails PFPJ-05 / 31. |
+| PFPJ-52 | BLOCK | Mutation: growth on a negative balance fails PFPJ-02 / 03 / 20 / 21. |
+| PFPJ-53 | BLOCK | Mutation: a scenario store with `save` (an edit or toggle sends a PUT) fails PFPJ-32 / 36. |
+| PFPJ-54 | BLOCK | Mutation: the Overview Future step without the positive-only rule fails PFPJ-20 / 21. |
