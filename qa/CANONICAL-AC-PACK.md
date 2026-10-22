@@ -1640,6 +1640,6 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFVW-05 | BLOCK | `GET /api/personal-finance` is identical for all four roles before and after the refused PUTs; a Read user's earlier stored view still applies (unit). |
 | PFVW-06 | MAJOR | GET on the view route → 405 for every role; signed-out PUT → 401 (unit). |
 | PFVW-07 | MAJOR | Read only in the browser: a section toggle opens or closes and no PUT `/view` is sent (`roles.mjs`). |
-| PFVW-08 | BLOCK | Mutation: with `need: "read"` restored, PFVW-03 and PFVW-04 fail. |
+| PFVW-08 | BLOCK | Mutation: with `need: "read"` restored, ROLE-10, PFVW-03 and PFVW-05 fail. PFVW-04 (no grant) still passes, because `need: "read"` already refused it before #197; it guards against the gate being loosened further. |
 | PFVW-09 | BLOCK | Gates green under TZ=UTC and TZ=America/Los_Angeles: npm ci, tsc, eslint (3 baseline warnings), npm test, `npx vite build`, `check:dashboard-built`. |
 | PFVW-10 | MAJOR | Preview deploys; a same-length build compare against main shows only the expected chunks changed. |
