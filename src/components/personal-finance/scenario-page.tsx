@@ -243,7 +243,7 @@ export function ScenarioProjection({
             data-testid="pf-scenario-net"
           />
           <span id={`${uid}-net-hint`} className="pf-rate-source">
-            <span data-testid="pf-scenario-net-basis">{netBasis(live.overview, live.now, o.net)}</span>
+            <span data-testid="pf-scenario-net-basis">{netBasis(live.overview, live.now, o.net, undefined, live.page, live.lines)}</span>
             {" A what-if: never saved. A negative amount is allowed."}
           </span>
           {netBad ? (

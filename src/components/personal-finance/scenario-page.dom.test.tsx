@@ -11,7 +11,7 @@ import { writeExpenses } from "@/lib/finance/expenses";
 import { writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
-import { BASED_ON_LAST_MONTH, GROWTH_ERROR, NET_ASSETS_ERROR, NO_DATA, NOTHING_SAVED, WHAT_IF_NOTE } from "@/lib/finance/scenario";
+import { BASED_ON_LAST_MONTH, GROWTH_ERROR, NET_ASSETS_ERROR, NO_DATA, NOTHING_SAVED, startOnlyNote, WHAT_IF_NOTE } from "@/lib/finance/scenario";
 import type { ScenarioLoad } from "@/lib/finance/scenario-client";
 
 let root: Root | undefined;
@@ -390,7 +390,7 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
       const el = await render(ok(withStart()).load);
       const net = (q(el, "pf-scenario-net") as HTMLInputElement).value;
       assert.notEqual(net, "0.00");
-      assert.match(q(el, "pf-scenario-net-basis")!.textContent!, /^Basis: no as-of month is set, so Starting net assets 85,000\.00 counts from the start of November 2025/);
+      assert.match(q(el, "pf-scenario-net-basis")!.textContent!, /^Basis: no as-of month is set, so Starting net assets 85,000\.00 counts from the start of September 2026 \(the first month with figures\)/ /* #228 (spec 64.4) */);
       assert.equal(cell(el, "net", "pf-scenario-month"), net, "the Scenario column starts from it");
     });
     it("PFSV-36 (F1): a field error plus a section toggle never shows Not saved. on the sandbox", async () => {
@@ -472,5 +472,19 @@ describe("#226 PFFG-06/07: Overview Future growth and one growth error on the sc
     await type(q(el, "pf-growth")!, "-10");
     assert.equal(q(el, "pf-scenario-growth-error"), null);
     assert.equal(q(el, "pf-growth")?.getAttribute("aria-invalid"), null);
+  });
+});
+
+describe("#228 PFNA-09 (AQ1): Starting net assets saved, no months", () => {
+  it("the banner names the saved 85,000 instead of 'every figure starts at 0'; Net assets now seeds 85,000; nothing sent", async () => {
+    const s = new RecordStore({});
+    writeExpenses(s, { fixed: [], variable: [], accounts: [], categories: [] });
+    writeRates(s, { withdrawal: "4", roic: "" });
+    writeOverview(s, { ...NO_OVERVIEW, start: "85,000" });
+    const el = await render(ok(s.data).load);
+    assert.equal(q(el, "pf-scenario-basis")?.textContent, startOnlyNote(85000));
+    assert.notEqual(q(el, "pf-scenario-basis")?.textContent, NOTHING_SAVED);
+    assert.equal((q(el, "pf-scenario-net") as HTMLInputElement).value, "85,000.00");
+    assert.deepEqual(fetches, []);
   });
 });

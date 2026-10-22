@@ -845,14 +845,14 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     // Shared values: Starting net assets shows Save; the chart; Future.
     await type(q(el, "pf-start"), "10,000");
     assert.equal(hasSave(el), true);
-    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "74450.00"); // #140: 10,000 + 10 × 5,000 + 5,000 + 9,450
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "24450.00"); // #228 (spec 64): 10,000 + 5,000 (Jun, the first month with figures) + 9,450; empty months add nothing
     await type(q(el, "pf-growth"), "5");
     await click(q(el, "pf-future-toggle"));
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "24");
-    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "139535.39");
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "87035.39"); // #228: from 24,450 now
     await click(qa(el, "pf-year")[1]);
     assert.equal(q(el, "pf-chart").getAttribute("data-months"), "72");
-    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "434087.85");
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "370273.77"); // #228: from 24,450 now
     await type(q(el, "pf-growth"), "five");
     assert.equal(text(q(el, "pf-overview"), "pf-error"), "Enter a number, 0 or more.");
     // Switching with unsaved changes asks; Cancel keeps the month and the edits; OK drops them.
@@ -1463,18 +1463,18 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     const label = [...q(el, "pf-ov-fields").querySelectorAll("label")].find((l) => l.textContent === "As of month");
     assert.ok(label && label.getAttribute("for") === field.id, "labelled");
     assert.equal(field.getAttribute("placeholder"), "YYYY-MM");
-    assert.equal(net(), "34000.00", "no as-of month: the start at the window start, +2,000 × 12");
-    await type(field, "2026-06");
-    assert.equal(net(), "20000.00", "as of June: +2,000 × 5 (Jun … Oct)");
+    assert.equal(net(), "12000.00", "#228: no as-of month: from the first month with figures (Sep), +2,000; empty months add nothing");
+    await type(field, "2026-10");
+    assert.equal(net(), "10000.00", "#228: as of October: the start at the start of October; Sep is back-filled before it");
     assert.equal(field.getAttribute("aria-invalid"), null);
     await type(field, "2019-12");
     assert.equal(field.getAttribute("aria-invalid"), "true");
     assert.equal(q(el, "pf-ov-fields").querySelector("[data-field=pf-as-of]")?.textContent, "Enter a month as YYYY-MM, from 2020-01 to this month.");
     assert.equal(q(el, "pf-figures-note").getAttribute("data-shown"), "true", "the field is in error (Save blocked)");
-    assert.equal(net(), "34000.00", "a bad month is left out (the old anchoring)");
+    assert.equal(net(), "12000.00", "a bad month is left out (the no-as-of anchoring)");
     await type(field, "");
     assert.equal(field.getAttribute("aria-invalid"), null);
-    assert.equal(net(), "34000.00");
+    assert.equal(net(), "12000.00");
   });
   it("PF-83 / PF-85 / PF-86: empty this month uses the 12-month average; 3-month average fills empty months with it", async () => {
     // Aug 1,000 / Sep 3,000 typed; Oct empty; Jun 2,000. 12-month avg = 2,000; C7: 3-month (Jul–Sep) = (2,000 + 1,000 + 3,000) / 3.
