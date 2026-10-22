@@ -1,7 +1,7 @@
 import { deleteQuestion } from "@/lib/finance/expenses";
 import { formatMoney } from "@/lib/finance/money";
 import { Minus } from "lucide-react";
-import { useId } from "react";
+import { useContext, useId } from "react";
 import { type CurrencyCode, CURRENCIES, FX_HISTORY_NOTE, RATE_ERROR } from "@/lib/finance/currency";
 import {
   AMOUNT_ERROR,
@@ -33,6 +33,8 @@ import {
   TABLE_COLUMNS,
 } from "@/lib/finance/income";
 import { Cell, Lock, SectionHead } from "./pf-cells";
+import { PeriodChoice } from "./period-choice";
+import { PeriodInput } from "./period-input";
 
 /**
  * The income block (#85 v1.2; spec `attachments/personal-finance-spec.md` section 12, PF-11..16): people with
@@ -59,6 +61,8 @@ export function IncomeBlock({
   readOnly?: boolean;
 }) {
   const people = income.people;
+  // #221 (spec 57.13): on the scenario screen wages carry their own Monthly / Yearly select.
+  const scenarioPeriods = useContext(PeriodChoice);
   const updatePerson = (id: string, patch: Partial<Person>) =>
     update((i) => ({ people: i.people.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
   const lines = shownIncomeLines(people, household);
@@ -93,7 +97,7 @@ export function IncomeBlock({
                 aria-hidden="true"
                 data-testid="pf-person-head"
               >
-                {PERSON_COLUMNS.map((c) => (
+                {PERSON_COLUMNS.map((c) => (scenarioPeriods && c === "Wages (yearly)" ? "Wages" : c)).map((c) => (
                   <span key={c} className="pf-label">
                     {c}
                   </span>
@@ -199,6 +203,8 @@ function PersonRow({
   onRemove: () => void;
 }) {
   const uid = useId();
+  // #221: on the scenario screen the period is the select beside the field, so the column says "Wages".
+  const periods = useContext(PeriodChoice);
   const aria = (column: string) => `${column}, ${label}`;
   const bad = {
     wages: parseAmount(person.wages) === null,
@@ -208,6 +214,21 @@ function PersonRow({
   };
   const field = (key: "wages" | "bonus" | "tax" | "share", column: string, area: string) => (
     <Cell label={column} area={area} control>
+      {key === "wages" ? (
+        // #221 (spec 57.13): wages are stored yearly; the scenario screen offers Monthly / Yearly (default Monthly).
+        <PeriodInput
+          value={person.wages}
+          onValue={(text) => onChange({ wages: text })}
+          base="year"
+          name={aria(column)}
+          testId="pf-person-wages"
+          inputMode="decimal"
+          autoComplete="off"
+          aria-label={aria(column)}
+          className="pf-field"
+          {...(bad.wages ? { "aria-invalid": true as const, "aria-describedby": `${uid}-wages` } : {})}
+        />
+      ) : (
       <input
         value={person[key]}
         maxLength={40}
@@ -221,6 +242,7 @@ function PersonRow({
           ? { "aria-invalid": true as const, "aria-describedby": `${uid}-${key}` }
           : {})}
       />
+      )}
       {bad[key] ? (
         <span id={`${uid}-${key}`} className="pf-error" data-testid="pf-error" data-field={key}>
           {key === "tax" || key === "share" ? PERCENT_ERROR : AMOUNT_ERROR}
@@ -264,7 +286,7 @@ function PersonRow({
           data-testid="pf-person-name"
         />
       </Cell>
-      {field("wages", "Wages (yearly)", "wages")}
+      {field("wages", periods ? "Wages" : "Wages (yearly)", "wages")}
       {field("bonus", "Bonus rating (%)", "bonus")}
       {field("tax", "Average tax (%)", "tax")}
       <Cell label="Net (yearly)" area="net">

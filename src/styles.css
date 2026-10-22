@@ -1376,3 +1376,16 @@
 /* #168 Q-AM8: category / account Delete use the existing --color-danger token (via .pf-button-danger) and stay ≥ 44 px. */
 .pf-button.pf-button-danger.pf-delete { min-height: 2.75rem; background: transparent; border: 1px solid var(--color-danger); color: var(--color-danger); padding: 0 1rem; }
 .pf-button.pf-button-danger.pf-delete:disabled { color: var(--color-dim); border-color: var(--color-dim); cursor: not-allowed; }
+
+/* #221 (spec 57.13): the scenario screen's Monthly / Yearly select, under its flow amount so the amount keeps the
+   cell's full width; fits at 390. */
+.pf-period {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.pf-period-select {
+  width: 100%;
+  min-height: 44px;
+}

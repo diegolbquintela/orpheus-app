@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useContext, useId } from "react";
 import {
   CartesianGrid,
   Line,
@@ -49,6 +49,9 @@ import {
   yearsLabel,
 } from "@/lib/finance/overview";
 import { Lock, SectionHead } from "./pf-cells";
+import { PeriodChoice } from "./period-choice";
+import { PeriodInput } from "./period-input";
+import { parseScenarioAmount } from "@/lib/finance/scenario-input";
 
 const orDash = (value: number | null): string =>
   value === null ? NOT_COMPUTED : formatMoney(value);
@@ -252,35 +255,42 @@ function CoverageLine({
   );
 }
 
-/** A labelled amount field with the section 5 check (0 or more). */
+/** A labelled amount field with the section 5 check (0 or more). #221 (spec 57.15): on the scenario screen it takes
+ * the scenario's comma check (AO3), and the growth field accepts a sign (AO4; the -50..+50 bound shows under the chart). */
 function AmountField({
   label,
   value,
   onChange,
   testId,
   placeholder,
+  signed = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   testId: string;
   placeholder?: string;
+  signed?: boolean;
 }) {
   const id = useId();
-  const bad = parseAmount(value) === null;
+  const scenarioScreen = useContext(PeriodChoice);
+  const bad = scenarioScreen && signed ? parseScenarioAmount(value, true) === null : parseAmount(value) === null;
   return (
     <div className="pf-cell">
       <label htmlFor={id} className="pf-label">
         {label}
       </label>
-      <input
+      <PeriodInput
         id={id}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onValue={onChange}
+        base="month"
+        period={false}
+        name={label}
         inputMode="decimal"
         autoComplete="off"
         className="pf-field"
-        data-testid={testId}
+        testId={testId}
         placeholder={placeholder}
         {...(bad ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {})}
       />
@@ -354,6 +364,7 @@ function OverviewFields({
         value={overview.growth}
         onChange={(growth) => update((o) => ({ ...o, growth }))}
         testId="pf-growth"
+        signed
       />
     </div>
   );

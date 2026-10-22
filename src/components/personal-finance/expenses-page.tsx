@@ -1,5 +1,5 @@
 import { Minus } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { fieldErrors, SAVE_BLOCKED } from "@/lib/finance/field-errors";
 import { PF_DELETE_UI } from "@/lib/finance/flags";
 import {
@@ -73,10 +73,14 @@ import {
 import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { OverviewBlock } from "./overview-block";
+import { PeriodChoice } from "./period-choice";
+import { PeriodInput } from "./period-input";
 import { Cell, Lock, SectionHead } from "./pf-cells";
 import { ReadOnlyLine } from "@/components/access/denied";
+import { basisNote as scenarioBasis, WHAT_IF_NOTE as SCENARIO_WHAT_IF } from "@/lib/finance/scenario";
 
 import {
+  type Figures,
   lastTwelve,
   type MonthKey,
   monthName,
@@ -140,17 +144,38 @@ function storage(): StoreLike | null {
  * and an empty area at least the viewport tall; the browser fills it once after reading storage, so nothing on
  * screen moves (strict CLS 0).
  */
+/**
+ * #221 (spec 57, PFPJ): the scenario screen renders this page in scenario mode: the same sections from Income through
+ * Overview, prefilled from the saved record (the current month, or its unsaved copy of last month), with the
+ * categories parts removed (the category filter and `By category`), no month control and no Save. The scenario's store
+ * has no `save`, so no edit, toggle or migration is ever sent. `render` draws the projection below, from the live figures.
+ */
+export type ScenarioLive = {
+  overview: Overview;
+  now: Date;
+  current: MonthKey;
+  copiedFrom: MonthKey | null;
+  lines: Record<MonthKey, Figures>;
+  page: { expenses: number | null; income: number | null };
+  rate: number | null;
+  currency: string;
+};
+export type ScenarioMode = { render: (live: ScenarioLive) => ReactNode };
+
 export function PersonalFinancePage({
   now: fixedNow,
   loadStore = loadAccountStore,
   readOnly = false,
   deleteUi = PF_DELETE_UI,
+  scenario,
 }: {
   now?: Date;
   loadStore?: LoadStore;
   readOnly?: boolean;
   /** #165: the Delete UI (default: the `PF_DELETE_UI` constant; tests pass both values). */
   deleteUi?: boolean;
+  /** #221: scenario mode (what-ifs only, nothing sent). */
+  scenario?: ScenarioMode;
 } = {}) {
   const [saveFailed, setSaveFailed] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
@@ -189,7 +214,7 @@ export function PersonalFinancePage({
         const today = fixedNow ?? new Date();
         const current = lastTwelve(today)[11];
         // Decision 4: the record's lines become the current month's (stored for a writer; no change shown).
-        if (migrateMonths(store, current) && !readOnly) void store.save?.();
+        if (migrateMonths(store, current) && !readOnly && !scenario) void store.save?.();
         setNow(today);
         setView(readView(store));
         open(current, current);
@@ -254,7 +279,8 @@ export function PersonalFinancePage({
     !readOnly &&
     !!(expenses && income && rates && household && overview) &&
     canonical(expenses, income, rates, household, overview) !== baseline;
-  const dirty = !readOnly && (copiedFrom !== null || edited);
+  // #221: the scenario screen never saves, so it never warns on leaving.
+  const dirty = !readOnly && !scenario && (copiedFrom !== null || edited);
 
   // Decision 2: leaving with unsaved changes asks (the browser's own question).
   useEffect(() => {
@@ -376,6 +402,8 @@ export function PersonalFinancePage({
       if (!current) return current;
       const next = toggleSection(current, section);
       // Section toggles save at once (a view preference; #90 Q-D11).
+      // #221: in scenario mode a toggle is for this visit only (nothing written or sent).
+      if (scenario) return next;
       writeView(storage(), next);
       if (!blockedNow) void storage()?.save?.();
       return next;
@@ -402,13 +430,29 @@ export function PersonalFinancePage({
     update((e) => ({ ...e, [group]: e[group].map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
 
   return (
+    <PeriodChoice.Provider value={!!scenario}>
     <div className="pf">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 pt-10 pb-20 sm:px-8 lg:gap-16 lg:pt-14 lg:pb-24">
         <header className="relative">
           <p className="pf-label">01</p>
-          <h1 className="pf-title mt-2">Personal Finance.</h1>
+          <h1 className="pf-title mt-2">{scenario ? "Scenario." : "Personal Finance."}</h1>
+          {scenario ? (
+            <>
+              <p className="pf-charts-back mt-3">
+                <a href="/personal-finance" data-testid="pf-scenario-back">
+                  Personal Finance
+                </a>
+              </p>
+              <p className="pf-history-note mt-3" data-testid="pf-scenario-whatif">
+                {SCENARIO_WHAT_IF}
+              </p>
+              <p className="pf-history-note mt-1" data-testid="pf-scenario-basis">
+                {current ? scenarioBasis(copiedFrom, current, hasLines(readMonths(storage())[current])) : ""}
+              </p>
+            </>
+          ) : null}
           {/* #160 (spec 45, Q-AJ1): the Charts page, linked both ways. */}
-          <p className="pf-charts-back mt-3">
+          <p className="pf-charts-back mt-3" hidden={!!scenario}>
             <a href="/personal-finance/charts" data-testid="pf-charts-link">
               Charts
             </a>
@@ -425,7 +469,7 @@ export function PersonalFinancePage({
           <p className="pf-save" role="status" data-testid="pf-save">
             {saveFailed ? "Not saved." : ""}
           </p>
-          <MonthControl
+          {scenario ? null : <MonthControl
             now={now}
             month={month}
             onChoose={choose}
@@ -441,7 +485,7 @@ export function PersonalFinancePage({
                   ? copiedNote(monthName(copiedFrom))
                   : ""
             }
-          />
+          />}
         </header>
 
         <div
@@ -491,7 +535,8 @@ export function PersonalFinancePage({
                         <EquityRates rates={rates} update={updateRates} />
                       </Lock>
                       {/* #119 S7 (amended, EL 07:51): filters are view-only, so read-only grantees can use them. */}
-                      <CategoryFilter
+                      {/* #221: the scenario screen has no categories part (no filter). */}
+                      {scenario ? null : <CategoryFilter
                         readOnly={readOnly}
                         categories={expenses.categories}
                         value={expenses.categories.includes(filter) ? filter : ALL}
@@ -516,7 +561,7 @@ export function PersonalFinancePage({
                           if (kind === "category") setFilter(ALL);
                           else setAcctFilter(ALL);
                         }}
-                      />
+                      />}
                       <Lock on={readOnly}>
                         <div className="flex flex-col gap-12">
                           <Groups
@@ -547,6 +592,7 @@ export function PersonalFinancePage({
                 account={expenses.accounts.includes(acctFilter) ? acctFilter : ALL}
                 open={isOpen(view, "summary")}
                 onToggle={() => toggle("summary")}
+                categories={!scenario}
               />
               <OverviewBlock
                 overview={liveOverview ?? overview}
@@ -564,11 +610,27 @@ export function PersonalFinancePage({
                   income: monthly(netIncomeYearly(income.people, household.household)),
                 }}
               />
+              {scenario && current
+                ? scenario.render({
+                    overview: liveOverview ?? overview,
+                    now,
+                    current,
+                    copiedFrom,
+                    lines: figures,
+                    page: {
+                      expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
+                      income: monthly(netIncomeYearly(income.people, household.household)),
+                    },
+                    rate: rateUsed(rates),
+                    currency: household.household,
+                  })
+                : null}
             </>
           ) : null}
         </div>
       </main>
     </div>
+    </PeriodChoice.Provider>
   );
 }
 
@@ -1009,6 +1071,7 @@ function ExpensesSummary({
   account,
   open,
   onToggle,
+  categories = true,
 }: {
   expenses: Expenses;
   rate: number | null;
@@ -1017,6 +1080,8 @@ function ExpensesSummary({
   account: string;
   open: boolean;
   onToggle: () => void;
+  /** #221: false on the scenario screen (no `By category`). */
+  categories?: boolean;
 }) {
   const whole = grandTotals(expenses, rate, household).monthly;
   return (
@@ -1045,13 +1110,15 @@ function ExpensesSummary({
               selected={account}
               deleted={(expenses.deletedAccounts ?? []).map((d) => d.name)}
             />
-            <Subtotals
-              kind="category"
-              rows={categoryTotals(expenses, rate, household)}
-              whole={whole}
-              selected={category}
-              deleted={(expenses.deletedCategories ?? []).map((d) => d.name)}
-            />
+            {categories ? (
+              <Subtotals
+                kind="category"
+                rows={categoryTotals(expenses, rate, household)}
+                whole={whole}
+                selected={category}
+                deleted={(expenses.deletedCategories ?? []).map((d) => d.name)}
+              />
+            ) : null}
           </>
         ) : null}
       </div>
@@ -1179,6 +1246,7 @@ function LineRow({
   const selectRef = useRef<HTMLSelectElement>(null);
   const categoryRef = useRef<HTMLSelectElement>(null);
   const amountBad = parseAmount(line.amount) === null;
+  const scenarioScreen = useContext(PeriodChoice);
   const equityBad = parseAmount(line.equity) === null;
   const foreign = isForeign(line, household);
   const rateBad = foreign && parseRate(line.rate) === null;
@@ -1192,14 +1260,17 @@ function LineRow({
     ) : null;
   const amountField = (per: "month" | "year", column: string) => (
     <Cell label={column} area={per === "month" ? "monthly" : "yearly"} control>
-      <input
+      <PeriodInput
         value={fieldText(line, per)}
-        onChange={(event) => onChange({ amount: event.target.value, per })}
+        onValue={(text) => onChange({ amount: text, per })}
+        base={per}
+        period={false}
+        name={aria(column)}
         inputMode="decimal"
         autoComplete="off"
         aria-label={aria(column)}
         className="pf-field"
-        data-testid={per === "month" ? "pf-monthly" : "pf-yearly"}
+        testId={per === "month" ? "pf-monthly" : "pf-yearly"}
         {...check(amountBad && line.per === per, per)}
       />
       {error(amountBad && line.per === per, per)}
@@ -1274,19 +1345,25 @@ function LineRow({
         </Cell>
       )}
       <Cell label="Equity to cover" area="equity" control>
-        <input
+        <PeriodInput
           value={line.equity}
           placeholder={calculated === null ? NOT_COMPUTED : formatMoney(calculated)}
-          onChange={(event) => onChange({ equity: event.target.value })}
+          onValue={(text) => onChange({ equity: text })}
+          base="month"
+          period={false}
+          name={aria("Equity to cover")}
           inputMode="decimal"
           autoComplete="off"
           aria-label={aria("Equity to cover")}
           className="pf-field"
-          data-testid="pf-equity"
+          testId="pf-equity"
           {...check(equityBad, "equity")}
         />
         {error(equityBad, "equity")}
       </Cell>
+      {/* #221 AO1 (EL 2026-10-22): no Account or Category select on any expense line on the scenario screen. */}
+      {scenarioScreen ? null : (
+        <>
       <Cell label="Account" area="account" control>
         <select
           ref={selectRef}
@@ -1340,6 +1417,8 @@ function LineRow({
           ) : null}
         </select>
       </Cell>
+        </>
+      )}
       <button
         type="button"
         onClick={onRemove}

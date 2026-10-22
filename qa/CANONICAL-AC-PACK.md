@@ -1712,3 +1712,59 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFCC-10 | BLOCK | Read grant: `/series`, `/chart` and both exports 200, with the copy in their own record. |
 | PFCC-11 | BLOCK | No Personal Finance grant: `/series`, `/chart` and both exports 403; signed out 401. |
 | PFCC-12 | BLOCK | PFU-09 golden: the only change is the 2026-10 bar cell (1,000.00, was "-") and its data JSON hash. |
+
+## PFPJ — Scenario screen on the main page, projection math, Overview Future fix (#221, personal-finance-spec §57; added 2026-10-22; VERY HIGH, Diego / CFO)
+
+| ID | Level | Check |
+|---|---|---|
+| PFPJ-01 | BLOCK | CFO case A at 9 %/yr: start 10,000, +500 → 17,143.65 after 12 months (not 17,191.86, annual ÷ 12) (`scenario.test.ts`). |
+| PFPJ-02 | BLOCK | Case B: start 0, −1,460 → exactly −17,520 after 12 months, each month −1,460 × i (no growth). |
+| PFPJ-03 | BLOCK | Case C: start −2,000, +500 → 4,102.37 ±0.01 (exact 4,102.370180097717); 0 at month 4, 500 at month 5 (no growth on 0). |
+| PFPJ-04 | BLOCK | `monthlyRate(9)` ≈ 0.7207 %, not 0.09/12; `stepNet` grows only N > 0, then adds the surplus. |
+| PFPJ-05 | BLOCK | Month 0 = the start, plotted once, labelled `Now`; `horizon + 1` points; horizons 12 / 36 / 60 / 120; the path equals `projectNet`. |
+| PFPJ-06 | BLOCK | Totals: sums over the horizon; net end = the last point; growth earned = net end − start − surplus. |
+| PFPJ-07 | BLOCK | The baseline is the Overview's own current month (`summarize`, the unsaved copy of last month): income, expenses, net assets equal. |
+| PFPJ-08 | BLOCK | AN6 / AN8 / AN12: `parseNetAssets` accepts −, U+2212, +5, .5, 5., thousands commas; refuses 1e3, empty, `--5`; the main `parseAmount` is unchanged (−5 → null). |
+| PFPJ-09 | MAJOR | AN9: growth bound −50..+50 % a year. |
+| PFPJ-10 | MINOR | AN11: percents with thousands separators. |
+| PFPJ-20 | BLOCK | CFO Q-b: Overview Future: a negative balance with zero average surplus stays flat. |
+| PFPJ-21 | BLOCK | Overview Future: a negative balance crossing 0 follows `projectNet` (growth only once positive). |
+| PFPJ-22 | BLOCK | Overview Future: a positive balance still compounds at r_m. |
+| PFPJ-30 | BLOCK | AN1 / AN2: the page is the PF page in scenario mode: one load; `Scenario.`, the what-if note, `Based on last month (September 2026).`; Income, Expenses, summary, Overview; no category filter, no `By category`, no month control, no Save; prefilled lines (`scenario-page.dom.test.tsx`). |
+| PFPJ-31 | BLOCK | AN4 / AN14: 13 chart points at 12 months, 37 at 3 years; the Scenario column filled for net assets; Growth earned row. |
+| PFPJ-32 | BLOCK | Every edit (line amount, Overview growth, net assets, section toggles) recalculates live and makes **no request** (fetch spy empty; one load). |
+| PFPJ-33 | BLOCK | AN8 / AN12 / AN13: −1,500.50 (U+2212) accepted; Enter commits and formats; +5, .5, 5. accepted; 1e3 shows its own error. |
+| PFPJ-34 | MAJOR | AN6: 12,345.67 reads as the main page reads it. |
+| PFPJ-35 | MAJOR | AN9: growth 60 % → the scenario's own error. |
+| PFPJ-36 | BLOCK | Read: the same what-if screen with the read-only line; edits live; nothing sent. |
+| PFPJ-37 | MAJOR | AN10: no data → the empty note and `Nothing saved yet…`; load error → alert. |
+| PFPJ-40 | MAJOR | AN7: each scenario field shows its own message (net assets, growth); main-page fields keep theirs. |
+| PFPJ-41 | MAJOR | Sweep at 390 and 1440, owner and Read: no horizontal overflow, no clipped tick, no request after the load (F1–F5, spec 57.10). |
+| PFPJ-42 | BLOCK | No new route, no env / schema / dependency change; `/api/personal-finance` validation and the stored scenario (PFSC-12..16) unchanged. |
+| PFPJ-50 | BLOCK | Mutation: annual ÷ 12 fails PFPJ-01 / 04. |
+| PFPJ-51 | BLOCK | Mutation: no month 0 fails PFPJ-05 / 31. |
+| PFPJ-52 | BLOCK | Mutation: growth on a negative balance fails PFPJ-02 / 03 / 20 / 21. |
+| PFPJ-53 | BLOCK | Mutation: a scenario store with `save` (an edit or toggle sends a PUT) fails PFPJ-32 / 36. |
+| PFPJ-54 | BLOCK | Mutation: the Overview Future step without the positive-only rule fails PFPJ-20 / 21. |
+| PFPJ-55 | BLOCK | Mutation: `storedText` not converting (Yearly fed as monthly) fails PFPJ-61 / 66. |
+| PFPJ-60 | BLOCK | Monthly / Yearly (spec 57.13): the default is Monthly; seeded yearly wages 120,000 show 10,000.00 a month; income unchanged. |
+| PFPJ-61 | BLOCK | Yearly 6,000 feeds 500 a month (the same income as Monthly 500). |
+| PFPJ-62 | BLOCK | Switching keeps the meaning (1,000 a month ↔ 12,000.00 a year; Yearly 1,000 → 83.33 shown) and income, surplus and net do not change; nothing is sent. |
+| PFPJ-63 | MAJOR | Blank and invalid text stay as typed across a switch; invalid shows the field's own error. |
+| PFPJ-64 | MAJOR | The select is a native, labelled (`…: Monthly or Yearly`), focusable select with Monthly and Yearly. |
+| PFPJ-65 | BLOCK | `shownText`: converted and rounded to cents for display only; blank / invalid as is. |
+| PFPJ-66 | BLOCK | `storedText`: exact, unrounded conversion (1,000 a year → 1000 / 12); blank / invalid pass through. |
+| PFPJ-67 | MAJOR | At 390 and 1440 (owner and Read) the select and its amount fit the cell (no overflow, no clipping, 44 px), and ArrowDown on the focused select switches it. The main page shows no select and `Wages (yearly)`. |
+| PFPJ-56 | BLOCK | (2026-10-22, CFO on PR #224) Mutation: the select never shown (context ignored) fails PFPJ-60..64 / 68. |
+| PFPJ-57 | BLOCK | (2026-10-22) Mutation: a switch rewrites the stored value rounded to cents fails PFPJ-62 (10-year income 7,497.00 instead of 7,500.00). |
+| PFPJ-68 | BLOCK | (2026-10-22, spec 57.14) Every income flow line (Brazil family income, Solium withdrawals, Partner contribution) has its own labelled select, default Monthly (2,000.00 / 1,000.00 / 500.00); switching every line keeps income, surplus and net; Yearly 3,600 on one line feeds 300 a month; each line keeps its own choice; nothing is sent. |
+| PFPJ-69 | MAJOR | (2026-10-22) At 390 and 1440, owner and Read, with four income lines: every select is 44 px and inside the viewport; every amount is at least 60 px wide and not clipped; no horizontal overflow. |
+| PFPJ-70 | MINOR | (2026-10-22) CFO decisions recorded: Q-b, Q-PJ4–6, Q-PJ10–12 accepted; Q-PJ7 keep the save code; Q-PJ8 untouched (spec 57.14). |
+| PFPJ-71 | BLOCK | (2026-10-22, QA AO3, spec 57.15) `badComma` / `parseScenarioAmount` refuse `10,5`, `1.234,56`, `1,00`, `12,3456`, `,5`; `12,345.67`, `1,000`, `1,234,567` pass; the main `parseAmount` still reads `10,5` as 105. |
+| PFPJ-72 | BLOCK | (AO4) `parseGrowth` takes −50, U+2212 50, +50, −12.5; refuses `10,5` and `-`; bound −50..+50; the main `parseAmount("-50")` stays null. |
+| PFPJ-73 | BLOCK | (AO2) `xTickIndexes` starts at 0 (`Now`), at most 5 ticks, for 13 / 37 / 61 / 121 points; at 390 and 1440 for every horizon `Now` shows, with no overlap or clipping. |
+| PFPJ-74 | BLOCK | (AO1) No Account or Category select on any expense line on the scenario screen; the remove button stays. The main page keeps them. |
+| PFPJ-75 | BLOCK | (AO3) `10,5` and `1.234,56` on a line amount, wages, Equity to cover, Starting net assets and the scenario net assets: each shows its field error (aria-invalid), the text stays as typed, and it counts as blank; `10.5` clears it; nothing is sent. |
+| PFPJ-76 | BLOCK | (AO4) Growth −50 gives no field error and moves the 10-year path; −51 and `-` show the bound error; `10,5` shows the comma error. |
+| PFPJ-77 | MAJOR | (AO6) The read-only line sits in `<aside aria-label="Scenario access">`; no visible text is outside a landmark on the Read view at 390 / 1440. |
+| PFPJ-78 | BLOCK | Mutations: no AO1 guard fails PFPJ-74; ticks without index 0 fail PFPJ-73; no comma check fails PFPJ-71/72/75/76; unsigned growth fails the scenario DOM file; the landmark without its label fails PFPJ-77. |
