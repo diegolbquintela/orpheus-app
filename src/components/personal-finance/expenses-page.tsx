@@ -416,6 +416,10 @@ export function PersonalFinancePage({
             <a href="/personal-finance/history" className="ml-6" data-testid="pf-history-link">
               History
             </a>
+            {/* #215 (spec 55, PFSC-01): the what-if scenario screen. */}
+            <a href="/personal-finance/scenario" className="ml-6" data-testid="pf-scenario-link">
+              Scenario
+            </a>
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           <p className="pf-save" role="status" data-testid="pf-save">

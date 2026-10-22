@@ -4,6 +4,7 @@ import { LEGACY_EXPENSES_KEY, migrateExpenses, STORAGE_KEY } from "./expenses.ts
 import { INCOME_KEY } from "./income.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
+import { SCENARIO_KEY } from "./scenario-key.ts";
 import { VIEW_KEY } from "./view.ts";
 
 /**
@@ -21,6 +22,8 @@ export const RECORD_NAMES = [
   OVERVIEW_KEY,
   VIEW_KEY,
   MONTHS_KEY,
+  // #215 (spec 55, Q-SC1): the saved scenario levers (written only by `Save scenario`).
+  SCENARIO_KEY,
 ] as const;
 /** This browser's old (#84–#94) `localStorage` keys, imported once into an empty account. */
 export const LEGACY_LOCAL_KEYS = [

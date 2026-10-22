@@ -1901,3 +1901,90 @@ The test strings, with code points above U+007E listed:
 - Q-VW1 (BUILT, recommend accept): Read users' toggles are per visit only and are no longer stored. Alternative: keep Q-D11 with a narrower view-only grant (needs a ticket).
 - Q-VW2 (NOT BUILT, recommend leave): clearing views stored for Read users before #197. They are harmless and theirs only; clearing would be a DB write.
 - Q-VW3 (NOT BUILT, recommend leave): `VIEW_API` stays exported in `account-client.ts` although the client no longer calls it; removing it is cleanup.
+
+## 55. Personal Finance: destination analysis / scenario screen (#215, MEDIUM, CFO; added 2026-10-22; built in the same PR)
+
+(Section number 55: §53 is History (#214) and §54 is the view write guard (#197), both on main; open PRs #205 and #206 hold 51 and 52; #117 and #107 add no Personal Finance section.)
+
+55.0 **Brief (the issue comment approved by Diego, 2026-10-21, supersedes the original).**
+- A destination-analysis mode opened from the main Personal Finance screen.
+- Levers move income up or down, expense categories up or down, Rate used, and other key inputs.
+- Every figure is recalculated at once.
+- Charts show the projected path for the next 12 months by default; the horizon can switch to 3, 5 or 10 years.
+- A totals table on the same screen shows aggregates and net income, in the style of the main page totals.
+- It is a what-if layer only. Saved month data is never overwritten unless the person explicitly saves the scenario.
+- It uses the existing dark site style (lyre, Orpheus Wisdom footer, no gold) and works at 390 and 1440 px.
+
+55.1 **Route and gate (built).**
+- `/personal-finance/scenario` has the same gate as `/personal-finance`:
+  - signed out → 307 to `/dashboard/sign-in?next=/personal-finance/scenario` (added to the `?next` allow-list);
+  - a temporary password → `/account`;
+  - no Personal Finance grant → the 403 denied page.
+- Read users see the screen and can move the levers. They get no `Save scenario` button and a note says saving needs Read and write.
+- The page is linked as `Scenario` beside `Charts` and `History` on the main page, and links back to it.
+
+55.2 **Baseline: today's figures (built; `baselineOf`, read-only).**
+- Lines come from the latest month with lines, up to the current household month.
+- **Income:** each counted, non-zero income line (the person's Wages and Bonus, after tax, × share, in the household currency) as a monthly figure.
+- **Expenses:** grouped by category across Fixed and Variable, in the household currency. Lines without a category form one `No category` lever.
+- **Rate used:** the #138 value.
+- **Growth rate:** the Overview's growth, else 0.
+- **Net assets now:** the Charts series value at the end of the current month, else Starting net assets as typed, else 0.
+
+55.3 **Projection (built; `project`, pure).**
+- The path runs from the month after the current one, for `horizon` months.
+- Monthly income = Σ line × (1 + change ÷ 100). Monthly expenses = Σ category × (1 + change ÷ 100). Surplus = income − expenses.
+- Net assets: each month, net × (1 + growth ÷ 100)^(1/12) + surplus. This is the Overview's Future rule (PF-84).
+- Equity coverage at the horizon end uses the #126 rule: net × Rate used ÷ 12, and as a % of monthly expenses. With no rate, net assets ≤ 0, or zero expenses for the %, it shows `—`.
+- **Horizons:** 12 months (the default), 3 years, 5 years and 10 years.
+
+55.4 **Levers (built).**
+- A % change per income line and per expense category, each from −100 to 1000.
+- Rate used (%), from 0 to 100, replacing today's value.
+- Growth rate (% a year), from −100 to 1000.
+- Net assets now, replacing today's value.
+- A blank lever means today's value.
+- An invalid lever is shown in red, moves nothing and blocks Save (never clamped).
+- `Reset levers` clears the levers on the page only.
+
+55.5 **Screen (built).**
+1. The header: a what-if note and the basis month.
+2. Levers.
+3. Projected path: the horizon toggles and a line chart of income, expenses and net assets (the Overview chart style).
+4. Totals: Net income, Expenses, Surplus, Net assets, and Equity coverage (monthly and %). The columns are `Today, a month`, `Scenario, a month` and `Over <horizon>`. At 390 px the table scrolls sideways inside its own box.
+
+55.6 **Saving (built; the only write).**
+- `Save scenario` is shown only with a write grant. It is enabled only when the levers differ from the saved ones and none is in error.
+- It does a fresh `GET /api/personal-finance`, then one `PUT` of that fresh record with **only** `orpheus.finance.scenario.v1` replaced.
+- The stored value is the compact levers JSON: `{ income, expenses, rate, growth, start }`.
+- The server needs a write grant (Read → 403, no grant → 403, signed out → 401; nothing is written). It refuses an unreadable or out-of-bounds value with 400 `{ field: "scenario" }`.
+- A lever move, a horizon change, Reset and opening the page never send a request beyond the one GET.
+- On open, a saved scenario fills the levers.
+
+55.7 **Storage, and why no schema change (Q-SC1).** The record is the `personal_finance.data` JSONB object of named JSON strings (#102). The server allows only the names in `RECORD_NAMES`. This PR adds one name, `orpheus.finance.scenario.v1`, to that list. There is no new table, column, migration, environment variable or provider.
+
+55.8 **Questions for the CFO.**
+- **Q-SC1 (BUILT, recommend accept):** the scenario is stored in the existing record under a new name, not in a new table. One saved scenario per account record.
+- **Q-SC2 (BUILT, recommend accept):** expense levers are per category, with Fixed and Variable together and lines without a category as one lever. Alternative: per line, or per Fixed / Variable group.
+- **Q-SC3 (BUILT, recommend accept):** a lever is a flat % change from today's lines, the same every month of the horizon. There is no yearly raise or inflation escalation; growth applies to net assets only. Alternative: a yearly escalation lever for income and expenses (a ticket).
+- **Q-SC4 (BUILT, recommend accept):** the horizon is a view choice and is not saved. The path starts next month.
+- **Q-SC5 (BUILT, recommend accept):** Save re-reads the record just before writing and replaces only the scenario value, so edits made on the main page since this screen opened are kept. Two saves at the same instant are still last-write-wins, as on the main page.
+- **Q-SC6 (BUILT, recommend accept):** `Net income` is the counted after-tax income (the main page's Net income). `Surplus` is shown separately.
+- **Q-SC7 (BUILT, recommend accept):** at 390 px the four-column totals table scrolls sideways in its own box, as on History, rather than wrapping numbers.
+- **Q-SC8 (BUILT, recommend accept):** the saved scenario is on the owner's record, so a Read-and-write CFO's save is the same scenario the owner sees. Separate per-person scenarios would need per-person storage (a ticket).
+- **Q-SC9 (NOT BUILT, recommend a ticket if wanted):** named or multiple scenarios, one-off events (a lump sum, or a new line from month X), and tax % or FX levers.
+
+55.9 **README.** It gets one dated line, like #214, because this is a new page a person can open.
+
+55.10 **CFO answers (added 2026-10-22).**
+- Q-SC1, Q-SC2 and Q-SC4 to Q-SC8 are accepted as built.
+- Q-SC9 is not built. It becomes a separate ticket only if Diego says yes.
+- **Q-SC3 is changed.** Growth applies to net assets only while the balance is positive; this is built in the same PR.
+
+55.11 **Growth on a positive balance only (CFO change on Q-SC3, added 2026-10-22; built).** This replaces the net-assets line of 55.3. The projection still runs month by month.
+- **Order:** growth applies to the month's **opening** balance, then that month's surplus or deficit is added.
+- If the opening balance is **above 0**: closing = opening × (1 + growth ÷ 100)^(1/12) + surplus.
+- If the opening balance is **at or below 0**: that month's growth is 0 %, so closing = opening + surplus. This holds for a negative growth rate as well.
+- Growth resumes in the first month whose opening balance is above 0, which is the month after the balance crosses above 0.
+- An opening balance of exactly 0 gets no growth. 0 × the growth factor is 0 anyway, so this is the same either way.
+- Today's positive-balance projections are unchanged (PFSC-07). Totals and coverage use the same path. AC PFSC-31..33.

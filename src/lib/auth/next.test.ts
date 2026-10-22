@@ -13,6 +13,11 @@ describe("sign-in ?next allowlist (#102 D1)", () => {
     for (const v of ["/personal-finance/history/", "/personal-finance/History", "/personal-finance/history?year=2025", "/personal-finance/history#a", "//personal-finance/history", "https://evil.example/personal-finance/history"])
       assert.equal(safeNext(v), "/dashboard");
   });
+  it("#215 PFSC-02: keeps the exact path /personal-finance/scenario; near-misses → /dashboard", () => {
+    assert.equal(safeNext("/personal-finance/scenario"), "/personal-finance/scenario");
+    for (const v of ["/personal-finance/scenario/", "/personal-finance/Scenario", "/personal-finance/scenario?h=12", "//personal-finance/scenario", "https://evil.example/personal-finance/scenario"])
+      assert.equal(safeNext(v), "/dashboard");
+  });
   it("#160 PFCL-01: keeps the exact path /personal-finance/charts; near-misses → /dashboard", () => {
     assert.equal(safeNext("/personal-finance/charts"), "/personal-finance/charts");
     for (const v of ["/personal-finance/charts/", "/personal-finance/Charts", "/personal-finance/charts?x=1", "//personal-finance/charts", "https://evil.example/personal-finance/charts", "/personal-finance/charts#a"])

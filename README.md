@@ -700,3 +700,5 @@ Added 2026-10-20 (#168, Phase 1, nothing built): spec section 48 (turn on the ca
 Added 2026-10-20 (#166, Phase 1, nothing built): spec section 49 (Overview `This month` counts the current month's unsaved copy whenever it has no stored lines; Q-AN1..Q-AN7), AC PFTM-01..PFTM-14.
 
 Added 2026-10-21 (#214, CFO): `/personal-finance/history` is a read-only History table. Pick a year, then see that year's stored months in a grid: income lines, expense lines, totals, net assets and Equity coverage. It is linked beside `Charts`. Spec section 53, AC PFHT-01..20.
+
+Added 2026-10-22 (#215, CFO): `/personal-finance/scenario` is a what-if Scenario screen. Move income, expense-category, Rate used, growth and net-assets levers and every figure is recalculated at once. A chart shows 12 months (or 3, 5 or 10 years), with a totals table including Net income. Nothing is saved except by `Save scenario`, which needs Read and write. It is linked beside `History`. Spec section 55, AC PFSC-01..30.

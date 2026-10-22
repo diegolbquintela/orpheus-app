@@ -5,6 +5,7 @@ import { type Income, parsePercent, type Person, personCurrency, readIncome } fr
 import { readMonths } from "./months.ts";
 import { type Overview, readOverview } from "./overview.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
+import { scenarioValueOk } from "./scenario-key.ts";
 import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST, rangeError } from "./report.ts";
 
 /**
@@ -120,5 +121,7 @@ export function recordFieldError(record: PfRecord, current?: string): string | n
       ...peopleErrors(m.people, household, o).map((p) => `months.${key}.${p}`),
     );
   }
+  // #215 (spec 55, PFSC): a saved scenario must be a readable set of levers in bounds; refused, never clamped.
+  if (!scenarioValueOk(record)) errors.push("scenario");
   return errors[0] ?? null;
 }
