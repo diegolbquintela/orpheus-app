@@ -111,4 +111,22 @@ describe("#231 PFPV Planned vs actual (month view)", () => {
     assert.equal(q(el, "pf-plan"), null);
     assert.deepEqual(Object.keys(plans()), ["2026-10"]);
   });
+  it("PFPV-31: an unsaved current month (no actuals) shows planned only: no difference, %, or direction (AX3)", async () => {
+    // September is saved (the page copies it into October, unsaved); October has a plan but no saved lines.
+    seed({ "2026-09": ml("900", "50,000") }, OCT_PLAN);
+    const el = await render();
+    assert.ok(q(el, "pf-plan"), "the plan still shows");
+    assert.match(q(el, "pf-plan-noactuals")!.textContent!, /^No actuals yet/);
+    const text = q(el, "pf-plan")!.querySelector("tbody")!.textContent!;
+    assert.doesNotMatch(text, /better than plan|worse than plan|as planned|Over plan|Under plan|On plan|\d%/);
+    for (const id of ["pf-plan-expenses", "pf-plan-income", "pf-plan-surplus"]) {
+      const cells = [...q(el, id)!.querySelectorAll("td")].map((c) => c.textContent);
+      assert.equal(cells[1], "—", `${id} actual`);
+      assert.equal(cells[2], "—", `${id} difference`);
+      assert.equal(cells[3], "—", `${id} %`);
+      assert.equal(cells[4], "No actuals yet", `${id} direction`);
+      assert.equal(q(el, id)!.getAttribute("data-tone"), "");
+    }
+    assert.notEqual([...q(el, "pf-plan-expenses")!.querySelectorAll("td")][0].textContent, "—", "planned still shown");
+  });
 });

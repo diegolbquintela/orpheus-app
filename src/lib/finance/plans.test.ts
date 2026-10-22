@@ -142,3 +142,25 @@ describe("#231 PV1 no plan from invalid month lines (spec 65.7)", () => {
     assert.equal(bad.getItem(PLANS_KEY), null);
   });
 });
+
+describe("#231 AX3 no actuals yet (spec 65.8)", () => {
+  it("PFPV-31: no saved lines for the month (absent, or saved empty) = no actuals: planned only, nothing compared", () => {
+    for (const months of [{}, { "2026-10": { fixed: [], variable: [], people: [] } }]) {
+      const s = new RecordStore({ [MONTHS_KEY]: J(months), [PLANS_KEY]: J({ "2026-10": plan("1,000") }) });
+      const c = planFor(s, "2026-10", "2026-10")!.comparison;
+      assert.equal(c.noActuals, true);
+      for (const v of [c.expenses, c.income, c.surplus, ...c.lines]) {
+        assert.equal(v.actual, null);
+        assert.equal(v.diff, null);
+        assert.equal(v.pct, null);
+        assert.equal(v.tone, null);
+        assert.equal(v.label, "—");
+      }
+      assert.equal(c.expenses.planned, 1000);
+      assert.deepEqual(c.lines.map((l) => l.name), ["Rent", "Me · Wages"]);
+    }
+    // one saved line is enough to compare
+    const s = new RecordStore({ [MONTHS_KEY]: J({ "2026-10": ml("1,100") }), [PLANS_KEY]: J({ "2026-10": plan("1,000") }) });
+    assert.equal(planFor(s, "2026-10", "2026-10")!.comparison.noActuals, undefined);
+  });
+});

@@ -1,6 +1,6 @@
 import { formatMoney } from "@/lib/finance/money";
 import { monthName, type MonthKey } from "@/lib/finance/overview";
-import { type Comparison, formatCaptured, PLAN_TITLE, planNote, TONE_TEXT, type Variance } from "@/lib/finance/plans";
+import { type Comparison, formatCaptured, NO_ACTUALS, PLAN_TITLE, planNote, TONE_TEXT, type Variance } from "@/lib/finance/plans";
 
 /**
  * #231 (spec 65.4, AC PFPV-12..17; CFO Q2..Q4): the month view's read-only Planned vs actual table, for a current or
@@ -9,9 +9,9 @@ import { type Comparison, formatCaptured, PLAN_TITLE, planNote, TONE_TEXT, type 
 const money = (v: number | null): string => (v === null ? "—" : formatMoney(v));
 const signed = (v: number | null): string => (v === null ? "—" : v > 0 ? `+${formatMoney(v)}` : formatMoney(v));
 const pct = (v: number | null): string => (v === null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
-const direction = (v: Variance): string => (v.tone ? `${v.label} · ${TONE_TEXT[v.tone]}` : "—");
+const direction = (v: Variance, none = false): string => (none ? NO_ACTUALS : v.tone ? `${v.label} · ${TONE_TEXT[v.tone]}` : "—");
 
-function Row({ name, v, testId }: { name: string; v: Variance; testId: string }) {
+function Row({ name, v, testId, none = false }: { name: string; v: Variance; testId: string; none?: boolean }) {
   return (
     <tr data-testid={testId} data-tone={v.tone ?? ""}>
       <th scope="row">{name}</th>
@@ -19,7 +19,7 @@ function Row({ name, v, testId }: { name: string; v: Variance; testId: string })
       <td>{money(v.actual)}</td>
       <td>{signed(v.diff)}</td>
       <td>{pct(v.pct)}</td>
-      <td>{direction(v)}</td>
+      <td>{direction(v, none)}</td>
     </tr>
   );
 }
@@ -31,6 +31,9 @@ export function PlanVsActual({ month, capturedAt, comparison }: { month: MonthKe
     <section className="pf-plan mt-6" data-testid="pf-plan" aria-label={PLAN_TITLE}>
       <h2 className="pf-label">{PLAN_TITLE}</h2>
       <p className="pf-history-note mt-1" data-testid="pf-plan-note">{planNote(when)}</p>
+      {comparison.noActuals ? (
+        <p className="pf-history-note mt-1" data-testid="pf-plan-noactuals">{NO_ACTUALS}: nothing is saved for this month, so there is no result to compare.</p>
+      ) : null}
       <table className="pf-table mt-2">
         <thead>
           <tr>
@@ -43,11 +46,11 @@ export function PlanVsActual({ month, capturedAt, comparison }: { month: MonthKe
           </tr>
         </thead>
         <tbody>
-          <Row name="Expenses" v={comparison.expenses} testId="pf-plan-expenses" />
-          <Row name="Income" v={comparison.income} testId="pf-plan-income" />
-          <Row name="Surplus" v={comparison.surplus} testId="pf-plan-surplus" />
+          <Row name="Expenses" v={comparison.expenses} testId="pf-plan-expenses"  none={!!comparison.noActuals} />
+          <Row name="Income" v={comparison.income} testId="pf-plan-income"  none={!!comparison.noActuals} />
+          <Row name="Surplus" v={comparison.surplus} testId="pf-plan-surplus"  none={!!comparison.noActuals} />
           {comparison.lines.map((l) => (
-            <Row key={`${l.kind}-${l.id}`} name={`${l.kind === "expenses" ? "Expense" : "Income"} · ${l.name}`} v={l} testId="pf-plan-line" />
+            <Row key={`${l.kind}-${l.id}`} name={`${l.kind === "expenses" ? "Expense" : "Income"} · ${l.name}`} v={l} testId="pf-plan-line"  none={!!comparison.noActuals} />
           ))}
         </tbody>
       </table>

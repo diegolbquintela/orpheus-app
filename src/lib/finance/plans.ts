@@ -84,7 +84,11 @@ export type Variance = {
   tone: Tone | null;
 };
 export type VarianceLine = Variance & { kind: "expenses" | "income"; id: string; name: string };
-export type Comparison = { expenses: Variance; income: Variance; surplus: Variance; lines: VarianceLine[] };
+/** `noActuals` (#231 AX3, spec 65.8): the month has no saved lines yet, so nothing is compared. */
+export type Comparison = { expenses: Variance; income: Variance; surplus: Variance; lines: VarianceLine[]; noActuals?: boolean };
+/** #231 AX3 (spec 65.8, PFPV-31): shown in the Direction column when the month has no actuals yet. */
+export const NO_ACTUALS = "No actuals yet";
+const pending = <V extends Variance>(v: V): V => ({ ...v, actual: null, diff: null, pct: null, label: "—", tone: null });
 
 export const PLAN_TITLE = "Planned vs actual";
 export const planNote = (planned: string): string =>
@@ -161,6 +165,14 @@ export function planFor(storage: StorageLike | null, month: MonthKey, current: M
   if (isFuture(month, current)) return null;
   const plan = readPlans(storage)[month];
   if (!plan) return null;
-  const actual = readMonths(storage)[month] ?? { fixed: [], variable: [], people: [] };
-  return { plan, comparison: comparePlan(plan.lines, actual, readHousehold(storage).household) };
+  const saved = readMonths(storage)[month];
+  const household = readHousehold(storage).household;
+  // #231 AX3 (spec 65.8): "no actuals" = no saved lines for this month in months.v1 (absent, or saved with no line and
+  // no person). Planned figures still show; actual, difference, % and direction are "—" (no result is implied).
+  if (!saved || !hasLines(saved)) {
+    const c = comparePlan(plan.lines, { fixed: [], variable: [], people: [] }, household);
+    return { plan, comparison: { expenses: pending(c.expenses), income: pending(c.income), surplus: pending(c.surplus), lines: c.lines.filter((l) => l.planned !== 0).map(pending), noActuals: true } };
+  }
+  const actual = saved;
+  return { plan, comparison: comparePlan(plan.lines, actual, household) };
 }
