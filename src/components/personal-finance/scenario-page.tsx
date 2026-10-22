@@ -54,8 +54,14 @@ import {
   keptValues,
   NAME_LABEL,
   nameError,
+  renameError,
   newId,
   removeSaved,
+  RENAME,
+  renameSaved,
+  UPDATE,
+  updateSaved,
+  updateScenarioQuestion,
   reopenRecord,
   SAVE_FAILED,
   SAVE_SCENARIO,
@@ -480,6 +486,7 @@ function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number 
  * #223 (spec 60, AC PFSS): named scenarios. Save (writers) keeps what the screen shows under a name; Open reopens one
  * (anyone who can see the screen); Delete (writers) asks first; Compare puts up to `COMPARE_MAX` saved scenarios beside
  * the screen as it is now. Only Save and Delete send anything, and only the scenario value changes.
+ * #233 (spec 66): Rename and Update (after a confirm) also write, the same way; nothing else does.
  */
 function SavedScenarios({
   named,
@@ -501,6 +508,59 @@ function SavedScenarios({
   const [status, setStatus] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const { list, write, opened } = named;
+  // #233 (spec 66, AC PFSR): the scenario being renamed (inline field) and its draft name; local only, nothing sent.
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [renameErr, setRenameErr] = useState<string | null>(null);
+
+  const snapshot = (): Omit<SavedEntry, "id" | "name"> => {
+    const v = live.values();
+    return {
+      savedAt: new Date().toISOString(),
+      basis: live.current,
+      inputs: { start: inputs.start, income: inputs.income, expenses: inputs.expenses, growth: inputs.growth, rate: inputs.rate },
+      values: keptValues(v.record),
+      lines: JSON.stringify(v.lines),
+    };
+  };
+  const reopenIf = (id: string, r: ChangeResult) => {
+    if (!r.ok || opened?.id !== id) return;
+    const e = (readScenario(r.record)?.saved ?? []).find((x) => x.id === id);
+    if (e) named.open(e);
+  };
+
+  async function rename(e: SavedEntry) {
+    const err = renameError(draft, list, e.id);
+    if (err) {
+      setRenameErr(err);
+      return;
+    }
+    setRenameErr(null);
+    setBusy(true);
+    const r = await named.change((s) => renameSaved(s, e.id, draft));
+    setBusy(false);
+    if (r.ok) {
+      setRenaming(null);
+      setStatus(`Renamed "${e.name}" to "${draft.trim()}".`);
+      reopenIf(e.id, r);
+    } else setRenameErr("error" in r ? r.error : SAVE_FAILED);
+  }
+
+  async function update(e: SavedEntry) {
+    if (blocked) {
+      setStatus("Fix the fields in error first.");
+      return;
+    }
+    if (!window.confirm(updateScenarioQuestion(e.name))) return;
+    setBusy(true);
+    const next = snapshot();
+    const r = await named.change((s) => updateSaved(s, e.id, next));
+    setBusy(false);
+    if (r.ok) {
+      setStatus(`Updated "${e.name}".`);
+      reopenIf(e.id, r);
+    } else setStatus("error" in r ? r.error : SAVE_FAILED);
+  }
 
   async function save() {
     const err = blocked ? "Fix the fields in error first." : nameError(name, list);
@@ -619,6 +679,52 @@ function SavedScenarios({
                   />
                   {`Compare ${e.name}`}
                 </label>
+                {write && renaming !== e.id ? (
+                  <button
+                    type="button"
+                    className="pf-button"
+                    onClick={() => {
+                      setRenaming(e.id);
+                      setDraft(e.name);
+                      setRenameErr(null);
+                    }}
+                    disabled={busy}
+                    aria-label={`${RENAME} ${e.name}`}
+                    data-testid="pf-saved-rename"
+                  >
+                    {RENAME}
+                  </button>
+                ) : null}
+                {write && renaming === e.id ? (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <input
+                      className="pf-field"
+                      value={draft}
+                      maxLength={80}
+                      aria-label={`New name for ${e.name}`}
+                      onChange={(ev) => setDraft(ev.target.value)}
+                      aria-invalid={renameErr ? true : undefined}
+                      aria-describedby={renameErr ? `${uid}-rename-error` : undefined}
+                      data-testid="pf-saved-rename-name"
+                    />
+                    <button type="button" className="pf-button" onClick={() => void rename(e)} disabled={busy} data-testid="pf-saved-rename-save">
+                      Save name
+                    </button>
+                    <button type="button" className="pf-button" onClick={() => setRenaming(null)} data-testid="pf-saved-rename-cancel">
+                      Cancel
+                    </button>
+                    {renameErr ? (
+                      <span id={`${uid}-rename-error`} className="pf-error" data-testid="pf-saved-rename-error">
+                        {renameErr}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
+                {write ? (
+                  <button type="button" className="pf-button" onClick={() => void update(e)} disabled={busy} aria-label={`${UPDATE} ${e.name}`} data-testid="pf-saved-update">
+                    {UPDATE}
+                  </button>
+                ) : null}
                 {write ? (
                   <button type="button" className="pf-button" onClick={() => void remove(e)} disabled={busy} aria-label={`Delete ${e.name}`} data-testid="pf-saved-delete">
                     Delete
