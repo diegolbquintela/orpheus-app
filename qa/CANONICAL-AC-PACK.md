@@ -1643,3 +1643,38 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFVW-08 | BLOCK | Mutation: with `need: "read"` restored, ROLE-10, PFVW-03 and PFVW-05 fail. PFVW-04 (no grant) still passes, because `need: "read"` already refused it before #197; it guards against the gate being loosened further. |
 | PFVW-09 | BLOCK | Gates green under TZ=UTC and TZ=America/Los_Angeles: npm ci, tsc, eslint (3 baseline warnings), npm test, `npx vite build`, `check:dashboard-built`. |
 | PFVW-10 | MAJOR | Preview deploys; a same-length build compare against main shows only the expected chunks changed. |
+
+## PFSC — Personal Finance destination analysis / scenario screen (#215, personal-finance-spec §55; added 2026-10-22; CFO)
+
+| ID | Severity | Check |
+|---|---|---|
+| PFSC-01 | MAJOR | The Personal Finance page shows a `Scenario` link (`pf-scenario-link`) beside `History`, to `/personal-finance/scenario`. The page links back (`pf-scenario-back`). |
+| PFSC-02 | BLOCK | Signed out: `GET /personal-finance/scenario` → 307 to `/dashboard/sign-in?next=/personal-finance/scenario`, noindex. `safeNext` keeps that exact path; near-misses → `/dashboard` (`next.test.ts`). |
+| PFSC-03 | BLOCK | No Personal Finance grant → the 403 denied page; Read and Read-and-write see the screen. |
+| PFSC-04 | BLOCK | Baseline: the latest month with lines up to this month; income lines (after tax, monthly), expenses by category (both groups; `No category`), Rate used, growth, net assets now (`scenario.test.ts`). |
+| PFSC-05 | BLOCK | No levers: today's surplus every month; net assets add it month by month. |
+| PFSC-06 | BLOCK | Income and category levers are % changes of today's lines; −100 % removes a line; an unknown id moves nothing. |
+| PFSC-07 | MAJOR | Growth compounds monthly at (1 + g)^(1/12) before the surplus (the Overview Future rule). |
+| PFSC-08 | MAJOR | Rate used, growth and net-assets levers replace today's values; coverage is at the horizon end; no rate, net assets ≤ 0 or zero expenses → `—` (never a division by zero). |
+| PFSC-09 | BLOCK | Horizons are 12 months (the default), 3, 5 and 10 years; the points and totals follow the horizon. |
+| PFSC-10 | MAJOR | `project` is pure: neither the baseline nor the levers change. |
+| PFSC-11 | MAJOR | A typed lever is a number within bounds, or else it is an error. |
+| PFSC-12 | BLOCK | The stored value is the compact levers only; every other record value is byte-identical; an invalid value is refused with `{ field: "scenario" }`. |
+| PFSC-13 | BLOCK | The owner's save → 200; the value is stored and read back (`scenario.server.test.ts`). |
+| PFSC-14 | BLOCK | A Read-and-write user's save → 200, on the owner's record. |
+| PFSC-15 | BLOCK | Read → 403, no grant → 403, signed out → 401; nothing is written; Read still GETs the saved scenario with `write: false`. |
+| PFSC-16 | BLOCK | An invalid scenario value → 400 `{ error: "Invalid value.", field: "scenario" }`; nothing is stored. |
+| PFSC-17 | BLOCK | The page: one load, the what-if note, a lever per income line and category, a totals table with `Net income`, and a chart of 12 months by default (`scenario-page.dom.test.tsx`). |
+| PFSC-18 | BLOCK | A lever recalculates the table and chart at once, with no request; 3 / 5 / 10 years switch the chart months and the `Over …` column. |
+| PFSC-19 | MAJOR | An invalid lever is shown in red (`aria-invalid`), moves nothing and disables Save. |
+| PFSC-20 | BLOCK | `Save scenario` sends the levers once, only on the click; `Scenario saved.` on success, `Not saved.` on failure. |
+| PFSC-21 | BLOCK | Read: no Save button, the read-only note, the levers still work, nothing is sent. |
+| PFSC-22 | MAJOR | A saved scenario fills the levers on open; `Reset levers` clears them without saving (`Unsaved changes`). |
+| PFSC-23 | MAJOR | A load error → alert; 401 → sign-in; no month with lines → a note. |
+| PFSC-24 | BLOCK | 390 × 844: no page overflow; the totals table scrolls in its own focusable box; controls ≥ 44 px. |
+| PFSC-25 | BLOCK | 1440 × 900: levers in three columns, the chart full width, the totals table, no overflow. |
+| PFSC-26 | MAJOR | Style: the dark shell, the lyre in the menu, the `Orpheus Wisdom` footer, no gold, no tabular-nums (ST6-07). |
+| PFSC-27 | BLOCK | Mutation: with the save guard or the projection broken, the PFSC tests fail (recorded in the PR proof). |
+| PFSC-28 | BLOCK | Gates green under TZ=UTC and TZ=America/Los_Angeles: npm ci, tsc, eslint (3 baseline warnings), npm test, `npx vite build`, `check:dashboard-built`. |
+| PFSC-29 | MAJOR | Same-length build compare against main: only the expected chunks change. |
+| PFSC-30 | BLOCK | QA PASS on the preview, mobile and desktop: Read and Read-and-write accounts, a save, then a reload shows the saved levers; the main page's months are unchanged. |
