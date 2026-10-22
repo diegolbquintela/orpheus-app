@@ -2228,3 +2228,34 @@ Dated note 2026-10-22 (#229): main PF page only. The scenario screen, the PJ7 `s
 
 ### 59.7 Roles
 - Read users (CFO grant, #197) can open future months (copy shown read-only, as decision 5) but get no Save and no Reset; the API refuses their PUT (write needed, unchanged). No grant: the page and API give 403 (unchanged).
+
+## 60. Personal Finance: saved scenarios (save, reopen, compare, delete) (#223, HIGH, Diego / CFO; added 2026-10-22; built in the same PR)
+
+Dated note 2026-10-22 (#223): scenario screen only. It replaces the named-scenario part of SC9 (#215); SC9's one-off events and BRL debt stay unfiled and untouched. Not touched: AN8, #225/#226/#228/#231, the main page. No new table, migration, env or dependency.
+
+### 60.1 Storage (sandbox)
+- Saved scenarios live in the existing record value `orpheus.finance.scenario.v1` as an optional `saved` list (PJ7 value extended, same key). A levers-only value is stored byte-for-byte as before.
+- Each entry has `id`, `name`, `savedAt`, `basis` (the latest month it was seeded from), `inputs` (net assets now, income, expenses, growth, rate, as used by the projection), `values` (the screen's page value texts: expenses, income, rates, household, Overview) and `lines` (the shown month's lines).
+- Server check: the whole scenario value must read (`asScenario` → `asSaved`), otherwise 400 `{ field: "scenario" }`, never clamped.
+- Writes: only `Save scenario` and `Delete`. Each does a fresh GET, then ONE PUT of that fresh record with ONLY the scenario value replaced. No other record value can change, so saved scenarios never touch the main PF data (proved by tests PFSS-40). Nothing else on the screen sends anything (#221/#222 unchanged).
+
+### 60.2 Save
+- Writers only. The `Scenario name` field and the `Save scenario` button. It saves what the screen shows now. If a field (net assets, growth) is in error, it says `Fix the fields in error first.` and sends nothing.
+
+### 60.3 Reopen
+- `Open` on a saved scenario rebuilds the screen in memory from the record already loaded, with the saved values over it. No GET, no write. `Back to the latest month` returns to the seeded screen. Edits after reopening are what-ifs as usual (sending nothing) until saved under a new name.
+
+### 60.4 Compare
+- A `Compare <name>` checkbox on each saved scenario, up to 3. The Compare table shows `This screen` plus the picked scenarios, at the horizon chosen above: net income, expenses and surplus a month, net assets now, net assets after the horizon, and growth earned. Below it, a chart with one net-assets line per column. Saved scenarios are compared on their saved inputs.
+
+### 60.5 Delete
+- Writers only. `Delete the scenario "<name>"? This cannot be undone.` Cancel does nothing. OK removes only that entry (one PUT, scenario value only). Deleting the reopened scenario returns to the latest month.
+
+### 60.6 CFO Q-items
+- **Q-SS1 Compare UX (built, recommend accept):** up to 3 saved scenarios beside the screen; the figures as in 60.4; one net-assets chart. Alternative: overlaid income/expenses lines (not built).
+- **Q-SS2 Naming (built, recommend accept):** trimmed, 1 to 60 characters, unique ignoring case; a duplicate is refused (`A scenario with this name already exists. Pick another name, or delete the old one first.`). Overwrite-on-save is not built.
+- **Q-SS3 Max (built, recommend accept):** 20 saved scenarios (`You can keep up to 20 scenarios. Delete one first.`). The record's 1 MB cap still applies.
+- **Q-SS4 Latest month changed (built, recommend accept):** a reopened scenario shows its saved values on the CURRENT latest month, with `Saved from <Month>. The latest month is now <Month>: …`; earlier months come from the latest data. Compare uses the saved inputs as saved. Re-basing a saved scenario onto new data is not built.
+- **Q-SS5 Read users (built, recommend accept):** Read (#197) can see the list, Open and Compare (no write involved); no Save and no Delete (hidden, and the server answers 403 to their PUT). No grant: 403 on GET and PUT (unchanged).
+- **Q-SS6 Rename / update in place (not built, recommend a later ticket):** for now, save under a new name and delete the old one.
+- **Q-SS7 PJ7 `saveScenario` (not built, recommend remove in a later cleanup):** it is kept unchanged and still has no caller. If it were ever called, it would write a levers-only value and drop `saved`.

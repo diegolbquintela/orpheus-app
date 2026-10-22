@@ -120,6 +120,7 @@ import {
   yearChoices,
 } from "@/lib/finance/months";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
+import { RecordStore, type PfRecord } from "@/lib/finance/record";
 import {
   isOpen,
   readView,
@@ -164,6 +165,11 @@ export type ScenarioLive = {
   page: { expenses: number | null; income: number | null };
   rate: number | null;
   currency: string;
+  /**
+   * #223 (spec 60, AC PFSS): what the screen shows, as the page's own value texts (expenses, income, rates, household,
+   * Overview) and the shown month's lines, for `Save scenario`. Built in a throwaway in-memory store: nothing is sent.
+   */
+  values: () => { record: PfRecord; lines: MonthLines };
 };
 export type ScenarioMode = { render: (live: ScenarioLive) => ReactNode };
 
@@ -661,6 +667,18 @@ export function PersonalFinancePage({
                     },
                     rate: rateUsed(rates),
                     currency: household.household,
+                    values: () => {
+                      const mem = new RecordStore({});
+                      writeExpenses(mem, expenses);
+                      writeIncome(mem, income);
+                      writeRates(mem, rates);
+                      writeHousehold(mem, household);
+                      writeOverview(mem, overview);
+                      return {
+                        record: mem.snapshot(),
+                        lines: { fixed: expenses.fixed, variable: expenses.variable, people: income.people },
+                      };
+                    },
                   })
                 : null}
             </>
