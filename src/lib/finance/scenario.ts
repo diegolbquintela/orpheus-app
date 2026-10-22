@@ -247,6 +247,13 @@ export function xTickIndexes(n: number, max = 5): number[] {
 }
 
 export const growthOk = (g: number): boolean => Number.isFinite(g) && g >= -GROWTH_BOUND && g <= GROWTH_BOUND;
+/** #226 (spec 63, PFFG-05): the growth text is refused (not a signed number, or outside -50..+50). */
+export const scenarioGrowthBad = (text: string): boolean => {
+  const g = parseGrowth(text);
+  return g === null || !growthOk(g);
+};
+/** #226 (spec 63, PFFG-01): the growth the chart uses: the signed value, or 0 when refused (as `inputs.growth`). */
+export const scenarioGrowthOrZero = (text: string): number => (scenarioGrowthBad(text) ? 0 : (parseGrowth(text) as number));
 
 // #215 (spec 55, Q-SC1): the stored-scenario save helpers. #208 SS7: used only by scenario-client.ts `changeSaved`.
 /** Only the levers that move something (0 % changes and unset values are dropped), so equal scenarios compare equal. */

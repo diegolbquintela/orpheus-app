@@ -251,6 +251,8 @@ export function summarize(
   page: PageFigures,
   lines?: Record<MonthKey, Figures>,
   timeZone: string = HOUSEHOLD_TIME_ZONE,
+  /** #226 (spec 63, PFFG-01): the scenario screen's signed growth % (negative allowed); omitted = the main rule. */
+  signedGrowth?: number,
 ): Summary {
   const months = lastTwelve(now, timeZone);
   const current = months[months.length - 1];
@@ -302,7 +304,8 @@ export function summarize(
   if (overview.future) {
     // #221 (spec 57.6, CFO Q-b 2026-10-22, PFPJ-20..22): the shared month step (`projection.ts`): r_m as before, but
     // growth only on a positive opening balance (a negative or zero balance no longer grows more negative).
-    const rM = monthlyRate(orZero(overview.growth));
+    // #226 (spec 63, PFFG-01..03): on the scenario screen the caller passes the signed growth the chart uses.
+    const rM = monthlyRate(signedGrowth ?? orZero(overview.growth));
     const avgSurplus = surplusOf(average);
     let key = current;
     for (let i = 0; i < overview.years * 12; i++) {

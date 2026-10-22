@@ -1872,3 +1872,15 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - PFTT-05: Real browser at 390 and 1440, on the main page: every person checkbox's label is ≥ 44 × 44, and `elementFromPoint` hits the label or the box across all of it. (e2e on preview)
 - PFTT-06: The same on the scenario screen, for owner and CFO Read. (e2e on preview)
 
+
+## PFFG — Scenario Overview 'Future' uses the chart's growth, negative included (#226, personal-finance-spec §63; added 2026-10-22; MEDIUM, Q-PJ13 + AP2)
+
+(2026-10-22 note: builds Q-PJ13 and AP2 from #221 / PR #224; the PFPJ text is left as written.)
+
+- PFFG-01: On the scenario screen, the Overview Future line equals the chart's `projectNet` for the same signed growth (-50, -10, -0.5, 0, 9, 50). (unit)
+- PFFG-02: Pinned negative cases: 10,000 with surplus 0 at -10 % → 9,000 after 12 months; at -50 % → 5,000; month 1 = 10,000 × (1 + r_m(-10)), never annual ÷ 12. (unit)
+- PFFG-03: The 9 % pinned case still holds (10,000 → 10,900; r_m ≈ 0.7207 %); SC3 holds for both: no growth on a balance ≤ 0. (unit)
+- PFFG-04: Main page unchanged: without the signed growth, a negative growth counts 0 %. (unit)
+- PFFG-05: The scenario growth reader: signed within -50..+50; `-`, `-51`, `51`, `abc` are refused and count 0, as for the chart. (unit)
+- PFFG-06: On the scenario screen, a negative growth changes the Overview's Future figure (coverage at the horizon) versus 0 %, with no request sent. (DOM)
+- PFFG-07 (AP2): Typing `-`, `-51` or `abc` in Growth on the scenario screen shows exactly one error (the scenario bound), no `Enter a number, 0 or more.`, and the field stays `aria-invalid`; `-10` clears it. (DOM)
