@@ -2021,7 +2021,7 @@ The test strings, with code points above U+007E listed:
 - **No month control and no Save.** Section toggles apply to this visit only.
 - Below Overview: `06` Projected path (the net-assets field, the horizons and the chart), then `07` Totals.
 
-57.2 **Nothing is written (built; CFO scope cut 2026-10-22).** The page's store is the loaded record in memory with **no `save`**, so no edit, toggle or migration is ever sent. The only request is one GET on open. The net-assets field is a local starting value; it is never saved. The earlier net-assets Save / confirm / write-back plan is dropped, so there is no new route and no #199 copy materialising. The stored scenario value (`orpheus.finance.scenario.v1`, #215 Q-SC1), its validation and `saveScenario` are unchanged; the page no longer writes it (Q-PJ7).
+57.2 **Sandbox only: nothing is written (built; CFO scope cut and Diego's final scope, 2026-10-22).** Every value, net assets included, is seeded from the latest month. No save path, switch or flag remains. The page's store is the loaded record in memory with **no `save`**, so no edit, toggle or migration is ever sent. The only request is one GET on open. The net-assets field is a local starting value; it is never saved. The earlier net-assets Save / confirm / write-back plan is dropped, so there is no new route and no #199 copy materialising. The stored scenario value (`orpheus.finance.scenario.v1`, #215 Q-SC1), its validation and `saveScenario` are unchanged; the page no longer writes it (Q-PJ7).
 
 57.3 **Projection math (built; CFO).** The shared month step lives in `src/lib/finance/projection.ts`:
 - `monthlyRate(annual) = (1 + annual/100)^(1/12) − 1`. It is never annual ÷ 12.
@@ -2096,7 +2096,7 @@ The CFO's worked checks at 9 %/yr:
 - **Q-PJ4 (built, recommend accept):** the `Growth earned` row is net end − start − surplus over the horizon.
 - **Q-PJ5 (built, recommend accept):** growth outside −50..+50 % on this screen projects at 0 % with the error shown, rather than hiding the chart.
 - **Q-PJ6 (built, recommend accept):** the account filter is hidden with the category filter. Alternative: split the control (a small main-page change).
-- **Q-PJ7 (not built, recommend leave):** the stored-scenario value is no longer written by the page; existing values are kept and validated as before. A later cleanup could drop it.
+- **Q-PJ7 (open, recommend keep until #223):** Diego's final scope (2026-10-22) is sandbox only. The #215 stored-scenario lever save (`saveScenario`, `orpheus.finance.scenario.v1`, its route validation) is the only write code left for this screen. Its code is left as is, but the rebuilt page no longer calls it. Should it be removed under "sandbox only", or kept until named saved scenarios (#223, not built here)? We recommend keeping it until #223.
 - **Q-PJ8 (not built, recommend a ticket):** F3, the checkbox tap size on the main page.
 
 57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..54). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.

@@ -140,7 +140,7 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
     for (const id of ["pf-filter", "pf-filter-cell", "pf-categories", "pf-month-control", "pf-month-save", "pf-scenario-save"]) assert.equal(q(el, id), null, id);
     // prefilled: last month's lines (the copy), never empty
     assert.equal(qa(el, "pf-line").length, 2);
-    assert.equal((qa(el, "pf-monthly")[0] as HTMLInputElement).value, "2,500");
+    assert.equal((qa(el, "pf-monthly")[0] as HTMLInputElement).value, "2500");
     assert.deepEqual(fetches, []);
   });
 
