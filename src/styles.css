@@ -736,6 +736,20 @@
   .pf-history-grid td { text-align: right; }
   .pf-history-grid .pf-history-month { position: sticky; left: 0; z-index: 1; background: var(--color-night); text-align: left; font-weight: 400; color: var(--color-chalk); }
   .pf-history-grid tbody tr:last-child > * { border-bottom: 0; }
+  /* #215 (spec 55, PFSC): the Scenario screen. Levers in a 1 / 2 / 3 column grid; the totals reuse .pf-ov-table. */
+  .pf-scenario-area { min-height: 6rem; }
+  .pf-scenario-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+  @media (min-width: 40rem) { .pf-scenario-grid { grid-template-columns: repeat(2, minmax(0, 16rem)); column-gap: 1.25rem; } }
+  @media (min-width: 64rem) { .pf-scenario-grid { grid-template-columns: repeat(3, minmax(0, 16rem)); } }
+  .pf-scenario-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; }
+  .pf-scenario-actions > .pf-button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pf-scenario-table { max-width: 48rem; }
+  /* PFSC-24: at 390 the four columns keep whole numbers on one line; the table scrolls sideways in its own box. */
+  .pf-scenario-scroll { max-width: 100%; overflow-x: auto; }
+  .pf-scenario-scroll:focus-visible { outline: 2px solid var(--color-chalk); outline-offset: 2px; }
+  .pf-scenario-table .pf-ov-value { overflow-wrap: normal; white-space: nowrap; }
+  @media (max-width: 39.99rem) { .pf-scenario-table { min-width: 31rem; } }
+  .pf-scenario-fieldset { margin-inline: 0; padding: 0; border: 0; min-width: 0; }
   .pf-charts-back a { display: inline-flex; min-height: 2.75rem; align-items: center; font-size: 0.875rem; color: var(--color-chalk); text-decoration: underline; text-underline-offset: 3px; }
   .pf-charts-body { margin-top: 1.5rem; min-height: 6rem; }
   .pf-charts-error, .pf-charts-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
