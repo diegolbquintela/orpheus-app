@@ -19,6 +19,7 @@ import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
 import { checkRecord, RecordStore, type PfRecord } from "./record.ts";
 import { recordRefusal } from "./field-errors.ts";
+import { mergePlansText, PLANS_KEY } from "./plans.ts";
 import {
   checkReport,
   missingSeries,
@@ -80,7 +81,21 @@ export async function readRecord(db: Queryable, userId: string): Promise<PfRecor
   return checked.ok ? checked.record : {};
 }
 
-export async function writeRecord(db: Queryable, userId: string, record: PfRecord): Promise<void> {
+/**
+ * #231 (spec 65.3, AC PFPV-01..06): a record save MERGES the planned-vs-actual plans by month (`mergePlansText`): the
+ * stored plans stay unless the body brings a plan for a month after the current one (server clock, household month);
+ * a current or past month's plan is frozen; a body without plans (an older tab) keeps them all; nothing is cleared.
+ * Same for the owner and non-owner PUT and the view route. Returns the record as stored.
+ */
+export async function writeRecord(db: Queryable, userId: string, record: PfRecord, now: Date = new Date()): Promise<PfRecord> {
+  const rows = await db.query<{ plans: string | null }>(
+    "SELECT data->>$2 AS plans FROM personal_finance WHERE user_id = $1",
+    [userId, PLANS_KEY],
+  );
+  const merged = mergePlansText(rows[0]?.plans ?? undefined, record[PLANS_KEY], householdMonth(now));
+  const next: PfRecord = { ...record };
+  delete next[PLANS_KEY];
+  if (merged !== undefined) next[PLANS_KEY] = merged;
   await db.query(
     `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data
@@ -88,8 +103,9 @@ export async function writeRecord(db: Queryable, userId: string, record: PfRecor
                     WHERE e.key = ANY($3::text[])), '{}'::jsonb),
        updated_at = now()`,
     // #153 / #156: a record save keeps the person's saved reports (default and named).
-    [userId, JSON.stringify(record), [REPORT_KEY, REPORTS_KEY]],
+    [userId, JSON.stringify(next), [REPORT_KEY, REPORTS_KEY]],
   );
+  return next;
 }
 
 export async function deleteRecord(db: Queryable, userId: string): Promise<void> {
@@ -149,13 +165,13 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
       const next: PfRecord = { ...record };
       delete next[VIEW_KEY];
       if (current && VIEW_KEY in current) next[VIEW_KEY] = current[VIEW_KEY];
-      await writeRecord(db, user.id, next);
+      const stored = await writeRecord(db, user.id, next, clock());
       await auditFor(db, g.access, "pf.save");
-      return dashboardJson({ data: await forViewer(db, next, g), access });
+      return dashboardJson({ data: await forViewer(db, stored, g), access });
     }
-    await writeRecord(db, user.id, record);
+    const stored = await writeRecord(db, user.id, record, clock());
     await auditFor(db, g.access, "pf.save");
-    return dashboardJson({ data: record, access });
+    return dashboardJson({ data: stored, access });
   }
   if (method === "DELETE") {
     await deleteRecord(db, user.id);
