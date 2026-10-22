@@ -1944,7 +1944,7 @@ The test strings, with code points above U+007E listed:
 - Growth rate (% a year), from −100 to 1000.
 - Net assets now, replacing today's value.
 - A blank lever means today's value.
-- An invalid lever is shown in red, moves nothing and blocks Save (never clamped).
+- An invalid lever counts as blank: the numbers use today's value for it, so it moves nothing. It is shown in red and blocks Save (never clamped). (#208 AL1)
 - `Reset levers` clears the levers on the page only.
 
 55.5 **Screen (built).**
@@ -2259,3 +2259,22 @@ Dated note 2026-10-22 (#223): scenario screen only. It replaces the named-scenar
 - **Q-SS5 Read users (built, recommend accept):** Read (#197) can see the list, Open and Compare (no write involved); no Save and no Delete (hidden, and the server answers 403 to their PUT). No grant: 403 on GET and PUT (unchanged).
 - **Q-SS6 Rename / update in place (not built, recommend a later ticket):** for now, save under a new name and delete the old one.
 - **Q-SS7 PJ7 `saveScenario` (not built, recommend remove in a later cleanup):** it is kept unchanged and still has no caller. If it were ever called, it would write a levers-only value and drop `saved`.
+
+## 61. Harness checks and follow-ups (#208, LOW, Diego / CFO; added 2026-10-22; built in the same PR)
+
+61.1 **Test list check.** `scripts/test-list.test.mjs` runs in the `scripts/**/*.test.mjs` step of `npm test`. It globs `src/**/*.test.{ts,tsx,mts,mjs}` and fails, naming the files, when a file is neither in the explicit `npm test` list nor a `*.dom.test.tsx` (found by `scripts/run-dom-tests.mjs`). It also fails when a listed `src/` file does not exist. No new dependency.
+
+61.2 **qa/tools check (deferred from #219).** `scripts/qa-tools-harness.test.mjs` fails when a `qa/tools/*.mjs` file is neither a guarded tool (`GUARDED` in `scripts/qa-prod-guard.test.mjs`) nor in its pinned `UNGUARDED` list (shared helpers and tools that never sign in or write). So a new QA tool is classified before it lands. It also runs `node qa/tools/pf-scenario-e2e.mjs --help` under `scripts/fixtures/fake-net.mjs` and expects exit 0, a usage line and zero requests.
+
+61.3 **roles.mjs (AL3).** The scenario save checks (PFSC-15 / -16 / -13 / -03) run while the CFO still has the Read grant they were seeded with, before the Read-and-write flip (ROLE-11). A no-grant check is added: PUT of a scenario value → 403 with nothing stored, and `/personal-finance/scenario` → 403.
+
+61.4 **Read wording for the copy note (AR1).** On a month that has nothing saved, a Read user sees `Showing <Month>'s lines — nothing is saved for this month.` instead of `Copied from <Month> — edit and save.`. Users with write keep the old note.
+
+61.5 **One writer for scenario.v1 (SS7).** The unused PJ7 `saveScenario` is removed. Only `changeSaved` (the #223 save / delete path) calls `withScenario`, and no other src file names the scenario key or builds a value for it.
+
+61.6 **Saved start in cents (AS1).** `addSaved` stores `inputs.start` rounded to cents. The display is unchanged.
+
+61.7 **Spec 55.4 (AL1) and PFCC-10 (AM1)** are reworded only. No behaviour change.
+
+61.8 **Out of scope:** no table, migration, env, dependency or schema change. #225, #226, #228, #231, #233, AN8 and #210 are untouched.
+
