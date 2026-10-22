@@ -320,6 +320,8 @@ describe("income block (#85)", () => {
         "Foreign",
       ],
     );
+    // #221 PFPJ-67: the Monthly / Yearly select is on the scenario screen only.
+    assert.equal(el.querySelector('[data-testid="pf-person-wages-per"]'), null);
     assert.deepEqual(
       [...q(el, "pf-table-head").children].map((c) => c.textContent),
       ["Income", "Biweekly", "Monthly", "Yearly"],

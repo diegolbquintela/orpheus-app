@@ -60,6 +60,8 @@ export function IncomeBlock({
   readOnly?: boolean;
 }) {
   const people = income.people;
+  // #221 (spec 57.13): on the scenario screen wages carry their own Monthly / Yearly select.
+  const scenarioPeriods = useContext(PeriodChoice);
   const updatePerson = (id: string, patch: Partial<Person>) =>
     update((i) => ({ people: i.people.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
   const lines = shownIncomeLines(people, household);
@@ -94,7 +96,7 @@ export function IncomeBlock({
                 aria-hidden="true"
                 data-testid="pf-person-head"
               >
-                {PERSON_COLUMNS.map((c) => (
+                {PERSON_COLUMNS.map((c) => (scenarioPeriods && c === "Wages (yearly)" ? "Wages" : c)).map((c) => (
                   <span key={c} className="pf-label">
                     {c}
                   </span>

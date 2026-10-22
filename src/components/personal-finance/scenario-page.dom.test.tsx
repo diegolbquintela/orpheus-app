@@ -225,6 +225,7 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
       const el = await render(ok(record()).load);
       const sel = q(el, "pf-person-wages-per") as HTMLSelectElement;
       assert.equal(sel.value, "month");
+      assert.equal([...q(el, "pf-person-head")!.children][1].textContent, "Wages");
       assert.equal((q(el, "pf-person-wages") as HTMLInputElement).value, "10,000.00");
       assert.equal(monthCell(el, "income"), "7,500.00");
     });
