@@ -1760,3 +1760,11 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFPJ-68 | BLOCK | (2026-10-22, spec 57.14) Every income flow line (Brazil family income, Solium withdrawals, Partner contribution) has its own labelled select, default Monthly (2,000.00 / 1,000.00 / 500.00); switching every line keeps income, surplus and net; Yearly 3,600 on one line feeds 300 a month; each line keeps its own choice; nothing is sent. |
 | PFPJ-69 | MAJOR | (2026-10-22) At 390 and 1440, owner and Read, with four income lines: every select is 44 px and inside the viewport; every amount is at least 60 px wide and not clipped; no horizontal overflow. |
 | PFPJ-70 | MINOR | (2026-10-22) CFO decisions recorded: Q-b, Q-PJ4–6, Q-PJ10–12 accepted; Q-PJ7 keep the save code; Q-PJ8 untouched (spec 57.14). |
+| PFPJ-71 | BLOCK | (2026-10-22, QA AO3, spec 57.15) `badComma` / `parseScenarioAmount` refuse `10,5`, `1.234,56`, `1,00`, `12,3456`, `,5`; `12,345.67`, `1,000`, `1,234,567` pass; the main `parseAmount` still reads `10,5` as 105. |
+| PFPJ-72 | BLOCK | (AO4) `parseGrowth` takes −50, U+2212 50, +50, −12.5; refuses `10,5` and `-`; bound −50..+50; the main `parseAmount("-50")` stays null. |
+| PFPJ-73 | BLOCK | (AO2) `xTickIndexes` starts at 0 (`Now`), at most 5 ticks, for 13 / 37 / 61 / 121 points; at 390 and 1440 for every horizon `Now` shows, with no overlap or clipping. |
+| PFPJ-74 | BLOCK | (AO1) No Account or Category select on any expense line on the scenario screen; the remove button stays. The main page keeps them. |
+| PFPJ-75 | BLOCK | (AO3) `10,5` and `1.234,56` on a line amount, wages, Equity to cover, Starting net assets and the scenario net assets: each shows its field error (aria-invalid), the text stays as typed, and it counts as blank; `10.5` clears it; nothing is sent. |
+| PFPJ-76 | BLOCK | (AO4) Growth −50 gives no field error and moves the 10-year path; −51 and `-` show the bound error; `10,5` shows the comma error. |
+| PFPJ-77 | MAJOR | (AO6) The read-only line sits in `<aside aria-label="Scenario access">`; no visible text is outside a landmark on the Read view at 390 / 1440. |
+| PFPJ-78 | BLOCK | Mutations: no AO1 guard fails PFPJ-74; ticks without index 0 fail PFPJ-73; no comma check fails PFPJ-71/72/75/76; unsigned growth fails the scenario DOM file; the landmark without its label fails PFPJ-77. |

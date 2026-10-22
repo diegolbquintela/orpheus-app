@@ -2130,4 +2130,17 @@ The CFO's worked checks at 9 %/yr:
 - **Q-PJ7:** keep the stored-scenario save code (not removed; still not called by the page).
 - **Q-PJ8:** don't touch (the main-page checkbox size stays as is).
 
-57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..57, PFPJ-60..69). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.
+57.15 **QA AO1–AO6 (added 2026-10-22; EL-confirmed; built in the same PR). Scenario screen only; the main page is unchanged.**
+- **AO1:** no Account or Category select on any expense line in scenario mode. The rest of each line stays.
+- **AO2:** the x axis has explicit ticks: always `Now` (month 0) first, then evenly spaced, at most 5 (`xTickIndexes`). Checked at 390 and 1440 for 12 / 36 / 60 / 120 months: `Now` is shown, with no overlap and no clipping.
+- **AO3:** on scenario amount inputs, a comma is only a thousands separator (`badComma`, `parseScenarioAmount`).
+  - `10,5` and `1.234,56` are refused with the field's own error, `Use a dot for decimals and commas only for thousands, for example 1,234.56.`
+  - The text stays as typed and counts as blank (0) until fixed.
+  - Applies to the line Monthly / Yearly amounts, Equity to cover, wages, Starting net assets, growth, and the scenario net-assets field (`Enter an amount…`).
+  - The main page's `parseAmount` is unchanged: it still drops every comma there.
+- **AO4:** scenario growth uses a signed parser (`parseGrowth`), so −50 is accepted and used. The bound is −50..+50 % a year (57.7 / AN9; it supersedes §55's −100..1000 for this screen). Out of bounds, or `-` alone, shows `Growth must be from -50 to 50 % a year here.` The main page's growth check is unchanged.
+- **AO5:** info only, not touched; it goes to #222.
+- **AO6:** the read-only line and the load error sit in `<aside aria-label="Scenario access">`, a landmark for axe `region`. A sweep at 390 / 1440 (Read) found no visible text outside a landmark.
+- **Q-PJ13 (not built, recommend a follow-up):** with a negative growth on this screen, the Overview block's own Future line still reads growth with the main rule (negative → 0 %). The projection below uses the signed value. Alternative: the scenario feeds the signed growth to the Overview (a small change to `summarize`'s input).
+
+57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..57, PFPJ-60..78). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.
