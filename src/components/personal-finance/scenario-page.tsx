@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { PersonalFinancePage, type ScenarioLive } from "@/components/personal-finance/expenses-page";
 import { ReadOnlyLine } from "@/components/access/denied";
-import { equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS, typedFigure } from "@/lib/finance/overview";
+import { equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS } from "@/lib/finance/overview";
 import { formatMoney } from "@/lib/finance/money";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
 import type { LoadStore } from "@/lib/finance/account-client";
@@ -24,6 +24,8 @@ import {
   formatPercent,
   GROWTH_ERROR,
   growthOk,
+  parseGrowth,
+  xTickIndexes,
   type Horizon,
   HORIZONS,
   horizonLabel,
@@ -76,13 +78,18 @@ export function ScenarioPage({
   });
   return (
     <>
-      {failed ? (
-        <p className="pf-error mx-auto max-w-6xl px-5 pt-6 sm:px-8" role="alert" data-testid="pf-scenario-error">
-          {LOAD_ERROR}
-        </p>
-      ) : null}
-      {loaded && !loaded.access.write ? (
-        <ReadOnlyLine className="mx-auto max-w-6xl px-5 pt-6 sm:px-8" />
+      {/* #221 AO6: the load error and the read-only line sit in a labelled landmark (axe `region`). */}
+      {failed || (loaded && !loaded.access.write) ? (
+        <aside aria-label="Scenario access" data-testid="pf-scenario-access">
+          {failed ? (
+            <p className="pf-error mx-auto max-w-6xl px-5 pt-6 sm:px-8" role="alert" data-testid="pf-scenario-error">
+              {LOAD_ERROR}
+            </p>
+          ) : null}
+          {loaded && !loaded.access.write ? (
+            <ReadOnlyLine className="mx-auto max-w-6xl px-5 pt-6 sm:px-8" />
+          ) : null}
+        </aside>
       ) : null}
       <PersonalFinancePage
         now={now}
@@ -119,8 +126,10 @@ export function ScenarioProjection({
   const ownNet = o.net ?? 0;
   const typedNet = netText === null ? null : parseNetAssets(netText);
   const netBad = netText !== null && typedNet === null;
-  const growth = typedFigure(live.overview.growth) ?? 0;
-  const growthBad = !growthOk(growth);
+  // #221 AO4: the scenario's own signed parser (-50 counts; the main page's parseAmount is unchanged).
+  const parsedGrowth = parseGrowth(live.overview.growth);
+  const growth = parsedGrowth ?? 0;
+  const growthBad = parsedGrowth === null || !growthOk(growth);
   const inputs: Inputs = {
     current: live.current,
     start: typedNet ?? ownNet,
@@ -312,7 +321,9 @@ function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number 
         tick={{ fill: "var(--color-dim)", fontSize: 12 }}
         tickLine={false}
         axisLine={false}
-        minTickGap={32}
+        // #221 AO2: explicit ticks, always `Now` first, at most 5 (fits 390 and 1440 for every horizon).
+        ticks={xTickIndexes(points.length).map((i) => points[i].label)}
+        interval={0}
       />
       <YAxis
         yAxisId="flow"

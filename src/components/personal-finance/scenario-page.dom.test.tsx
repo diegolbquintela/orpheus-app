@@ -312,4 +312,70 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
       assert.notEqual(sel.tabIndex, -1);
     });
   });
+
+  describe("#221 QA AO1 / AO3 / AO4 / AO6 (spec 57.15)", () => {
+    it("PFPJ-74 (AO1): no Account or Category select on any expense line", async () => {
+      const el = await render(ok(record()).load);
+      assert.ok(qa(el, "pf-line").length >= 2);
+      assert.equal(qa(el, "pf-account").length, 0);
+      assert.equal(qa(el, "pf-category").length, 0);
+      assert.equal(qa(el, "pf-remove").length, qa(el, "pf-line").length, "the rest of the line stays");
+    });
+    it("PFPJ-75 (AO3): '10,5' and '1.234,56' get a field error on scenario inputs and count as 0", async () => {
+      for (const bad of ["10,5", "1.234,56"]) {
+        const el = await render(ok(record()).load);
+        // A line amount: rent 2,500 + food 500 → 3,000; rent '10,5' counts 0 → 500.
+        await type(qa(el, "pf-monthly")[0], bad);
+        assert.equal((qa(el, "pf-monthly")[0] as HTMLInputElement).value, bad, "kept as typed");
+        assert.ok(el.querySelector('[data-field="pf-monthly-comma"]'), `line error for ${bad}`);
+        assert.equal(qa(el, "pf-monthly")[0].getAttribute("aria-invalid"), "true");
+        assert.equal(monthCell(el, "expenses"), "500.00");
+        // Wages (with the period select): counts 0, own error.
+        await type(q(el, "pf-person-wages")!, "");
+        const asZero = monthCell(el, "income");
+        await type(q(el, "pf-person-wages")!, bad);
+        assert.ok(el.querySelector('[data-field="pf-person-wages-comma"]'));
+        assert.equal(monthCell(el, "income"), asZero, "counts as blank (0), not 105 or 1.23");
+        // Equity to cover and the Overview's Starting net assets.
+        await type(qa(el, "pf-equity")[0], bad);
+        assert.ok(el.querySelector('[data-field="pf-equity-comma"]'));
+        await type(q(el, "pf-start")!, bad);
+        assert.ok(el.querySelector('[data-field="pf-start-comma"]'));
+        // The scenario's net-assets field.
+        await type(q(el, "pf-scenario-net")!, bad);
+        assert.equal(q(el, "pf-scenario-net-error")?.textContent, NET_ASSETS_ERROR);
+        // Fixing it clears the error.
+        await type(qa(el, "pf-monthly")[0], "10.5");
+        assert.equal(el.querySelector('[data-field="pf-monthly-comma"]'), null);
+        assert.equal(monthCell(el, "expenses"), "510.50");
+        assert.deepEqual(fetches, []);
+        await act(async () => root?.unmount());
+        container?.remove();
+        root = undefined;
+      }
+    });
+    it("PFPJ-76 (AO4): growth -50 is accepted on the scenario screen (no error, it moves the path); -51 shows the bound error", async () => {
+      const el = await render(ok(record({}, "")).load);
+      await type(q(el, "pf-scenario-net")!, "100,000");
+      await click(q(el, "pf-horizon-120")!);
+      const flat = cell(el, "net", "pf-scenario-total");
+      await type(q(el, "pf-growth")!, "-50");
+      assert.equal(el.querySelector('[data-field="pf-growth"]'), null, "no field error for -50");
+      assert.equal(q(el, "pf-scenario-growth-error"), null);
+      assert.notEqual(cell(el, "net", "pf-scenario-total"), flat, "-50 is used, not 0");
+      await type(q(el, "pf-growth")!, "-51");
+      assert.equal(q(el, "pf-scenario-growth-error")?.textContent, GROWTH_ERROR);
+      await type(q(el, "pf-growth")!, "10,5");
+      assert.ok(el.querySelector('[data-field="pf-growth-comma"]'));
+      await type(q(el, "pf-growth")!, "-");
+      assert.equal(q(el, "pf-scenario-growth-error")?.textContent, GROWTH_ERROR);
+    });
+    it("PFPJ-77 (AO6): the read-only line (and a load error) sit in a labelled landmark", async () => {
+      const el = await render(ok(record(), READ).load);
+      const line = el.querySelector('[data-testid="pf-scenario-access"]');
+      assert.equal(line?.tagName, "ASIDE");
+      assert.equal(line?.getAttribute("aria-label"), "Scenario access");
+      assert.ok(line?.textContent?.trim(), "the read-only line is inside it");
+    });
+  });
 });

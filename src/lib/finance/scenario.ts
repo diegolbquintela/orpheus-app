@@ -1,6 +1,6 @@
+import { parseScenarioAmount } from "./scenario-input.ts";
 import { rateUsed, readRates } from "./equity.ts";
 import { savedOverviewFigures } from "./months.ts";
-import { parseAmount } from "./expenses.ts";
 import {
   equityCoverage,
   type Figures,
@@ -201,12 +201,10 @@ export const pointName = (p: ProjPoint, i: number): string => (i === 0 ? `${NOW_
  * `parseAmount` and the record route's validation are unchanged (negative amounts stay parked there).
  */
 export function parseNetAssets(text: string): number | null {
+  // #221 AO3: through the scenario's own check (a comma is a thousands separator only).
   const t = text.trim().replace(/^\$/, "");
-  const m = /^([+\-\u2212]?)\s*\$?(.*)$/.exec(t);
-  if (!m || m[2].trim() === "") return null;
-  const v = parseAmount(m[2]);
-  if (v === null) return null;
-  return m[1] === "-" || m[1] === "\u2212" ? -v : v;
+  if (t === "" || /^[+\-\u2212]\s*$/.test(t)) return null;
+  return parseScenarioAmount(t.replace(/^([+\-\u2212]?)\s*\$/, "$1"), true);
 }
 
 /** AN11: a share as a percent with thousands separators (123.4567 → "12,345.67%"); null → "—". */
@@ -214,6 +212,18 @@ const PCT = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFr
 export const formatPercent = (share: number | null): string => (share === null ? "—" : `${PCT.format(share * 100)}%`);
 
 /** AN9: the scenario's growth bound, -50..+50 % a year. */
+/** #221 AO4: the scenario's growth % (signed; blank 0); null when refused. The bound is `growthOk`. */
+export const parseGrowth = (text: string): number | null => parseScenarioAmount(text, true);
+
+/** #221 AO2: x ticks for `n` points: always index 0 (`Now`), then evenly spaced, at most `max` (fits 390). */
+export function xTickIndexes(n: number, max = 5): number[] {
+  if (n <= 0) return [];
+  const step = Math.max(1, Math.ceil((n - 1) / (max - 1)));
+  const out: number[] = [];
+  for (let i = 0; i < n; i += step) out.push(i);
+  return out;
+}
+
 export const growthOk = (g: number): boolean => Number.isFinite(g) && g >= -GROWTH_BOUND && g <= GROWTH_BOUND;
 
 // #215 (spec 55, Q-SC1): the stored-scenario save helpers, unchanged (scenario-client.ts `saveScenario`; Q-PJ7).

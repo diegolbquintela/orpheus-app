@@ -1,5 +1,5 @@
 import { Minus } from "lucide-react";
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { fieldErrors, SAVE_BLOCKED } from "@/lib/finance/field-errors";
 import { PF_DELETE_UI } from "@/lib/finance/flags";
 import {
@@ -74,6 +74,7 @@ import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { OverviewBlock } from "./overview-block";
 import { PeriodChoice } from "./period-choice";
+import { PeriodInput } from "./period-input";
 import { Cell, Lock, SectionHead } from "./pf-cells";
 import { ReadOnlyLine } from "@/components/access/denied";
 import { basisNote as scenarioBasis, WHAT_IF_NOTE as SCENARIO_WHAT_IF } from "@/lib/finance/scenario";
@@ -1245,6 +1246,7 @@ function LineRow({
   const selectRef = useRef<HTMLSelectElement>(null);
   const categoryRef = useRef<HTMLSelectElement>(null);
   const amountBad = parseAmount(line.amount) === null;
+  const scenarioScreen = useContext(PeriodChoice);
   const equityBad = parseAmount(line.equity) === null;
   const foreign = isForeign(line, household);
   const rateBad = foreign && parseRate(line.rate) === null;
@@ -1258,14 +1260,17 @@ function LineRow({
     ) : null;
   const amountField = (per: "month" | "year", column: string) => (
     <Cell label={column} area={per === "month" ? "monthly" : "yearly"} control>
-      <input
+      <PeriodInput
         value={fieldText(line, per)}
-        onChange={(event) => onChange({ amount: event.target.value, per })}
+        onValue={(text) => onChange({ amount: text, per })}
+        base={per}
+        period={false}
+        name={aria(column)}
         inputMode="decimal"
         autoComplete="off"
         aria-label={aria(column)}
         className="pf-field"
-        data-testid={per === "month" ? "pf-monthly" : "pf-yearly"}
+        testId={per === "month" ? "pf-monthly" : "pf-yearly"}
         {...check(amountBad && line.per === per, per)}
       />
       {error(amountBad && line.per === per, per)}
@@ -1340,19 +1345,25 @@ function LineRow({
         </Cell>
       )}
       <Cell label="Equity to cover" area="equity" control>
-        <input
+        <PeriodInput
           value={line.equity}
           placeholder={calculated === null ? NOT_COMPUTED : formatMoney(calculated)}
-          onChange={(event) => onChange({ equity: event.target.value })}
+          onValue={(text) => onChange({ equity: text })}
+          base="month"
+          period={false}
+          name={aria("Equity to cover")}
           inputMode="decimal"
           autoComplete="off"
           aria-label={aria("Equity to cover")}
           className="pf-field"
-          data-testid="pf-equity"
+          testId="pf-equity"
           {...check(equityBad, "equity")}
         />
         {error(equityBad, "equity")}
       </Cell>
+      {/* #221 AO1 (EL 2026-10-22): no Account or Category select on any expense line on the scenario screen. */}
+      {scenarioScreen ? null : (
+        <>
       <Cell label="Account" area="account" control>
         <select
           ref={selectRef}
@@ -1406,6 +1417,8 @@ function LineRow({
           ) : null}
         </select>
       </Cell>
+        </>
+      )}
       <button
         type="button"
         onClick={onRemove}
