@@ -91,3 +91,36 @@ export function reopenRecord(latest: PfRecord | null, entry: SavedEntry, current
 
 /** A new id: time plus a random tail (no dependency). */
 export const newId = (): string => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+// #233 (spec 66, AC PFSR): rename / update a saved scenario in place. Same storage; only the target entry changes.
+export const RENAME = "Rename";
+export const UPDATE = "Update";
+export const SCENARIO_GONE = "That scenario no longer exists.";
+export const updateScenarioQuestion = (name: string): string =>
+  `Update the scenario "${name}" with what the screen shows now? Its old values are replaced.`;
+
+/** A rename's problem, or null: the #223 rules, the scenario itself excluded (a case-only change is fine). */
+export function renameError(name: string, saved: readonly SavedEntry[], id: string): string | null {
+  const n = name.trim();
+  if (!n) return NAME_BLANK;
+  if (n.length > NAME_MAX) return NAME_LONG;
+  if (saved.some((e) => e.id !== id && e.name.toLowerCase() === n.toLowerCase())) return NAME_TAKEN;
+  return null;
+}
+
+/** The stored value with entry `id` renamed (everything else untouched), or the problem. */
+export function renameSaved(s: Scenario | null, id: string, name: string): Scenario | { error: string } {
+  const l = list(s);
+  if (!l.some((e) => e.id === id)) return { error: SCENARIO_GONE };
+  const err = renameError(name, l, id);
+  if (err) return { error: err };
+  return { ...(s ?? NO_SCENARIO), saved: l.map((e) => (e.id === id ? { ...e, name: name.trim() } : e)) };
+}
+
+/** The stored value with entry `id`'s values replaced by `next` (id and name kept; others untouched), or the problem. */
+export function updateSaved(s: Scenario | null, id: string, next: Omit<SavedEntry, "id" | "name">): Scenario | { error: string } {
+  const l = list(s);
+  if (!l.some((e) => e.id === id)) return { error: SCENARIO_GONE };
+  const inputs = { ...next.inputs, start: Math.round(next.inputs.start * 100) / 100 };
+  return { ...(s ?? NO_SCENARIO), saved: l.map((e) => (e.id === id ? { ...next, inputs, id: e.id, name: e.name } : e)) };
+}

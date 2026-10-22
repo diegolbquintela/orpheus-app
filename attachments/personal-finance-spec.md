@@ -2375,3 +2375,24 @@ The no-figure sentence `NET_BASIS_NONE` is unchanged.
 - **The page.** Save's plan sync and the first-load backfill skip any future month whose lines fail the page's field checks (blank FX rate included). This covers months stored before #143 or with a blank rate, which the API accepts for months (Q-S4). Such a month gets no plan until it is saved valid. Stored months stay as they are.
 
 65.8 (2026-10-22 note, #231 AX3, from QA): no actuals yet. A current or past month with a plan but no saved lines has no result to compare. "No saved lines" means `months.v1` has no entry for the month, or its entry has no line and no person. Lines the page shows but has not saved (for example lines copied from the month before) do not count. For such a month the table still shows the planned figures. Actual, Difference and % of plan show `—`. Direction shows `No actuals yet`, with no tone, and never "better than plan" or any other result. A note above the table reads `No actuals yet: nothing is saved for this month, so there is no result to compare.` Only planned lines are listed. Once one line or person is saved, the month is compared as in 65.4.
+
+## 66. Personal Finance: rename / update a saved scenario in place (#233, SS6, MEDIUM, CFO; added 2026-10-22; built in the same PR)
+
+Additions only; §60 text is unchanged.
+
+66.1 Storage: unchanged. Saved scenarios stay in the `saved` list of `orpheus.finance.scenario.v1`. No table, column, migration, env var, record name or dependency.
+
+66.2 Writes: `Rename` (save) and `Update` (after a confirm) each send one fresh GET and exactly one PUT through `changeSaved`; only the scenario value changes, and within it only the target entry; other entries and the levers are as fetched.
+
+AC:
+- PFSR-01 Writers see `Rename` and `Update` on every saved scenario; Read users see neither.
+- PFSR-02 Rename opens an inline name field prefilled with the name; Cancel closes it; neither sends anything.
+- PFSR-03 Rename applies the #223 name rules (trimmed, 1-60 characters, unique ignoring case) excluding the scenario itself (changing only case is allowed); a refused name shows a field error and sends nothing.
+- PFSR-04 A valid rename sends GET + one PUT; the entry keeps id, values and savedAt; only its name changes.
+- PFSR-05 Update asks `Update the scenario "<name>" with what the screen shows now? Its old values are replaced.`; Cancel sends nothing.
+- PFSR-06 OK on Update sends GET + one PUT; the entry keeps id and name; inputs, values, lines, basis and savedAt become the screen's now.
+- PFSR-07 Every PUT differs from the fetched record only in the scenario value, and every other saved entry is unchanged.
+- PFSR-08 If the scenario is gone from the fresh record (deleted elsewhere), nothing is sent and the screen says `That scenario no longer exists.`
+- PFSR-09 Every other interaction on the screen (edits, net assets, horizons, Open, Compare, Back, Rename open/typing/Cancel, refused names, a cancelled Update) makes zero writes.
+- PFSR-10 Update is refused (`Fix the fields in error first.`) while a field is in error; nothing is sent.
+- PFSR-11 When the opened scenario is renamed or updated, the screen keeps showing it under its new name/values.
