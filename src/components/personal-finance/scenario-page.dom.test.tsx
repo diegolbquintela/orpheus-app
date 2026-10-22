@@ -247,10 +247,12 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
       assert.equal((q(el, "pf-person-wages") as HTMLInputElement).value, "12,000.00");
       assert.deepEqual([monthCell(el, "income"), monthCell(el, "surplus"), monthCell(el, "net")], before);
       await type(q(el, "pf-person-wages")!, "1,000");
-      const yearly = monthCell(el, "income");
+      await click(q(el, "pf-horizon-120")!);
+      const yearly = [monthCell(el, "income"), cell(el, "income", "pf-scenario-total")];
+      assert.equal(yearly[1], "7,500.00");
       await choose(q(el, "pf-person-wages-per")!, "month");
       assert.equal((q(el, "pf-person-wages") as HTMLInputElement).value, "83.33");
-      assert.equal(monthCell(el, "income"), yearly, "the stored value is not rounded by a switch");
+      assert.deepEqual([monthCell(el, "income"), cell(el, "income", "pf-scenario-total")], yearly, "the stored value is not rounded by a switch (10 years, not 7,497.00)");
       assert.deepEqual(fetches, []);
     });
     it("PFPJ-63: blank and invalid text are kept as typed across a switch; invalid shows the field's own error", async () => {
@@ -262,6 +264,44 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
       await type(q(el, "pf-person-wages")!, "");
       await choose(q(el, "pf-person-wages-per")!, "month");
       assert.equal((q(el, "pf-person-wages") as HTMLInputElement).value, "");
+    });
+    it("PFPJ-68: every income line (person / other income) has its own select, default Monthly; Yearly feeds ÷12 per line; switching any line keeps the totals", async () => {
+      const p = (id: string, name: string, wages: string, tax = "0") => ({ ...person, id, name, wages, tax });
+      const rec = record();
+      const s = new RecordStore({ ...rec });
+      writeMonths(s, {
+        "2026-09": {
+          fixed: [line("rent", "2500", "Home")],
+          variable: [],
+          people: [p("b", "Brazil family income", "24,000"), p("s", "Solium withdrawals", "12,000"), p("c", "Partner contribution", "6,000")],
+        },
+      });
+      const el = await render(ok({ ...rec, ...s.data }).load);
+      const sels = qa(el, "pf-person-wages-per") as HTMLSelectElement[];
+      const ins = qa(el, "pf-person-wages") as HTMLInputElement[];
+      assert.equal(sels.length, 3);
+      assert.deepEqual(sels.map((x) => x.value), ["month", "month", "month"]);
+      assert.deepEqual(ins.map((x) => x.value), ["2,000.00", "1,000.00", "500.00"]);
+      assert.equal(monthCell(el, "income"), "3,500.00");
+      assert.deepEqual(sels.map((x) => x.getAttribute("aria-label")), [
+        "Wages, Brazil family income: Monthly or Yearly",
+        "Wages, Solium withdrawals: Monthly or Yearly",
+        "Wages, Partner contribution: Monthly or Yearly",
+      ]);
+      // Switch each line in turn: only its display changes, the totals stay.
+      const totals = () => [monthCell(el, "income"), monthCell(el, "surplus"), monthCell(el, "net")];
+      const before = totals();
+      for (const sel of qa(el, "pf-person-wages-per")) await choose(sel, "year");
+      assert.deepEqual((qa(el, "pf-person-wages") as HTMLInputElement[]).map((x) => x.value), ["24,000.00", "12,000.00", "6,000.00"]);
+      assert.deepEqual(totals(), before);
+      // Yearly 3,600 on the second line feeds 300 a month (income 2,000 + 300 + 500).
+      await type(qa(el, "pf-person-wages")[1], "3,600");
+      assert.equal(monthCell(el, "income"), "2,800.00");
+      await choose(qa(el, "pf-person-wages-per")[1], "month");
+      assert.equal((qa(el, "pf-person-wages")[1] as HTMLInputElement).value, "300.00");
+      assert.equal((qa(el, "pf-person-wages-per")[0] as HTMLSelectElement).value, "year", "each line keeps its own choice");
+      assert.equal(monthCell(el, "income"), "2,800.00");
+      assert.deepEqual(fetches, []);
     });
     it("PFPJ-64: the select is a labelled, focusable native select with Monthly and Yearly", async () => {
       const el = await render(ok(record()).load);
