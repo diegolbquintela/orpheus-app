@@ -323,8 +323,6 @@ export function summarize(
   return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, window12, window12WithData, points };
 }
 
-const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);
-
 /**
  * #171: the as-of month in use, or null (none, or not a usable month → the old behaviour). Usable = a real `yyyy-mm`
  * from 2020-01 on; a month after the current one (only possible with a skewed clock) still anchors there (Q-AG2).

@@ -56,14 +56,6 @@ const exportText = async (id: string, f: "pdf" | "png" = "pdf", who = "alice") =
   const x = f === "pdf" ? readPdf(b) : readPng(b, crc32);
   return { text: f === "pdf" ? (x.text as string[]).join("\n").replace(/\n/g, " ") : JSON.stringify(x.text), data: x.data };
 };
-const months = (from: string, to: string) => {
-  const out = [from];
-  while (out.at(-1)! < to) {
-    const [y, m] = out.at(-1)!.split("-").map(Number);
-    out.push(m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`);
-  }
-  return out;
-};
 /** The old (#154 Q-AA10) rule, written out: anchored at 2025-03 (first data month), +500 there, +2,000 at 2026-09. */
 const oldNet = (ms: string[]) => ms.map((k) => (k < "2025-03" ? null : k < "2026-09" ? 10500 : 12500));
 
