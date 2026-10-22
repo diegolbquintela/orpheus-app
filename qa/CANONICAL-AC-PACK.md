@@ -1755,3 +1755,8 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFPJ-65 | BLOCK | `shownText`: converted and rounded to cents for display only; blank / invalid as is. |
 | PFPJ-66 | BLOCK | `storedText`: exact, unrounded conversion (1,000 a year → 1000 / 12); blank / invalid pass through. |
 | PFPJ-67 | MAJOR | At 390 and 1440 (owner and Read) the select and its amount fit the cell (no overflow, no clipping, 44 px), and ArrowDown on the focused select switches it. The main page shows no select and `Wages (yearly)`. |
+| PFPJ-56 | BLOCK | (2026-10-22, CFO on PR #224) Mutation: the select never shown (context ignored) fails PFPJ-60..64 / 68. |
+| PFPJ-57 | BLOCK | (2026-10-22) Mutation: a switch rewrites the stored value rounded to cents fails PFPJ-62 (10-year income 7,497.00 instead of 7,500.00). |
+| PFPJ-68 | BLOCK | (2026-10-22, spec 57.14) Every income flow line (Brazil family income, Solium withdrawals, Partner contribution) has its own labelled select, default Monthly (2,000.00 / 1,000.00 / 500.00); switching every line keeps income, surplus and net; Yearly 3,600 on one line feeds 300 a month; each line keeps its own choice; nothing is sent. |
+| PFPJ-69 | MAJOR | (2026-10-22) At 390 and 1440, owner and Read, with four income lines: every select is 44 px and inside the viewport; every amount is at least 60 px wide and not clipped; no horizontal overflow. |
+| PFPJ-70 | MINOR | (2026-10-22) CFO decisions recorded: Q-b, Q-PJ4–6, Q-PJ10–12 accepted; Q-PJ7 keep the save code; Q-PJ8 untouched (spec 57.14). |

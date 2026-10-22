@@ -2116,4 +2116,18 @@ The CFO's worked checks at 9 %/yr:
 
 **Q-PJ12 (not built, recommend leave).** Expense lines already have both a Monthly and a Yearly input (the main page's pair; typing either sets the line's period), so no extra select is added. The alternative is one input plus the select, which would be a layout change from the main page.
 
-57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..55, PFPJ-60..67). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.
+57.14 **Monthly / Yearly on every income flow line; CFO decisions (dated 2026-10-22, CFO on PR #224).**
+- **The ask:** every income flow line and every typed income or expense total on the scenario screen gets the select (57.13 behaviour).
+- **Income flow lines on this screen:** the Income section's lines, one per person or other income (e.g. Brazil family income, Solium withdrawals, Partner contribution). The one amount on each line is `Wages`, which is stored yearly.
+  - Every line has its own select, default Monthly, labelled `Wages, <line name>: Monthly or Yearly`.
+  - Each line keeps its own choice. Yearly is ÷12 per line, a switch on any line leaves the totals unchanged, and displayed conversions are rounded to cents.
+  - PFPJ-68 tests three lines; the 390 / 1440 sweep checks four (PFPJ-69).
+- **Typed income / expense totals:** the screen has no such input. The typed `05` Update totals are read from the record and used by the Overview (57.3), but they are not editable on this page or the main page. If such an input is added later, it should take the same `PeriodInput`.
+- **Unchanged:** balances (net assets, Starting net assets, Equity to cover) and % fields stay without a select. The main page is unchanged.
+
+**CFO decisions, dated 2026-10-22:**
+- Q-b (57.6), Q-PJ4, Q-PJ5, Q-PJ6, Q-PJ10, Q-PJ11 and Q-PJ12 are **accepted**.
+- **Q-PJ7:** keep the stored-scenario save code (not removed; still not called by the page).
+- **Q-PJ8:** don't touch (the main-page checkbox size stays as is).
+
+57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..57, PFPJ-60..69). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.
