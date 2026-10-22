@@ -140,8 +140,9 @@ async function scenarioChecks({ page, tag, vp }, read) {
     (await has("pf-expenses-block")) && (await has("pf-summary-block")) && (await has("pf-overview")) && (await has("pf-scenario-path")) && (await has("pf-scenario-totals")) && (await page.getByTestId("pf-person").count()) > 0);
   const present = {};
   for (const id of ["pf-filter", "pf-acct-filter", "pf-month-control", "pf-month-save", "pf-account", "pf-category"]) present[id] = await page.getByTestId(id).count();
+  // #223 (PFSS-50): `Save scenario` (named scenarios, scenario value only) is allowed; the main page's Save is not.
   check(`${tag} PFSV-04 no category / account filter, month control, Save, or Account / Category select on any line`,
-    Object.values(present).every((n) => n === 0) && (await page.getByRole("button", { name: /^Save/ }).count()) === 0, { lines: await page.getByTestId("pf-line").count(), present });
+    Object.values(present).every((n) => n === 0) && (await page.getByRole("button", { name: /^Save(?! scenario$)/ }).count()) === 0, { lines: await page.getByTestId("pf-line").count(), present });
   const title = (await page.locator("h1").first().textContent())?.trim();
   const basis = (await page.getByTestId("pf-scenario-basis").textContent().catch(() => ""))?.trim();
   check(`${tag} PFSV-05 title Scenario. and the seeding basis line`, title === "Scenario." && /^(Based on last month \(|Based on this month's saved figures \(|Nothing saved yet)/.test(basis ?? ""), { title, basis });

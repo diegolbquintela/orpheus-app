@@ -263,6 +263,8 @@ export function compact(s: Scenario): Scenario {
     rate: s.rate,
     growth: s.growth,
     start: s.start,
+    // #223: the saved list is kept as is (absent stays absent, so a levers-only value is unchanged).
+    ...(s.saved ? { saved: s.saved } : {}),
   };
 }
 export const scenarioText = (s: Scenario): string => JSON.stringify(compact(s));
