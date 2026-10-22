@@ -73,6 +73,7 @@ import {
 import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { OverviewBlock } from "./overview-block";
+import { PeriodChoice } from "./period-input";
 import { Cell, Lock, SectionHead } from "./pf-cells";
 import { ReadOnlyLine } from "@/components/access/denied";
 import { basisNote as scenarioBasis, WHAT_IF_NOTE as SCENARIO_WHAT_IF } from "@/lib/finance/scenario";
@@ -428,6 +429,7 @@ export function PersonalFinancePage({
     update((e) => ({ ...e, [group]: e[group].map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
 
   return (
+    <PeriodChoice.Provider value={!!scenario}>
     <div className="pf">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 pt-10 pb-20 sm:px-8 lg:gap-16 lg:pt-14 lg:pb-24">
         <header className="relative">
@@ -627,6 +629,7 @@ export function PersonalFinancePage({
         </div>
       </main>
     </div>
+    </PeriodChoice.Provider>
   );
 }
 
