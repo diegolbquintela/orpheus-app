@@ -1,4 +1,3 @@
-import { readHousehold } from "./currency.ts";
 import { rateUsed, readRates } from "./equity.ts";
 import { savedOverviewFigures } from "./months.ts";
 import { parseAmount } from "./expenses.ts";
