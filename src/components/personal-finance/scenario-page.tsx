@@ -24,6 +24,7 @@ import {
   formatPercent,
   GROWTH_ERROR,
   growthOk,
+  netBasis,
   parseGrowth,
   xTickIndexes,
   type Horizon,
@@ -179,7 +180,8 @@ export function ScenarioProjection({
             data-testid="pf-scenario-net"
           />
           <span id={`${uid}-net-hint`} className="pf-rate-source">
-            {`Starts from the Overview's ${formatMoney(ownNet)}. A what-if: never saved. A negative amount is allowed.`}
+            <span data-testid="pf-scenario-net-basis">{netBasis(live.overview, live.now, o.net)}</span>
+            {" A what-if: never saved. A negative amount is allowed."}
           </span>
           {netBad ? (
             <span id={`${uid}-net-error`} className="pf-error" data-testid="pf-scenario-net-error">

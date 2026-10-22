@@ -1,8 +1,12 @@
 import { parseScenarioAmount } from "./scenario-input.ts";
 import { rateUsed, readRates } from "./equity.ts";
 import { savedOverviewFigures } from "./months.ts";
+import { formatMoney } from "./money.ts";
 import {
+  asOfMonth,
   equityCoverage,
+  lastTwelve,
+  orZero,
   type Figures,
   HOUSEHOLD_TIME_ZONE,
   householdMonth,
@@ -107,6 +111,24 @@ export function overviewNow(
   const p = s.points.find((x) => x.key === s.current);
   return { current: s.current, income: p?.income ?? 0, expenses: p?.expenses ?? 0, net: p?.net ?? null };
 }
+
+/**
+ * #222 (spec 58.3, QA AO5): what the seeded net assets ("Net assets now") is based on, stated under the field. The
+ * Overview's own rule (`summarize`, spec 42): with an as-of month A, Starting net assets is the value at the start of
+ * A; without one, it is the value at the start of the Overview's 12-month window; then each month's surplus to the end
+ * of the current month (inside the window a month without figures counts the 12-month average). No figure → 0.
+ */
+export function netBasis(overview: Overview, now: Date, net: number | null, timeZone: string = HOUSEHOLD_TIME_ZONE): string {
+  const months = lastTwelve(now, timeZone);
+  const current = months[months.length - 1];
+  if (net === null) return NET_BASIS_NONE;
+  const start = formatMoney(orZero(overview.start));
+  const asOf = asOfMonth(overview);
+  if (asOf)
+    return `Basis: Starting net assets ${start} at the start of ${monthName(asOf)} (the as-of month), plus each month's surplus to the end of ${monthName(current)}.`;
+  return `Basis: no as-of month is set, so Starting net assets ${start} counts from the start of ${monthName(months[0])} (the Overview's 12-month window), plus each month's surplus to the end of ${monthName(current)}; a month without figures counts the 12-month average.`;
+}
+export const NET_BASIS_NONE = "Basis: the Overview has no net-assets figure yet (it needs income and expenses for its months), so this starts at 0.00.";
 
 /** The saved record's inputs (the "Today" column and the net-assets field's saved value X). */
 export function savedInputs(record: PfRecord | null, now: Date, timeZone: string = HOUSEHOLD_TIME_ZONE): Inputs {
