@@ -18,7 +18,9 @@ export const YEAR_CONTROL_LABEL = "Year";
 /** #163 Q-Y7: the Month select's options, as in the ticket. */
 export const MONTH_OPTIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 export const DISCARD_CONFIRM = "Discard unsaved changes?";
-export const copiedNote = (name: string): string => `Copied from ${name} — edit and save.`;
+/** #208 AR1 (spec 61.4): Read users can't edit or save, so they get a note that doesn't ask them to. */
+export const copiedNote = (name: string, readOnly = false): string =>
+  readOnly ? `Showing ${name}'s lines — nothing is saved for this month.` : `Copied from ${name} — edit and save.`;
 
 export type MonthLines = { fixed: Line[]; variable: Line[]; people: Person[] };
 export type Months = Record<MonthKey, MonthLines>;

@@ -2387,6 +2387,17 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
     assert.equal(Object.keys(JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!)).length, 1, "still nothing stored");
   });
 
+  it("HTL-06 (#208 AR1): a Read user on an empty month sees the Read note, never 'edit and save'", async () => {
+    dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
+    dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ "2026-08": { fixed: [LINE("1,200")], variable: [], people: [] } }));
+    const el = await render(NOW, true);
+    assert.equal(shownMonth(el), "2026-10");
+    assert.equal(text(el, "pf-month-note"), "Showing August 2026's lines — nothing is saved for this month.");
+    await pick(el, "2026-12");
+    assert.equal(text(el, "pf-month-note"), "Showing August 2026's lines — nothing is saved for this month.", "a future month too");
+    assert.ok(!/edit and save/.test(el.textContent ?? ""));
+  });
+
   it("PFM-18: an empty CURRENT month is unchanged (decision 5, PF-56): it opens as a copy of the most recent month with lines", async () => {
     dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
     dom.window.localStorage.setItem(MONTHS_KEY, JSON.stringify({ "2026-08": { fixed: [LINE("1,200")], variable: [], people: [] } }));

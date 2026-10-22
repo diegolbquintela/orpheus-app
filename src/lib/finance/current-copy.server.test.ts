@@ -150,7 +150,7 @@ describe("#199 current month's unsaved copy on /series, /chart and the export (s
       }
     }
   });
-  it("PFCC-10: Read grant (rita, Read only): /series, /chart and both exports 200, with her own record's current-month copy", async () => {
+  it("PFCC-10: Read grant (rita, Read only): /series, /chart and both exports 200 on her own record (seeded directly: Read can't save a report), with the current-month copy", async () => {
     // Read cannot PUT (#162 R2 / #197), so her record (with a saved default report) is seeded directly, as in export.server.test.ts.
     await pg.query("INSERT INTO personal_finance (user_id, data) VALUES ($1, $2)", ["rita", { ...recordOf(), [REPORT_KEY]: JSON.stringify(QUERY) }]);
     assert.equal((await series("rita")).status, 200);

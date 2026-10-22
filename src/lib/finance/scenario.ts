@@ -248,7 +248,7 @@ export function xTickIndexes(n: number, max = 5): number[] {
 
 export const growthOk = (g: number): boolean => Number.isFinite(g) && g >= -GROWTH_BOUND && g <= GROWTH_BOUND;
 
-// #215 (spec 55, Q-SC1): the stored-scenario save helpers, unchanged (scenario-client.ts `saveScenario`; Q-PJ7).
+// #215 (spec 55, Q-SC1): the stored-scenario save helpers. #208 SS7: used only by scenario-client.ts `changeSaved`.
 /** Only the levers that move something (0 % changes and unset values are dropped), so equal scenarios compare equal. */
 export function compact(s: Scenario): Scenario {
   const keep = (m: Record<string, number>) =>

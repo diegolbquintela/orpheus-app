@@ -51,7 +51,8 @@ export function keptValues(record: PfRecord): Record<string, string> {
 
 /** The stored scenario value with one more saved scenario (the levers untouched), or the name's problem. */
 export function addSaved(s: Scenario | null, entry: SavedEntry): Scenario | { error: string } {
-  const named = { ...entry, name: entry.name.trim() };
+  // #208 AS1 (spec 61.6): the start is stored in cents (the display already rounds).
+  const named = { ...entry, name: entry.name.trim(), inputs: { ...entry.inputs, start: Math.round(entry.inputs.start * 100) / 100 } };
   const err = nameError(named.name, list(s));
   if (err) return { error: err };
   return { ...(s ?? NO_SCENARIO), saved: [...list(s), named] };
