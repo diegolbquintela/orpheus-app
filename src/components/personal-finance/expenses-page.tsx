@@ -120,6 +120,8 @@ import {
   yearChoices,
 } from "@/lib/finance/months";
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
+import { backfillPlans, planFor, syncFuturePlans } from "@/lib/finance/plans";
+import { PlanVsActual } from "./plan-vs-actual";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
 import {
   isOpen,
@@ -225,7 +227,11 @@ export function PersonalFinancePage({
         const today = fixedNow ?? new Date();
         const current = lastTwelve(today)[11];
         // Decision 4: the record's lines become the current month's (stored for a writer; no change shown).
-        if (migrateMonths(store, current) && !readOnly && !scenario) void store.save?.();
+        const migrated = migrateMonths(store, current);
+        // #231 (spec 65.2): first load copies saved FUTURE months into absent plans (a writer only; never the scenario
+        // sandbox, which writes nothing). Saved with the decision-4 save.
+        const planned = !readOnly && !scenario && backfillPlans(store, current, today);
+        if ((migrated || planned) && !readOnly && !scenario) void store.save?.();
         setNow(today);
         setView(readView(store));
         open(current, current);
@@ -405,6 +411,9 @@ export function PersonalFinancePage({
     // #165 (PFD-01..PFD-03): deletes reach the shown month and later months only; earlier months are left as stored.
     const months = deleteInMonths(renameInMonths(readMonths(store), renames), deletes);
     months[month] = { fixed: expenses.fixed, variable: expenses.variable, people: income.people };
+    // #231 Q1 (spec 65.2): every saved FUTURE month's lines become its plan (frozen once the month starts; the server
+    // keeps a current or past month's plan whatever is sent). Never in the scenario sandbox.
+    if (current && !scenario) syncFuturePlans(store, months, current, new Date());
     const legacy = { ...overview.months };
     delete legacy[month];
     const nextOverview = { ...overview, months: legacy };
@@ -531,6 +540,11 @@ export function PersonalFinancePage({
                   : ""
             }
           />}
+          {/* #231 Q4 (spec 65.4): Planned vs actual for a current or past month with a plan; read-only (Q3). */}
+          {(() => {
+            const pv = !scenario && month && current ? planFor(storage(), month, current) : null;
+            return pv ? <PlanVsActual month={month!} capturedAt={pv.plan.capturedAt} comparison={pv.comparison} /> : null;
+          })()}
         </header>
 
         <div

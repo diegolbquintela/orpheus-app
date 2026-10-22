@@ -2,8 +2,10 @@ import { type CurrencyCode, readHousehold } from "./currency.ts";
 import { parseRoic, parseWithdrawal, type Rates, readRates } from "./equity.ts";
 import { type Expenses, isForeign, type Line, parseAmount, parseRate, readExpenses } from "./expenses.ts";
 import { type Income, parsePercent, type Person, personCurrency, readIncome } from "./income.ts";
-import { readMonths } from "./months.ts";
-import { type Overview, readOverview } from "./overview.ts";
+import { type MonthLines, readMonths } from "./months.ts";
+import { householdMonth, type Overview, readOverview } from "./overview.ts";
+import { PLANS_KEY } from "./plans-key.ts";
+import { readPlans } from "./plans-read.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import { scenarioValueOk } from "./scenario-key.ts";
 import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST, rangeError } from "./report.ts";
@@ -92,18 +94,35 @@ export function fieldErrors(s: FieldState, o: Options = { blankRateIsError: true
 }
 
 /**
+ * #231 PV1 (spec 65.7, PFPV-27..30): a month's (or plan's) lines checked like the page's Save (a blank FX rate on a
+ * foreign line is an error by default); empty = valid.
+ */
+export function monthErrors(m: MonthLines, household: CurrencyCode, o: Options = { blankRateIsError: true }): string[] {
+  return [
+    ...lineErrors("fixed", m.fixed, household, o),
+    ...lineErrors("variable", m.variable, household, o),
+    ...peopleErrors(m.people, household, o),
+  ];
+}
+
+/**
  * The API (Q-S4): the first invalid value in a record (read with the page's own readers), or null. Checks the shared
  * values and every stored month's lines; a blank FX rate is accepted (Q14).
  */
 /** #171 Q-AG9: the record API's refusal, `{ field, error }`: the as-of month's own message, else `Invalid value.`. */
-export function recordRefusal(record: PfRecord, current?: string): { field: string; error: string } | null {
-  const field = recordFieldError(record, current);
+export function recordRefusal(record: PfRecord, current?: string, storedPlans?: string): { field: string; error: string } | null {
+  const field = recordFieldError(record, current, storedPlans);
   if (!field) return null;
   const asOf = field === "overview.asOf" ? asOfError(readOverview(new RecordStore(record)).asOf, current) : null;
   return { field, error: asOf ?? INVALID_VALUE };
 }
 
-export function recordFieldError(record: PfRecord, current?: string): string | null {
+/**
+ * #231 PV1 (spec 65.7): `storedPlans` = the plans text already stored for the user. Only incoming plans the save would
+ * WRITE are checked: a month after `current` whose plan differs from the stored one. Current / past plans (ignored by the
+ * merge) and unchanged stored plans (legacy) never block a save.
+ */
+export function recordFieldError(record: PfRecord, current?: string, storedPlans?: string): string | null {
   const store = new RecordStore(record);
   const o: Options = { blankRateIsError: false };
   const household = readHousehold(store).household;
@@ -120,6 +139,14 @@ export function recordFieldError(record: PfRecord, current?: string): string | n
       ...lineErrors(`months.${key}.variable`, m.variable, household, o),
       ...peopleErrors(m.people, household, o).map((p) => `months.${key}.${p}`),
     );
+  }
+  if (record[PLANS_KEY] !== undefined) {
+    const now = current ?? householdMonth(new Date());
+    const before = readPlans(new RecordStore({ ...record, [PLANS_KEY]: storedPlans ?? "{}" }));
+    for (const [key, p] of Object.entries(readPlans(store))) {
+      if (key <= now || (before[key] && JSON.stringify(before[key]) === JSON.stringify(p))) continue;
+      errors.push(...monthErrors(p.lines, household).map((e) => `plans.${key}.${e}`));
+    }
   }
   // #215 (spec 55, PFSC): a saved scenario must be a readable set of levers in bounds; refused, never clamped.
   if (!scenarioValueOk(record)) errors.push("scenario");

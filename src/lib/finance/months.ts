@@ -62,7 +62,7 @@ export function chosenMonth(year: number | string, month: number | string, curre
 }
 
 /** A month's lines checked against the shared accounts / categories (as the page reads them). */
-function asLines(value: unknown, shared: Expenses): MonthLines {
+export function asLines(value: unknown, shared: Expenses): MonthLines {
   const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const e = asExpenses({
     accounts: shared.accounts,

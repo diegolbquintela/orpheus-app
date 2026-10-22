@@ -2329,3 +2329,49 @@ The no-figure sentence `NET_BASIS_NONE` is unchanged.
 64.5 **AQ1.** When a Starting net assets is saved (not 0) and no month is saved (no copy either), the scenario banner reads `No months saved yet: income and expenses start at 0; net assets start at your Starting net assets (85,000.00).` It no longer says `Nothing saved yet: every figure starts at 0.`, which stays for a record with nothing typed.
 
 64.6 **Limits.** No dependency, table, migration, env, provider, secret, schema or wire change. Nothing new is stored or sent. See the PR's Q-NA items for the known small differences that remain (unsaved edits on the main page; historical FX).
+
+## 65. Personal Finance: planned vs actual for months (#231, FM6, MEDIUM, Diego / CFO; added 2026-10-22; built in the same PR)
+
+(2026-10-22 note: adds to spec 59 (#229, future months). PR #230's Q-FM6 ("no planned-vs-actual view") is answered here. The text above is left as written.)
+
+65.1 **Storage (Diego, Option A).** A new record name, `orpheus.finance.plans.v1`, in the existing `personal_finance` row. There is no new table, column, migration, env or dependency.
+- Shape: `{ "<yyyy-mm>": { "lines": { fixed, variable, people }, "capturedAt": "<ISO time>" } }`.
+- The lines have the same shape as a month in `orpheus.finance.months.v1`.
+- Totals are derived (spec 19 / decision 7 helpers); nothing derived is stored.
+
+65.2 **Writing the plan (CFO Q1: the plan freezes at the last save before the month starts).**
+- Every Save on the page sets the plan of every saved FUTURE month to its saved lines.
+- An unchanged month keeps its capture time.
+- A current or past month's plan is never written by the page.
+- **Backfill:** on first load, a writer's page copies every saved future month that has no plan yet into the plans. It is saved with the page's load-time save. There is no SQL and no server job.
+- A future month that is emptied, or not stored, keeps its plan (Q5).
+- Months that were future but became current before this shipped have no plan.
+
+65.3 **Server merge (Diego, fix (2)).** Every record write (owner PUT, non-owner write PUT, the view route) merges plans by month. The month is the server's household month, the same convention as the app (spec 16 N1).
+- A current or past month always keeps the stored plan; the incoming one is ignored, even when none is stored.
+- A future month in the body replaces the stored one.
+- A future month left out of the body keeps the stored one.
+- A body without plans keeps them all, so a tab opened before a plan was written, or a bundle from before this change, can't drop it.
+- A plan is never removed (Q5).
+- The owner's DELETE still wipes the whole record, plans included.
+- The PUT reply carries the record as stored.
+
+65.4 **The view (CFO Q2..Q4).** In the month view, a current or past month with a plan shows a read-only **Planned vs actual** table:
+- **Rows:** Expenses, Income and Surplus totals, then one row per line. Expense lines match by line id; income lines are each person's Wages and Bonus. A line on one side only counts 0 on the other.
+- **Columns:** Planned, Actual, Difference (actual − planned), % of plan (difference ÷ planned; `—` when planned is 0), Direction.
+- **Direction:** `Over plan` / `Under plan` / `On plan`, followed by `worse than plan`, `better than plan` or `as planned`. Expenses over plan, income under plan and surplus under plan read as worse.
+- **Actual** is the month's saved lines.
+- **Note:** "Planned = this month's lines as last saved before it started (<capture date>)…".
+- **Read users (#197)** see the same table, view only (Q3).
+- **Not shown** for a future month or a month without a plan. The scenario sandbox shows no table and writes no plan.
+
+65.5 **Out of scope.** Clearing a plan (Q5). Two tabs overwriting each other's OTHER record values is a separate ticket. No chart, export or `/series` change.
+
+65.6 (2026-10-22 note, #231 PV4, added on QA's Q-PV4): `capturedAt` is still stored as a UTC ISO time. The Planned vs actual note now shows it in Eastern time with an explicit zone (`America/Toronto`), as `yyyy-mm-dd hh:mm ET` (24 h), for example `(2026-09-30 08:00 ET)`. It shows the same on every device and in every server time zone. An unreadable capture time falls back to the month's name. This replaces the "capture date" wording in 65.4, which is left as written.
+
+65.7 (2026-10-22 note, #231 PV1, approved by EL): plans are made only from valid lines.
+- **The API.** The record check (`recordFieldError`) also checks the incoming `plans.v1`. Each plan's lines are read with the page's own readers, as for months. They get the same line and person checks as Save, and a blank FX rate on a foreign line or person is an error. A bad value is refused with 400 `Invalid value.`, field `plans.<yyyy-mm>.<fixed|variable>.<i>.<field>` or `plans.<yyyy-mm>.people.<i>.<field>`, and nothing is stored.
+- **Only plans the save would write are checked.** That means a month after the current one (server clock, household month) whose plan differs from the one already stored. Plans for the current or a past month are ignored by the merge (65.3), so they are not checked. A stored plan sent back unchanged is not checked either, so an invalid legacy plan (saved before this check) never blocks an unrelated save. Changing that plan to another invalid value is refused.
+- **The page.** Save's plan sync and the first-load backfill skip any future month whose lines fail the page's field checks (blank FX rate included). This covers months stored before #143 or with a blank rate, which the API accepts for months (Q-S4). Such a month gets no plan until it is saved valid. Stored months stay as they are.
+
+65.8 (2026-10-22 note, #231 AX3, from QA): no actuals yet. A current or past month with a plan but no saved lines has no result to compare. "No saved lines" means `months.v1` has no entry for the month, or its entry has no line and no person. Lines the page shows but has not saved (for example lines copied from the month before) do not count. For such a month the table still shows the planned figures. Actual, Difference and % of plan show `—`. Direction shows `No actuals yet`, with no tone, and never "better than plan" or any other result. A note above the table reads `No actuals yet: nothing is saved for this month, so there is no result to compare.` Only planned lines are listed. Once one line or person is saved, the month is compared as in 65.4.
