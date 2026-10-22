@@ -2099,4 +2099,21 @@ The CFO's worked checks at 9 %/yr:
 - **Q-PJ7 (open, recommend keep until #223):** Diego's final scope (2026-10-22) is sandbox only. The #215 stored-scenario lever save (`saveScenario`, `orpheus.finance.scenario.v1`, its route validation) is the only write code left for this screen. Its code is left as is, but the rebuilt page no longer calls it. Should it be removed under "sandbox only", or kept until named saved scenarios (#223, not built here)? We recommend keeping it until #223.
 - **Q-PJ8 (not built, recommend a ticket):** F3, the checkbox tap size on the main page.
 
-57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..54). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.
+57.13 **Monthly / Yearly on flow amounts (built; Diego on #221, 2026-10-22; CFO Q-PJ9).**
+- **Which fields:** each flow-amount input on the scenario screen gets a native Monthly / Yearly select, default Monthly. These are the people's wages, which are stored yearly, so the column reads `Wages` on this screen and `Wages (yearly)` on the main page. Off the scenario screen the input renders exactly as before.
+- **Calculations:** a Yearly value is divided by 12 before it feeds them.
+
+**Q-PJ9 (CFO, built, recommend accept).** The exact behaviour:
+- **(a) Switching** converts only the displayed text, keeping its meaning (Monthly 500 ↔ Yearly 6,000.00). The stored value is untouched, so no total changes on a switch.
+- **(b) Typing** in a period stores the exact converted amount, unrounded: Yearly 6,000 feeds 500 a month, and Yearly 1,000 feeds 83.333… a month, never 83.33.
+- **(c) Display:** a converted value is shown rounded to cents with thousands separators (6,000.00, 83.33). The amount as typed stays as typed until the next switch.
+- **(d) Blank and invalid text:** blank stays blank (it counts as 0, as on the main page). Invalid text (`12a`, `1e3`) stays as typed across a switch and shows the field's own error; it counts as 0 until fixed.
+- **(e) Access:** the select is labelled `<field>, <person>: Monthly or Yearly`, works with the keyboard, is 44 px tall, and sits under the amount so both keep the cell's width at 390 and 1440.
+
+**Q-PJ10 (not built, recommend leave).** Net assets (the scenario's starting value and the Overview's Starting net assets) and Equity to cover are balances, not flows, so they get no select.
+
+**Q-PJ11 (not built, recommend leave).** % fields (bonus %, tax, share, growth, withdrawal, ROIC) are rates, so they get no select.
+
+**Q-PJ12 (not built, recommend leave).** Expense lines already have both a Monthly and a Yearly input (the main page's pair; typing either sets the line's period), so no extra select is added. The alternative is one input plus the select, which would be a layout change from the main page.
+
+57.12 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFPJ (PFPJ-01..10, PFPJ-20..22, PFPJ-30..37, PFPJ-40..55, PFPJ-60..67). The #215 ACs PFSC-04..11 and PFSC-17..23 (levers, `Save scenario` UI) are superseded by this section; PFSC-12..16 (the stored value and its route) still hold.

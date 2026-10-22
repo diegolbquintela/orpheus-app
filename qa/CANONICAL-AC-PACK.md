@@ -1746,3 +1746,12 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFPJ-52 | BLOCK | Mutation: growth on a negative balance fails PFPJ-02 / 03 / 20 / 21. |
 | PFPJ-53 | BLOCK | Mutation: a scenario store with `save` (an edit or toggle sends a PUT) fails PFPJ-32 / 36. |
 | PFPJ-54 | BLOCK | Mutation: the Overview Future step without the positive-only rule fails PFPJ-20 / 21. |
+| PFPJ-55 | BLOCK | Mutation: `storedText` not converting (Yearly fed as monthly) fails PFPJ-61 / 66. |
+| PFPJ-60 | BLOCK | Monthly / Yearly (spec 57.13): the default is Monthly; seeded yearly wages 120,000 show 10,000.00 a month; income unchanged. |
+| PFPJ-61 | BLOCK | Yearly 6,000 feeds 500 a month (the same income as Monthly 500). |
+| PFPJ-62 | BLOCK | Switching keeps the meaning (1,000 a month ↔ 12,000.00 a year; Yearly 1,000 → 83.33 shown) and income, surplus and net do not change; nothing is sent. |
+| PFPJ-63 | MAJOR | Blank and invalid text stay as typed across a switch; invalid shows the field's own error. |
+| PFPJ-64 | MAJOR | The select is a native, labelled (`…: Monthly or Yearly`), focusable select with Monthly and Yearly. |
+| PFPJ-65 | BLOCK | `shownText`: converted and rounded to cents for display only; blank / invalid as is. |
+| PFPJ-66 | BLOCK | `storedText`: exact, unrounded conversion (1,000 a year → 1000 / 12); blank / invalid pass through. |
+| PFPJ-67 | MAJOR | At 390 and 1440 (owner and Read) the select and its amount fit the cell (no overflow, no clipping, 44 px), and ArrowDown on the focused select switches it. The main page shows no select and `Wages (yearly)`. |
