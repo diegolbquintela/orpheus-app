@@ -1975,3 +1975,16 @@ The test strings, with code points above U+007E listed:
 - **Q-SC9 (NOT BUILT, recommend a ticket if wanted):** named or multiple scenarios, one-off events (a lump sum, or a new line from month X), and tax % or FX levers.
 
 55.9 **README.** It gets one dated line, like #214, because this is a new page a person can open.
+
+55.10 **CFO answers (added 2026-10-22).**
+- Q-SC1, Q-SC2 and Q-SC4 to Q-SC8 are accepted as built.
+- Q-SC9 is not built. It becomes a separate ticket only if Diego says yes.
+- **Q-SC3 is changed.** Growth applies to net assets only while the balance is positive; this is built in the same PR.
+
+55.11 **Growth on a positive balance only (CFO change on Q-SC3, added 2026-10-22; built).** This replaces the net-assets line of 55.3. The projection still runs month by month.
+- **Order:** growth applies to the month's **opening** balance, then that month's surplus or deficit is added.
+- If the opening balance is **above 0**: closing = opening × (1 + growth ÷ 100)^(1/12) + surplus.
+- If the opening balance is **at or below 0**: that month's growth is 0 %, so closing = opening + surplus. This holds for a negative growth rate as well.
+- Growth resumes in the first month whose opening balance is above 0, which is the month after the balance crosses above 0.
+- An opening balance of exactly 0 gets no growth. 0 × the growth factor is 0 anyway, so this is the same either way.
+- Today's positive-balance projections are unchanged (PFSC-07). Totals and coverage use the same path. AC PFSC-31..33.

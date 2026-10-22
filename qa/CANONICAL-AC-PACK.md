@@ -1678,3 +1678,14 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFSC-28 | BLOCK | Gates green under TZ=UTC and TZ=America/Los_Angeles: npm ci, tsc, eslint (3 baseline warnings), npm test, `npx vite build`, `check:dashboard-built`. |
 | PFSC-29 | MAJOR | Same-length build compare against main: only the expected chunks change. |
 | PFSC-30 | BLOCK | QA PASS on the preview, mobile and desktop: Read and Read-and-write accounts, a save, then a reload shows the saved levers; the main page's months are unchanged. |
+
+**PFSC: CFO decisions (2026-10-22).**
+- Q-SC1, Q-SC2 and Q-SC4 to Q-SC8 are accepted.
+- Q-SC9 is not built; it becomes a separate ticket only if Diego says yes.
+- Q-SC3 is changed: growth applies only to a positive opening balance (spec 55.11).
+
+| ID | Severity | Check |
+|---|---|---|
+| PFSC-31 | BLOCK | A negative start that crosses above 0: growth is 0 % in every month whose opening balance is ≤ 0 (the surplus still adds), and resumes in the first month whose opening balance is > 0. A deficit on a negative balance just adds, and a negative growth rate is not applied below 0 either (`scenario.test.ts`). |
+| PFSC-32 | BLOCK | An opening balance of exactly 0 grows 0 % that month; growth starts the month after the balance turns positive. A balance that lands exactly on 0 gets no growth the next month. |
+| PFSC-33 | MAJOR | A positive balance still compounds every month (PFSC-07 unchanged), and the totals use the same path. Mutation: growth applied to a balance ≤ 0 makes PFSC-31 and PFSC-32 fail. |

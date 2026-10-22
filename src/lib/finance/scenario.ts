@@ -195,7 +195,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 /**
  * The projected path: from the month after this one, `horizon` months. Each month: income and expenses are today's
  * lines with their lever (a % change), surplus = income − expenses, and net assets compound monthly at
- * (1 + growth ÷ 100)^(1/12) then add the surplus (the Overview's Future rule, PF-84). Pure; nothing is written.
+ * (1 + growth ÷ 100)^(1/12) then add the surplus (the Overview's Future rule, PF-84). CFO on Q-SC3 (2026-10-22): growth
+ * only on a positive opening balance; at or below 0 the month grows 0 %. Pure; nothing is written.
  */
 export function project(base: Baseline, levers: Scenario, horizon: Horizon | number): Projection {
   const income = base.income.reduce((t, l) => t + pct(l.monthly, levers.income[l.id]), 0);
@@ -210,7 +211,9 @@ export function project(base: Baseline, levers: Scenario, horizon: Horizon | num
   let net = start;
   for (let i = 0; i < horizon; i++) {
     key = nextMonth(key);
-    net = net * g + surplus;
+    // CFO on Q-SC3 (2026-10-22, PFSC-31..33): growth applies to the month's OPENING balance only when it is above 0;
+    // at or below 0 that month's growth is 0 %. The surplus or deficit is then added as before.
+    net = (net > 0 ? net * g : net) + surplus;
     points.push({
       key,
       label: monthShort(key),

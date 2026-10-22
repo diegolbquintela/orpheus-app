@@ -189,6 +189,80 @@ describe("#215 projection math", () => {
   });
 });
 
+describe("#215 CFO on Q-SC3 (2026-10-22): growth only on a positive opening balance", () => {
+  const g = Math.pow(1.12, 1 / 12);
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.01, `${a} vs ${b}`);
+  const inc = (monthly: number) => [{ id: "a", label: "A", monthly }];
+  it("PFSC-31: a negative start that crosses above 0: growth 0 % while the opening balance is ≤ 0, resumes after", () => {
+    const p = project(
+      flat({ income: inc(600), categories: [], start: -1000 }),
+      { ...NO_SCENARIO, growth: 12 },
+      4,
+    );
+    const n = p.points.map((x) => x.net);
+    assert.equal(n[0], -400); // opens at -1,000: no growth, + 600
+    assert.equal(n[1], 200); // opens at -400: no growth, + 600 (crosses above 0)
+    close(n[2], 200 * g + 600); // opens at 200 > 0: growth resumes on the opening balance
+    close(n[3], (200 * g + 600) * g + 600);
+    // A deficit on a negative balance just adds, with no growth (no "negative compounding").
+    const d = project(
+      flat({ income: [], categories: [{ id: "x", label: "X", monthly: 100 }], start: -1000 }),
+      { ...NO_SCENARIO, growth: 12 },
+      3,
+    );
+    assert.deepEqual(
+      d.points.map((x) => x.net),
+      [-1100, -1200, -1300],
+    );
+    // Negative growth also applies only to a positive balance.
+    const m = project(
+      flat({ income: inc(0), categories: [], start: -500 }),
+      { ...NO_SCENARIO, growth: -50 },
+      2,
+    );
+    assert.deepEqual(
+      m.points.map((x) => x.net),
+      [-500, -500],
+    );
+  });
+  it("PFSC-32: an opening balance of exactly 0 grows 0 % that month; growth starts the month after it turns positive", () => {
+    const z = project(
+      flat({ income: [], categories: [], start: 0 }),
+      { ...NO_SCENARIO, growth: 12 },
+      3,
+    );
+    assert.deepEqual(
+      z.points.map((x) => x.net),
+      [0, 0, 0],
+    );
+    const p = project(
+      flat({ income: inc(100), categories: [], start: 0 }),
+      { ...NO_SCENARIO, growth: 12 },
+      3,
+    );
+    assert.equal(p.points[0].net, 100); // opens at 0: no growth
+    close(p.points[1].net, 100 * g + 100);
+    close(p.points[2].net, (100 * g + 100) * g + 100);
+    // Crossing exactly to 0 then staying: no growth on the 0 month.
+    const q = project(
+      flat({ income: inc(500), categories: [], start: -500 }),
+      { ...NO_SCENARIO, growth: 12 },
+      2,
+    );
+    assert.deepEqual([q.points[0].net], [0]);
+    assert.equal(q.points[1].net, 500);
+  });
+  it("PFSC-33: a positive balance still compounds every month (PFSC-07 unchanged); totals use the same path", () => {
+    const p = project(
+      flat({ income: [], categories: [], start: 10000 }),
+      { ...NO_SCENARIO, growth: 12 },
+      12,
+    );
+    close(p.totals.netEnd, 11200);
+    close(p.totals.netEnd, p.points[p.points.length - 1].net);
+  });
+});
+
 describe("#215 levers and the stored scenario", () => {
   it("PFSC-11: a typed lever is a number in bounds, else null (shown in red, moves nothing)", () => {
     assert.equal(parseLever("10", -100, 1000), 10);
