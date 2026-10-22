@@ -108,6 +108,11 @@ import {
   MONTH_OPTIONS,
   openMonth,
   hasLines,
+  lastOpenMonth,
+  type MonthLines,
+  RESET,
+  resetQuestion,
+  resetSource,
   readMonths,
   renameInMonths,
   writeMonths,
@@ -264,7 +269,8 @@ export function PersonalFinancePage({
   );
   const canCopyCurrent =
     !readOnly &&
-    !!(month && current && month !== current && copySource && expenses && income) &&
+    // #229: past months only (an empty future month opens as a copy already).
+    !!(month && current && month < current && copySource && expenses && income) &&
     expenses!.fixed.length + expenses!.variable.length + income!.people.length === 0;
   function copyCurrent() {
     if (!canCopyCurrent || !copySource || !expenses || !current || !month) return;
@@ -272,6 +278,22 @@ export function PersonalFinancePage({
     setExpenses({ ...expenses, fixed: lines.fixed, variable: lines.variable });
     setIncome({ people: lines.people });
     setCopiedFrom(current);
+  }
+
+  /**
+   * #229 (spec 59.4, PFFM-20..27): a SAVED future month offers `Reset` (writers only): after the confirmation it puts the
+   * latest saved month before it on screen and saves at once (the normal Save path, one PUT). Cancel: nothing changes.
+   */
+  const resetFrom = useMemo(
+    () => (readOnly || scenario || !month || !current ? null : resetSource(readMonths(storage()), month, current)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [saved, current, month, readOnly, scenario],
+  );
+  function reset() {
+    if (!resetFrom || !month || !expenses) return;
+    if (!window.confirm(resetQuestion(monthName(resetFrom)))) return;
+    const lines = withoutDeletedFor(readMonths(storage())[resetFrom], expenses, month);
+    void save(lines);
   }
 
   /** #163 Q-Y8: something typed or changed on the shown month (an untouched copy has nothing to lose). */
@@ -350,9 +372,20 @@ export function PersonalFinancePage({
   }
 
   /** Decision 2 / 7: store the shown month's lines and the shared values; stay on the month. */
-  async function save() {
+  async function save(resetTo?: MonthLines) {
     const store = storage();
     if (!store || !month || !expenses || !income || !rates || !household || !overview) return;
+    if (resetTo) {
+      // #229 Reset: the copy replaces the shown month's lines; the rest of the page saves as Save would.
+      const e = { ...expenses, fixed: resetTo.fixed, variable: resetTo.variable };
+      const i = { people: resetTo.people };
+      return saveShown(store, e, i);
+    }
+    return saveShown(store, expenses, income);
+  }
+
+  async function saveShown(store: StoreLike, expenses: Expenses, income: Income) {
+    if (!month || !rates || !household || !overview) return;
     // #143 (PF-133, Q-S1): any field in error → nothing written, no PUT; the note and focus on the first such field.
     if (fieldErrors({ expenses, income, rates, overview, household: household.household }).length) {
       setBlocked(true);
@@ -381,6 +414,8 @@ export function PersonalFinancePage({
     setSaveFailed(!ok);
     if (!ok) return;
     setOverview(nextOverview);
+    setExpenses(expenses);
+    setIncome(income);
     setCopiedFrom(null);
     setRenames([]);
     setDeletes([]);
@@ -480,6 +515,7 @@ export function PersonalFinancePage({
             saving={saving}
             onSave={() => void save()}
             onCopy={canCopyCurrent ? copyCurrent : null}
+            onReset={resetFrom && !saving ? reset : null}
             note={
               blocked && hasErrors
                 ? SAVE_BLOCKED
@@ -654,10 +690,12 @@ function MonthControl({
   saving,
   onSave,
   onCopy,
+  onReset,
   note,
   readOnly,
 }: {
   onCopy: (() => void) | null;
+  onReset: (() => void) | null;
   readOnly: boolean;
   now: Date | null;
   month: MonthKey | null;
@@ -670,6 +708,8 @@ function MonthControl({
   const uid = useId();
   const current = now ? lastTwelve(now)[11] : null;
   const years = current ? yearChoices(current) : [];
+  // #229 (PFFM-01..04): months after the current one open, up to `lastOpenMonth` (CFO Q-FM1: 12 ahead).
+  const last = current ? lastOpenMonth(current) : null;
   const [year, mm] = month ? month.split("-") : ["", ""];
   return (
     <div className="pf-month mt-6" data-testid="pf-month-control">
@@ -690,7 +730,7 @@ function MonthControl({
             {MONTH_OPTIONS.map((name, i) => {
               const value = String(i + 1).padStart(2, "0");
               return (
-                <option key={value} value={value} disabled={!!current && `${year}-${value}` > current}>
+                <option key={value} value={value} disabled={!!last && `${year}-${value}` > last}>
                   {name}
                 </option>
               );
@@ -745,7 +785,14 @@ function MonthControl({
       {/* #163 PFM-11 (QA fix of e7a19fa): the copy line is always rendered and shown by visibility, so its space is
           reserved from the first render and nothing moves on a month change. Hidden, it is neither focusable nor in
           the accessibility tree (visibility: hidden), and it is disabled as well. */}
-      <p className="pf-month-copy" data-testid="pf-month-copy-line" data-shown={onCopy ? "true" : "false"}>
+      <p className="pf-month-copy" data-testid="pf-month-copy-line" data-shown={onCopy || onReset ? "true" : "false"}>
+        {/* #229 (PFFM-20): a saved future month's `Reset` takes the copy line's reserved place (never both: copy is for
+            an empty past month, Reset for a saved future one), so nothing moves. */}
+        {onReset ? (
+          <button type="button" className="pf-button" onClick={onReset} data-testid="pf-month-reset">
+            {RESET}
+          </button>
+        ) : (
         <button
           type="button"
           className="pf-button"
@@ -756,6 +803,7 @@ function MonthControl({
         >
           {COPY_FROM_CURRENT}
         </button>
+        )}
       </p>
       <p className="pf-month-note" data-testid="pf-month-note">
         {note}

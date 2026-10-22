@@ -2,7 +2,7 @@ import { type CurrencyCode, readHousehold } from "./currency.ts";
 import { type Rates, rateUsed, readRates } from "./equity.ts";
 import { asExpenses, type Expenses, grandTotals, type Line, type NameKind, readExpenses, stripName } from "./expenses.ts";
 import { asIncome, monthly, netIncomeYearly, type Person, readIncome } from "./income.ts";
-import { type Figures, type MonthKey, readOverview, typedFigure } from "./overview.ts";
+import { type Figures, type MonthKey, previousMonth, readOverview, typedFigure } from "./overview.ts";
 
 /**
  * #112 (spec section 19; design `attachments/pf-month-control-design.md`, EL option A): each month's own lines.
@@ -27,17 +27,35 @@ type StorageLike = Pick<Storage, "getItem" | "setItem">;
 const isKey = (k: string): boolean => /^\d{4}-(0[1-9]|1[0-2])$/.test(k);
 const keptKey = (k: string): boolean => isKey(k) && k >= FIRST_MONTH;
 
-/** #163 Q-Y2: the Year select's years, the current month's year down to `FIRST_YEAR`. */
+/**
+ * #229 (spec 59, AC PFFM; CFO Q-FM1): how far ahead the month control goes: the current month plus `FUTURE_MONTHS`
+ * (12) months. Nothing past that can be chosen or opened.
+ */
+export const FUTURE_MONTHS = 12;
+export function lastOpenMonth(current: MonthKey): MonthKey {
+  const [y, m] = current.split("-").map(Number);
+  const i = y * 12 + (m - 1) + FUTURE_MONTHS;
+  return `${String(Math.floor(i / 12)).padStart(4, "0")}-${String((i % 12) + 1).padStart(2, "0")}`;
+}
+/** #229: a month after the current one. */
+export const isFuture = (key: MonthKey, current: MonthKey): boolean => key > current;
+
+/** #163 Q-Y2 / #229: the Year select's years, the last open month's year (`lastOpenMonth`) down to `FIRST_YEAR`. */
 export function yearChoices(current: MonthKey): number[] {
   const out: number[] = [];
-  for (let y = Number(current.slice(0, 4)); y >= FIRST_YEAR; y--) out.push(y);
+  for (let y = Number(lastOpenMonth(current).slice(0, 4)); y >= FIRST_YEAR; y--) out.push(y);
   return out;
 }
 
-/** #163 Q-Y1: the month a Year / Month choice opens; a future month (or one before `FIRST_MONTH`) gives the nearest allowed. */
+/**
+ * #163 Q-Y1 / #229: the month a Year / Month choice opens; one after `lastOpenMonth` (or before `FIRST_MONTH`) gives the
+ * nearest allowed; an invalid choice gives the current month.
+ */
 export function chosenMonth(year: number | string, month: number | string, current: MonthKey): MonthKey {
   const key = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
-  if (!isKey(key) || key > current) return current;
+  if (!isKey(key)) return current;
+  const last = lastOpenMonth(current);
+  if (key > last) return last;
   return key < FIRST_MONTH ? FIRST_MONTH : key;
 }
 
@@ -128,11 +146,29 @@ export function openMonth(
   const none: Opened = { lines: { fixed: [], variable: [], people: [] }, copiedFrom: null };
   // #163 (CFO rejected Q-Y6, PFM-15): an empty PAST month opens blank; copying is the explicit
   // `Copy from current month` (copyOfCurrent). The empty current month keeps decision 5 (PF-56).
-  if (!canCopy || key !== current) return none;
-  const source = latestWithLines(months);
-  if (!source || source === key) return none;
+  // #229 (spec 59, PFFM-10..13): an empty FUTURE month opens with a copy of the latest saved month before it. Both copy
+  // only from months BEFORE the one opened, so the current month's copy (#199) never comes from a saved future month.
+  if (!canCopy || key < current) return none;
+  const source = copySourceFor(months, key);
+  if (!source) return none;
   return { lines: months[source], copiedFrom: source };
 }
+
+/** #229: the latest month before `key` with saved lines (what an empty current / future month copies), or null. */
+export function copySourceFor(months: Months, key: MonthKey): MonthKey | null {
+  return latestWithLines(months, previousMonth(key));
+}
+
+/**
+ * #229 (spec 59.4, PFFM-20..26): what `Reset` puts in a SAVED future month: the latest saved month before it, or null
+ * (no Reset). Only for a future month that has its own saved lines.
+ */
+export function resetSource(months: Months, key: MonthKey, current: MonthKey): MonthKey | null {
+  if (!isFuture(key, current) || !hasLines(months[key])) return null;
+  return copySourceFor(months, key);
+}
+export const RESET = "Reset";
+export const resetQuestion = (name: string): string => `Reset this month to ${name}'s values? This replaces what is saved for this month.`;
 
 /** #163 PFM-16: what `Copy from current month` puts in an empty past month: the current month's saved lines, or null. */
 export function copyOfCurrent(months: Months, current: MonthKey): MonthLines | null {

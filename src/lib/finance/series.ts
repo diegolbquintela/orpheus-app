@@ -102,7 +102,12 @@ export function rangeMonths(range: SeriesRange, current: MonthKey, record: PfRec
   let from: MonthKey;
   let to: MonthKey = current;
   if ("preset" in range) {
-    if (range.preset === "all") from = firstDataMonth(record) ?? current;
+    if (range.preset === "all") {
+      // #229 (spec 59.6, CFO Q-FM2): saved future months are plans; `all` still ends at the current month and never
+      // starts after it (a record whose only data is a future month gives the current month alone).
+      const first = firstDataMonth(record);
+      from = first && first <= current ? first : current;
+    }
     else if (range.preset === "ytd") from = `${current.slice(0, 4)}-01`;
     else {
       from = current;
