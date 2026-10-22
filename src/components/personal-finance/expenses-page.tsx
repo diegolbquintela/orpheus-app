@@ -397,7 +397,8 @@ export function PersonalFinancePage({
     // kept in the store (sent with the next successful Save), but no PUT is sent; `Not saved.` shows and stays until
     // a save succeeds; the edits stay on screen.
     const blockedNow = hasErrors && !readOnly;
-    if (blockedNow) setSaveFailed(true);
+    // #222 F1: never `Not saved.` on the scenario screen (a sandbox: nothing is ever saved there).
+    if (blockedNow && !scenario) setSaveFailed(true);
     setView((current) => {
       if (!current) return current;
       const next = toggleSection(current, section);
@@ -466,7 +467,8 @@ export function PersonalFinancePage({
             </a>
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
-          <p className="pf-save" role="status" data-testid="pf-save">
+          {/* #222 F1: no save status on the scenario screen. */}
+          <p className="pf-save" role="status" data-testid="pf-save" hidden={!!scenario}>
             {saveFailed ? "Not saved." : ""}
           </p>
           {scenario ? null : <MonthControl

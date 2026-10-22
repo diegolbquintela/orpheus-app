@@ -18,7 +18,7 @@ const toolSrc = (f) => readFileSync(`qa/tools/${f}`, "utf8");
 const SIGN_IN = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "prod-guard.mjs" && toolSrc(f).includes("_PASSWORD")).sort();
 const CALLS_GUARD = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "prod-guard.mjs" && /\brefuseIfProd\(/.test(toolSrc(f).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"))).sort();
 const TOOLS = [...new Set([...SIGN_IN, ...CALLS_GUARD])].sort();
-const GUARDED = ["audit.mjs", "calculator-page.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "home-page.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-charts-contract.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-series-api.mjs", "roles.mjs", "saved-searches.mjs", "signin-page.mjs", "site-shell.mjs", "site-style-regression.mjs", "site.mjs"];
+const GUARDED = ["audit.mjs", "calculator-page.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "home-page.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-charts-contract.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-scenario-e2e.mjs", "pf-series-api.mjs", "roles.mjs", "saved-searches.mjs", "signin-page.mjs", "site-shell.mjs", "site-style-regression.mjs", "site.mjs"];
 const stub = (env, calls = []) => async (url, init) => {
   calls.push([url, init]);
   return { headers: new Headers(env === null ? {} : { "x-orpheus-env": env }) };
@@ -45,11 +45,11 @@ test("probe: production or a missing header refuses; preview / local pass; one H
   assert.equal(none.length, 0, "local and static refusals make no request");
 });
 
-test("the enumerated sign-in tools are the 19 known ones (a new sign-in tool lands here automatically)", () => {
-  assert.deepEqual(SIGN_IN, ["audit.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-series-api.mjs", "roles.mjs", "site-shell.mjs", "site-style-regression.mjs"]);
+test("the enumerated sign-in tools are the 20 known ones (#222 adds pf-scenario-e2e) (a new sign-in tool lands here automatically)", () => {
+  assert.deepEqual(SIGN_IN, ["audit.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-scenario-e2e.mjs", "pf-series-api.mjs", "roles.mjs", "site-shell.mjs", "site-style-regression.mjs"]);
 });
 
-test("#158 F1: every guarded tool is covered: the refuseIfProd callers and the sign-in tools are exactly the pinned 25 (pf-charts-contract included)", () => {
+test("#158 F1: every guarded tool is covered: the refuseIfProd callers and the sign-in tools are exactly the pinned 26 (pf-charts-contract included; #222 pf-scenario-e2e)", () => {
   assert.deepEqual(CALLS_GUARD, GUARDED, "a tool that stops calling refuseIfProd (or a new caller) changes this set");
   assert.deepEqual(TOOLS, GUARDED);
   assert.ok(SIGN_IN.every((t) => CALLS_GUARD.includes(t)), "every sign-in tool calls the guard");

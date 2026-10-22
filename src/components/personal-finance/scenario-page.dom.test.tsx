@@ -378,4 +378,48 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
       assert.ok(line?.textContent?.trim(), "the read-only line is inside it");
     });
   });
+
+  describe("#222 validation (spec 58)", () => {
+    const withStart = () => {
+      const rec = record();
+      const s = new RecordStore({ ...rec });
+      writeOverview(s, { ...NO_OVERVIEW, start: "85,000", growth: "" });
+      return { ...rec, ...s.data };
+    };
+    it("PFSV-35 (Diego / AO5): net assets is seeded from the latest month with its basis stated", async () => {
+      const el = await render(ok(withStart()).load);
+      const net = (q(el, "pf-scenario-net") as HTMLInputElement).value;
+      assert.notEqual(net, "0.00");
+      assert.match(q(el, "pf-scenario-net-basis")!.textContent!, /^Basis: no as-of month is set, so Starting net assets 85,000\.00 counts from the start of November 2025/);
+      assert.equal(cell(el, "net", "pf-scenario-month"), net, "the Scenario column starts from it");
+    });
+    it("PFSV-36 (F1): a field error plus a section toggle never shows Not saved. on the sandbox", async () => {
+      const el = await render(ok(withStart()).load);
+      await type(qa(el, "pf-monthly")[0], "abc");
+      assert.ok(el.querySelector('[data-testid="pf-error"]'), "the field error shows");
+      await click(q(el, "pf-toggle-income")!);
+      assert.equal(q(el, "pf-save")?.hidden, true);
+      assert.ok(!el.textContent!.includes("Not saved."));
+      assert.deepEqual(fetches, []);
+    });
+    it("PFSV-37 (Diego: sandbox): a full journey sends nothing, and a fresh open shows the seeded values again", async () => {
+      const rec = withStart();
+      const l = ok(rec);
+      let el = await render(l.load);
+      const seeded = (q(el, "pf-scenario-net") as HTMLInputElement).value;
+      await type(qa(el, "pf-monthly")[0], "9,000");
+      await type(q(el, "pf-person-wages")!, "2,000");
+      await type(q(el, "pf-growth")!, "9");
+      await type(q(el, "pf-scenario-net")!, "-2,000");
+      await click(q(el, "pf-toggle-summary")!);
+      await click(q(el, "pf-horizon-120")!);
+      assert.deepEqual(fetches, [], "no request of any kind from the page");
+      assert.equal(l.count(), 1, "one load");
+      await act(async () => root?.unmount());
+      container?.remove();
+      el = await render(ok(rec).load);
+      assert.equal((q(el, "pf-scenario-net") as HTMLInputElement).value, seeded);
+      assert.equal((qa(el, "pf-monthly")[0] as HTMLInputElement).value, "2500");
+    });
+  });
 });

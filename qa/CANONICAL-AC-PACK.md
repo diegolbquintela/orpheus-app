@@ -1768,3 +1768,34 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFPJ-76 | BLOCK | (AO4) Growth −50 gives no field error and moves the 10-year path; −51 and `-` show the bound error; `10,5` shows the comma error. |
 | PFPJ-77 | MAJOR | (AO6) The read-only line sits in `<aside aria-label="Scenario access">`; no visible text is outside a landmark on the Read view at 390 / 1440. |
 | PFPJ-78 | BLOCK | Mutations: no AO1 guard fails PFPJ-74; ticks without index 0 fail PFPJ-73; no comma check fails PFPJ-71/72/75/76; unsigned growth fails the scenario DOM file; the landmark without its label fails PFPJ-77. |
+
+## PFSV — Scenario screen full validation run (#222, personal-finance-spec §58; added 2026-10-22; Diego / CFO)
+
+| ID | Level | Check |
+|---|---|---|
+| PFSV-01..02 | BLOCK | e2e (`qa/tools/pf-scenario-e2e.mjs`, 390 and 1440, owner and CFO Read): the record readable; `/personal-finance/scenario` 200. |
+| PFSV-03 | BLOCK | Layout: Income, Expenses, summary, Overview, then `06` Projected path and `07` Totals. |
+| PFSV-04 | BLOCK | No category / account filter, month control, month Save, Save button, or Account / Category select on any line. |
+| PFSV-05 | MAJOR | Title `Scenario.` and the seeding basis line. |
+| PFSV-06 | BLOCK | Net assets is seeded (a number) and its as-of basis is stated (`Starting net assets`, `as-of month` / `no as-of month`). |
+| PFSV-07 | BLOCK | The Scenario month column equals the screen's own Overview `This month`. |
+| PFSV-08 | BLOCK | 12 / 36 / 60 / 120 months: `Now` is the first tick; `horizon + 1` points. |
+| PFSV-09..11 | BLOCK | Every income line has a Monthly / Yearly select, default Monthly; a switch shows ×12 and keeps the totals; Yearly 12,000 feeds the same as Monthly 1,000. |
+| PFSV-12 | BLOCK | Live math at 9 %: A 17,143.65, B −17,520, C 4,102.37 ±0.01 (SKIPPED with a reason when the month's surplus isn't set by lines). |
+| PFSV-13..16 | BLOCK | Zero writes: no PUT / POST / PATCH / DELETE from any edit, switch, toggle or horizon; one GET of the record; the record byte-for-byte unchanged after the edits and after a reload; the reload shows the seeded net assets. |
+| PFSV-17 | MAJOR | Read: the read-only line in the `Scenario access` landmark. |
+| PFSV-18 | MAJOR | No horizontal overflow. |
+| PFSV-19 | MAJOR | An empty record: the empty note and `Nothing saved yet`. |
+| PFSV-20..24 | BLOCK | Main-page regression (owner and Read): `/personal-finance`, `/charts`, `/history` 200 and no write; the Overview shows and has no Monthly / Yearly select; the reports list; the first report's PDF / PNG export. |
+| PFSV-25..27 | BLOCK | No grant: the 403 page and a 403 from the record API; signed out: 307 to sign-in with `next`. |
+| PFSV-28 | BLOCK | F1: a field error plus a section toggle never shows `Not saved.` on the sandbox. |
+| PFSV-31 | BLOCK | AO5 (`scenario-validation.test.ts`): no as-of month → Starting net assets at the start of the 12-month window plus each surplus; the exact basis sentence. |
+| PFSV-32 | BLOCK | AO5: an as-of month → the start of that month; the exact sentence. |
+| PFSV-33 | MAJOR | F2: no Overview figure → `… so this starts at 0.00.` |
+| PFSV-34 | BLOCK | Math audit: A / B / C on `projectNet` and on `project` (cents). |
+| PFSV-35 | BLOCK | DOM: net assets is seeded from the latest month (not 0) with its basis; the Scenario column starts from it. |
+| PFSV-36 | BLOCK | DOM F1: a field error plus a toggle → the save status is hidden, no `Not saved.`, nothing sent. |
+| PFSV-37 | BLOCK | DOM sandbox: a full journey (line, wages, growth, net assets, toggle, horizon) sends nothing and loads once; a fresh open shows the seed again. |
+| PFSV-38 | BLOCK | Mutations: `Not saved.` set on the scenario fails PFSV-36; the status line not hidden fails PFSV-36; the wrong window month fails PFSV-31; no no-figure branch fails PFSV-33. |
+| PFSV-39 | BLOCK | `scripts/qa-prod-guard.test.mjs` pins `pf-scenario-e2e.mjs` among the guarded sign-in tools (20 sign-in / 26 guarded). |
+| PFSV-40 | MINOR | Q-SV1..3 recorded with a recommendation (spec 58.5). |
