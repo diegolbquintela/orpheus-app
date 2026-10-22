@@ -1034,10 +1034,14 @@
   .pf-biweekly {
     grid-area: biweekly;
   }
+  /* #225 (spec 62, PFTT-01): the label is the person checkbox's 44 px tap target; pinned so it never shrinks. */
   .pf-check {
     display: flex;
+    flex: none;
     height: 2.75rem;
     width: 2.75rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     align-items: center;
   }
   .pf-check > input {

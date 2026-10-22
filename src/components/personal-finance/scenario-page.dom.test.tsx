@@ -423,3 +423,21 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
     });
   });
 });
+
+describe("#225 PFTT-04: the person checkboxes' tap target is their 44 px label (scenario screen)", () => {
+  it("each person box sits inside its own label.pf-check; a label click toggles it and sends nothing", async () => {
+    const el = await render(ok(record()).load);
+    const p = q(el, "pf-person")!;
+    for (const id of ["pf-person-count-wages", "pf-person-count-bonus", "pf-person-foreign"]) {
+      const box = q(p, id) as HTMLInputElement;
+      const label = box.parentElement as HTMLLabelElement;
+      assert.equal(label.tagName, "LABEL", id);
+      assert.ok(label.classList.contains("pf-check"), id);
+      assert.equal(label.querySelectorAll("input").length, 1, id);
+      const before = box.checked;
+      await click(label);
+      assert.equal((q(q(el, "pf-person")!, id) as HTMLInputElement).checked, !before, `${id}: the label toggles it`);
+    }
+    assert.deepEqual(fetches, []);
+  });
+});

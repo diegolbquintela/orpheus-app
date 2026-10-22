@@ -1861,3 +1861,14 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - HTL-08: `addSaved` stores `inputs.start` rounded to cents. (unit)
 - HTL-09: Spec 55.4 says an invalid lever counts as blank; PFCC-10 says the Read record is seeded directly. (docs)
 
+## PFTT — Person checkboxes meet the 44 px tap target (#225, personal-finance-spec §62; added 2026-10-22; MEDIUM, PJ8)
+
+(2026-10-22 note: supersedes the Q-PJ8 part of PFPJ-70, which is left as written.)
+
+- PFTT-01: `.pf-check` is at least 2.75rem × 2.75rem (`height`/`width` and `min-height`/`min-width`) with `flex: none`, and no later rule or media query shrinks it. (unit, CSS)
+- PFTT-02: The visible box stays 1.25rem × 1.25rem (visuals unchanged). (unit, CSS)
+- PFTT-03: On the main page, each person checkbox sits inside its `label.pf-check`, and a click on the label toggles it (owner); Read keeps it read-only as before. (DOM)
+- PFTT-04: On the scenario screen, the same holds for each person checkbox, and nothing is sent. (DOM)
+- PFTT-05: Real browser at 390 and 1440, on the main page: every person checkbox's label is ≥ 44 × 44, and `elementFromPoint` hits the label or the box across all of it. (e2e on preview)
+- PFTT-06: The same on the scenario screen, for owner and CFO Read. (e2e on preview)
+

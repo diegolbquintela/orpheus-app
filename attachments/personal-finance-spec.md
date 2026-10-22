@@ -2278,3 +2278,15 @@ Dated note 2026-10-22 (#223): scenario screen only. It replaces the named-scenar
 
 61.8 **Out of scope:** no table, migration, env, dependency or schema change. #225, #226, #228, #231, #233, AN8 and #210 are untouched.
 
+## 62. Personal Finance: person checkboxes meet the 44 px tap target (#225, PJ8, MEDIUM, Diego / CFO; added 2026-10-22; built in the same PR)
+
+(2026-10-22 note: this supersedes Q-PJ8 in 57.14 ("don't touch"), on Diego's yes for #225. The text above is left as written.)
+
+62.1 **Scope.** The person checkboxes are Count wages, Count bonus and Foreign (`pf-person-count-wages`, `pf-person-count-bonus`, `pf-person-foreign`). They appear on the main PF page and on the scenario screen, which uses the same income block. Each must give a tap target of at least 44 × 44 CSS px at 390 and 1440 wide.
+
+62.2 **Target.** The target is the wrapping `label.pf-check`. It is 2.75rem × 2.75rem (44 px at the 16 px root), and a tap anywhere on it toggles the box. The visible box stays 1.25rem (20 px), and its colour and position are unchanged.
+
+62.3 **Measured (2026-10-22, before the change, local real browser).** On both screens, at 390 (touch) and 1440, the label was already 44 × 44 and every probe point on it hit the label or the box (484/484). That held for owner and Read, and with Foreign on and off. QA's F3 (#224) measured the 20 px box itself. #225 pins the 44 px so it can't regress: `.pf-check` gets `flex: none`, `min-width: 2.75rem` and `min-height: 2.75rem`. Nothing visible changes.
+
+62.4 **No behaviour change.** No new dependency, table, migration or env. The saved-scenario Compare checkbox (`pf-saved-compare`, #223) is not a person checkbox and is out of scope (Q-TT1).
+
