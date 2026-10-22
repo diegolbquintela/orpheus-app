@@ -1678,3 +1678,20 @@ The live auth path is unchanged: `getSessionUserFromHeaders` (`verify.server.ts`
 22.3 **Q-items (EL).**
 - **Q-DCC1:** the auth tests spell `ReturnType<typeof createOrpheusAuth>` inline, so `OrpheusAuth` had no users. **Rec:** keep the inline form, and don't reintroduce the alias. Not built.
 - **Q-DCC2:** the ESEF source line has one home, `SOURCE_LINE_ESEF` in `company.ts`, so it can't drift. **Rec:** yes. Built (by the removal).
+
+## 23. Remove unused template npm dependencies (#189; added 2026-10-22; cleanup, no business user, no behaviour change)
+
+23.1 **Facts at 3091161.** The 38 packages below are listed in `package.json`, but nothing uses them.
+- **How this was checked:** a whole-word search for each name found **no hit**. It covered `src` (CSS `@import` included), `scripts`, `qa`, `vite.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `vercel.json`, `.prettierrc`, `.github`, the package scripts and the docs. There is no postcss or tailwind config file; Tailwind runs through `@tailwindcss/vite`.
+- **dependencies (37):** `@hookform/resolvers`; the 22 `@radix-ui/react-*` packages; `@tanstack/react-query`, `@tanstack/react-table`; `class-variance-authority`, `clsx`, `cmdk`, `date-fns`; `react-day-picker`, `react-hook-form`, `react-resizable-panels`; `sonner`, `tailwind-merge`, `tw-animate-css`; `vaul`, `zod`, `zustand`.
+- **devDependencies (1):** `eslint-plugin-prettier`.
+
+23.2 **Change.** `npm uninstall` of exactly those 38 packages.
+- Committed: `package.json` and the regenerated `package-lock.json`, never `node_modules`.
+- No code, config, env or Vercel change.
+- **Kept, as the ticket says:** `jose` (pinned 6.2.9), `lightningcss`, `@tanstack/router-plugin`, `typescript`, `@types/*`, `eslint`, `prettier`. None of these was on the removal list.
+- AC UDD-01..10.
+
+23.3 **Q-items.**
+- **Q-UD1:** `zod` stays installed as a dependency of `better-auth` and the TanStack packages; only its top-level entry goes. **Rec:** accept. Built.
+- **Q-UD2:** the issue's smoke test needs no console errors on `/`, `/calculator`, `/dashboard`, `/personal-finance` and `/account`. SWE runs it signed out on the preview; signed-in pages are left to QA. **Rec:** accept. Built (signed out).
