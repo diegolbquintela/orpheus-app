@@ -2,7 +2,7 @@ import { type CurrencyCode, readHousehold } from "./currency.ts";
 import { type Rates, rateUsed, readRates } from "./equity.ts";
 import { asExpenses, type Expenses, grandTotals, type Line, type NameKind, readExpenses, stripName } from "./expenses.ts";
 import { asIncome, monthly, netIncomeYearly, type Person, readIncome } from "./income.ts";
-import { type Figures, type MonthKey } from "./overview.ts";
+import { type Figures, type MonthKey, readOverview, typedFigure } from "./overview.ts";
 
 /**
  * #112 (spec section 19; design `attachments/pf-month-control-design.md`, EL option A): each month's own lines.
@@ -168,6 +168,20 @@ export function typedOverCopy(
   if (typed.expenses === null && typed.income === null) return figures;
   const unsaved = figures[current];
   return { ...figures, [current]: { expenses: typed.expenses ?? unsaved.expenses, income: typed.income ?? unsaved.income } };
+}
+
+/**
+ * #199 (spec 56, AC PFCC): the saved record's month figures exactly as the read-only Overview builds them (#166): each
+ * month's lines, the current month's unsaved copy while it has no stored lines (`lineFigures` with `current`), then the
+ * current month's typed Update totals per field over that copy (`typedOverCopy`). Used by the server's /series, /chart
+ * and the export, so they match Overview for the current month. Display only: nothing is written.
+ */
+export function savedOverviewFigures(storage: StorageLike | null, current: MonthKey): Record<MonthKey, Figures> {
+  const typed = readOverview(storage).months[current];
+  return typedOverCopy(lineFigures(storage, current), storage, current, {
+    expenses: typedFigure(typed?.expenses),
+    income: typedFigure(typed?.income),
+  });
 }
 
 export function withCurrentCopy(months: Months, shared: Expenses, current: MonthKey): Months {
