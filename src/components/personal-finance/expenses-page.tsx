@@ -73,7 +73,7 @@ import {
 import { EquityRates } from "./equity-rates";
 import { IncomeBlock } from "./income-block";
 import { OverviewBlock } from "./overview-block";
-import { PeriodChoice } from "./period-input";
+import { PeriodChoice } from "./period-choice";
 import { Cell, Lock, SectionHead } from "./pf-cells";
 import { ReadOnlyLine } from "@/components/access/denied";
 import { basisNote as scenarioBasis, WHAT_IF_NOTE as SCENARIO_WHAT_IF } from "@/lib/finance/scenario";

@@ -2,10 +2,9 @@
  * #221 (spec 57.13): on the scenario screen only, a flow amount input gets a Monthly / Yearly select (default Monthly).
  * Off the scenario screen (no provider) it renders the plain input, so the main page is unchanged.
  */
-import { createContext, useContext, useState, type InputHTMLAttributes } from "react";
+import { useContext, useState, type InputHTMLAttributes } from "react";
+import { PeriodChoice } from "./period-choice";
 import { PER_LABEL, type Per, shownText, storedText } from "@/lib/finance/period";
-
-export const PeriodChoice = createContext(false);
 
 export function PeriodInput({
   value,

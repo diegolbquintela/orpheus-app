@@ -33,7 +33,8 @@ import {
   TABLE_COLUMNS,
 } from "@/lib/finance/income";
 import { Cell, Lock, SectionHead } from "./pf-cells";
-import { PeriodChoice, PeriodInput } from "./period-input";
+import { PeriodChoice } from "./period-choice";
+import { PeriodInput } from "./period-input";
 
 /**
  * The income block (#85 v1.2; spec `attachments/personal-finance-spec.md` section 12, PF-11..16): people with
