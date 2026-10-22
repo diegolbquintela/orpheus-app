@@ -1,6 +1,6 @@
 import { formatMoney } from "@/lib/finance/money";
 import { monthName, type MonthKey } from "@/lib/finance/overview";
-import { type Comparison, PLAN_TITLE, planNote, TONE_TEXT, type Variance } from "@/lib/finance/plans";
+import { type Comparison, formatCaptured, PLAN_TITLE, planNote, TONE_TEXT, type Variance } from "@/lib/finance/plans";
 
 /**
  * #231 (spec 65.4, AC PFPV-12..17; CFO Q2..Q4): the month view's read-only Planned vs actual table, for a current or
@@ -25,7 +25,8 @@ function Row({ name, v, testId }: { name: string; v: Variance; testId: string })
 }
 
 export function PlanVsActual({ month, capturedAt, comparison }: { month: MonthKey; capturedAt: string; comparison: Comparison }) {
-  const when = capturedAt ? capturedAt.slice(0, 10) : monthName(month);
+  // #231 PV4 (spec 65.6): shown in Eastern time with an explicit zone, never the device's or UTC.
+  const when = formatCaptured(capturedAt) || monthName(month);
   return (
     <section className="pf-plan mt-6" data-testid="pf-plan" aria-label={PLAN_TITLE}>
       <h2 className="pf-label">{PLAN_TITLE}</h2>

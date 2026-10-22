@@ -113,6 +113,21 @@ export type Comparison = { expenses: Variance; income: Variance; surplus: Varian
 export const PLAN_TITLE = "Planned vs actual";
 export const planNote = (planned: string): string =>
   `Planned = this month's lines as last saved before it started (${planned}). Actual = what is saved now. Difference = actual − planned.`;
+/** #231 PV4 (spec 65.6, PFPV-26): the household zone the capture time is shown in (stored as UTC ISO). */
+export const PLAN_TIME_ZONE = "America/Toronto";
+/**
+ * #231 PV4: `capturedAt` (UTC ISO) shown in Eastern time, the same on every device and server zone:
+ * `yyyy-mm-dd hh:mm ET` (24 h). An unreadable value gives "".
+ */
+export function formatCaptured(iso: string, timeZone: string = PLAN_TIME_ZONE): string {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(d);
+  const v = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${v("year")}-${v("month")}-${v("day")} ${v("hour")}:${v("minute")} ET`;
+}
 export const TONE_TEXT: Record<Tone, string> = { worse: "worse than plan", better: "better than plan", even: "as planned" };
 
 /** #231 Q2: direction. Expenses over plan, income under plan and surplus under plan read as worse. */

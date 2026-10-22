@@ -2366,3 +2366,5 @@ The no-figure sentence `NET_BASIS_NONE` is unchanged.
 - **Not shown** for a future month or a month without a plan. The scenario sandbox shows no table and writes no plan.
 
 65.5 **Out of scope.** Clearing a plan (Q5). Two tabs overwriting each other's OTHER record values is a separate ticket. No chart, export or `/series` change.
+
+65.6 (2026-10-22 note, #231 PV4, added on QA's Q-PV4): `capturedAt` is still stored as a UTC ISO time. The Planned vs actual note now shows it in Eastern time with an explicit zone (`America/Toronto`), as `yyyy-mm-dd hh:mm ET` (24 h), for example `(2026-09-30 08:00 ET)`. It shows the same on every device and in every server time zone. An unreadable capture time falls back to the month's name. This replaces the "capture date" wording in 65.4, which is left as written.

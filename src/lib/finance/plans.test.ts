@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { MONTHS_KEY, type MonthLines } from "./months.ts";
 import { RecordStore } from "./record.ts";
 import { RECORD_NAMES } from "./record.ts";
-import { backfillPlans, comparePlan, mergePlansText, planFor, PLANS_KEY, readPlans, syncFuturePlans, variance } from "./plans.ts";
+import { backfillPlans, comparePlan, formatCaptured, mergePlansText, planFor, PLANS_KEY, readPlans, syncFuturePlans, variance } from "./plans.ts";
 
 // #231 (personal-finance-spec §65, AC PFPV): planned vs actual (FM6).
 const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "" });
@@ -109,5 +109,17 @@ describe("#231 PFPV comparison (Q2)", () => {
     assert.equal(planFor(s, "2026-09", "2026-10"), null);
     // once it is a past month, the frozen plan still compares against what is saved
     assert.equal(planFor(s, "2026-10", "2026-12")?.comparison.expenses.actual, 1100);
+  });
+});
+
+describe("#231 PV4 capture time in Eastern time (PFPV-26)", () => {
+  it("PFPV-26: capturedAt (UTC ISO) shows as America/Toronto with ET, whatever the process zone", () => {
+    assert.equal(formatCaptured("2026-09-30T12:00:00.000Z"), "2026-09-30 08:00 ET");
+    // late evening Eastern = next day in UTC: the Eastern date is shown
+    assert.equal(formatCaptured("2026-10-01T02:30:00.000Z"), "2026-09-30 22:30 ET");
+    // after the DST change (1 November 2026): UTC−5
+    assert.equal(formatCaptured("2026-11-02T12:00:00.000Z"), "2026-11-02 07:00 ET");
+    assert.equal(formatCaptured(""), "");
+    assert.equal(formatCaptured("nope"), "");
   });
 });

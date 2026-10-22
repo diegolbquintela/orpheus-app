@@ -1927,3 +1927,4 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - PFPV-23: Save on a future month writes its plan; the current month gets none. (DOM)
 - PFPV-24: The scenario sandbox shows no table and writes no plan. (DOM)
 - PFPV-25: On the preview, signed in: save a future month, reload in a second tab opened before the save, Save there, and the plan is still in GET. (e2e on preview, QA)
+- PFPV-26 (2026-10-22, PV4): the note's capture time is `capturedAt` (stored UTC ISO) shown in America/Toronto as `yyyy-mm-dd hh:mm ET`. Examples: 12:00Z on 30 Sep → `2026-09-30 08:00 ET`; 02:30Z on 1 Oct → `2026-09-30 22:30 ET`; after DST ends, 12:00Z on 2 Nov → `07:00 ET`. Identical under TZ=UTC and TZ=America/Los_Angeles. (unit, DOM)

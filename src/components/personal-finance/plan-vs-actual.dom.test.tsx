@@ -69,7 +69,8 @@ describe("#231 PFPV Planned vs actual (month view)", () => {
     assert.match(inc.textContent!, /5,000\.00.*4,500\.00.*-500\.00.*-10\.0%.*Under plan · worse than plan/);
     assert.match(q(el, "pf-plan-surplus")!.textContent!, /4,000\.00.*3,300\.00.*-700\.00/);
     assert.equal(el.querySelectorAll('[data-testid="pf-plan-line"]').length, 2);
-    assert.match(q(el, "pf-plan-note")!.textContent!, /2026-09-30/);
+    // #231 PV4 (PFPV-26): 12:00 UTC shown as 08:00 Eastern, the same under TZ=UTC and TZ=America/Los_Angeles.
+    assert.match(q(el, "pf-plan-note")!.textContent!, /\(2026-09-30 08:00 ET\)/);
   });
   it("PFPV-20: Read users see the same table, view only; nothing is written (Q3)", async () => {
     seed({ "2026-10": ml("900", "60,000"), "2026-12": ml("5", "60,000") }, OCT_PLAN);
