@@ -5,6 +5,7 @@ import { formatMoney } from "./money.ts";
 import {
   asOfMonth,
   equityCoverage,
+  firstFigureMonth,
   lastTwelve,
   orZero,
   type Figures,
@@ -76,12 +77,17 @@ export const horizonLabel = (h: Horizon): string => (h === 12 ? "12 months" : `$
 
 export const NOTHING_SAVED = "Nothing saved yet: every figure starts at 0.";
 /** The basis note: last month's copy (#199), this month's saved lines, or nothing saved (F2). */
-export const basisNote = (copiedFrom: MonthKey | null, current: MonthKey, saved = true): string =>
+/** #228 AQ1 (spec 64.5, PFNA-08): nothing saved for the months, but a Starting net assets is: say so, not "every figure 0". */
+export const startOnlyNote = (start: number): string =>
+  `No months saved yet: income and expenses start at 0; net assets start at your Starting net assets (${formatMoney(start)}).`;
+export const basisNote = (copiedFrom: MonthKey | null, current: MonthKey, saved = true, start: number | null = null): string =>
   copiedFrom
     ? `${BASED_ON_LAST_MONTH} (${monthName(copiedFrom)}).`
     : saved
       ? `Based on this month's saved figures (${monthName(current)}).`
-      : NOTHING_SAVED;
+      : start !== null && start !== 0
+        ? startOnlyNote(start)
+        : NOTHING_SAVED;
 
 
 export type Inputs = {
@@ -118,15 +124,24 @@ export function overviewNow(
  * A; without one, it is the value at the start of the Overview's 12-month window; then each month's surplus to the end
  * of the current month (inside the window a month without figures counts the 12-month average). No figure → 0.
  */
-export function netBasis(overview: Overview, now: Date, net: number | null, timeZone: string = HOUSEHOLD_TIME_ZONE): string {
-  const months = lastTwelve(now, timeZone);
-  const current = months[months.length - 1];
+export function netBasis(
+  overview: Overview,
+  now: Date,
+  net: number | null,
+  timeZone: string = HOUSEHOLD_TIME_ZONE,
+  page: Figures = { expenses: null, income: null },
+  lines?: Record<MonthKey, Figures>,
+): string {
+  const current = lastTwelve(now, timeZone).at(-1)!;
   if (net === null) return NET_BASIS_NONE;
   const start = formatMoney(orZero(overview.start));
+  // #228 (spec 64.4, PFNA-07): the basis states the aligned rule (the same as /series).
+  const tail = `plus each month's own surplus to the end of ${monthName(current)}; a month without figures adds nothing (the same as /series).`;
   const asOf = asOfMonth(overview);
-  if (asOf)
-    return `Basis: Starting net assets ${start} at the start of ${monthName(asOf)} (the as-of month), plus each month's surplus to the end of ${monthName(current)}.`;
-  return `Basis: no as-of month is set, so Starting net assets ${start} counts from the start of ${monthName(months[0])} (the Overview's 12-month window), plus each month's surplus to the end of ${monthName(current)}; a month without figures counts the 12-month average.`;
+  if (asOf) return `Basis: Starting net assets ${start} at the start of ${monthName(asOf)} (the as-of month), ${tail}`;
+  const first = firstFigureMonth(overview, current, page, lines);
+  if (first) return `Basis: no as-of month is set, so Starting net assets ${start} counts from the start of ${monthName(first)} (the first month with figures), ${tail}`;
+  return `Basis: Starting net assets ${start} as entered; no month has figures yet.`;
 }
 export const NET_BASIS_NONE = "Basis: the Overview has no net-assets figure yet (it needs income and expenses for its months), so this starts at 0.00.";
 

@@ -189,18 +189,22 @@ describe("#221 Overview Future projection on the shared step (CFO Q-b)", () => {
     for (const n of fut) assert.equal(n, -12000);
   });
   it("PFPJ-21: a negative balance crossing above 0: growth only once the opening balance is positive (shared projectNet)", () => {
-    const { now, fut } = future("1500");
+    // #228 (spec 64): the empty current month adds nothing now, so +900 a month (not +500) still crosses 0 in the year.
+    const { now, fut } = future("1900");
     assert.ok(now < 0, String(now));
-    const want = projectNet(now, 500, 9, 12).slice(1);
+    const want = projectNet(now, 900, 9, 12).slice(1);
     fut.forEach((n, i) => near(n, want[i], 1e-6));
     assert.ok(fut[0] < 0 && fut[fut.length - 1] > 0);
     // before it crosses, each step is exactly the surplus (no growth on a negative balance)
-    assert.equal(fut[1] - fut[0], 500);
+    assert.equal(fut[1] - fut[0], 900);
   });
   it("PFPJ-22: a positive balance still compounds at r_m (the Overview's rate unchanged)", () => {
-    const s = summarize({ start: "10000", growth: "9", future: true, years: 1, months: {} }, NOW, { expenses: 100, income: 100 });
+    // #228: typed complete months so the average surplus (and so the Future line) exists; before, both sides were null.
+    const months = Object.fromEntries(["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((k) => [k, { expenses: "100", income: "100" }]));
+    const s = summarize({ start: "10000", growth: "9", future: true, years: 1, months }, NOW, { expenses: 100, income: 100 });
     const fut = s.points.filter((p) => p.future).map((p) => p.net as number);
     const now = s.points.find((p) => p.key === s.current)!.net as number;
+    assert.equal(now, 10000);
     near(fut[0], now * (1 + monthlyRate(9)), 1e-6);
   });
 });

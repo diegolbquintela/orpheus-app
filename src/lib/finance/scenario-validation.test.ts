@@ -14,15 +14,16 @@ describe("#222 scenario validation (spec 58)", () => {
     const o = overviewNow(ov, NOW, { income: null, expenses: null }, flat(5000, 3000));
     assert.equal(o.net, 85000 + 12 * 2000);
     assert.equal(
-      netBasis(ov, NOW, o.net),
-      "Basis: no as-of month is set, so Starting net assets 85,000.00 counts from the start of November 2025 (the Overview's 12-month window), plus each month's surplus to the end of October 2026; a month without figures counts the 12-month average.",
+      netBasis(ov, NOW, o.net, undefined, { income: null, expenses: null }, flat(5000, 3000)),
+      // #228 (spec 64.4): the aligned basis sentence (the first month with figures here is November 2025).
+      "Basis: no as-of month is set, so Starting net assets 85,000.00 counts from the start of November 2025 (the first month with figures), plus each month's own surplus to the end of October 2026; a month without figures adds nothing (the same as /series).",
     );
   });
   it("PFSV-32 (AO5): with an as-of month inside the window, the start is at the start of that month", () => {
     const ov: Overview = { ...NO_OVERVIEW, start: "85000", asOf: "2026-07", growth: "" };
     const o = overviewNow(ov, NOW, { income: null, expenses: null }, flat(5000, 3000));
     assert.equal(o.net, 85000 + 4 * 2000, "July..October");
-    assert.equal(netBasis(ov, NOW, o.net), "Basis: Starting net assets 85,000.00 at the start of July 2026 (the as-of month), plus each month's surplus to the end of October 2026.");
+    assert.equal(netBasis(ov, NOW, o.net), "Basis: Starting net assets 85,000.00 at the start of July 2026 (the as-of month), plus each month's own surplus to the end of October 2026; a month without figures adds nothing (the same as /series).");
   });
   it("PFSV-33 (AO5 / F2): no Overview figure → the stated basis says it starts at 0.00", () => {
     assert.equal(netBasis(NO_OVERVIEW, NOW, null), NET_BASIS_NONE);

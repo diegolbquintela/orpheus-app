@@ -489,7 +489,8 @@ export function PersonalFinancePage({
                 {SCENARIO_WHAT_IF}
               </p>
               <p className="pf-history-note mt-1" data-testid="pf-scenario-basis">
-                {current ? scenarioBasis(copiedFrom, current, hasLines(readMonths(storage())[current])) : ""}
+                {/* #228 AQ1 (spec 64.5): a saved Starting net assets is named when no month is saved. */}
+                {current ? scenarioBasis(copiedFrom, current, hasLines(readMonths(storage())[current]), typedFigure(readOverview(storage()).start)) : ""}
               </p>
             </>
           ) : null}

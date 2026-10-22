@@ -276,31 +276,23 @@ export function summarize(
   // the window starts from start + every month's own surplus from A to the window (a month without one adds nothing,
   // the series rule, Q-AG2). A inside the window: from A on, as today; #171 Q-AG1 (CFO change): the points before A
   // are worked BACKWARDS from the start with the same per-point surplus (spec 42.9). No as-of month: exactly as before.
+  // #228 (spec 64, PFNA-01..05, CFO rule): 'Net assets now' is the manually entered net assets (Starting net assets)
+  // carried by each month's OWN surplus, exactly as `/series` counts it: anchored at the as-of month, else the first
+  // month with figures (else the current month), a month without a surplus adds nothing (never the 12-month average),
+  // and Q-AG1 back-fill to the first data month. Before the anchor: null. The flows above are unchanged.
   const asOf = asOfMonth(overview);
-  let net: number | null = orZero(overview.start);
-  if (asOf && asOf < months[0]) {
-    const before = netAssetsFrom(net, asOf, previousMonth(months[0]), (k) => surplusOf(monthFigures(overview, k, current, page, lines)));
-    net = before.get(previousMonth(months[0])) ?? net;
-  }
+  const own = (k: MonthKey) => surplusOf(monthFigures(overview, k, current, page, lines));
+  const first = firstFigureMonth(overview, current, page, lines);
+  // AQ1: no month with figures and no as-of month: a typed Starting net assets is still 'now'; nothing typed → none.
+  const anchor = asOf ?? first ?? (typedFigure(overview.start) !== null ? current : null);
+  const back = asOf && first && first < asOf && asOf <= current ? first : undefined;
+  const netByMonth = anchor ? netAssetsFrom(orZero(overview.start), anchor, current, own, back) : new Map<MonthKey, number>();
   const points: Point[] = months.map((key, i) => {
     const expenses = figures[i].expenses ?? average.expenses;
     const income = figures[i].income ?? average.income;
-    if (asOf && key < asOf) return { key, label: monthShort(key), expenses, income, net: null, future: false };
-    net = net === null ? null : plus(net, minus(income, expenses));
-    return { key, label: monthShort(key), expenses, income, net, future: false };
+    return { key, label: monthShort(key), expenses, income, net: netByMonth.get(key) ?? null, future: false };
   });
-  // Q-AG1 backwards inside the window: the point before A = the start; each earlier point = the next one minus the
-  // next one's surplus (null if that surplus is null, like the forward roll).
-  if (asOf && asOf > months[0] && asOf <= current) {
-    let back: number | null = orZero(overview.start);
-    for (let i = points.findIndex((p) => p.key === asOf) - 1; i >= 0; i--) {
-      points[i].net = back;
-      const next = points[i];
-      back = back === null ? null : plus(back, minus(next.expenses, next.income));
-    }
-  }
-  // A after the whole window (a skewed clock only): no net assets now, so none projected.
-  if (asOf && asOf > current) net = null;
+  let net: number | null = netByMonth.get(current) ?? null;
   if (overview.future) {
     // #221 (spec 57.6, CFO Q-b 2026-10-22, PFPJ-20..22): the shared month step (`projection.ts`): r_m as before, but
     // growth only on a positive opening balance (a negative or zero balance no longer grows more negative).
@@ -331,8 +323,6 @@ export function summarize(
   return { months, current, thisMonth: figures[figures.length - 1], average, average3, window3, window12, window12WithData, points };
 }
 
-const plus = (a: number, b: number | null): number | null => (b === null ? null : a + b);
-
 /**
  * #171: the as-of month in use, or null (none, or not a usable month → the old behaviour). Usable = a real `yyyy-mm`
  * from 2020-01 on; a month after the current one (only possible with a skewed clock) still anchors there (Q-AG2).
@@ -340,6 +330,22 @@ const plus = (a: number, b: number | null): number | null => (b === null ? null 
 export function asOfMonth(overview: Pick<Overview, "asOf">): MonthKey | null {
   const a = overview.asOf?.trim() ?? "";
   return isKey(a) && a >= AS_OF_FIRST ? a : null;
+}
+
+/** #228 (spec 64): the first month (from 2020-01) with an expense or income figure, as `/series` `firstDataMonth`. */
+export function firstFigureMonth(
+  overview: Overview,
+  current: MonthKey,
+  page: PageFigures,
+  lines?: Record<MonthKey, Figures>,
+): MonthKey | null {
+  const keys = new Set([...Object.keys(overview.months), ...Object.keys(lines ?? {}), current]);
+  const have = [...keys].filter((k) => {
+    if (k < "2020-01") return false;
+    const f = monthFigures(overview, k, current, page, lines);
+    return f.expenses !== null || f.income !== null;
+  });
+  return have.length ? have.sort()[0] : null;
 }
 
 /**

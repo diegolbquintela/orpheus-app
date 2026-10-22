@@ -1884,3 +1884,18 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - PFFG-05: The scenario growth reader: signed within -50..+50; `-`, `-51`, `51`, `abc` are refused and count 0, as for the chart. (unit)
 - PFFG-06: On the scenario screen, a negative growth changes the Overview's Future figure (coverage at the horizon) versus 0 %, with no request sent. (DOM)
 - PFFG-07 (AP2): Typing `-`, `-51` or `abc` in Growth on the scenario screen shows exactly one error (the scenario bound), no `Enter a number, 0 or more.`, and the field stays `aria-invalid`; `-10` clears it. (DOM)
+
+## PFNA — 'Net assets now' is the same everywhere (#228, personal-finance-spec §64; added 2026-10-22; MEDIUM, Q-SV2 / AO5 + AQ1)
+
+(2026-10-22 note: supersedes the net-assets values in PFEC-05, PFEC-06, PFEC-08, the PFAO-01..03 / 09..10 Overview parts, PFSV-31 / 32 / 35 (basis sentences) and PFPJ-21 / 22 (inputs). Those are left as written; their tests now pin the #228 values.)
+
+- PFNA-01: For the same record, the Overview's net assets at the end of the current month equals `/series` net assets at the current month. Checked with no as-of month and gaps, an as-of month before the data, an as-of month inside the window (back-fill), and typed Update totals only. (unit)
+- PFNA-02: Every Overview net-assets point in the 12-month window equals the `/series` `12m` value for that month. (unit)
+- PFNA-03: An empty month adds nothing, never the 12-month average. Example: 100,000 + 1,000 + 2,000 + 3,000 + 3,000 (the #199 copy) = 109,000. (unit)
+- PFNA-04: The scenario screen's seeded Net assets now (`overviewNow`) and its Today column (`savedInputs`) equal `/series`. (unit)
+- PFNA-05: Future projects from the aligned value (growth 0: now + 12 × the average surplus). (unit)
+- PFNA-06 (AQ1): Starting net assets 85,000 saved with no month gives net assets now = 85,000; nothing typed still gives no figure. (unit)
+- PFNA-07: The scenario basis line states the aligned rule (the exact sentences in spec 64.4). (unit, DOM)
+- PFNA-08 (AQ1): `basisNote` names a saved Starting net assets when no month is saved; nothing typed (or 0) keeps `Nothing saved yet: every figure starts at 0.` (unit)
+- PFNA-09 (AQ1): On the scenario screen, with Starting net assets 85,000 saved and no months, the banner shows the start-only note, Net assets now shows 85,000.00, and nothing is sent. (DOM)
+- PFNA-10: On the preview, the main page Overview's last net-assets point, the scenario's Net assets now and `/series` at the current month are the same number. (e2e on preview, QA)

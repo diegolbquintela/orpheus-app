@@ -56,14 +56,6 @@ const exportText = async (id: string, f: "pdf" | "png" = "pdf", who = "alice") =
   const x = f === "pdf" ? readPdf(b) : readPng(b, crc32);
   return { text: f === "pdf" ? (x.text as string[]).join("\n").replace(/\n/g, " ") : JSON.stringify(x.text), data: x.data };
 };
-const months = (from: string, to: string) => {
-  const out = [from];
-  while (out.at(-1)! < to) {
-    const [y, m] = out.at(-1)!.split("-").map(Number);
-    out.push(m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`);
-  }
-  return out;
-};
 /** The old (#154 Q-AA10) rule, written out: anchored at 2025-03 (first data month), +500 there, +2,000 at 2026-09. */
 const oldNet = (ms: string[]) => ms.map((k) => (k < "2025-03" ? null : k < "2026-09" ? 10500 : 12500));
 
@@ -101,9 +93,11 @@ describe("#171 PFAO-01..03 no as-of month: today's behaviour exactly (regression
       assert.ok(x.text.includes(NET_ASSETS_CAVEAT.slice(0, 60)) && !x.text.includes(NET_ASSETS_AS_OF_NOTE.slice(0, 40)), f);
     }
   });
-  it("Overview without asOf: the start sits at the window start (Nov 25 … Oct 26, +2,000 a month → 34,000)", () => {
+  // #228 (spec 64, PFNA-02): the Overview now counts net assets exactly as /series (oldNet: anchored at the first data
+  // month 2025-03, empty months add nothing); it no longer starts at the window start with average-filled months.
+  it("Overview without asOf (#228): the same values as /series over the window (10,500 … 12,500)", () => {
     const s = summarize(asOverview(OV()), OCT, { expenses: null, income: null }, {});
-    assert.deepEqual(s.points.map((p) => p.net), [12000, 14000, 16000, 18000, 20000, 22000, 24000, 26000, 28000, 30000, 32000, 34000]);
+    assert.deepEqual(s.points.map((p) => p.net), oldNet(s.months));
     // An empty as-of month is the same as none, and so is an unusable one (the page shows its error).
     for (const asOf of ["", "2019-12", "2026-13", "abc"])
       assert.deepEqual(summarize(asOverview(OV(asOf)), OCT, { expenses: null, income: null }, {}).points, s.points, asOf);
@@ -181,18 +175,19 @@ describe("#171 PFAO-04..08 the anchor is the as-of month", () => {
   });
   it("PFAO-09 / 10 Overview: as-of before the window adds each month's own surplus up to it; inside → backwards (Q-AG1)", () => {
     const pts = (asOf: string) => summarize(asOverview(OV(asOf)), OCT, { expenses: null, income: null }, {}).points.map((p) => p.net);
-    // 2025-01: 10,000 + 500 (2025-03) by the window start, then as before → 34,500 now.
-    assert.deepEqual(pts("2025-01"), [12500, 14500, 16500, 18500, 20500, 22500, 24500, 26500, 28500, 30500, 32500, 34500]);
-    // 2026-06: Jun 26 10,000 + 2,000 … Oct 26 20,000; #171 Q-AG1: May 26 = 10,000 (the start), each earlier point
-    // 2,000 less (the next point's surplus, the same average-filled surplus the forward roll uses).
-    assert.deepEqual(pts("2026-06"), [-2000, 0, 2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000]);
+    // #228 (spec 64, PFNA-02): each month's OWN surplus only (as /series). 2025-01: 10,000 + 500 (2025-03) → 10,500,
+    // + 2,000 (2026-09) → 12,500 now.
+    assert.deepEqual(pts("2025-01"), [10500, 10500, 10500, 10500, 10500, 10500, 10500, 10500, 10500, 10500, 12500, 12500]);
+    // 2026-06: the start at the start of June; Q-AG1 back-fill: the months before carry 10,000 (no surplus in between);
+    // + 2,000 (2026-09) → 12,000 now.
+    assert.deepEqual(pts("2026-06"), [10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 12000, 12000]);
     // Q-AG12 kept: an as-of month after the current month (skewed clock only) still blanks everything.
     assert.deepEqual(pts("2026-12"), Array(12).fill(null));
-    // The window's first month as the as-of month = exactly the old Overview.
-    assert.deepEqual(pts("2025-11"), summarize(asOverview(OV()), OCT, { expenses: null, income: null }, {}).points.map((p) => p.net));
+    // #228: the window's first month as the as-of month: back-filled to the first data month, 10,000 then 12,000.
+    assert.deepEqual(pts("2025-11"), [10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 12000, 12000]);
     // Future projects from the anchored level.
     const f = summarize({ ...(asOverview(OV("2025-01")) as Overview), future: true }, OCT, { expenses: null, income: null }, {});
-    assert.equal(f.points.at(-1)!.net, 34500 + 12 * 2000);
+    assert.equal(f.points.at(-1)!.net, 12500 + 12 * 2000); // #228: from 12,500 now (was 34,500)
   });
 });
 

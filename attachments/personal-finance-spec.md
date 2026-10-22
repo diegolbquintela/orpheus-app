@@ -2304,3 +2304,28 @@ Dated note 2026-10-22 (#223): scenario screen only. It replaces the named-scenar
 63.4 **One growth error (AP2).** On the scenario screen, a refused Growth (for example `-`, `-51`, `abc`) shows one error: the screen's `Growth must be from -50 to 50 % a year here.` alert. The field no longer also shows the main page's `Enter a number, 0 or more.`. It is still `aria-invalid`. The main page's growth error is unchanged.
 
 63.5 **No behaviour change elsewhere.** Nothing new is stored or sent. No new dependency, table, migration, env or schema change. The 9 % pinned cases still hold.
+
+## 64. Personal Finance: 'Net assets now' is the same everywhere (#228, Q-SV2 / AO5 + AQ1, MEDIUM, Diego / CFO; added 2026-10-22; built in the same PR)
+
+(2026-10-22 note: on Diego's yes (issue #228), this supersedes the net-assets rule of 15.2 / Q21 ("empty months use the average"), and of spec 42 and 44.3, where they say Starting net assets sits at the start of the Overview's 12-month window when no as-of month is set. It also supersedes the 58.3 basis sentences and Q-SV2 (58, "not built"). The text above is left as written. The flows (expenses, income), the 12-month and 3-month averages and the Future rules are unchanged.)
+
+64.1 **Rule (CFO).** 'Net assets now' is the manually entered net assets, everywhere: the Overview on the main page, the Overview and the seeded "Net assets now" on the scenario screen, and `/series` (and so `/chart` and exports, which read it). The only manually entered net-assets figure the record holds is Starting net assets with its optional as-of month (spec 42), so:
+- the value sits at the start of the as-of month;
+- with no as-of month, it sits at the start of the first month with figures (the `/series` anchor, Q-AA10);
+- with no month with figures either, a typed Starting net assets is the value now (AQ1);
+- each month then adds its OWN surplus (income − expenses), and a month without one adds nothing.
+The Q-AG1 back-fill before the as-of month is kept, as on `/series`.
+
+64.2 **What changed.** The Overview used to start at its 12-month window, and an empty month in the window added the 12-month average surplus. QA's AO5 numbers (153,245.33 against 107,704) came from those averaged empty months. Now the Overview's net-assets points equal `/series` month for month. `/series` itself is unchanged.
+
+64.3 **Future.** The projection steps from the aligned value at the end of the current month (spec 57 / 63 unchanged). An empty current month adds nothing, as on `/series`.
+
+64.4 **Basis line (scenario screen).** The #222 basis line stays, and its sentences now state this rule:
+- With an as-of month: `Basis: Starting net assets X at the start of <Month> (the as-of month), plus each month's own surplus to the end of <Month>; a month without figures adds nothing (the same as /series).`
+- With no as-of month: `Basis: no as-of month is set, so Starting net assets X counts from the start of <Month> (the first month with figures), plus …` (the same ending).
+- With no figures at all: `Basis: Starting net assets X as entered; no month has figures yet.`
+The no-figure sentence `NET_BASIS_NONE` is unchanged.
+
+64.5 **AQ1.** When a Starting net assets is saved (not 0) and no month is saved (no copy either), the scenario banner reads `No months saved yet: income and expenses start at 0; net assets start at your Starting net assets (85,000.00).` It no longer says `Nothing saved yet: every figure starts at 0.`, which stays for a record with nothing typed.
+
+64.6 **Limits.** No dependency, table, migration, env, provider, secret, schema or wire change. Nothing new is stored or sent. See the PR's Q-NA items for the known small differences that remain (unsaved edits on the main page; historical FX).

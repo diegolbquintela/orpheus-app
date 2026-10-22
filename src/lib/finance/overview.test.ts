@@ -90,8 +90,9 @@ describe("#94 this month and the 12-month average (Q17, Q18)", () => {
     assert.deepEqual(s.average, { expenses: 4000, income: 9000 });
     assert.equal(surplusOf(s.thisMonth), 9450);
     assert.equal(surplusOf(s.average), 5000);
-    // Net assets: 10,000 + 10 × 5,000 + 5,000 + 9,450.
-    assert.equal(s.points[11].net, 74450);
+    // #228 (spec 64, PFNA): net assets from the first month with figures (June): 10,000 + 5,000 + 0 (Jul..Sep empty
+    // add nothing) + 9,450 (was 74,450 when empty months added the average surplus).
+    assert.equal(s.points[11].net, 24450);
     // Empty months plot the average.
     assert.equal(s.points[0].expenses, 4000);
     assert.equal(s.points[7].expenses, 4000);
@@ -127,14 +128,14 @@ describe("#94 Future (Q20, Q21)", () => {
     // #140 (PF-125): future months are held at the 12-complete-month average (June alone).
     assert.equal(s1.points[23].expenses, 4000);
     assert.equal(s1.points[23].income, 9000);
-    assert.equal(round2(s1.points[23].net), 139535.39);
+    assert.equal(round2(s1.points[23].net), 87035.39); // #228: from 24,450 now (was 139,535.39)
     const s5 = summarize(
       { ...base, start: "10,000", growth: "5", future: true, years: 5 },
       NOW,
       PAGE,
     );
     assert.equal(s5.points.length, 72);
-    assert.equal(round2(s5.points[71].net), 434087.85);
+    assert.equal(round2(s5.points[71].net), 370273.77); // #228: from 24,450 now (was 434,087.85)
   });
   it("growth 0 or bad: the surplus only", () => {
     const s = summarize(
@@ -142,7 +143,7 @@ describe("#94 Future (Q20, Q21)", () => {
       NOW,
       PAGE,
     );
-    assert.equal(s.points[23].net, 74450 + 12 * 5000);
+    assert.equal(s.points[23].net, 24450 + 12 * 5000); // #228: from 24,450 now
   });
 });
 
@@ -649,20 +650,21 @@ describe("#184 QA L1 / L2: concrete PFEC examples and the window rule", () => {
     assert.equal(r.prev, 11500);
     assert.deepEqual(ok(r.c), [38.33, 460, 3.83]);
   });
-  it("PFEC-05 / L2: asOf 2025-06 (+200, before the window) → 10,200 + 9 empty window months × avg 750 + 1,000 + 500 = 18,450 → 61.50 / 738.00", () => {
+  // #228 (spec 64, PFNA-03): empty months add nothing anywhere (the /series rule); PFEC-05 / L2 values superseded.
+  it("PFEC-05 / L2 (#228): asOf 2025-06 (+200) → 10,200 + empty months add nothing + 1,000 + 500 = 11,700 → 39.00 / 468.00", () => {
     const r = run({ asOf: "2025-06", months: JUN25 });
-    assert.equal(r.prev, 18450);
-    assert.deepEqual(ok(r.c), [61.5, 738, 6.15]);
+    assert.equal(r.prev, 11700);
+    assert.deepEqual(ok(r.c), [39, 468, 3.9]);
   });
-  it("L2: an empty month before the window adds nothing (asOf 2025-05, May empty → the same 18,450)", () => {
-    assert.equal(run({ asOf: "2025-05", months: JUN25 }).prev, 18450);
+  it("L2: an empty month before the window adds nothing (asOf 2025-05, May empty → the same 11,700)", () => {
+    assert.equal(run({ asOf: "2025-05", months: JUN25 }).prev, 11700);
   });
-  it("L2: an empty month inside the window uses the 12-month average (Nov 2025 typed at the average surplus 750 → unchanged)", () => {
+  it("L2 (#228): an empty month inside the window adds nothing; a typed one adds its own surplus (Nov +750 → 12,450)", () => {
     const typed = { ...JUN25, "2025-11": { expenses: "1,000", income: "1,750" } };
-    assert.equal(run({ asOf: "2025-06", months: typed }).prev, 18450);
+    assert.equal(run({ asOf: "2025-06", months: typed }).prev, 12450);
   });
-  it("PFEC-06: no month data, asOf 2026-08 → none; the same without asOf → 33.33 / 400.00, share —", () => {
-    assert.equal(run({ asOf: "2026-08", months: {} }).c.status, "none");
+  it("PFEC-06 (#228): no month data, asOf 2026-08 → the typed 10,000 is net assets now → 33.33 / 400.00; without asOf the same, share —", () => {
+    assert.deepEqual(ok(run({ asOf: "2026-08", months: {} }).c), [33.33, 400, null]);
     assert.deepEqual(ok(run({ months: {} }).c), [33.33, 400, null]);
   });
   it("PFEC-07: Aug 20,000 / Sep 1,000 expenses, income 0, asOf 2026-08 → net −11,000 → none", () => {
@@ -670,8 +672,8 @@ describe("#184 QA L1 / L2: concrete PFEC examples and the window rule", () => {
     assert.equal(r.prev, -11000);
     assert.equal(r.c.status, "none");
   });
-  it("PFEC-08: Future on, 5 years, asOf 2026-08 → 190.83 / 2,290.00 (projected), the same as before #184", () => {
-    assert.deepEqual(ok(run({ asOf: "2026-08", future: true, years: 5 }).c), [190.83, 2290, 19.08]);
+  it("PFEC-08 (#228): Future on, 5 years, asOf 2026-08 → 188.33 / 2,260.00 (the empty current month adds nothing now)", () => {
+    assert.deepEqual(ok(run({ asOf: "2026-08", future: true, years: 5 }).c), [188.33, 2260, 18.83]);
   });
   it("PFEC-09: asOf 2026-12 (after the current month) → none", () => {
     assert.equal(run({ asOf: "2026-12" }).c.status, "none");

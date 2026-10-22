@@ -170,7 +170,7 @@ async function scenarioChecks({ page, tag, vp }, read) {
     Object.values(present).every((n) => n === 0) && (await page.getByRole("button", { name: /^Save(?! scenario$)/ }).count()) === 0, { lines: await page.getByTestId("pf-line").count(), present });
   const title = (await page.locator("h1").first().textContent())?.trim();
   const basis = (await page.getByTestId("pf-scenario-basis").textContent().catch(() => ""))?.trim();
-  check(`${tag} PFSV-05 title Scenario. and the seeding basis line`, title === "Scenario." && /^(Based on last month \(|Based on this month's saved figures \(|Nothing saved yet)/.test(basis ?? ""), { title, basis });
+  check(`${tag} PFSV-05 title Scenario. and the seeding basis line`, title === "Scenario." && /^(Based on last month \(|Based on this month's saved figures \(|Nothing saved yet|No months saved yet)/.test(basis ?? ""), { title, basis });
   // Seeding (Diego): from the latest month, net assets included, with its basis stated (QA AO5, spec 58.3).
   const netShown = await page.getByTestId("pf-scenario-net").inputValue();
   const netBasis = (await page.getByTestId("pf-scenario-net-basis").textContent().catch(() => null))?.trim() ?? null;
