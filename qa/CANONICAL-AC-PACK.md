@@ -1689,3 +1689,9 @@ PFHT additions (2026-10-21, CFO decision on Q-HT1..8: all accepted; spec 53.5. P
 | PFSC-31 | BLOCK | A negative start that crosses above 0: growth is 0 % in every month whose opening balance is ≤ 0 (the surplus still adds), and resumes in the first month whose opening balance is > 0. A deficit on a negative balance just adds, and a negative growth rate is not applied below 0 either (`scenario.test.ts`). |
 | PFSC-32 | BLOCK | An opening balance of exactly 0 grows 0 % that month; growth starts the month after the balance turns positive. A balance that lands exactly on 0 gets no growth the next month. |
 | PFSC-33 | MAJOR | A positive balance still compounds every month (PFSC-07 unchanged), and the totals use the same path. Mutation: growth applied to a balance ≤ 0 makes PFSC-31 and PFSC-32 fail. |
+
+**PFSC: QA AK1 (EL, 2026-10-22).** `qa/tools/roles.mjs` ROLE-10/11 block also checks the scenario on the preview:
+- PFSC-15: the CFO with Read saving → 403, and nothing is stored.
+- PFSC-16: an invalid value → 400 `{ field: "scenario" }`.
+- PFSC-13: the owner saves → 200; Read GETs it; every other value is unchanged; then a reset to PF_RECORD leaves no scenario value.
+- PFSC-03: Read opens `/personal-finance/scenario` → 200.
