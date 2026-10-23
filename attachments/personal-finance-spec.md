@@ -2607,3 +2607,29 @@ Dated note 2026-10-23: EL assigned Q-OS4 after #246 (§67) and #248 (§68) merge
 - **Q-OM3 (not built, recommend keep):** `summary` is not re-anchored at the selected month.
 
 72.6 **Notes.** No schema, table, migration, env, storage key or dependency change. CFO notified via the PR body (the parent notifies CFO, §67.3). BB1 (QA harness): `qa/tools/pf-scenario-e2e.mjs` seeds the owner's missing future-month plans before the main-page checks so the #231 first-load plan backfill (§65.2) does not PUT during PFSV-22.
+
+## 73. Personal Finance: a stale tab's save is refused (409), not silently overwriting (#242, MEDIUM, Diego; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23: Diego approved #242 (found during #231). Numbered 73 because §72 is taken by PR #254 (#247 follow-up). Additions only.
+
+73.1 **Problem.** `PUT /api/personal-finance` replaces the whole record (`writeRecord`, `src/lib/finance/account.server.ts`), and the page PUTs the snapshot it loaded at open. A second tab saving later overwrote the first tab's edits for every record name except plans (#231 merge) and saved reports.
+
+73.2 **Rule (conflict check, no merge).** The record's version is the existing `personal_finance.updated_at` (`migrations/0010_personal_finance.sql:7`), sent as text (`updated_at::text`, full microsecond precision). No table, column, migration, env var, storage key or dependency.
+- `GET /api/personal-finance` → `{ data, access, version }`; `version` is `null` when no row exists.
+- `PUT` body `{ data, baseVersion }`: when `baseVersion` is present (a string, or `null` = "I saw no record"), the write happens only if the stored version still equals it, in ONE statement (`INSERT … SELECT … WHERE … ON CONFLICT (user_id) DO UPDATE … WHERE personal_finance.updated_at = $base RETURNING updated_at::text`). Otherwise **409** `{ error: "Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.", code: "stale" }`, `no-store`, and nothing is written (no audit row).
+- A successful `PUT` replies `{ data, access, version }` with the new version; the page keeps it as its next `baseVersion`, so its own saves in a row never conflict.
+- `baseVersion` absent (a tab cached before this release): last write wins, as before (Q-TW1). A non-string, non-null `baseVersion` → 400.
+- Same check for the owner's and a write-grant person's PUT. DELETE (owner wipe) is unchanged.
+- Saved-report writes (`/api/personal-finance/report`, `/reports`) no longer change `updated_at`: reports are kept out of the record (#153 / #156) and a report save in one tab must not make the other tab's record save stale. Nothing read `personal_finance.updated_at` before this.
+- `PUT /api/personal-finance/view` (owner toggles) is a record write and bumps the version (unchanged).
+
+73.3 **UI.** On 409 the page's status line (`pf-save`) shows `Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.` instead of `Not saved.`, and keeps the unsaved edits on screen (nothing is discarded). It stays until a save succeeds (after a reload). The Scenario screen's `Save scenario` / `Delete` already do a fresh GET then PUT; they send that GET's version, and a 409 shows the same message in their error line.
+
+73.4 **CFO API.** No change: `/api/cfo/pf/*` is read-only and returns no version.
+
+73.5 **AC (PFTW, qa/CANONICAL-AC-PACK.md).** PFTW-01..PFTW-10.
+
+73.6 **Questions.**
+- **Q-TW1 (built, recommend accept):** a PUT without `baseVersion` (an old tab open across the deploy) still saves (last write wins) so it isn't locked out; require it in a later release.
+- **Q-TW2 (built, recommend accept):** conflict check only, no per-name merge: the stale tab is told to reload; its unsaved edits stay on screen to copy.
+- **Q-TW3 (not built, recommend later):** a `Reload` button next to the message.

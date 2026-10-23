@@ -50,6 +50,11 @@ before(async () => {
 });
 
 const data = { [STORAGE_KEY]: '{"fixed":[],"variable":[],"accounts":[]}' };
+// #242: `version` (spec §73) is checked in stale-save.server.test.ts.
+const noVersion = (b: unknown) => {
+  const { version: _v, ...rest } = b as Record<string, unknown>;
+  return rest;
+};
 const OWNER = { owner: true, write: true };
 
 describe("/api/personal-finance (#102, #90)", () => {
@@ -63,12 +68,12 @@ describe("/api/personal-finance (#102, #90)", () => {
 
   it("the owner: GET null, PUT saves, GET returns it (another device = the same account)", async () => {
     let r = await pf("GET", "alice");
-    assert.deepEqual(await r.json(), { data: null, access: OWNER });
+    assert.deepEqual(noVersion(await r.json()), { data: null, access: OWNER });
     assert.equal(r.headers.get("cache-control"), "no-store");
     r = await pf("PUT", "alice", { data: { ...data, [VIEW_KEY]: '{"closed":["income"]}' } });
     assert.equal(r.status, 200);
     r = await pf("GET", "alice");
-    assert.deepEqual(await r.json(), {
+    assert.deepEqual(noVersion(await r.json()), {
       data: { ...data, [VIEW_KEY]: '{"closed":["income"]}' },
       access: OWNER,
     });
@@ -94,7 +99,7 @@ describe("/api/personal-finance (#102, #90)", () => {
 
   it("ROLE-10: Read (bob) gets the owner's record without the owner's toggles; PUT / DELETE 403; own toggles kept apart", async () => {
     let r = await pf("GET", "bob");
-    assert.deepEqual(await r.json(), { data, access: { owner: false, write: false } });
+    assert.deepEqual(noVersion(await r.json()), { data, access: { owner: false, write: false } });
     assert.equal((await pf("PUT", "bob", { data: {} })).status, 403);
     assert.equal((await pf("DELETE", "bob")).status, 403);
     // #197 (PFVW-03): the view route now needs write; Read gets 403 and nothing is stored.
@@ -124,7 +129,7 @@ describe("/api/personal-finance (#102, #90)", () => {
       [VIEW_KEY]: '{"closed":["income"]}',
     });
     r = await pf("GET", "carol");
-    assert.deepEqual(await r.json(), { data: next, access: { owner: false, write: true } });
+    assert.deepEqual(noVersion(await r.json()), { data: next, access: { owner: false, write: true } });
     assert.equal((await pf("DELETE", "carol")).status, 403);
     assert.ok((await pf("GET", "alice")).ok, "the record survives");
   });
@@ -141,7 +146,7 @@ describe("/api/personal-finance (#102, #90)", () => {
 
   it("the owner's DELETE removes the record (owner-only)", async () => {
     await pf("DELETE", "alice");
-    assert.deepEqual(await (await pf("GET", "alice")).json(), { data: null, access: OWNER });
+    assert.deepEqual(noVersion(await (await pf("GET", "alice")).json()), { data: null, access: OWNER });
     // bob still sees his own toggles only.
     assert.deepEqual(((await (await pf("GET", "bob")).json()) as { data: unknown }).data, {
       [VIEW_KEY]: '{"closed":["expenses"]}',

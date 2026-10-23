@@ -19,7 +19,8 @@ import { handlePersonalFinanceReportRequest, handlePersonalFinanceRequest } from
 import { lineFigures } from "@/lib/finance/months";
 import { PF_DELETE_UI } from "@/lib/finance/flags";
 import { seriesHistory } from "@/lib/finance/report";
-import { RecordStore } from "@/lib/finance/record";
+import { RecordStore, STALE_MESSAGE } from "@/lib/finance/record";
+import { changeSaved } from "@/lib/finance/scenario-client";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -2329,6 +2330,110 @@ describe("#144 PF-166: a save the server refuses, through the real account clien
     container!.remove();
     const again = await open();
     assert.equal(text(q(again, "pf-ov-expenses"), "pf-ov-now"), "1,500.00");
+  });
+});
+
+describe("#242 PFTW-08 / PFTW-09: another tab saved first → the reload message (real account client + real API on PGLite)", () => {
+  const pg = new PGlite();
+  const db = { query: async <T,>(sql: string, params?: unknown[]) => (await pg.query<T>(sql, params)).rows };
+  const deps = {
+    env: { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com" },
+    getUser: async () => ({ id: "alice", email: "alice@example.com" }),
+    getDb: async () => db,
+  };
+  const realFetch = globalThis.fetch;
+  const statuses: number[] = [];
+  const call = (method: string, body?: unknown) =>
+    handlePersonalFinanceRequest(
+      new Request("http://localhost/api/personal-finance", { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }),
+      deps,
+    );
+  /** The other tab: read, then save its own record on the version it read. */
+  const otherTabSaves = async () => {
+    const got = (await (await call("GET")).json()) as { data: Record<string, string> | null; version: string | null };
+    const r = await call("PUT", { data: { ...(got.data ?? {}) }, baseVersion: got.version });
+    assert.equal(r.status, 200, "the other tab's save");
+  };
+  let ready: Promise<void> | null = null;
+  async function setup() {
+    ready ??= (async () => {
+      await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');
+      for (const f of ["0010_personal_finance.sql", "0011_access.sql"])
+        await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, `file://${process.cwd()}/src/components/personal-finance/`), "utf8"));
+      await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', ["alice", "alice@example.com"]);
+    })();
+    await ready;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const res = await handlePersonalFinanceRequest(new Request(new URL(String(input), "http://localhost"), init), deps);
+      statuses.push(res.status);
+      return res;
+    }) as typeof fetch;
+  }
+  async function open(): Promise<HTMLElement> {
+    container = dom.window.document.createElement("div");
+    dom.window.document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => root!.render(<PersonalFinancePage now={NOW} loadStore={loadAccountStore} />));
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    return container;
+  }
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it("PFTW-08: two Saves in a row from one tab both save; after another tab saves, Save shows the reload message and keeps the edit", async () => {
+    await setup();
+    const el = await open();
+    await click(q(el, "pf-add-fixed"));
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,200");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 200, "first save");
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,300");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 200, "the tab's own second save is not stale");
+    assert.equal(text(el, "pf-save"), "");
+    await otherTabSaves();
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,500");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 409);
+    assert.equal(text(el, "pf-save"), STALE_MESSAGE);
+    assert.equal(text(el, "pf-save"), "Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.");
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,500", "the edit stays");
+    const kept = (await (await call("GET")).json()) as { data: Record<string, string> };
+    assert.ok(!JSON.stringify(kept.data).includes("1500"), "nothing written");
+    // Reload, then save → saved.
+    await act(async () => root!.unmount());
+    container!.remove();
+    const again = await open();
+    await type(q(lines(again, "fixed")[0], "pf-monthly"), "1,600");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 200);
+    assert.equal(text(again, "pf-save"), "");
+  });
+
+  it("PFTW-09: Save scenario sends the fresh GET's version; another tab saving in between → 409 with the reload message", async () => {
+    await setup();
+    const realFetchStub = globalThis.fetch;
+    const sent: unknown[] = [];
+    let between = false;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        sent.push(JSON.parse(String(init.body)).baseVersion);
+        if (between) await otherTabSaves();
+      }
+      return realFetchStub(input, init);
+    }) as typeof fetch;
+    const version = ((await (await call("GET")).json()) as { version: string | null }).version;
+    const ok = await changeSaved(() => ({ income: {}, expenses: {}, rate: null, growth: 5, start: null }));
+    assert.equal(ok.ok, true);
+    assert.equal(sent[0], version, "baseVersion = the fresh GET's version");
+    between = true;
+    const r = await changeSaved(() => ({ income: {}, expenses: {}, rate: null, growth: 5, start: null }));
+    assert.deepEqual(r, { ok: false, status: 409, error: STALE_MESSAGE });
   });
 });
 

@@ -3,12 +3,12 @@
 // record with the scenario value replaced, through the existing `/api/personal-finance` route (write grant, #197).
 // #208 SS7 (spec 61.5): the unused PJ7 `saveScenario` is removed; `changeSaved` is the only scenario.v1 writer.
 import { API } from "./account-client";
-import type { PfRecord } from "./record";
+import { STALE_MESSAGE, type PfRecord } from "./record";
 import { readScenario, type Scenario, withScenario } from "./scenario";
 
 export type Access = { owner: boolean; write: boolean };
 export type ScenarioLoad =
-  { ok: true; record: PfRecord | null; access: Access } | { ok: false; status: number };
+  { ok: true; record: PfRecord | null; access: Access; version?: string | null } | { ok: false; status: number };
 export type SaveResult = { ok: true; record: PfRecord | null } | { ok: false; status: number };
 
 export const loadForScenario = async (): Promise<ScenarioLoad> => {
@@ -18,18 +18,20 @@ export const loadForScenario = async (): Promise<ScenarioLoad> => {
     const body = (await res.json()) as {
       data?: PfRecord | null;
       access?: { owner?: boolean; write?: boolean };
+      version?: string | null;
     };
     return {
       ok: true,
       record: body.data ?? null,
       access: { owner: body.access?.owner === true, write: body.access?.write === true },
+      version: typeof body.version === "string" ? body.version : null,
     };
   } catch {
     return { ok: false, status: 0 };
   }
 };
 
-export type ChangeResult = SaveResult | { ok: false; status: 0; error: string };
+export type ChangeResult = SaveResult | { ok: false; status: 0 | 409; error: string };
 
 /**
  * #223 (spec 60, AC PFSS): `Save scenario` / `Delete` for named scenarios, the PJ7 path extended: a fresh GET, then one
@@ -48,10 +50,12 @@ export const changeSaved = async (
     const res = await fetch(API, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ data: withScenario(fresh.record, next) }),
+      body: JSON.stringify({ data: withScenario(fresh.record, next), baseVersion: fresh.version ?? null }),
     });
     if (!res.ok) {
       await res.text().catch(() => "");
+      // #242 (spec §73): another tab saved between the fresh GET and this PUT.
+      if (res.status === 409) return { ok: false, status: 409, error: STALE_MESSAGE };
       return { ok: false, status: res.status };
     }
     const body = (await res.json()) as { data?: PfRecord | null };

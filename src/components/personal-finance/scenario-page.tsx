@@ -597,7 +597,7 @@ function SavedScenarios({
       setPicked((p) => p.filter((id) => id !== e.id));
       setStatus(`Deleted "${e.name}".`);
       if (opened?.id === e.id) named.open(null);
-    } else setStatus(DELETE_FAILED);
+    } else setStatus("error" in r ? r.error : DELETE_FAILED);
   }
 
   const togglePick = (id: string) =>

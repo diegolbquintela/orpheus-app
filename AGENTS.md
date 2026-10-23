@@ -80,6 +80,8 @@ affects the repo.
   foreign units per 1 household unit and household = amount ÷ rate** (#87's × superseded; v1 expense rates inverted
   once into `orpheus.finance.expenses.v2`). Each person has a `Foreign` box (Currency, `FX rate (BRL per 1 CAD)`,
   `Converted (yearly)`); income figures use the converted amount. No second auth system, no roles / account menu (#90).
+  #242 (2026-10-23, spec §73): `GET` / `PUT /api/personal-finance` also return `version` (`updated_at::text`); a `PUT`
+  with `baseVersion` that no longer matches → 409 `{ error, code: "stale" }`, nothing written (supersedes "last write wins").
   Before #102 (history): this browser's `localStorage` only (`orpheus.finance.expenses.v1`; no auth, no server write).
   v1.2 (#85): `02` Income above `03` Expenses (spec section 12): people (wages, bonus rating %, average tax %,
   net), Count wages / Count bonus and a Share % per person, an income table (biweekly = yearly ÷ 26); stored in
@@ -1291,3 +1293,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## CFO overview ?month= (#247 follow-up; added 2026-10-23)
 
 - 2026-10-23 #247 follow-up (Q-OS4, EL assigned): spec §72, AC PFOM + PFOS-10. `GET /api/cfo/pf/overview?month=yyyy-mm` adds a `selected` block (the page's selected-month column); without `month` the body is unchanged. An EMPTY future month returns the copy the page would open (`copied: true`, `copiedFrom`), computed in memory and never saved. Bad / out-of-range month → 400. Tests: `src/lib/finance/cfo-api.server.test.ts` (per-call zero-write spy). BB1: `qa/tools/pf-scenario-e2e.mjs` seeds the owner's missing future plans (one PUT, outside the page tracker) before PFSV-22, so the first-load plan backfill PUT (#231 §65.2) doesn't fail it; the pure helper is `qa/tools/pf-plan-seed.mjs` (`scripts/pf-plan-seed.test.mjs`). PFOS-04 (jsdom) now watches every write from load to Save (recovered unpushed 644a3f7). No schema, table, env, storage-key or dependency change.
+
+## Two tabs: stale PF saves get 409 (#242; added 2026-10-23)
+
+- 2026-10-23 #242 (MEDIUM, Diego yes): spec §73, AC PFTW. The existing `personal_finance.updated_at` column (`migrations/0010_personal_finance.sql:7`) is the record's version. `GET /api/personal-finance` and every successful `PUT` reply carry `version` (`updated_at::text`); a `PUT` that sends `baseVersion` writes only when it still matches (one atomic `INSERT … SELECT … ON CONFLICT … DO UPDATE … WHERE … RETURNING`), else **409** `{ error: STALE_MESSAGE, code: "stale" }` and nothing is written. A `PUT` without `baseVersion` (an old cached tab) keeps last-write-wins. The saved-report writes no longer bump `updated_at` (reports are not part of the record; nothing read that column). The page shows `Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.` (`pf-save`). No table, column, migration, env, storage key or dependency.
