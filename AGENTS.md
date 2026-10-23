@@ -1255,3 +1255,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## Tap targets follow-up (#236; added 2026-10-23)
 
 - 2026-10-23 #236 (LOW, TT1 + TT2 from #225 / PR #235): spec §70, AC PFTX. The saved-scenario Compare checkbox's target is its `label.pf-saved-compare-label` (min-height 2.75rem; box and text unchanged). The charts-builder checkboxes' `label.pf-builder-option` measured 44 px tall at 390 and 1440 already, so it is only pinned by tests. A tap-target check reads `src/styles.css` (`src/lib/finance/tap-target.test.ts`) and asserts in `.dom.test` that the box sits alone inside its label. Measure the real label with `getBoundingClientRect` and `elementFromPoint`, not the box.
+
+## /series with only Starting net assets (#239; added 2026-10-23)
+
+- 2026-10-23 #239 (MEDIUM, NA2 from #228 / PR #238): spec §71, AC PFSN. `seriesValues` (series.ts) now anchors net assets the way the Overview does (#228 AQ1): as-of month, else the first data month, else (new) the CURRENT household month when a Starting net assets is typed. So a record with only a start gives one net-assets point at the current month (= the start); nothing typed still gives no anchor. Income / expenses / surplus and every record with a month or an as-of month are unchanged. #246's `/api/cfo/pf/series` and `/net-assets` call `seriesValues`, so they inherit this once #246 merges (not on main at 439a7c0). Test: `src/lib/finance/series-start-only.test.ts` (explicit `npm test` list). No schema, table, env, storage-key or dependency change. Docs are additions only.

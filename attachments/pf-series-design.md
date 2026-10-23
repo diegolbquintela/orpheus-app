@@ -117,3 +117,7 @@ The documented response above predates the CFO round. The full #154 response is:
 
 `fx_basis` is always `"current"` (Q-AA3, spec 36.10). `net_assets_from` is the anchor month (Q-AA4 / Q-AA10, spec 36.9 /
 36.11), or null when the record has no data. #155 (`/chart`, `attachments/pf-chart-data-design.md`) keeps both.
+
+## #239 addendum (spec §71, AC PFSN; added 2026-10-23)
+
+Net-assets anchor fallback: with no as-of month and no month with data, a typed Starting net assets anchors at the current household month, so `/series` returns `net_assets_from` = current month and the start as that month's net-assets value (other months `null`). Request and response shape unchanged; records with a month or an as-of month are unchanged. #246's `/api/cfo/pf/series` (not yet on main) inherits this through `seriesValues`.

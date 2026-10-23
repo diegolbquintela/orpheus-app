@@ -2491,3 +2491,26 @@ Dated note 2026-10-23 (#204): Diego said yes via CoS on 2026-10-21; the CFO aske
 - Q-TX1: Should the Compare box itself grow from the browser default (13 px) to 20 px to match the other PF boxes? Recommendation: no, not in this PR, because it would be a visual change. **Not built.**
 - Q-TX2: Should `qa/tools/pf-scenario-e2e.mjs` measure the Compare label in the real browser (like PFTT-06)? Recommendation: yes, as a later QA-tool change. It needs a saved scenario on the preview record, and the tool is read-only. **Not built** (measured locally instead, 70.2 / 70.3).
 
+
+## 71. Personal Finance: /series returns the start when only Starting net assets is saved (#239, NA2 from #228, MEDIUM, Diego / CFO; added 2026-10-23; built in the same PR)
+
+71.1 **Problem.** With only a Starting net assets saved (no month, no copy, no as-of month), `POST /api/personal-finance/series` returned `net_assets_from: null` and every net-assets value `null`, while the Overview (§64, AQ1) shows the start as 'Net assets now'.
+
+71.2 **Rule (built).** The net-assets anchor is: the as-of month (§42), else the first month with data (Q-AA10), else, NEW, the current household month when Starting net assets is typed (`typedFigure(start) !== null`), else none. Net assets at the end of the anchor month = start + that month's own surplus (none here), so the start shows as one point at the current month. Months before it are `null` (as before the anchor today).
+
+71.3 **Endpoint behaviour change (`/series`).** Request unchanged (`{ series, range }`, §36). Response shape unchanged (`SeriesResult`); only values change for a start-only record:
+- `net_assets_from`: the current household month (was `null`);
+- net-assets `values`: the start at the current month's index, `null` elsewhere (was all `null`);
+- `range` / `months` / `current` / `partial` / `fx_basis` / `currency`: unchanged (`all` already gave the current month alone).
+Edge cases: a custom range ending before the current month has no point (all `null`) but still reports `net_assets_from`; an empty start (nothing typed) keeps no anchor; a typed `0` counts as typed (point 0), matching the Overview; income / expenses / surplus / line / account / category / group series are unchanged; any record with a month or an as-of month is byte-for-byte unchanged. `/chart` reads its own path and is not changed here.
+
+71.4 **CFO wrapper (#246, `/api/cfo/pf/series`, `src/lib/finance/cfo-api.server.ts`).** Not on main at 439a7c0 (PR #246 open). It calls `seriesValues` directly (`series` and the per-month net assets of `net-assets`), so once merged it **is affected** in the same way: a start-only record gets the start as the current month's point instead of nothing. No code change in #246 is needed; its docs should cite §71.
+
+71.5 **AC pack PFSN** (`src/lib/finance/series-start-only.test.ts`): PFSN-01 `all` → one month, value = start, `net_assets_from` = current; PFSN-02 `12m` → 11 nulls then the start; PFSN-03 range before the current month → all null, anchor still reported; PFSN-04 nothing typed → no anchor; PFSN-05 income / expenses / surplus stay null; PFSN-06 a saved month keeps its anchor (unchanged); PFSN-07 an as-of month still wins (unchanged).
+
+71.6 **CFO questions.**
+- **Q-SN1 (built):** what point does the start create? Recommend: one net-assets point equal to the start (value at the END of the anchor month, the start plus that month's surplus, none here). Built.
+- **Q-SN2 (built):** which month? Recommend: the current household month (Toronto), the same as the Overview's AQ1 'now'. Built.
+- **Q-SN3 (built):** how does it combine with later months? Recommend: as soon as any month is saved, the anchor moves to the first data month as before (the start is at the START of that month), so the start-only point is transient and never doubles the start. Built (unchanged rule, PFSN-06).
+- **Q-SN4 (not built):** should a start-only record also report the point in the month before the current one (the start as "value at the start of the current month")? Recommend: no; keep one point, matching the Overview. Not built.
+- **Q-SN5 (not built, NA1):** a per-month starting value field (the queued NA1 ticket) would replace this fallback. Recommend: handle in that ticket. Not built.
