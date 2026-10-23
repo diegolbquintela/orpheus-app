@@ -11,7 +11,7 @@ import { writeRates } from "@/lib/finance/equity";
 import { writeExpenses } from "@/lib/finance/expenses";
 import { MONTHS_KEY, writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
-import { RecordStore, type PfRecord } from "@/lib/finance/record";
+import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
 import { readScenario, SCENARIO_KEY } from "@/lib/finance/scenario-key";
 import { NAME_TAKEN } from "@/lib/finance/saved-scenarios";
 
@@ -204,6 +204,26 @@ describe("#223 saved scenarios", () => {
     assert.deepEqual(readScenario(st.record)!.saved!.map((e) => e.name), ["B"]);
     assert.equal(onlyScenarioChanged(st), 3);
     assert.equal(st.record[MONTHS_KEY], record()[MONTHS_KEY]);
+  });
+
+  it("#242 QA BI1 (PFTW-09): Delete refused as stale (409) shows the server's reload message, keeps the scenario", async () => {
+    const st = server(record());
+    const el = await render();
+    await saveAs(el, "A");
+    const inner = globalThis.fetch;
+    const stale = async (url: unknown, init?: { method?: string; body?: string }) =>
+      init?.method === "PUT"
+        ? new Response(JSON.stringify({ error: STALE_MESSAGE, code: "stale" }), { status: 409 })
+        : (inner as (u: unknown, i?: unknown) => Promise<Response>)(url, init);
+    (dom.window as unknown as { fetch: unknown }).fetch = stale;
+    (globalThis as unknown as { fetch: unknown }).fetch = stale;
+    confirmAs(true);
+    await click(qa(el, "pf-saved-delete")[0]);
+    await act(async () => {});
+    assert.equal(q(el, "pf-saved-status")!.textContent, STALE_MESSAGE);
+    assert.match(STALE_MESSAGE, /Reload/);
+    assert.deepEqual(names(el), ["A"]);
+    assert.deepEqual(readScenario(st.record)!.saved!.map((e) => e.name), ["A"]);
   });
 
   it("PFSS-45: Read users can open and compare saved scenarios but get no Save and no Delete", async () => {
