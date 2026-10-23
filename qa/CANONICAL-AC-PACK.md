@@ -2005,4 +2005,5 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFAV-02 Positive, negative and zero growth, 1 and 5 years: the Future value equals the chart's point at the same month. (unit)
 - PFAV-03 Without the chart surplus (main page, CFO API), the Future line still adds the 12-month average surplus (unchanged). (unit)
 - PFAV-04 The scenario screen (DOM): with Future on, the Overview's projected net assets equal the chart's value at that horizon; the main page's Future value is unchanged. (DOM)
+  - Note (2026-10-23, QA BJ2 on PR #256): the PFAV-04 test checks the Overview's coverage text (`pf-coverage-monthly`) against the chart's 12-month coverage, i.e. Future net-assets parity at the horizon. The projected months' income, expenses and coverage share stay on the 12-month average (Q-AV1, not built).
 - PFAV-05 No write: the scenario screen sends no PUT for Future / years toggles (existing PFSC rule). (DOM)
