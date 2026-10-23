@@ -12,6 +12,9 @@ import { VIEW_KEY } from "./view.ts";
  * The Personal Finance record stored against the account (#102; spec section 16.5): the page values (five; #105 adds the
  * section toggles), by name, each the JSON text the page's read / write helpers use. Shared by the page and the API (validation).
  */
+/** #242 (spec §73): the 409 reply / page message when another tab saved first. */
+export const STALE_MESSAGE = "Changed in another tab. Reload to see the latest, then save again.";
+
 export type PfRecord = Record<string, string>;
 
 /** Names the account record may hold (the server refuses others). */

@@ -80,6 +80,8 @@ affects the repo.
   foreign units per 1 household unit and household = amount ÷ rate** (#87's × superseded; v1 expense rates inverted
   once into `orpheus.finance.expenses.v2`). Each person has a `Foreign` box (Currency, `FX rate (BRL per 1 CAD)`,
   `Converted (yearly)`); income figures use the converted amount. No second auth system, no roles / account menu (#90).
+  #242 (2026-10-23, spec §73): `GET` / `PUT /api/personal-finance` also return `version` (`updated_at::text`); a `PUT`
+  with `baseVersion` that no longer matches → 409 `{ error, code: "stale" }`, nothing written (supersedes "last write wins").
   Before #102 (history): this browser's `localStorage` only (`orpheus.finance.expenses.v1`; no auth, no server write).
   v1.2 (#85): `02` Income above `03` Expenses (spec section 12): people (wages, bonus rating %, average tax %,
   net), Count wages / Count bonus and a Share % per person, an income table (biweekly = yearly ÷ 26); stored in

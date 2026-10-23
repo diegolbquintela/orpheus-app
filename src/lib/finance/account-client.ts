@@ -3,7 +3,8 @@ import { clearLegacy, prepareRecord, RecordStore } from "./record";
 
 /**
  * The page's store when signed in (#102; spec section 16.5): the account's record via `/api/personal-finance`,
- * read once; #112: written only on `Save` (and a section toggle), the whole record; last write wins. An empty
+ * read once; #112: written only on `Save` (and a section toggle), the whole record; #242 (spec §73): each PUT sends
+ * the version it was based on and a 409 (another tab saved first) is `onSaved(false, "stale")`. An empty
  * account imports this browser's old `localStorage` values once (then removes them); a v1 expenses value is
  * migrated (rates inverted). `onSaved(false)` after a failed save (the page shows `Not saved.`).
  */
@@ -27,7 +28,9 @@ export type StoreLike = {
   /** #112: send what was written (the account store); absent = written already (localStorage). */
   save?(): Promise<boolean>;
 };
-export type LoadStore = (opts: { onSaved: (ok: boolean) => void }) => Promise<StoreLike>;
+/** #242: why a save failed: "stale" = another tab saved first (409); the page then shows `STALE_MESSAGE`. */
+export type SaveFailure = "stale";
+export type LoadStore = (opts: { onSaved: (ok: boolean, why?: SaveFailure) => void }) => Promise<StoreLike>;
 
 export const loadAccountStore: LoadStore = async ({ onSaved }) => {
   const res = await fetch(API, { headers: { accept: "application/json" }, cache: "no-store" });
@@ -39,7 +42,10 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
   const body = (await res.json()) as {
     data?: Record<string, string> | null;
     access?: { owner?: boolean; write?: boolean };
+    version?: string | null;
   };
+  // #242: the version this tab's next PUT is based on (null = no record yet); each 200 moves it on.
+  let version: string | null = typeof body.version === "string" ? body.version : null;
   // #90: the record is the owner's. Only the owner imports this browser's old values. #197: without a write grant
   // nothing is saved (the view route needs write); toggles already stored for the person still apply (Q-D11).
   const owner = body.access?.owner !== false;
@@ -60,12 +66,21 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
       const r = await fetch(API, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ data: store.snapshot() }),
+        body: JSON.stringify({ data: store.snapshot(), baseVersion: version }),
         keepalive,
       });
       // Read the (small) reply so the request completes (an unread body keeps it open, e.g. for "network idle").
-      await r.text().catch(() => "");
-      onSaved(r.ok);
+      const text = await r.text().catch(() => "");
+      if (r.ok) {
+        try {
+          const v = (JSON.parse(text) as { version?: unknown }).version;
+          if (typeof v === "string") version = v;
+        } catch {
+          /* keep the old base: the next save gets a 409, not a silent overwrite */
+        }
+      }
+      if (r.status === 409) onSaved(false, "stale");
+      else onSaved(r.ok);
       return r.ok;
     } catch {
       onSaved(false);

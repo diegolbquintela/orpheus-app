@@ -17,7 +17,7 @@ import {
 import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
-import { checkRecord, RecordStore, type PfRecord } from "./record.ts";
+import { checkRecord, RecordStore, STALE_MESSAGE, type PfRecord } from "./record.ts";
 import { recordRefusal } from "./field-errors.ts";
 import { mergePlansText, PLANS_KEY } from "./plans.ts";
 import {
@@ -96,11 +96,16 @@ export async function readStoredPlans(db: Queryable, userId: string): Promise<st
   return rows[0]?.plans ?? undefined;
 }
 
-export async function writeRecord(db: Queryable, userId: string, record: PfRecord, now: Date = new Date()): Promise<PfRecord> {
+async function withMergedPlans(db: Queryable, userId: string, record: PfRecord, now: Date): Promise<PfRecord> {
   const merged = mergePlansText(await readStoredPlans(db, userId), record[PLANS_KEY], householdMonth(now));
   const next: PfRecord = { ...record };
   delete next[PLANS_KEY];
   if (merged !== undefined) next[PLANS_KEY] = merged;
+  return next;
+}
+
+export async function writeRecord(db: Queryable, userId: string, record: PfRecord, now: Date = new Date()): Promise<PfRecord> {
+  const next = await withMergedPlans(db, userId, record, now);
   await db.query(
     `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data
@@ -111,6 +116,42 @@ export async function writeRecord(db: Queryable, userId: string, record: PfRecor
     [userId, JSON.stringify(next), [REPORT_KEY, REPORTS_KEY]],
   );
   return next;
+}
+
+/**
+ * #242 (spec §73, AC PFTW): the record's version is the existing `personal_finance.updated_at`, as text (full
+ * precision). Null when no record is stored (no row, or a row holding saved reports only).
+ */
+export { STALE_MESSAGE };
+
+export async function readVersion(db: Queryable, userId: string): Promise<string | null> {
+  const rows = await db.query<{ version: string | null }>(
+    "SELECT CASE WHEN (data - $2::text[]) = '{}'::jsonb THEN NULL ELSE updated_at::text END AS version FROM personal_finance WHERE user_id = $1",
+    [userId, [REPORT_KEY, REPORTS_KEY]],
+  );
+  return rows[0]?.version ?? null;
+}
+
+/**
+ * #242: `writeRecord` only if the stored version still equals `base` (null = "no record was seen"), in one statement.
+ * Returns the stored record and its new version, or null when stale (nothing written).
+ */
+export async function writeRecordIf(db: Queryable, userId: string, record: PfRecord, base: string | null, now: Date = new Date()): Promise<{ stored: PfRecord; version: string } | null> {
+  const next = await withMergedPlans(db, userId, record, now);
+  const rows = await db.query<{ version: string }>(
+    `INSERT INTO personal_finance (user_id, data, updated_at)
+       SELECT $1, $2::jsonb, now()
+       WHERE $4::text IS NULL OR EXISTS (SELECT 1 FROM personal_finance WHERE user_id = $1)
+     ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data
+       || COALESCE((SELECT jsonb_object_agg(e.key, e.value) FROM jsonb_each(personal_finance.data) AS e
+                    WHERE e.key = ANY($3::text[])), '{}'::jsonb),
+       updated_at = now()
+     WHERE personal_finance.updated_at = $4::timestamptz
+        OR ($4::text IS NULL AND (personal_finance.data - $3::text[]) = '{}'::jsonb)
+     RETURNING updated_at::text AS version`,
+    [userId, JSON.stringify(next), [REPORT_KEY, REPORTS_KEY], base],
+  );
+  return rows[0] ? { stored: next, version: rows[0].version } : null;
 }
 
 export async function deleteRecord(db: Queryable, userId: string): Promise<void> {
@@ -142,8 +183,9 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
   if (method === "DELETE" && !g.access.owner) return forbiddenResponse();
   const access = { owner: g.access.owner, write: g.surface.write };
   let record: PfRecord | null = null;
+  let base: { version: string | null } | undefined;
   if (method === "PUT") {
-    let body: { data?: unknown; userId?: unknown } | undefined;
+    let body: { data?: unknown; userId?: unknown; baseVersion?: unknown } | undefined;
     try {
       body = (await request.json()) as typeof body;
     } catch {
@@ -151,6 +193,11 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     }
     if (!body || typeof body !== "object") return badRequest("Body must be a JSON object.");
     if (namesOtherUser(body.userId, user, g.viewer)) return forbiddenResponse();
+    // #242 (spec §73): `baseVersion` absent = last write wins (an older tab, Q-TW1); else a string or null.
+    if ("baseVersion" in body) {
+      if (body.baseVersion !== null && typeof body.baseVersion !== "string") return badRequest("baseVersion must be a string or null.");
+      base = { version: body.baseVersion };
+    }
     const checked = checkRecord(body.data);
     if (!checked.ok) return dashboardJson({ error: checked.error }, checked.status);
     record = checked.record;
@@ -165,27 +212,36 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     if (OVERVIEW_KEY in record) record = { ...record, [OVERVIEW_KEY]: withoutEmptyAsOf(record[OVERVIEW_KEY]) };
   }
   if (method === "PUT" && record) {
+    // #242: one write, checked against `base` when the tab sent one; stale → 409 and nothing is written.
+    const save = async (next: PfRecord): Promise<{ stored: PfRecord; version: string | null } | null> => {
+      if (base) return writeRecordIf(db, user.id, next, base.version, clock());
+      const stored = await writeRecord(db, user.id, next, clock());
+      return { stored, version: await readVersion(db, user.id) };
+    };
+    const stale = () => dashboardJson({ error: STALE_MESSAGE, code: "stale" }, 409);
     if (!g.access.owner) {
       // The person's toggles stay theirs; the owner's stay in the record.
-      if (VIEW_KEY in record) await writeOwnView(db, g.viewer.id, record[VIEW_KEY]);
       const current = await readRecord(db, user.id);
       const next: PfRecord = { ...record };
       delete next[VIEW_KEY];
       if (current && VIEW_KEY in current) next[VIEW_KEY] = current[VIEW_KEY];
-      const stored = await writeRecord(db, user.id, next, clock());
+      const out = await save(next);
+      if (!out) return stale();
+      if (VIEW_KEY in record) await writeOwnView(db, g.viewer.id, record[VIEW_KEY]);
       await auditFor(db, g.access, "pf.save");
-      return dashboardJson({ data: await forViewer(db, stored, g), access });
+      return dashboardJson({ data: await forViewer(db, out.stored, g), access, version: out.version });
     }
-    const stored = await writeRecord(db, user.id, record, clock());
+    const out = await save(record);
+    if (!out) return stale();
     await auditFor(db, g.access, "pf.save");
-    return dashboardJson({ data: stored, access });
+    return dashboardJson({ data: out.stored, access, version: out.version });
   }
   if (method === "DELETE") {
     await deleteRecord(db, user.id);
     await auditFor(db, g.access, "pf.delete");
     return dashboardJson({ data: null, access });
   }
-  return dashboardJson({ data: await forViewer(db, await readRecord(db, user.id), g), access });
+  return dashboardJson({ data: await forViewer(db, await readRecord(db, user.id), g), access, version: await readVersion(db, user.id) });
 }
 
 export const PF_VIEW_ALLOW = ["PUT"] as const;
@@ -229,15 +285,15 @@ export async function readOwnReport(db: Queryable, userId: string): Promise<stri
 export async function writeOwnReport(db: Queryable, userId: string, text: string): Promise<void> {
   await db.query(
     `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, jsonb_build_object($2::text, $3::text), now())
-     ON CONFLICT (user_id) DO UPDATE SET data = personal_finance.data || jsonb_build_object($2::text, $3::text),
-       updated_at = now()`,
+     ON CONFLICT (user_id) DO UPDATE SET data = personal_finance.data || jsonb_build_object($2::text, $3::text)`,
+    // #242: a report write keeps `updated_at` (the record's version, spec §73).
     [userId, REPORT_KEY, text],
   );
 }
 
 export async function deleteOwnReport(db: Queryable, userId: string): Promise<void> {
   await db.query(
-    "UPDATE personal_finance SET data = data - $2::text, updated_at = now() WHERE user_id = $1 AND data ? $2",
+    "UPDATE personal_finance SET data = data - $2::text WHERE user_id = $1 AND data ? $2", // #242: version kept
     [userId, REPORT_KEY],
   );
   // A row that only held the report goes, so the record still reads as "none yet" (null).
@@ -409,17 +465,18 @@ export async function readOwnNamed(db: Queryable, userId: string): Promise<Named
   return parseNamed(rows[0]?.reports ?? null);
 }
 
-async function writeOwnNamed(db: Queryable, userId: string, list: Named[]): Promise<void> {
+/** #242: exported for the stale-save tests (a report write keeps the version). */
+export async function writeOwnNamed(db: Queryable, userId: string, list: Named[]): Promise<void> {
   if (list.length) {
     await db.query(
       `INSERT INTO personal_finance (user_id, data, updated_at) VALUES ($1, jsonb_build_object($2::text, $3::text), now())
-       ON CONFLICT (user_id) DO UPDATE SET data = personal_finance.data || jsonb_build_object($2::text, $3::text),
-         updated_at = now()`,
+       ON CONFLICT (user_id) DO UPDATE SET data = personal_finance.data || jsonb_build_object($2::text, $3::text)`,
+      // #242: a report write keeps `updated_at` (the record's version, spec §73).
       [userId, REPORTS_KEY, namedText(list)],
     );
     return;
   }
-  await db.query("UPDATE personal_finance SET data = data - $2::text, updated_at = now() WHERE user_id = $1 AND data ? $2", [userId, REPORTS_KEY]);
+  await db.query("UPDATE personal_finance SET data = data - $2::text WHERE user_id = $1 AND data ? $2", [userId, REPORTS_KEY]); // #242: version kept
   await db.query("DELETE FROM personal_finance WHERE user_id = $1 AND data = '{}'::jsonb", [userId]);
 }
 

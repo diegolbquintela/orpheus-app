@@ -122,7 +122,7 @@ import {
 import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
 import { backfillPlans, planFor, syncFuturePlans } from "@/lib/finance/plans";
 import { PlanVsActual } from "./plan-vs-actual";
-import { RecordStore, type PfRecord } from "@/lib/finance/record";
+import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
 import {
   isOpen,
   readView,
@@ -191,6 +191,8 @@ export function PersonalFinancePage({
   scenario?: ScenarioMode;
 } = {}) {
   const [saveFailed, setSaveFailed] = useState(false);
+  // #242 (spec §73): the failed save was refused because another tab saved first.
+  const [stale, setStale] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [expenses, setExpenses] = useState<Expenses | null>(null);
@@ -219,7 +221,13 @@ export function PersonalFinancePage({
 
   useEffect(() => {
     let alive = true;
-    loadStore({ onSaved: (ok) => alive && setSaveFailed(!ok) })
+    loadStore({
+      onSaved: (ok, why) => {
+        if (!alive) return;
+        setSaveFailed(!ok);
+        setStale(!ok && why === "stale");
+      },
+    })
       .then((store) => {
         if (!alive) return;
         currentStore = store;
@@ -520,7 +528,7 @@ export function PersonalFinancePage({
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           {/* #222 F1: no save status on the scenario screen. */}
           <p className="pf-save" role="status" data-testid="pf-save" hidden={!!scenario}>
-            {saveFailed ? "Not saved." : ""}
+            {saveFailed ? (stale ? STALE_MESSAGE : "Not saved.") : ""}
           </p>
           {scenario ? null : <MonthControl
             now={now}
