@@ -651,7 +651,9 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 
 **Note (2026-10-16, #165, spec 35.10):** the `Delete category` / `Delete account` buttons are **off** (`PF_DELETE_UI = false`, Diego's call), pending a follow-up ticket. #165 ships only the history protection and the `<name> (deleted)` labels; the report's `deleted` / `labels` work for data that already holds deleted names.
 
-**Historical series (#154, backend only).** `POST /api/personal-finance/series` `{ series, range }` returns the owner's monthly series for the #153 series kinds over a preset (`3m`..`24m`, `ytd`, `all`) or a custom range back to 2020-01. A month with no data is `null`; a deleted category / account keeps its past data as `<name> (deleted)`. Same access as the report API; read-only, no migration. Spec section 36; design `attachments/pf-series-design.md`. #239 (spec 71): with only a Starting net assets saved, net assets return the start as the current month's point.
+**Historical series (#154, backend only).** `POST /api/personal-finance/series` `{ series, range }` returns the owner's monthly series for the #153 series kinds over a preset (`3m`..`24m`, `ytd`, `all`) or a custom range back to 2020-01. A month with no data is `null`; a deleted category / account keeps its past data as `<name> (deleted)`. Same access as the report API; read-only, no migration. Spec section 36; design `attachments/pf-series-design.md`.
+
+**Start-only net assets (#239).** With only a Starting net assets saved, `/series` net assets return the start as the current month's point (`net_assets_from` = current month), as the Overview shows. Spec section 71.
 
 **Multi-series chart data (#155, backend only).** `POST /api/personal-finance/chart` `{ series, range, chart }` (or `{ saved: true }` for your saved report) returns the #154 series aligned for one chart: `rows` per month with short labels, and per series `axis` (`level` for net assets, else `flow`) and `stack` (stacked bars stack parts only, never totals or metrics). Keeps `fx_basis: "current"` and `net_assets_from`. Read-only, no migration. Spec section 37; design `attachments/pf-chart-data-design.md`.
 
