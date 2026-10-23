@@ -1933,3 +1933,14 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - PFPV-29 (2026-10-22, PV1): Save's plan sync makes no plan for a future month whose lines fail the page's checks (bad amount, blank FX rate, bad person). Valid future months still get theirs. (unit)
 - PFPV-30 (2026-10-22, PV1): first-load backfill copies only stored future months that pass the page's checks. An invalid or blank-FX legacy month gets no plan, and nothing is written when no month qualifies. (unit)
 - PFPV-31 (2026-10-22, AX3): a current month with a plan and no saved lines (no `months.v1` entry, or an empty one; unsaved copied lines don't count) shows the planned figures. Actual, Difference and % show `—`, and Direction shows `No actuals yet` (no tone). The `pf-plan-noactuals` note is shown, and no "better/worse than plan", "as planned", "Over/Under/On plan" or % value appears. One saved line or person turns the comparison on. (unit, DOM)
+
+
+## PFCFO — CFO read-only Personal Finance API (#245, personal-finance-spec §67; added 2026-10-23; HIGH, CFO)
+- PFCFO-01 Any method but GET / HEAD on `/api/cfo/pf` and `/api/cfo/pf/*` → 405 JSON `Allow: GET, HEAD`, with or without a key; flag off → 404. (server)
+- PFCFO-02 Missing header, wrong key, no `Bearer` prefix, key with a suffix, `CFO_PF_API_KEY` unset or empty (revoked), or rotated → 401 `{ error: "Unauthorized." }`, `no-store`. (server)
+- PFCFO-03 The compare is constant-time (sha256 digests + `timingSafeEqual`); an empty key never matches. (unit)
+- PFCFO-04 `userId` in the query → 400; every endpoint returns only the `ORPHEUS_OWNER_EMAIL` owner's data (another user's row never appears); no owner account → 404 `No household.` (server)
+- PFCFO-05 Each endpoint's `data` has the §67.2 shape and the page's computations (months / one month / lines / overview / series via `?q=` / scenario / scenarios / plans / future current+1..+12 / settings / fx / reports); bad month params 400; unknown path or scenario id 404. (server)
+- PFCFO-06 Zero writes: only SELECTs run for any CFO call; no audit row. The key and the Authorization header never appear in a log line. (server)
+- PFCFO-07 Drift guard: spec §67, `AGENTS.md` and `README.md` list every `CFO_ENDPOINTS` path and `CFO_PF_API_KEY`; spec, harness and the PR template carry the standing rule. (unit)
+- PFCFO-08 On the preview with the Preview key set: `GET /api/cfo/pf/overview` 200 with the key, 401 without, 405 for POST. (e2e on preview, QA; needs the env set via CoS)

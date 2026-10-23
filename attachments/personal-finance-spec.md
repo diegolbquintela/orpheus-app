@@ -2396,3 +2396,40 @@ AC:
 - PFSR-09 Every other interaction on the screen (edits, net assets, horizons, Open, Compare, Back, Rename open/typing/Cancel, refused names, a cancelled Update) makes zero writes.
 - PFSR-10 Update is refused (`Fix the fields in error first.`) while a field is in error; nothing is sent.
 - PFSR-11 When the opened scenario is renamed or updated, the screen keeps showing it under its new name/values.
+
+
+## 67. CFO read-only Personal Finance API (#245, HIGH, CFO; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23 (#245): approved by Diego via CoS as a one-off exception to the usage hold. Code: `src/lib/finance/cfo-api.server.ts` (routes `src/routes/api/cfo/pf.ts`, `src/routes/api/cfo/pf.$.ts`). Answers to Phase 1 Qs: Q1 Production + Preview (different values), Q2 single key, Q3 saved reports JSON yes / export no, Q4 `userId` → 400, Q5 no audit, Q6 `/api/cfo/pf/*`, Q7 series via `?q=`.
+
+### 67.1 Contract
+- Auth: `Authorization: Bearer <CFO_PF_API_KEY>` only (never a query key). Order: `DASHBOARD_ENABLED` off → 404; any method but GET / HEAD → 405 `Allow: GET, HEAD` (before the key); missing / wrong / unset key → 401 `{ error: "Unauthorized." }` (sha256 + `timingSafeEqual`); `userId` in the query → 400; no database → 503; `ORPHEUS_OWNER_EMAIL` naming no account → 404 `No household.`; unknown path → 404. Every 200 is `{ data, household, currentMonth, generatedAt }`, `no-store`, `noindex`.
+- Scope: always the household owner's row (`ORPHEUS_OWNER_EMAIL` → `ownerIdOf`); no other user's data is reachable.
+- Read-only: SELECTs only (`personal_finance`, `fx_rates`, `"user"`); nothing is written or audited.
+- Revocation: unset or rotate `CFO_PF_API_KEY` in Vercel and redeploy (single key; no `_NEXT`, no revoked list).
+- Env: `CFO_PF_API_KEY` (server-only, ≥ 32 random bytes) on **Production** and on **Preview** with a different value (QA). Set only through CoS's secure form; never in chat, issues, logs or the repo. The key and the Authorization header are never logged.
+- No schema change, migration, table, dependency or provider.
+
+### 67.2 Endpoints (GET / HEAD)
+| Path | Returns (`data`) |
+|---|---|
+| `/api/cfo/pf` | `{ schema: "cfo-pf.v1", endpoints }` |
+| `/api/cfo/pf/months?from=yyyy-mm&to=yyyy-mm` | `{ months: { [yyyy-mm]: MonthLines } }` (stored months, past and future; both bounds optional) |
+| `/api/cfo/pf/months/:month` | `{ month, stored, lines \| null }` (no unsaved copy; bad month 400) |
+| `/api/cfo/pf/lines` | `{ expenses, income }` (shared accounts / categories / lines, deleted names included) |
+| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules) |
+| `/api/cfo/pf/series?q=<url-encoded JSON { series, range }>` | the same body as `POST /api/personal-finance/series` (same `seriesQueryError` 400s, 413 above 4 KB) |
+| `/api/cfo/pf/scenario` | `{ scenario \| null, today }` (`orpheus.finance.scenario.v1` + `savedInputs`) |
+| `/api/cfo/pf/scenarios` | `{ scenarios: SavedEntry[] }` |
+| `/api/cfo/pf/scenarios/:id` | `{ scenario: SavedEntry }` (unknown id 404) |
+| `/api/cfo/pf/plans?month=yyyy-mm` | `{ plans: { [yyyy-mm]: { plan, comparison \| null } } }` (plans.v1 + `planFor` planned vs actual) |
+| `/api/cfo/pf/future` | `{ lastOpenMonth, months: [{ month, stored, lines \| null, copySource }] }` (current + 1 .. current + 12) |
+| `/api/cfo/pf/settings` | `{ currency, view, equity }` (currency.v1, view.v1, equity.v1) |
+| `/api/cfo/pf/fx?through=yyyy-mm` | `{ through, rates \| null }` (stored BoC monthly averages the record needs, `fx_rates`) |
+| `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
+
+### 67.3 Standing rule
+**Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
+
+### 67.4 AC (PFCFO, qa/CANONICAL-AC-PACK.md)
+PFCFO-01..PFCFO-08.

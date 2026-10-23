@@ -28,6 +28,7 @@ import { Route as ApiAccountPasswordRouteImport } from './routes/api/account/pas
 import { Route as ApiAccountResetRouteImport } from './routes/api/account/reset'
 import { Route as ApiAccountWhoRouteImport } from './routes/api/account/who'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCfoPfRouteImport } from './routes/api/cfo/pf'
 import { Route as ApiCronDailyRefreshRouteImport } from './routes/api/cron/daily-refresh'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
 import { Route as ApiDashboardColumnsRouteImport } from './routes/api/dashboard/columns'
@@ -46,6 +47,7 @@ import { Route as ApiPersonalFinanceViewRouteImport } from './routes/api/persona
 import { Route as DashboardCompanySymbolRouteImport } from './routes/dashboard_.company.$symbol'
 import { Route as PersonalFinanceChartsIdRouteImport } from './routes/personal-finance_.charts_.$id'
 import { Route as PersonalFinanceChartsNewRouteImport } from './routes/personal-finance_.charts_.new'
+import { Route as ApiCfoPfSplatRouteImport } from './routes/api/cfo/pf.$'
 import { Route as ApiDashboardCompanySymbolRouteImport } from './routes/api/dashboard/company.$symbol'
 import { Route as ApiDashboardHoldingsIdRouteImport } from './routes/api/dashboard/holdings_.$id'
 import { Route as ApiPersonalFinanceReportsIdRouteImport } from './routes/api/personal-finance_.reports_.$id'
@@ -147,6 +149,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCfoPfRoute = ApiCfoPfRouteImport.update({
+  id: '/api/cfo/pf',
+  path: '/api/cfo/pf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronDailyRefreshRoute = ApiCronDailyRefreshRouteImport.update({
   id: '/api/cron/daily-refresh',
   path: '/api/cron/daily-refresh',
@@ -241,6 +248,11 @@ const PersonalFinanceChartsNewRoute =
     path: '/personal-finance/charts/new',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiCfoPfSplatRoute = ApiCfoPfSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => ApiCfoPfRoute,
+} as any)
 const ApiDashboardCompanySymbolRoute =
   ApiDashboardCompanySymbolRouteImport.update({
     id: '/api/dashboard/company/$symbol',
@@ -291,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/api/account/reset': typeof ApiAccountResetRoute
   '/api/account/who': typeof ApiAccountWhoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cfo/pf': typeof ApiCfoPfRouteWithChildren
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
@@ -309,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/company/$symbol': typeof DashboardCompanySymbolRoute
   '/personal-finance/charts/$id': typeof PersonalFinanceChartsIdRoute
   '/personal-finance/charts/new': typeof PersonalFinanceChartsNewRoute
+  '/api/cfo/pf/$': typeof ApiCfoPfSplatRoute
   '/api/dashboard/company/$symbol': typeof ApiDashboardCompanySymbolRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
   '/api/personal-finance/reports/$id': typeof ApiPersonalFinanceReportsIdRoute
@@ -335,6 +349,7 @@ export interface FileRoutesByTo {
   '/api/account/reset': typeof ApiAccountResetRoute
   '/api/account/who': typeof ApiAccountWhoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cfo/pf': typeof ApiCfoPfRouteWithChildren
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
@@ -353,6 +368,7 @@ export interface FileRoutesByTo {
   '/dashboard/company/$symbol': typeof DashboardCompanySymbolRoute
   '/personal-finance/charts/$id': typeof PersonalFinanceChartsIdRoute
   '/personal-finance/charts/new': typeof PersonalFinanceChartsNewRoute
+  '/api/cfo/pf/$': typeof ApiCfoPfSplatRoute
   '/api/dashboard/company/$symbol': typeof ApiDashboardCompanySymbolRoute
   '/api/dashboard/holdings/$id': typeof ApiDashboardHoldingsIdRoute
   '/api/personal-finance/reports/$id': typeof ApiPersonalFinanceReportsIdRoute
@@ -380,6 +396,7 @@ export interface FileRoutesById {
   '/api/account/reset': typeof ApiAccountResetRoute
   '/api/account/who': typeof ApiAccountWhoRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cfo/pf': typeof ApiCfoPfRouteWithChildren
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
@@ -398,6 +415,7 @@ export interface FileRoutesById {
   '/dashboard_/company/$symbol': typeof DashboardCompanySymbolRoute
   '/personal-finance_/charts_/$id': typeof PersonalFinanceChartsIdRoute
   '/personal-finance_/charts_/new': typeof PersonalFinanceChartsNewRoute
+  '/api/cfo/pf/$': typeof ApiCfoPfSplatRoute
   '/api/dashboard/company/$symbol': typeof ApiDashboardCompanySymbolRoute
   '/api/dashboard/holdings_/$id': typeof ApiDashboardHoldingsIdRoute
   '/api/personal-finance_/reports_/$id': typeof ApiPersonalFinanceReportsIdRoute
@@ -426,6 +444,7 @@ export interface FileRouteTypes {
     | '/api/account/reset'
     | '/api/account/who'
     | '/api/auth/$'
+    | '/api/cfo/pf'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
     | '/api/dashboard/columns'
@@ -444,6 +463,7 @@ export interface FileRouteTypes {
     | '/dashboard/company/$symbol'
     | '/personal-finance/charts/$id'
     | '/personal-finance/charts/new'
+    | '/api/cfo/pf/$'
     | '/api/dashboard/company/$symbol'
     | '/api/dashboard/holdings/$id'
     | '/api/personal-finance/reports/$id'
@@ -470,6 +490,7 @@ export interface FileRouteTypes {
     | '/api/account/reset'
     | '/api/account/who'
     | '/api/auth/$'
+    | '/api/cfo/pf'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
     | '/api/dashboard/columns'
@@ -488,6 +509,7 @@ export interface FileRouteTypes {
     | '/dashboard/company/$symbol'
     | '/personal-finance/charts/$id'
     | '/personal-finance/charts/new'
+    | '/api/cfo/pf/$'
     | '/api/dashboard/company/$symbol'
     | '/api/dashboard/holdings/$id'
     | '/api/personal-finance/reports/$id'
@@ -514,6 +536,7 @@ export interface FileRouteTypes {
     | '/api/account/reset'
     | '/api/account/who'
     | '/api/auth/$'
+    | '/api/cfo/pf'
     | '/api/cron/daily-refresh'
     | '/api/dashboard/$'
     | '/api/dashboard/columns'
@@ -532,6 +555,7 @@ export interface FileRouteTypes {
     | '/dashboard_/company/$symbol'
     | '/personal-finance_/charts_/$id'
     | '/personal-finance_/charts_/new'
+    | '/api/cfo/pf/$'
     | '/api/dashboard/company/$symbol'
     | '/api/dashboard/holdings_/$id'
     | '/api/personal-finance_/reports_/$id'
@@ -559,6 +583,7 @@ export interface RootRouteChildren {
   ApiAccountResetRoute: typeof ApiAccountResetRoute
   ApiAccountWhoRoute: typeof ApiAccountWhoRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCfoPfRoute: typeof ApiCfoPfRouteWithChildren
   ApiCronDailyRefreshRoute: typeof ApiCronDailyRefreshRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
   ApiDashboardColumnsRoute: typeof ApiDashboardColumnsRoute
@@ -719,6 +744,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cfo/pf': {
+      id: '/api/cfo/pf'
+      path: '/api/cfo/pf'
+      fullPath: '/api/cfo/pf'
+      preLoaderRoute: typeof ApiCfoPfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/daily-refresh': {
       id: '/api/cron/daily-refresh'
       path: '/api/cron/daily-refresh'
@@ -845,6 +877,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PersonalFinanceChartsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cfo/pf/$': {
+      id: '/api/cfo/pf/$'
+      path: '/$'
+      fullPath: '/api/cfo/pf/$'
+      preLoaderRoute: typeof ApiCfoPfSplatRouteImport
+      parentRoute: typeof ApiCfoPfRoute
+    }
     '/api/dashboard/company/$symbol': {
       id: '/api/dashboard/company/$symbol'
       path: '/api/dashboard/company/$symbol'
@@ -883,6 +922,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ApiCfoPfRouteChildren {
+  ApiCfoPfSplatRoute: typeof ApiCfoPfSplatRoute
+}
+
+const ApiCfoPfRouteChildren: ApiCfoPfRouteChildren = {
+  ApiCfoPfSplatRoute: ApiCfoPfSplatRoute,
+}
+
+const ApiCfoPfRouteWithChildren = ApiCfoPfRoute._addFileChildren(
+  ApiCfoPfRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
@@ -903,6 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAccountResetRoute: ApiAccountResetRoute,
   ApiAccountWhoRoute: ApiAccountWhoRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCfoPfRoute: ApiCfoPfRouteWithChildren,
   ApiCronDailyRefreshRoute: ApiCronDailyRefreshRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
   ApiDashboardColumnsRoute: ApiDashboardColumnsRoute,
