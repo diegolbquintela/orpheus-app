@@ -721,7 +721,7 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 | `/api/cfo/pf/months?from=yyyy-mm&to=yyyy-mm` | `{ months: { [yyyy-mm]: MonthLines } }` (stored months, past and future; both bounds optional) |
 | `/api/cfo/pf/months/:month` | `{ month, stored, lines \| null }` (no unsaved copy; bad month 400) |
 | `/api/cfo/pf/lines` | `{ expenses, income }` (shared accounts / categories / lines, deleted names included) |
-| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules); `?month=yyyy-mm` adds `selected` (§72) |
+| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules) |
 | `/api/cfo/pf/series?q=<url-encoded JSON { series, range }>` | the same body as `POST /api/personal-finance/series` (same `seriesQueryError` 400s, 413 above 4 KB) |
 | `/api/cfo/pf/scenario` | `{ scenario \| null, today }` (`orpheus.finance.scenario.v1` + `savedInputs`) |
 | `/api/cfo/pf/scenarios` | `{ scenarios: SavedEntry[] }` |
