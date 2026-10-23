@@ -721,7 +721,7 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 | `/api/cfo/pf/months?from=yyyy-mm&to=yyyy-mm` | `{ months: { [yyyy-mm]: MonthLines } }` (stored months, past and future; both bounds optional) |
 | `/api/cfo/pf/months/:month` | `{ month, stored, lines \| null }` (no unsaved copy; bad month 400) |
 | `/api/cfo/pf/lines` | `{ expenses, income }` (shared accounts / categories / lines, deleted names included) |
-| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules) |
+| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules); `?month=yyyy-mm` adds `selected` (§72) |
 | `/api/cfo/pf/series?q=<url-encoded JSON { series, range }>` | the same body as `POST /api/personal-finance/series` (same `seriesQueryError` 400s, 413 above 4 KB) |
 | `/api/cfo/pf/scenario` | `{ scenario \| null, today }` (`orpheus.finance.scenario.v1` + `savedInputs`) |
 | `/api/cfo/pf/scenarios` | `{ scenarios: SavedEntry[] }` |
@@ -733,5 +733,7 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
 
 **Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
+
+2026-10-23 note (`/api/cfo/pf/overview?month=yyyy-mm`, #247 follow-up, spec §72): adds `selected: { month, label, figures: { expenses, income, surplus }, copied, copiedFrom }`; an empty future month returns the copy the page would open (`copied: true`, never saved); bad or out-of-range month 400; without `month` the body is unchanged.
 
 2026-10-23 note (`/api/cfo/pf/series`, #239 / PR #252, spec §71): a record with only Starting net assets saved returns one net-assets point at the current Toronto household month, equal to the start, with `net_assets_from` at that month; other months are null. The wrapper calls `seriesValues`, so it inherits this; #252 is merged into main (da114cf), so it applies now.

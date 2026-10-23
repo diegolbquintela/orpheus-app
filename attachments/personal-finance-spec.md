@@ -2428,6 +2428,8 @@ Dated note 2026-10-23 (#245): approved by Diego via CoS as a one-off exception t
 | `/api/cfo/pf/fx?through=yyyy-mm` | `{ through, rates \| null }` (stored BoC monthly averages the record needs, `fx_rates`) |
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
 
+2026-10-23 note (#247 follow-up, §72): `/api/cfo/pf/overview?month=yyyy-mm` adds `selected: { month, label, figures: { expenses, income, surplus }, copied, copiedFrom }` (an empty future month = the page's copy, `copied: true`); bad or out-of-range month 400; without `month` unchanged.
+
 ### 67.3 Standing rule
 **Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
 
@@ -2499,6 +2501,8 @@ Dated note 2026-10-23 (#247): main PF page only. Diego: "future months personal 
 
 ### 68.5 Notes
 - 2026-10-23: no README change (no new route, command or setup step) and no `qa/tools` change (no new endpoint or write path; the jsdom tests cover the page, and `vite build` is the QA gate for this ticket).
+
+- 2026-10-23 (later, §72): Q-OS4 is built: `/api/cfo/pf/overview?month=` returns the page's selected-month column (empty future month = the copy), AC PFOS-10 / PFOM.
 
 ## 69. Report export: Cyrillic in PDF and PNG (#204, LOW, CFO; Phase 2 of #176 / spec 50; added 2026-10-23; built in the same PR)
 
@@ -2577,3 +2581,29 @@ Edge cases: a custom range ending before the current month has no point (all `nu
 - **Q-SN3 (built):** how does it combine with later months? Recommend: as soon as any month is saved, the anchor moves to the first data month as before (the start is at the START of that month), so the start-only point is transient and never doubles the start. Built (unchanged rule, PFSN-06).
 - **Q-SN4 (not built):** should a start-only record also report the point in the month before the current one (the start as "value at the start of the current month")? Recommend: no; keep one point, matching the Overview. Not built.
 - **Q-SN5 (not built, NA1):** a per-month starting value field (the queued NA1 ticket) would replace this fallback. Recommend: handle in that ticket. Not built.
+
+## 72. CFO API: `/api/cfo/pf/overview?month=yyyy-mm` (#247 follow-up, Q-OS4 from §68.4, MEDIUM, CFO; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23: EL assigned Q-OS4 after #246 (§67) and #248 (§68) merged (main 33b5614). Additions only; §67 and §68 are unchanged except their dated notes.
+
+72.1 **Request.** `GET /api/cfo/pf/overview` takes an optional `month=yyyy-mm`. No `month` (or `month=`) → the body is byte-for-byte as before (§67.2). Otherwise `month` must match `^\d{4}-(0[1-9]|1[0-2])$` and lie in `FIRST_MONTH` (2020-01) .. `lastOpenMonth(current)` (current + 12, §59.1), else **400** `{ error: "month must be yyyy-mm, from 2020-01 to <last open month>." }`. Auth, 405, 404 and `userId` 400 order are unchanged (§67.1).
+
+72.2 **Response.** Everything as before plus `selected: { month, label, figures: { expenses, income, surplus }, copied, copiedFrom }`:
+- `label`: `This month` for the current household month, else the month's name (`December 2026`), as the page header (§68 Q-OS5).
+- current month: `figures` = `summary.thisMonth` (#166 / #199 rules), `copied: false`, `copiedFrom: null`.
+- a month with saved lines or typed totals: its own figures (`selectedFigures`, §68 PFOS-09), `copied: false`.
+- an **EMPTY future month** (no lines, no typed totals): the copy the page would open (`copySourceFor`: the latest earlier month with lines, names deleted on or before the month dropped, §59.2 / PFOS-05), figured in memory and **never saved**; `copied: true`, `copiedFrom: <source month>`. No earlier month with lines → `null` figures, `copied: false`.
+- an empty past month: `null` figures (`—`), `copied: false` (the page copies only into future months here).
+- `surplus` = income − expenses (`surplusOf`), `null` when either is `null`.
+- `summary`, `overview`, `netAssetsNow` and `basis` are identical with and without `month` (averages, chart and Future stay at the current month, Q-OS1 / Q-OS2).
+
+72.3 **Read-only.** GET / HEAD only; only SELECTs run; the copy is never written (PFCFO-06 holds per call).
+
+72.4 **AC (PFOM, qa/CANONICAL-AC-PACK.md; PFOS-10).** PFOM-01..PFOM-08 and PFOS-10.
+
+72.5 **Questions (CFO).**
+- **Q-OM1 (built, recommend accept):** an empty future month returns the page's copy with `copied: true` (not `null`).
+- **Q-OM2 (built, recommend accept):** an empty past month returns `null` figures (no copy), as the page's Overview column does.
+- **Q-OM3 (not built, recommend keep):** `summary` is not re-anchored at the selected month.
+
+72.6 **Notes.** No schema, table, migration, env, storage key or dependency change. CFO notified via the PR body (the parent notifies CFO, §67.3). BB1 (QA harness): `qa/tools/pf-scenario-e2e.mjs` seeds the owner's missing future-month plans before the main-page checks so the #231 first-load plan backfill (§65.2) does not PUT during PFSV-22.
