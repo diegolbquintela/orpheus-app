@@ -669,7 +669,7 @@ function SavedScenarios({
                 <button type="button" className="pf-button" onClick={() => named.open(e)} aria-label={`Open ${e.name}`} data-testid="pf-saved-open">
                   Open
                 </button>
-                <label className="pf-rate-source flex items-center gap-1">
+                <label className="pf-rate-source pf-saved-compare-label flex items-center gap-1">
                   <input
                     type="checkbox"
                     checked={picked.includes(e.id)}

@@ -1948,3 +1948,15 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 | PFCY-06 | MAJOR | Font asset: SHA-256 of each subset = the last `sha256` line for it in `FONTS.md`; base64 module = same bytes; each ≤ 49,152 bytes; `OFL.txt` present. |
 | PFCY-07 | BLOCK | Unchanged: PFU-09 / PFU-10 goldens (ASCII exports' text, pages, MediaBox, PNG size, data JSON) and the Q-AO8 filename (`asciiName("Сбережения")` is all `-`). |
 | PFCY-08 | MAJOR | Golden crops in `qa/evidence/176/` match today's rendering, including the regenerated `u-fallback` (`… report: Сбережения ?? ?`) and the new `u-cyrillic` (U8). |
+
+
+## PFTX — Tap-target follow-up: saved-scenario Compare and charts-builder checkboxes (#236, personal-finance-spec §70; added 2026-10-23; LOW, TT1 + TT2)
+
+(2026-10-23 note: builds Q-TT1 / Q-TT2 from PR #235; the PFTT text is left as written.)
+
+- PFTX-01: `.pf-saved-compare-label` has `min-height` ≥ 2.75rem in exactly one rule, with no max size and no `pointer-events: none`, and no rule sizes its input. (unit, CSS)
+- PFTX-02: `.pf-builder-option` is `display: flex` with `min-height` ≥ 2.75rem in exactly one rule, with no max size and no `pointer-events: none`. Its box stays 1.25rem. (unit, CSS)
+- PFTX-03: On the scenario screen, each `pf-saved-compare` is the only control inside its `label.pf-saved-compare-label`. A click on the label picks it for Compare, and nothing is sent. (DOM)
+- PFTX-04: In the charts builder, each `pf-builder-pick` is the only control inside its `label.pf-builder-option`, and a click on the label toggles it. (DOM)
+- PFTX-05: Real browser at 390 and 1440: the Compare label and the builder option labels are ≥ 44 px tall and ≥ 44 px wide, with 0 `elementFromPoint` misses. The saved row height is unchanged. (manual / local; QA on the preview)
+

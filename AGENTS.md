@@ -1251,3 +1251,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 - Findings DCR-01..06 are in `docs/release/deploy-config-review.md` (review only; each needs Diego's yes before any fix).
 - Vercel env metadata: team-scope connector access is unreliable (403s seen on both namespaces; see DCR-06). If a read works, use `decrypt=false` and never record values.
 - `npm run build` runs `db:migrate` (package.json:11): never run it locally.
+
+## Tap targets follow-up (#236; added 2026-10-23)
+
+- 2026-10-23 #236 (LOW, TT1 + TT2 from #225 / PR #235): spec §70, AC PFTX. The saved-scenario Compare checkbox's target is its `label.pf-saved-compare-label` (min-height 2.75rem; box and text unchanged). The charts-builder checkboxes' `label.pf-builder-option` measured 44 px tall at 390 and 1440 already, so it is only pinned by tests. A tap-target check reads `src/styles.css` (`src/lib/finance/tap-target.test.ts`) and asserts in `.dom.test` that the box sits alone inside its label. Measure the real label with `getBoundingClientRect` and `elementFromPoint`, not the box.
