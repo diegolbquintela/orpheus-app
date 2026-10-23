@@ -5,6 +5,7 @@ import { afterEach, describe, it } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MONTHS_KEY } from "@/lib/finance/months";
+import { PLANS_KEY } from "@/lib/finance/plans";
 import { PersonalFinancePage } from "./expenses-page";
 import { loadLocalStore } from "@/lib/finance/account-client";
 
@@ -84,27 +85,44 @@ describe("#247 PFOS Overview follows the selected month", () => {
     assert.equal(now(el, "income"), "2,000.00");
     assert.equal(head(el).textContent, "August 2026");
   });
-  it("PFOS-04: an edit on a future month shows in Overview at once, unsaved, and nothing is written", async () => {
+  it("PFOS-04: from page load through month switches, expense AND income edits, nothing is written until Save; Overview is live", async () => {
     seed(SEED);
-    const el = await render();
-    await pick(el, "2026-12");
-    const before = dom.window.localStorage.getItem(MONTHS_KEY);
+    // The saved future month already has its plan (#231), so first load has no backfill write to make.
+    dom.window.localStorage.setItem(PLANS_KEY, JSON.stringify({ "2026-12": { lines: SEED["2026-12"], capturedAt: "2026-10-01T12:00:00.000Z" } }));
+    const before = { ...dom.window.localStorage };
     const writes: string[] = [];
     const real = dom.window.Storage.prototype.setItem;
+    const realRemove = dom.window.Storage.prototype.removeItem;
     dom.window.Storage.prototype.setItem = function (k: string, v: string) {
-      writes.push(k);
+      writes.push(`set ${k}`);
       return real.call(this, k, v);
     };
+    dom.window.Storage.prototype.removeItem = function (k: string) {
+      writes.push(`remove ${k}`);
+      return realRemove.call(this, k);
+    };
     try {
+      const el = await render();
+      assert.deepEqual([...writes], [], "page load writes nothing");
+      await pick(el, "2026-08");
+      await pick(el, "2026-12");
+      assert.deepEqual([...writes], [], "month switches write nothing");
       await setValue(q(q(el, "pf-line"), "pf-monthly"), "2,500");
       assert.equal(now(el, "expenses"), "2,500.00");
       assert.equal(now(el, "surplus"), "1,500.00");
+      await setValue(q(el, "pf-person-wages"), "60,000");
+      assert.equal(now(el, "income"), "5,000.00");
+      assert.equal(now(el, "surplus"), "2,500.00");
       assert.equal(q(el, "pf-unsaved").getAttribute("data-shown"), "true");
+      assert.deepEqual([...writes], [], "expense and income edits write nothing");
+      assert.deepEqual({ ...dom.window.localStorage }, before, "record unchanged before Save");
+      await act(async () => (q(el, "pf-month-save") as HTMLElement).click());
+      assert.ok(writes.includes(`set ${MONTHS_KEY}`), "Save writes (the spy works)");
+      assert.equal(now(el, "expenses"), "2,500.00", "saved figures kept");
     } finally {
       dom.window.Storage.prototype.setItem = real;
+      dom.window.Storage.prototype.removeItem = realRemove;
     }
-    assert.deepEqual(writes, [], "no write before Save");
-    assert.equal(dom.window.localStorage.getItem(MONTHS_KEY), before);
   });
   it("PFOS-05: an empty future month shows its unsaved copy's figures, live", async () => {
     seed(SEED);
