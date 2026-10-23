@@ -2436,3 +2436,40 @@ Dated note 2026-10-23 (#247): main PF page only. Diego: "future months personal 
 
 ### 68.5 Notes
 - 2026-10-23: no README change (no new route, command or setup step) and no `qa/tools` change (no new endpoint or write path; the jsdom tests cover the page, and `vite build` is the QA gate for this ticket).
+
+## 69. Report export: Cyrillic in PDF and PNG (#204, LOW, CFO; Phase 2 of #176 / spec 50; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23 (#204): Diego said yes via CoS on 2026-10-21; the CFO asked for it because Diego is likely to use Russian-language labels. This section extends spec 50 (50.1 coverage, 50.5 fallback, 50.9 sizes, 50.10 fallback crop). Nothing in 50 is removed; where they differ, this section wins. Numbered 69 because §67 is #245 (PR #246, not on main yet) and §68 is #247.
+
+69.0 **Problem (facts at eb820ad).** The embedded Noto Sans subsets cover only spec 50.9's set (Y6). Cyrillic text such as fixture U5 `Сбережения` prints one `?` per code point in both the PDF and the PNG (PFU-08). The data JSON already keeps it.
+
+69.1 **Goal.** Both weights also cover the whole **Cyrillic block U+0400–U+04FF** (256 code points: Russian, Ukrainian, Belarusian, Serbian, Macedonian, Bulgarian, Kazakh and others, plus historic letters). These print verbatim in the PDF (through ToUnicode) and the PNG (rasterizer).
+- Unchanged: values, layout, the 36.11 caveat, `Rendered as lines`, the fail-closed audit, the data JSON, the route and the filename slug (Q-AO8: `Сбережения` → `-` runs, as today).
+- Still out of scope, still one `?` per code point (50.5): Cyrillic Supplement and Extended (U+0500 and up, e.g. `Ԥ` U+0524), Greek, CJK and emoji.
+
+69.2 **Where.** Server only: the two `.ttf` subsets, their base64 module and `FONTS.md` under `src/lib/finance/fonts/`, plus `export.ts` (ToUnicode, 69.4). **No endpoint, wire, data, flag, env, table, storage-key or UI change.** No new npm dependency and no font CDN / provider: the font files are committed (OFL 1.1). `qa/tools/pf-export-api.mjs` learns the wider in-scope set so its signed-in title check stays correct.
+
+69.3 **Font (for the CFO).** Same upstream as 50.9 (Noto Sans, notofonts.github.io at `28b15b4`, upstream SHA-256s unchanged in `FONTS.md`), **SIL Open Font License 1.1**, which allows embedding and redistribution with `OFL.txt` (already committed). The pyftsubset command only adds `U+0400-04FF`.
+- `NotoSans-Regular-subset.ttf`: 21,748 → **42,204 bytes**.
+- `NotoSans-Bold-subset.ttf`: 21,696 → **42,128 bytes**.
+- The base64 module and the function size grow accordingly (measured numbers in 69.7).
+
+69.4 **PFX-14 budget (< 100 KB PDF).** With the bigger fonts and the 50.9 ToUnicode (every mapped code point), the 12 series × 24 months PDF measured 110,475 bytes: over budget. **Fix (Q-CY2):** each font's ToUnicode CMap lists only the glyph ids that document draws. Text extraction is unchanged for every drawn glyph (PFU-01 still decodes through ToUnicode); measured 95,219 bytes. The fonts stay whole subsets (no per-document re-subsetting, which would need a TrueType writer).
+
+69.5 **Fixture.** Fixture U is unchanged. U5 `Сбережения` is now in scope. New strings:
+- **U8** (38 characters, fits CATEGORY_MAX 40): `Продукты: Ёж, Їжак, Ґанок, Ђак, Џем, Ѣ` — Russian, Ukrainian (Ї Ґ), Serbian (Ђ Џ) and a historic letter (Ѣ U+0462).
+- **U9:** `Ԥ` (U+0524, Cyrillic Supplement), out of scope: one `?`.
+- The fallback report (`U_FALLBACK_NAME` `貯金 🏠`, category U5) now prints title `?? ?` and legend `1. Сбережения (category, flow)`.
+- The 50.10 golden crop `u-fallback` (name `Сбережения 貯金 🏠`) now prints `Orpheus - Personal Finance report: Сбережения ?? ?`; its crop is regenerated. A new crop `u-cyrillic` renders the name U8.
+
+69.6 **Q-calls (CFO / EL), each with a recommendation:**
+- **Q-CY1 Coverage:** **rec** the full basic Cyrillic block U+0400–04FF (+~20 KB per weight), not only the 66 Russian letters (+~6 KB): Ukrainian, Serbian and Kazakh names then work too. Supplement (U+0500+) and Greek stay out. **Built.**
+- **Q-CY2 PDF budget:** **rec** ToUnicode lists only drawn glyphs (69.4). Alternatives: raise PFX-14 (a CFO budget change), or re-subset fonts per document (more code, no dependency). **Built.**
+- **Q-CY3 Font-size limit (PFU-14):** **rec** raise the per-weight limit from 32,768 to **49,152 bytes (48 KiB)**; measured 42,204 / 42,128. **Built** (PFCY-06).
+- **Q-CY4 Font source:** **rec** same committed OFL subsets, no CDN / provider, no new dependency; `FONTS.md` gets a dated #204 section (the test reads the last checksum line per file). **Built.**
+- **Q-CY5 Filename slug:** **rec** unchanged (Q-AO8 as the ticket says): Cyrillic in the name becomes `-` in the filename. Transliteration would be a separate ticket. **Not built** (by design).
+- **Q-CY6 Greek / Cyrillic Supplement:** **rec** not now; on request only (Greek ≈ +10 KB per weight). **Not built.**
+
+69.7 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFCY (PFCY-01..PFCY-08). Measured sizes and gate results are in the PR body (#204 PR).
+
+69.8 **Harness / docs.** AGENTS.md gets one dated #204 line. README is unchanged: no command, setup or deploy step changed. `qa/tools/pf-export-api.mjs` changes only its in-scope set (69.2); no new QA tool.
