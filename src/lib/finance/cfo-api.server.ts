@@ -21,8 +21,8 @@ import { readRates } from "./equity.ts";
 import { readExpenses } from "./expenses.ts";
 import { readMonthlyFx } from "./fx-history.server.ts";
 import { readIncome } from "./income.ts";
-import { copySourceFor, lastOpenMonth, readMonths, savedOverviewFigures } from "./months.ts";
-import { householdMonth, nextMonth, readOverview, summarize } from "./overview.ts";
+import { copySourceFor, hasLines, lastOpenMonth, liveLineFigures, readMonths, savedOverviewFigures, withoutDeletedFor } from "./months.ts";
+import { householdMonth, monthName, nextMonth, readOverview, selectedFigures, summarize, surplusOf, type Figures, type Overview, type Summary } from "./overview.ts";
 import { planFor } from "./plans.ts";
 import { readPlans } from "./plans-read.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
@@ -138,6 +138,40 @@ function monthParam(u: URL, name: string): string | null | { error: string } {
   return MONTH.test(v) ? v : { error: `${name} must be yyyy-mm.` };
 }
 
+/**
+ * #247 follow-up (spec §72, Q-OS4, AC PFOM / PFOS-10): the page's selected-month Overview column for `month`. An EMPTY
+ * future month (no lines, no typed totals) gets the copy the page would open (`copySourceFor` + `withoutDeletedFor`),
+ * figured in memory only: nothing is written.
+ */
+export function selectedOverview(s: RecordStore, overview: Overview, summary: Summary, lines: Record<string, Figures>, month: string) {
+  const page = { expenses: null, income: null };
+  let { figures } = selectedFigures(summary, overview, month, page, lines);
+  let copiedFrom: string | null = null;
+  const empty = figures.expenses === null && figures.income === null;
+  if (month > summary.current && empty) {
+    const months = readMonths(s);
+    if (!hasLines(months[month])) {
+      const src = copySourceFor(months, month);
+      if (src) {
+        const shared = readExpenses(s);
+        const copy = withoutDeletedFor(months[src], shared, month);
+        const live = liveLineFigures(s, { month, lines: copy, expenses: shared, rates: readRates(s), household: readHousehold(s).household });
+        if (live[month]) {
+          figures = live[month];
+          copiedFrom = src;
+        }
+      }
+    }
+  }
+  return {
+    month,
+    label: month === summary.current ? "This month" : monthName(month),
+    figures: { expenses: figures.expenses, income: figures.income, surplus: surplusOf(figures) },
+    copied: copiedFrom !== null,
+    copiedFrom,
+  };
+}
+
 /** The body for one path (`rest` = the part after `/api/cfo/pf`, no leading slash). Null = unknown path. */
 async function dataFor(rest: string, u: URL, db: Queryable, record: PfRecord | null, ownerId: string, at: Date): Promise<{ data: unknown } | { response: Response } | null> {
   const s = new RecordStore(record ?? {});
@@ -172,12 +206,17 @@ async function dataFor(rest: string, u: URL, db: Queryable, record: PfRecord | n
       return arg === undefined ? { data: { expenses: readExpenses(s), income: readIncome(s) } } : null;
     case "overview": {
       if (arg !== undefined) return null;
+      const m = monthParam(u, "month");
+      const last = lastOpenMonth(current);
+      const rangeError = `month must be yyyy-mm, from ${FIRST_MONTH} to ${last}.`;
+      if (m && (typeof m === "object" || m < FIRST_MONTH || m > last)) return { response: badRequest(rangeError) };
       const overview = readOverview(s);
       const lines = savedOverviewFigures(s, current);
       const page = { expenses: null, income: null };
       const summary = summarize(overview, at, page, lines);
       const inputs = savedInputs(record, at);
-      return { data: { overview, summary, netAssetsNow: inputs.start, basis: netBasis(overview, at, inputs.start, undefined, page, lines) } };
+      const body = { overview, summary, netAssetsNow: inputs.start, basis: netBasis(overview, at, inputs.start, undefined, page, lines) };
+      return { data: m ? { ...body, selected: selectedOverview(s, overview, summary, lines, m) } : body };
     }
     case "series": {
       if (arg !== undefined) return null;

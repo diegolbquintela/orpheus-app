@@ -11,7 +11,9 @@
 //   No grant (QA_NONE_EMAIL / QA_NONE_PASSWORD): the 403 page and 403 from the record API.
 //   Main page regression (owner and Read): /personal-finance Overview, /charts, /history load with no write; the
 //   reports list and the first report's PDF / PNG export answer.
-// Accounts come from env only and are never logged or written to the out dir. Read-only: it never saves, and it
+// BB1 (#247 follow-up, spec §72.6): before the owner's main-page checks it seeds the owner's missing future-month plans
+// (one PUT, outside the page tracker), so the #231 first-load plan backfill does not PUT during PFSV-22.
+// Accounts come from env only and are never logged or written to the out dir. Otherwise read-only: the PAGE never saves, and it
 // refuses production (qa/tools/prod-guard.mjs). Exit 1 on any FAIL.
 //
 //   QA_OWNER_EMAIL=… QA_OWNER_PASSWORD=… QA_CFO_EMAIL=… QA_CFO_PASSWORD=… QA_NONE_EMAIL=… QA_NONE_PASSWORD=… \
@@ -21,6 +23,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { torontoMonth, withSeededPlans } from "./pf-plan-seed.mjs";
 
 // #208 (spec 61.2, HTL-04): --help prints the usage and exits before any config, guard probe or browser (no network).
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -262,8 +265,19 @@ async function scenarioChecks({ page, tag, vp }, read) {
   await page.screenshot({ path: join(CFG.out, `scenario-${read ? "read" : "owner"}-${vp}.png`), fullPage: true });
 }
 
+/** BB1: one PUT (owner only) adding the plans the page's first-load backfill would write; skipped when none is missing. */
+async function seedPlans(page, tag) {
+  const r = await page.request.get(`${base}${RECORD}`);
+  const record = r.ok() ? (await r.json())?.data : null;
+  const next = withSeededPlans(record, torontoMonth(new Date()), new Date());
+  if (!next) return info(`${tag} BB1 plans: none missing, no seed`);
+  const put = await page.request.put(`${base}${RECORD}`, { data: { data: next }, headers: { origin: base } });
+  check(`${tag} BB1 seeded the missing future plans before PFSV-22`, put.ok(), put.status());
+}
+
 /** Owner and Read: the main Personal Finance page and its neighbours load and write nothing (regression). */
-async function mainChecks({ page, tag }) {
+async function mainChecks({ page, tag }, owner = false) {
+  if (owner) await seedPlans(page, tag);
   const net = track(page);
   for (const path of ["/personal-finance", "/personal-finance/charts", "/personal-finance/history"]) {
     const res = await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
@@ -289,7 +303,7 @@ const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath
 try {
   await signedIn(browser, "owner", process.env.QA_OWNER_EMAIL, process.env.QA_OWNER_PASSWORD, async (x) => {
     await scenarioChecks(x, false);
-    await mainChecks(x);
+    await mainChecks(x, true);
   });
   await signedIn(browser, "cfo", process.env.QA_CFO_EMAIL, process.env.QA_CFO_PASSWORD, async (x) => {
     await scenarioChecks(x, true);

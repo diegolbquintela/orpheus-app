@@ -13,7 +13,8 @@ const src = (f) => readFileSync(`qa/tools/${f}`, "utf8");
 const callsGuard = (f) => /\brefuseIfProd\(/.test(src(f).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"));
 const MJS = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "prod-guard.mjs").sort();
 // Never sign in (no *_PASSWORD; qa-prod-guard.test.mjs proves every sign-in tool is guarded) and never write.
-const UNGUARDED = ["book-math.mjs", "c5live.mjs", "config.mjs", "export-parse.mjs", "fonts.mjs", "full.mjs", "leaveouts-rules.mjs", "no-grok.mjs", "pf-asof-checks.mjs", "pf-helpers.mjs", "pr3-mobile-cue.mjs", "pr3.mjs", "run.mjs", "session.mjs", "sidebyside.mjs"];
+// #247 BB1: pf-plan-seed.mjs is a pure helper (no network, no account); pf-scenario-e2e.mjs, which uses it, is guarded.
+const UNGUARDED = ["book-math.mjs", "c5live.mjs", "config.mjs", "export-parse.mjs", "fonts.mjs", "full.mjs", "leaveouts-rules.mjs", "no-grok.mjs", "pf-asof-checks.mjs", "pf-helpers.mjs", "pf-plan-seed.mjs", "pr3-mobile-cue.mjs", "pr3.mjs", "run.mjs", "session.mjs", "sidebyside.mjs"];
 
 test("HTL-03: every qa/tools/*.mjs is guarded or pinned as unguarded (a new unclassified tool fails here)", () => {
   const unguarded = MJS.filter((f) => !callsGuard(f));
