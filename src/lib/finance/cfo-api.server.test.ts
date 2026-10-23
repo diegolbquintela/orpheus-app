@@ -10,7 +10,7 @@ import { OVERVIEW_KEY } from "./overview.ts";
 import { PLANS_KEY } from "./plans-key.ts";
 import { SCENARIO_KEY } from "./scenario-key.ts";
 import { HORIZONS, project, savedInputs } from "./scenario.ts";
-import { NET_BEFORE_ANCHOR, NET_FUTURE } from "./cfo-api.server.ts";
+import { NET_BEFORE_ANCHOR, NET_FUTURE, resetCfoUnsetLog } from "./cfo-api.server.ts";
 
 // #245 (spec section 67, PFCFO-01..PFCFO-08): GET /api/cfo/pf/* on PGlite (migrations 0010-0012, unchanged) with a
 // test-only key (random per run, never a real one) and a fixed clock. alice owns (ORPHEUS_OWNER_EMAIL); bob has his
@@ -245,6 +245,7 @@ describe("#245 PFCFO-09..13 (2026-10-23 additions): projections, net assets, inc
 describe("#245 PFCFO-06 zero writes, key never logged", () => {
   it("only SELECTs ran during all CFO calls", () => assert.deepEqual(writes, []));
   it("no log line carries the key or the header", async () => {
+    resetCfoUnsetLog();
     const lines: string[] = [];
     const orig = [console.log, console.error, console.warn];
     console.log = console.error = console.warn = (...a: unknown[]) => void lines.push(a.map(String).join(" "));
@@ -257,6 +258,22 @@ describe("#245 PFCFO-06 zero writes, key never logged", () => {
     }
     assert.ok(lines.length >= 1);
     for (const l of lines) assert.ok(!l.includes(KEY) && !l.includes("wrong-secret-xyz"), l);
+  });
+});
+
+describe("#245 BA1 an unset key logs at most once per instance", () => {
+  it("two (and three) requests with CFO_PF_API_KEY unset give exactly one log line", async () => {
+    resetCfoUnsetLog();
+    const lines: string[] = [];
+    const orig = [console.log, console.error, console.warn];
+    console.log = console.error = console.warn = (...a: unknown[]) => void lines.push(a.map(String).join(" "));
+    try {
+      for (let i = 0; i < 3; i++) assert.equal((await call("/api/cfo/pf", { e: { ...env, CFO_PF_API_KEY: undefined } })).status, 401);
+    } finally {
+      [console.log, console.error, console.warn] = orig;
+    }
+    assert.equal(lines.filter((l) => l.includes("CFO_PF_API_KEY is not set")).length, 1);
+    assert.equal(lines.length, 1);
   });
 });
 

@@ -239,12 +239,22 @@ async function dataFor(rest: string, u: URL, db: Queryable, record: PfRecord | n
   }
 }
 
+let unsetLogged = false;
+/** Test-only: re-arm the once-per-instance unset log (BA1). */
+export const resetCfoUnsetLog = () => {
+  unsetLogged = false;
+};
+
 export async function handleCfoPfRequest(request: Request, deps: CfoDeps = {}): Promise<Response> {
   const env = deps.env ?? process.env;
   const blocked = guardDashboardApi(env);
   if (blocked) return blocked;
   if (!(CFO_ALLOW as readonly string[]).includes(request.method.toUpperCase())) return dashboardMethodNotAllowedResponse(CFO_ALLOW);
-  if (!env[CFO_KEY_ENV]) console.error(`[cfo-pf] ${CFO_KEY_ENV} is not set; refusing the request.`);
+  // BA1: at most one log line per instance while the key is unset (never per request; never the value).
+  if (!env[CFO_KEY_ENV] && !unsetLogged) {
+    unsetLogged = true;
+    console.error(`[cfo-pf] ${CFO_KEY_ENV} is not set; refusing every request.`);
+  }
   if (!cfoAuthorized(request.headers.get("authorization"), env[CFO_KEY_ENV])) return unauthorizedResponse();
   const u = new URL(request.url);
   if (u.searchParams.has("userId")) return badRequest("userId is not accepted: this API reads the household owner's data only.");

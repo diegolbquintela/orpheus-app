@@ -2453,3 +2453,6 @@ PFCFO-01..PFCFO-08.
   - `byCurrency` sums per currency: `monthlyHousehold` is `null` and `fxMissing: true` when any person in that currency is missing FX. `totalHousehold` is `null` and `fxMissing` is true when any person is.
 - No schema change, table, dependency or env.
 - AC PFCFO-09..PFCFO-13.
+
+### 67.7 Dated note 2026-10-23 (#245, BA1): one log line per instance
+- While `CFO_PF_API_KEY` is unset, the server logs `[cfo-pf] CFO_PF_API_KEY is not set; refusing every request.` at most once per server instance (a module-level flag), never per request and never with a value. Every request is still 401. AC PFCFO-14.
