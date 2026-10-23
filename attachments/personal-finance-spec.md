@@ -2457,6 +2457,9 @@ PFCFO-01..PFCFO-08.
 ### 67.7 Dated note 2026-10-23 (#245, BA1): one log line per instance
 - While `CFO_PF_API_KEY` is unset, the server logs `[cfo-pf] CFO_PF_API_KEY is not set; refusing every request.` at most once per server instance (a module-level flag), never per request and never with a value. Every request is still 401. AC PFCFO-14.
 
+### 67.8 Dated note 2026-10-23 (#239 / PR #252, spec §71): `/api/cfo/pf/series` with only Starting net assets
+- A record with only Starting net assets saved returns one net-assets point at the current Toronto household month, equal to the start, with `net_assets_from` at that month; other months are null. The wrapper calls `seriesValues`, so it inherits this from #239. #252 is merged into main (da114cf), so it applies now.
+
 ## 68. Personal Finance: Overview follows the selected month (#247, HIGH, Diego / CFO; added 2026-10-23; built in the same PR)
 
 Dated note 2026-10-23 (#247): main PF page only. Diego: "future months personal finance — when I update something, the Overview section is not getting updated with the month's value. This section should assume the month's view and state." This supersedes §59.6 Q-FM4's "Opening a future month shows the same Overview as the current month" for the Overview table's first column only; §59.6 is otherwise unchanged and its text is left as written (additions only). Numbered 68 because §67 is #245 (PR #246, not on main yet).

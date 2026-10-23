@@ -733,3 +733,5 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
 
 **Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
+
+2026-10-23 note (`/api/cfo/pf/series`, #239 / PR #252, spec §71): a record with only Starting net assets saved returns one net-assets point at the current Toronto household month, equal to the start, with `net_assets_from` at that month; other months are null. The wrapper calls `seriesValues`, so it inherits this; #252 is merged into main (da114cf), so it applies now.
