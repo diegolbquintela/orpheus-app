@@ -1259,3 +1259,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## /series with only Starting net assets (#239; added 2026-10-23)
 
 - 2026-10-23 #239 (MEDIUM, NA2 from #228 / PR #238): spec §71, AC PFSN. `seriesValues` (series.ts) now anchors net assets the way the Overview does (#228 AQ1): as-of month, else the first data month, else (new) the CURRENT household month when a Starting net assets is typed. So a record with only a start gives one net-assets point at the current month (= the start); nothing typed still gives no anchor. Income / expenses / surplus and every record with a month or an as-of month are unchanged. #246's `/api/cfo/pf/series` and `/net-assets` call `seriesValues`, so they inherit this once #246 merges (not on main at 439a7c0). Test: `src/lib/finance/series-start-only.test.ts` (explicit `npm test` list). No schema, table, env, storage-key or dependency change. Docs are additions only.
+
+## NA1 migration plan (#240; added 2026-10-23)
+
+- 2026-10-23 #240 (MEDIUM, NA1, SCHEMA CHANGE, HARD STOP): plan only in `docs/release/na1-migration-plan.md` (proposed table `pf_month_net_assets`, no backfill, rollback, DCR-03/05 rollout, CFO API impact, Diego questions). No migration file exists yet; nothing runs until Diego confirms via CoS.
