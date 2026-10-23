@@ -1249,5 +1249,5 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## Deploy-config review (#210; added 2026-10-23)
 
 - Findings DCR-01..06 are in `docs/release/deploy-config-review.md` (review only; each needs Diego's yes before any fix).
-- Vercel env metadata: use the `user-Vercel--diegolbquintelas-projects` connector namespace (`user-Vercel` with a team slug returns 403). Use `decrypt=false` and never record values.
+- Vercel env metadata: team-scope connector access is unreliable (403s seen on both namespaces; see DCR-06). If a read works, use `decrypt=false` and never record values.
 - `npm run build` runs `db:migrate` (package.json:11): never run it locally.

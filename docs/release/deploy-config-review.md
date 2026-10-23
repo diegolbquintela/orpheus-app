@@ -23,7 +23,7 @@ Review only. Nothing was changed: no env vars, redeploys, cron triggers, DB read
 - Status: needs Diego's yes.
 
 ### DCR-02: CRON_SECRET is present in Production (INFO)
-- Evidence: `filter_project_envs`: `CRON_SECRET` is type sensitive in **Production** (updated 2026-10-04 06:48 EDT) and **Preview** (updated 2026-10-02 19:10 EDT). It isn't set in Development. The value was not read.
+- Evidence: `filter_project_envs` (observed by SWE at ~13:41 ET 2026-10-23, not re-verified (QA got 403 at 13:45 ET)): `CRON_SECRET` is type sensitive in **Production** (updated 2026-10-04 06:48 EDT) and **Preview** (updated 2026-10-02 19:10 EDT). It isn't set in Development. The value was not read.
 - Recommended fix: none for presence. If DCR-01 shows 401s, re-save the Production value and redeploy (on Diego's yes).
 - Owner: Diego.
 - Status: needs Diego's yes.
@@ -53,14 +53,14 @@ Review only. Nothing was changed: no env vars, redeploys, cron triggers, DB read
 - Status: needs Diego's yes.
 
 ### DCR-05: every Vercel build runs migrations (MEDIUM)
-- Evidence: `package.json:11` `"build": "vite build && npm run db:migrate"`. Every Production deploy migrates the Production DB, and every preview deploy migrates the preview Neon DB, including from unmerged branches. `vercel.json:3` installs with `--omit=dev`. Project Node is 24.x (`get_project`), while CI/box uses 22.
-- Recommended fix: decide whether preview builds should migrate the shared preview DB, or gate migrate on `VERCEL_ENV`. Align the Node version.
+- Evidence: `package.json:11` `"build": "vite build && npm run db:migrate"`. Every Production deploy migrates the Production DB, and every preview deploy migrates the preview Neon DB, including from unmerged branches. `vercel.json:3` installs with `--omit=dev`. Project Node is 24.x (`get_project`; observed by SWE at ~13:41 ET 2026-10-23, not re-verified (QA got 403 at 13:45 ET)), while CI/box uses 22.
+- Recommended fix: decide whether preview builds should migrate the shared preview DB, or gate migrate on `VERCEL_ENV`. Align the Node version: proposal only, pin Node via `package.json` `engines` (e.g. `"node": "22.x"`) and/or a `.nvmrc`, and match the Vercel project setting. Neither file is added in this PR.
 - Owner: SWE (proposal), Diego (decision).
 - Status: needs Diego's yes.
 
 ### DCR-06: Vercel connector 403 on the team scope (MEDIUM, 403 hit)
-- Evidence: `user-Vercel` `filter_project_envs` with `slug=diegolbquintelas-projects` failed with: `Vercel API request failed (403: forbidden). Not authorized: Trying to access resource under scope "diegolbquintelas-projects". You must re-authenticate to this scope or use a token with access to this scope.` (operation `GET /v10/projects/{idOrName}/env`, team `team_Oz5j6Eg4U1l37dDUgmVBt1Y4`). `list_teams` returned 0 teams. The team-bound namespace `user-Vercel--diegolbquintelas-projects` did work for `filter_project_envs` and `get_project`. Cron and runtime logs are still unavailable (#210). No workaround was attempted.
-- Recommended fix: Diego approves team access for the `user-Vercel` connection (the connector's `authorize_team_access` flow), or agents standardise on the team-bound namespace.
+- Evidence: `user-Vercel` `filter_project_envs` with `slug=diegolbquintelas-projects` failed with: `Vercel API request failed (403: forbidden). Not authorized: Trying to access resource under scope "diegolbquintelas-projects". You must re-authenticate to this scope or use a token with access to this scope.` (operation `GET /v10/projects/{idOrName}/env`). `list_teams` returned 0 teams. The team-bound namespace `user-Vercel--diegolbquintelas-projects` returned data for `filter_project_envs` and `get_project` (observed by SWE at ~13:41 ET 2026-10-23, not re-verified (QA got 403 at 13:45 ET)). QA got a 403 from that same namespace at 13:45 ET, so team access is unreliable. Cron and runtime logs are still unavailable (#210). No workaround was attempted.
+- Recommended fix: Diego approves team access for the `user-Vercel` connection (the connector's `authorize_team_access` flow), then confirm both namespaces work.
 - Owner: Diego.
 - Status: needs Diego's yes.
 
@@ -71,5 +71,5 @@ Review only. Nothing was changed: no env vars, redeploys, cron triggers, DB read
 | DCR-02 | INFO | CRON_SECRET present in Production + Preview | Diego | needs Diego's yes |
 | DCR-03 | MEDIUM | Prod DB separate from preview Neon; prod host and box backfill target unconfirmed | Diego | needs Diego's yes |
 | DCR-04 | LOW | Env inventory; VITE_STUN_URLS already absent; unused integration vars | Diego | needs Diego's yes |
-| DCR-05 | MEDIUM | `build` runs db:migrate on every deploy incl. previews; Node 24 vs 22 | SWE / Diego | needs Diego's yes |
-| DCR-06 | MEDIUM | Connector 403 on team scope (user-Vercel); team-bound namespace works | Diego | needs Diego's yes |
+| DCR-05 | MEDIUM | `build` runs db:migrate on every deploy incl. previews; Node 24 vs 22 (observed ~13:41 ET, not re-verified) | SWE / Diego | needs Diego's yes |
+| DCR-06 | MEDIUM | Connector 403 on team scope (user-Vercel); team-bound namespace also 403 for QA at 13:45 ET | Diego | needs Diego's yes |
