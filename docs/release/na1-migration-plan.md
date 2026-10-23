@@ -78,9 +78,19 @@ CREATE TABLE pf_month_net_assets_backup_20261023 AS TABLE pf_month_net_assets;
 
 ## 5. CFO endpoint impact (PR #246)
 
-- New rule (proposed): net assets at month M = the latest entered value at or before M, plus the surpluses of the months after it through M; with no entered value, today's #228 / #239 rule unchanged (as-of → first data month → current month when start-only, `series.ts:162-178`). This replaces #239's start-only fallback once any value is entered (spec §71 Q-SN5).
-- `/api/cfo/pf/months` and `/months/:month`: `netAssets` comes from `netAssetsByMonth` (`cfo-api.server.ts:119-128`), so they follow automatically; add `netAssetsEntered: number | null` and `netAssetsSource: "entered" | "derived"` per month. Future months keep `NET_FUTURE` (`cfo-api.server.ts:116`).
+- New rule (proposed; CFO view via EL 2026-10-23, needs Diego's yes): net assets at month M = the LATEST entered value at or before M, plus the own surpluses of the months after it through M; with no entered value, today's #228 / #239 rule unchanged (as-of → first data month → current month when start-only, `series.ts:162-178`). This replaces #239's start-only fallback once any value is entered (spec §71 Q-SN5).
+- `/api/cfo/pf/months` and `/months/:month`: `netAssets` comes from `netAssetsByMonth` (`cfo-api.server.ts:119-128`), so they follow automatically; add the CFO-view fields below (`netAssetsSource`, `netAssetsAnchor`) per month. Future months keep `NET_FUTURE` (`cfo-api.server.ts:116`).
 - `/api/cfo/pf/series`: same `seriesValues` (`cfo-api.server.ts:196`); response shape unchanged except an additive `net_assets_entered: MonthKey[]` list; `net_assets_from` becomes the earliest entered month when it precedes the old anchor.
+- **CFO view (via EL), 2026-10-23; still needs Diego's yes: new fields.** Additive only; existing fields unchanged.
+  - `/api/cfo/pf/months` (each month in `months`) and `/api/cfo/pf/months/:month` (in `data`):
+    `netAssetsSource: "entered" | "computed" | null` and `netAssetsAnchor: MonthKey | "start" | null`.
+    `"entered"` = this month has its own entered value (anchor = this month). `"computed"` = counted from the latest
+    entered month at or before it (anchor = that month) or, with no entered month, from Starting net assets
+    (anchor = `"start"`). Both `null` when `netAssets` is `null` (future month, before the anchor, no anchor).
+    Example: `{ "netAssets": 105200, "netAssetsNote": null, "netAssetsSource": "computed", "netAssetsAnchor": "2026-07" }`.
+  - `/api/cfo/pf/series` (net-assets series only): parallel arrays aligned to `months`:
+    `net_assets_source: ("entered" | "computed" | null)[]` and `net_assets_anchor: (MonthKey | "start" | null)[]`.
+    Non-net-assets series carry no such arrays; `net_assets_from` keeps its meaning.
 - `/overview`: `netAssetsNow` (`cfo-api.server.ts:180`) becomes the latest entered value through the current month, else the start (as now).
 - Doc changes: new spec section (§72) with the rule; addenda to spec §64 (#228), §67 (#246 response fields) and §71 (fallback superseded when an entered value exists); `attachments/pf-series-design.md` addendum; AGENTS.md entry.
 
@@ -88,11 +98,25 @@ CREATE TABLE pf_month_net_assets_backup_20261023 AS TABLE pf_month_net_assets;
 
 - Unit (pure): rule table: no entries → byte-identical to today (PFSN-01..07 still pass); one entry; entry + later surpluses; entry after a future month ignored; entered `0` counts; currency mismatch flagged.
 - Migration: apply `0014` twice on PGLite (idempotent); FK cascade on user delete; CHECK rejects `2019-12` / `2026-13`; down + restore round-trip.
+- **CFO view (via EL), 2026-10-23; still needs Diego's yes: added tests.**
+  - Gap between two entered months (e.g. entered 2026-03 and 2026-07): 2026-04..06 = the 2026-03 value + each month's own surplus; 2026-07 = its entered value exactly (the chain resets, no carry from March); 2026-08+ = the 2026-07 value + surpluses.
+  - Entered values only for past/current months: a future month is rejected on write and ignored on read.
+  - No entered month: values byte-identical to today (Starting net assets fallback, #228 / #239).
+  - Currency: CAD stored and returned as typed, no conversion.
+  - Shape: `/months`, `/months/:month` give `netAssetsSource` / `netAssetsAnchor` per month (`entered`+self, `computed`+earlier month, `computed`+`"start"`, both `null` for future / no anchor); `/series` arrays have the same length as `months`, appear only on net-assets series, and agree with `/months` month by month.
 - Save path: a whole-record save does not touch the table; an old-client save keeps entered values.
 - CFO API: `/months`, `/months/:month`, `/series`, `/overview` fixtures with and without entries; read-only grants can't write.
 - QA on preview: enter, edit, clear a month; Overview 'Net assets now' equals `/series` last point equals CFO `/overview`; 390 / 1440 viewports. Prod: read-only smoke after deploy.
 
 ## 7. Open questions for Diego
+
+**CFO view (via EL), 2026-10-23; still needs Diego's yes** on every item below, including the ones the CFO answered:
+- NA1-3: CFO yes, past and current months only.
+- NA1-4: CFO yes. Later months count from the LATEST entered month, adding each later month's own surplus; a later entered value resets the chain.
+- NA1-5: CFO yes, Starting net assets stays the fallback.
+- NA1-6: CFO yes, household currency CAD, no conversion.
+- Endpoints: CFO asks for per-month `source` (`entered` | `computed`) and anchor-month fields on `/months`, `/months/:month` and `/series` (shape in section 5).
+- Still open for Diego only: NA1-1, NA1-2, NA1-7, NA1-8.
 
 - **Q-NA1-1 Table or JSON?** Recommend: the separate table (Option B).
 - **Q-NA1-2 Backfill?** Recommend: none; existing months stay "not entered".
