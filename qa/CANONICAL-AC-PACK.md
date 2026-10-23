@@ -1976,3 +1976,14 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFTX-04: In the charts builder, each `pf-builder-pick` is the only control inside its `label.pf-builder-option`, and a click on the label toggles it. (DOM)
 - PFTX-05: Real browser at 390 and 1440: the Compare label and the builder option labels are ≥ 44 px tall and ≥ 44 px wide, with 0 `elementFromPoint` misses. The saved row height is unchanged. (manual / local; QA on the preview)
 
+
+## PFOM — CFO overview `?month=` (#247 follow-up, Q-OS4, personal-finance-spec §72; added 2026-10-23; MEDIUM, CFO)
+- PFOS-10 `/api/cfo/pf/overview?month=` equals the page's selected-month Overview column for a current, saved future, past and EMPTY future month (the copy), and every CFO call (with and without `month`) runs only SELECTs, checked per call. (server)
+- PFOM-01 No `month` (or `month=`) → the body is identical to before (no `selected`). (server)
+- PFOM-02 Current month → `selected.figures` = `summary.thisMonth`, `label` `This month`, `copied: false`. (server)
+- PFOM-03 Saved future month and past month → their own Expenses / Income / Surplus, `label` the month name, `copied: false`. (server)
+- PFOM-04 Empty future month → figures copied from the latest earlier month with lines (as the page copies it; deleted names are stripped but only figures are returned, so that step is not observable here), `copied: true`, `copiedFrom` that month; the record is unchanged. (server)
+- PFOM-05 `month=2026-13`, `abc`, `2019-12`, and a month after `lastOpenMonth` → 400 with the message; `lastOpenMonth` itself → 200. (server)
+- PFOM-06 `summary`, `overview`, `netAssetsNow`, `basis` are the same with and without `month`. (server)
+- PFOM-07 POST / PUT / DELETE with `month` → 405; no key → 401 (order unchanged). (server)
+- PFOM-08 Empty past month → `null` figures, `copied: false`; an empty future month with no earlier lines → `null` figures, `copied: false`. (server)
