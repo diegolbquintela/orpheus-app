@@ -1942,7 +1942,7 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 |---|---|---|
 | PFCY-01 | BLOCK | Both weights map every code point U+0400–U+04FF to a glyph other than 0; `printable(U5)` = U5 and `printable(U8)` = U8. |
 | PFCY-02 | BLOCK | PDF of a report named U8 with category U5: the ToUnicode decode reads the title `Orpheus - Personal Finance report: ` + U8 and the legend `1. Сбережения (category, flow)`, with zero `?`. |
-| PFCY-03 | BLOCK | PNG: the cells for U8 and U5 equal the rasterizer's reference cells and are not the cells of the `?` fallback; `Б`/`б`, `Ё`/`Е`, `Ї`/`І` each give different cells (and `Б` differs from `B`… `?`). |
+| PFCY-03 | BLOCK | PNG: the cells for U8 and U5 equal the rasterizer's reference cells and are not the cells of the `?` fallback; `Б`/`б`, `Ё`/`Е`, `Ї`/`І` each give different cells. |
 | PFCY-04 | MAJOR | Out-of-scope stays one `?` per code point: U9 `Ԥ` → `?`, U6 → `??`, U7 → `?`. The fallback report prints title `?? ?` and legend `1. Сбережения (category, flow)`; the data JSON keeps the originals. (Supersedes PFU-08's U5 expectation.) |
 | PFCY-05 | BLOCK | PFX-14: the 12 series × 24 months PDF stays < 100 KB; ToUnicode lists only the drawn glyphs (no CMap entry for an undrawn Cyrillic glyph in an ASCII export). |
 | PFCY-06 | MAJOR | Font asset: SHA-256 of each subset = the last `sha256` line for it in `FONTS.md`; base64 module = same bytes; each ≤ 49,152 bytes; `OFL.txt` present. |

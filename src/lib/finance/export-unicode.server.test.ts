@@ -30,7 +30,7 @@ import {
 import { NOTO_SANS_BOLD_B64, NOTO_SANS_REGULAR_B64 } from "./fonts/noto-sans-subset.ts";
 import { goldenCases } from "./export-golden/capture.ts";
 import { goldenCrops, rawRgb, sha256 } from "./export-golden/crops.ts";
-import { U1, U2, U3, U4, U5, U6, U7, U_ACCOUNT, U_FALLBACK_NAME, U_FALLBACK_REPORT, U_NAME, U_NOW, U_RECORD, U_REPORT } from "./export-golden/fixture-u.ts";
+import { U1, U2, U3, U4, U5, U6, U7, U8, U9, U_ACCOUNT, U_FALLBACK_NAME, U_FALLBACK_REPORT, U_NAME, U_NOW, U_RECORD, U_REPORT } from "./export-golden/fixture-u.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 
 // #176 (spec 50, PFU-01..PFU-23): Unicode text in the PF exports, on PGlite (migrations 0010-0012) with a fake session
@@ -52,11 +52,14 @@ const cps = (s: string) => [...s].map((c) => c.codePointAt(0) ?? 0);
 const COVERED = [
   ...Array.from({ length: 0x7e - 0x20 + 1 }, (_, i) => 0x20 + i),
   ...Array.from({ length: 0x17f - 0xa0 + 1 }, (_, i) => 0xa0 + i),
+  // #204 (spec 69.1, PFCY-01): the Cyrillic block.
+  ...Array.from({ length: 0x4ff - 0x400 + 1 }, (_, i) => 0x400 + i),
   0x2013, 0x2014, 0x2026, 0x20ac, 0x2212, 0x20a9,
 ];
 
 let uid = "";
 let fbid = "";
+let cyid = "";
 before(async () => {
   await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');
   for (const f of ["0010_personal_finance.sql", "0011_access.sql", "0012_audit.sql"])
@@ -72,6 +75,7 @@ before(async () => {
   };
   uid = await post(U_NAME, U_REPORT);
   fbid = await post(U_FALLBACK_NAME, U_FALLBACK_REPORT);
+  cyid = await post(U8, U_FALLBACK_REPORT);
 });
 
 const pdfOf = async (id: string) => {
@@ -180,15 +184,17 @@ describe("#176 PF export: Unicode text (spec 50)", () => {
     for (const ch of "aeox") assert.equal(below(ch).n, 0, ch);
   });
 
-  it("PFU-08: out-of-scope text: one ? per code point (U5 10, U6 2, U7 1); 200 with the audit row; the data keeps the originals", async () => {
-    assert.equal(printable(U5), "?".repeat(10));
+  // #204 (spec 69, PFCY-04): U5 (Cyrillic) is now in scope; U6 / U7 / U9 still print one ? per code point.
+  it("PFU-08 / PFCY-04: out-of-scope text: one ? per code point (U6 2, U7 1, U9 1); U5 prints; 200 with the audit row; the data keeps the originals", async () => {
+    assert.equal(printable(U5), U5);
+    assert.equal(printable(U9), "?");
     assert.equal(printable(U6), "??");
     assert.equal(printable(U7), "?");
     const r = await ex("olga", fbid, "pdf");
     assert.equal(r.status, 200);
     const p = readPdf(await bytes(r));
     assert.equal(p.text[0], "Orpheus - Personal Finance report: ?? ?");
-    assert.ok(p.text.includes("1. ?????????? (category, flow)"), p.text.join("|"));
+    assert.ok(p.text.includes(`1. ${U5} (category, flow)`), p.text.join("|"));
     assert.equal(p.data.series[0].id, U5);
     const png = await bytes(await ex("olga", fbid, "png"));
     assert.ok(drawnAt(png, "Orpheus - Personal Finance report: ?? ?", PNG_LAYOUT.M, PNG_LAYOUT.M));
@@ -222,14 +228,15 @@ describe("#176 PF export: Unicode text (spec 50)", () => {
     });
   });
 
-  it("PFU-14: font files: SHA-256 as FONTS.md, the base64 module is the same bytes, cmap covers spec 50.1 in both weights, OFL.txt, ≤ 32,768 bytes", () => {
+  it("PFU-14: font files: SHA-256 as FONTS.md, the base64 module is the same bytes, cmap covers spec 50.1 in both weights, OFL.txt, ≤ 49,152 bytes (PFCY-06)", () => {
     const md = readFileSync(new URL("FONTS.md", fontDir), "utf8");
     for (const [file, b64] of [["NotoSans-Regular-subset.ttf", NOTO_SANS_REGULAR_B64], ["NotoSans-Bold-subset.ttf", NOTO_SANS_BOLD_B64]]) {
       const bytes = readFileSync(new URL(file, fontDir));
-      const want = new RegExp(`sha256 ${file} ([0-9a-f]{64})`).exec(md)?.[1];
+      // #204 (PFCY-06): FONTS.md keeps older sections for history; the last line for each file is current.
+      const want = [...md.matchAll(new RegExp(`sha256 ${file} ([0-9a-f]{64})`, "g"))].at(-1)?.[1];
       assert.equal(createHash("sha256").update(bytes).digest("hex"), want, file);
       assert.ok(Buffer.from(b64, "base64").equals(bytes), `${file} = base64 module`);
-      assert.ok(bytes.length <= 32_768, `${file} ${bytes.length}`);
+      assert.ok(bytes.length <= 49_152, `${file} ${bytes.length} (Q-CY3: 48 KiB per weight)`);
     }
     for (const font of [FONT_REGULAR, FONT_BOLD]) for (const cp of COVERED) assert.notEqual(font.glyphId(cp), 0, `U+${cp.toString(16)}`);
     assert.ok(FONT_REGULAR.glyphId(0x20a9) !== 0, "U+20A9 ₩ (QA Y6)");
@@ -301,5 +308,48 @@ describe("#176 PF export: Unicode text (spec 50)", () => {
     const nog = await ex("nog", uid, "pdf");
     assert.equal(nog.status, 403);
     assert.equal(FG.length, 3);
+  });
+});
+
+describe("#204 PF export: Cyrillic (spec 69)", () => {
+  it("PFCY-01: both weights map all of U+0400-04FF; U5 and U8 print verbatim", () => {
+    for (const font of [FONT_REGULAR, FONT_BOLD]) for (let cp = 0x400; cp <= 0x4ff; cp++) assert.notEqual(font.glyphId(cp), 0, `U+${cp.toString(16)}`);
+    assert.equal(printable(U5), U5);
+    assert.equal(printable(U8), U8);
+  });
+
+  it("PFCY-02: PDF of a report named U8 with category U5 decodes verbatim, no ?", async () => {
+    const { p } = await pdfOf(cyid);
+    assert.equal(p.text[0], `Orpheus - Personal Finance report: ${U8}`);
+    assert.ok(p.text.includes(`1. ${U5} (category, flow)`), p.text.join("|"));
+    assert.ok(!p.text.join("").includes("?"));
+  });
+
+  it("PFCY-03: PNG paints U8 and the U5 legend verbatim, not the ? form; Б≠B, Ё≠Е, Ї≠І", async () => {
+    const png = await pngOf(cyid);
+    const { M, LH, ADV } = PNG_LAYOUT;
+    const d = readPng(png, crc32).data;
+    const { head, leg, legendY } = pngText(d, { name: U8, generatedAt: U_NOW.toISOString() });
+    assert.equal(head[0], `Orpheus - Personal Finance report: ${U8}`);
+    assert.ok(drawnAt(png, head[0], M, M));
+    assert.ok(!drawnAt(png, ascii(head[0]), M, M), "not the ? form");
+    assert.equal(leg[0], `1. ${U5} (category, flow)`);
+    assert.ok(drawnAt(png, leg[0], M + 4 * ADV, legendY));
+    const q = cell("?");
+    for (const ch of U8.replace(/[^\u0400-\u04ff]/g, "")) assert.notEqual(cell(ch), q, ch);
+    for (const [a, b] of [["Б", "B"], ["Ё", "Е"], ["Ї", "І"], ["б", "6"]]) assert.notEqual(cell(a), cell(b), `${a} vs ${b}`);
+  });
+
+  it("PFCY-05: PFX-14: the ToUnicode CMap lists only drawn glyphs (an ASCII export maps no Cyrillic glyph)", async () => {
+    const { s } = await pdfOf(uid);
+    const cmaps = [...s.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)].map((m) => m[1]).join("");
+    assert.ok(cmaps.length > 0);
+    assert.ok(!/<04[0-9A-F]{2}>/.test(cmaps), "no Cyrillic code point in the CMap of a non-Cyrillic export");
+    const { s: cy } = await pdfOf(cyid);
+    assert.ok(/<0421>/.test(cy), "С (U+0421) is mapped where it is drawn");
+  });
+
+  it("PFCY-07: filename slug unchanged (Q-AO8 / Q-CY5): Cyrillic becomes -", () => {
+    assert.equal(asciiName(U5), "-".repeat(10));
   });
 });

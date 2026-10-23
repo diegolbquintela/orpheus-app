@@ -69,8 +69,8 @@ try {
           }
           if (format === "pdf" && parsed) {
             // #176 PFU-15 (spec 50.5): the title line prints the report name verbatim through the embedded font's
-            // ToUnicode map. Out-of-scope code points (above U+017F, except – — … − € ₩) print one ? each.
-            const inScope = (c) => { const cp = c.codePointAt(0); return (cp >= 0x20 && cp <= 0x7e) || (cp >= 0xa0 && cp <= 0x17f) || [0x2013, 0x2014, 0x2026, 0x20ac, 0x2212, 0x20a9].includes(cp); };
+            // ToUnicode map. Out-of-scope code points (above U+017F, except Cyrillic U+0400-04FF (#204) and – — … − € ₩) print one ? each.
+            const inScope = (c) => { const cp = c.codePointAt(0); return (cp >= 0x20 && cp <= 0x7e) || (cp >= 0xa0 && cp <= 0x17f) || (cp >= 0x400 && cp <= 0x4ff) || [0x2013, 0x2014, 0x2026, 0x20ac, 0x2212, 0x20a9].includes(cp); };
             const want = `Orpheus - Personal Finance report: ${[...(rep.name ?? "Default").normalize("NFC").replace(/\u00ad/g, "")].map((c) => (inScope(c) ? c : "?")).join("")}`;
             check(`PFU-15 ${rep.id} pdf: the title line is the report name verbatim (embedded font, ToUnicode)`, parsed.text[0] === want, { got: parsed.text[0], want });
             const text = parsed.text.join("\n");

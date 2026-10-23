@@ -10,6 +10,10 @@ export const U4 = "pgqyj";
 export const U5 = "Сбережения";
 export const U6 = "貯金";
 export const U7 = "🏠";
+/** #204 (spec 69.5): Russian, Ukrainian, Serbian and a historic letter (38 characters, CATEGORY_MAX 40). */
+export const U8 = "Продукты: Ёж, Їжак, Ґанок, Ђак, Џем, Ѣ";
+/** #204: Cyrillic Supplement U+0524, out of scope (one ?). */
+export const U9 = "Ԥ";
 /** The report name is U1 itself (51 characters, report NAME_MAX 60; QA Y1). */
 export const U_NAME = U1;
 /** The account: currencies and descenders (22 characters, ACCOUNT_MAX 40). */

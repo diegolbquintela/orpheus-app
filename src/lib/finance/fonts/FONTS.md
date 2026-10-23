@@ -22,3 +22,17 @@ node scripts/gen-export-fonts.mjs   # regenerates noto-sans-subset.ts (base64) f
 - sha256 NotoSans-Regular-subset.ttf 049f5754c037199c4e209aed9e654ef31ccb850d628279e5cf761577a5364804 (21748 bytes)
 - sha256 NotoSans-Bold-subset.ttf af10b9d3570e032b0dbe42fa3eeed557e08711a99c780a47a2d00104f9ecf230 (21696 bytes)
 - `noto-sans-subset.ts` holds the same bytes as base64 (generated), so the Vercel function bundles them with no `vercel.json` change (Q-AO5).
+
+## 2026-10-23: Cyrillic (#204, spec §69)
+Same upstream files and fontTools version as above; the subset command adds the Cyrillic block `U+0400-04FF` (Q-CY1). The section above is kept for history; the test reads the **last** `sha256` line for each file.
+
+```
+pyftsubset NotoSans-<Weight>.ttf --unicodes="U+0020-007E,U+00A0-017F,U+0400-04FF,U+2013,U+2014,U+2026,U+20AC,U+2212,U+20A9" \
+  --no-hinting --layout-features='' --drop-tables+=GSUB,GPOS,GDEF,DSIG --name-IDs='*' --name-languages='*' \
+  --notdef-outline --output-file=NotoSans-<Weight>-subset.ttf
+node scripts/gen-export-fonts.mjs
+```
+
+- sha256 NotoSans-Regular-subset.ttf 745edf5661c62055c51e38dc9b769f1670f539097c9a27e160e38934a02f3a89 (42204 bytes)
+- sha256 NotoSans-Bold-subset.ttf f63934f389ae66b7d2b17be0d6c9d9a0c0426a2f4be02af8b542caf388fc854b (42128 bytes)
+- Licence unchanged: SIL Open Font License 1.1 (`OFL.txt`).
