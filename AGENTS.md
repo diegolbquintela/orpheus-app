@@ -1263,3 +1263,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## NA1 migration plan (#240; added 2026-10-23)
 
 - 2026-10-23 #240 (MEDIUM, NA1, SCHEMA CHANGE, HARD STOP): plan only in `docs/release/na1-migration-plan.md` (proposed table `pf_month_net_assets`, no backfill, rollback, DCR-03/05 rollout, CFO API impact, Diego questions). No migration file exists yet; nothing runs until Diego confirms via CoS.
+- 2026-10-23 #240 QA BG1-BG8 applied to the NA1 plan (citations fixed, §5a spec items: FX, two tabs #242, write API, auth, audit). Still plan only; needs Diego's yes.
