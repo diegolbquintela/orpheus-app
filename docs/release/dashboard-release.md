@@ -166,6 +166,7 @@ deployments, so each change needs a redeploy.
 | `DASHBOARD_SIGNUP_ALLOWLIST` | Invite list for sign-up (`src/lib/auth/config.ts`); unset/empty = nobody can sign up; existing users can still sign in | `diego@example.com, other@example.com` (commas, semicolons or spaces; case-insensitive) | **Yes** (at least Diego's address) |
 | `CRON_SECRET` | Vercel sends it as `Authorization: Bearer <value>` to the cron route; the route refuses everything without it (`src/lib/dashboard/refresh-api.server.ts`) | random, ≥ 16 characters, no spaces/newlines; **a new value, not the Preview one** | **Yes** (else the daily job never runs: every cron call is 401) |
 | `SEC_CONTACT_EMAIL` | SEC EDGAR User-Agent contact (`fundamentals.server.ts`); without it no SEC request is made and every metric reads "coverage check pending" | `name@example.com` (an address the SEC may contact) | **Yes** for metrics (the dashboard works without it, minus metrics) |
+| `CFO_PF_API_KEY` | #245: the CFO's read-only PF API key, `Authorization: Bearer <value>` on `/api/cfo/pf/*` (`src/lib/finance/cfo-api.server.ts`); unset = every call 401 (that is how it is revoked). Set via CoS's secure form only; Preview gets a different value | random, ≥ 32 bytes, e.g. `openssl rand -base64 32`; **not the Preview value** | **Yes** for the CFO API (added 2026-10-23) |
 
 Not needed in Production: `orpheus_app_preview_*` (the Preview integration's names; `DATABASE_URL` wins if
 both exist), `VERCEL*` (system variables Vercel sets itself).

@@ -2397,6 +2397,69 @@ AC:
 - PFSR-10 Update is refused (`Fix the fields in error first.`) while a field is in error; nothing is sent.
 - PFSR-11 When the opened scenario is renamed or updated, the screen keeps showing it under its new name/values.
 
+
+## 67. CFO read-only Personal Finance API (#245, HIGH, CFO; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23 (#245): approved by Diego via CoS as a one-off exception to the usage hold. Code: `src/lib/finance/cfo-api.server.ts` (routes `src/routes/api/cfo/pf.ts`, `src/routes/api/cfo/pf.$.ts`). Answers to Phase 1 Qs: Q1 Production + Preview (different values), Q2 single key, Q3 saved reports JSON yes / export no, Q4 `userId` → 400, Q5 no audit, Q6 `/api/cfo/pf/*`, Q7 series via `?q=`.
+
+### 67.1 Contract
+- Auth: `Authorization: Bearer <CFO_PF_API_KEY>` only (never a query key). Order: `DASHBOARD_ENABLED` off → 404; any method but GET / HEAD → 405 `Allow: GET, HEAD` (before the key); missing / wrong / unset key → 401 `{ error: "Unauthorized." }` (sha256 + `timingSafeEqual`); `userId` in the query → 400; no database → 503; `ORPHEUS_OWNER_EMAIL` naming no account → 404 `No household.`; unknown path → 404. Every 200 is `{ data, household, currentMonth, generatedAt }`, `no-store`, `noindex`.
+- Scope: always the household owner's row (`ORPHEUS_OWNER_EMAIL` → `ownerIdOf`); no other user's data is reachable.
+- Read-only: SELECTs only (`personal_finance`, `fx_rates`, `"user"`); nothing is written or audited.
+- Revocation: unset or rotate `CFO_PF_API_KEY` in Vercel and redeploy (single key; no `_NEXT`, no revoked list).
+- Env: `CFO_PF_API_KEY` (server-only, ≥ 32 random bytes) on **Production** and on **Preview** with a different value (QA). Set only through CoS's secure form; never in chat, issues, logs or the repo. The key and the Authorization header are never logged.
+- No schema change, migration, table, dependency or provider.
+
+### 67.2 Endpoints (GET / HEAD)
+| Path | Returns (`data`) |
+|---|---|
+| `/api/cfo/pf` | `{ schema: "cfo-pf.v1", endpoints }` |
+| `/api/cfo/pf/months?from=yyyy-mm&to=yyyy-mm` | `{ months: { [yyyy-mm]: MonthLines } }` (stored months, past and future; both bounds optional) |
+| `/api/cfo/pf/months/:month` | `{ month, stored, lines \| null }` (no unsaved copy; bad month 400) |
+| `/api/cfo/pf/lines` | `{ expenses, income }` (shared accounts / categories / lines, deleted names included) |
+| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules) |
+| `/api/cfo/pf/series?q=<url-encoded JSON { series, range }>` | the same body as `POST /api/personal-finance/series` (same `seriesQueryError` 400s, 413 above 4 KB) |
+| `/api/cfo/pf/scenario` | `{ scenario \| null, today }` (`orpheus.finance.scenario.v1` + `savedInputs`) |
+| `/api/cfo/pf/scenarios` | `{ scenarios: SavedEntry[] }` |
+| `/api/cfo/pf/scenarios/:id` | `{ scenario: SavedEntry }` (unknown id 404) |
+| `/api/cfo/pf/plans?month=yyyy-mm` | `{ plans: { [yyyy-mm]: { plan, comparison \| null } } }` (plans.v1 + `planFor` planned vs actual) |
+| `/api/cfo/pf/future` | `{ lastOpenMonth, months: [{ month, stored, lines \| null, copySource }] }` (current + 1 .. current + 12) |
+| `/api/cfo/pf/settings` | `{ currency, view, equity }` (currency.v1, view.v1, equity.v1) |
+| `/api/cfo/pf/fx?through=yyyy-mm` | `{ through, rates \| null }` (stored BoC monthly averages the record needs, `fx_rates`) |
+| `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
+
+### 67.3 Standing rule
+**Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
+
+### 67.4 AC (PFCFO, qa/CANONICAL-AC-PACK.md)
+PFCFO-01..PFCFO-08.
+
+### 67.5 Dated note 2026-10-23 (#245, EL addition a): scenario projections
+- `/api/cfo/pf/scenario` adds `projection`: one entry per horizon in `HORIZONS` (12, 36, 60, 120 months), each `{ horizon, label, surplus, growth, netAssets, totals, points }`, from the scenario page's own `project(savedInputs(record, now), horizon)`. That is the screen as it opens from the saved record. `surplus` = `totals.surplus`, `growth` = `totals.growthEarned`, `netAssets` = `totals.netEnd`.
+- `/api/cfo/pf/scenarios/:id` adds the same `projection`, from the compare view's `project({ ...entry.inputs, current }, horizon)`.
+- The projection math is not reimplemented anywhere (`projections()` in `cfo-api.server.ts` only calls `project`).
+
+### 67.6 Dated note 2026-10-23 (#245, EL addition b): per-month net assets and income breakdown
+- Each month in `/api/cfo/pf/months` and `/api/cfo/pf/months/:month` adds `netAssets` and `netAssetsNote`.
+  - The values come from `/series`' own net-assets metric (`seriesValues`, the #228 rule): Starting net assets at the as-of month (else at the first month with figures), plus each month's own surplus, with no average fill.
+  - A month before the anchor is `null` with a note. A future month is `null` with a note, because net assets are counted only through the current month. With no anchor at all, the value is `null` and the note says so.
+- Each month also adds `income`: `{ household, byPerson, byCurrency, totalHousehold, fxMissing }`, all monthly counted net as the page counts it (`incomeLines`).
+  - Each person is `{ id, name, currency, monthly (own currency), fx, rate, monthlyHousehold }`.
+  - `fx` is one of:
+    - `household`: no conversion.
+    - `historical`: that month's stored BoC average from `fx_rates`, via `historicalRate`, the same as `/series`.
+    - `typed`: no stored average, so the rate as typed.
+    - `missing`: no stored average and a blank or invalid typed rate. Then `monthlyHousehold` and `rate` are `null`, never guessed.
+  - `byCurrency` sums per currency: `monthlyHousehold` is `null` and `fxMissing: true` when any person in that currency is missing FX. `totalHousehold` is `null` and `fxMissing` is true when any person is.
+- No schema change, table, dependency or env.
+- AC PFCFO-09..PFCFO-13.
+
+### 67.7 Dated note 2026-10-23 (#245, BA1): one log line per instance
+- While `CFO_PF_API_KEY` is unset, the server logs `[cfo-pf] CFO_PF_API_KEY is not set; refusing every request.` at most once per server instance (a module-level flag), never per request and never with a value. Every request is still 401. AC PFCFO-14.
+
+### 67.8 Dated note 2026-10-23 (#239 / PR #252, spec §71): `/api/cfo/pf/series` with only Starting net assets
+- A record with only Starting net assets saved returns one net-assets point at the current Toronto household month, equal to the start, with `net_assets_from` at that month; other months are null. The wrapper calls `seriesValues`, so it inherits this from #239. #252 is merged into main (da114cf), so it applies now.
+
 ## 68. Personal Finance: Overview follows the selected month (#247, HIGH, Diego / CFO; added 2026-10-23; built in the same PR)
 
 Dated note 2026-10-23 (#247): main PF page only. Diego: "future months personal finance — when I update something, the Overview section is not getting updated with the month's value. This section should assume the month's view and state." This supersedes §59.6 Q-FM4's "Opening a future month shows the same Overview as the current month" for the Overview table's first column only; §59.6 is otherwise unchanged and its text is left as written (additions only). Numbered 68 because §67 is #245 (PR #246, not on main yet).

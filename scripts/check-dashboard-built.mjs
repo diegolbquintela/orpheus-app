@@ -394,6 +394,33 @@ for (const date of [...IMPOSSIBLE_DATES, "2024-02-29"]) {
 }
 
 {
+  // #245 (spec 67, PFCFO): the CFO read-only PF API. Key: a random per-run value, never a real one.
+  const KEY = `cfo-${randomUUID()}`;
+  process.env.CFO_PF_API_KEY = KEY;
+  const label = "#245 /api/cfo/pf";
+  const unauth = (r) => r.status === 401 && /application\/json/.test(r.type) && r.body === '{"error":"Unauthorized."}';
+  for (const path of ["/api/cfo/pf", "/api/cfo/pf/overview", "/api/cfo/pf/months/2026-01"]) {
+    const off = await call("GET", path, "false", undefined, { headers: { authorization: `Bearer ${KEY}` } });
+    check(off.status === 404 && /application\/json/.test(off.type), `${label}: flag off GET ${path} -> ${off.status}`);
+    for (const headers of [{}, { authorization: "Bearer wrong" }, { authorization: KEY }]) {
+      const r = await call("GET", path, "true", undefined, { headers });
+      check(unauth(r), `${label}: GET ${path} without the right key -> ${r.status} ${r.body.slice(0, 60)}`);
+    }
+    for (const method of METHODS_NOT_GET.filter((m) => m !== "HEAD")) {
+      const r = await call(method, path, "true", undefined, { headers: { authorization: `Bearer ${KEY}` } });
+      check(json405(r) && r.allow === "GET, HEAD", `${label}: ${method} ${path} -> ${r.status} allow=${r.allow}`);
+    }
+    if (!WITH_DB) {
+      const r = await call("GET", path, "true", undefined, { headers: { authorization: `Bearer ${KEY}` } });
+      check(r.status === 503, `${label}: right key, no database GET ${path} -> ${r.status}`);
+    }
+  }
+  delete process.env.CFO_PF_API_KEY;
+  const revoked = await call("GET", "/api/cfo/pf", "true", undefined, { headers: { authorization: `Bearer ${KEY}` } });
+  check(unauth(revoked), `${label}: CFO_PF_API_KEY unset (revoked) -> ${revoked.status}`);
+}
+
+{
   // T05 (DASH-10): the cron route needs `Authorization: Bearer <CRON_SECRET>`.
   const label = 'flag "true", cron';
   const unauthorized = (r) => r.status === 401 && /application\/json/.test(r.type) && r.body === '{"error":"Unauthorized."}';

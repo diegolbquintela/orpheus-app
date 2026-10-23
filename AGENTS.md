@@ -1243,6 +1243,34 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - **Out of scope.** Two-tab overwrites of the OTHER record names are a separate ticket.
   - Docs are additions only.
 - 2026-10-22 #233 (MEDIUM, SS6, CFO): rename and update a saved scenario in place on `/personal-finance/scenario` (spec §66, AC PFSR). Writers get `Rename` (inline name field, the #223 name rules, uniqueness ignoring the scenario itself) and `Update` (confirm, then the entry's values become what the screen shows now; id and name kept). Both go through `changeSaved` (fresh GET, one PUT, only `orpheus.finance.scenario.v1` changes, every other saved scenario kept byte-for-byte) using the pure `renameSaved` / `updateSaved` in `saved-scenarios.ts`. Opening Rename, typing, Cancel, a refused name, a cancelled Update confirm, Open, Compare and Back send nothing (tested). Read users see neither button. No table, migration, env, key or dependency change. Docs are additions only.
+- 2026-10-23 #245 (HIGH, CFO): CFO read-only Personal Finance API, `GET /api/cfo/pf/*` (spec §67, AC PFCFO). Logic and tests: `src/lib/finance/cfo-api.server.ts` / `cfo-api.server.test.ts`.
+- Auth: `Authorization: Bearer <CFO_PF_API_KEY>` only (never a query key). Order: `DASHBOARD_ENABLED` off → 404; any method but GET / HEAD → 405 `Allow: GET, HEAD` (before the key); missing / wrong / unset key → 401 `{ error: "Unauthorized." }` (sha256 + `timingSafeEqual`); `userId` in the query → 400; no database → 503; `ORPHEUS_OWNER_EMAIL` naming no account → 404 `No household.`; unknown path → 404. Every 200 is `{ data, household, currentMonth, generatedAt }`, `no-store`, `noindex`.
+- Scope: always the household owner's row (`ORPHEUS_OWNER_EMAIL` → `ownerIdOf`); no other user's data is reachable.
+- Read-only: SELECTs only (`personal_finance`, `fx_rates`, `"user"`); nothing is written or audited.
+- Revocation: unset or rotate `CFO_PF_API_KEY` in Vercel and redeploy (single key; no `_NEXT`, no revoked list).
+- Env: `CFO_PF_API_KEY` (server-only, ≥ 32 random bytes) on **Production** and on **Preview** with a different value (QA). Set only through CoS's secure form; never in chat, issues, logs or the repo. The key and the Authorization header are never logged.
+- No schema change, migration, table, dependency or provider.
+
+| Path | Returns (`data`) |
+|---|---|
+| `/api/cfo/pf` | `{ schema: "cfo-pf.v1", endpoints }` |
+| `/api/cfo/pf/months?from=yyyy-mm&to=yyyy-mm` | `{ months: { [yyyy-mm]: MonthLines } }` (stored months, past and future; both bounds optional) |
+| `/api/cfo/pf/months/:month` | `{ month, stored, lines \| null }` (no unsaved copy; bad month 400) |
+| `/api/cfo/pf/lines` | `{ expenses, income }` (shared accounts / categories / lines, deleted names included) |
+| `/api/cfo/pf/overview` | `{ overview, summary, netAssetsNow, basis }` (`summarize` as the page, #199 / #228 rules) |
+| `/api/cfo/pf/series?q=<url-encoded JSON { series, range }>` | the same body as `POST /api/personal-finance/series` (same `seriesQueryError` 400s, 413 above 4 KB) |
+| `/api/cfo/pf/scenario` | `{ scenario \| null, today }` (`orpheus.finance.scenario.v1` + `savedInputs`) |
+| `/api/cfo/pf/scenarios` | `{ scenarios: SavedEntry[] }` |
+| `/api/cfo/pf/scenarios/:id` | `{ scenario: SavedEntry }` (unknown id 404) |
+| `/api/cfo/pf/plans?month=yyyy-mm` | `{ plans: { [yyyy-mm]: { plan, comparison \| null } } }` (plans.v1 + `planFor` planned vs actual) |
+| `/api/cfo/pf/future` | `{ lastOpenMonth, months: [{ month, stored, lines \| null, copySource }] }` (current + 1 .. current + 12) |
+| `/api/cfo/pf/settings` | `{ currency, view, equity }` (currency.v1, view.v1, equity.v1) |
+| `/api/cfo/pf/fx?through=yyyy-mm` | `{ through, rates \| null }` (stored BoC monthly averages the record needs, `fx_rates`) |
+| `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
+
+- **Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified. The PR checklist (`.github/pull_request_template.md`) carries the same line. Docs are additions only.
+- 2026-10-23 #245 EL additions (spec §67.5 / §67.6, PFCFO-09..13): `/scenario` and `/scenarios/:id` add `projection` per horizon through the page's own `project`. Each month in `/months` adds `netAssets` (via `seriesValues`, #228) and `income` by person / currency with household totals at the month's stored BoC FX; missing FX is marked `missing` / null, never guessed. Docs are additions only.
+- 2026-10-23 note (`/api/cfo/pf/series`, #239 / PR #252, spec §71): a record with only Starting net assets saved returns one net-assets point at the current Toronto household month, equal to the start, with `net_assets_from` at that month; other months are null. The wrapper calls `seriesValues`, so it inherits this; #252 is merged into main (da114cf), so it applies now.
 - 2026-10-23 #247 (HIGH, Diego / CFO): Overview follows the selected month (spec §68, AC PFOS). On the main PF page the Overview table's first column is the SELECTED month (past, current or future), headed `This month` for the current month and `<Month YYYY>` otherwise (`pf-ov-now-head`, `data-month`). Its figures come from the same live `figures` map the page already builds (`liveLineFigures` + `typedOverCopy`), read through `monthFigures` for the selected key (`selectedFigures` in overview.ts), so an unsaved edit shows at once and nothing is written before Save. `summarize` and its `Summary` are UNCHANGED (averages, coverage, chart and Future still end at the current household month), so /series, /chart, export and the #245 `/api/cfo/pf/overview` are unaffected. The scenario screen passes no selection. Test: `src/components/personal-finance/overview-selected-month.dom.test.tsx` (found by `run-dom-tests.mjs`) and `src/lib/finance/overview-selected.test.ts` (in the explicit `npm test` list). No schema, table, env, provider or dependency change. Docs are additions only.
 - 2026-10-23 #204 (LOW, CFO; Phase 2 of #176): PF export Cyrillic (spec §69, AC PFCY). The two committed Noto Sans subsets (`src/lib/finance/fonts/`, OFL 1.1) now also cover U+0400–04FF; `FONTS.md` holds the new pyftsubset command and SHA-256s (the test takes the last `sha256` line per file). Bundled OFL font files are the only font source: no font CDN/provider, no new npm dependency, no `vercel.json` change. The PDF ToUnicode CMap lists only the glyphs the document draws, so PFX-14 (< 100 KB PDF) still holds. A rendering change still regenerates `qa/evidence/176/` crops with `export-golden/crops.ts`. CJK and emoji stay `?` (one per code point); the filename slug (Q-AO8) is unchanged.
 
