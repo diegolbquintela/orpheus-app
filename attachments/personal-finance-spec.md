@@ -2473,3 +2473,21 @@ Dated note 2026-10-23 (#204): Diego said yes via CoS on 2026-10-21; the CFO aske
 69.7 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFCY (PFCY-01..PFCY-08). Measured sizes and gate results are in the PR body (#204 PR).
 
 69.8 **Harness / docs.** AGENTS.md gets one dated #204 line. README is unchanged: no command, setup or deploy step changed. `qa/tools/pf-export-api.mjs` changes only its in-scope set (69.2); no new QA tool.
+
+
+## 70. Personal Finance: tap-target follow-up: saved-scenario Compare and charts-builder checkboxes (#236, TT1 + TT2 from #225, LOW, Diego / CFO; added 2026-10-23; built in the same PR)
+
+(2026-10-23 note: this builds Q-TT1 and Q-TT2 from #225 / PR #235. §62.4 is left as written.)
+
+70.1 **Scope.** Two checkboxes. TT1 is the saved-scenario Compare box (`pf-saved-compare`, §66 / #223) on the scenario screen. TT2 is the charts-builder Series boxes (`pf-builder-pick`, #161). Each must give a tap target of at least 44 CSS px tall at 390 and 1440 wide, with a width of at least 44 px. There are no visual or behaviour changes.
+
+70.2 **Measured (2026-10-23, before the change, local headless Chromium with the built CSS).** For TT1, the Compare label was 124 × 19.6 px, and 186 of 341 probe points in a 44 px band missed it. That applied at both widths. For TT2, `label.pf-builder-option` was already 44 px tall: 358 × 44 at 390 and 288 × 44 at 1440, with 0 probe misses (enabled and disabled).
+
+70.3 **Change.** TT1: the Compare label gets `pf-saved-compare-label` (`min-height: 2.75rem`). Its box (default size), text, colour and gaps are unchanged. The saved row was already 44 px tall because of its buttons, so the row height doesn't change at either width (measured 44 px at 1440 and 100 px wrapped at 390, before and after). After the change, the label is 124 × 44 with 0 misses. TT2: no CSS change. The existing 44 px is pinned by tests (PFTX-02 / -04).
+
+70.4 **No endpoint, dependency, table, migration, env or storage-key change.**
+
+70.5 **Q-items.**
+- Q-TX1: Should the Compare box itself grow from the browser default (13 px) to 20 px to match the other PF boxes? Recommendation: no, not in this PR, because it would be a visual change. **Not built.**
+- Q-TX2: Should `qa/tools/pf-scenario-e2e.mjs` measure the Compare label in the real browser (like PFTT-06)? Recommendation: yes, as a later QA-tool change. It needs a saved scenario on the preview record, and the tool is read-only. **Not built** (measured locally instead, 70.2 / 70.3).
+
