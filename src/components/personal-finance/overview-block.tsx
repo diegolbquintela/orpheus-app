@@ -42,6 +42,7 @@ import {
   type Summary,
   SURPLUS,
   FIGURES_LEAVE_OUT,
+  selectedFigures,
   summarize,
   surplusOf,
   THIS_MONTH,
@@ -79,6 +80,7 @@ export function OverviewBlock({
   rate = null,
   currency = "",
   fieldsInError = null,
+  selected = null,
 }: {
   overview: Overview;
   update: (change: (current: Overview) => Overview) => void;
@@ -99,11 +101,14 @@ export function OverviewBlock({
   currency?: string;
   /** #144 Q-V3 (c), PF-172: a field shows an error (the figures leave it out); null = read-only (no note). */
   fieldsInError?: boolean | null;
+  /** #247 (spec 68, PFOS): the month selected on the page; null = the current month (scenario screen, as before). */
+  selected?: MonthKey | null;
 }) {
   // #226 (spec 63, PFFG-01): on the scenario screen the Future line uses the chart's signed growth (bad → 0, as the chart).
   const scenarioScreen = useContext(PeriodChoice);
   const summary = summarize(overview, now, page, lines, undefined, scenarioScreen ? scenarioGrowthOrZero(overview.growth) : undefined);
   const coverage = overviewCoverage(overview, summary, rate);
+  const shown = selectedFigures(summary, overview, selected, page, lines);
   return (
     <>
       <section
@@ -134,7 +139,7 @@ export function OverviewBlock({
                   {FIGURES_LEAVE_OUT}
                 </p>
               )}
-              <OverviewTable thisMonth={summary.thisMonth} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12CountLabel(summary.window12, summary.window12WithData)} />
+              <OverviewTable shownKey={shown.key} headLabel={shown.key === summary.current ? THIS_MONTH : monthName(shown.key)} thisMonth={shown.figures} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12CountLabel(summary.window12, summary.window12WithData)} />
               <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
@@ -148,12 +153,17 @@ export function OverviewBlock({
 }
 
 function OverviewTable({
+  shownKey,
+  headLabel,
   thisMonth,
   average3,
   average,
   label3,
   label12,
 }: {
+  /** #247: the selected month and its header (`This month` for the current month, else `December 2026`). */
+  shownKey: MonthKey;
+  headLabel: string;
   thisMonth: Figures;
   average3: Figures;
   average: Figures;
@@ -172,8 +182,8 @@ function OverviewTable({
         <span role="columnheader" className="pf-label">
           <span className="sr-only">{OVERVIEW_TITLE}</span>
         </span>
-        <span role="columnheader" className="pf-label">
-          {THIS_MONTH}
+        <span role="columnheader" className="pf-label" data-testid="pf-ov-now-head" data-month={shownKey}>
+          {headLabel}
         </span>
         <span role="columnheader" className="pf-label" data-testid="pf-ov-avg3-head">
           {label3}

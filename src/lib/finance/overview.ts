@@ -207,6 +207,22 @@ export function monthFigures(
   };
 }
 
+/**
+ * #247 (spec 68, PFOS): the Overview's first column for the SELECTED month (past, current or future). The current month
+ * (or no selection) is `summary.thisMonth` exactly; any other month reads the same live figures through `monthFigures`
+ * (own lines, else typed totals, else null). `summarize` is untouched, so the averages, chart and Future stay as they were.
+ */
+export function selectedFigures(
+  summary: Pick<Summary, "current" | "thisMonth">,
+  overview: Overview,
+  selected: MonthKey | null | undefined,
+  page: PageFigures,
+  lines?: Record<MonthKey, Figures>,
+): { key: MonthKey; figures: Figures } {
+  if (!selected || selected === summary.current) return { key: summary.current, figures: summary.thisMonth };
+  return { key: selected, figures: monthFigures(overview, selected, summary.current, page, lines) };
+}
+
 const mean = (values: (number | null)[]): number | null => {
   const have = values.filter((v): v is number => v !== null);
   return have.length ? have.reduce((a, b) => a + b, 0) / have.length : null;

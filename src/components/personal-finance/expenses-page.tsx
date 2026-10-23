@@ -664,6 +664,7 @@ export function PersonalFinancePage({
                 rate={rateUsed(rates)}
                 currency={household.household}
                 fieldsInError={readOnly ? null : hasErrors}
+                selected={scenario ? null : month}
                 page={{
                   expenses: grandTotals(expenses, rateUsed(rates), household.household).monthly,
                   income: monthly(netIncomeYearly(income.people, household.household)),
