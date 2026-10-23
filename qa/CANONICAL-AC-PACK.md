@@ -1985,6 +1985,6 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFTW-05 A `PUT` without `baseVersion` → last write wins (legacy); `baseVersion` of another type → 400. (server)
 - PFTW-06 A write-grant person's PUT follows the same check; a 409 writes no audit row. (server)
 - PFTW-07 A saved-report write (default and named) leaves `version` unchanged, so the record tab still saves. (server)
-- PFTW-08 The page (real `loadAccountStore` on PGLite): another tab saves first → this tab's Save shows `Changed in another tab. Reload to see the latest, then save again.` in `pf-save`, edits stay on screen; two Saves in a row from one tab both succeed. (DOM)
+- PFTW-08 The page (real `loadAccountStore` on PGLite): another tab saves first → this tab's Save shows `Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.` in `pf-save`, edits stay on screen; two Saves in a row from one tab both succeed. (DOM)
 - PFTW-09 Scenario `Save scenario` sends the fresh GET's version; a 409 reports the reload message. (unit)
 - PFTW-10 The check is atomic: two PUTs with the same `baseVersion` sent together → exactly one 200 and one 409. (server)

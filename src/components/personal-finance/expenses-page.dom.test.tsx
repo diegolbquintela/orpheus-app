@@ -2400,7 +2400,7 @@ describe("#242 PFTW-08 / PFTW-09: another tab saved first → the reload message
     await act(async () => new Promise((r) => setTimeout(r, 50)));
     assert.equal(statuses.at(-1), 409);
     assert.equal(text(el, "pf-save"), STALE_MESSAGE);
-    assert.equal(text(el, "pf-save"), "Changed in another tab. Reload to see the latest, then save again.");
+    assert.equal(text(el, "pf-save"), "Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.");
     assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,500", "the edit stays");
     const kept = (await (await call("GET")).json()) as { data: Record<string, string> };
     assert.ok(!JSON.stringify(kept.data).includes("1500"), "nothing written");

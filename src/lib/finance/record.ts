@@ -13,7 +13,7 @@ import { VIEW_KEY } from "./view.ts";
  * section toggles), by name, each the JSON text the page's read / write helpers use. Shared by the page and the API (validation).
  */
 /** #242 (spec §73): the 409 reply / page message when another tab saved first. */
-export const STALE_MESSAGE = "Changed in another tab. Reload to see the latest, then save again.";
+export const STALE_MESSAGE = "Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.";
 
 export type PfRecord = Record<string, string>;
 
