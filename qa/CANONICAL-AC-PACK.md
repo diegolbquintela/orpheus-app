@@ -1976,3 +1976,15 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFTX-04: In the charts builder, each `pf-builder-pick` is the only control inside its `label.pf-builder-option`, and a click on the label toggles it. (DOM)
 - PFTX-05: Real browser at 390 and 1440: the Compare label and the builder option labels are ≥ 44 px tall and ≥ 44 px wide, with 0 `elementFromPoint` misses. The saved row height is unchanged. (manual / local; QA on the preview)
 
+
+## PFTW — two tabs: a stale save is refused (#242, personal-finance-spec §73; added 2026-10-23; MEDIUM, Diego)
+- PFTW-01 `GET /api/personal-finance` returns `version` (text) for a stored record and `null` with none. (server)
+- PFTW-02 A `PUT` with the current `baseVersion` saves (200) and returns a NEW `version`; a second PUT with that new version saves too. (server)
+- PFTW-03 Two tabs: tab A and tab B load the same version; A saves; B's save with the old version → 409 `{ code: "stale" }` with the reload message, and the stored record is A's, byte for byte. (server)
+- PFTW-04 `baseVersion: null` with a stored record → 409; with no record → 200 (created). A stale PUT on a deleted record → 409 (nothing recreated). (server)
+- PFTW-05 A `PUT` without `baseVersion` → last write wins (legacy); `baseVersion` of another type → 400. (server)
+- PFTW-06 A write-grant person's PUT follows the same check; a 409 writes no audit row. (server)
+- PFTW-07 A saved-report write (default and named) leaves `version` unchanged, so the record tab still saves. (server)
+- PFTW-08 The page (real `loadAccountStore` on PGLite): another tab saves first → this tab's Save shows `Changed in another tab. Reload to see the latest, then save again.` in `pf-save`, edits stay on screen; two Saves in a row from one tab both succeed. (DOM)
+- PFTW-09 Scenario `Save scenario` sends the fresh GET's version; a 409 reports the reload message. (unit)
+- PFTW-10 The check is atomic: two PUTs with the same `baseVersion` sent together → exactly one 200 and one 409. (server)
