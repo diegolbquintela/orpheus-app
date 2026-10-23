@@ -8,7 +8,7 @@ import { deflateSync, inflateSync } from "node:zlib";
 import { chartData } from "../chart.ts";
 import { buildPng, crc32, PNG_LAYOUT, pngText, type ExportMeta } from "../export.ts";
 import { GOLDEN_CASES, GOLDEN_NOW, GOLDEN_RECORD } from "./capture.ts";
-import { U5, U6, U7, U_NAME, U_NOW, U_RECORD, U_REPORT } from "./fixture-u.ts";
+import { U5, U6, U7, U8, U_NAME, U_NOW, U_RECORD, U_REPORT } from "./fixture-u.ts";
 
 type Box = { x: number; y: number; w: number; h: number };
 export type Crop = { name: string; pfu: string; text: string; box: Box; rgb: Buffer };
@@ -52,12 +52,14 @@ export function goldenCrops(): Crop[] {
   const fbRecord = JSON.parse(JSON.stringify(U_RECORD));
   const fbName = `${U5} ${U6} ${U7}`;
   const fb = render(U_REPORT, fbRecord, U_NOW, fbName);
+  const cy = render(U_REPORT, U_RECORD, U_NOW, U8);
   return [
     { name: "u-name", pfu: "PFU-04 / PFU-05", text: u.text.head[0], box: line(0), rgb: cut(u.png, line(0)) },
     { name: "u-legend-category", pfu: "PFU-04 / PFU-05", text: u.text.leg[0], box: leg(0), rgb: cut(u.png, leg(0)) },
     { name: "u-legend-account", pfu: "PFU-06 / PFU-07", text: u.text.leg[1], box: leg(1), rgb: cut(u.png, leg(1)) },
     { name: "golden-caveat", pfu: "PFU-11", text: net.text.head[cav], box: line(cav), rgb: cut(net.png, line(cav)) },
-    { name: "u-fallback", pfu: "PFU-08", text: fb.text.head[0], box: line(0), rgb: cut(fb.png, line(0)) },
+    { name: "u-fallback", pfu: "PFU-08 / PFCY-04", text: fb.text.head[0], box: line(0), rgb: cut(fb.png, line(0)) },
+    { name: "u-cyrillic", pfu: "PFCY-03 / PFCY-08", text: cy.text.head[0], box: line(0), rgb: cut(cy.png, line(0)) },
   ];
 }
 

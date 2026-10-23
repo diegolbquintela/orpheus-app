@@ -54,14 +54,27 @@
   {
     "name": "u-fallback",
     "file": "u-fallback.png",
-    "pfu": "PFU-08",
-    "text": "Orpheus - Personal Finance report: ?????????? ?? ?",
+    "pfu": "PFU-08 / PFCY-04",
+    "text": "Orpheus - Personal Finance report: Сбережения ?? ?",
     "box": {
       "x": 24,
       "y": 24,
       "w": 1152,
       "h": 18
     },
-    "rawRgbSha256": "0ff94de877c1b8c9395d9949164f121e22e87ae62ad649de9f739ddb5912c73b"
+    "rawRgbSha256": "a9eef3036bf8b0bd8f47a9f4ed189f3ee4c8a88460c47c7c82f16e0243b83ea2"
+  },
+  {
+    "name": "u-cyrillic",
+    "file": "u-cyrillic.png",
+    "pfu": "PFCY-03 / PFCY-08",
+    "text": "Orpheus - Personal Finance report: Продукты: Ёж, Їжак, Ґанок, Ђак, Џем, Ѣ",
+    "box": {
+      "x": 24,
+      "y": 24,
+      "w": 1152,
+      "h": 18
+    },
+    "rawRgbSha256": "b416ed2f461fb20b77471e3d7e7751482cbfcb6695955858fc126d17463a35a2"
   }
 ]

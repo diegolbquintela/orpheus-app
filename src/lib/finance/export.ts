@@ -127,16 +127,17 @@ const glyphs = (font: TrueTypeFont, s: string): number[] => [...printable(s)].ma
 /** #176 PFU-03: widths from the embedded font's `hmtx` (units per em 1000 in both subsets). */
 export const pdfTextWidth = (s: string, size: number, font: TrueTypeFont = FONT_REGULAR): number =>
   glyphs(font, s).reduce((a, g) => a + font.advance(g), 0) * (size / font.unitsPerEm);
-/** A hex string of 2-byte glyph ids (Identity-H). */
-const pdfText = (s: string, font: TrueTypeFont): string => `<${glyphs(font, s).map((g) => g.toString(16).padStart(4, "0")).join("")}>`;
 /** PDF text string for metadata: UTF-16BE with a BOM (#176 Q-AO9). */
 const pdfUtf16 = (s: string): string => `<FEFF${[...Buffer.from(s, "utf16le").swap16()].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase()}>`;
 export const PDF_FONT_NAMES = ["ORPHAA+NotoSans-Regular", "ORPHAB+NotoSans-Bold"] as const;
 
-/** A ToUnicode CMap for every code point the font maps (glyph id → its first code point). */
-function toUnicode(font: TrueTypeFont): string {
+/**
+ * A ToUnicode CMap (glyph id → its first code point). #204 (spec 50.13, Q-CY2): only the glyph ids the document draws
+ * (`used`), so the Cyrillic glyphs added to the subsets do not grow every PDF's CMap past the PFX-14 budget.
+ */
+function toUnicode(font: TrueTypeFont, used: ReadonlySet<number>): string {
   const byGid = new Map<number, number>();
-  for (const [cp, g] of [...font.cmap.entries()].sort((a, z) => a[0] - z[0])) if (!byGid.has(g)) byGid.set(g, cp);
+  for (const [cp, g] of [...font.cmap.entries()].sort((a, z) => a[0] - z[0])) if (used.has(g) && !byGid.has(g)) byGid.set(g, cp);
   const hex = (n: number, w: number) => n.toString(16).toUpperCase().padStart(w, "0");
   const utf16 = (cp: number) => [...Buffer.from(String.fromCodePoint(cp), "utf16le").swap16()].map((b) => hex(b, 2)).join("");
   const pairs = [...byGid.entries()].sort((a, z) => a[0] - z[0]);
@@ -158,6 +159,13 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
   const PH = 595;
   const M = 36;
   const pages: string[][] = [[]];
+  // #204: the glyph ids drawn with each font, for its ToUnicode CMap.
+  const used = new Map<TrueTypeFont, Set<number>>([[FONT_REGULAR, new Set()], [FONT_BOLD, new Set()]]);
+  const pdfText = (s: string, font: TrueTypeFont): string => {
+    const ids = glyphs(font, s);
+    for (const g of ids) used.get(font)?.add(g);
+    return `<${ids.map((g) => g.toString(16).padStart(4, "0")).join("")}>`;
+  };
   let y = PH - M;
   const put = (s: string) => pages[pages.length - 1].push(s);
   const room = (h: number) => {
@@ -216,7 +224,7 @@ export function buildPdf(d: ChartData, meta: ExportMeta): Buffer {
     const widths = Array.from({ length: font.numGlyphs }, (_, g) => Math.round((font.advance(g) * 1000) / font.unitsPerEm));
     add(`<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descId} 0 R /DW 1000 /W [0 [${widths.join(" ")}]] /CIDToGIDMap /Identity >>`);
     const cidId = objs.length;
-    const cmap = toUnicode(font);
+    const cmap = toUnicode(font, used.get(font) ?? new Set());
     add(`<< /Length ${Buffer.byteLength(cmap, "latin1")} >>\nstream\n${cmap}\nendstream`);
     const tuId = objs.length;
     objs[2 + k] = `<< /Type /Font /Subtype /Type0 /BaseFont /${name} /Encoding /Identity-H /DescendantFonts [${cidId} 0 R] /ToUnicode ${tuId} 0 R >>`;
