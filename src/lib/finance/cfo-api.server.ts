@@ -27,7 +27,12 @@ import { planFor } from "./plans.ts";
 import { readPlans } from "./plans-read.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import { readScenario } from "./scenario-key.ts";
-import { netBasis, savedInputs } from "./scenario.ts";
+import { HORIZONS, horizonLabel, netBasis, project, savedInputs, type Inputs } from "./scenario.ts";
+import { historicalRate, rateText, type MonthlyFx } from "./fx-history.ts";
+import { parseRate } from "./expenses.ts";
+import { incomeLines, isForeignPerson, monthly, personCurrency, personLabel, type Person } from "./income.ts";
+import { FIRST_MONTH } from "./months.ts";
+import type { CurrencyCode } from "./currency.ts";
 import { SERIES_MAX_BYTES, seriesQueryError, seriesValues, type SeriesQuery } from "./series.ts";
 import { readView } from "./view.ts";
 
@@ -63,6 +68,67 @@ export function cfoAuthorized(header: string | null, key: string | undefined): b
   return timingSafeEqual(sha(header ?? ""), sha(`Bearer ${key}`));
 }
 
+
+/**
+ * #245 (spec 67.5, PFCFO-09/10): the scenario screen's projection for every horizon, through the page's own
+ * `project` (scenario-page.tsx: `project(inputs, horizon)`; saved entries `project({ ...e.inputs, current }, horizon)`).
+ */
+export function projections(inp: Inputs) {
+  return HORIZONS.map((h) => {
+    const p = project(inp, h);
+    return { horizon: h, label: horizonLabel(h), surplus: p.totals.surplus, growth: p.totals.growthEarned, netAssets: p.totals.netEnd, totals: p.totals, points: p.points };
+  });
+}
+
+type FxMark = "household" | "historical" | "typed" | "missing";
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * #245 (spec 67.6, PFCFO-12/13): one month's income by person and by currency (monthly, counted net as the page
+ * counts it: `incomeLines`), each converted to the household currency with that month's stored BoC average
+ * (`historicalRate`), else the rate as typed; no valid rate = `fx: "missing"` and converted null (never guessed).
+ */
+export function incomeBreakdown(people: readonly Person[], month: string, household: CurrencyCode, fx: MonthlyFx | undefined) {
+  const persons = people.map((p, i) => {
+    const foreign = isForeignPerson(p, household);
+    const currency = foreign ? personCurrency(p, household) : household;
+    const own = incomeLines([{ ...p, foreign: false }], household).reduce((a, l) => a + (l.yearly ?? 0), 0);
+    const hist = foreign && fx ? historicalRate(fx, month, currency, household) : null;
+    const conv = incomeLines([hist !== null ? { ...p, rate: rateText(hist) } : p], household);
+    const missing = conv.some((l) => l.yearly === null);
+    const mark: FxMark = !foreign ? "household" : hist !== null ? "historical" : missing ? "missing" : "typed";
+    const yearly = missing ? null : conv.reduce((a, l) => a + (l.yearly as number), 0);
+    return { id: p.id, name: personLabel(p, i), currency, monthly: r2(monthly(own)), fx: mark, rate: !foreign ? 1 : (hist ?? parseRate(p.rate)), monthlyHousehold: yearly === null ? null : r2(monthly(yearly)) };
+  });
+  const byCurrency: Record<string, { monthly: number; monthlyHousehold: number | null; fxMissing: boolean }> = {};
+  for (const x of persons) {
+    const c = (byCurrency[x.currency] ??= { monthly: 0, monthlyHousehold: 0, fxMissing: false });
+    c.monthly = r2(c.monthly + x.monthly);
+    if (x.monthlyHousehold === null) c.fxMissing = true;
+    c.monthlyHousehold = c.fxMissing || c.monthlyHousehold === null ? null : r2(c.monthlyHousehold + (x.monthlyHousehold as number));
+  }
+  const fxMissing = persons.some((x) => x.monthlyHousehold === null);
+  const total = fxMissing ? null : r2(persons.reduce((a, x) => a + (x.monthlyHousehold as number), 0));
+  return { household, byPerson: persons, byCurrency, totalHousehold: total, fxMissing };
+}
+
+export const NET_BEFORE_ANCHOR = "No net assets before the anchor month (the as-of month, else the first month with figures; #228).";
+export const NET_FUTURE = "Future month: net assets are only counted through the current month (#228, the same as /series).";
+export const NET_NO_ANCHOR = "No net assets: no as-of month and no month with figures yet (#228).";
+
+/** #245 (spec 67.6, PFCFO-11): net assets per month through `/series`' own #228 rule (`seriesValues` net-assets). */
+function netAssetsByMonth(record: PfRecord | null, at: Date, fx: MonthlyFx | undefined, current: string) {
+  const r = seriesValues({ series: [{ kind: "metric", id: "net-assets" }], range: { from: FIRST_MONTH, to: current } } as SeriesQuery, record, at, undefined, fx);
+  const vals = r.series[0].values;
+  const map = new Map<string, number | null>(r.months.map((k, i) => [k, vals[i]]));
+  const anyNet = vals.some((v) => v !== null);
+  return (k: string) => {
+    if (k > current) return { netAssets: null, netAssetsNote: NET_FUTURE };
+    const v = map.get(k) ?? null;
+    return v === null ? { netAssets: null, netAssetsNote: anyNet ? NET_BEFORE_ANCHOR : NET_NO_ANCHOR } : { netAssets: v, netAssetsNote: null };
+  };
+}
+
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const notFound = (error = "Not found.") => dashboardJson({ error }, 404);
 
@@ -84,9 +150,13 @@ async function dataFor(rest: string, u: URL, db: Queryable, record: PfRecord | n
       return arg === undefined ? { data: { schema: CFO_SCHEMA, endpoints: CFO_ENDPOINTS } } : null;
     case "months": {
       const months = readMonths(s);
+      const household = readHousehold(s).household;
+      const fx = await readMonthlyFx(db, record, current);
+      const net = netAssetsByMonth(record, at, fx, current);
+      const monthExtras = async (k: string) => ({ ...net(k), income: incomeBreakdown(months[k]?.people ?? [], k, household, fx) });
       if (arg !== undefined) {
         if (!MONTH.test(arg)) return { response: badRequest("month must be yyyy-mm.") };
-        return { data: { month: arg, stored: arg in months, lines: months[arg] ?? null } };
+        return { data: { month: arg, stored: arg in months, lines: months[arg] ?? null, ...(await monthExtras(arg)) } };
       }
       const from = monthParam(u, "from");
       const to = monthParam(u, "to");
@@ -94,7 +164,9 @@ async function dataFor(rest: string, u: URL, db: Queryable, record: PfRecord | n
       const keep = Object.keys(months)
         .filter((k) => (!from || k >= (from as string)) && (!to || k <= (to as string)))
         .sort();
-      return { data: { months: Object.fromEntries(keep.map((k) => [k, months[k]])) } };
+      const out: Record<string, unknown> = {};
+      for (const k of keep) out[k] = { ...months[k], ...(await monthExtras(k)) };
+      return { data: { months: out } };
     }
     case "lines":
       return arg === undefined ? { data: { expenses: readExpenses(s), income: readIncome(s) } } : null;
@@ -124,12 +196,16 @@ async function dataFor(rest: string, u: URL, db: Queryable, record: PfRecord | n
       return { data: seriesValues(body as SeriesQuery, record, at, undefined, fx) };
     }
     case "scenario":
-      return arg === undefined ? { data: { scenario: readScenario(record), today: savedInputs(record, at) } } : null;
+      if (arg !== undefined) return null;
+      {
+        const today = savedInputs(record, at);
+        return { data: { scenario: readScenario(record), today, projection: projections(today) } };
+      }
     case "scenarios": {
       const saved = readScenario(record)?.saved ?? [];
       if (arg === undefined) return { data: { scenarios: saved } };
       const one = saved.find((x) => x.id === arg);
-      return one ? { data: { scenario: one } } : { response: notFound() };
+      return one ? { data: { scenario: one, projection: projections({ ...one.inputs, current }) } } : { response: notFound() };
     }
     case "plans": {
       if (arg !== undefined) return null;

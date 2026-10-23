@@ -9,6 +9,8 @@ import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
 import { PLANS_KEY } from "./plans-key.ts";
 import { SCENARIO_KEY } from "./scenario-key.ts";
+import { HORIZONS, project, savedInputs } from "./scenario.ts";
+import { NET_BEFORE_ANCHOR, NET_FUTURE } from "./cfo-api.server.ts";
 
 // #245 (spec section 67, PFCFO-01..PFCFO-08): GET /api/cfo/pf/* on PGlite (migrations 0010-0012, unchanged) with a
 // test-only key (random per run, never a real one) and a fixed clock. alice owns (ORPHEUS_OWNER_EMAIL); bob has his
@@ -30,10 +32,12 @@ const call = (path: string, { method = "GET", auth = `Bearer ${KEY}`, e = env as
     { env: e, getDb: async () => db, now: () => NOW },
   );
 const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "Chequing", currency: "", rate: "", category: "Home" });
+const P = (id: string, wages: string, foreign = false, currency = "", rate = "") => ({ id, name: id, wages, bonus: "", tax: "0", share: "100", countWages: true, countBonus: false, foreign, currency, rate });
 const ALICE = {
   [STORAGE_KEY]: JSON.stringify({ fixed: [L("rent", "1000")], variable: [], accounts: ["Chequing"], categories: ["Home"] }),
   [MONTHS_KEY]: JSON.stringify({
-    "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [] },
+    "2026-09": { fixed: [L("rent", "1000")], variable: [], people: [P("ana", "120000"), P("ben", "12000", true, "USD", "0.5")] },
+    "2026-08": { fixed: [L("rent", "1000")], variable: [], people: [P("ana", "120000"), P("ben", "12000", true, "USD", "")] },
     "2026-12": { fixed: [L("rent", "1100")], variable: [], people: [] },
   }),
   [OVERVIEW_KEY]: JSON.stringify({ start: "10000", growth: "", future: false, years: 1, months: {} }),
@@ -55,6 +59,8 @@ before(async () => {
   // A past plan is kept from the stored value only (#231 mergePlansText), so it is seeded directly.
   await pg.query("UPDATE personal_finance SET data = data || jsonb_build_object($1::text, $2::text) WHERE user_id = 'alice'", [PLANS_KEY, ALICE[PLANS_KEY]]);
   await pg.query("INSERT INTO personal_finance (user_id, data) VALUES ('bob', $1::jsonb)", [JSON.stringify({ [STORAGE_KEY]: JSON.stringify({ fixed: [L(BOB_SECRET, "5")], variable: [], accounts: [], categories: [] }) })]);
+  // #245 PFCFO-13: stored BoC rows for USD in September only (1.40 CAD per USD); August has none.
+  for (const d of ["2026-09-01", "2026-09-02"]) await pg.query("INSERT INTO fx_rates (quote, rate_date, cad_per_unit, source) VALUES ('USD', $1, '1.40', 'BOC')", [d]);
   writes.length = 0;
 });
 
@@ -126,7 +132,7 @@ describe("#245 PFCFO-05 shapes", () => {
   };
   it("index lists every endpoint", async () => assert.deepEqual((await data("/api/cfo/pf")).endpoints, [...CFO_ENDPOINTS]));
   it("months + range + one month", async () => {
-    assert.deepEqual(Object.keys((await data("/api/cfo/pf/months")).months), ["2026-09", "2026-12"]);
+    assert.deepEqual(Object.keys((await data("/api/cfo/pf/months")).months), ["2026-08", "2026-09", "2026-12"]);
     assert.deepEqual(Object.keys((await data("/api/cfo/pf/months?from=2026-10")).months), ["2026-12"]);
     const one = await data("/api/cfo/pf/months/2026-09");
     assert.equal(one.stored, true);
@@ -168,6 +174,72 @@ describe("#245 PFCFO-05 shapes", () => {
     assert.equal((await call("/api/cfo/pf/fx?through=bad")).status, 400);
   });
   it("unknown path 404", async () => assert.equal((await call("/api/cfo/pf/nope")).status, 404));
+});
+
+describe("#245 PFCFO-09..13 (2026-10-23 additions): projections, net assets, income by person / currency", () => {
+  const data = async (p: string) => ((await (await call(p)).json()) as { data: any }).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const rec = async () => (await pg.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = 'alice'")).rows[0].data;
+  it("PFCFO-09 /scenario: one projection per horizon, exactly the page's project(savedInputs)", async () => {
+    const d = await data("/api/cfo/pf/scenario");
+    const inp = savedInputs(await rec(), NOW);
+    assert.deepEqual(d.projection.map((x: { horizon: number }) => x.horizon), [...HORIZONS]);
+    for (const [i, h] of HORIZONS.entries()) {
+      const p = project(inp, h);
+      assert.deepEqual(d.projection[i].points, p.points);
+      assert.deepEqual(d.projection[i].totals, p.totals);
+      assert.equal(d.projection[i].surplus, p.totals.surplus);
+      assert.equal(d.projection[i].growth, p.totals.growthEarned);
+      assert.equal(d.projection[i].netAssets, p.totals.netEnd);
+    }
+  });
+  it("PFCFO-10 /scenarios/:id: the compare's project({ ...inputs, current }) per horizon", async () => {
+    const d = await data("/api/cfo/pf/scenarios/s1");
+    const inp = { ...d.scenario.inputs, current: "2026-10" };
+    for (const [i, h] of HORIZONS.entries()) assert.deepEqual(d.projection[i].totals, project(inp, h).totals);
+    assert.equal(d.projection[0].points[0].key, "2026-10");
+  });
+  it("PFCFO-11 netAssets per month = /series net-assets (#228); before the anchor and future: null + note", async () => {
+    const q = encodeURIComponent(JSON.stringify({ series: [{ kind: "metric", id: "net-assets" }], range: { from: "2026-07", to: "2026-10" } }));
+    const ser = await data(`/api/cfo/pf/series?q=${q}`);
+    const at = (k: string) => ser.series[0].values[ser.months.indexOf(k)];
+    const all = (await data("/api/cfo/pf/months")).months;
+    assert.equal(typeof all["2026-09"].netAssets, "number");
+    assert.equal(all["2026-09"].netAssets, at("2026-09"));
+    assert.equal(all["2026-08"].netAssets, at("2026-08"));
+    assert.equal((await data("/api/cfo/pf/months/2026-09")).netAssets, at("2026-09"));
+    const before = await data("/api/cfo/pf/months/2026-07");
+    assert.equal(before.netAssets, at("2026-07"));
+    if (before.netAssets === null) assert.equal(before.netAssetsNote, NET_BEFORE_ANCHOR);
+    const early = await data("/api/cfo/pf/months/2021-01");
+    assert.equal(early.netAssets, null);
+    assert.equal(early.netAssetsNote, NET_BEFORE_ANCHOR);
+    assert.equal(all["2026-12"].netAssets, null);
+    assert.equal(all["2026-12"].netAssetsNote, NET_FUTURE);
+  });
+  it("PFCFO-12 income by person and by currency (monthly counted net, own currency)", async () => {
+    const inc = (await data("/api/cfo/pf/months/2026-09")).income;
+    assert.equal(inc.household, "CAD");
+    const [ana, ben] = inc.byPerson;
+    assert.deepEqual([ana.name, ana.currency, ana.monthly, ana.fx, ana.monthlyHousehold], ["ana", "CAD", 10000, "household", 10000]);
+    assert.deepEqual([ben.name, ben.currency, ben.monthly], ["ben", "USD", 1000]);
+    assert.equal(inc.byCurrency.CAD.monthly, 10000);
+    assert.equal(inc.byCurrency.USD.monthly, 1000);
+  });
+  it("PFCFO-13 household totals use the month's stored BoC FX; missing FX is marked, never guessed", async () => {
+    const sep = (await data("/api/cfo/pf/months/2026-09")).income;
+    const ben = sep.byPerson[1];
+    assert.equal(ben.fx, "historical");
+    assert.equal(ben.monthlyHousehold, 1400); // 1000 USD × 1.40 (stored), not the typed 0.5
+    assert.equal(sep.totalHousehold, 11400);
+    assert.equal(sep.fxMissing, false);
+    const aug = (await data("/api/cfo/pf/months/2026-08")).income;
+    assert.deepEqual([aug.byPerson[1].fx, aug.byPerson[1].monthlyHousehold, aug.byPerson[1].rate], ["missing", null, null]);
+    assert.equal(aug.totalHousehold, null);
+    assert.equal(aug.fxMissing, true);
+    assert.equal(aug.byCurrency.USD.monthlyHousehold, null);
+    assert.equal(aug.byCurrency.USD.fxMissing, true);
+    assert.equal(aug.byCurrency.CAD.monthlyHousehold, 10000);
+  });
 });
 
 describe("#245 PFCFO-06 zero writes, key never logged", () => {

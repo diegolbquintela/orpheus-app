@@ -2433,3 +2433,23 @@ Dated note 2026-10-23 (#245): approved by Diego via CoS as a one-off exception t
 
 ### 67.4 AC (PFCFO, qa/CANONICAL-AC-PACK.md)
 PFCFO-01..PFCFO-08.
+
+### 67.5 Dated note 2026-10-23 (#245, EL addition a): scenario projections
+- `/api/cfo/pf/scenario` adds `projection`: one entry per horizon in `HORIZONS` (12, 36, 60, 120 months), each `{ horizon, label, surplus, growth, netAssets, totals, points }`, from the scenario page's own `project(savedInputs(record, now), horizon)`. That is the screen as it opens from the saved record. `surplus` = `totals.surplus`, `growth` = `totals.growthEarned`, `netAssets` = `totals.netEnd`.
+- `/api/cfo/pf/scenarios/:id` adds the same `projection`, from the compare view's `project({ ...entry.inputs, current }, horizon)`.
+- The projection math is not reimplemented anywhere (`projections()` in `cfo-api.server.ts` only calls `project`).
+
+### 67.6 Dated note 2026-10-23 (#245, EL addition b): per-month net assets and income breakdown
+- Each month in `/api/cfo/pf/months` and `/api/cfo/pf/months/:month` adds `netAssets` and `netAssetsNote`.
+  - The values come from `/series`' own net-assets metric (`seriesValues`, the #228 rule): Starting net assets at the as-of month (else at the first month with figures), plus each month's own surplus, with no average fill.
+  - A month before the anchor is `null` with a note. A future month is `null` with a note, because net assets are counted only through the current month. With no anchor at all, the value is `null` and the note says so.
+- Each month also adds `income`: `{ household, byPerson, byCurrency, totalHousehold, fxMissing }`, all monthly counted net as the page counts it (`incomeLines`).
+  - Each person is `{ id, name, currency, monthly (own currency), fx, rate, monthlyHousehold }`.
+  - `fx` is one of:
+    - `household`: no conversion.
+    - `historical`: that month's stored BoC average from `fx_rates`, via `historicalRate`, the same as `/series`.
+    - `typed`: no stored average, so the rate as typed.
+    - `missing`: no stored average and a blank or invalid typed rate. Then `monthlyHousehold` and `rate` are `null`, never guessed.
+  - `byCurrency` sums per currency: `monthlyHousehold` is `null` and `fxMissing: true` when any person in that currency is missing FX. `totalHousehold` is `null` and `fxMissing` is true when any person is.
+- No schema change, table, dependency or env.
+- AC PFCFO-09..PFCFO-13.
