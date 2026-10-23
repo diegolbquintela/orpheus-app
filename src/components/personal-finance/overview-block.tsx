@@ -105,8 +105,9 @@ export function OverviewBlock({
   selected?: MonthKey | null;
 }) {
   // #226 (spec 63, PFFG-01): on the scenario screen the Future line uses the chart's signed growth (bad → 0, as the chart).
+  // #241 (spec 74, PFAV): and the chart's surplus (the current month's), not the 12-month average.
   const scenarioScreen = useContext(PeriodChoice);
-  const summary = summarize(overview, now, page, lines, undefined, scenarioScreen ? scenarioGrowthOrZero(overview.growth) : undefined);
+  const summary = summarize(overview, now, page, lines, undefined, scenarioScreen ? scenarioGrowthOrZero(overview.growth) : undefined, scenarioScreen);
   const coverage = overviewCoverage(overview, summary, rate);
   const shown = selectedFigures(summary, overview, selected, page, lines);
   return (

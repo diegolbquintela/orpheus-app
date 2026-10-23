@@ -269,6 +269,11 @@ export function summarize(
   timeZone: string = HOUSEHOLD_TIME_ZONE,
   /** #226 (spec 63, PFFG-01): the scenario screen's signed growth % (negative allowed); omitted = the main rule. */
   signedGrowth?: number,
+  /**
+   * #241 (spec 74, PFAV-01): the scenario screen: each Future month adds the current month's surplus (income − expenses,
+   * a missing figure 0), the chart's surplus (`overviewNow` → `project`), not the 12-month average.
+   */
+  chartSurplus = false,
 ): Summary {
   const months = lastTwelve(now, timeZone);
   const current = months[months.length - 1];
@@ -314,7 +319,8 @@ export function summarize(
     // growth only on a positive opening balance (a negative or zero balance no longer grows more negative).
     // #226 (spec 63, PFFG-01..03): on the scenario screen the caller passes the signed growth the chart uses.
     const rM = monthlyRate(signedGrowth ?? orZero(overview.growth));
-    const avgSurplus = surplusOf(average);
+    const cur = points[points.length - 1];
+    const avgSurplus = chartSurplus ? (cur.income ?? 0) - (cur.expenses ?? 0) : surplusOf(average);
     let key = current;
     for (let i = 0; i < overview.years * 12; i++) {
       key = nextMonth(key);
