@@ -2456,3 +2456,121 @@ PFCFO-01..PFCFO-08.
 
 ### 67.7 Dated note 2026-10-23 (#245, BA1): one log line per instance
 - While `CFO_PF_API_KEY` is unset, the server logs `[cfo-pf] CFO_PF_API_KEY is not set; refusing every request.` at most once per server instance (a module-level flag), never per request and never with a value. Every request is still 401. AC PFCFO-14.
+
+## 68. Personal Finance: Overview follows the selected month (#247, HIGH, Diego / CFO; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23 (#247): main PF page only. Diego: "future months personal finance — when I update something, the Overview section is not getting updated with the month's value. This section should assume the month's view and state." This supersedes §59.6 Q-FM4's "Opening a future month shows the same Overview as the current month" for the Overview table's first column only; §59.6 is otherwise unchanged and its text is left as written (additions only). Numbered 68 because §67 is #245 (PR #246, not on main yet).
+
+### 68.1 Rule
+- The Overview table's first column shows the **selected** month's Expenses, Income and Surplus: the month chosen in the Month / Year control (past, current, or future up to `lastOpenMonth`).
+- Header: `This month` when the selected month is the current household month (unchanged), else the month's name, `December 2026` (`monthName`). `data-testid="pf-ov-now-head"`, `data-month="<yyyy-mm>"`.
+- Figures: the same live map the page already builds (`liveLineFigures` over the stored months with the shown month's on-screen lines, then `typedOverCopy` for the current month), read for the selected key with `selectedFigures` (= `monthFigures`, the #112 decision 7 order: the month's own lines, else its typed Update totals, else `—`). So an empty future month shows its unsaved copy's figures (§59.2), a saved one its own lines (§59.3), and every edit shows at once, before Save (#144). The current month is exactly `summary.thisMonth` (no change).
+- Nothing is written by selecting, editing or switching months; writes still happen only on Save / Reset / section toggles, as before.
+- Unchanged: the 3- and 12-month averages (complete months, C7 / #140), equity coverage, the chart and the Future projection all stay anchored at the current household month (`summarize` and `Summary` are not changed).
+- Read users: the selected month's saved figures (read-only Overview figures, #166).
+- Scenario screen: no month control; it passes no selection and is unchanged (§57 / §63).
+
+### 68.2 Endpoint impact (standing rule)
+- **No PF endpoint changes.** No route, request, response, record name or field is added or changed. `GET /api/personal-finance`, `/series`, `/chart` and the export are untouched.
+- **`/api/cfo/pf/overview` (#245, PR #246, branch `feat/cfo-pf-api-245`, `src/lib/finance/cfo-api.server.ts`): not affected.** It calls `readOverview` + `savedOverviewFigures(s, current)` + `summarize(overview, at, page, lines)` at the current household month. This PR leaves `summarize`, `Summary`, `monthFigures`, `savedOverviewFigures` and `readOverview` byte-for-byte unchanged (the new `selectedFigures` is a separate export), so its response is identical before and after. It has no "selected month" (a server has no UI selection), so its `summary.thisMonth` remains the current month, which equals the main page's Overview when the current month is selected. Q-OS4 covers whether the CFO wants a `?month=` on it.
+- CFO notification: this section + the PR body; the parent notifies CFO.
+
+### 68.3 Acceptance criteria (PFOS)
+- PFOS-01: current month selected → `This month`, October's own figures (unchanged).
+- PFOS-02: saved future month selected → that month's Expenses / Income / Surplus, headed `December 2026`, `data-month=2026-12`.
+- PFOS-03: past month selected → its own figures, headed by its name.
+- PFOS-04: editing a line on a future month updates the column at once, `Unsaved changes` shows, and no `localStorage.setItem` happens before Save (record unchanged).
+- PFOS-05: an empty future month shows its unsaved copy's figures and follows edits live.
+- PFOS-06: switching months (future → past → current) follows the selection every time.
+- PFOS-07: averages (3- and 12-month) do not change when a future month is selected.
+- PFOS-08: Read users see the selected month's saved figures with its name.
+- PFOS-09 (unit, `overview-selected.test.ts`): `selectedFigures` equals `summary.thisMonth` for the current month, returns the month's own lines / typed totals / null for others, and `summarize` output is unchanged by the selection.
+
+### 68.4 Questions (CFO)
+- **Q-OS1 (not built, recommend keep):** the chart, equity coverage and the Future projection stay anchored at the current month. Re-anchoring them at a future month would mix plans into net assets; a later ticket on yes.
+- **Q-OS2 (not built, recommend keep):** the averages stay complete-month windows ending before the current month (a future month never counts, §59.6 Q-FM2 / Q-FM4).
+- **Q-OS3 (not built, recommend later ticket):** a Read user on an EMPTY future month sees `—` (the saved record has no lines there), while the page body shows the copy read-only. Alternative: count the copy for Read users too (display only).
+- **Q-OS4 (not built, wire-changing, recommend later ticket on CFO yes):** add `?month=yyyy-mm` to `/api/cfo/pf/overview` (#245) so the API can return a selected month's figures. Not done: it changes the #245 wire and #245 is not merged.
+- **Q-OS5 (built, recommend accept):** the column header names the month (`December 2026`) instead of `This month` when another month is selected.
+- **Q-OS6 (built, recommend accept; supersedes part of #166 Q-AN1 / EL V2-W1 for the visible column):** #166 said the current month's figure (stored lines > typed Update > copy) shows "whichever month is shown". With #247 the first column shows the SELECTED month, so that rule is visible only when the current month is selected; it still drives the current month everywhere else (chart, net assets, /series, /chart, export, #245). Existing tests that pinned the current month's figure while another month was shown were moved to the selected month's figure with `#247` comments (PF-27/PF-49..54, PF-159, PFM-06..09, PFD-07, PFTM-08 V2 and W1); their averages checks are unchanged.
+
+### 68.5 Notes
+- 2026-10-23: no README change (no new route, command or setup step) and no `qa/tools` change (no new endpoint or write path; the jsdom tests cover the page, and `vite build` is the QA gate for this ticket).
+
+## 69. Report export: Cyrillic in PDF and PNG (#204, LOW, CFO; Phase 2 of #176 / spec 50; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23 (#204): Diego said yes via CoS on 2026-10-21; the CFO asked for it because Diego is likely to use Russian-language labels. This section extends spec 50 (50.1 coverage, 50.5 fallback, 50.9 sizes, 50.10 fallback crop). Nothing in 50 is removed; where they differ, this section wins. Numbered 69 because §67 is #245 (PR #246, not on main yet) and §68 is #247.
+
+69.0 **Problem (facts at eb820ad).** The embedded Noto Sans subsets cover only spec 50.9's set (Y6). Cyrillic text such as fixture U5 `Сбережения` prints one `?` per code point in both the PDF and the PNG (PFU-08). The data JSON already keeps it.
+
+69.1 **Goal.** Both weights also cover the whole **Cyrillic block U+0400–U+04FF** (256 code points: Russian, Ukrainian, Belarusian, Serbian, Macedonian, Bulgarian, Kazakh and others, plus historic letters). These print verbatim in the PDF (through ToUnicode) and the PNG (rasterizer).
+- Unchanged: values, layout, the 36.11 caveat, `Rendered as lines`, the fail-closed audit, the data JSON, the route and the filename slug (Q-AO8: `Сбережения` → `-` runs, as today).
+- Still out of scope, still one `?` per code point (50.5): Cyrillic Supplement and Extended (U+0500 and up, e.g. `Ԥ` U+0524), Greek, CJK and emoji.
+
+69.2 **Where.** Server only: the two `.ttf` subsets, their base64 module and `FONTS.md` under `src/lib/finance/fonts/`, plus `export.ts` (ToUnicode, 69.4). **No endpoint, wire, data, flag, env, table, storage-key or UI change.** No new npm dependency and no font CDN / provider: the font files are committed (OFL 1.1). `qa/tools/pf-export-api.mjs` learns the wider in-scope set so its signed-in title check stays correct.
+
+69.3 **Font (for the CFO).** Same upstream as 50.9 (Noto Sans, notofonts.github.io at `28b15b4`, upstream SHA-256s unchanged in `FONTS.md`), **SIL Open Font License 1.1**, which allows embedding and redistribution with `OFL.txt` (already committed). The pyftsubset command only adds `U+0400-04FF`.
+- `NotoSans-Regular-subset.ttf`: 21,748 → **42,204 bytes**.
+- `NotoSans-Bold-subset.ttf`: 21,696 → **42,128 bytes**.
+- The base64 module and the function size grow accordingly (measured numbers in 69.7).
+
+69.4 **PFX-14 budget (< 100 KB PDF).** With the bigger fonts and the 50.9 ToUnicode (every mapped code point), the 12 series × 24 months PDF measured 110,475 bytes: over budget. **Fix (Q-CY2):** each font's ToUnicode CMap lists only the glyph ids that document draws. Text extraction is unchanged for every drawn glyph (PFU-01 still decodes through ToUnicode); measured 95,219 bytes. The fonts stay whole subsets (no per-document re-subsetting, which would need a TrueType writer).
+
+69.5 **Fixture.** Fixture U is unchanged. U5 `Сбережения` is now in scope. New strings:
+- **U8** (38 characters, fits CATEGORY_MAX 40): `Продукты: Ёж, Їжак, Ґанок, Ђак, Џем, Ѣ` — Russian, Ukrainian (Ї Ґ), Serbian (Ђ Џ) and a historic letter (Ѣ U+0462).
+- **U9:** `Ԥ` (U+0524, Cyrillic Supplement), out of scope: one `?`.
+- The fallback report (`U_FALLBACK_NAME` `貯金 🏠`, category U5) now prints title `?? ?` and legend `1. Сбережения (category, flow)`.
+- The 50.10 golden crop `u-fallback` (name `Сбережения 貯金 🏠`) now prints `Orpheus - Personal Finance report: Сбережения ?? ?`; its crop is regenerated. A new crop `u-cyrillic` renders the name U8.
+
+69.6 **Q-calls (CFO / EL), each with a recommendation:**
+- **Q-CY1 Coverage:** **rec** the full basic Cyrillic block U+0400–04FF (+~20 KB per weight), not only the 66 Russian letters (+~6 KB): Ukrainian, Serbian and Kazakh names then work too. Supplement (U+0500+) and Greek stay out. **Built.**
+- **Q-CY2 PDF budget:** **rec** ToUnicode lists only drawn glyphs (69.4). Alternatives: raise PFX-14 (a CFO budget change), or re-subset fonts per document (more code, no dependency). **Built.**
+- **Q-CY3 Font-size limit (PFU-14):** **rec** raise the per-weight limit from 32,768 to **49,152 bytes (48 KiB)**; measured 42,204 / 42,128. **Built** (PFCY-06).
+- **Q-CY4 Font source:** **rec** same committed OFL subsets, no CDN / provider, no new dependency; `FONTS.md` gets a dated #204 section (the test reads the last checksum line per file). **Built.**
+- **Q-CY5 Filename slug:** **rec** unchanged (Q-AO8 as the ticket says): Cyrillic in the name becomes `-` in the filename. Transliteration would be a separate ticket. **Not built** (by design).
+- **Q-CY6 Greek / Cyrillic Supplement:** **rec** not now; on request only (Greek ≈ +10 KB per weight). **Not built.**
+
+69.7 **ACs:** `qa/CANONICAL-AC-PACK.md` section PFCY (PFCY-01..PFCY-08). Measured sizes and gate results are in the PR body (#204 PR).
+
+69.8 **Harness / docs.** AGENTS.md gets one dated #204 line. README is unchanged: no command, setup or deploy step changed. `qa/tools/pf-export-api.mjs` changes only its in-scope set (69.2); no new QA tool.
+
+
+## 70. Personal Finance: tap-target follow-up: saved-scenario Compare and charts-builder checkboxes (#236, TT1 + TT2 from #225, LOW, Diego / CFO; added 2026-10-23; built in the same PR)
+
+(2026-10-23 note: this builds Q-TT1 and Q-TT2 from #225 / PR #235. §62.4 is left as written.)
+
+70.1 **Scope.** Two checkboxes. TT1 is the saved-scenario Compare box (`pf-saved-compare`, §66 / #223) on the scenario screen. TT2 is the charts-builder Series boxes (`pf-builder-pick`, #161). Each must give a tap target of at least 44 CSS px tall at 390 and 1440 wide, with a width of at least 44 px. There are no visual or behaviour changes.
+
+70.2 **Measured (2026-10-23, before the change, local headless Chromium with the built CSS).** For TT1, the Compare label was 124 × 19.6 px, and 186 of 341 probe points in a 44 px band missed it. That applied at both widths. For TT2, `label.pf-builder-option` was already 44 px tall: 358 × 44 at 390 and 288 × 44 at 1440, with 0 probe misses (enabled and disabled).
+
+70.3 **Change.** TT1: the Compare label gets `pf-saved-compare-label` (`min-height: 2.75rem`). Its box (default size), text, colour and gaps are unchanged. The saved row was already 44 px tall because of its buttons, so the row height doesn't change at either width (measured 44 px at 1440 and 100 px wrapped at 390, before and after). After the change, the label is 124 × 44 with 0 misses. TT2: no CSS change. The existing 44 px is pinned by tests (PFTX-02 / -04).
+
+70.4 **No endpoint, dependency, table, migration, env or storage-key change.**
+
+70.5 **Q-items.**
+- Q-TX1: Should the Compare box itself grow from the browser default (13 px) to 20 px to match the other PF boxes? Recommendation: no, not in this PR, because it would be a visual change. **Not built.**
+- Q-TX2: Should `qa/tools/pf-scenario-e2e.mjs` measure the Compare label in the real browser (like PFTT-06)? Recommendation: yes, as a later QA-tool change. It needs a saved scenario on the preview record, and the tool is read-only. **Not built** (measured locally instead, 70.2 / 70.3).
+
+
+## 71. Personal Finance: /series returns the start when only Starting net assets is saved (#239, NA2 from #228, MEDIUM, Diego / CFO; added 2026-10-23; built in the same PR)
+
+71.1 **Problem.** With only a Starting net assets saved (no month, no copy, no as-of month), `POST /api/personal-finance/series` returned `net_assets_from: null` and every net-assets value `null`, while the Overview (§64, AQ1) shows the start as 'Net assets now'.
+
+71.2 **Rule (built).** The net-assets anchor is: the as-of month (§42), else the first month with data (Q-AA10), else, NEW, the current household month when Starting net assets is typed (`typedFigure(start) !== null`), else none. Net assets at the end of the anchor month = start + that month's own surplus (none here), so the start shows as one point at the current month. Months before it are `null` (as before the anchor today).
+
+71.3 **Endpoint behaviour change (`/series`).** Request unchanged (`{ series, range }`, §36). Response shape unchanged (`SeriesResult`); only values change for a start-only record:
+- `net_assets_from`: the current household month (was `null`);
+- net-assets `values`: the start at the current month's index, `null` elsewhere (was all `null`);
+- `range` / `months` / `current` / `partial` / `fx_basis` / `currency`: unchanged (`all` already gave the current month alone).
+Edge cases: a custom range ending before the current month has no point (all `null`) but still reports `net_assets_from`; an empty start (nothing typed) keeps no anchor; a typed `0` counts as typed (point 0), matching the Overview; income / expenses / surplus / line / account / category / group series are unchanged; any record with a month or an as-of month is byte-for-byte unchanged. `/chart` reads its own path and is not changed here.
+
+71.4 **CFO wrapper (#246, `/api/cfo/pf/series`, `src/lib/finance/cfo-api.server.ts`).** Not on main at 439a7c0 (PR #246 open). It calls `seriesValues` directly (`series` and the per-month net assets of `net-assets`), so once merged it **is affected** in the same way: a start-only record gets the start as the current month's point instead of nothing. No code change in #246 is needed; its docs should cite §71.
+
+71.5 **AC pack PFSN** (`src/lib/finance/series-start-only.test.ts`): PFSN-01 `all` → one month, value = start, `net_assets_from` = current; PFSN-02 `12m` → 11 nulls then the start; PFSN-03 range before the current month → all null, anchor still reported; PFSN-04 nothing typed → no anchor; PFSN-05 income / expenses / surplus stay null; PFSN-06 a saved month keeps its anchor (unchanged); PFSN-07 an as-of month still wins (unchanged).
+
+71.6 **CFO questions.**
+- **Q-SN1 (built):** what point does the start create? Recommend: one net-assets point equal to the start (value at the END of the anchor month, the start plus that month's surplus, none here). Built.
+- **Q-SN2 (built):** which month? Recommend: the current household month (Toronto), the same as the Overview's AQ1 'now'. Built.
+- **Q-SN3 (built):** how does it combine with later months? Recommend: as soon as any month is saved, the anchor moves to the first data month as before (the start is at the START of that month), so the start-only point is transient and never doubles the start. Built (unchanged rule, PFSN-06).
+- **Q-SN4 (not built):** should a start-only record also report the point in the month before the current one (the start as "value at the start of the current month")? Recommend: no; keep one point, matching the Overview. Not built.
+- **Q-SN5 (not built, NA1):** a per-month starting value field (the queued NA1 ticket) would replace this fallback. Recommend: handle in that ticket. Not built.

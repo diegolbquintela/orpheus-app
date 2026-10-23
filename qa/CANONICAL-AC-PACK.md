@@ -1950,3 +1950,29 @@ Dated note 2026-10-22: CFO Q-SS1..SS7 in spec §60 (SS1-5 built, SS6-7 not built
 - PFCFO-12 (2026-10-23, EL addition b) `income.byPerson` gives each person's monthly counted net in their own currency (household or foreign). `income.byCurrency` sums it per currency. (server)
 - PFCFO-13 (2026-10-23, EL addition b) Household-currency totals use that month's stored BoC average (`fx: "historical"`, over the typed rate). No stored average and a blank typed rate gives `fx: "missing"`, with `monthlyHousehold`, `rate` and the currency's and month's household totals all `null`, `fxMissing: true`, never guessed. (server)
 - PFCFO-14 (2026-10-23, BA1) With `CFO_PF_API_KEY` unset, repeated requests (all 401) give exactly one log line per instance. (server)
+## PFCY — Report export: Cyrillic in PDF and PNG (#204, personal-finance-spec §69; added 2026-10-23; LOW, CFO; Phase 2 of #176)
+
+Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 (spec 69.5). Tests: `src/lib/finance/export-unicode.server.test.ts` (PGlite, TZ=UTC and TZ=America/Los_Angeles), names prefixed `PFCY-NN`.
+
+| ID | Severity | Check |
+|---|---|---|
+| PFCY-01 | BLOCK | Both weights map every code point U+0400–U+04FF to a glyph other than 0; `printable(U5)` = U5 and `printable(U8)` = U8. |
+| PFCY-02 | BLOCK | PDF of a report named U8 with category U5: the ToUnicode decode reads the title `Orpheus - Personal Finance report: ` + U8 and the legend `1. Сбережения (category, flow)`, with zero `?`. |
+| PFCY-03 | BLOCK | PNG: the cells for U8 and U5 equal the rasterizer's reference cells and are not the cells of the `?` fallback; `Б`/`б`, `Ё`/`Е`, `Ї`/`І` each give different cells. |
+| PFCY-04 | MAJOR | Out-of-scope stays one `?` per code point: U9 `Ԥ` → `?`, U6 → `??`, U7 → `?`. The fallback report prints title `?? ?` and legend `1. Сбережения (category, flow)`; the data JSON keeps the originals. (Supersedes PFU-08's U5 expectation.) |
+| PFCY-05 | BLOCK | PFX-14: the 12 series × 24 months PDF stays < 100 KB; ToUnicode lists only the drawn glyphs (no CMap entry for an undrawn Cyrillic glyph in an ASCII export). |
+| PFCY-06 | MAJOR | Font asset: SHA-256 of each subset = the last `sha256` line for it in `FONTS.md`; base64 module = same bytes; each ≤ 49,152 bytes; `OFL.txt` present. |
+| PFCY-07 | BLOCK | Unchanged: PFU-09 / PFU-10 goldens (ASCII exports' text, pages, MediaBox, PNG size, data JSON) and the Q-AO8 filename (`asciiName("Сбережения")` is all `-`). |
+| PFCY-08 | MAJOR | Golden crops in `qa/evidence/176/` match today's rendering, including the regenerated `u-fallback` (`… report: Сбережения ?? ?`) and the new `u-cyrillic` (U8). |
+
+
+## PFTX — Tap-target follow-up: saved-scenario Compare and charts-builder checkboxes (#236, personal-finance-spec §70; added 2026-10-23; LOW, TT1 + TT2)
+
+(2026-10-23 note: builds Q-TT1 / Q-TT2 from PR #235; the PFTT text is left as written.)
+
+- PFTX-01: `.pf-saved-compare-label` has `min-height` ≥ 2.75rem in exactly one rule, with no max size and no `pointer-events: none`, and no rule sizes its input. (unit, CSS)
+- PFTX-02: `.pf-builder-option` is `display: flex` with `min-height` ≥ 2.75rem in exactly one rule, with no max size and no `pointer-events: none`. Its box stays 1.25rem. (unit, CSS)
+- PFTX-03: On the scenario screen, each `pf-saved-compare` is the only control inside its `label.pf-saved-compare-label`. A click on the label picks it for Compare, and nothing is sent. (DOM)
+- PFTX-04: In the charts builder, each `pf-builder-pick` is the only control inside its `label.pf-builder-option`, and a click on the label toggles it. (DOM)
+- PFTX-05: Real browser at 390 and 1440: the Compare label and the builder option labels are ≥ 44 px tall and ≥ 44 px wide, with 0 `elementFromPoint` misses. The saved row height is unchanged. (manual / local; QA on the preview)
+

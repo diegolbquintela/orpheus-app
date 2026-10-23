@@ -399,3 +399,19 @@ describe("#161 Charts builder", () => {
     });
   });
 });
+
+describe("#236 PFTX-04: charts-builder checkboxes' tap target is their label", () => {
+  it("each pf-builder-pick is the only control in its label.pf-builder-option; a click on the label toggles it", async () => {
+    const f = fakeApi();
+    const el = await render({ api: f.api });
+    const boxes = qa(el, "pf-builder-pick") as HTMLInputElement[];
+    assert.ok(boxes.length > 0);
+    for (const b of boxes) {
+      const label = b.closest("label")!;
+      assert.ok(label.classList.contains("pf-builder-option"), label.className);
+      assert.equal(label.querySelectorAll("input,button,select,a").length, 1);
+    }
+    await click(pick(el, "group", "all").closest("label")!);
+    assert.equal(pick(el, "group", "all").checked, true);
+  });
+});

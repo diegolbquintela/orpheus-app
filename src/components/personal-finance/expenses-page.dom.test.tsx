@@ -835,9 +835,10 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(text(el, "pf-month-note"), "");
     assert.equal(hasSave(el), false);
     // #140: the 12-month average is June alone (October, the current month, is excluded).
-    assert.deepEqual(ov(el, "expenses"), ["1,750.00", "4,000.00"]);
-    assert.deepEqual(ov(el, "income"), ["11,200.00", "9,000.00"]);
-    assert.deepEqual(ov(el, "surplus"), ["9,450.00", "5,000.00"]);
+    // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month). June is shown, so it is June.
+    assert.deepEqual(ov(el, "expenses"), ["4,000.00", "4,000.00"]);
+    assert.deepEqual(ov(el, "income"), ["9,000.00", "9,000.00"]);
+    assert.deepEqual(ov(el, "surplus"), ["5,000.00", "5,000.00"]);
     const stored = JSON.parse(dom.window.localStorage.getItem(MONTHS_KEY)!);
     assert.deepEqual(Object.keys(stored), ["2026-06", "2026-10"]);
     assert.equal(stored["2026-10"].fixed[0].amount, "1,750", "the current month unchanged");
@@ -2069,7 +2070,8 @@ describe("#144 every figure is live; Unsaved changes until a successful save (PF
     assert.equal(ovCell(el, "expenses", "pf-ov-avg"), "1,750.00");
     const inc = num(ovCell(el, "income", "pf-ov-avg"));
     assert.equal(num(ovCell(el, "surplus", "pf-ov-avg")), inc - 1750);
-    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "2,950.00", "October (This month) is its saved lines");
+    // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month).
+    assert.equal(ovCell(el, "expenses", "pf-ov-now"), "1,750.00", "September (selected) is its live lines (rent 1,000 + the rest)");
     assert.equal(puts.n, 0);
   });
   it("PF-160 / PF-161: rates and Starting net assets move Rate used, Equity to cover, the coverage and the projection live", async () => {
@@ -2492,7 +2494,9 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       await saveNow();
       await act(async () => new Promise((r) => setTimeout(r, 50)));
       assert.equal(statuses.at(-1), 200, "a real save");
-      assert.deepEqual(figures(el), before, "PFM-09: a month older than the windows changes no average");
+      // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month). The averages are compared; the column is February 2020.
+      assert.deepEqual(figures(el).slice(1), before.slice(1), "PFM-09: a month older than the windows changes no average");
+      assert.equal(figures(el)[0], "250.00");
       const stored = JSON.parse(
         JSON.parse((await pg.query<{ data: string }>("SELECT data::text AS data FROM personal_finance WHERE user_id = 'alice'")).rows[0].data)[MONTHS_KEY],
       );
@@ -2516,7 +2520,8 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       await act(async () => new Promise((r) => setTimeout(r, 50)));
       assert.equal(statuses.at(-1), 200);
       assert.equal((await dbMonths())["2023-05"].fixed[0].amount, "1,750", "persisted on Save");
-      assert.deepEqual(figures(el), before, "a 2023 month changes no average");
+      // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month).
+      assert.deepEqual(figures(el).slice(1), before.slice(1), "a 2023 month changes no average");
       // A reload reads it back from the database.
       await act(async () => root!.unmount());
       container!.remove();
@@ -2602,7 +2607,8 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       assert.deepEqual([shared.categories, shared.deletedCategories, shared.accounts, shared.deletedAccounts], [["Home"], [{ name: "Travel", from: "2026-06" }], [], [{ name: "Amex", from: "2026-06" }]]);
       // Condition 3: every month's totals, and the Overview figures, unchanged.
       assert.deepEqual(lineFigures(new RecordStore(stored)), before.lines, "PFD-07: totals unchanged");
-      assert.deepEqual(figures(el), before.figures, "PFD-07: averages unchanged");
+      // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month).
+      assert.deepEqual(figures(el).slice(1), before.figures.slice(1), "PFD-07: averages unchanged");
       // Condition 2: the report keeps Travel / Amex, labelled, with March's data; not missing.
       const got = await (await rep("GET")).json();
       assert.deepEqual([got.missing, got.deleted, got.labels], [[], [0, 1], ["Travel (deleted)", "Amex (deleted)", "Home"]]);
@@ -2674,7 +2680,8 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       assert.equal(text(el, "pf-month-note"), "Copied from September 2026 — edit and save.", "October shows the copy");
       assert.equal(row(el)[0], "900.00", "typed wins while October (the copy) is on screen");
       await pick(el, "2026-09");
-      assert.equal(row(el)[0], "900.00", "typed wins with September shown");
+      // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month). October's typed total is no longer what this column shows with September selected.
+      assert.equal(row(el)[0], "1,000.00", "September's own lines with September shown");
     });
     it("PFTM-08 (EL W1): per field — typed income only → typed income + the copy's expenses; typed expenses only → typed expenses + the copy's income (October shown and September shown)", async () => {
       const ME = { id: "p", name: "Me", wages: "36000", bonus: "", tax: "", share: "100", countWages: true, countBonus: false };
@@ -2696,7 +2703,8 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
         const num = (t: string) => Number(t.replace(/,/g, ""));
         const want = (num(oct[1]) - num(oct[0])).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         assert.equal(octS, want, `${tag}: surplus October shown`);
-        assert.equal(sepS, want, `${tag}: surplus September shown`);
+        // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month).
+        assert.equal(sepS, "2,000.00", `${tag}: September's own surplus with September shown`);
         await unmount();
       }
       // The copy's own income (no typed months): the same record without the typed value.
@@ -2705,8 +2713,9 @@ describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {
       const copyIncome = inc(await render());
       assert.notEqual(copyIncome, "—", "the copy has an income");
       assert.equal(copyIncome, "3,000.00");
-      assert.deepEqual(seen.income, ["1,000.00", "2,500.00", "1,000.00", "2,500.00"], "typed income + copy expenses (surplus 1,500.00)");
-      assert.deepEqual(seen.expenses, ["900.00", copyIncome, "900.00", copyIncome], "typed expenses + copy income (surplus 2,100.00)");
+      // #247 (spec 68, PFOS): the first column is the SELECTED month now (was the current month). October shown: the PFTM-08 rule; September shown: September's own lines.
+      assert.deepEqual(seen.income, ["1,000.00", "2,500.00", "1,000.00", "3,000.00"], "typed income + copy expenses (surplus 1,500.00)");
+      assert.deepEqual(seen.expenses, ["900.00", copyIncome, "1,000.00", "3,000.00"], "typed expenses + copy income (surplus 2,100.00)");
     });
     it("PFTM-07: no source month → This month —", async () => {
       dom.window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }));
