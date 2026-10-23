@@ -177,7 +177,7 @@ describe("#245 PFCFO-05 shapes", () => {
 });
 
 describe("#245 PFCFO-09..13 (2026-10-23 additions): projections, net assets, income by person / currency", () => {
-  const data = async (p: string) => ((await (await call(p)).json()) as { data: any }).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const data = async (p: string) => ((await (await call(p)).json()) as { data: any }).data;
   const rec = async () => (await pg.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = 'alice'")).rows[0].data;
   it("PFCFO-09 /scenario: one projection per horizon, exactly the page's project(savedInputs)", async () => {
     const d = await data("/api/cfo/pf/scenario");
