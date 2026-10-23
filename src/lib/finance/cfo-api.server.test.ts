@@ -10,7 +10,10 @@ import { OVERVIEW_KEY } from "./overview.ts";
 import { PLANS_KEY } from "./plans-key.ts";
 import { SCENARIO_KEY } from "./scenario-key.ts";
 import { HORIZONS, project, savedInputs } from "./scenario.ts";
-import { NET_BEFORE_ANCHOR, NET_FUTURE, resetCfoUnsetLog } from "./cfo-api.server.ts";
+import { NET_BEFORE_ANCHOR, NET_FUTURE, resetCfoUnsetLog, selectedOverview } from "./cfo-api.server.ts";
+import { savedOverviewFigures } from "./months.ts";
+import { readOverview, summarize } from "./overview.ts";
+import { RecordStore } from "./record.ts";
 
 // #245 (spec section 67, PFCFO-01..PFCFO-08): GET /api/cfo/pf/* on PGlite (migrations 0010-0012, unchanged) with a
 // test-only key (random per run, never a real one) and a fixed clock. alice owns (ORPHEUS_OWNER_EMAIL); bob has his
@@ -287,4 +290,81 @@ describe("#245 PFCFO-07 docs drift guard", () => {
     for (const f of ["../../../attachments/personal-finance-spec.md", "../../../AGENTS.md", "../../../.github/pull_request_template.md"])
       assert.ok(readFileSync(new URL(f, import.meta.url), "utf8").includes("Every new PF feature ships with its endpoint documented and CFO notified"), f);
   });
+});
+
+// #247 follow-up (spec §72, Q-OS4): /api/cfo/pf/overview?month=. PFOS-10 + PFOM-01..PFOM-08.
+describe("#247 PFOM /api/cfo/pf/overview?month= (spec 72)", () => {
+  const ov = async (q = "") => {
+    const r = await call(`/api/cfo/pf/overview${q}`);
+    return { status: r.status, body: await r.json() };
+  };
+  const stored = async () => (await pg.query<{ data: unknown }>("SELECT data FROM personal_finance WHERE user_id = 'alice'")).rows[0].data;
+  // PFOS-10: per call, not just "all calls so far": each call runs only SELECTs.
+  const noWrite = async <T>(f: () => Promise<T>): Promise<T> => {
+    const n = writes.length;
+    const out = await f();
+    assert.deepEqual(writes.slice(n), [], "a CFO call wrote");
+    return out;
+  };
+  it("PFOM-01 no month (or month=) → body unchanged, no `selected`", async () => {
+    const a = await noWrite(() => ov());
+    const b = await noWrite(() => ov("?month="));
+    assert.equal(a.status, 200);
+    assert.equal("selected" in a.body.data, false);
+    assert.deepEqual(b.body.data, a.body.data);
+  });
+  it("PFOM-02 current month → summary.thisMonth, This month, not copied", async () => {
+    const { body } = await noWrite(() => ov("?month=2026-10"));
+    const t = body.data.summary.thisMonth;
+    assert.deepEqual(body.data.selected, { month: "2026-10", label: "This month", figures: { expenses: t.expenses, income: t.income, surplus: t.income - t.expenses }, copied: false, copiedFrom: null });
+  });
+  it("PFOM-03 saved future and past months → their own figures and names", async () => {
+    const dec = (await noWrite(() => ov("?month=2026-12"))).body.data.selected;
+    assert.deepEqual(dec, { month: "2026-12", label: "December 2026", figures: { expenses: 1100, income: null, surplus: null }, copied: false, copiedFrom: null });
+    const sep = (await noWrite(() => ov("?month=2026-09"))).body.data.selected;
+    assert.equal(sep.label, "September 2026");
+    assert.equal(sep.figures.expenses, 1000);
+    assert.equal(sep.copied, false);
+  });
+  it("PFOM-04 / PFOS-10 empty future month → the page's copy from the latest earlier month with lines; record unchanged", async () => {
+    const before = await stored();
+    const nov = (await noWrite(() => ov("?month=2026-11"))).body.data.selected;
+    const sep = (await noWrite(() => ov("?month=2026-09"))).body.data.selected;
+    assert.deepEqual(nov, { ...sep, month: "2026-11", label: "November 2026", copied: true, copiedFrom: "2026-09" });
+    const jan = (await noWrite(() => ov("?month=2027-01"))).body.data.selected;
+    assert.deepEqual(jan, { month: "2027-01", label: "January 2027", figures: { expenses: 1100, income: null, surplus: null }, copied: true, copiedFrom: "2026-12" });
+    assert.deepEqual(await stored(), before);
+  });
+  it("PFOM-05 bad or out-of-range month → 400; lastOpenMonth itself → 200", async () => {
+    for (const m of ["2026-13", "abc", "2019-12", "2027-11", "2026-1"]) {
+      const r = await noWrite(() => ov(`?month=${m}`));
+      assert.equal(r.status, 400, m);
+      assert.equal(r.body.error, "month must be yyyy-mm, from 2020-01 to 2027-10.");
+    }
+    assert.equal((await ov("?month=2027-10")).status, 200);
+    assert.equal((await ov("?month=2020-01")).status, 200);
+  });
+  it("PFOM-06 summary / overview / netAssetsNow / basis identical with and without month", async () => {
+    const a = (await ov()).body.data;
+    for (const m of ["2026-10", "2026-11", "2026-12", "2026-08"]) {
+      const { selected, ...rest } = (await ov(`?month=${m}`)).body.data;
+      assert.ok(selected);
+      assert.deepEqual(rest, a, m);
+    }
+  });
+  it("PFOM-07 other methods 405, no key 401 (order unchanged)", async () => {
+    for (const method of ["POST", "PUT", "DELETE"]) assert.equal((await call("/api/cfo/pf/overview?month=2026-11", { method })).status, 405);
+    assert.equal((await call("/api/cfo/pf/overview?month=2026-11", { auth: "" })).status, 401);
+    assert.equal((await call("/api/cfo/pf/overview?month=bad", { auth: "" })).status, 401);
+  });
+  it("PFOM-08 empty past month → null figures; empty future month with no earlier lines → null, not copied", async () => {
+    const jul = (await noWrite(() => ov("?month=2026-07"))).body.data.selected;
+    assert.deepEqual(jul, { month: "2026-07", label: "July 2026", figures: { expenses: null, income: null, surplus: null }, copied: false, copiedFrom: null });
+    const s = new RecordStore({ [MONTHS_KEY]: JSON.stringify({ "2026-12": { fixed: [L("rent", "1100")], variable: [], people: [] } }) });
+    const overview = readOverview(s);
+    const lines = savedOverviewFigures(s, "2026-10");
+    const summary = summarize(overview, NOW, { expenses: null, income: null }, lines);
+    assert.deepEqual(selectedOverview(s, overview, summary, lines, "2026-11"), { month: "2026-11", label: "November 2026", figures: { expenses: null, income: null, surplus: null }, copied: false, copiedFrom: null });
+  });
+  it("PFOS-10 every CFO endpoint, with and without month, ran only SELECTs (whole file)", () => assert.deepEqual(writes, []));
 });

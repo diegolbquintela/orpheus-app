@@ -1982,7 +1982,7 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFOM-01 No `month` (or `month=`) → the body is identical to before (no `selected`). (server)
 - PFOM-02 Current month → `selected.figures` = `summary.thisMonth`, `label` `This month`, `copied: false`. (server)
 - PFOM-03 Saved future month and past month → their own Expenses / Income / Surplus, `label` the month name, `copied: false`. (server)
-- PFOM-04 Empty future month → figures copied from the latest earlier month with lines (deleted names dropped), `copied: true`, `copiedFrom` that month; the record is unchanged. (server)
+- PFOM-04 Empty future month → figures copied from the latest earlier month with lines (as the page copies it; deleted names are stripped but only figures are returned, so that step is not observable here), `copied: true`, `copiedFrom` that month; the record is unchanged. (server)
 - PFOM-05 `month=2026-13`, `abc`, `2019-12`, and a month after `lastOpenMonth` → 400 with the message; `lastOpenMonth` itself → 200. (server)
 - PFOM-06 `summary`, `overview`, `netAssetsNow`, `basis` are the same with and without `month`. (server)
 - PFOM-07 POST / PUT / DELETE with `month` → 405; no key → 401 (order unchanged). (server)
