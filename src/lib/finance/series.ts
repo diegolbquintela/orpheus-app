@@ -15,6 +15,7 @@ import {
   previousMonth,
   readOverview,
   surplusOf,
+  typedFigure,
 } from "./overview.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import {
@@ -165,7 +166,10 @@ export function seriesValues(query: SeriesQuery, typed: PfRecord | null, now: Da
   // #171 (spec 42): an explicit as-of month replaces the first data month as the anchor; without one, unchanged.
   const asOf = asOfMonth(overview);
   const first = firstDataMonth(record);
-  const anchor = asOf ?? first;
+  // #239 (spec 71, PFSN, NA2; the Overview's #228 AQ1 rule): no as-of month and no month with data, but a typed
+  // Starting net assets: anchor at the current household month, so net assets read the start (plus the current
+  // month's own surplus, none here) as one point at the current month, as the Overview shows. Nothing typed: no anchor.
+  const anchor = asOf ?? first ?? (typedFigure(overview.start) !== null ? current : null);
   // #171 Q-AG1 (CFO change, 2026-10-17): an as-of month AFTER the first data month works backwards to the first data
   // month (never before it, as without an as-of month); one at or before it is unchanged. Q-AG12: an as-of month after
   // the current month (skewed clock only) still blanks everything before it.
