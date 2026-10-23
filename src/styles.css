@@ -1049,6 +1049,11 @@
     width: 1.25rem;
     accent-color: var(--color-chalk);
   }
+  /* #236 (spec 70, PFTX-01): the saved-scenario Compare label is its checkbox's 44 px tap target (height); the box and
+     text are unchanged. */
+  .pf-saved-compare-label {
+    min-height: 2.75rem;
+  }
   /* #102 (spec 16.6): the person's Foreign box sits with the other boxes (phone: its own row under Count wages |
      Count bonus; wide: the last column); ticked, Currency / FX rate / Converted stack under the boxes on a phone and
      sit in one row (each ≤ 16rem) from 640 px, under the person's row from 1024 px. */

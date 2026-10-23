@@ -223,3 +223,20 @@ describe("#223 saved scenarios", () => {
     assert.deepEqual(st.calls.map((c) => c.method), ["GET"], "nothing sent");
   });
 });
+
+describe("#236 PFTX-03: the saved-scenario Compare checkbox's tap target is its label", () => {
+  it("each pf-saved-compare is the only control in its label.pf-saved-compare-label; a click on the label picks it; nothing is sent", async () => {
+    const st = server(record());
+    const el = await render();
+    await saveAs(el, "A");
+    const box = q(el, "pf-saved-compare") as HTMLInputElement;
+    const label = box.closest("label")!;
+    assert.ok(label.classList.contains("pf-saved-compare-label"), label.className);
+    assert.equal(label.querySelectorAll("input,button,select,a").length, 1);
+    const puts = st.calls.filter((c) => c.method === "PUT").length;
+    await click(label);
+    assert.equal((q(el, "pf-saved-compare") as HTMLInputElement).checked, true);
+    assert.equal(qa(el, "pf-compare-head").length, 2);
+    assert.equal(st.calls.filter((c) => c.method === "PUT").length, puts, "compare sends nothing");
+  });
+});

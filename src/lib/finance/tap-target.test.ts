@@ -38,3 +38,29 @@ describe("PFTT-02: the visible box is unchanged (1.25rem)", () => {
     assert.equal(px(r.width), 20);
   });
 });
+
+// #236 (spec 70, PFTX-01 / -02): the saved-scenario Compare label and the charts-builder option labels.
+describe("PFTX-01: label.pf-saved-compare-label is ≥ 44 px tall; its box is untouched", () => {
+  const all = blocks(".pf-saved-compare-label");
+  it("one rule, nowhere overridden", () => assert.equal(all.length, 1));
+  it("min-height ≥ 44 px", () => assert.ok(px(all[0]?.["min-height"]) >= MIN_PX, all[0]?.["min-height"]));
+  it("no max size, no pointer-events: none, and no rule sizes its input", () => {
+    assert.ok(!/\.pf-saved-compare-label[^{]*\{[^}]*(max-height|max-width|pointer-events\s*:\s*none)/.test(css));
+    assert.ok(!/\.pf-saved-compare-label[^{,]*input/.test(css));
+  });
+});
+
+describe("PFTX-02: label.pf-builder-option is ≥ 44 px tall (measured 44 at 390 and 1440); its box stays 20 px", () => {
+  const all = blocks(".pf-builder-option");
+  it("one rule, nowhere overridden", () => assert.equal(all.length, 1));
+  it("display: flex, min-height ≥ 44 px", () => {
+    assert.equal(all[0]?.display, "flex");
+    assert.ok(px(all[0]?.["min-height"]) >= MIN_PX, all[0]?.["min-height"]);
+  });
+  it("no max size or pointer-events: none", () => assert.ok(!/\.pf-builder-option[^{]*\{[^}]*(max-height|max-width|pointer-events\s*:\s*none)/.test(css)));
+  it("box 20 × 20 px", () => {
+    const r = blocks(".pf-builder-option > input")[0] ?? {};
+    assert.equal(px(r.height), 20);
+    assert.equal(px(r.width), 20);
+  });
+});
