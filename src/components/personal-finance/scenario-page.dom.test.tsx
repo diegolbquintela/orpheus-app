@@ -488,3 +488,33 @@ describe("#228 PFNA-09 (AQ1): Starting net assets saved, no months", () => {
     assert.deepEqual(fetches, []);
   });
 });
+
+describe("#241 PFAV-04/05: the scenario Overview's Future uses the chart's surplus", () => {
+  afterEach(async () => {
+    await act(async () => root?.unmount());
+    container?.remove();
+    root = undefined;
+  });
+  // August rent 1,500, September 2,500: the 12-month average surplus differs from the current month's (Sept's copy).
+  const twoMonths = (): PfRecord => {
+    const s = new RecordStore({});
+    writeExpenses(s, { fixed: [], variable: [], accounts: [], categories: ["Home"] });
+    writeRates(s, { withdrawal: "4", roic: "" });
+    writeOverview(s, { ...NO_OVERVIEW, start: "0", growth: "" });
+    writeMonths(s, {
+      "2026-08": { fixed: [line("rent", "1500", "Home")], variable: [line("food", "500")], people: [person] },
+      "2026-09": { fixed: [line("rent", "2500", "Home")], variable: [line("food", "500")], people: [person] },
+    });
+    return s.data;
+  };
+  for (const g of ["0", "9", "-10"])
+    it(`PFAV-04 (growth ${g}): with Future on (1 year), the Overview's projected coverage equals the chart's 12-month coverage`, async () => {
+      const el = await render(ok(twoMonths()).load);
+      await type(q(el, "pf-start")!, "100000");
+      if ((q(el, "pf-future-toggle") as HTMLElement).getAttribute("aria-pressed") !== "true") await click(q(el, "pf-future-toggle")!);
+      await type(q(el, "pf-growth")!, g);
+      const overview = q(el, "pf-coverage-monthly")!.textContent!.replace(/[^0-9.,-]/g, "").replace(/\.$/, "");
+      assert.equal(overview, cell(el, "coverage", "pf-scenario-total"));
+      assert.deepEqual(fetches, [], "PFAV-05: nothing sent");
+    });
+});

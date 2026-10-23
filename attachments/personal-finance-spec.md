@@ -2633,3 +2633,17 @@ Dated note 2026-10-23: Diego approved #242 (found during #231). Numbered 73 beca
 - **Q-TW1 (built, recommend accept):** a PUT without `baseVersion` (an old tab open across the deploy) still saves (last write wins) so it isn't locked out; require it in a later release.
 - **Q-TW2 (built, recommend accept):** conflict check only, no per-name merge: the stale tab is told to reload; its unsaved edits stay on screen to copy.
 - **Q-TW3 (not built, recommend later):** a `Reload` button next to the message.
+
+## 74. Personal Finance: scenario Overview 'Future' uses the chart's surplus (#241, AV1, LOW, Diego; added 2026-10-23; built in the same PR)
+
+(2026-10-23 note: this follows §63 (QA AV1 on #226 / PR #237). §63.2 covered the growth; this covers the surplus. The text above is left as written.)
+
+74.1 **Scope.** Only the scenario screen (`/personal-finance/scenario`), its Overview block with Future on. The main PF page's Future line is unchanged (it still adds the 12-month average surplus, 15.2).
+
+74.2 **Rule.** Each projected month of the Overview's Future line adds the same monthly surplus as the projection chart below it: the current month's income − expenses as the Overview shows them (`overviewNow`: the month's own figures, the unsaved copy, typed totals, else the average; a missing figure counts 0). It no longer adds the 12-month average surplus. With the same growth (§63) and the same starting value, the Future figure after N years equals the chart's point at month 12·N (to the cent). The gap QA measured (about 0.3–0.5 %) is gone.
+
+74.3 **Unchanged.** Growth (§63), the start (the Overview's own end-of-month net assets; a typed "Net assets now" moves only the chart), SC3 (growth only on a positive balance), the null rule (no net assets → no Future figure), the coverage line, and the projected months' income / expense points. Nothing is stored or sent.
+
+74.4 **Endpoints.** No change: `/api/cfo/pf/overview` and every other PF endpoint use the main rule. No CFO notice is needed.
+
+74.5 **AC (PFAV, qa/CANONICAL-AC-PACK.md).** PFAV-01..PFAV-05.

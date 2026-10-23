@@ -1999,3 +1999,11 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFTW-08 The page (real `loadAccountStore` on PGLite): another tab saves first → this tab's Save shows `Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.` in `pf-save`, edits stay on screen; two Saves in a row from one tab both succeed. (DOM)
 - PFTW-09 Scenario `Save scenario` sends the fresh GET's version; a 409 reports the reload message. (unit)
 - PFTW-10 The check is atomic: two PUTs with the same `baseVersion` sent together → exactly one 200 and one 409. (server)
+
+## PFAV — scenario Overview Future uses the chart's surplus (#241, AV1, personal-finance-spec §74; added 2026-10-23; LOW, Diego)
+- PFAV-01 `summarize` with the chart surplus: each Future month steps with the current month's (income − expenses), not the 12-month average; the last point equals `project(...)` at month 12·years to the cent (current month differs from the average). (unit)
+- PFAV-02 Positive, negative and zero growth, 1 and 5 years: the Future value equals the chart's point at the same month. (unit)
+- PFAV-03 Without the chart surplus (main page, CFO API), the Future line still adds the 12-month average surplus (unchanged). (unit)
+- PFAV-04 The scenario screen (DOM): with Future on, the Overview's projected net assets equal the chart's value at that horizon; the main page's Future value is unchanged. (DOM)
+  - Note (2026-10-23, QA BJ2 on PR #256): the PFAV-04 test checks the Overview's coverage text (`pf-coverage-monthly`) against the chart's 12-month coverage, i.e. Future net-assets parity at the horizon. The projected months' income, expenses and coverage share stay on the 12-month average (Q-AV1, not built).
+- PFAV-05 No write: the scenario screen sends no PUT for Future / years toggles (existing PFSC rule). (DOM)
