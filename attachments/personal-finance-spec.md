@@ -2396,3 +2396,43 @@ AC:
 - PFSR-09 Every other interaction on the screen (edits, net assets, horizons, Open, Compare, Back, Rename open/typing/Cancel, refused names, a cancelled Update) makes zero writes.
 - PFSR-10 Update is refused (`Fix the fields in error first.`) while a field is in error; nothing is sent.
 - PFSR-11 When the opened scenario is renamed or updated, the screen keeps showing it under its new name/values.
+
+## 68. Personal Finance: Overview follows the selected month (#247, HIGH, Diego / CFO; added 2026-10-23; built in the same PR)
+
+Dated note 2026-10-23 (#247): main PF page only. Diego: "future months personal finance — when I update something, the Overview section is not getting updated with the month's value. This section should assume the month's view and state." This supersedes §59.6 Q-FM4's "Opening a future month shows the same Overview as the current month" for the Overview table's first column only; §59.6 is otherwise unchanged and its text is left as written (additions only). Numbered 68 because §67 is #245 (PR #246, not on main yet).
+
+### 68.1 Rule
+- The Overview table's first column shows the **selected** month's Expenses, Income and Surplus: the month chosen in the Month / Year control (past, current, or future up to `lastOpenMonth`).
+- Header: `This month` when the selected month is the current household month (unchanged), else the month's name, `December 2026` (`monthName`). `data-testid="pf-ov-now-head"`, `data-month="<yyyy-mm>"`.
+- Figures: the same live map the page already builds (`liveLineFigures` over the stored months with the shown month's on-screen lines, then `typedOverCopy` for the current month), read for the selected key with `selectedFigures` (= `monthFigures`, the #112 decision 7 order: the month's own lines, else its typed Update totals, else `—`). So an empty future month shows its unsaved copy's figures (§59.2), a saved one its own lines (§59.3), and every edit shows at once, before Save (#144). The current month is exactly `summary.thisMonth` (no change).
+- Nothing is written by selecting, editing or switching months; writes still happen only on Save / Reset / section toggles, as before.
+- Unchanged: the 3- and 12-month averages (complete months, C7 / #140), equity coverage, the chart and the Future projection all stay anchored at the current household month (`summarize` and `Summary` are not changed).
+- Read users: the selected month's saved figures (read-only Overview figures, #166).
+- Scenario screen: no month control; it passes no selection and is unchanged (§57 / §63).
+
+### 68.2 Endpoint impact (standing rule)
+- **No PF endpoint changes.** No route, request, response, record name or field is added or changed. `GET /api/personal-finance`, `/series`, `/chart` and the export are untouched.
+- **`/api/cfo/pf/overview` (#245, PR #246, branch `feat/cfo-pf-api-245`, `src/lib/finance/cfo-api.server.ts`): not affected.** It calls `readOverview` + `savedOverviewFigures(s, current)` + `summarize(overview, at, page, lines)` at the current household month. This PR leaves `summarize`, `Summary`, `monthFigures`, `savedOverviewFigures` and `readOverview` byte-for-byte unchanged (the new `selectedFigures` is a separate export), so its response is identical before and after. It has no "selected month" (a server has no UI selection), so its `summary.thisMonth` remains the current month, which equals the main page's Overview when the current month is selected. Q-OS4 covers whether the CFO wants a `?month=` on it.
+- CFO notification: this section + the PR body; the parent notifies CFO.
+
+### 68.3 Acceptance criteria (PFOS)
+- PFOS-01: current month selected → `This month`, October's own figures (unchanged).
+- PFOS-02: saved future month selected → that month's Expenses / Income / Surplus, headed `December 2026`, `data-month=2026-12`.
+- PFOS-03: past month selected → its own figures, headed by its name.
+- PFOS-04: editing a line on a future month updates the column at once, `Unsaved changes` shows, and no `localStorage.setItem` happens before Save (record unchanged).
+- PFOS-05: an empty future month shows its unsaved copy's figures and follows edits live.
+- PFOS-06: switching months (future → past → current) follows the selection every time.
+- PFOS-07: averages (3- and 12-month) do not change when a future month is selected.
+- PFOS-08: Read users see the selected month's saved figures with its name.
+- PFOS-09 (unit, `overview-selected.test.ts`): `selectedFigures` equals `summary.thisMonth` for the current month, returns the month's own lines / typed totals / null for others, and `summarize` output is unchanged by the selection.
+
+### 68.4 Questions (CFO)
+- **Q-OS1 (not built, recommend keep):** the chart, equity coverage and the Future projection stay anchored at the current month. Re-anchoring them at a future month would mix plans into net assets; a later ticket on yes.
+- **Q-OS2 (not built, recommend keep):** the averages stay complete-month windows ending before the current month (a future month never counts, §59.6 Q-FM2 / Q-FM4).
+- **Q-OS3 (not built, recommend later ticket):** a Read user on an EMPTY future month sees `—` (the saved record has no lines there), while the page body shows the copy read-only. Alternative: count the copy for Read users too (display only).
+- **Q-OS4 (not built, wire-changing, recommend later ticket on CFO yes):** add `?month=yyyy-mm` to `/api/cfo/pf/overview` (#245) so the API can return a selected month's figures. Not done: it changes the #245 wire and #245 is not merged.
+- **Q-OS5 (built, recommend accept):** the column header names the month (`December 2026`) instead of `This month` when another month is selected.
+- **Q-OS6 (built, recommend accept; supersedes part of #166 Q-AN1 / EL V2-W1 for the visible column):** #166 said the current month's figure (stored lines > typed Update > copy) shows "whichever month is shown". With #247 the first column shows the SELECTED month, so that rule is visible only when the current month is selected; it still drives the current month everywhere else (chart, net assets, /series, /chart, export, #245). Existing tests that pinned the current month's figure while another month was shown were moved to the selected month's figure with `#247` comments (PF-27/PF-49..54, PF-159, PFM-06..09, PFD-07, PFTM-08 V2 and W1); their averages checks are unchanged.
+
+### 68.5 Notes
+- 2026-10-23: no README change (no new route, command or setup step) and no `qa/tools` change (no new endpoint or write path; the jsdom tests cover the page, and `vite build` is the QA gate for this ticket).
