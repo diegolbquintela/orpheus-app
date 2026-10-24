@@ -77,7 +77,7 @@ export function HistoryPage({
             {READ_ONLY_NOTE}
           </p>
         </header>
-        <section aria-labelledby={`${uid}-head`} className="pf-history" data-testid="pf-history">
+        <section aria-labelledby={`${uid}-head`} className="pf-history pf-section" data-testid="pf-history">
           <p className="pf-label">02</p>
           <h2 id={`${uid}-head`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
             Stored months

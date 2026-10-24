@@ -576,7 +576,7 @@ export function PersonalFinancePage({
                 readOnly={readOnly}
               />
               <section
-                className="flex flex-col gap-8"
+                className="pf-section flex flex-col gap-8"
                 aria-labelledby="pf-expenses"
                 data-testid="pf-expenses-block"
               >
@@ -807,7 +807,7 @@ function MonthControl({
           {dirty ? (
             <button
               type="button"
-              className="pf-button"
+              className="pf-button pf-button-primary"
               onClick={onSave}
               disabled={saving}
               data-testid="pf-month-save"
@@ -831,13 +831,13 @@ function MonthControl({
         {/* #229 (PFFM-20): a saved future month's `Reset` takes the copy line's reserved place (never both: copy is for
             an empty past month, Reset for a saved future one), so nothing moves. */}
         {onReset ? (
-          <button type="button" className="pf-button" onClick={onReset} data-testid="pf-month-reset">
+          <button type="button" className="pf-button pf-button-secondary" onClick={onReset} data-testid="pf-month-reset">
             {RESET}
           </button>
         ) : (
         <button
           type="button"
-          className="pf-button"
+          className="pf-button pf-button-secondary"
           onClick={onCopy ?? undefined}
           disabled={!onCopy}
           tabIndex={onCopy ? undefined : -1}
@@ -1113,7 +1113,7 @@ function CategoryFilter({
             </div>
             <button
               type="button"
-              className="pf-cancel pf-rename"
+              className="pf-cancel pf-rename pf-button-ghost"
               disabled={readOnly || value === ALL || renaming}
               onClick={() => setRenaming(true)}
               data-testid="pf-rename-category"
@@ -1178,7 +1178,7 @@ function ExpensesSummary({
   const whole = grandTotals(expenses, rate, household).monthly;
   return (
     <section
-      className="flex flex-col gap-8"
+      className="pf-section flex flex-col gap-8"
       aria-labelledby="pf-summary"
       data-testid="pf-summary-block"
     >
@@ -1608,7 +1608,7 @@ function NewName({
       <div className="flex gap-4">
         <button
           type="button"
-          className="pf-button"
+          className="pf-button pf-button-primary"
           onClick={submit}
           data-testid={`pf-new-${kind}-add`}
         >
@@ -1616,7 +1616,7 @@ function NewName({
         </button>
         <button
           type="button"
-          className="pf-cancel"
+          className="pf-cancel pf-button-ghost"
           onClick={onCancel}
           data-testid={`pf-new-${kind}-cancel`}
         >

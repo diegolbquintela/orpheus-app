@@ -7,7 +7,7 @@
 @source not "../qa";
 
 @theme {
-  --font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", "Alliance No.1", "Alliance No.2", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --color-paper: #ffffff;
   --color-ink: #1e2124;
   --color-muted: #636363;
@@ -708,14 +708,91 @@
   }
   .pf-button {
     display: inline-flex;
+    min-height: 2.75rem;
     height: 2.75rem;
+    max-width: 100%;
     align-items: center;
     justify-content: center;
+    border: 1px solid var(--color-chalk);
     border-radius: 0;
     background: var(--color-chalk);
-    padding: 0 1.5rem;
+    padding: 0 1.25rem;
     color: var(--color-night);
     font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+  }
+  .pf-button-primary {
+    background: var(--color-chalk);
+    border-color: var(--color-chalk);
+    color: var(--color-night);
+  }
+  .pf-button:hover:not(:disabled),
+  .pf-button-primary:hover:not(:disabled) {
+    background: #e2dfd8;
+    border-color: #e2dfd8;
+    color: var(--color-night);
+  }
+  .pf-button:active:not(:disabled),
+  .pf-button-primary:active:not(:disabled) {
+    background: #d5d1c8;
+    border-color: #d5d1c8;
+  }
+  .pf-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pf-button.pf-button-secondary {
+    background: transparent;
+    border-color: var(--color-rule);
+    color: var(--color-chalk);
+    font-weight: 400;
+    padding: 0 1rem;
+  }
+  .pf-button.pf-button-secondary:hover:not(:disabled) {
+    background: rgb(242 240 235 / 0.06);
+    border-color: var(--color-chalk);
+    color: var(--color-chalk);
+  }
+  .pf-button.pf-button-secondary:active:not(:disabled) {
+    background: rgb(242 240 235 / 0.12);
+    border-color: var(--color-chalk);
+  }
+  .pf-button.pf-button-secondary:disabled {
+    background: transparent;
+    border-color: var(--color-hair);
+    color: var(--color-dim);
+    opacity: 1;
+    cursor: not-allowed;
+  }
+  .pf-button.pf-button-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-dim);
+    font-weight: 400;
+    padding: 0 0.75rem;
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule);
+    text-underline-offset: 4px;
+  }
+  .pf-button.pf-button-ghost:hover:not(:disabled) {
+    background: rgb(242 240 235 / 0.05);
+    border-color: transparent;
+    color: var(--color-chalk);
+    text-decoration-color: var(--color-chalk);
+  }
+  .pf-button.pf-button-ghost:active:not(:disabled) {
+    background: rgb(242 240 235 / 0.1);
+  }
+  .pf-button.pf-button-ghost:disabled {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-dim);
+    text-decoration: none;
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   /* #160 (spec 45): Charts reports list. Existing palette only; rows stack on mobile, one line on desktop. */
   .pf-charts-top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
@@ -732,9 +809,13 @@
   .pf-history-scroll:focus-visible { outline: 2px solid var(--color-chalk); outline-offset: 2px; }
   .pf-history-grid { border-collapse: separate; border-spacing: 0; font-size: 0.875rem; font-variant-numeric: slashed-zero; color: var(--color-chalk); }
   .pf-history-grid th, .pf-history-grid td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-hair); border-right: 1px solid var(--color-hair); white-space: nowrap; }
-  .pf-history-grid thead th { font-weight: 400; color: var(--color-dim); text-align: right; vertical-align: bottom; }
+  .pf-history-grid thead th { position: sticky; top: 0; z-index: 2; background: var(--color-night); border-bottom: 1px solid var(--color-rule); font-weight: 400; color: var(--color-dim); text-align: right; vertical-align: bottom; }
+  .pf-history-grid thead th.pf-history-month { z-index: 3; text-align: left; }
   .pf-history-grid td { text-align: right; }
   .pf-history-grid .pf-history-month { position: sticky; left: 0; z-index: 1; background: var(--color-night); text-align: left; font-weight: 400; color: var(--color-chalk); }
+  .pf-history-grid tbody tr { transition: background-color 120ms ease; }
+  .pf-history-grid tbody tr:hover > * { background-color: rgb(242 240 235 / 0.03); }
+  .pf-history-grid tbody tr:hover > .pf-history-month { background-color: #24282c; }
   .pf-history-grid tbody tr:last-child > * { border-bottom: 0; }
   /* #215 (spec 55, PFSC): the Scenario screen. Levers in a 1 / 2 / 3 column grid; the totals reuse .pf-ov-table. */
   .pf-scenario-area { min-height: 6rem; }
@@ -898,9 +979,23 @@
     border-bottom: 1px solid var(--color-hair);
   }
   .pf-ov-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-night);
     min-height: 2rem;
     align-items: end;
     padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .pf-ov-head > :not(:first-child) {
+    text-align: right;
+  }
+  .pf-ov-row:not(.pf-ov-head) {
+    transition: background-color 120ms ease;
+  }
+  .pf-ov-row:not(.pf-ov-head):hover {
+    background-color: rgb(242 240 235 / 0.03);
   }
   .pf-ov-name,
   .pf-ov-value {
@@ -908,6 +1003,10 @@
     overflow-wrap: anywhere;
     font-size: 1rem;
     color: var(--color-chalk);
+  }
+  .pf-ov-value {
+    text-align: right;
+    font-variant-numeric: slashed-zero;
   }
   /* #126 (PF-79): the equity coverage line under the comparison table. */
   .pf-coverage {
@@ -1203,7 +1302,21 @@
       grid-template-areas: "name biweekly monthly yearly";
       column-gap: 1.25rem;
     }
+    .pf-head.pf-table-head,
+    .pf-head.pf-cat-head {
+      border-bottom: 1px solid var(--color-rule);
+      padding-bottom: 0.5rem;
+    }
+    .pf-head.pf-table-head > :not(:first-child),
+    .pf-head.pf-cat-head > :not(:first-child) {
+      text-align: right;
+    }
     .pf-table-row {
+      border-bottom: 1px solid var(--color-hair);
+      padding-bottom: 0.25rem;
+      transition: background-color 120ms ease;
+    }
+    .pf-table-row.pf-table-total {
       border-bottom: 0;
       padding-bottom: 0;
     }
@@ -1214,8 +1327,19 @@
       column-gap: 1.25rem;
     }
     .pf-cat-row {
-      border-bottom: 0;
-      padding-bottom: 0;
+      border-bottom: 1px solid var(--color-hair);
+      padding-bottom: 0.25rem;
+      transition: background-color 120ms ease;
+    }
+    .pf-table-row:hover,
+    .pf-cat-row:hover {
+      background-color: rgb(242 240 235 / 0.03);
+    }
+    .pf-table-row .pf-value,
+    .pf-cat-row .pf-value {
+      justify-content: flex-end;
+      text-align: right;
+      font-variant-numeric: slashed-zero;
     }
   }
   /* Home (#69, spec §8): its own classes; the calculator's .calc-* stay as they are. The hero title box is
@@ -1375,16 +1499,41 @@
   }
 }
 
-/* #162 Q-AL5: Delete (existing danger token, no new colour); 44 px targets at every width. */
-.pf-button-danger { color: var(--color-danger); border-color: var(--color-danger); }
+/* #162 Q-AL5 & #262: Delete / destructive action hierarchy (existing --color-danger token, transparent dark surface, ≥ 44 px). */
+.pf-button-danger,
+.pf-button.pf-button-danger,
+.pf-button.pf-button-danger.pf-delete {
+  min-height: 2.75rem;
+  background: transparent;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-weight: 400;
+  padding: 0 1rem;
+}
+.pf-button.pf-button-danger:hover:not(:disabled),
+.pf-button.pf-button-danger.pf-delete:hover:not(:disabled) {
+  background: rgb(255 65 54 / 0.1);
+  border-color: var(--color-alert);
+  color: var(--color-alert);
+}
+.pf-button.pf-button-danger:active:not(:disabled),
+.pf-button.pf-button-danger.pf-delete:active:not(:disabled) {
+  background: rgb(255 65 54 / 0.16);
+  border-color: var(--color-alert);
+  color: var(--color-alert);
+}
+.pf-button.pf-button-danger:disabled,
+.pf-button.pf-button-danger.pf-delete:disabled {
+  background: transparent;
+  color: var(--color-dim);
+  border-color: var(--color-dim);
+  opacity: 1;
+  cursor: not-allowed;
+}
 .pf-builder-delete { display: flex; flex-direction: column; gap: 0.5rem; }
 .pf-builder-delete-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .pf-builder-delete .pf-button { min-height: 2.75rem; }
 .pf-charts-name { display: inline-flex; align-items: center; min-height: 2.75rem; color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
-
-/* #168 Q-AM8: category / account Delete use the existing --color-danger token (via .pf-button-danger) and stay ≥ 44 px. */
-.pf-button.pf-button-danger.pf-delete { min-height: 2.75rem; background: transparent; border: 1px solid var(--color-danger); color: var(--color-danger); padding: 0 1rem; }
-.pf-button.pf-button-danger.pf-delete:disabled { color: var(--color-dim); border-color: var(--color-dim); cursor: not-allowed; }
 
 /* #221 (spec 57.13): the scenario screen's Monthly / Yearly select, under its flow amount so the amount keeps the
    cell's full width; fits at 390. */
@@ -1397,4 +1546,100 @@
 .pf-period-select {
   width: 100%;
   min-height: 44px;
+}
+
+/* #262 (spec §76, PFUX-01..PFUX-08): Personal Finance + site UX polish (section rhythm, action groups, tables, quiet states). */
+.pf-section {
+  border-top: 1px solid var(--color-hair);
+  padding-top: 2rem;
+}
+.pf-num {
+  text-align: right;
+  font-variant-numeric: slashed-zero;
+}
+.pf-saved-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.pf-saved-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: slashed-zero;
+  color: var(--color-chalk);
+}
+.pf-saved-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-night);
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 400;
+}
+.pf-saved-table tbody tr {
+  border-bottom: 1px solid var(--color-hair);
+  transition: background-color 120ms ease;
+}
+.pf-saved-table tbody tr:hover {
+  background-color: rgb(242 240 235 / 0.03);
+}
+.pf-plan {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: slashed-zero;
+  color: var(--color-chalk);
+}
+.pf-table th,
+.pf-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-hair);
+  text-align: left;
+}
+.pf-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-night);
+  border-bottom: 1px solid var(--color-rule);
+  font-weight: 400;
+  color: var(--color-dim);
+}
+.pf-table th:nth-child(2),
+.pf-table th:nth-child(3),
+.pf-table th:nth-child(4),
+.pf-table th:nth-child(5),
+.pf-table td:nth-child(2),
+.pf-table td:nth-child(3),
+.pf-table td:nth-child(4),
+.pf-table td:nth-child(5) {
+  text-align: right;
+  white-space: nowrap;
+}
+.pf-table tbody tr {
+  transition: background-color 120ms ease;
+}
+.pf-table tbody tr:hover {
+  background-color: rgb(242 240 235 / 0.03);
+}
+.pf-charts-row {
+  transition: background-color 120ms ease;
+}
+.pf-charts-row:hover {
+  background-color: rgb(242 240 235 / 0.03);
+}
+.pf-remove:hover:not(:disabled) {
+  color: var(--color-danger);
+}
+.pf-add:hover:not(:disabled),
+.pf-cancel:hover:not(:disabled) {
+  color: var(--color-chalk);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }

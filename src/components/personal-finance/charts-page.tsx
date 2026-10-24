@@ -45,11 +45,11 @@ export function ChartsPage({
   const newButton = readOnly ? null : (
     <div className="pf-charts-new">
       {full ? (
-        <button type="button" className="pf-button" disabled aria-describedby="pf-charts-new-note" data-testid="pf-charts-new">
+        <button type="button" className="pf-button pf-button-primary" disabled aria-describedby="pf-charts-new-note" data-testid="pf-charts-new">
           New report
         </button>
       ) : (
-        <a className="pf-button" href={NEW_PATH} data-testid="pf-charts-new">
+        <a className="pf-button pf-button-primary" href={NEW_PATH} data-testid="pf-charts-new">
           New report
         </a>
       )}
@@ -72,7 +72,7 @@ export function ChartsPage({
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
         </header>
-        <section aria-labelledby="pf-charts-list-head" className="pf-charts" data-testid="pf-charts">
+        <section aria-labelledby="pf-charts-list-head" className="pf-charts pf-section" data-testid="pf-charts">
           <div className="pf-charts-top">
             <div>
               <p className="pf-label">02</p>
@@ -92,7 +92,7 @@ export function ChartsPage({
                 <p className="pf-error" role="alert">
                   {state.error}
                 </p>
-                <button type="button" className="pf-button" onClick={() => void fetchList()} data-testid="pf-charts-retry">
+                <button type="button" className="pf-button pf-button-secondary" onClick={() => void fetchList()} data-testid="pf-charts-retry">
                   Try again
                 </button>
               </div>
