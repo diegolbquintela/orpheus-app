@@ -61,6 +61,7 @@ async function render() {
   root = createRoot(container);
   await act(async () => root!.render(<ScenarioPage now={NOW} chartWidth={360} />));
   await act(async () => {});
+  await click(q(container, "pf-saved-toggle")!);
   return container;
 }
 const q = (el: ParentNode, id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
@@ -187,6 +188,7 @@ describe("#233 rename / update a saved scenario", () => {
     await type(q(el, "pf-scenario-net")!, "1,000");
     for (const h of [...el.querySelectorAll('[data-testid^="pf-horizon-"]')]) await click(h);
     for (const b of qa(el, "pf-saved-compare")) await click(b);
+    await click(q(el, "pf-saved-compare-button")!);
     await click(qa(el, "pf-saved-open")[1]);
     await click(q(el, "pf-saved-latest")!);
     await click(qa(el, "pf-saved-rename")[0]);

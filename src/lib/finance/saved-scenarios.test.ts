@@ -8,6 +8,10 @@ import { asScenario, NO_SCENARIO, SAVED_MAX, type SavedEntry, SCENARIO_KEY } fro
 import { scenarioText, withScenario } from "./scenario.ts";
 import {
   addSaved,
+  COMPARE_MAX,
+  COMPARE_MIN,
+  COMPARE_SELECTED,
+  COMPARE_TOGGLE,
   keptValues,
   LIST_FULL,
   NAME_BLANK,
@@ -71,5 +75,11 @@ describe("#223 saved scenarios (pure)", () => {
     assert.deepEqual(m["2026-09"], { a: 1 });
     assert.deepEqual(m["2026-10"], { fixed: [], variable: [], people: [] });
     assert.deepEqual(keptValues({ [SCENARIO_KEY]: "s", [MONTHS_KEY]: "m" }), {});
+  });
+  it("PFST-01/03/06: compare button labels and selection bounds (2..3)", () => {
+    assert.equal(COMPARE_MIN, 2);
+    assert.equal(COMPARE_MAX, 3);
+    assert.equal(COMPARE_TOGGLE, "Compare with saved scenarios");
+    assert.equal(COMPARE_SELECTED, "Compare selected");
   });
 });

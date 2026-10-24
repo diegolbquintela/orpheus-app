@@ -103,6 +103,10 @@ async function saveAs(el: HTMLElement, name: string) {
   await type(q(el, "pf-saved-name")!, name);
   await click(q(el, "pf-saved-save")!);
 }
+async function openTable(el: HTMLElement) {
+  const btn = q(el, "pf-saved-toggle")!;
+  if (btn.getAttribute("aria-expanded") !== "true") await click(btn);
+}
 
 describe("#223 saved scenarios", () => {
   it("PFSS-01/02/40: the unsaved screen sends nothing; Save scenario does one GET + one PUT changing only the scenario value", async () => {
@@ -121,6 +125,8 @@ describe("#223 saved scenarios", () => {
     assert.equal(saved[0].basis, "2026-10");
     assert.equal(saved[0].inputs.expenses, 4000);
     assert.equal(saved[0].inputs.start, 10000);
+    assert.equal(q(el, "pf-saved-table"), null, "table stays closed until toggled");
+    await openTable(el);
     assert.deepEqual(names(el), ["Rent up"]);
     // The main record's months are exactly as before (sandbox).
     assert.equal(st.record[MONTHS_KEY], record()[MONTHS_KEY]);
@@ -145,6 +151,7 @@ describe("#223 saved scenarios", () => {
     await type(qa(el, "pf-monthly")[0], "3,500");
     await saveAs(el, "Rent up");
     // A fresh screen (the latest data again) then reopen.
+    await openTable(el);
     await click(q(el, "pf-saved-open")!);
     assert.equal(monthCell(el, "expenses"), "4,000.00");
     const gets = st.calls.filter((c) => c.method === "GET").length;
@@ -166,6 +173,7 @@ describe("#223 saved scenarios", () => {
     }] };
     st.record = { ...rec, [SCENARIO_KEY]: JSON.stringify(s) };
     const el = await render();
+    await openTable(el);
     await click(q(el, "pf-saved-open")!);
     assert.match(q(el, "pf-saved-basis")!.textContent!, /^Saved from August 2026\. The latest month is now October 2026/);
     assert.equal(monthCell(el, "expenses"), "1,000.00");
@@ -178,8 +186,18 @@ describe("#223 saved scenarios", () => {
       await type(qa(el, "pf-monthly")[0], amt);
       await saveAs(el, n);
     }
+    await openTable(el);
     const boxes = qa(el, "pf-saved-compare") as HTMLInputElement[];
-    for (const b of boxes) await click(b);
+    assert.equal(q(el, "pf-saved-compare-button"), null);
+    await click(boxes[0]);
+    assert.equal(q(el, "pf-saved-compare-button"), null, "1 checked does not show Compare selected");
+    assert.equal(q(el, "pf-compare-section"), null, "1 checked does not auto-open CompareTable");
+    await click(boxes[1]);
+    assert.ok(q(el, "pf-saved-compare-button"), "2 checked shows Compare selected");
+    assert.equal(q(el, "pf-compare-section"), null, "CompareTable waits for Compare selected click");
+    await click(boxes[2]);
+    await click(boxes[3]);
+    await click(q(el, "pf-saved-compare-button")!);
     assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B", "C"]);
     assert.equal(boxes[3].disabled, true, "a 4th can't be picked");
     assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "4");
@@ -192,6 +210,7 @@ describe("#223 saved scenarios", () => {
     const el = await render();
     await saveAs(el, "A");
     await saveAs(el, "B");
+    await openTable(el);
     let asked = confirmAs(false);
     await click(qa(el, "pf-saved-delete")[0]);
     assert.deepEqual(asked, ['Delete the scenario "A"? This cannot be undone.']);
@@ -210,6 +229,7 @@ describe("#223 saved scenarios", () => {
     const st = server(record());
     const el = await render();
     await saveAs(el, "A");
+    await openTable(el);
     const inner = globalThis.fetch;
     const stale = async (url: unknown, init?: { method?: string; body?: string }) =>
       init?.method === "PUT"
@@ -226,20 +246,32 @@ describe("#223 saved scenarios", () => {
     assert.deepEqual(readScenario(st.record)!.saved!.map((e) => e.name), ["A"]);
   });
 
-  it("PFSS-45: Read users can open and compare saved scenarios but get no Save and no Delete", async () => {
+  it("PFSS-45 / PFST-05: Read users can open and compare saved scenarios but get no Save, Rename, Update, or Delete", async () => {
     const rec = record();
     const st = server(rec, false);
-    st.record = { ...rec, [SCENARIO_KEY]: JSON.stringify({ income: {}, expenses: {}, rate: null, growth: null, start: null, saved: [{
-      id: "a", name: "Plan", savedAt: "2026-10-01T00:00:00Z", basis: "2026-10",
-      inputs: { start: 0, income: 7500, expenses: 2000, growth: 0, rate: 4 }, values: {}, lines: JSON.stringify({ fixed: [line("rent", "2000")], variable: [], people: [person] }),
-    }] }) };
+    st.record = { ...rec, [SCENARIO_KEY]: JSON.stringify({ income: {}, expenses: {}, rate: null, growth: null, start: null, saved: [
+      {
+        id: "a", name: "Plan", savedAt: "2026-10-01T00:00:00Z", basis: "2026-10",
+        inputs: { start: 0, income: 7500, expenses: 2000, growth: 0, rate: 4 }, values: {}, lines: JSON.stringify({ fixed: [line("rent", "2000")], variable: [], people: [person] }),
+      },
+      {
+        id: "b", name: "Alt", savedAt: "2026-10-02T00:00:00Z", basis: "2026-10",
+        inputs: { start: 0, income: 7500, expenses: 2500, growth: 0, rate: 4 }, values: {}, lines: JSON.stringify({ fixed: [line("rent", "2500")], variable: [], people: [person] }),
+      },
+    ] }) };
     const el = await render();
+    await openTable(el);
     assert.equal(q(el, "pf-saved-save"), null);
+    assert.equal(q(el, "pf-saved-rename"), null);
+    assert.equal(q(el, "pf-saved-update"), null);
     assert.equal(q(el, "pf-saved-delete"), null);
-    await click(q(el, "pf-saved-open")!);
+    await click(qa(el, "pf-saved-open")[0]);
     assert.equal(monthCell(el, "expenses"), "2,000.00");
-    await click(q(el, "pf-saved-compare")!);
-    assert.equal(qa(el, "pf-compare-head").length, 2);
+    await click(qa(el, "pf-saved-compare")[0]);
+    assert.equal(q(el, "pf-saved-compare-button"), null);
+    await click(qa(el, "pf-saved-compare")[1]);
+    await click(q(el, "pf-saved-compare-button")!);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Plan", "Alt"]);
     assert.deepEqual(st.calls.map((c) => c.method), ["GET"], "nothing sent");
   });
 });
@@ -249,14 +281,139 @@ describe("#236 PFTX-03: the saved-scenario Compare checkbox's tap target is its 
     const st = server(record());
     const el = await render();
     await saveAs(el, "A");
-    const box = q(el, "pf-saved-compare") as HTMLInputElement;
-    const label = box.closest("label")!;
-    assert.ok(label.classList.contains("pf-saved-compare-label"), label.className);
-    assert.equal(label.querySelectorAll("input,button,select,a").length, 1);
+    await saveAs(el, "B");
+    await openTable(el);
+    const boxes = qa(el, "pf-saved-compare") as HTMLInputElement[];
+    const label0 = boxes[0].closest("label")!;
+    const label1 = boxes[1].closest("label")!;
+    assert.ok(label0.classList.contains("pf-saved-compare-label"), label0.className);
+    assert.equal(label0.querySelectorAll("input,button,select,a").length, 1);
     const puts = st.calls.filter((c) => c.method === "PUT").length;
-    await click(label);
-    assert.equal((q(el, "pf-saved-compare") as HTMLInputElement).checked, true);
-    assert.equal(qa(el, "pf-compare-head").length, 2);
+    await click(label0);
+    assert.equal(boxes[0].checked, true);
+    assert.equal(q(el, "pf-saved-compare-button"), null, "only 1 checked");
+    await click(label1);
+    assert.equal(boxes[1].checked, true);
+    await click(q(el, "pf-saved-compare-button")!);
+    assert.equal(qa(el, "pf-compare-head").length, 3);
     assert.equal(st.calls.filter((c) => c.method === "PUT").length, puts, "compare sends nothing");
+  });
+});
+
+describe("#261 saved scenarios table + compare button (PFST-01..08)", () => {
+  it("PFST-01/02/04: toggle button opens/closes the 4-column table inside .pf-scenario-scroll with Select | Scenario name | From | Actions", async () => {
+    const st = server(record());
+    const el = await render();
+    const toggle = q(el, "pf-saved-toggle")!;
+    assert.equal(toggle.textContent, "Compare with saved scenarios");
+    assert.ok(toggle.classList.contains("pf-button"));
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-saved-none")!.textContent, "No saved scenarios yet.");
+    assert.equal(q(el, "pf-saved-table"), null);
+
+    await saveAs(el, "Cut dining");
+    assert.equal(q(el, "pf-saved-none"), null);
+    assert.equal(q(el, "pf-saved-table"), null, "still closed before clicking toggle");
+
+    const callsBeforeToggle = st.calls.length;
+    await click(toggle);
+    assert.equal(toggle.getAttribute("aria-expanded"), "true");
+    const table = q(el, "pf-saved-table")!;
+    assert.equal(table.tagName, "TABLE");
+    assert.ok(q(el, "pf-saved-list"), "tbody has data-testid=pf-saved-list");
+    const scroll = table.closest(".pf-scenario-scroll")!;
+    assert.ok(scroll, "table is wrapped in .pf-scenario-scroll");
+    assert.equal(scroll.getAttribute("role"), "region");
+    assert.equal(scroll.getAttribute("tabindex"), "0");
+
+    const headers = [...table.querySelectorAll("thead th")].map((th) => th.textContent);
+    assert.deepEqual(headers, ["Select", "Scenario name", "From", "Actions"]);
+
+    const row = qa(el, "pf-saved-item")[0];
+    assert.equal(row.tagName, "TR");
+    const cells = [...row.querySelectorAll("td")];
+    assert.equal(cells.length, 4);
+    assert.ok(cells[0].querySelector("[data-testid=\"pf-saved-compare\"]"));
+    assert.equal(cells[1].querySelector("[data-testid=\"pf-saved-item-name\"]")!.textContent, "Cut dining");
+    assert.equal(cells[2].textContent, "October 2026");
+    assert.ok(cells[3].querySelector("[data-testid=\"pf-saved-open\"]"));
+    assert.ok(cells[3].querySelector("[data-testid=\"pf-saved-rename\"]"));
+    assert.ok(cells[3].querySelector("[data-testid=\"pf-saved-update\"]"));
+    assert.ok(cells[3].querySelector("[data-testid=\"pf-saved-delete\"]"));
+
+    await click(toggle);
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-saved-table"), null);
+    assert.equal(st.calls.length, callsBeforeToggle, "toggling table sends zero network requests");
+  });
+
+  it("PFST-06/07/08: Compare selected requires 2+ checked rows, opens CompareTable on click, and hides CompareTable if unchecked or deleted below 2 until clicked again", async () => {
+    const st = server(record());
+    const el = await render();
+    await saveAs(el, "A");
+    await saveAs(el, "B");
+    await saveAs(el, "C");
+    await openTable(el);
+
+    const callsAfterSetup = st.calls.length;
+    const boxes = () => qa(el, "pf-saved-compare") as HTMLInputElement[];
+
+    assert.equal(q(el, "pf-saved-compare-button"), null);
+    assert.equal(q(el, "pf-compare-section"), null);
+
+    await click(boxes()[0]);
+    assert.equal(q(el, "pf-saved-compare-button"), null);
+    assert.equal(q(el, "pf-compare-section"), null);
+
+    await click(boxes()[1]);
+    const cmpBtn = q(el, "pf-saved-compare-button")!;
+    assert.equal(cmpBtn.textContent, "Compare selected");
+    assert.ok(cmpBtn.classList.contains("pf-button"));
+    assert.equal(q(el, "pf-compare-section"), null, "not shown before clicking Compare selected");
+
+    await click(cmpBtn);
+    assert.ok(q(el, "pf-compare-section"));
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B"]);
+    assert.equal(st.calls.length, callsAfterSetup, "checking boxes and clicking Compare selected send zero requests");
+
+    // Checking a 3rd row while CompareTable is open updates CompareTable to 3 scenarios; unchecking 3 -> 2 keeps CompareTable open
+    await click(boxes()[2]);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B", "C"]);
+    await click(boxes()[2]);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B"]);
+
+    // Uncheck one so fewer than 2 remain checked (2 -> 1) -> CompareTable and Compare selected button hide
+    await click(boxes()[1]);
+    assert.equal(q(el, "pf-saved-compare-button"), null);
+    assert.equal(q(el, "pf-compare-section"), null);
+
+    // Re-checking a 2nd row shows the button again, but CompareTable stays hidden until Compare selected is clicked again
+    await click(boxes()[2]);
+    assert.ok(q(el, "pf-saved-compare-button"));
+    assert.equal(q(el, "pf-compare-section"), null, "stays hidden until Compare selected is clicked again");
+    await click(q(el, "pf-saved-compare-button")!);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "C"]);
+
+    // Renaming a compared scenario updates its column header in CompareTable immediately
+    await click(qa(el, "pf-saved-rename")[0]);
+    await type(q(el, "pf-saved-rename-name")!, "Alpha");
+    await click(q(el, "pf-saved-rename-save")!);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alpha", "C"]);
+
+    // Check B as well (3 checked: Alpha, B, C), then delete B (3 -> 2 checked): CompareTable stays open with Alpha and C
+    await click(boxes()[1]);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alpha", "B", "C"]);
+    confirmAs(true);
+    await click(qa(el, "pf-saved-delete")[1]);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alpha", "C"]);
+
+    // Deleting C so fewer than 2 remain checked (2 -> 1) hides CompareTable and resets comparing state
+    await click(qa(el, "pf-saved-delete")[1]);
+    assert.equal(q(el, "pf-saved-compare-button"), null);
+    assert.equal(q(el, "pf-compare-section"), null);
+    await saveAs(el, "D");
+    await click(boxes()[1]);
+    assert.ok(q(el, "pf-saved-compare-button"));
+    assert.equal(q(el, "pf-compare-section"), null, "after delete below 2, CompareTable stays hidden until Compare selected is clicked again");
   });
 });
