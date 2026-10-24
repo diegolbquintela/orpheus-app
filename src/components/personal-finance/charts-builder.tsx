@@ -367,7 +367,7 @@ export function ChartsBuilder({
           </label>
           {err("chart")}
           {readOnly ? null : (
-            <button type="button" className="pf-button" disabled={saving || (!!savedId && !dirty)} onClick={() => void save()} data-testid="pf-builder-save">
+            <button type="button" className="pf-button pf-button-primary" disabled={saving || (!!savedId && !dirty)} onClick={() => void save()} data-testid="pf-builder-save">
               {savedId ? "Update" : "Save"}
             </button>
           )}
@@ -383,7 +383,7 @@ export function ChartsBuilder({
                     <button type="button" className="pf-button pf-button-danger" disabled={deleting} onClick={() => void remove()} data-testid="pf-builder-delete-yes">
                       Delete
                     </button>
-                    <button type="button" className="pf-button" disabled={deleting} onClick={() => setConfirming(false)} data-testid="pf-builder-delete-cancel">
+                    <button type="button" className="pf-button pf-button-ghost" disabled={deleting} onClick={() => setConfirming(false)} data-testid="pf-builder-delete-cancel">
                       Cancel
                     </button>
                   </div>

@@ -235,7 +235,7 @@ export function ScenarioProjection({
   };
   return (
     <>
-      <section aria-labelledby={`${uid}-path`} data-testid="pf-scenario-path" className="flex flex-col gap-6">
+      <section aria-labelledby={`${uid}-path`} data-testid="pf-scenario-path" className="pf-section flex flex-col gap-6">
         <p className="pf-label">06</p>
         <h2 id={`${uid}-path`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
           Projected path
@@ -297,7 +297,7 @@ export function ScenarioProjection({
         </div>
         <ScenarioChart points={proj.points} width={chartWidth} />
       </section>
-      <section aria-labelledby={`${uid}-totals`} data-testid="pf-scenario-totals-section">
+      <section className="pf-section" aria-labelledby={`${uid}-totals`} data-testid="pf-scenario-totals-section">
         <p className="pf-label">07</p>
         <h2 id={`${uid}-totals`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
           Totals
@@ -641,7 +641,7 @@ function SavedScenarios({
 
   return (
     <>
-      <section aria-labelledby={`${uid}-saved`} data-testid="pf-saved-section">
+      <section className="pf-section" aria-labelledby={`${uid}-saved`} data-testid="pf-saved-section">
         <p className="pf-label">08</p>
         <h2 id={`${uid}-saved`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
           Saved scenarios
@@ -655,7 +655,7 @@ function SavedScenarios({
           </p>
         ) : null}
         {opened ? (
-          <button type="button" className="pf-button mt-2" onClick={() => named.open(null)} data-testid="pf-saved-latest">
+          <button type="button" className="pf-button pf-button-secondary mt-2" onClick={() => named.open(null)} data-testid="pf-saved-latest">
             Back to the latest month
           </button>
         ) : null}
@@ -685,7 +685,7 @@ function SavedScenarios({
                 {error}
               </span>
             ) : null}
-            <button type="button" className="pf-button mt-2" onClick={() => void save()} disabled={busy} data-testid="pf-saved-save">
+            <button type="button" className="pf-button pf-button-primary mt-2" onClick={() => void save()} disabled={busy} data-testid="pf-saved-save">
               {SAVE_SCENARIO}
             </button>
           </div>
@@ -696,7 +696,7 @@ function SavedScenarios({
         <div className="mt-4">
           <button
             type="button"
-            className="pf-button"
+            className="pf-button pf-button-secondary"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             data-testid="pf-saved-toggle"
@@ -711,7 +711,7 @@ function SavedScenarios({
         ) : open ? (
           <>
             <div className="pf-scenario-scroll mt-4" role="region" aria-label="Saved scenarios, scrolls sideways on a phone" tabIndex={0}>
-              <table className="w-full border-collapse text-left text-sm" aria-label="Saved scenarios" data-testid="pf-saved-table">
+              <table className="pf-saved-table w-full border-collapse text-left text-sm" aria-label="Saved scenarios" data-testid="pf-saved-table">
                 <thead>
                   <tr className="border-b border-hair">
                     <th scope="col" className="pf-label py-2 pr-4 font-normal">Select</th>
@@ -744,14 +744,14 @@ function SavedScenarios({
                         {monthName(e.basis)}
                       </td>
                       <td className="py-2 align-middle">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button type="button" className="pf-button" onClick={() => named.open(e)} aria-label={`Open ${e.name}`} data-testid="pf-saved-open">
+                        <div className="pf-saved-actions flex flex-wrap items-center gap-2">
+                          <button type="button" className="pf-button pf-button-secondary" onClick={() => named.open(e)} aria-label={`Open ${e.name}`} data-testid="pf-saved-open">
                             Open
                           </button>
                           {write && renaming !== e.id ? (
                             <button
                               type="button"
-                              className="pf-button"
+                              className="pf-button pf-button-ghost"
                               onClick={() => {
                                 setRenaming(e.id);
                                 setDraft(e.name);
@@ -776,10 +776,10 @@ function SavedScenarios({
                                 aria-describedby={renameErr ? `${uid}-rename-error` : undefined}
                                 data-testid="pf-saved-rename-name"
                               />
-                              <button type="button" className="pf-button" onClick={() => void rename(e)} disabled={busy} data-testid="pf-saved-rename-save">
+                              <button type="button" className="pf-button pf-button-primary" onClick={() => void rename(e)} disabled={busy} data-testid="pf-saved-rename-save">
                                 Save name
                               </button>
-                              <button type="button" className="pf-button" onClick={() => setRenaming(null)} data-testid="pf-saved-rename-cancel">
+                              <button type="button" className="pf-button pf-button-ghost" onClick={() => setRenaming(null)} data-testid="pf-saved-rename-cancel">
                                 Cancel
                               </button>
                               {renameErr ? (
@@ -790,12 +790,12 @@ function SavedScenarios({
                             </span>
                           ) : null}
                           {write ? (
-                            <button type="button" className="pf-button" onClick={() => void update(e)} disabled={busy} aria-label={`${UPDATE} ${e.name}`} data-testid="pf-saved-update">
+                            <button type="button" className="pf-button pf-button-secondary" onClick={() => void update(e)} disabled={busy} aria-label={`${UPDATE} ${e.name}`} data-testid="pf-saved-update">
                               {UPDATE}
                             </button>
                           ) : null}
                           {write ? (
-                            <button type="button" className="pf-button" onClick={() => void remove(e)} disabled={busy} aria-label={`Delete ${e.name}`} data-testid="pf-saved-delete">
+                            <button type="button" className="pf-button pf-button-danger" onClick={() => void remove(e)} disabled={busy} aria-label={`Delete ${e.name}`} data-testid="pf-saved-delete">
                               Delete
                             </button>
                           ) : null}
@@ -809,7 +809,7 @@ function SavedScenarios({
             {picked.length >= COMPARE_MIN ? (
               <button
                 type="button"
-                className="pf-button mt-4"
+                className="pf-button pf-button-primary mt-4"
                 onClick={() => setComparing(true)}
                 data-testid="pf-saved-compare-button"
               >
@@ -845,7 +845,7 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
   }));
   const colors = ["var(--color-chalk)", "var(--color-green)", "var(--color-alert)", "var(--color-dim)"];
   return (
-    <section aria-labelledby={`${uid}-cmp`} data-testid="pf-compare-section">
+    <section className="pf-section" aria-labelledby={`${uid}-cmp`} data-testid="pf-compare-section">
       <p className="pf-label">09</p>
       <h2 id={`${uid}-cmp`} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
         Compare

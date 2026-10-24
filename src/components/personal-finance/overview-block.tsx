@@ -113,7 +113,7 @@ export function OverviewBlock({
   return (
     <>
       <section
-        className="flex flex-col gap-8"
+        className="pf-section flex flex-col gap-8"
         aria-labelledby="pf-overview"
         data-testid="pf-overview"
       >

@@ -2680,3 +2680,38 @@ Dated note 2026-10-24 (#261): supersedes the per-row `<ul>` list and 1-checkbox 
 - **Q-ST1 (built, recommend accept):** Confirm the toggle button label `"Compare with saved scenarios"` (`data-testid="pf-saved-toggle"`) for opening/closing the saved scenarios table in section `08`.
 - **Q-ST2 (built, recommend accept):** Confirm requiring 2 or more checked rows (`picked.length >= 2`, up to `COMPARE_MAX = 3`) before showing `"Compare selected"` (`data-testid="pf-saved-compare-button"`), rather than auto-comparing on 1 checked row.
 - **Q-ST3 (built, recommend accept):** Confirm keeping `This screen` as the first column in `CompareTable` alongside the 2–3 selected saved scenarios when `"Compare selected"` is clicked.
+
+## 76. Personal Finance + site: UX polish — whitespace, actions, tables, font, responsive buttons (#262, MEDIUM, CFO; added 2026-10-24; built in the same PR)
+
+Dated note 2026-10-24 (#262): UI/CSS polish across Personal Finance and site stylesheet (`src/styles.css`). Earlier sections are left as written (additions-only). Zero calculation, storage-key, schema, migration, dependency, or endpoint changes.
+
+76.1 **Whitespace & section rhythm (`.pf-section`).**
+- Major Personal Finance blocks (`02 Income` `data-testid="pf-income-block"`, `03 Expenses` `data-testid="pf-expenses-block"`, `Expenses summary` `data-testid="pf-summary-block"`, `04 Overview` `data-testid="pf-overview"`, Scenario `06 Projection` `data-testid="pf-scenario-path"`, `07 Totals` `data-testid="pf-scenario-totals-section"`, `08 Saved scenarios` `data-testid="pf-saved-section"`, `09 Compare` `data-testid="pf-compare-section"`, History `01 History` `data-testid="pf-history"`, and Charts `01 Charts` `data-testid="pf-charts"`) carry `.pf-section` (`border-top: 1px solid var(--color-hair); padding-top: 2rem;`) for consistent top rhythm and breathing room while keeping reserved header/body boxes (`.pf-page-header`, `.pf-body`) untouched so `CLS = 0`.
+
+76.2 **Action hierarchy (`.pf-button-primary`, `.pf-button-secondary`, `.pf-button-ghost`, `.pf-button-danger`).**
+- Every button keeps the base `.pf-button` class (`min-height: 2.75rem; height: 2.75rem; max-width: 100%;`) and adds a hierarchy modifier where appropriate:
+  - **Primary (`.pf-button-primary`):** filled chalk-on-night CTA (`background: var(--color-chalk); border-color: var(--color-chalk); color: var(--color-night); font-weight: 500;`, 14.2:1 contrast) for primary commit actions (`pf-month-save` `Save`, inline `pf-new-*-add` `Add`, `pf-saved-save` `Save scenario`, `pf-saved-compare-button` `Compare selected`, `pf-saved-rename-save` `Save name`, `pf-charts-new` `New chart`, and `pf-builder-save` `Save report`).
+  - **Secondary (`.pf-button.pf-button-secondary`):** outlined dark surface (`background: transparent; border-color: var(--color-rule); color: var(--color-chalk);`, 14.2:1 contrast; hover `rgb(242 240 235 / 0.06)` + `--color-chalk` border) for secondary actions (`pf-month-reset` `Reset to previous month`, `pf-month-copy` `Copy from …`, `pf-saved-latest` `Use latest saved figures`, `pf-saved-toggle` `Compare with saved scenarios`, `pf-saved-open` `Open`, `pf-saved-update` `Update`, and `pf-charts-retry` `Try again`).
+  - **Ghost / quiet (`.pf-button.pf-button-ghost`):** borderless transparent surface with underlined `--color-dim` label (`7.2:1` contrast; hover `--color-chalk` + `rgb(242 240 235 / 0.05)`) for inline secondary/dismiss actions (`pf-rename-category` `Rename category`, `pf-new-*-cancel` `Cancel`, `pf-saved-rename` `Rename`, `pf-saved-rename-cancel` `Cancel`, and `pf-builder-delete-cancel` `Cancel`).
+  - **Destructive (`.pf-button-danger`, `.pf-button.pf-button-danger`, `.pf-button.pf-button-danger.pf-delete`):** transparent dark surface with `1px solid var(--color-danger)` and `color: var(--color-danger)` (`4.63:1` AA contrast on `--color-night`; hover `rgb(255 65 54 / 0.1)` + `--color-alert`) for `Delete account`, `Delete category`, `pf-saved-delete`, `pf-builder-delete`, and `pf-builder-delete-yes`.
+
+76.3 **Table refinement.**
+- Subtle header rules (`1px solid var(--color-rule)`), row dividers (`1px solid var(--color-hair)`), sticky headers (`position: sticky; top: 0; background-color: var(--color-night);`), soft dark row hover (`rgb(242 240 235 / 0.03)`), and right-aligned numeric columns (`text-align: right; font-variant-numeric: slashed-zero;`, plus `.pf-num` utility) across `.pf-ov-table`, `.pf-scenario-table`, `.pf-history-grid`, `.pf-saved-table`, `.pf-table` (`Planned vs actual`), and desktop `@media (min-width: 64rem)` `.pf-table-head`/`.pf-table-row` and `.pf-cat-head`/`.pf-cat-row`. No `tabular-nums` or `"tnum"` on dark pages (`ST6-07` preserved).
+
+76.4 **Feedback & empty/loading states.**
+- Reserved-space status lines (`pf-unsaved`, `pf-figures-note`, `pf-month-copy-line`) keep `data-shown="false"` (`visibility: hidden`) when inactive so layout never shifts (`CLS = 0`), and use quiet muted (`--color-dim`) styling alongside `[data-testid="pf-save"]` (`role="status"`, `--color-alert` on failed save per `PF-36`) and `.pf-history-note` empty/loading copy.
+
+76.5 **Font stack & typographic consistency.**
+- `--font-sans` in `src/styles.css` is supplemented with Alliance-family and clean geometric sans fallbacks while keeping the self-hosted web font and its metric-adjusted fallback first:
+  `--font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", "Alliance No.1", "Alliance No.2", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;`
+- All `@font-face` declarations in `src/styles/fonts.css` and `FONT_PRELOAD` in `src/lib/site/fonts.ts` remain untouched; zero external font requests and zero new npm dependencies.
+
+76.6 **Responsive button ergonomics (`360px`, `768px`, `1024px+`).**
+- All interactive buttons and action rows (`.pf-month-row`, `.pf-filter-row`, `.pf-scenario-actions`, `.pf-saved-actions`, `.pf-charts-top`) maintain `≥ 44px` (`2.75rem`) touch target height, wrap cleanly with `flex-wrap: wrap` and `max-width: 100%`, and keep `scrollWidth <= clientWidth` at `360px` mobile, `768px` tablet, and `1024px+` (`1440px`) desktop. Single-block tap-target rules (`.pf-check`, `.pf-saved-compare-label`, `.pf-builder-option`) remain intact (`PFTT` / `PFTX`).
+
+76.7 **AC (`PFUX`, `qa/CANONICAL-AC-PACK.md`).** `PFUX-01..PFUX-08`.
+
+76.8 **CFO questions.**
+- **Q-UX1 (built, recommend accept):** Confirm the 4-tier button hierarchy on dark surfaces: filled chalk-on-night primary (`.pf-button-primary`), outlined rule-on-night secondary (`.pf-button-secondary`), quiet underlined dim-text ghost (`.pf-button-ghost`), and outlined danger-on-night destructive (`.pf-button-danger`).
+- **Q-UX2 (built, recommend accept):** Confirm keeping self-hosted `"Schibsted Grotesk"` + `"Schibsted Grotesk Fallback"` at the head of `--font-sans` with `"Alliance No.1", "Alliance No.2", "Inter"` appended as geometric sans fallbacks so `CLS = 0` and self-hosted font preloading stay intact without licensing or bundling proprietary Alliance font files.
+- **Q-UX3 (built, recommend accept):** Confirm right-aligning read-only summary/overview/comparison numeric columns (`.pf-ov-table`, `.pf-scenario-table`, `.pf-table`, desktop `.pf-table-row` / `.pf-cat-row`) while keeping editable input grid columns (`.pf-line`, `.pf-person`) left-aligned with their column headers.
