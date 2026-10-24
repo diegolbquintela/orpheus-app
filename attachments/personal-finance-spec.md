@@ -2647,3 +2647,36 @@ Dated note 2026-10-23: Diego approved #242 (found during #231). Numbered 73 beca
 74.4 **Endpoints.** No change: `/api/cfo/pf/overview` and every other PF endpoint use the main rule. No CFO notice is needed.
 
 74.5 **AC (PFAV, qa/CANONICAL-AC-PACK.md).** PFAV-01..PFAV-05.
+
+## 75. Personal Finance: saved scenarios table + compare button (#261, HIGH, Diego / CFO; added 2026-10-24; built in the same PR)
+
+Dated note 2026-10-24 (#261): supersedes the per-row `<ul>` list and 1-checkbox auto-compare in §60.4 and §66 while keeping all storage, naming, reopen, inline rename, update, delete, and sandbox rules of §60 / §66 / §70 intact. Earlier sections are left as written (additions-only).
+
+75.1 **Toggle button & empty state (`data-testid="pf-saved-section"`).**
+- Section `08` (`Saved scenarios`) renders a single button in the main area: `"Compare with saved scenarios"` (`data-testid="pf-saved-toggle"`, `aria-expanded={open}`, `.pf-button` ≥ 44 px tap target). Clicking it opens or closes the saved scenarios table (`open` defaults to `false`).
+- When there are no saved scenarios (`list.length === 0`), `<p className="pf-history-note mt-4" data-testid="pf-saved-none">No saved scenarios yet.</p>` is shown.
+
+75.2 **Saved scenarios table (`Select | Scenario name | From | Actions`).**
+- When opened (`open === true`) and `list.length > 0`, the saved scenarios render inside `.pf-scenario-scroll` (`role="region"`, `tabIndex={0}`, `aria-label="Saved scenarios, scrolls sideways on a phone"`) as a 4-column `<table>` (`data-testid="pf-saved-table"`) with `<tbody data-testid="pf-saved-list">` and one `<tr data-testid="pf-saved-item">` per saved scenario:
+  - **Select:** `label.pf-saved-compare-label` wrapping `<input type="checkbox" data-testid="pf-saved-compare" ... />` and `<span className="sr-only">Compare {e.name}</span>` (single control inside the label; `.pf-saved-compare-label` in `src/styles.css` untouched so `PFTX-01` and `PFTX-03` hold). Unchecked boxes are disabled once `picked.length >= COMPARE_MAX` (3).
+  - **Scenario name:** `<span className="text-chalk" data-testid="pf-saved-item-name">{e.name}</span>`.
+  - **From:** `monthName(e.basis)` (e.g. `October 2026`).
+  - **Actions:**
+    - Readers and writers: `Open` (`data-testid="pf-saved-open"`, `aria-label="Open ${e.name}"`).
+    - Writers only (`write === true`): `Rename` (`data-testid="pf-saved-rename"`, plus inline `pf-saved-rename-name`, `pf-saved-rename-save`, `pf-saved-rename-cancel`, `pf-saved-rename-error`), `Update` (`data-testid="pf-saved-update"`), and `Delete` (`data-testid="pf-saved-delete"`). Readers (`write === false`) never see `Rename`, `Update`, or `Delete`.
+
+75.3 **“Compare selected” button & Compare section (`data-testid="pf-compare-section"`).**
+- A single `"Compare selected"` button (`data-testid="pf-saved-compare-button"`, `className="pf-button"`) is rendered only when 2 or more rows are checked (`picked.length >= 2`). When 0 or 1 row is checked, the button is not rendered.
+- Clicking `"Compare selected"` reveals `<CompareTable />` (`data-testid="pf-compare-section"`, `pf-compare-table`, `pf-compare-chart`) for the selected scenarios alongside `This screen` using the existing projection math (zero calculation changes).
+- If fewer than 2 rows remain checked (because a row was unchecked or deleted), `<CompareTable />` is hidden until 2 or more rows are checked and `"Compare selected"` is clicked again.
+
+75.4 **Sandbox, styling & mobile.**
+- Opening or closing the table, checking or unchecking boxes, and clicking `"Compare selected"` send zero network requests (`GET` or `PUT`). Only `Save scenario`, `Rename` (`Save name`), `Update` (confirmed), and `Delete` (confirmed) write, changing only `orpheus.finance.scenario.v1`.
+- Existing dark style, no gold, and `.pf-scenario-scroll` prevents horizontal document overflow at 390 px mobile.
+
+75.5 **AC (`PFST`, `qa/CANONICAL-AC-PACK.md`).** `PFST-01..PFST-08`.
+
+75.6 **CFO questions.**
+- **Q-ST1 (built, recommend accept):** Confirm the toggle button label `"Compare with saved scenarios"` (`data-testid="pf-saved-toggle"`) for opening/closing the saved scenarios table in section `08`.
+- **Q-ST2 (built, recommend accept):** Confirm requiring 2 or more checked rows (`picked.length >= 2`, up to `COMPARE_MAX = 3`) before showing `"Compare selected"` (`data-testid="pf-saved-compare-button"`), rather than auto-comparing on 1 checked row.
+- **Q-ST3 (built, recommend accept):** Confirm keeping `This screen` as the first column in `CompareTable` alongside the 2–3 selected saved scenarios when `"Compare selected"` is clicked.

@@ -14,7 +14,10 @@ import { NAME_MAX, NO_SCENARIO, SAVED_MAX, type SavedEntry, type Scenario } from
 
 export { NAME_MAX, SAVED_MAX, type SavedEntry };
 /** #223 CFO Q-SS1 (built): up to 3 saved scenarios side by side with the screen as it is now. */
+export const COMPARE_MIN = 2;
 export const COMPARE_MAX = 3;
+export const COMPARE_TOGGLE = "Compare with saved scenarios";
+export const COMPARE_SELECTED = "Compare selected";
 /** The page values a saved scenario keeps (the screen's what-ifs); anything else is never kept. */
 export const PAGE_VALUE_NAMES = [STORAGE_KEY, INCOME_KEY, EQUITY_KEY, CURRENCY_KEY, OVERVIEW_KEY] as const;
 

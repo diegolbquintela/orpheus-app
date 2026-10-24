@@ -49,6 +49,9 @@ import {
   addSaved,
   basisChanged,
   COMPARE_MAX,
+  COMPARE_MIN,
+  COMPARE_SELECTED,
+  COMPARE_TOGGLE,
   DELETE_FAILED,
   deleteScenarioQuestion,
   keptValues,
@@ -96,6 +99,9 @@ export function ScenarioPage({
   // #223: the reopened saved scenario (null = the latest month, as #221/#222 shipped). Reopening remounts the page from
   // the record already loaded (no second GET), with the saved values over it in memory only.
   const [opened, setOpened] = useState<SavedEntry | null>(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [comparing, setComparing] = useState(false);
   const latest = useRef<PfRecord | null | undefined>(undefined);
   const openedRef = useRef<SavedEntry | null>(null);
   openedRef.current = opened;
@@ -156,6 +162,12 @@ export function ScenarioPage({
                 write: !!loaded?.access.write,
                 opened,
                 open: setOpened,
+                tableOpen,
+                setTableOpen,
+                picked,
+                setPicked,
+                comparing,
+                setComparing,
                 change: async (c) => afterChange(await change(c)),
               }}
             />
@@ -172,6 +184,12 @@ export type Named = {
   write: boolean;
   opened: SavedEntry | null;
   open: (e: SavedEntry | null) => void;
+  tableOpen?: boolean;
+  setTableOpen?: (v: boolean | ((prev: boolean) => boolean)) => void;
+  picked?: string[];
+  setPicked?: (v: string[] | ((prev: string[]) => string[])) => void;
+  comparing?: boolean;
+  setComparing?: (v: boolean | ((prev: boolean) => boolean)) => void;
   change: (c: Parameters<typeof changeSaved>[0]) => Promise<ChangeResult>;
 };
 
@@ -506,12 +524,21 @@ function SavedScenarios({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [picked, setPicked] = useState<string[]>([]);
+  const [localPicked, setLocalPicked] = useState<string[]>([]);
+  const picked = named.picked ?? localPicked;
+  const setPicked = named.setPicked ?? setLocalPicked;
   const { list, write, opened } = named;
   // #233 (spec 66, AC PFSR): the scenario being renamed (inline field) and its draft name; local only, nothing sent.
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [renameErr, setRenameErr] = useState<string | null>(null);
+  // #261 (spec 75, AC PFST-01..08): toggle button opens the 4-column table; Compare selected opens CompareTable at 2+.
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = named.tableOpen ?? localOpen;
+  const setOpen = named.setTableOpen ?? setLocalOpen;
+  const [localComparing, setLocalComparing] = useState(false);
+  const comparing = named.comparing ?? localComparing;
+  const setComparing = named.setComparing ?? setLocalComparing;
 
   const snapshot = (): Omit<SavedEntry, "id" | "name"> => {
     const v = live.values();
@@ -594,14 +621,22 @@ function SavedScenarios({
     const r = await named.change((s) => removeSaved(s, e.id));
     setBusy(false);
     if (r.ok) {
-      setPicked((p) => p.filter((id) => id !== e.id));
+      setPicked((p) => {
+        const next = p.filter((id) => id !== e.id);
+        if (next.length < COMPARE_MIN) setComparing(false);
+        return next;
+      });
       setStatus(`Deleted "${e.name}".`);
       if (opened?.id === e.id) named.open(null);
     } else setStatus("error" in r ? r.error : DELETE_FAILED);
   }
 
   const togglePick = (id: string) =>
-    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= COMPARE_MAX ? p : [...p, id]));
+    setPicked((p) => {
+      const next = p.includes(id) ? p.filter((x) => x !== id) : p.length >= COMPARE_MAX ? p : [...p, id];
+      if (next.length < COMPARE_MIN) setComparing(false);
+      return next;
+    });
   const compared = list.filter((e) => picked.includes(e.id));
 
   return (
@@ -658,88 +693,133 @@ function SavedScenarios({
         <p className="sr-only" role="status" data-testid="pf-saved-status">
           {status}
         </p>
-        {list.length ? (
-          <ul className="mt-4 flex flex-col gap-2" data-testid="pf-saved-list">
-            {list.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-3" data-testid="pf-saved-item">
-                <span className="text-chalk" data-testid="pf-saved-item-name">
-                  {e.name}
-                </span>
-                <span className="pf-rate-source">{`from ${monthName(e.basis)}`}</span>
-                <button type="button" className="pf-button" onClick={() => named.open(e)} aria-label={`Open ${e.name}`} data-testid="pf-saved-open">
-                  Open
-                </button>
-                <label className="pf-rate-source pf-saved-compare-label flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={picked.includes(e.id)}
-                    disabled={!picked.includes(e.id) && picked.length >= COMPARE_MAX}
-                    onChange={() => togglePick(e.id)}
-                    data-testid="pf-saved-compare"
-                  />
-                  {`Compare ${e.name}`}
-                </label>
-                {write && renaming !== e.id ? (
-                  <button
-                    type="button"
-                    className="pf-button"
-                    onClick={() => {
-                      setRenaming(e.id);
-                      setDraft(e.name);
-                      setRenameErr(null);
-                    }}
-                    disabled={busy}
-                    aria-label={`${RENAME} ${e.name}`}
-                    data-testid="pf-saved-rename"
-                  >
-                    {RENAME}
-                  </button>
-                ) : null}
-                {write && renaming === e.id ? (
-                  <span className="flex flex-wrap items-center gap-2">
-                    <input
-                      className="pf-field"
-                      value={draft}
-                      maxLength={80}
-                      aria-label={`New name for ${e.name}`}
-                      onChange={(ev) => setDraft(ev.target.value)}
-                      aria-invalid={renameErr ? true : undefined}
-                      aria-describedby={renameErr ? `${uid}-rename-error` : undefined}
-                      data-testid="pf-saved-rename-name"
-                    />
-                    <button type="button" className="pf-button" onClick={() => void rename(e)} disabled={busy} data-testid="pf-saved-rename-save">
-                      Save name
-                    </button>
-                    <button type="button" className="pf-button" onClick={() => setRenaming(null)} data-testid="pf-saved-rename-cancel">
-                      Cancel
-                    </button>
-                    {renameErr ? (
-                      <span id={`${uid}-rename-error`} className="pf-error" data-testid="pf-saved-rename-error">
-                        {renameErr}
-                      </span>
-                    ) : null}
-                  </span>
-                ) : null}
-                {write ? (
-                  <button type="button" className="pf-button" onClick={() => void update(e)} disabled={busy} aria-label={`${UPDATE} ${e.name}`} data-testid="pf-saved-update">
-                    {UPDATE}
-                  </button>
-                ) : null}
-                {write ? (
-                  <button type="button" className="pf-button" onClick={() => void remove(e)} disabled={busy} aria-label={`Delete ${e.name}`} data-testid="pf-saved-delete">
-                    Delete
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
+        <div className="mt-4">
+          <button
+            type="button"
+            className="pf-button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            data-testid="pf-saved-toggle"
+          >
+            {COMPARE_TOGGLE}
+          </button>
+        </div>
+        {!list.length ? (
           <p className="pf-history-note mt-4" data-testid="pf-saved-none">
             No saved scenarios yet.
           </p>
-        )}
+        ) : open ? (
+          <>
+            <div className="pf-scenario-scroll mt-4" role="region" aria-label="Saved scenarios, scrolls sideways on a phone" tabIndex={0}>
+              <table className="w-full border-collapse text-left text-sm" aria-label="Saved scenarios" data-testid="pf-saved-table">
+                <thead>
+                  <tr className="border-b border-hair">
+                    <th scope="col" className="pf-label py-2 pr-4 font-normal">Select</th>
+                    <th scope="col" className="pf-label py-2 pr-4 font-normal">Scenario name</th>
+                    <th scope="col" className="pf-label py-2 pr-4 font-normal">From</th>
+                    <th scope="col" className="pf-label py-2 font-normal">Actions</th>
+                  </tr>
+                </thead>
+                <tbody data-testid="pf-saved-list">
+                  {list.map((e) => (
+                    <tr key={e.id} className="border-b border-hair" data-testid="pf-saved-item">
+                      <td className="py-2 pr-4 align-middle">
+                        <label className="pf-rate-source pf-saved-compare-label flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={picked.includes(e.id)}
+                            disabled={!picked.includes(e.id) && picked.length >= COMPARE_MAX}
+                            onChange={() => togglePick(e.id)}
+                            data-testid="pf-saved-compare"
+                          />
+                          <span className="sr-only">{`Compare ${e.name}`}</span>
+                        </label>
+                      </td>
+                      <td className="py-2 pr-4 align-middle whitespace-nowrap">
+                        <span className="text-chalk" data-testid="pf-saved-item-name">
+                          {e.name}
+                        </span>
+                      </td>
+                      <td className="pf-rate-source py-2 pr-4 align-middle whitespace-nowrap">
+                        {monthName(e.basis)}
+                      </td>
+                      <td className="py-2 align-middle">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button type="button" className="pf-button" onClick={() => named.open(e)} aria-label={`Open ${e.name}`} data-testid="pf-saved-open">
+                            Open
+                          </button>
+                          {write && renaming !== e.id ? (
+                            <button
+                              type="button"
+                              className="pf-button"
+                              onClick={() => {
+                                setRenaming(e.id);
+                                setDraft(e.name);
+                                setRenameErr(null);
+                              }}
+                              disabled={busy}
+                              aria-label={`${RENAME} ${e.name}`}
+                              data-testid="pf-saved-rename"
+                            >
+                              {RENAME}
+                            </button>
+                          ) : null}
+                          {write && renaming === e.id ? (
+                            <span className="flex flex-wrap items-center gap-2">
+                              <input
+                                className="pf-field"
+                                value={draft}
+                                maxLength={80}
+                                aria-label={`New name for ${e.name}`}
+                                onChange={(ev) => setDraft(ev.target.value)}
+                                aria-invalid={renameErr ? true : undefined}
+                                aria-describedby={renameErr ? `${uid}-rename-error` : undefined}
+                                data-testid="pf-saved-rename-name"
+                              />
+                              <button type="button" className="pf-button" onClick={() => void rename(e)} disabled={busy} data-testid="pf-saved-rename-save">
+                                Save name
+                              </button>
+                              <button type="button" className="pf-button" onClick={() => setRenaming(null)} data-testid="pf-saved-rename-cancel">
+                                Cancel
+                              </button>
+                              {renameErr ? (
+                                <span id={`${uid}-rename-error`} className="pf-error" data-testid="pf-saved-rename-error">
+                                  {renameErr}
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : null}
+                          {write ? (
+                            <button type="button" className="pf-button" onClick={() => void update(e)} disabled={busy} aria-label={`${UPDATE} ${e.name}`} data-testid="pf-saved-update">
+                              {UPDATE}
+                            </button>
+                          ) : null}
+                          {write ? (
+                            <button type="button" className="pf-button" onClick={() => void remove(e)} disabled={busy} aria-label={`Delete ${e.name}`} data-testid="pf-saved-delete">
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {picked.length >= COMPARE_MIN ? (
+              <button
+                type="button"
+                className="pf-button mt-4"
+                onClick={() => setComparing(true)}
+                data-testid="pf-saved-compare-button"
+              >
+                {COMPARE_SELECTED}
+              </button>
+            ) : null}
+          </>
+        ) : null}
       </section>
-      {compared.length ? <CompareTable live={inputs} entries={compared} horizon={horizon} /> : null}
+      {comparing && compared.length >= COMPARE_MIN ? <CompareTable live={inputs} entries={compared} horizon={horizon} /> : null}
     </>
   );
 }
