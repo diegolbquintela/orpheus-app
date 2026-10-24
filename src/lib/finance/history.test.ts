@@ -117,3 +117,102 @@ describe("#214 History table: grid", () => {
     assert.ok(MONTHS_KEY in r);
   });
 });
+
+describe("#263 History table: editable cells and record updates (PFHE-02..05)", () => {
+  it("PFHE-02: isEditableCell identifies stored expense/income lines and legacy overview-only months vs derived and — cells", async () => {
+    const { isEditableCell } = await import("./history.ts");
+    const r = fixture();
+    // 2025-11 has rent, food, ann-wages
+    assert.equal(isEditableCell(r, "2025-11", "expense:rent"), true);
+    assert.equal(isEditableCell(r, "2025-11", "expense:food"), true);
+    assert.equal(isEditableCell(r, "2025-11", "income:ann-wages"), true);
+    // 2025-12 has rent and ann-wages, but NOT food (food is — in 2025-12)
+    assert.equal(isEditableCell(r, "2025-12", "expense:rent"), true);
+    assert.equal(isEditableCell(r, "2025-12", "expense:food"), false);
+    // Derived totals are read-only when month has lines
+    for (const id of ["income", "fixed", "variable", "expenses", "surplus", "net-assets", "coverage", "coverage-share"]) {
+      assert.equal(isEditableCell(r, "2025-11", id), false, id);
+    }
+    // 2024-06 is a legacy overview-only month (no lines in months["2024-06"]), so income and expenses are editable
+    assert.equal(isEditableCell(r, "2024-06", "income"), true);
+    assert.equal(isEditableCell(r, "2024-06", "expenses"), true);
+    assert.equal(isEditableCell(r, "2024-06", "surplus"), false);
+  });
+
+  it("PFHE-03: applyHistoryEdit updates household and foreign expense lines, wages, bonus (preserving bonus when wages change), and legacy overview months", async () => {
+    const { applyHistoryEdit } = await import("./history.ts");
+    const { readExpenses } = await import("./expenses.ts");
+    const { readIncome } = await import("./income.ts");
+    const s = new RecordStore(fixture());
+    const bob: Person = {
+      id: "bob",
+      name: "Bob",
+      wages: "120000",
+      bonus: "20",
+      tax: "25",
+      share: "100",
+      countWages: true,
+      countBonus: true,
+      foreign: false,
+      currency: "",
+      rate: "",
+    };
+    const usdSub: Line = {
+      id: "sub",
+      name: "Cloud",
+      amount: "140",
+      per: "month",
+      equity: "",
+      account: "",
+      currency: "USD",
+      rate: "1.4",
+      category: "",
+    };
+    writeMonths(s, {
+      "2025-11": { fixed: [L("rent", "1000"), usdSub], variable: [L("food", "300")], people: [bob] },
+      "2026-10": { fixed: [L("rent", "1000")], variable: [], people: [bob] },
+    });
+
+    // 1. Edit household expense line
+    let next = applyHistoryEdit(s.data, "2025-11", "expense:rent", "1,250.50", NOW)!;
+    assert.ok(next);
+    let t = yearTable(next, 2025, NOW);
+    assert.equal(cell(t, "2025-11", "expense:rent"), "1,250.50");
+    assert.equal(cell(t, "2025-11", "fixed"), "1,350.50"); // 1250.50 + 100 (Cloud USD 140 / 1.4)
+
+    // 2. Edit foreign expense line (1.4 rate -> 200 CAD monthly = 280 USD)
+    next = applyHistoryEdit(next, "2025-11", "expense:sub", "200", NOW)!;
+    t = yearTable(next, 2025, NOW);
+    assert.equal(cell(t, "2025-11", "expense:sub"), "200.00");
+    assert.equal(cell(t, "2025-11", "fixed"), "1,450.50");
+
+    // 3. Edit Bob wages from 7,500.00 to 9,000.00 -> preserves Bob bonus at 1,500.00!
+    t = yearTable(next, 2025, NOW);
+    assert.equal(cell(t, "2025-11", "income:bob-wages"), "7,500.00");
+    assert.equal(cell(t, "2025-11", "income:bob-bonus"), "1,500.00");
+    next = applyHistoryEdit(next, "2025-11", "income:bob-wages", "9000", NOW)!;
+    t = yearTable(next, 2025, NOW);
+    assert.equal(cell(t, "2025-11", "income:bob-wages"), "9,000.00");
+    assert.equal(cell(t, "2025-11", "income:bob-bonus"), "1,500.00");
+    assert.equal(cell(t, "2025-11", "income"), "10,500.00");
+
+    // 4. Edit Bob bonus from 1,500.00 to 1,800.00
+    next = applyHistoryEdit(next, "2025-11", "income:bob-bonus", "1800", NOW)!;
+    t = yearTable(next, 2025, NOW);
+    assert.equal(cell(t, "2025-11", "income:bob-bonus"), "1,800.00");
+    assert.equal(cell(t, "2025-11", "income"), "10,800.00");
+
+    // 5. Editing current month (2026-10) syncs top-level expenses.v2 and income.v1
+    next = applyHistoryEdit(next, "2026-10", "expense:rent", "1400", NOW)!;
+    next = applyHistoryEdit(next, "2026-10", "income:bob-wages", "8250", NOW)!;
+    const checkStore = new RecordStore(next);
+    assert.equal(readExpenses(checkStore).fixed[0].amount, "1400");
+    assert.equal(readIncome(checkStore).people[0].wages, "132000");
+
+    // 6. Legacy overview-only month edit (2024-06)
+    next = applyHistoryEdit(next, "2024-06", "expenses", "2450", NOW)!;
+    const t2024 = yearTable(next, 2024, NOW);
+    assert.equal(cell(t2024, "2024-06", "expenses"), "2,450.00");
+    assert.equal(cell(t2024, "2024-06", "surplus"), "2,550.00");
+  });
+});

@@ -4,7 +4,7 @@ import { DeniedPage } from "@/components/access/denied";
 import { HistoryPage } from "@/components/personal-finance/history-page";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
 
-// #214 (personal-finance-spec 53): the read-only History table. Same gate as /personal-finance (Read is enough).
+// #214 / #263 (personal-finance-spec 53, 77): the History table. Same gate as /personal-finance (Read is enough).
 export const Route = createFileRoute("/personal-finance_/history")({
   server: { middleware: [deniedStatus] },
   beforeLoad: async () => {
@@ -27,5 +27,5 @@ export const Route = createFileRoute("/personal-finance_/history")({
 function HistoryRoute() {
   const access = Route.useLoaderData();
   if (!access.read) return <DeniedPage surface="personal_finance" />;
-  return <HistoryPage />;
+  return <HistoryPage readOnly={!access.write} />;
 }

@@ -2715,3 +2715,42 @@ Dated note 2026-10-24 (#262): UI/CSS polish across Personal Finance and site sty
 - **Q-UX1 (built, recommend accept):** Confirm the 4-tier button hierarchy on dark surfaces: filled chalk-on-night primary (`.pf-button-primary`), outlined rule-on-night secondary (`.pf-button-secondary`), quiet underlined dim-text ghost (`.pf-button-ghost`), and outlined danger-on-night destructive (`.pf-button-danger`).
 - **Q-UX2 (built, recommend accept):** Confirm keeping self-hosted `"Schibsted Grotesk"` + `"Schibsted Grotesk Fallback"` at the head of `--font-sans` with `"Alliance No.1", "Alliance No.2", "Inter"` appended as geometric sans fallbacks so `CLS = 0` and self-hosted font preloading stay intact without licensing or bundling proprietary Alliance font files.
 - **Q-UX3 (built, recommend accept):** Confirm right-aligning read-only summary/overview/comparison numeric columns (`.pf-ov-table`, `.pf-scenario-table`, `.pf-table`, desktop `.pf-table-row` / `.pf-cat-row`) while keeping editable input grid columns (`.pf-line`, `.pf-person`) left-aligned with their column headers.
+
+## 77. Personal Finance: History tab — transpose + editable (#263, MEDIUM, CFO; added 2026-10-24; built in the same PR)
+
+Dated note 2026-10-24 (#263): supersedes the month-rows / figure-columns orientation and read-only-for-writers note from §62 (#214), while keeping earlier sections as written (additions-only) and keeping `PFHT-01..03, 07..15, 21..23`. Zero schema, migration, storage-key, dependency, or `/api/cfo/pf/*` endpoint changes.
+
+77.1 **Transposed orientation (`/personal-finance/history`, `src/components/personal-finance/history-page.tsx`).**
+- **Months as columns (`<thead>`):**
+  - First header cell: `<th scope="col" className="pf-history-month">Figure</th>` (sticky left on horizontal scroll, sticky top on vertical scroll).
+  - Followed by one `<th key={m.month} scope="col" data-month={m.month} data-testid="pf-history-col">{m.label}</th>` for each **stored** month in the selected year, oldest first (e.g. `March 2025`, `July 2025`). Same stored-month inclusion rules as `#214` (`PFHT-07`: only stored months in that year are shown; never invent empty gap months).
+- **Figures / line items as rows (`<tbody>`):**
+  - One `<tr key={fig.id} data-figure={fig.id} data-kind={fig.kind} data-testid="pf-history-row">` per figure in the year in canonical order: counted income lines (`income:<personId>-wages`, `income:<personId>-bonus`), expense lines (`expense:<lineId>`), then `TOTAL_COLUMNS` (`income`, `fixed`, `variable`, `expenses`, `surplus`, `net-assets`, `coverage`, `coverage-share`).
+  - Row header cell: `<th scope="row" className="pf-history-month" data-testid="pf-history-figure">{fig.label}</th>` (sticky left on horizontal scroll, left-aligned).
+  - Value cells: one `<td key={m.month} data-month={m.month} data-figure={fig.id} data-kind={fig.kind}>` per stored month in the year, right-aligned (`white-space: nowrap`, `font-variant-numeric: slashed-zero`; no `tabular-nums` or `"tnum"` per `ST6-07`).
+
+77.2 **Editable cells vs read-only derived cells (`src/lib/finance/history.ts`, `src/components/personal-finance/history-page.tsx`).**
+- **Editable cells (when `!isReadOnly`, i.e. `readOnly !== true` and `access.write !== false`):**
+  - **Stored Expense line cells (`kind === "expense-line"`, `expense:<lineId>`):** editable in any month `m` where that line (`id === lineId`) is stored in `months[m].fixed` or `months[m].variable` with a valid FX divisor (`divisorOf(line, household) !== null`). Updating the cell sets `per: "month"` and updates `amount` (`val` in household currency, or `val * rate` in foreign currency). Missing lines in month `m` show `—` (`<span>`) and remain read-only.
+  - **Stored Income line cells (`kind === "income-line"`, `income:<personId>-wages` / `income:<personId>-bonus`):** editable in any month `m` where `personId` is stored in `months[m].people` with that line counted, positive net-share factor `(1 - tax/100) * (share/100) > 0`, and valid FX divisor (for `-bonus`, also `grossWages(p) > 0`). Editing `-wages` updates `p.wages` so the counted monthly net wages equals the typed value while preserving any counted monthly bonus amount by adjusting `p.bonus` percent accordingly; editing `-bonus` updates `p.bonus` percent.
+  - **Legacy typed Overview-only months:** in a month `m` that has no `months[m]` lines (`!hasLines(months[m])`) and comes from `overview.months[m]`, the `income` and `expenses` cells in column `m` are editable and update `overview.months[m]`.
+  - Editable cells render `<input type="text" inputMode="decimal" className="pf-input pf-history-input" data-testid="pf-history-input" data-month={m.month} data-figure={fig.id} aria-label="${fig.label} for ${m.label}" ... />` (`min-height: 2.75rem; height: 2.75rem`, ≥ 44 px tap target).
+- **Read-only cells (`<span>`):**
+  - All derived figures (`Fixed expenses`, `Variable expenses`, `Income` when month `m` has lines, `Expenses` when month `m` has lines, `Surplus`, `Net assets`, `Equity coverage (monthly)`, `Equity coverage (% of expenses)`) and all `—` cells render as read-only `<span>` elements.
+  - As the user edits any editable cell, all derived rows recompute live across the table (including multi-month `Net assets` carry-forward across stored months and years) via `yearTable(draftRecord, year, now)`.
+
+77.3 **Validation, Save / Discard toolbar, record sync & read-only access.**
+- Validation uses `parseAmount(text)` (`>= 0`). An invalid input sets `aria-invalid="true"` and `title={AMOUNT_ERROR}` (`"Enter a number, 0 or more."`), blocks `Save` (`0` PUTs), focuses the first invalid input, and sets `pf-history-status` to `"Not saved."` (`--color-alert`).
+- Toolbar (`.pf-history-bar`) alongside `Year` (`pf-history-year`) renders for writers (`!isReadOnly`):
+  - `Save` (`data-testid="pf-history-save"`, `className="pf-button pf-button-primary"`, `disabled={!dirty || saving}`) sending `PUT /api/personal-finance` with `{ data: draftRecord, baseVersion }` via `saveHistory` (`src/lib/finance/history-client.ts`).
+  - `Discard` (`data-testid="pf-history-discard"`, `className="pf-button pf-button-ghost"`, shown when `dirty`) reverting all unsaved edits back to `savedRecord`.
+  - Status (`data-testid="pf-history-status"`, `role="status"`, `aria-live="polite"`): `"Unsaved changes"` when dirty, `"Saving…"` while saving, `"Saved."` after a 200 save, `STALE_MESSAGE` (`data-testid="pf-stale-error"`, `--color-alert`) on 409 stale write, and `"Not saved."` (`--color-alert`) on error or invalid input.
+- Editing a month `m` with `months[m]` lines updates `orpheus.finance.months.v1`, clears any legacy `overview.months[m]` override, and when `m` is the current household month (`lastTwelve(now)[11]`) also syncs `orpheus.finance.expenses.v2` (`fixed`, `variable`) and `orpheus.finance.income.v1` (`people`). Draft edits persist across `Year` picker switches until `Save` or `Discard`.
+- When `readOnly === true` (e.g. CFO Read grant via `<HistoryPage readOnly={!access.write} />` in `src/routes/personal-finance_.history.tsx`), `READ_ONLY_NOTE` (`data-testid="pf-read-only"` / `data-testid="pf-history-readonly"`) is rendered, `0` `<input>` elements and no `Save` button are rendered, and `0` PUT requests are sent.
+
+77.4 **AC (`PFHE`, `qa/CANONICAL-AC-PACK.md`).** `PFHE-01..PFHE-08`.
+
+77.5 **CFO questions.**
+- **Q-HE1 (built, recommend accept):** Confirm the transposed layout with figures as sticky-left rows (`pf-history-row` / `pf-history-figure`) and stored months in the selected year as columns left-to-right oldest first (`pf-history-col`), keeping `PFHT-07` (no invented gap months).
+- **Q-HE2 (built, recommend accept):** Confirm making stored line-item cells (and legacy overview-only month income/expense cells) editable inline (`pf-history-input`) while keeping derived rows (`Fixed expenses`, `Variable expenses`, `Income`, `Expenses`, `Surplus`, `Net assets`, `Equity coverage`) and missing-line `—` cells read-only with live recalculation.
+- **Q-HE3 (built, recommend accept):** Confirm explicit `Save` (`pf-history-save`) + `Discard` (`pf-history-discard`) in the History toolbar writing via `PUT /api/personal-finance` with `baseVersion` stale-write protection (`409` `STALE_MESSAGE`) and syncing the current month back to `expenses.v2` / `income.v1`.
