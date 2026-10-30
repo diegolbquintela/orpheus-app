@@ -10,7 +10,7 @@ Added 2026-10-30. Diego approved the MVP with the database table on 2026-10-30 (
 
 ## 2. The plan (code constants, `src/lib/renaissance/model.ts` `PLAN`)
 
-- Start: 2026-10-28 (Day 1). Days are counted in America/Toronto.
+- Start: 2026-10-28 is Day 0 (the baseline day, as in the CoS tracker); 2026-10-29 is Day 1. Days are counted in America/Toronto.
 - Zyn: baseline 16 a day, floor 3.
 - Coffee: baseline 7 cups a day, floor 3. `coffee_noon`: hit means no coffee after 12:00 noon; `actual` is the number of cups after noon.
 - Steps: at least 8,000 a day counts as a hit; the goal is 10,000.
@@ -60,7 +60,7 @@ The data is stored in the table `rm_entries`, one row per `(entry_date, item)`, 
 ## 5. Derived values (computed on read, never stored; `src/lib/renaissance/derive.ts`)
 
 - **Caps (zyn, coffee):**
-  - Day 1's cap is the baseline, and Day 1 counts as a hit.
+  - Day 0's cap is the baseline, and Day 0 counts as a hit.
   - After a hit day, the cap drops by 1, down to the floor.
   - A day is a hit when `actual ≤ cap`. With no `actual`, the reported `hit` is used.
   - A past day with no report is a miss, so the cap holds. Today with no report is pending.
@@ -86,7 +86,7 @@ The data is stored in the table `rm_entries`, one row per `(entry_date, item)`, 
 - The page is owner only. Anyone else, signed out, or with the flag off, gets the site's 404. It is `noindex`, and it uses the dark site style. All numbers are computed on the server (`src/lib/renaissance/view.ts`).
 - If `rm_entries` is missing, the page reads "Check-ins aren't set up here yet." (no 500).
 - Sections:
-  - **Header:** lyre, `Day N · <date>`, today's caps, lifts X/3 this week, 7-day average steps, the all-pillars streak, and today's picks.
+  - **Header:** lyre, `Day N · <date>` (N = days since 2026-10-28), today's caps, lifts X/3 this week, 7-day average steps, the all-pillars streak, and today's picks.
   - **01 Growth (first):** the 1% line (ideal vs actual), per-pillar 7/30-day % with WoW/MoM, baseline change, and personal bests.
   - **02 Grids:** one grid per pillar, with weeks as columns and Mon–Sun as rows.
     - Each cell is shaded by that day's share; gray means no report.

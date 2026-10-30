@@ -2057,7 +2057,7 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - RM-04: The page read (`loadRenaissance`) returns `not_found` when the flag is off, the viewer is signed out or not the owner, or there is no DB. It returns `not_configured` when `rm_entries` is missing, and otherwise `ok` with every entry (dates as `yyyy-mm-dd`). (unit, PGLite)
 - RM-05: The date helpers (`addDays`, `daysBetween`, `weekStart` Mon, `todayIn` America/Toronto, `dayLabel`) give the same results under TZ=UTC and TZ=America/Los_Angeles. (unit)
 - RM-06: Caps for zyn (16 → floor 3) and coffee (7 → floor 3):
-  - Day 1 counts as a hit, and the cap drops 1 after each hit.
+  - Day 0 (2026-10-28) counts as a hit, and the cap drops 1 after each hit.
   - A day is a hit when `actual ≤ cap`.
   - A past unreported day is a miss and holds the cap; today unreported is pending.
   - Coffee after noon doesn't change the cap. (unit)
