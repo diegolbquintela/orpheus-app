@@ -111,3 +111,19 @@ The data is stored in the table `rm_entries`, one row per `(entry_date, item)`, 
   - It never opens a database connection. Because the endpoint upserts, a re-run is a no-op.
   - The owner or EL runs it once, after the migration and the token are in place.
   - The real tracker is not committed (it holds ids, names and paths). The tests use the sanitized `test-fixtures/renaissance/cos-tracker.sample.md`.
+
+## 9. Site-bar link (#271, added 2026-10-30)
+
+Diego approved this via CoS on 2026-10-30. It amends the "site bar stays at five items" line in section 6. The `/account` link is unchanged.
+
+- **Who sees it:** only the owner gets a sixth site-bar item, **Renaissance Man**, linking to `/renaissance`. It sits right before `Account`, which stays right-most.
+- **The check:** the root route's loader calls the server function `getOwnerNavLink`, which uses `renaissanceOwnerDb`. That is the same function `/renaissance` uses (`loadRenaissance`): the flag is on, the viewer is signed in, there is a database, and `ownerIdOf` (`ORPHEUS_OWNER_EMAIL`) is the viewer.
+- **Fail closed:** any error, or an unset or unmatched `ORPHEUS_OWNER_EMAIL`, means no link.
+- **What a non-owner gets:** the loader returns `undefined`. Their HTML, SSR payload and loader data hold no key, no hidden element, no `/renaissance` and no "Renaissance". Their bar's markup is byte-identical to before.
+- **Where the strings live:** the label and href live only on the server (`RENAISSANCE_NAV_LINK` in `api.server.ts`), so they reach the client only for the owner. The check runs once per full page load (`shouldReload: false`); the site's links are plain links, so signing in or out is a full load.
+- **Fit:**
+  - Below 768 px the item shows `RM` (aria-hidden), with "Renaissance Man" as its accessible name. From 768 px it shows the label.
+  - Below about 640 px, six items don't fit on one line, so the owner's bar may wrap to two 44 px rows: `Orpheus`, then the list.
+  - There is no overflow and nothing is clipped at 360, 390, 768 or 1440 px, and tap targets are ≥ 44 px.
+  - Everyone else keeps the fixed one-row bar.
+- No table, migration, env var or dependency.

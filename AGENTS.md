@@ -1324,3 +1324,13 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - **Seed:** `scripts/renaissance-seed.ts` (a dry run by default; `--post` goes through the endpoint and never touches the DB).
   - **Link:** `/account` has an owner-only "Renaissance" link; the site bar is unchanged.
   - **Tests:** `src/lib/renaissance/*.test.ts` and `src/components/renaissance/renaissance-page.dom.test.tsx`.
+
+## Renaissance Man site-bar link (#271; added 2026-10-30)
+
+- 2026-10-30: #271 adds the owner-only **Renaissance Man** site-bar link (RM-21..RM-24, renaissance-spec §9; LOW, Diego yes via CoS).
+  - **How it's decided:** the root loader calls `getOwnerNavLink` (`src/lib/renaissance/gate.ts`), which runs `renaissanceOwnerDb`, the same check `/renaissance` uses. Errors fail closed.
+  - **What non-owners get:** `undefined` loader data, and their bar is byte-identical to before.
+  - **Rendering:** `SiteMenu` takes `ownerLink`. The item shows `RM` below 768 px (with the full accessible name), and the owner's bar may wrap to two rows on phones.
+  - The `/account` link is kept.
+  - No schema, env or dependency change.
+  - **Tests:** `src/components/site-menu-owner.dom.test.tsx` and RM-21 in `src/lib/renaissance/api.server.test.ts`.
