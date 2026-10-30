@@ -1649,3 +1649,137 @@
   text-decoration: underline;
   text-underline-offset: 4px;
 }
+
+/* #267 Renaissance Man dashboard (attachments/renaissance-spec.md section 6): dark page, no gold, proportional
+   figures (ST6-07: proportional figures only). Grid cells are 14 px squares (not controls); the only controls are the
+   log filters (.pf-button, 44 px). Each chart box has a fixed height (CLS 0). */
+.rm-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.5rem;
+}
+@media (min-width: 48rem) {
+  .rm-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+.rm-stat dd {
+  overflow-wrap: anywhere;
+}
+.rm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-chalk);
+}
+.rm-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.rm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.rm-table th,
+.rm-table td {
+  border-bottom: 1px solid var(--color-hair);
+  padding: 0.625rem 0.75rem 0.625rem 0;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--color-chalk);
+  font-weight: 400;
+}
+.rm-table thead th {
+  color: var(--color-dim);
+  font-size: 0.75rem;
+}
+.rm-table td.text-alert {
+  color: var(--color-alert);
+}
+.rm-table td.text-green {
+  color: var(--color-green);
+}
+.rm-table td.text-dim {
+  color: var(--color-dim);
+}
+.rm-grids {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+}
+@media (min-width: 48rem) {
+  .rm-grids {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.rm-grid-block {
+  min-width: 0;
+}
+.rm-grid {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 3px;
+  max-width: 100%;
+  overflow-x: auto;
+  align-items: center;
+}
+.rm-wd {
+  line-height: 0.875rem;
+}
+.rm-cell {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 2px;
+  flex: none;
+}
+.rm-all {
+  background: var(--color-green);
+}
+.rm-partial {
+  background: #2f6b4b;
+}
+.rm-none {
+  background: #5c2f2c;
+}
+.rm-unreported {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-rule);
+}
+.rm-out {
+  background: transparent;
+}
+.rm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+.rm-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.rm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rm-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+}
+@media (min-width: 48rem) {
+  .rm-charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.rm-chart {
+  min-width: 0;
+}
+.rm-chart-box {
+  height: 12rem;
+  width: 100%;
+}

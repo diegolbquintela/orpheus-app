@@ -14,6 +14,7 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as PersonalFinanceRouteImport } from './routes/personal-finance'
+import { Route as RenaissanceRouteImport } from './routes/renaissance'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as ApiPersonalFinanceRouteImport } from './routes/api/personal-finance'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
@@ -44,6 +45,7 @@ import { Route as ApiPersonalFinanceReportRouteImport } from './routes/api/perso
 import { Route as ApiPersonalFinanceReportsRouteImport } from './routes/api/personal-finance_.reports'
 import { Route as ApiPersonalFinanceSeriesRouteImport } from './routes/api/personal-finance_.series'
 import { Route as ApiPersonalFinanceViewRouteImport } from './routes/api/personal-finance_.view'
+import { Route as ApiRenaissanceCheckinRouteImport } from './routes/api/renaissance/checkin'
 import { Route as DashboardCompanySymbolRouteImport } from './routes/dashboard_.company.$symbol'
 import { Route as PersonalFinanceChartsIdRouteImport } from './routes/personal-finance_.charts_.$id'
 import { Route as PersonalFinanceChartsNewRouteImport } from './routes/personal-finance_.charts_.new'
@@ -77,6 +79,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const PersonalFinanceRoute = PersonalFinanceRouteImport.update({
   id: '/personal-finance',
   path: '/personal-finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RenaissanceRoute = RenaissanceRouteImport.update({
+  id: '/renaissance',
+  path: '/renaissance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChartRoute = ApiChartRouteImport.update({
@@ -232,6 +239,11 @@ const ApiPersonalFinanceViewRoute = ApiPersonalFinanceViewRouteImport.update({
   path: '/api/personal-finance/view',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRenaissanceCheckinRoute = ApiRenaissanceCheckinRouteImport.update({
+  id: '/api/renaissance/checkin',
+  path: '/api/renaissance/checkin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardCompanySymbolRoute = DashboardCompanySymbolRouteImport.update({
   id: '/dashboard_/company/$symbol',
   path: '/dashboard/company/$symbol',
@@ -289,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
+  '/renaissance': typeof RenaissanceRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
@@ -319,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/api/personal-finance/reports': typeof ApiPersonalFinanceReportsRoute
   '/api/personal-finance/series': typeof ApiPersonalFinanceSeriesRoute
   '/api/personal-finance/view': typeof ApiPersonalFinanceViewRoute
+  '/api/renaissance/checkin': typeof ApiRenaissanceCheckinRoute
   '/dashboard/company/$symbol': typeof DashboardCompanySymbolRoute
   '/personal-finance/charts/$id': typeof PersonalFinanceChartsIdRoute
   '/personal-finance/charts/new': typeof PersonalFinanceChartsNewRoute
@@ -335,6 +349,7 @@ export interface FileRoutesByTo {
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
+  '/renaissance': typeof RenaissanceRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
@@ -365,6 +380,7 @@ export interface FileRoutesByTo {
   '/api/personal-finance/reports': typeof ApiPersonalFinanceReportsRoute
   '/api/personal-finance/series': typeof ApiPersonalFinanceSeriesRoute
   '/api/personal-finance/view': typeof ApiPersonalFinanceViewRoute
+  '/api/renaissance/checkin': typeof ApiRenaissanceCheckinRoute
   '/dashboard/company/$symbol': typeof DashboardCompanySymbolRoute
   '/personal-finance/charts/$id': typeof PersonalFinanceChartsIdRoute
   '/personal-finance/charts/new': typeof PersonalFinanceChartsNewRoute
@@ -382,6 +398,7 @@ export interface FileRoutesById {
   '/calculator': typeof CalculatorRoute
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
+  '/renaissance': typeof RenaissanceRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
@@ -412,6 +429,7 @@ export interface FileRoutesById {
   '/api/personal-finance_/reports': typeof ApiPersonalFinanceReportsRoute
   '/api/personal-finance_/series': typeof ApiPersonalFinanceSeriesRoute
   '/api/personal-finance_/view': typeof ApiPersonalFinanceViewRoute
+  '/api/renaissance/checkin': typeof ApiRenaissanceCheckinRoute
   '/dashboard_/company/$symbol': typeof DashboardCompanySymbolRoute
   '/personal-finance_/charts_/$id': typeof PersonalFinanceChartsIdRoute
   '/personal-finance_/charts_/new': typeof PersonalFinanceChartsNewRoute
@@ -430,6 +448,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/dashboard'
     | '/personal-finance'
+    | '/renaissance'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard/sign-in'
@@ -460,6 +479,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance/reports'
     | '/api/personal-finance/series'
     | '/api/personal-finance/view'
+    | '/api/renaissance/checkin'
     | '/dashboard/company/$symbol'
     | '/personal-finance/charts/$id'
     | '/personal-finance/charts/new'
@@ -476,6 +496,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/dashboard'
     | '/personal-finance'
+    | '/renaissance'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard/sign-in'
@@ -506,6 +527,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance/reports'
     | '/api/personal-finance/series'
     | '/api/personal-finance/view'
+    | '/api/renaissance/checkin'
     | '/dashboard/company/$symbol'
     | '/personal-finance/charts/$id'
     | '/personal-finance/charts/new'
@@ -522,6 +544,7 @@ export interface FileRouteTypes {
     | '/calculator'
     | '/dashboard'
     | '/personal-finance'
+    | '/renaissance'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard_/sign-in'
@@ -552,6 +575,7 @@ export interface FileRouteTypes {
     | '/api/personal-finance_/reports'
     | '/api/personal-finance_/series'
     | '/api/personal-finance_/view'
+    | '/api/renaissance/checkin'
     | '/dashboard_/company/$symbol'
     | '/personal-finance_/charts_/$id'
     | '/personal-finance_/charts_/new'
@@ -569,6 +593,7 @@ export interface RootRouteChildren {
   CalculatorRoute: typeof CalculatorRoute
   DashboardRoute: typeof DashboardRoute
   PersonalFinanceRoute: typeof PersonalFinanceRoute
+  RenaissanceRoute: typeof RenaissanceRoute
   ApiChartRoute: typeof ApiChartRoute
   ApiPersonalFinanceRoute: typeof ApiPersonalFinanceRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
@@ -599,6 +624,7 @@ export interface RootRouteChildren {
   ApiPersonalFinanceReportsRoute: typeof ApiPersonalFinanceReportsRoute
   ApiPersonalFinanceSeriesRoute: typeof ApiPersonalFinanceSeriesRoute
   ApiPersonalFinanceViewRoute: typeof ApiPersonalFinanceViewRoute
+  ApiRenaissanceCheckinRoute: typeof ApiRenaissanceCheckinRoute
   DashboardCompanySymbolRoute: typeof DashboardCompanySymbolRoute
   PersonalFinanceChartsIdRoute: typeof PersonalFinanceChartsIdRoute
   PersonalFinanceChartsNewRoute: typeof PersonalFinanceChartsNewRoute
@@ -644,6 +670,13 @@ declare module '@tanstack/react-router' {
       path: '/personal-finance'
       fullPath: '/personal-finance'
       preLoaderRoute: typeof PersonalFinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/renaissance': {
+      id: '/renaissance'
+      path: '/renaissance'
+      fullPath: '/renaissance'
+      preLoaderRoute: typeof RenaissanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chart': {
@@ -856,6 +889,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPersonalFinanceViewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/renaissance/checkin': {
+      id: '/api/renaissance/checkin'
+      path: '/api/renaissance/checkin'
+      fullPath: '/api/renaissance/checkin'
+      preLoaderRoute: typeof ApiRenaissanceCheckinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard_/company/$symbol': {
       id: '/dashboard_/company/$symbol'
       path: '/dashboard/company/$symbol'
@@ -940,6 +980,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalculatorRoute: CalculatorRoute,
   DashboardRoute: DashboardRoute,
   PersonalFinanceRoute: PersonalFinanceRoute,
+  RenaissanceRoute: RenaissanceRoute,
   ApiChartRoute: ApiChartRoute,
   ApiPersonalFinanceRoute: ApiPersonalFinanceRoute,
   DashboardSignInRoute: DashboardSignInRoute,
@@ -970,6 +1011,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPersonalFinanceReportsRoute: ApiPersonalFinanceReportsRoute,
   ApiPersonalFinanceSeriesRoute: ApiPersonalFinanceSeriesRoute,
   ApiPersonalFinanceViewRoute: ApiPersonalFinanceViewRoute,
+  ApiRenaissanceCheckinRoute: ApiRenaissanceCheckinRoute,
   DashboardCompanySymbolRoute: DashboardCompanySymbolRoute,
   PersonalFinanceChartsIdRoute: PersonalFinanceChartsIdRoute,
   PersonalFinanceChartsNewRoute: PersonalFinanceChartsNewRoute,

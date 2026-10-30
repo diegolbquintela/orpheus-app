@@ -50,6 +50,14 @@ export function AccountPage({ data }: { data: AccountPageData }) {
             ))}
           </dd>
         </dl>
+        {/* #267: the owner-only way to the Renaissance Man dashboard (the site bar stays five items). */}
+        {data.owner && !data.mustChange ? (
+          <p>
+            <a href="/renaissance" className="inline-flex min-h-11 items-center text-chalk underline underline-offset-4" data-testid="account-renaissance-link">
+              Renaissance
+            </a>
+          </p>
+        ) : null}
         <SignOut />
       </Section>
       <Section numeral="02" title={COPY.password} id="account-password">
