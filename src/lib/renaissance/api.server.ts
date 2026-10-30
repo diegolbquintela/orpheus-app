@@ -26,7 +26,11 @@ import {
   type SessionLookup,
 } from "../dashboard/session.server.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
+import type { OwnerNavLink } from "../site/owner-nav.ts";
 import { parseCheckin, type Checkin, type Entry, type Pillar } from "./model.ts";
+
+/** #271: the owner's site-bar link (server only). `short` is the compact text below 640 px; the name stays the label. */
+export const RENAISSANCE_NAV_LINK: OwnerNavLink = { href: "/renaissance", label: "Renaissance Man", short: "RM" };
 
 type Env = Record<string, string | undefined>;
 
@@ -116,16 +120,35 @@ export type RenaissanceLoad =
   | { status: "not_configured" }
   | { status: "ok"; entries: Entry[] };
 
+/**
+ * The one owner check for `/renaissance` and its links (#267, #271): the flag is on, the viewer is signed in, there is
+ * a database, and the viewer is the `ORPHEUS_OWNER_EMAIL` account (`ownerIdOf`). Returns the database for the owner,
+ * else null. Never throws: an error anywhere (session, database, env) is null, so callers fail closed.
+ */
+export async function renaissanceOwnerDb(headers: Headers, deps: RenaissanceDeps = {}): Promise<Queryable | null> {
+  try {
+    const env = deps.env ?? process.env;
+    if (guardDashboardApi(env)) return null;
+    const viewer = await (deps.getUser ?? sessionFromRequestHeaders)(headers);
+    if (!viewer) return null;
+    const db = await (deps.getDb ?? defaultGetDb)(env);
+    if (!db) return null;
+    const ownerId = await ownerIdOf(db, env);
+    return ownerId && ownerId === viewer.id ? db : null;
+  } catch {
+    return null;
+  }
+}
+
+/** #271: the site bar's owner-only link, or null for everyone else (nothing about it reaches a non-owner). */
+export async function renaissanceNavLink(headers: Headers, deps: RenaissanceDeps = {}): Promise<OwnerNavLink | null> {
+  return (await renaissanceOwnerDb(headers, deps)) ? RENAISSANCE_NAV_LINK : null;
+}
+
 /** The page's read: the owner only (anyone else, or no owner, is `not_found` → a 404 page). */
 export async function loadRenaissance(headers: Headers, deps: RenaissanceDeps = {}): Promise<RenaissanceLoad> {
-  const env = deps.env ?? process.env;
-  if (guardDashboardApi(env)) return { status: "not_found" };
-  const viewer = await (deps.getUser ?? sessionFromRequestHeaders)(headers);
-  if (!viewer) return { status: "not_found" };
-  const db = await (deps.getDb ?? defaultGetDb)(env);
+  const db = await renaissanceOwnerDb(headers, deps);
   if (!db) return { status: "not_found" };
-  const ownerId = await ownerIdOf(db, env);
-  if (!ownerId || ownerId !== viewer.id) return { status: "not_found" };
   try {
     return { status: "ok", entries: await readEntries(db) };
   } catch {

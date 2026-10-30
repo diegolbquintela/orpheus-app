@@ -755,3 +755,5 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Migration:** `migrations/0014_renaissance.sql` adds the table `rm_entries`. It is additive and idempotent. `npm run build` applies it, so preview builds apply it to the shared preview database. Until it is applied, the page shows "Check-ins aren't set up here yet."
 
 **Seed:** run `node --experimental-strip-types scripts/renaissance-seed.ts <tracker.md>` for a dry run. Add `--post <origin>` to send the bodies through the endpoint once; the script never touches the database.
+
+2026-10-30 note (#271): the owner also gets a **Renaissance Man** link in the site bar (it shows `RM` below 768 px, and the bar may wrap on phones). It uses the same server-side owner check as `/renaissance`. Everyone else's bar is unchanged and carries nothing about it. Spec §9; AC RM-21..RM-24.

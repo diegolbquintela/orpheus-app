@@ -2082,3 +2082,18 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
   - The `.rm-*` CSS and the components use no `tabular-nums`/`tnum` and no gold, and controls are ≥ 44 px.
   - At 360 / 390 / 768 / 1440 px: no horizontal overflow, WCAG AA contrast, CLS 0, and no external fonts. (DOM, CSS unit, headless browser)
 - RM-20: `/account` shows the owner (and only the owner, without a temporary password) a "Renaissance" link (`data-testid="account-renaissance-link"`, min 44 px) to `/renaissance`. The site bar is unchanged. (DOM)
+
+## RM (cont.): owner-only site-bar link (#271, renaissance-spec §9; added 2026-10-30; LOW, Diego yes via CoS)
+- RM-21: `renaissanceNavLink(headers)` reuses the `/renaissance` owner check (`renaissanceOwnerDb`, also used by `loadRenaissance`).
+  - The owner gets exactly `{ href: "/renaissance", label: "Renaissance Man", short: "RM" }`.
+  - These all get `null`, and the page agrees (`not_found`): a non-owner, signed out, the flag off or unset, `ORPHEUS_OWNER_EMAIL` unset, empty or naming nobody, and no database.
+  - An error in the session, the database or the owner lookup is `null`, never a throw.
+  - The env decides the owner. (unit, PGLite)
+- RM-22: With no owner link (omitted, `null` or `undefined`), `SiteMenu`'s markup is identical on every path, with five links in the order Orpheus, Calculator, Dashboard, Personal Finance, Account. There is no `site-menu-owner` element, and the HTML has no `renaissance` (any case) and no `RM`. It is byte-identical to the pre-#271 bar. (DOM, SSR markup)
+- RM-23: The owner's bar has exactly one `/renaissance` link, right before `Account`.
+  - The visible `RM` span has `aria-hidden` and `md:hidden`; "Renaissance Man" is `sr-only md:not-sr-only`.
+  - The link is `h-11 min-w-11 text-dim`, with `aria-current="page"` only on `/renaissance`.
+  - The bar equals the anonymous bar plus that one item, with a row that can wrap (`min-h-11 flex-wrap`) instead of `h-11`. (DOM)
+- RM-24: In the root loader, a non-owner's loader data is `undefined`, so the signed-out HTML of `/` (and every page) has no `/renaissance` or "Renaissance".
+  - At 360, 390, 640, 768 and 1440 px: no horizontal overflow, no clipped item, links ≥ 44 px tall, AA contrast, CLS 0, no external requests, no `tnum`.
+  - The owner's bar is one row from 640 px and two rows below; everyone else always gets one 45 px row. (headless, signed-out preview curl)

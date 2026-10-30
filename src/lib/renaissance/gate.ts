@@ -17,3 +17,17 @@ export const getRenaissancePage = createServerFn({ method: "GET" }).handler(asyn
   return { status: "ok" as const, view: buildView(r.entries, todayIn(new Date())) };
 });
 
+
+/**
+ * #271: the site bar's owner-only link, for the root loader. The owner gets `{ href, label, short }`; anyone else, or
+ * any error (flag off, signed out, no database, `ORPHEUS_OWNER_EMAIL` unset or unmatched), gets null.
+ */
+export const getOwnerNavLink = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { renaissanceNavLink } = await import("./api.server");
+    return await renaissanceNavLink(getRequest().headers);
+  } catch {
+    return null;
+  }
+});

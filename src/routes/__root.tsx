@@ -6,6 +6,8 @@ import { NotFound } from "@/components/not-found";
 import { SiteMenu } from "@/components/site-menu";
 import { analyticsBeforeSend } from "@/lib/site/analytics";
 import { FONT_PRELOAD } from "@/lib/site/fonts";
+import { getOwnerNavLink } from "@/lib/renaissance/gate";
+import type { OwnerNavLink } from "@/lib/site/owner-nav";
 import { shellBodyClass, shellHtmlClass } from "@/lib/site/site";
 import appCss from "../styles.css?url";
 
@@ -14,7 +16,11 @@ const APP_NAME = "Orpheus Wisdom";
 // The site menu and footer (#46) wrap every page, including /dashboard, sign-in and the 404.
 function CurrentSiteMenu() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  return <SiteMenu pathname={pathname} />;
+  // #271: null for everyone but the owner (the root loader below).
+  const ownerLink = useRouterState({
+    select: (state) => (state.matches[0]?.loaderData as OwnerNavLink | undefined) ?? null,
+  });
+  return <SiteMenu pathname={pathname} ownerLink={ownerLink} />;
 }
 
 // Dark shell (epic #66, #68): a charcoal page with off-white base type on every page except /dashboard, where
@@ -80,6 +86,17 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
     ],
   }),
+  // #271: the owner-only site-bar link, decided on the server once per full page load (the site's links are plain
+  // links, so signing in or out is a full load). Fail closed: any error is no link.
+  // Non-owners get undefined: nothing about the link (not even a key) is in their HTML or loader data.
+  loader: async (): Promise<OwnerNavLink | undefined> => {
+    try {
+      return (await getOwnerNavLink()) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  },
+  shouldReload: false,
   component: RootDocument,
   // The dark 404 (#72, ST6-09): unknown paths and the dashboard-off paths.
   notFoundComponent: NotFound,

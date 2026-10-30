@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { handleCheckinRequest, ingestAuthorized, loadRenaissance, readEntries } from "./api.server.ts";
+import { handleCheckinRequest, ingestAuthorized, type RenaissanceDeps, loadRenaissance, readEntries, RENAISSANCE_NAV_LINK, renaissanceNavLink, renaissanceOwnerDb } from "./api.server.ts";
 
 const pg = new PGlite();
 const db = { query: async <T>(text: string, params?: unknown[]) => (await pg.query<T>(text, params)).rows };
@@ -125,5 +125,44 @@ describe("RM-04 the page read", () => {
     await bare.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', ["alice", "alice@example.com"]);
     const bareDb = { query: async <T>(t: string, p?: unknown[]) => (await bare.query<T>(t, p)).rows };
     assert.equal((await loadRenaissance(new Headers(), { ...deps("alice"), getDb: async () => bareDb })).status, "not_configured");
+  });
+});
+
+describe("RM-21 the site bar's owner-only link: the same owner check as /renaissance, fail closed", () => {
+  const h = new Headers();
+  it("the owner gets exactly { href: /renaissance, label: Renaissance Man, short: RM }", async () => {
+    assert.deepEqual(await renaissanceNavLink(h, deps("alice")), { href: "/renaissance", label: "Renaissance Man", short: "RM" });
+    assert.equal(await renaissanceNavLink(h, deps("alice")), RENAISSANCE_NAV_LINK);
+    assert.equal(await renaissanceOwnerDb(h, deps("alice")), db);
+  });
+  it("non-owner, signed out, flag off, no database, owner env unset / empty / unmatched: null", async () => {
+    const cases: [string, RenaissanceDeps][] = [
+      ["non-owner", deps("bob")],
+      ["signed out", deps(null)],
+      ["flag off", deps("alice", { ...env, DASHBOARD_ENABLED: "false" })],
+      ["flag unset", deps("alice", { ...env, DASHBOARD_ENABLED: undefined })],
+      ["owner env unset", deps("alice", { ...env, ORPHEUS_OWNER_EMAIL: undefined })],
+      ["owner env empty", deps("alice", { ...env, ORPHEUS_OWNER_EMAIL: "" })],
+      ["owner env names nobody", deps("alice", { ...env, ORPHEUS_OWNER_EMAIL: "nobody@example.com" })],
+      ["owner env names bob, viewer alice", deps("alice", { ...env, ORPHEUS_OWNER_EMAIL: "bob@example.com" })],
+      ["no database", { ...deps("alice"), getDb: async () => null }],
+    ];
+    for (const [name, d] of cases) {
+      assert.equal(await renaissanceNavLink(h, d), null, name);
+      assert.equal(await renaissanceOwnerDb(h, d), null, name);
+      assert.equal((await loadRenaissance(h, d)).status, "not_found", `${name}: the page agrees`);
+    }
+    // The env decides who the owner is: name bob, and bob (not alice) gets the link.
+    assert.deepEqual(await renaissanceNavLink(h, deps("bob", { ...env, ORPHEUS_OWNER_EMAIL: "bob@example.com" })), RENAISSANCE_NAV_LINK);
+  });
+  it("an error in the session, the database or the owner lookup is null, never a throw", async () => {
+    const boom = async () => {
+      throw new Error("boom");
+    };
+    assert.equal(await renaissanceNavLink(h, { ...deps("alice"), getUser: boom }), null);
+    assert.equal(await renaissanceNavLink(h, { ...deps("alice"), getDb: boom }), null);
+    const broken = { query: boom };
+    assert.equal(await renaissanceNavLink(h, { ...deps("alice"), getDb: async () => broken }), null);
+    assert.equal((await loadRenaissance(h, { ...deps("alice"), getDb: async () => broken })).status, "not_found");
   });
 });
