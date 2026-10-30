@@ -2039,3 +2039,46 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFHE-06: Validation & Discard: an invalid input (`parseAmount(text) === null`, e.g. `"abc"`) sets `aria-invalid="true"` and `title={AMOUNT_ERROR}`, blocks `Save` (`0` PUT requests), focuses the first invalid input, and sets `pf-history-status` to `"Not saved."` (`--color-alert`); clicking `Discard` (`data-testid="pf-history-discard"`) reverts all draft edits back to the last saved values. (DOM)
 - PFHE-07: Stale-write protection & year switching: a `409` response from `PUT /api/personal-finance` displays `STALE_MESSAGE` (`data-testid="pf-history-status"` / `data-testid="pf-stale-error"`, `--color-alert`) while preserving the user's draft edits on screen; switching years in `pf-history-year` preserves unsaved draft edits until `Save` or `Discard`. (DOM)
 - PFHE-08: Read-only access & responsive layout: when `readOnly={true}` (`!access.write`, e.g. CFO Read grant), `READ_ONLY_NOTE` (`data-testid="pf-read-only"` / `data-testid="pf-history-readonly"`) is rendered, `0` `<input>` elements and no `Save` button are rendered, and `0` PUT requests are sent; `.pf-history-scroll` contains horizontal table scrolling with `scrollWidth <= clientWidth` at `360px`, `390px`, `768px`, and `1440px`, `≥ 44px` tap targets, WCAG AA contrast, and no `tabular-nums` / `"tnum"` on dark pages (`ST6-07`). (DOM, CSS unit, headless browser)
+
+## RM: Renaissance Man dashboard MVP (#267, attachments/renaissance-spec.md; added 2026-10-30; Diego yes via CoS/EL)
+- RM-01: `POST /api/renaissance/checkin` checks auth in this order:
+  - Flag off → 404; a non-POST method → 405 `Allow: POST`.
+  - With a Bearer header, only `RENAISSANCE_INGEST_TOKEN` is checked (`timingSafeEqual`). A wrong, unset or empty token → 401, even with an owner session.
+  - With no Bearer header: signed out → 401, no DB → 503, a non-owner → 403.
+  - No row is written on any refusal. (unit, PGLite)
+- RM-02: A valid body → 200 `{ ok, date, upserted }`. Rows upsert on `(entry_date, item)`, so posting the same body twice leaves one row per item, and a later post updates `actual`/`hit`/`note`. The day's picks are synced to every row of that date. (unit, PGLite)
+- RM-03: Validation → 400 `{ error }` for each of these:
+  - Non-JSON, or a non-object body.
+  - A bad or unreal date, or a year outside 2000–2099.
+  - An unknown pillar, a bad or repeated item slug, or more than 40 entries.
+  - Picks over 10 or 200 characters.
+  - A non-finite value or one over 1e6, a non-boolean hit, or a note over 500 characters.
+  - Unknown keys are ignored. (unit)
+- RM-04: The page read (`loadRenaissance`) returns `not_found` when the flag is off, the viewer is signed out or not the owner, or there is no DB. It returns `not_configured` when `rm_entries` is missing, and otherwise `ok` with every entry (dates as `yyyy-mm-dd`). (unit, PGLite)
+- RM-05: The date helpers (`addDays`, `daysBetween`, `weekStart` Mon, `todayIn` America/Toronto, `dayLabel`) give the same results under TZ=UTC and TZ=America/Los_Angeles. (unit)
+- RM-06: Caps for zyn (16 → floor 3) and coffee (7 → floor 3):
+  - Day 1 counts as a hit, and the cap drops 1 after each hit.
+  - A day is a hit when `actual ≤ cap`.
+  - A past unreported day is a miss and holds the cap; today unreported is pending.
+  - Coffee after noon doesn't change the cap. (unit)
+- RM-07: Day share is hits ÷ reported items per pillar, with the level all / partial / none / unreported.
+  - Steps are a hit at ≥ 8000.
+  - Lift counts only on lift days; a rest day is not a miss. (unit)
+- RM-08: Streaks are per pillar plus all pillars. Today not yet kept doesn't break a streak. (unit)
+- RM-09: 7- and 30-day completion % treats a past unreported day as 0, leaves today out while it's unreported, clips windows to the start, and gives WoW and MoM changes in points. (unit)
+- RM-10: On the 1% line, ideal = 1.01^days and actual = Π 1.01^share. (unit)
+- RM-11: Baseline change (count and %), lifts this week vs 3, the 7-day steps average, and personal bests. (unit)
+- RM-12: `migrations/0014_renaissance.sql` is additive and idempotent: running it again is a no-op, it is listed in the migration order tests, and the pillar CHECK rejects other values. (unit, PGLite)
+- RM-13: The seed parser turns the tracker's Daily Log (baselines, `PM result` HIT / MISSED, `AM picks`) and Cap Log into valid check-in bodies. The seed script is a dry run by default, `--post` uses only the endpoint, and it never opens a DB connection. (unit, fixture `test-fixtures/renaissance/cos-tracker.sample.md`)
+- RM-14: The header shows the lyre, `Day N · <date>`, today's zyn and coffee caps, lifts X/3, the 7-day steps average, the all-pillars streak and today's picks. (DOM)
+- RM-15: 01 Growth is the first section. It shows the 1% line, the per-pillar 7/30-day % with WoW/MoM, baseline change (e.g. `14 (−2, −13%)`, with a real minus and rounded half away from zero) and bests. (DOM)
+- RM-16: 02 Grids has three grids (weeks × Mon–Sun):
+  - Cells are shaded by share, and gray means no report.
+  - Each cell's `title` and aria text give the date, the level, the hits (sorted) and the picks.
+  - Each grid shows its streak. (DOM)
+- RM-17: 03 Health (zyn and coffee vs cap with floor 3 and after-noon flags, steps with 8k/10k lines, lifts/week vs 3, all at fixed heights) and 04 the Industry/Spiritual strips with weekly %. (DOM)
+- RM-18: 05 Log is newest first, filtered by pillar with buttons using `aria-pressed`, and shows the computed hit. The empty state and the not-configured note ("Check-ins aren't set up here yet.") render without errors. (DOM)
+- RM-19: Style:
+  - The `.rm-*` CSS and the components use no `tabular-nums`/`tnum` and no gold, and controls are ≥ 44 px.
+  - At 360 / 390 / 768 / 1440 px: no horizontal overflow, WCAG AA contrast, CLS 0, and no external fonts. (DOM, CSS unit, headless browser)
+- RM-20: `/account` shows the owner (and only the owner, without a temporary password) a "Renaissance" link (`data-testid="account-renaissance-link"`, min 44 px) to `/renaissance`. The site bar is unchanged. (DOM)

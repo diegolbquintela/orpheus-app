@@ -739,3 +739,19 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 2026-10-23 note (`/api/cfo/pf/overview?month=yyyy-mm`, #247 follow-up, spec §72): adds `selected: { month, label, figures: { expenses, income, surplus }, copied, copiedFrom }`; an empty future month returns the copy the page would open (`copied: true`, never saved); bad or out-of-range month 400; without `month` the body is unchanged.
 
 2026-10-23 note (`/api/cfo/pf/series`, #239 / PR #252, spec §71): a record with only Starting net assets saved returns one net-assets point at the current Toronto household month, equal to the start, with `net_assets_from` at that month; other months are null. The wrapper calls `seriesValues`, so it inherits this; #252 is merged into main (da114cf), so it applies now.
+
+### Renaissance Man dashboard (#267, added 2026-10-30)
+
+This is the private, owner-only page `/renaissance`: Health, Industry and Spiritual check-ins with growth first. The sections are the header, Growth (the 1% line, 7/30-day %), the grids, the health charts, the Industry/Spiritual strips and the log. There are no Goals yet. The full spec is in `attachments/renaissance-spec.md`, and the acceptance criteria are RM-01..RM-20.
+
+**Endpoint: `POST /api/renaissance/checkin`**
+- Auth: `Authorization: Bearer $RENAISSANCE_INGEST_TOKEN`, or the owner's session.
+- Refusals: flag off → 404; non-POST → 405; bad token or signed out → 401; non-owner → 403; no DB → 503; bad body → 400.
+- Body: `{ date: "yyyy-mm-dd", picks?: string[], entries: [{ pillar, item, target?, actual?, hit?, note? }] }`. The write upserts on `(date, item)`, so it is idempotent.
+- Example: `curl -X POST -H "Authorization: Bearer $RENAISSANCE_INGEST_TOKEN" -H "Content-Type: application/json" -d @day.json https://<host>/api/renaissance/checkin`.
+
+**Env:** `RENAISSANCE_INGEST_TOKEN` is a server-only secret, set separately on Preview and Production through CoS's secure form and never put in the repo or logs. Without it, only the owner's session can post.
+
+**Migration:** `migrations/0014_renaissance.sql` adds the table `rm_entries`. It is additive and idempotent. `npm run build` applies it, so preview builds apply it to the shared preview database. Until it is applied, the page shows "Check-ins aren't set up here yet."
+
+**Seed:** run `node --experimental-strip-types scripts/renaissance-seed.ts <tracker.md>` for a dry run. Add `--post <origin>` to send the bodies through the endpoint once; the script never touches the database.
