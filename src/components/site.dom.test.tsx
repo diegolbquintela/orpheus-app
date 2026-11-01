@@ -52,14 +52,14 @@ describe("site header (#286)", () => {
     assert.deepEqual(current(el), []);
   });
 
-  it("HDR-01 the bar: lyre + Orpheus home link, Get Started to /calculator, Search and Menu buttons, nothing else", async () => {
+  it("HDR-01 (amended 2026-11-01) the bar: lyre + Orpheus home link, Search and Menu buttons, nothing else", async () => {
     const el = await render(<SiteMenu pathname="/calculator" />);
     const nav = el.querySelector('nav[aria-label="Site"][data-testid="site-menu"]')!;
     assert.ok(nav);
     const bar = nav.querySelector('[data-testid="site-bar"]')!;
     assert.deepEqual(
       [...bar.querySelectorAll("a, button")].map((x) => x.getAttribute("data-testid")),
-      ["site-logo", "site-get-started", "site-search-open", "site-menu-open"],
+      ["site-logo", "site-search-open", "site-menu-open"],
     );
     const logo = bar.querySelector<HTMLAnchorElement>('[data-testid="site-logo"]')!;
     assert.equal(logo.getAttribute("href"), "/");
@@ -81,15 +81,16 @@ describe("site header (#286)", () => {
     assert.equal(bar.querySelector('[data-testid="site-menu-open"]')!.getAttribute("aria-label"), "Menu");
   });
 
-  it("HDR-02 Get Started: one link to /calculator, chalk on charcoal (no gold), 44 px tall, never hidden", async () => {
-    const el = await render(<SiteMenu pathname="/" />);
-    const gs = el.querySelector<HTMLAnchorElement>('[data-testid="site-get-started"]')!;
-    assert.equal(gs.getAttribute("href"), "/calculator");
-    assert.equal(gs.textContent, "Get Started");
-    for (const c of ["inline-flex", "h-11", "bg-chalk", "text-night", "whitespace-nowrap"])
-      assert.match(gs.className, new RegExp(`(^| )${c}( |$)`), c);
-    assert.doesNotMatch(gs.className, /(^| )(hidden|sr-only|max-\w+:hidden)( |$)|gold|amber|yellow/);
-    assert.equal(gs.getAttribute("aria-current"), null);
+  it("HDR-02 (amended 2026-11-01) no primary action: no Get Started link or button, the bar's only link is the logo", async () => {
+    for (const p of ["/", "/calculator", "/account"]) {
+      const el = await render(<SiteMenu pathname={p} />);
+      assert.equal(el.querySelector('[data-testid="site-get-started"]'), null);
+      assert.doesNotMatch(el.textContent!, /Get Started/i);
+      const bar = el.querySelector('[data-testid="site-bar"]')!;
+      assert.deepEqual([...bar.querySelectorAll("a")].map((a) => a.getAttribute("href")), ["/"]);
+      assert.equal(el.querySelectorAll('nav a[href="/calculator"]').length, 1);
+      assert.equal(bar.querySelectorAll("button").length, 2);
+    }
   });
 
   it("HDR-04 the overlay is in the HTML, hidden, with every page by its full name, Account last", async () => {

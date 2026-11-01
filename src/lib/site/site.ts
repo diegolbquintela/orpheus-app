@@ -19,12 +19,7 @@ export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: s
   { section: "account", label: "Account", href: "/account" },
 ];
 
-/**
- * #286 (header-menu-spec, AC HDR): the header's primary action (to the Calculator) and the overlay search field's copy
- * (a placeholder only: nothing searches yet).
- */
-export const GET_STARTED = "Get Started";
-export const GET_STARTED_HREF = "/calculator";
+/** #286 (header-menu-spec, AC HDR): the overlay search field's copy (a placeholder only: nothing searches yet). */
 export const SEARCH_PLACEHOLDER = "Search Orpheus";
 export const SEARCH_SOON = "Search is coming soon.";
 

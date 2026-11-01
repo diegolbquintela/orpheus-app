@@ -262,11 +262,11 @@ for (const flag of [undefined, "true"]) {
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
   check(/href="\/personal-finance"[^>]*>Personal Finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal Finance item (#97)`);
   // #90 (ROLE-01): Account last; the person glyph (phones) and the word (visually hidden below 640 px).
-  // #286 (HDR, supersedes the #90 five-link bar): the header bar (lyre home link, Get Started to the Calculator, the
-  // Search and Menu buttons) and the full-page overlay in the server HTML, hidden, its links in order with Account last.
+  // #286 (HDR, supersedes the #90 five-link bar): the header bar (lyre home link, the Search and Menu buttons; no
+  // primary action, HDR-02 amended 2026-11-01) and the full-page overlay in the server HTML, hidden, its links in order with Account last.
   const nav = home.body.match(SITE_MENU)?.[0] ?? "";
   check(/<a href="\/"[^>]*data-testid="site-logo"[^>]*><svg [^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus<\/span><\/a>/.test(nav), `${label}: / header lacks the lyre home link (#286)`);
-  check(/<a href="\/calculator"[^>]*data-testid="site-get-started"[^>]*>Get Started<\/a>/.test(nav), `${label}: / header lacks Get Started to /calculator (#286)`);
+  check(!/Get Started|site-get-started/.test(nav) && (nav.match(/<a href="\/calculator"/g) ?? []).length === 1, `${label}: / header has a primary action (Get Started removed, HDR-02 amended)`);
   check(/<button type="button"[^>]*aria-label="Search"[^>]*aria-expanded="false"/.test(nav), `${label}: / header lacks the Search button (#286)`);
   check(/<button type="button"[^>]*aria-label="Menu"[^>]*aria-expanded="false"/.test(nav), `${label}: / header lacks the Menu button (#286)`);
   const overlay = nav.match(/<div id="[^"]*"[^>]*role="dialog"[^>]*>[\s\S]*$/)?.[0] ?? "";

@@ -3,8 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { ADVICE_PATTERN } from "../../../scripts/build-fixtures.ts";
 import {
-  GET_STARTED,
-  GET_STARTED_HREF,
   MENU_EXTRA_SECTIONS,
   menuLinks,
   SEARCH_PLACEHOLDER,
@@ -411,9 +409,11 @@ describe("personal finance route (#84)", () => {
 
 // #286 (HDR): the header's copy and the overlay's data-driven link list.
 describe("site header data (#286)", () => {
-  it("HDR-02 Get Started goes to the Calculator", () => {
-    assert.equal(GET_STARTED, "Get Started");
-    assert.equal(GET_STARTED_HREF, "/calculator");
+  it("HDR-02 (amended 2026-11-01) no primary action: no Get Started anywhere in the header or its copy", () => {
+    const menu = readFileSync("src/components/site-menu.tsx", "utf8");
+    const site = readFileSync("src/lib/site/site.ts", "utf8");
+    assert.doesNotMatch(menu.replace(/^\s*(\/\/|\*|\/\*\*).*$/gm, ""), /Get Started|GET_STARTED|get-started/);
+    assert.doesNotMatch(site, /GET_STARTED/);
   });
   it("HDR-07 the search copy is a placeholder only", () => {
     assert.equal(SEARCH_PLACEHOLDER, "Search Orpheus");

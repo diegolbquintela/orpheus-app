@@ -37,7 +37,7 @@ describe("HDR-06 / RM-21 no owner link for anyone but the owner (fail-closed)", 
       assert.equal(renderToStaticMarkup(<SiteMenu pathname={p} ownerLink={null} />), base, p);
       assert.equal(renderToStaticMarkup(<SiteMenu pathname={p} ownerLink={undefined} />), base, p);
       assert.doesNotMatch(base, /renaissance|\bRM\b|site-menu-owner/i, p);
-      assert.equal(base.match(/<a /g)?.length, 7, p); // logo, Get Started, five overlay links
+      assert.equal(base.match(/<a /g)?.length, 6, p); // logo, five overlay links (no Get Started, HDR-02 amended)
     }
   });
   it("the overlay's items: Orpheus, Calculator, Dashboard, Personal Finance, Account", async () => {

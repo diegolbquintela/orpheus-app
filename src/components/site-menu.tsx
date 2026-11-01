@@ -3,8 +3,6 @@ import { Lyre } from "@/components/lyre";
 import type { OwnerNavLink } from "@/lib/site/owner-nav";
 import {
   currentSection,
-  GET_STARTED,
-  GET_STARTED_HREF,
   MENU_EXTRA_SECTIONS,
   menuLinks,
   SEARCH_PLACEHOLDER,
@@ -15,7 +13,7 @@ import {
  * #286 (header-menu-spec, AC HDR; supersedes RM-22..RM-24, keeps RM-21): the site header, Palantir style.
  *
  * The bar (one 45 px charcoal row, sticky, on every page): the lyre + `Orpheus` home link on the left; on the right a
- * primary `Get Started` link (to the Calculator), a Search button and a Menu (hamburger) button, every target 44 px.
+ * Search button and a Menu (hamburger) button, every target 44 px. No primary action (Diego, 2026-11-01: Get Started removed).
  * The menu is a full-page overlay (not a dropdown): its left column lists every page by its full name (`menuLinks`:
  * Orpheus, Calculator, Dashboard, Personal Finance, the owner's `Renaissance Man` when the server sent it, Account),
  * with `aria-current="page"` on the current one. The overlay is in the server HTML (hidden until opened), so plain
@@ -135,13 +133,6 @@ export function SiteMenu({
           <span>Orpheus</span>
         </a>
         <div className="flex items-center gap-1 sm:gap-3">
-          <a
-            href={GET_STARTED_HREF}
-            className={`inline-flex h-11 items-center whitespace-nowrap bg-chalk px-4 text-xs font-medium text-night sm:text-sm ${FOCUS}`}
-            data-testid="site-get-started"
-          >
-            {GET_STARTED}
-          </a>
           <button
             type="button"
             className={ICON_BUTTON}

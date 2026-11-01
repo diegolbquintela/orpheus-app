@@ -37,3 +37,8 @@ owner link the markup is identical for `null`, `undefined` or omitted, and has n
 Dark style, the lyre and the `Orpheus Wisdom` footer kept; no gold; no tabular numerals; AA contrast (chalk on night
 14.2:1, dim on night 7.2:1, night on chalk 14.2:1); no horizontal overflow and CLS 0 at 360 / 390 / 768 / 1440; no new
 dependency, table, env var or storage key.
+
+## Addendum 2026-11-01: no primary action (Diego, via EL, on PR #293)
+`Get Started` is removed. The bar is the lyre + `Orpheus` home link, the Search button and the Menu button only, with no
+primary action; the Calculator is reached from the overlay. §1's Get Started text and its 360 px measurement no
+longer apply. ACs: HDR-01 and HDR-02 amended.

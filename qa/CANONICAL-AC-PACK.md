@@ -2200,3 +2200,10 @@ check). Spec: `attachments/header-menu-spec.md`.
 | HDR-10 | MINOR | `MENU_EXTRA_SECTIONS` exists and is empty (hook for Obsidian columns; no Obsidian links yet). |
 | HDR-11 | BLOCK | At 360 / 390 / 768 / 1440 px: no horizontal overflow (bar or open overlay), CLS 0, AA contrast, no tabular numerals, no gold; the `Orpheus Wisdom` footer unchanged. |
 | HDR-12 | BLOCK | `npm run check:dashboard-built` checks the header (lyre link, Get Started, Search and Menu buttons, hidden overlay, link order, no `/renaissance` signed out) and release-smoke's `menuOk` passes unchanged. |
+
+### Addendum 2026-11-01 (#286, Diego via EL): no primary action
+
+| AC | Severity | Check |
+|---|---|---|
+| HDR-01 (amended 2026-11-01) | BLOCK | In addition to HDR-01 as written: the bar holds exactly the lyre + `Orpheus` link to `/`, the Search button and the Menu button, in that order; `Get Started` is not part of it. |
+| HDR-02 (amended 2026-11-01) | BLOCK | Replaces HDR-02: the header has no primary action. No `Get Started` text, no `site-get-started` element, and the nav's only `/calculator` link is the overlay's `Calculator`. HDR-11/12 apply to the bar without it. |
