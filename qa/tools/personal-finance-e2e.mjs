@@ -592,27 +592,48 @@ try {
       await page.getByTestId("pf-toggle-income").click();
       await page.getByTestId("pf-toggle-overview").click();
       await settle(page);
-      // #276 (spec §81, PFPA-01..08; QA BV1 / BV2 / BV3): Planned vs actual. BV2: the server keeps plans for months
-      // after ITS real month only, so a plan saved with the page clock pinned is dropped. Instead the harness injects a
-      // plan for the page's current month (householdMonth(TODAY)) into the record GET (a page.route on this page only;
-      // the plan = that month's saved lines, captured the day before the month), so the step never depends on the
-      // calendar date. The server ignores a current-month plan in a PUT (mergePlansText), so nothing is written to it.
-      const pvMonth = householdMonth(TODAY);
-      const pvRoute = { readOnly: false };
+      // #276 (spec §81, PFPA-01..08; QA BV1 / BV2 / BV3). BV2: the server keeps a plan only for a month AFTER its REAL
+      // month (mergePlansText), so a plan saved under the pinned page clock is dropped. Primary path: with the page
+      // clock at the real time, save the month after the real month (computed, never hardcoded), then move the page
+      // clock into that month so it is the current month with a plan. Fallback, only when that save did not store a
+      // plan: inject a plan for the page's current month into the record GET (page.route, this page only). At the end
+      // the step resets the account to its record from before the step (DELETE, then PUT; the script's own pattern),
+      // which removes the plan it created and restores the view value.
+      const PLANS = "orpheus.finance.plans.v1";
+      const snap = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+      delete snap[PLANS];
+      const realNow = new Date();
+      const [ry, rm] = householdMonth(realNow).split("-").map(Number);
+      const nextY = rm === 12 ? ry + 1 : ry, nextM = rm === 12 ? 1 : rm + 1;
+      const nextMonth = `${nextY}-${String(nextM).padStart(2, "0")}`;
+      let viaSave = false;
+      try {
+        await page.clock.setFixedTime(realNow);
+        await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(page);
+        await pickMonth(page, nextMonth);
+        await page.getByTestId("pf-month-save").click();
+        await settle(page);
+        const stored = (await acct(page, base, "GET")).body?.data?.[PLANS];
+        viaSave = !!JSON.parse(stored ?? "{}")[nextMonth];
+      } catch { viaSave = false; }
+      const pvMonth = viaSave ? nextMonth : householdMonth(TODAY);
+      await page.clock.setFixedTime(viaSave ? new Date(nextY, nextM - 1, 11, 12) : TODAY);
+      const pvRoute = { readOnly: false, inject: !viaSave };
       const injectPlan = async (route) => {
         const req = route.request();
         if (req.method() !== "GET" || new URL(req.url()).pathname !== API) return route.continue();
         const res = await route.fetch();
         const body = await res.json().catch(() => null);
-        if (body?.data) {
+        if (body?.data && pvRoute.inject) {
           const months = (() => { try { return JSON.parse(body.data["orpheus.finance.months.v1"] ?? "{}"); } catch { return {}; } })();
           if (months[pvMonth]) {
             const [y, m] = pvMonth.split("-").map(Number);
-            body.data["orpheus.finance.plans.v1"] = JSON.stringify({ [pvMonth]: { lines: months[pvMonth], capturedAt: new Date(Date.UTC(y, m - 1, 0, 12)).toISOString() } });
+            body.data[PLANS] = JSON.stringify({ [pvMonth]: { lines: months[pvMonth], capturedAt: new Date(Date.UTC(y, m - 1, 0, 12)).toISOString() } });
           }
-          if (pvRoute.readOnly) body.access = { ...(body.access ?? {}), write: false };
         }
-        return route.fulfill({ response: res, json: body });
+        if (body && pvRoute.readOnly) body.access = { ...(body.access ?? {}), write: false };
+        return body ? route.fulfill({ response: res, json: body }) : route.fulfill({ response: res });
       };
       await page.route(`**${API}*`, injectPlan);
       const VIEW = "orpheus.finance.view.v1";
@@ -661,19 +682,23 @@ try {
         pvRoute.readOnly = false;
       }
       await page.unroute(`**${API}*`, injectPlan);
-      check(`${tag} PFPA-01..08 Planned vs actual (${pvMonth} plan injected into the GET): heading toggle ≥ 44 px open → closed (body empty) → stays closed after a reload → reopened; the view value holds "plan" with "overview" while closed and only "overview" after reopening; numbers identical across close / reopen; a Read user can close / reopen; heads "Planned (set before the month)" / "Actual (as saved)"; note "Actual = what is saved."; no "now" in the section`,
+      check(`${tag} PFPA-01..08 Planned vs actual (${pvMonth} plan ${viaSave ? "saved as next month" : "injected into the GET (fallback)"}): heading toggle ≥ 44 px open → closed (body empty) → stays closed after a reload → reopened; the view value holds "plan" with "overview" while closed and only "overview" after reopening; numbers identical across close / reopen; a Read user can close / reopen; heads "Planned (set before the month)" / "Actual (as saved)"; note "Actual = what is saved."; no "now" in the section`,
         pv.shown === 1 && pv.open0 === "true" && pv.h >= 44 && pv.closed === "false" && pv.bodyKids === 0 && pv.afterReload === "false" && pv.reopened === "true" &&
           JSON.stringify(pv.viewClosed) === '["plan","overview"]' && JSON.stringify(pv.viewOpen) === '["overview"]' &&
           pv.rows0?.length >= 3 && JSON.stringify(pv.rows1) === JSON.stringify(pv.rows0) && JSON.stringify(pv.readRows) === JSON.stringify(pv.rows0) &&
           pv.readField === true && pv.readDisabled === false && pv.readClosed === "false" && pv.readReopened === "true" &&
           pv.heads?.[1] === "Planned (set before the month)" && pv.heads?.[2] === "Actual (as saved)" &&
           /Actual = what is saved\. Difference/.test(pv.note ?? "") && pv.saidNow === false,
-        pv);
-      // Put Overview back open (the view value as before the step).
+        { viaSave, pvMonth, ...pv });
+      // Reset: the account back to its record from before the step (removes the plan this step created, restores the
+      // view value), then the pinned clock again.
+      await page.clock.setFixedTime(TODAY);
+      const del = await acct(page, base, "DELETE");
+      const put = await acct(page, base, "PUT", snap);
+      const after = (await acct(page, base, "GET")).body?.data ?? {};
+      check(`${tag} PFPA reset: the record is back to its pre-step value (no ${PLANS}, the view value restored)`, del.status === 200 && put.status === 200 && !(PLANS in after) && after["orpheus.finance.view.v1"] === snap["orpheus.finance.view.v1"], { del: del.status, put: put.status, plans: PLANS in after, view: after["orpheus.finance.view.v1"] });
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
-      await page.getByTestId("pf-toggle-overview").click();
-      await settle(page);
       // #276 BV3: the Read-mode toggle saves through PUT /api/personal-finance/view (Q-D11), so that is allowed too.
       check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}` || a === `PUT ${API}/view`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
