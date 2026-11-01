@@ -592,44 +592,90 @@ try {
       await page.getByTestId("pf-toggle-income").click();
       await page.getByTestId("pf-toggle-overview").click();
       await settle(page);
-      // #276 (spec §81, PFPA-01..08; QA BV1): Planned vs actual. Save November while October is current (that writes
-      // November's plan), move the page clock into November, then close / reopen the section from its heading.
-      await pickMonth(page, "2026-11");
-      await page.getByTestId("pf-month-save").click();
+      // #276 (spec §81, PFPA-01..08; QA BV1 / BV2 / BV3): Planned vs actual. BV2: the server keeps plans for months
+      // after ITS real month only, so a plan saved with the page clock pinned is dropped. Instead the harness injects a
+      // plan for the page's current month (householdMonth(TODAY)) into the record GET (a page.route on this page only;
+      // the plan = that month's saved lines, captured the day before the month), so the step never depends on the
+      // calendar date. The server ignores a current-month plan in a PUT (mergePlansText), so nothing is written to it.
+      const pvMonth = householdMonth(TODAY);
+      const pvRoute = { readOnly: false };
+      const injectPlan = async (route) => {
+        const req = route.request();
+        if (req.method() !== "GET" || new URL(req.url()).pathname !== API) return route.continue();
+        const res = await route.fetch();
+        const body = await res.json().catch(() => null);
+        if (body?.data) {
+          const months = (() => { try { return JSON.parse(body.data["orpheus.finance.months.v1"] ?? "{}"); } catch { return {}; } })();
+          if (months[pvMonth]) {
+            const [y, m] = pvMonth.split("-").map(Number);
+            body.data["orpheus.finance.plans.v1"] = JSON.stringify({ [pvMonth]: { lines: months[pvMonth], capturedAt: new Date(Date.UTC(y, m - 1, 0, 12)).toISOString() } });
+          }
+          if (pvRoute.readOnly) body.access = { ...(body.access ?? {}), write: false };
+        }
+        return route.fulfill({ response: res, json: body });
+      };
+      await page.route(`**${API}*`, injectPlan);
+      const VIEW = "orpheus.finance.view.v1";
+      const viewOf = async () => { const v = ((await acct(page, base, "GET")).body?.data ?? {})[VIEW]; try { return JSON.parse(v ?? "null")?.closed ?? []; } catch { return null; } };
+      const rows = () => page.locator("[data-testid=pf-plan] tbody tr").evaluateAll((rs) => rs.map((r) => [...r.children].map((c) => c.textContent)));
+      const t = page.getByTestId("pf-toggle-plan");
+      const pv = {};
+      // BV3: another entry in the view value must survive the plan toggle.
+      await page.getByTestId("pf-toggle-overview").click();
       await settle(page);
-      await page.clock.setFixedTime(new Date(2026, 10, 11, 12));
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
-      const pv = { shown: await page.getByTestId("pf-plan").count() };
+      pv.shown = await page.getByTestId("pf-plan").count();
       if (pv.shown) {
         pv.heads = await page.locator("[data-testid=pf-plan] thead th").allTextContents();
         pv.note = await txt(page.getByTestId("pf-plan-note"));
-        pv.saidNow = /saved now/.test(await txt(page.getByTestId("pf-plan")));
-        const t = page.getByTestId("pf-toggle-plan");
+        pv.saidNow = /\bnow\b/i.test(await txt(page.getByTestId("pf-plan")));
+        pv.rows0 = await rows();
         pv.open0 = await t.getAttribute("aria-expanded");
         pv.h = await t.evaluate((e) => Math.round(e.getBoundingClientRect().height));
         await t.click();
         await settle(page);
         pv.closed = await t.getAttribute("aria-expanded");
         pv.bodyKids = await page.getByTestId("pf-body-plan").evaluate((e) => e.children.length);
-        pv.viewClosed = ((await acct(page, base, "GET")).body?.data ?? {})["orpheus.finance.view.v1"];
+        pv.viewClosed = await viewOf();
+        await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(page);
+        pv.afterReload = await t.getAttribute("aria-expanded");
         await t.click();
         await settle(page);
         pv.reopened = await t.getAttribute("aria-expanded");
-        pv.viewOpen = ((await acct(page, base, "GET")).body?.data ?? {})["orpheus.finance.view.v1"];
+        pv.rows1 = await rows();
+        pv.viewOpen = await viewOf();
+        // BV3: a Read user (access.write false in the GET, the page's read-only mode) can close and reopen it too.
+        pvRoute.readOnly = true;
+        await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(page);
+        pv.readField = await page.getByTestId("pf-monthly").first().isDisabled(); // read-only mode is on
+        pv.readDisabled = await t.isDisabled();
+        await t.click();
+        pv.readClosed = await t.getAttribute("aria-expanded");
+        await t.click();
+        pv.readReopened = await t.getAttribute("aria-expanded");
+        pv.readRows = await rows();
+        await settle(page);
+        pvRoute.readOnly = false;
       }
-      const closedView = (() => { try { return JSON.parse(pv.viewClosed ?? "null")?.closed ?? []; } catch { return []; } })();
-      const openView = (() => { try { return JSON.parse(pv.viewOpen ?? "null")?.closed ?? []; } catch { return []; } })();
-      check(`${tag} PFPA-01/02/03/08 Planned vs actual (November, planned in October): heading toggle open → closed → open (≥ 44 px); "plan" in orpheus.finance.view.v1 while closed and gone after reopening; heads "Planned (set before the month)" / "Actual (as saved)"; note "Actual = what is saved." with no "saved now"`,
-        pv.shown === 1 && pv.open0 === "true" && pv.closed === "false" && pv.bodyKids === 0 && pv.reopened === "true" && pv.h >= 44 &&
-          closedView.includes("plan") && !openView.includes("plan") &&
+      await page.unroute(`**${API}*`, injectPlan);
+      check(`${tag} PFPA-01..08 Planned vs actual (${pvMonth} plan injected into the GET): heading toggle ≥ 44 px open → closed (body empty) → stays closed after a reload → reopened; the view value holds "plan" with "overview" while closed and only "overview" after reopening; numbers identical across close / reopen; a Read user can close / reopen; heads "Planned (set before the month)" / "Actual (as saved)"; note "Actual = what is saved."; no "now" in the section`,
+        pv.shown === 1 && pv.open0 === "true" && pv.h >= 44 && pv.closed === "false" && pv.bodyKids === 0 && pv.afterReload === "false" && pv.reopened === "true" &&
+          JSON.stringify(pv.viewClosed) === '["plan","overview"]' && JSON.stringify(pv.viewOpen) === '["overview"]' &&
+          pv.rows0?.length >= 3 && JSON.stringify(pv.rows1) === JSON.stringify(pv.rows0) && JSON.stringify(pv.readRows) === JSON.stringify(pv.rows0) &&
+          pv.readField === true && pv.readDisabled === false && pv.readClosed === "false" && pv.readReopened === "true" &&
           pv.heads?.[1] === "Planned (set before the month)" && pv.heads?.[2] === "Actual (as saved)" &&
           /Actual = what is saved\. Difference/.test(pv.note ?? "") && pv.saidNow === false,
         pv);
-      await page.clock.setFixedTime(TODAY);
+      // Put Overview back open (the view value as before the step).
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
-      check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
+      await page.getByTestId("pf-toggle-overview").click();
+      await settle(page);
+      // #276 BV3: the Read-mode toggle saves through PUT /api/personal-finance/view (Q-D11), so that is allowed too.
+      check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}` || a === `PUT ${API}/view`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
     } finally {
