@@ -2219,3 +2219,4 @@ check). Spec: `attachments/header-menu-spec.md`.
 | PFPA-05 | HIGH | Read users can open and close it; no plan is written. |
 | PFPA-06 | HIGH | Closing it keeps the other sections' stored state. |
 | PFPA-07 | HIGH | Invariants: dark style, no gold, no `tnum` on the page, toggle target ≥ 44px, no page overflow at 360 / 390 / 768 / 1440 (the table scrolls inside `.pf-plan`), AA contrast, CLS 0. |
+| PFPA-03 (amended 2026-11-01, CFO) | HIGH | Replaces PFPA-03: the column heads read `Planned (set before the month)` and `Actual (as saved)`, and the head never reads `saved now`. The section still starts open. |

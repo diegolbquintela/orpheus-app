@@ -185,7 +185,11 @@ describe("#276 PFPA Planned vs actual toggle", () => {
     const heads = [...el.querySelectorAll('[data-testid="pf-plan"] thead th')].map((h) => h.textContent);
     assert.deepEqual(heads, ["October 2026", PLANNED_LABEL, ACTUAL_LABEL, "Difference", "% of plan", "Direction"]);
     assert.equal(PLANNED_LABEL, "Planned (set before the month)");
-    assert.equal(ACTUAL_LABEL, "Actual (saved now)");
+    assert.equal(ACTUAL_LABEL, "Actual (as saved)");
+    // #276 CFO (2026-11-01, PFPA-03 amended): the rendered head is "Actual (as saved)", not the earlier "saved now".
+    assert.equal(heads[2], "Actual (as saved)");
+    assert.equal(heads[1], "Planned (set before the month)");
+    assert.doesNotMatch(q(el, "pf-plan")!.querySelector("thead")!.textContent!, /saved now/);
   });
   it("PFPA-04: the numbers are pinned and identical before and after a close / open", async () => {
     seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
