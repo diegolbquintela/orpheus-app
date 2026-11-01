@@ -13,6 +13,7 @@ import {
   seriesSummary,
   torontoDate,
 } from "@/lib/finance/reports-list";
+import { PF_PAGE_TITLES } from "@/lib/finance/pf-nav";
 
 type State = { kind: "loading" } | { kind: "error"; error: string } | { kind: "ready"; list: ReportList };
 
@@ -64,7 +65,7 @@ export function ChartsPage({
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 pt-10 pb-20 sm:px-8 lg:pt-14 lg:pb-24">
         <header className="relative">
           <p className="pf-label">01</p>
-          <h1 className="pf-title mt-2">Charts.</h1>
+          <h1 className="pf-title mt-2">{PF_PAGE_TITLES.charts}</h1>
           <p className="pf-charts-back mt-3">
             <a href="/personal-finance" data-testid="pf-charts-back">
               Personal Finance

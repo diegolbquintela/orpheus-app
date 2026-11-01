@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { DeniedPage } from "@/components/access/denied";
 import { HistoryPage } from "@/components/personal-finance/history-page";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
+import { pfDocTitle } from "@/lib/finance/pf-nav";
 
 // #214 / #263 (personal-finance-spec 53, 77): the History table. Same gate as /personal-finance (Read is enough).
 export const Route = createFileRoute("/personal-finance_/history")({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/personal-finance_/history")({
   loader: ({ context }) => context.access,
   head: () => ({
     meta: [
-      { title: "History · Personal Finance · Orpheus Wisdom" },
+      { title: pfDocTitle("history") },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),

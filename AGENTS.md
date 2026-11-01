@@ -1351,3 +1351,11 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - **QA tools:** select the dates with `input[data-field=start|end]`, not `input[type=date]`.
   - **Tests:** `src/components/calculator/keyboard-focus.dom.test.tsx` and KBF-05 in `src/lib/site/field-checks.test.ts`.
   - Signed-in surfaces are QA-owned (KBF-08).
+
+## Personal Finance sub-nav labels (#275; added 2026-11-01)
+
+- 2026-11-01: #275 renames the visible PF sub-nav labels: Charts → **Report Builder**, History → **Yearly Ledger**, Scenario → **Scenario Analysis** (pf-subnav-labels-spec, PFNL-01..PFNL-06).
+  - **Where the names live:** `src/lib/finance/pf-nav.ts`. Use it for any new label or title; don't hard-code them.
+  - **What didn't change:** routes, test ids and storage still say charts / history / scenario.
+  - **Phone wrap:** `.pf-subnav` (flex-wrap, 1.5rem gap) replaces the per-link `ml-6`.
+  - **Tests:** `src/components/personal-finance/pf-subnav-labels.dom.test.tsx`.

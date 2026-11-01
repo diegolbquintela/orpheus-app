@@ -4,6 +4,7 @@ import { DeniedPage } from "@/components/access/denied";
 import { ChartsBuilder } from "@/components/personal-finance/charts-builder";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
 import { EDIT_SIGN_IN_NEXT } from "@/lib/finance/builder";
+import { reportDocTitle } from "@/lib/finance/pf-nav";
 
 // #161 (spec 46, Q-AK1): edit one saved report (`default` or `r-…`). Signed out returns to the list (an id path is not
 // an exact allowlisted path).
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/personal-finance_/charts_/$id_/edit")({
     return { access: { read: viewer.read, write: viewer.write } };
   },
   loader: ({ context }) => context.access,
-  head: () => ({ meta: [{ title: "Edit report · Charts · Orpheus Wisdom" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({ meta: [{ title: reportDocTitle("Edit report") }, { name: "robots", content: "noindex, nofollow" }] }),
   component: EditRoute,
 });
 

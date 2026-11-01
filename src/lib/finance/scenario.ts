@@ -36,6 +36,7 @@ import {
   type Scenario,
   scenarioValueOk,
 } from "./scenario-key.ts";
+import { PF_PAGE_TITLES } from "./pf-nav.ts";
 
 /**
  * #215 (personal-finance-spec 55) / #221 (spec 57, AC PFPJ): the scenario screen. Since #221 it is the Personal Finance
@@ -59,7 +60,8 @@ export {
 };
 export type { Scenario };
 export const SCENARIO_PATH = "/personal-finance/scenario";
-export const SCENARIO_TITLE = "Scenario.";
+// #275: the visible name is Scenario Analysis (pf-nav.ts); the path stays /personal-finance/scenario.
+export const SCENARIO_TITLE = PF_PAGE_TITLES.scenario;
 export const WHAT_IF_NOTE = "What-if only. Nothing on this screen is ever saved.";
 export const BASED_ON_LAST_MONTH = "Based on last month";
 export const LOAD_ERROR = "Couldn't load your figures.";

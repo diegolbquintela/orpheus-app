@@ -133,7 +133,7 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
     const l = ok(record());
     const el = await render(l.load);
     assert.equal(l.count(), 1);
-    assert.equal(el.querySelector("h1")?.textContent, "Scenario.");
+    assert.equal(el.querySelector("h1")?.textContent, "Scenario Analysis.", "#275 PFNL-02");
     assert.equal(q(el, "pf-scenario-whatif")?.textContent, WHAT_IF_NOTE);
     assert.equal(q(el, "pf-scenario-basis")?.textContent, `${BASED_ON_LAST_MONTH} (September 2026).`);
     for (const id of ["pf-income-block", "pf-expenses-block", "pf-summary-block", "pf-overview", "pf-scenario-chart", "pf-scenario-totals"]) assert.ok(q(el, id), id);

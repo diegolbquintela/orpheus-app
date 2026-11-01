@@ -2107,3 +2107,14 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - KBF-06: Safari on Mac (default: Tab stops on text fields only). Every typed DCA field is a native text input (or the native Frequency select), with no custom role-based control, so Tab moves Ticker → Weight → Start → End → Starting capital → Contribution. Buttons are reached with Option-Tab or with "Press Tab to highlight each item". (QA on the preview, Safari)
 - KBF-07: Signed out: the site bar, login, `/account`, `/dashboard`, `/personal-finance` and `/renaissance` tab in visual order with Tab never prevented, at 360 / 1440. No overflow, tap targets ≥ 44 px, AA contrast (placeholder dim 7.2:1), CLS 0, no tnum, no gold. (headless)
 - KBF-08: **QA-owned, signed in on the preview:** Personal Finance (all tabs, the scenarios table and Compare, the History editable table), signed-in `/account`, the owner-only Renaissance Man link and any dialogs all tab in visual order, and Enter / Escape still work. (QA)
+
+## PFNL: Personal Finance sub-nav labels (#275, pf-subnav-labels-spec; added 2026-11-01; MEDIUM)
+- PFNL-01: The sub-nav under "Personal Finance." reads **Report Builder**, **Yearly Ledger**, **Scenario Analysis**, in that order. The test ids (`pf-charts-link`, `pf-history-link`, `pf-scenario-link`) and hrefs (`/personal-finance/charts`, `/history`, `/scenario`) are unchanged, and no old label (Charts / History / Scenario) remains. (DOM)
+- PFNL-02: Titles follow the labels:
+  - h1s: `Report Builder.`, `Yearly Ledger.`, `Scenario Analysis.`
+  - Document titles: `<Label> · Personal Finance · Orpheus Wisdom`; report pages: `Report / New report / Edit report · Report Builder · Orpheus Wisdom`
+  - The builder back link reads `Report Builder`. (DOM, source)
+- PFNL-03: The sub-nav wraps whole links (flex, wrap, `column-gap: 1.5rem`, no per-link margin), so a wrapped row starts flush left. Links are ≥ 44 px tall. The wide layout is unchanged. (DOM / CSS, headless)
+- PFNL-04: Routes, URLs, query params, sign-in `next=` targets, data and storage keys are unchanged. (DOM, unit)
+- PFNL-05: At 360 / 390 / 768 / 1440 px: no horizontal overflow, CLS 0, no tnum, no gold, dark style, tap targets ≥ 44 px. (headless)
+- PFNL-06: **QA-owned, signed in on the preview:** each sub-nav link opens its page (Report Builder → the reports list, Yearly Ledger → the ledger table, Scenario Analysis → the scenario screen), and every page title and heading matches PFNL-02. (QA)

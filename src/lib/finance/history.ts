@@ -7,6 +7,7 @@ import { equityCoverage, formatCoverageShare, lastTwelve, type MonthKey, monthNa
 import { formatMoney } from "./money.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import { seriesValues } from "./series.ts";
+import { PF_NAV_LABELS, PF_PAGE_TITLES } from "./pf-nav.ts";
 
 /**
  * #214 / #263 (personal-finance-spec sections 53, 77; AC PFHT, PFHE): the History table. The person picks a year first;
@@ -15,8 +16,9 @@ import { seriesValues } from "./series.ts";
  * read-only and recompute live.
  */
 export const HISTORY_PATH = "/personal-finance/history";
-export const HISTORY_TITLE = "History.";
-export const HISTORY_LINK = "History";
+// #275: the visible names are Yearly Ledger (pf-nav.ts); the path stays /personal-finance/history.
+export const HISTORY_TITLE = PF_PAGE_TITLES.history;
+export const HISTORY_LINK = PF_NAV_LABELS.history;
 export const YEAR_LABEL = "Year";
 export const CHOOSE_YEAR = "Choose a year";
 export const PICK_YEAR_NOTE = "Choose a year to see its stored months.";
