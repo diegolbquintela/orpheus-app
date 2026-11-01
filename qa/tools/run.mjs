@@ -33,7 +33,7 @@ for (const fx of fixtures) {
     await r.nth(0).fill(inp.tickers[i]);
     await r.nth(1).fill(String(inp.weights[i]));
   }
-  const dates = page.locator('input[type=date]');
+  const dates = page.locator('input[data-field=start], input[data-field=end]');
   await dates.nth(0).fill(inp.start);
   await dates.nth(1).fill(inp.end);
   await page.locator('label:has-text("Starting capital") input').fill(String(inp.capital));

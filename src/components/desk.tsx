@@ -6,6 +6,7 @@ import {
   checkListings,
   tickerField,
   weightField,
+  isoDate,
   type FieldErrors,
   type Listing,
 } from "@/lib/site/field-checks";
@@ -134,12 +135,15 @@ export function Desk() {
       return;
     }
     setErrors({});
+    // #274: the text date fields as the engine needs them (checkFields has already refused anything else).
+    const startDate = isoDate(start);
+    const endDate = isoDate(end);
     const { basket, capital: capitalAmount, contribution: contributionAmount } = checked;
     const runFrequency: Frequency = checked.frequency;
 
     setPending(true);
     try {
-      const settled = await Promise.allSettled(basket.map((name) => loadChart(name.ticker, start, end)));
+      const settled = await Promise.allSettled(basket.map((name) => loadChart(name.ticker, startDate, endDate)));
       const offline = settled.find(
         (result): result is PromiseRejectedResult =>
           result.status === "rejected" && !(result.reason instanceof FeedRefusal),
@@ -171,8 +175,8 @@ export function Desk() {
         capital: capitalAmount,
         contribution: contributionAmount,
         frequency: runFrequency,
-        start,
-        end,
+        start: startDate,
+        end: endDate,
       });
       setReady({
         names,
@@ -292,7 +296,11 @@ export function Desk() {
               <div className="grid min-w-0 gap-8 lg:grid-cols-5 lg:gap-x-6" data-testid="window-row">
                 <WindowField label="Start" error={fieldError("start")}>
                   <input
-                    type="date"
+                    type="text"
+                    placeholder="YYYY-MM-DD"
+                    pattern="\d{4}-\d{2}-\d{2}"
+                    maxLength={10}
+                    spellCheck={false}
                     value={start}
                     onChange={(event) => {
                       setStart(event.target.value);
@@ -305,7 +313,11 @@ export function Desk() {
                 </WindowField>
                 <WindowField label="End" error={fieldError("end")}>
                   <input
-                    type="date"
+                    type="text"
+                    placeholder="YYYY-MM-DD"
+                    pattern="\d{4}-\d{2}-\d{2}"
+                    maxLength={10}
+                    spellCheck={false}
                     value={end}
                     onChange={(event) => {
                       setEnd(event.target.value);

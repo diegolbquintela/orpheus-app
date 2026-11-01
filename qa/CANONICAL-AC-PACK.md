@@ -2097,3 +2097,13 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - RM-24: In the root loader, a non-owner's loader data is `undefined`, so the signed-out HTML of `/` (and every page) has no `/renaissance` or "Renaissance".
   - At 360, 390, 640, 768 and 1440 px: no horizontal overflow, no clipped item, links ≥ 44 px tall, AA contrast, CLS 0, no external requests, no `tnum`.
   - The owner's bar is one row from 640 px and two rows below; everyone else always gets one 45 px row. (headless, signed-out preview curl)
+
+## KBF: keyboard focus (#274, keyboard-focus-spec; added 2026-11-01; HIGH a11y)
+- KBF-01: On `/calculator`, Tab visits Ticker, Weight, Add name, Start, End, Starting capital, Contribution, Frequency, Compare in that order, and Shift-Tab goes in reverse. (DOM, headless 360 / 1440)
+- KBF-02: No Tab or Shift-Tab keydown on any calculator control is `defaultPrevented`. Enter-to-submit and Escape-to-close elsewhere are unchanged. (DOM)
+- KBF-03: No calculator field has `tabindex` other than 0 or `autofocus`. Nothing refocuses on load. (DOM)
+- KBF-04: The basket row keeps DOM order ticker, weight, remove. On a phone `reading-flow: grid-rows` makes Tab go ticker, remove, weight, as drawn. From 64rem the layout and order are unchanged (ticker, weight, remove). There is no visual change. (DOM / CSS, headless Chromium)
+- KBF-05: Start and End are `<input type="text">` with a `YYYY-MM-DD` placeholder and exactly one Tab stop each (there's no native date input). Validation is the same as before: an impossible or partial date reads as blank, with the same messages ("Add a start date.", "Add an end date.", "End must be after the start."), and the value is kept as typed. (unit, DOM)
+- KBF-06: Safari on Mac (default: Tab stops on text fields only). Every typed DCA field is a native text input (or the native Frequency select), with no custom role-based control, so Tab moves Ticker → Weight → Start → End → Starting capital → Contribution. Buttons are reached with Option-Tab or with "Press Tab to highlight each item". (QA on the preview, Safari)
+- KBF-07: Signed out: the site bar, login, `/account`, `/dashboard`, `/personal-finance` and `/renaissance` tab in visual order with Tab never prevented, at 360 / 1440. No overflow, tap targets ≥ 44 px, AA contrast (placeholder dim 7.2:1), CLS 0, no tnum, no gold. (headless)
+- KBF-08: **QA-owned, signed in on the preview:** Personal Finance (all tabs, the scenarios table and Compare, the History editable table), signed-in `/account`, the owner-only Renaissance Man link and any dialogs all tab in visual order, and Enter / Escape still work. (QA)

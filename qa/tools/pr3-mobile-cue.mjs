@@ -10,7 +10,7 @@ await page.getByRole('button',{name:/Add name/}).tap();
 const rows=page.locator('.basket-row');
 await type(rows.nth(0).locator('input').nth(0),'PLTR'); await type(rows.nth(0).locator('input').nth(1),'50');
 await type(rows.nth(1).locator('input').nth(0),'TQQQ'); await type(rows.nth(1).locator('input').nth(1),'50');
-const d=page.locator('input[type=date]'); await d.nth(0).fill('2020-10-02'); await d.nth(1).fill('2026-10-02');
+const d=page.locator('input[data-field=start], input[data-field=end]'); await d.nth(0).fill('2020-10-02'); await d.nth(1).fill('2026-10-02');
 await type(page.locator('label:has-text("Starting capital") input'),'1000'); await type(page.locator('label:has-text("Contribution") input'),'1000');
 await page.locator('select').selectOption('weekly');
 await page.getByRole('button',{name:'Compare plans'}).tap();

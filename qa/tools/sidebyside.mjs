@@ -16,7 +16,7 @@ for (const [cn,inp] of Object.entries(CASES)) for (const [hn,url] of Object.entr
   const act=async l=>vp==='mobile'?l.tap():l.click();
   for(let i=1;i<inp.tickers.length;i++) await act(page.getByRole('button',{name:/Add name/}));
   for(let i=0;i<inp.tickers.length;i++){ const r=page.locator('.basket-row').nth(i).locator('input'); await act(r.nth(0)); await page.keyboard.type(inp.tickers[i]); await act(r.nth(1)); await page.keyboard.type(String(inp.weights[i])); }
-  const d=page.locator('input[type=date]'); await d.nth(0).fill(inp.start); await d.nth(1).fill(inp.end);
+  const d=page.locator('input[data-field=start], input[data-field=end]'); await d.nth(0).fill(inp.start); await d.nth(1).fill(inp.end);
   await act(page.locator('label:has-text("Starting capital") input')); await page.keyboard.type(String(inp.capital));
   await act(page.locator('label:has-text("Contribution") input')); await page.keyboard.type(String(inp.contribution));
   await page.locator('select').selectOption(inp.frequency);

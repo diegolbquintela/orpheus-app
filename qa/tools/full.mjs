@@ -18,7 +18,7 @@ async function open(ctxOpts=desk){
 async function fill(page,{rows=[],start='',end='',capital='',contribution='',frequency=''}){
   for(let i=1;i<rows.length;i++) await page.getByRole('button',{name:/Add name/}).click();
   for(let i=0;i<rows.length;i++){ const r=page.locator('.basket-row').nth(i).locator('input'); await r.nth(0).fill(rows[i][0]); await r.nth(1).fill(String(rows[i][1])); }
-  const d=page.locator('input[type=date]'); if(start) await d.nth(0).fill(start); if(end) await d.nth(1).fill(end);
+  const d=page.locator('input[data-field=start], input[data-field=end]'); if(start) await d.nth(0).fill(start); if(end) await d.nth(1).fill(end);
   if(capital!=='') await page.locator('label:has-text("Starting capital") input').fill(String(capital));
   if(contribution!=='') await page.locator('label:has-text("Contribution") input').fill(String(contribution));
   if(frequency) await page.locator('select').selectOption(frequency);

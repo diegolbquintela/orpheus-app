@@ -1341,3 +1341,13 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - The `/account` link is kept.
   - No schema, env or dependency change.
   - **Tests:** `src/components/site-menu-owner.dom.test.tsx` and RM-21 in `src/lib/renaissance/api.server.test.ts`.
+
+## Keyboard focus (#274; added 2026-11-01)
+
+- 2026-11-01: #274 fixes Tab on the DCA calculator (keyboard-focus-spec, KBF-01..KBF-08).
+  - **Root cause:** native date inputs took 3 to 4 Tab stops each. No app code swallows Tab, so don't add Tab keydown handlers.
+  - **Fix:** Start and End are text `YYYY-MM-DD` fields. `isoDate()` in `field-checks.ts` keeps the old validation and messages.
+  - **Phone basket row:** `reading-flow: grid-rows` (layout-only).
+  - **QA tools:** select the dates with `input[data-field=start|end]`, not `input[type=date]`.
+  - **Tests:** `src/components/calculator/keyboard-focus.dom.test.tsx` and KBF-05 in `src/lib/site/field-checks.test.ts`.
+  - Signed-in surfaces are QA-owned (KBF-08).

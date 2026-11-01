@@ -248,7 +248,7 @@ async function fill(page, { rows, start, end, capital, contribution, frequency }
     await r.nth(0).fill(rows[i][0]);
     await r.nth(1).fill(String(rows[i][1]));
   }
-  const d = page.locator("input[type=date]");
+  const d = page.locator("input[data-field=start], input[data-field=end]");
   await d.nth(0).fill(start);
   await d.nth(1).fill(end);
   await page.locator('label:has-text("Starting capital") input').fill(String(capital));
@@ -363,7 +363,7 @@ async function formChecks(page, tag, mobile, viewport) {
       body: getComputedStyle(document.body).colorScheme,
       select: cs(s),
       options: [...s.options].map((o) => ({ text: o.textContent, ...cs(o) })),
-      dates: [...document.querySelectorAll("input[type=date]")].map((d) => cs(d).scheme),
+      dates: [...document.querySelectorAll("input[data-field=start], input[data-field=end]")].map((d) => cs(d).scheme),
     };
   });
   const readable = (x) => rgb(x.bg).length === 3 && !/rgba\(.*, 0\)$/.test(x.bg) && ratio(rgb(x.color), rgb(x.bg)) >= 4.5;
