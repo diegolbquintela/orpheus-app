@@ -19,6 +19,38 @@ export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: s
   { section: "account", label: "Account", href: "/account" },
 ];
 
+/**
+ * #286 (header-menu-spec, AC HDR): the header's primary action (to the Calculator) and the overlay search field's copy
+ * (a placeholder only: nothing searches yet).
+ */
+export const GET_STARTED = "Get Started";
+export const GET_STARTED_HREF = "/calculator";
+export const SEARCH_PLACEHOLDER = "Search Orpheus";
+export const SEARCH_SOON = "Search is coming soon.";
+
+/** One link in the menu overlay; `owner` marks the server-sent owner-only item (#271, RM-21). */
+export type MenuLink = { href: string; label: string; section: SiteSection | null; owner?: boolean };
+
+/**
+ * #286: the overlay's links, top to bottom, each by its full name: the menu items, with the owner's link (only when the
+ * server sent one; RM-21, fail-closed) right before Account.
+ */
+export function menuLinks(ownerLink: { href: string; label: string } | null | undefined): MenuLink[] {
+  const out: MenuLink[] = [];
+  for (const m of MENU_ITEMS) {
+    if (m.section === "account" && ownerLink) out.push({ href: ownerLink.href, label: ownerLink.label, section: null, owner: true });
+    out.push({ href: m.href, label: m.label, section: m.section });
+  }
+  return out;
+}
+
+/**
+ * #286 hook (no Obsidian links yet): extra overlay columns, e.g. `{ title: "Latest News", links: [...] }`. Empty, so
+ * the overlay shows only the page links; adding a section here renders it as a column beside them.
+ */
+export type MenuSection = { title: string; links: readonly { href: string; label: string }[] };
+export const MENU_EXTRA_SECTIONS: readonly MenuSection[] = [];
+
 /** Home's Platforms section (#69, spec §4 / Q11): the numeral and heading. */
 export const HOME_PLATFORMS_NUMERAL = "02";
 export const HOME_PLATFORMS_HEADING = "Platforms";

@@ -1,44 +1,57 @@
-import { Fragment } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Lyre } from "@/components/lyre";
-import { PersonGlyph } from "@/components/person-glyph";
 import type { OwnerNavLink } from "@/lib/site/owner-nav";
-import { currentSection, MENU_ITEMS } from "@/lib/site/site";
+import {
+  currentSection,
+  GET_STARTED,
+  GET_STARTED_HREF,
+  MENU_EXTRA_SECTIONS,
+  menuLinks,
+  SEARCH_PLACEHOLDER,
+  SEARCH_SOON,
+} from "@/lib/site/site";
 
 /**
- * #90 (ROLE-01): a fifth, right-most item `Account` (to `/account`), always shown; below 640 px a person glyph whose
- * link keeps the accessible name `Account` (the word is visually hidden), from 640 px the word.
+ * #286 (header-menu-spec, AC HDR; supersedes RM-22..RM-24, keeps RM-21): the site header, Palantir style.
  *
- * The site menu (#46; dark shell, epic #66 #68; the lyre mark #84 before `Orpheus`, decorative): one thin charcoal bar that stays at the top on scroll, on
- * every page, including /dashboard, sign-in and the 404 (same markup everywhere). "Orpheus" on the left links
- * home; "Calculator", "Dashboard" and (#97) "Personal Finance" on the right, text only. Below 640 px the text is 12 px
- * and the right links 8 px apart so all four fit on one line at 360 px (site-style Q21). No dropdowns, no hover rule. The current page gets
- * aria-current="page" and a visual mark keyed on that attribute (off-white and underlined; the other items
- * are dim). Off-white focus ring (the site's green focus colour is too dark on charcoal). Plain links (full page
- * loads), so /dashboard always goes through its server gate.
+ * The bar (one 45 px charcoal row, sticky, on every page): the lyre + `Orpheus` home link on the left; on the right a
+ * primary `Get Started` link (to the Calculator), a Search button and a Menu (hamburger) button, every target 44 px.
+ * The menu is a full-page overlay (not a dropdown): its left column lists every page by its full name (`menuLinks`:
+ * Orpheus, Calculator, Dashboard, Personal Finance, the owner's `Renaissance Man` when the server sent it, Account),
+ * with `aria-current="page"` on the current one. The overlay is in the server HTML (hidden until opened), so plain
+ * links still work everywhere and the owner link stays server-decided and fail-closed (RM-21): non-owners' HTML never
+ * holds it. Search opens the same overlay with an inert placeholder field (no search yet). The overlay is a modal
+ * dialog: its own close (X) button, Esc closes, Tab is trapped inside, and focus returns to the button that opened it.
+ * `MENU_EXTRA_SECTIONS` (empty today) is the hook for later columns (e.g. Obsidian articles, Latest News).
  */
-/**
- * #90: below 640 px the glyph link keeps a 44 × 44 box but takes only the glyph's 20 px in the row: it reaches 8 px
- * back over the gap before it and 16 px into the bar's right padding, with the glyph at its right edge, so the glyph
- * still ends on the column edge (20 px from the screen) and sits 8 px from `Personal Finance` like the other items.
- * That is what lets the five items keep 8 px gaps (Q21; text 11 px through 399 px, 12 px to 640 px, EL). From 640 px it is a plain text link.
- */
-// #90 (EL, Q21 amended): through 399 px the bar text is 11 px so five items fit on one line at 360.
-const LINK =
-  "inline-flex h-11 min-w-11 items-center whitespace-nowrap underline-offset-[6px] decoration-1 focus-visible:outline-chalk aria-[current=page]:text-chalk aria-[current=page]:underline";
-// #271: the owner's bar may wrap. Six items don't fit on one 45 px line below about 400 px, so there the right-hand
-// list moves under `Orpheus` (a second 44 px row) instead of overflowing or clipping; wherever it fits it stays one row.
-// Everyone else keeps the fixed one-row `h-11` bar, byte for byte.
-const OWNER_ROW =
-  "mx-auto flex min-h-11 w-full max-w-6xl flex-wrap items-center justify-between px-5 sm:px-8";
-const GLYPH_LINK = "-ml-2 -mr-4 justify-end pr-4 sm:m-0 sm:justify-center sm:pr-0";
+const FOCUS = "focus-visible:outline-chalk";
+const ICON_BUTTON = `inline-flex h-11 w-11 items-center justify-center text-chalk ${FOCUS}`;
+const OVERLAY_LINK = `inline-flex min-h-11 items-center text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline ${FOCUS}`;
 
-/**
- * #271 (RM-21..): the owner, and only the owner, gets one more item before `Account`: `ownerLink` comes from the
- * server (the root loader, the same owner check as /renaissance) and is null for everyone else, so their bar is
- * unchanged. Below 768 px it shows its short text (`RM`, aria-hidden) with the full label as its accessible name
- * (visually hidden); from 768 px the label. Same 44 px link box as the others. Where six items don't fit on one line
- * (phones), the owner's bar wraps to two rows (OWNER_ROW): no overflow, nothing clipped.
- */
+function Icon({ d, testId }: { d: string; testId: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+      data-testid={testId}
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+const SEARCH_D = "M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.5 15.5 20 20";
+const MENU_D = "M4 7h16M4 12h16M4 17h16";
+const CLOSE_D = "M6 6l12 12M18 6 6 18";
+
+type Opened = null | "menu" | "search";
+
 export function SiteMenu({
   pathname,
   ownerLink = null,
@@ -46,24 +59,63 @@ export function SiteMenu({
   pathname: string;
   ownerLink?: OwnerNavLink | null;
 }) {
+  const uid = useId();
+  const overlayId = `${uid}-overlay`;
+  const [opened, setOpened] = useState<Opened>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const overlay = useRef<HTMLDivElement | null>(null);
+  const closeBtn = useRef<HTMLButtonElement | null>(null);
+  const search = useRef<HTMLInputElement | null>(null);
   const current = currentSection(pathname);
-  const [home, ...right] = MENU_ITEMS;
-  // Each link is a 44 px tall hit area (the bar's inner height; #72, QA N1 on #73, ST6-08): the text, its underline
-  // and the current mark stay where they were, and the bar stays 45 px (44 + the 1 px rule).
-  const ownerItem = ownerLink ? (
-    <li data-testid="site-menu-owner">
-      <a
-        href={ownerLink.href}
-        aria-current={pathname === ownerLink.href ? "page" : undefined}
-        className={`text-dim ${LINK}`}
-      >
-        <span aria-hidden="true" className="md:hidden">
-          {ownerLink.short}
-        </span>
-        <span className="sr-only md:not-sr-only">{ownerLink.label}</span>
-      </a>
-    </li>
-  ) : null;
+  const links = menuLinks(ownerLink);
+
+  const open = (kind: Exclude<Opened, null>, from: HTMLButtonElement) => {
+    trigger.current = from;
+    setOpened(kind);
+  };
+  const close = () => setOpened(null);
+
+  useEffect(() => {
+    if (!opened) return;
+    // Focus into the dialog: the search field when Search opened it, else the close button.
+    (opened === "search" ? search.current : closeBtn.current)?.focus();
+    const root = document.documentElement;
+    const before = root.style.overflow;
+    root.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpened(null);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    const back = trigger.current;
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      root.style.overflow = before;
+      back?.focus();
+    };
+  }, [opened]);
+
+  // Focus trap: Tab from the last focusable goes to the first, Shift-Tab from the first to the last.
+  const trap = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !overlay.current) return;
+    const items = [
+      ...overlay.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled])'),
+    ];
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || !overlay.current.contains(active))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (active === last || !overlay.current.contains(active))) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <nav
       aria-label="Site"
@@ -71,43 +123,128 @@ export function SiteMenu({
       className="sticky top-0 z-50 border-b border-hair bg-night text-chalk"
     >
       <div
-        className={
-          ownerLink
-            ? OWNER_ROW
-            : "mx-auto flex h-11 w-full max-w-6xl items-center justify-between px-5 sm:px-8"
-        }
+        className="mx-auto flex h-11 w-full max-w-6xl items-center justify-between gap-2 px-5 sm:px-8"
+        data-testid="site-bar"
       >
         <a
-          href={home.href}
-          aria-current={current === home.section ? "page" : undefined}
-          className={`gap-2 text-xs text-chalk max-[400px]:text-[11px] sm:text-sm ${LINK}`}
+          href="/"
+          className={`inline-flex h-11 min-w-11 items-center gap-2 whitespace-nowrap text-xs text-chalk sm:text-sm ${FOCUS}`}
+          data-testid="site-logo"
         >
           <Lyre className="shrink-0" />
-          <span>{home.label}</span>
+          <span>Orpheus</span>
         </a>
-        <ul className="flex items-center gap-2 text-xs max-[400px]:text-[11px] sm:gap-6 sm:text-sm">
-          {right.map((item) => (
-            <Fragment key={item.section}>
-              {item.section === "account" ? ownerItem : null}
-              <li>
-                <a
-                  href={item.href}
-                  aria-current={current === item.section ? "page" : undefined}
-                  className={`text-dim ${LINK}${item.section === "account" ? ` ${GLYPH_LINK}` : ""}`}
-                >
-                  {item.section === "account" ? (
-                    <>
-                      <PersonGlyph className="sm:hidden" />
-                      <span className="sr-only sm:not-sr-only">{item.label}</span>
-                    </>
-                  ) : (
-                    item.label
-                  )}
-                </a>
-              </li>
-            </Fragment>
-          ))}
-        </ul>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <a
+            href={GET_STARTED_HREF}
+            className={`inline-flex h-11 items-center whitespace-nowrap bg-chalk px-4 text-xs font-medium text-night sm:text-sm ${FOCUS}`}
+            data-testid="site-get-started"
+          >
+            {GET_STARTED}
+          </a>
+          <button
+            type="button"
+            className={ICON_BUTTON}
+            aria-label="Search"
+            aria-expanded={opened === "search"}
+            aria-controls={overlayId}
+            onClick={(e) => open("search", e.currentTarget)}
+            data-testid="site-search-open"
+          >
+            <Icon d={SEARCH_D} testId="site-search-icon" />
+          </button>
+          <button
+            type="button"
+            className={ICON_BUTTON}
+            aria-label="Menu"
+            aria-expanded={opened === "menu"}
+            aria-controls={overlayId}
+            onClick={(e) => open("menu", e.currentTarget)}
+            data-testid="site-menu-open"
+          >
+            <Icon d={MENU_D} testId="site-menu-icon" />
+          </button>
+        </div>
+      </div>
+      <div
+        id={overlayId}
+        ref={overlay}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        hidden={!opened}
+        onKeyDown={trap}
+        className="fixed inset-0 z-[60] overflow-y-auto bg-night text-chalk"
+        data-testid="site-overlay"
+      >
+        <div className="mx-auto flex h-11 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
+          <span className="inline-flex h-11 items-center gap-2 text-xs text-chalk sm:text-sm" aria-hidden="true">
+            <Lyre className="shrink-0" />
+            <span>Orpheus</span>
+          </span>
+          <button
+            ref={closeBtn}
+            type="button"
+            className={ICON_BUTTON}
+            aria-label="Close menu"
+            onClick={close}
+            data-testid="site-menu-close"
+          >
+            <Icon d={CLOSE_D} testId="site-close-icon" />
+          </button>
+        </div>
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pt-8 pb-16 sm:px-8 md:grid-cols-2">
+          <div className="min-w-0">
+            <label htmlFor={`${uid}-search`} className="sr-only">
+              Search
+            </label>
+            <input
+              id={`${uid}-search`}
+              ref={search}
+              type="search"
+              placeholder={SEARCH_PLACEHOLDER}
+              aria-describedby={`${uid}-search-note`}
+              autoComplete="off"
+              className={`h-11 w-full max-w-md border-0 border-b border-hair bg-transparent text-base text-chalk placeholder:text-dim ${FOCUS}`}
+              data-testid="site-search"
+            />
+            <p id={`${uid}-search-note`} className="mt-2 text-xs text-dim" data-testid="site-search-note">
+              {SEARCH_SOON}
+            </p>
+            <ul className="mt-8 flex flex-col gap-1" data-testid="site-menu-links">
+              {links.map((l) => (
+                <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
+                  <a
+                    href={l.href}
+                    aria-current={l.section ? (current === l.section ? "page" : undefined) : pathname === l.href ? "page" : undefined}
+                    className={OVERLAY_LINK}
+                  >
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          {/* #286 hook: later columns (Obsidian articles, Latest News, …) come from MENU_EXTRA_SECTIONS; none yet. */}
+          {MENU_EXTRA_SECTIONS.length ? (
+            <div className="min-w-0" data-testid="site-menu-extra">
+              {MENU_EXTRA_SECTIONS.map((s) => (
+                <section key={s.title} aria-label={s.title} className="mb-8">
+                  <p className="text-xs text-dim">{s.title}</p>
+                  <ul className="mt-3 flex flex-col gap-1">
+                    {s.links.map((l) => (
+                      <li key={l.href}>
+                        <a href={l.href} className={`inline-flex min-h-11 items-center text-base text-dim ${FOCUS}`}>
+                          {l.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
     </nav>
   );

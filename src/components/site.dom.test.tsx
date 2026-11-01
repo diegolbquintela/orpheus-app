@@ -30,84 +30,99 @@ afterEach(async () => {
 const current = (el: HTMLElement) =>
   [...el.querySelectorAll('[aria-current="page"]')].map((a) => a.textContent);
 
-describe("site menu", () => {
+// #286 (HDR-01..HDR-12; supersedes RM-22..RM-24 and the #46/#90/#97 five-link bar): the Palantir-style header. The
+// open/close, Esc, focus trap and owner tests live in site-header.dom.test.tsx; here, the bar and the overlay's links.
+describe("site header (#286)", () => {
   for (const [path, want] of [
     ["/", "Orpheus"],
     ["/calculator", "Calculator"],
     ["/dashboard", "Dashboard"],
     ["/dashboard/sign-in", "Dashboard"],
+    ["/personal-finance", "Personal Finance"],
     ["/account", "Account"],
   ] as const)
-    it(`${path}: aria-current=page on ${want} only`, async () => {
+    it(`HDR-05 ${path}: aria-current=page on the overlay's ${want} only`, async () => {
       const el = await render(<SiteMenu pathname={path} />);
       assert.deepEqual(current(el), [want]);
+      assert.ok(el.querySelector('[data-testid="site-menu-links"] [aria-current="page"]'));
     });
 
-  it("unknown path (e.g. the flag-off /dashboard 404 on the server): no current page", async () => {
+  it("HDR-05 unknown path (e.g. the flag-off /dashboard 404): no current page", async () => {
     const el = await render(<SiteMenu pathname="/__not-found" />);
     assert.deepEqual(current(el), []);
   });
 
-  it("Orpheus on the left → /, Calculator, Dashboard, Personal Finance (#97) and Account (#90, ROLE-01) on the right; Dashboard always shown", async () => {
+  it("HDR-01 the bar: lyre + Orpheus home link, Get Started to /calculator, Search and Menu buttons, nothing else", async () => {
     const el = await render(<SiteMenu pathname="/calculator" />);
-    const nav = el.querySelector("nav")!;
-    assert.equal(nav.getAttribute("aria-label"), "Site");
-    const links = [...nav.querySelectorAll("a")].map((a) => [
-      a.textContent,
-      a.getAttribute("href"),
-    ]);
-    assert.deepEqual(links, [
-      ["Orpheus", "/"],
-      ["Calculator", "/calculator"],
-      ["Dashboard", "/dashboard"],
-      ["Personal Finance", "/personal-finance"],
-      ["Account", "/account"],
-    ]);
-    // Text links only on the right (#97), except Account (#90, Q-D8): a decorative person glyph shown below 640 px,
-    // the word `Account` visually hidden there but still the link's accessible name.
-    const icons = [...nav.querySelectorAll("ul svg, ul img")];
-    assert.equal(icons.length, 1);
-    const account = nav.querySelector('a[href="/account"]')!;
-    assert.equal(icons[0].parentElement, account);
-    assert.equal(icons[0].getAttribute("aria-hidden"), "true");
-    assert.match(icons[0].getAttribute("class")!, /\bsm:hidden\b/);
-    assert.match(account.querySelector("span")!.className, /\bsr-only\b.*\bsm:not-sr-only\b/);
-    // The lyre mark (#84, ST1-05): first in the Orpheus link, decorative.
-    const lyre = nav.querySelector('a[href="/"] > svg[data-testid="lyre"]')!;
-    assert.ok(lyre, "lyre inside the Orpheus link");
+    const nav = el.querySelector('nav[aria-label="Site"][data-testid="site-menu"]')!;
+    assert.ok(nav);
+    const bar = nav.querySelector('[data-testid="site-bar"]')!;
+    assert.deepEqual(
+      [...bar.querySelectorAll("a, button")].map((x) => x.getAttribute("data-testid")),
+      ["site-logo", "site-get-started", "site-search-open", "site-menu-open"],
+    );
+    const logo = bar.querySelector<HTMLAnchorElement>('[data-testid="site-logo"]')!;
+    assert.equal(logo.getAttribute("href"), "/");
+    assert.equal(logo.textContent, "Orpheus");
+    const lyre = logo.firstElementChild!;
+    assert.equal(lyre.getAttribute("data-testid"), "lyre");
     assert.equal(lyre.getAttribute("aria-hidden"), "true");
     assert.equal(lyre.getAttribute("stroke"), "currentColor");
-    assert.equal(nav.querySelector('a[href="/"]')!.firstElementChild, lyre);
-    // Right group is one list, after the Orpheus link.
+    // Bar links never carry aria-current (release-smoke's `current()` reads one entry per page).
+    assert.equal(bar.querySelectorAll("[aria-current]").length, 0);
+    for (const id of ["site-search-open", "site-menu-open"]) {
+      const b = bar.querySelector(`[data-testid="${id}"]`)!;
+      assert.equal(b.getAttribute("type"), "button");
+      assert.equal(b.getAttribute("aria-expanded"), "false");
+      assert.equal(b.getAttribute("aria-controls"), nav.querySelector('[data-testid="site-overlay"]')!.id);
+      assert.equal(b.querySelector("svg")!.getAttribute("aria-hidden"), "true");
+    }
+    assert.equal(bar.querySelector('[data-testid="site-search-open"]')!.getAttribute("aria-label"), "Search");
+    assert.equal(bar.querySelector('[data-testid="site-menu-open"]')!.getAttribute("aria-label"), "Menu");
+  });
+
+  it("HDR-02 Get Started: one link to /calculator, chalk on charcoal (no gold), 44 px tall, never hidden", async () => {
+    const el = await render(<SiteMenu pathname="/" />);
+    const gs = el.querySelector<HTMLAnchorElement>('[data-testid="site-get-started"]')!;
+    assert.equal(gs.getAttribute("href"), "/calculator");
+    assert.equal(gs.textContent, "Get Started");
+    for (const c of ["inline-flex", "h-11", "bg-chalk", "text-night", "whitespace-nowrap"])
+      assert.match(gs.className, new RegExp(`(^| )${c}( |$)`), c);
+    assert.doesNotMatch(gs.className, /(^| )(hidden|sr-only|max-\w+:hidden)( |$)|gold|amber|yellow/);
+    assert.equal(gs.getAttribute("aria-current"), null);
+  });
+
+  it("HDR-04 the overlay is in the HTML, hidden, with every page by its full name, Account last", async () => {
+    const el = await render(<SiteMenu pathname="/" />);
+    const ov = el.querySelector<HTMLElement>('[data-testid="site-overlay"]')!;
+    assert.equal(ov.hidden, true);
+    assert.equal(ov.getAttribute("role"), "dialog");
+    assert.equal(ov.getAttribute("aria-modal"), "true");
     assert.deepEqual(
-      [...nav.querySelectorAll("ul a")].map((a) => a.textContent),
-      ["Calculator", "Dashboard", "Personal Finance", "Account"],
+      [...ov.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => [a.getAttribute("href"), a.textContent]),
+      [
+        ["/", "Orpheus"],
+        ["/calculator", "Calculator"],
+        ["/dashboard", "Dashboard"],
+        ["/personal-finance", "Personal Finance"],
+        ["/account", "Account"],
+      ],
     );
+    for (const c of ["fixed", "inset-0", "bg-night", "text-chalk", "overflow-y-auto"])
+      assert.match(ov.className, new RegExp(`(^| )${c}( |$)`), c);
+    // No abbreviations: no RM, no glyph-only items.
+    assert.doesNotMatch(ov.textContent!, /\bRM\b/);
+    assert.equal(el.querySelector('[data-testid="person-glyph"]'), null);
   });
 
-  it("/personal-finance marks Personal Finance current (#97)", async () => {
-    const el = await render(<SiteMenu pathname="/personal-finance" />);
-    assert.deepEqual(current(el), ["Personal Finance"]);
-  });
-
-  it("stays put on scroll (sticky top) and has a visual current state", async () => {
+  it("HDR-01 stays put on scroll (sticky top-0) and every target is 44 px", async () => {
     const el = await render(<SiteMenu pathname="/" />);
     const nav = el.querySelector("nav")!;
-    assert.match(nav.className, /\bsticky\b/);
-    assert.match(nav.className, /\btop-0\b/);
-    assert.match(
-      el.querySelector('[aria-current="page"]')!.className,
-      /aria-\[current=page\]:underline/,
-    );
-  });
-
-  it("no dropdowns: only five links (Account is a page, #90 Q-D9), no buttons, popups or menus", async () => {
-    const el = await render(<SiteMenu pathname="/" />);
-    assert.equal(el.querySelectorAll("a").length, 5);
-    assert.equal(
-      el.querySelectorAll("button, select, details, [aria-haspopup], [role=menu]").length,
-      0,
-    );
+    assert.match(nav.className, /(^| )sticky( |$)/);
+    assert.match(nav.className, /(^| )top-0( |$)/);
+    for (const x of nav.querySelectorAll("a, button"))
+      assert.match(x.className, /(^| )(h-11|min-h-11)( |$)/, x.outerHTML.slice(0, 80));
+    for (const x of nav.querySelectorAll("button, [data-testid=site-logo]")) assert.match(x.className, /(^| )(w-11|min-w-11)( |$)/);
   });
 });
 
@@ -197,27 +212,29 @@ describe("dark shell (#68, ST1)", () => {
   ] as const;
 
   for (const [path, want] of ROUTES)
-    it(`${path}: charcoal bar, ${want ?? "no item"} marked (aria-current + off-white underline), others dim`, async () => {
+    it(`${path}: charcoal bar, ${want ?? "no item"} marked in the overlay (aria-current + chalk underline), others dim`, async () => {
       const el = await render(<SiteMenu pathname={path} />);
       const nav = el.querySelector("nav")!;
       for (const c of ["bg-night", "text-chalk", "border-hair", "sticky", "top-0"]) assert.match(nav.className, new RegExp(`(^| )${c}( |$)`), c);
       assert.doesNotMatch(nav.className, /bg-paper|bg-white|bg-card/);
       assert.deepEqual(current(el), want ? [want] : []);
-      for (const a of nav.querySelectorAll("a")) {
-        // The visible mark is keyed on aria-current, so it can't drift from it.
+      for (const a of nav.querySelectorAll("a, button, input")) {
+        assert.match(a.className, /focus-visible:outline-chalk/);
+        assert.doesNotMatch(a.className, /hover:/, "no hover rule (ST2 retired)");
+        assert.doesNotMatch(a.className, /tabular-nums|tnum/);
+      }
+      for (const a of nav.querySelectorAll('[data-testid="site-menu-links"] a')) {
         assert.match(a.className, /aria-\[current=page\]:text-chalk/);
         assert.match(a.className, /aria-\[current=page\]:underline/);
-        assert.match(a.className, /focus-visible:outline-chalk/);
-        assert.match(a.className, /(^| )inline-flex h-11 min-w-11 items-center( |$)/, "44 px tap target (#72, ST6-08)");
-        assert.doesNotMatch(a.className, /hover:/, "no hover rule (ST2 retired)");
+        assert.match(a.className, /(^| )text-dim( |$)/);
+        assert.match(a.className, /(^| )inline-flex min-h-11 items-center( |$)/, "44 px tap target (#72, ST6-08)");
       }
-      const right = [...nav.querySelectorAll("ul a")];
-      for (const a of right) assert.match(a.className, /(^| )text-dim( |$)/);
-      assert.match(nav.querySelector(":scope > div > a")!.className, /(^| )text-chalk( |$)/);
+      assert.match(nav.querySelector('[data-testid="site-logo"]')!.className, /(^| )text-chalk( |$)/);
     });
 
   it("the same markup on every route except the aria-current attribute (one shared component)", async () => {
-    const strip = (html: string) => html.replace(/ aria-current="page"/g, "");
+    // useId values differ per React root; everything else must match.
+    const strip = (html: string) => html.replace(/ aria-current="page"/g, "").replace(/ (id|for|aria-controls|aria-describedby)="[^"]*"/g, " $1");
     const htmls: string[] = [];
     for (const [path] of ROUTES) htmls.push(strip((await render(<SiteMenu pathname={path} />)).innerHTML));
     assert.equal(new Set(htmls).size, 1);

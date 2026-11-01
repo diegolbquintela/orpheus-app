@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { ADVICE_PATTERN } from "../../../scripts/build-fixtures.ts";
 import {
+  GET_STARTED,
+  GET_STARTED_HREF,
+  MENU_EXTRA_SECTIONS,
+  menuLinks,
+  SEARCH_PLACEHOLDER,
+  SEARCH_SOON,
   CALCULATOR_NOTE,
   currentSection,
   FOOTER_LINE,
@@ -36,10 +42,10 @@ describe("site shell (#46)", () => {
     assert.equal(currentSection("/account"), "account");
     assert.equal(currentSection("/account/"), "account");
     assert.equal(currentSection("/accounts"), null);
-    // Below 640 px a person glyph; the word stays the link's accessible name (visually hidden there).
+    // #286 (HDR-04): the overlay lists every page by its full name (no glyph-only item, no short label).
     const menu = readFileSync("src/components/site-menu.tsx", "utf8");
-    assert.match(menu, /<PersonGlyph className="sm:hidden" \/>/);
-    assert.match(menu, /<span className="sr-only sm:not-sr-only">\{item\.label\}<\/span>/);
+    assert.doesNotMatch(menu, /PersonGlyph|\.short\b|sr-only sm:not-sr-only/);
+    assert.match(menu, /menuLinks\(ownerLink\)/);
     assert.doesNotMatch(
       readFileSync("src/lib/site/site.ts", "utf8"),
       /process\.env|import\.meta\.env|flag\.server/,
@@ -356,7 +362,7 @@ describe("lyre mark (#84, ST1-05)", () => {
     assert.equal(paths.length, 5);
     assert.match(lyre, /stroke="currentColor"/);
     assert.match(lyre, /aria-hidden="true"/);
-    assert.match(menu, /<Lyre className="shrink-0" \/>\s*<span>\{home\.label\}<\/span>/);
+    assert.match(menu, /data-testid="site-logo"\s*>\s*<Lyre className="shrink-0" \/>\s*<span>Orpheus<\/span>/);
   });
 
   it("favicon.svg is the same lyre in chalk on charcoal; the two-bar mark is gone", () => {
@@ -400,5 +406,40 @@ describe("personal finance route (#84)", () => {
       .join("\n");
     for (const m of page.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g))
       assert.doesNotMatch(m[1] ?? m[2], /(?<![\w-])(field|kicker|section)(?![\w-])/, m[0]);
+  });
+});
+
+// #286 (HDR): the header's copy and the overlay's data-driven link list.
+describe("site header data (#286)", () => {
+  it("HDR-02 Get Started goes to the Calculator", () => {
+    assert.equal(GET_STARTED, "Get Started");
+    assert.equal(GET_STARTED_HREF, "/calculator");
+  });
+  it("HDR-07 the search copy is a placeholder only", () => {
+    assert.equal(SEARCH_PLACEHOLDER, "Search Orpheus");
+    assert.equal(SEARCH_SOON, "Search is coming soon.");
+  });
+  it("HDR-04 menuLinks without an owner link: the five pages, full names, Account last", () => {
+    for (const none of [null, undefined])
+      assert.deepEqual(
+        menuLinks(none).map((l) => [l.href, l.label, l.section, l.owner ?? false]),
+        [
+          ["/", "Orpheus", "home", false],
+          ["/calculator", "Calculator", "calculator", false],
+          ["/dashboard", "Dashboard", "dashboard", false],
+          ["/personal-finance", "Personal Finance", "personal-finance", false],
+          ["/account", "Account", "account", false],
+        ],
+      );
+  });
+  it("HDR-06 menuLinks with the server's owner link: exactly one more item, right before Account, its full name", () => {
+    const out = menuLinks({ href: "/renaissance", label: "Renaissance Man" });
+    assert.deepEqual(out.map((l) => l.label), ["Orpheus", "Calculator", "Dashboard", "Personal Finance", "Renaissance Man", "Account"]);
+    assert.deepEqual(out[4], { href: "/renaissance", label: "Renaissance Man", section: null, owner: true });
+    assert.equal(out.filter((l) => l.owner).length, 1);
+  });
+  it("HDR-10 the extra-sections hook exists and is empty (no Obsidian links yet)", () => {
+    assert.ok(Array.isArray(MENU_EXTRA_SECTIONS));
+    assert.equal(MENU_EXTRA_SECTIONS.length, 0);
   });
 });
