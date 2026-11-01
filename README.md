@@ -757,3 +757,10 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Seed:** run `node --experimental-strip-types scripts/renaissance-seed.ts <tracker.md>` for a dry run. Add `--post <origin>` to send the bodies through the endpoint once; the script never touches the database.
 
 2026-10-30 note (#271): the owner also gets a **Renaissance Man** link in the site bar (it shows `RM` below 768 px, and the bar may wrap on phones). It uses the same server-side owner check as `/renaissance`. Everyone else's bar is unchanged and carries nothing about it. Spec §9; AC RM-21..RM-24.
+
+## Testing ownership: QA functional + post-deploy regression; EL coordinates (Diego, 2026-11-01)
+
+- **QA owns functional testing**: a periodic functional pass of the live app, plus a **full regression after every production deployment**.
+- **Engineering Lead coordinates**: EL makes sure these tests run as part of the normal SDLC loop (handoffs, post-merge prod check, then the post-deploy full regression).
+- **Chief of Staff is told only on failure or block**: CoS hears about test results only when something fails or is blocked. Passing runs are not reported to CoS.
+- **Existing QA volume rules still apply** (Vercel free-tier limits): previews at 390 + 1440 with `CLS_RUNS=1`, one rerun per flake, and no `npm run build`.
