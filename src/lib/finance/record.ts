@@ -14,6 +14,8 @@ import { VIEW_KEY } from "./view.ts";
  */
 /** #242 (spec §73): the 409 reply / page message when another tab saved first. */
 export const STALE_MESSAGE = "Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.";
+/** #257 (spec §79): the 428 reply's `error` when a PUT omits `baseVersion`; the page shows `STALE_MESSAGE` (Reload). */
+export const BASE_VERSION_REQUIRED_MESSAGE = "This save was not based on a loaded version. Reload to see the latest, then save again.";
 
 export type PfRecord = Record<string, string>;
 

@@ -10,6 +10,9 @@ import {
   handlePersonalFinanceRequest,
 } from "./account.server.ts";
 import { STORAGE_KEY } from "./expenses.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #162 R2 (Diego, 2026-10-20; spec 47.10, PFCV-14): saving, replacing and deleting reports needs a Personal Finance write
 // grant or the owner. alice owns; wendy has Read + Write; rita has Read only. Runs on PGlite under TZ=UTC and
@@ -36,7 +39,7 @@ before(async () => {
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
     ('wendy', 'personal_finance', true, true, 'alice'), ('rita', 'personal_finance', true, false, 'alice')`);
   const record = { [STORAGE_KEY]: JSON.stringify({ fixed: [], variable: [], accounts: [], categories: [] }) };
-  assert.equal((await handlePersonalFinanceRequest(req("PUT", "/api/personal-finance", { data: record }), as("alice"))).status, 200);
+  assert.equal((await pfRequest(req("PUT", "/api/personal-finance", { data: record }), as("alice"))).status, 200);
 });
 
 describe("#162 R2 PFCV-14: report writes need a write grant", () => {

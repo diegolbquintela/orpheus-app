@@ -79,7 +79,8 @@ export const loadAccountStore: LoadStore = async ({ onSaved }) => {
           /* keep the old base: the next save gets a 409, not a silent overwrite */
         }
       }
-      if (r.status === 409) onSaved(false, "stale");
+      // #257 (spec §79): 428 `base_version_required` gets the same Reload banner as a stale save (409).
+      if (r.status === 409 || r.status === 428) onSaved(false, "stale");
       else onSaved(r.ok);
       return r.ok;
     } catch {

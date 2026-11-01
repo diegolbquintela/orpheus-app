@@ -7,6 +7,9 @@ import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
 import { rangeMonths } from "./series.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #154 (spec section 36, PFS-01..PFS-16): POST /api/personal-finance/series on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
@@ -57,7 +60,7 @@ before(async () => {
   for (const id of ["alice", "bob", "dave"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
     ('bob', 'personal_finance', true, false, 'alice'), ('dave', 'dashboard', true, true, 'alice')`);
-  const r = await handlePersonalFinanceRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
+  const r = await pfRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
   assert.equal(r.status, 200);
 });
 
@@ -223,7 +226,7 @@ describe("#154 /api/personal-finance/series", () => {
       [MONTHS_KEY]: JSON.stringify({}),
       [OVERVIEW_KEY]: JSON.stringify({ start: "5000", growth: "", future: false, years: 1, months: { "2025-01": { expenses: "500", income: "800" } } }),
     };
-    assert.equal((await handlePersonalFinanceRequest(req("PUT", { data: later }, "/api/personal-finance"), as("alice"))).status, 200);
+    assert.equal((await pfRequest(req("PUT", { data: later }, "/api/personal-finance"), as("alice"))).status, 200);
     const j = await (await ser("alice", q([{ kind: "metric", id: "net-assets" }], { from: "2024-11", to: "2025-02" }))).json();
     assert.equal(j.net_assets_from, "2025-01");
     assert.deepEqual(j.series[0].values, [null, null, 5300, 5300]);

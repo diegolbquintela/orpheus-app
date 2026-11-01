@@ -15,6 +15,9 @@ import { OVERVIEW_KEY, readOverview, typedFigure } from "./overview.ts";
 import { RecordStore } from "./record.ts";
 import { REPORT_KEY } from "./report.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #199 (spec section 56, PFCC-01..PFCC-12): /series, /chart and the saved-report export count the current month's
 // unsaved copy exactly as the read-only Overview does (#166): the copy of the latest month with lines while the
@@ -57,7 +60,7 @@ const overviewOf = (record: Record<string, string>) => {
   return typedOverCopy(lineFigures(s, "2026-10"), s, "2026-10", { expenses: typedFigure(t?.expenses), income: typedFigure(t?.income) });
 };
 const save = async (record: Record<string, string>) => {
-  assert.equal((await handlePersonalFinanceRequest(req("PUT", "/api/personal-finance", { data: record }), as("alice"))).status, 200);
+  assert.equal((await pfRequest(req("PUT", "/api/personal-finance", { data: record }), as("alice"))).status, 200);
   assert.equal((await handlePersonalFinanceReportRequest(req("PUT", "/api/personal-finance/report", { report: QUERY }), as("alice"))).status, 200);
 };
 type Out = { months: string[]; series: { values: (number | null)[] }[] };

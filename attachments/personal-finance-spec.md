@@ -2767,3 +2767,25 @@ Dated note 2026-10-24 (#263): supersedes the month-rows / figure-columns orienta
 Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the last instant of Oct 31 in Toronto (already Nov 1 UTC), Nov 1 00:00 Toronto, UTC and process-local, Dec 31 → Jan 1, Feb 29 / Mar 1 2028 (leap year), Mar 1 2027, and day-31 dates. AC PFWB-01..PFWB-08.
 
 78.4 **Untouched:** `qa/tools/personal-finance.mjs` and `site-style-regression.mjs` read the window labels from the wall clock on pages whose clock is NOT pinned, so the page and the expectation share the same date and there was nothing to fix.
+
+## 79. Personal Finance: `PUT /api/personal-finance` requires `baseVersion` (#257, LOW; added 2026-11-01; follow-up to §73 / #242, Q-TW1)
+
+79.1 **Change (endpoint contract).** §73 accepted a `PUT` without `baseVersion` on a last-write-wins basis, for older cached tabs. From #257 the server refuses it: **428** `{ error: BASE_VERSION_REQUIRED_MESSAGE, code: "base_version_required" }`, and nothing is written (no row, no `updated_at` change, no audit row). The check runs after the gate (401 / 403 / 404), the JSON body check (400) and the `userId` check (403), and before the record is validated. The contract is EL's default and is to be confirmed at READY.
+
+79.2 **Unchanged:** a mismatch → 409 `{ code: "stale" }` (also `null` while a record exists); a match → 200 with the new `version`; a non-string, non-null `baseVersion` → 400.
+
+79.3 **First save, no schema change.** `GET` already returns `version: null` when there is no record (§73). The client sends that `null` as `baseVersion`, and the server's existing check (`writeRecordIf`) creates the row only when none exists, or when the record holds only report keys. This covers an empty or new household, a reload, and the first save. No table, migration, column or storage key is added.
+
+79.4 **Clients.** `account-client` (Overview / Expenses Save) already sent `baseVersion`. `history-client` now always sends it (`null` when unknown, never omitted). `scenario-client` already sent `fresh.version ?? null`. All three treat 428 like 409: the page shows `STALE_MESSAGE`, the Reload message, and the edits stay.
+
+79.5 **Caller audit (2026-11-01, before code).** Every caller can supply `baseVersion`.
+- App clients: account-client, history-client and scenario-client (79.4).
+- CFO read-only API (#245): GET / HEAD only, so not a caller.
+- QA tools that PUT the record: `pf-helpers.mjs` `acct`, `personal-finance.mjs` `acct`, `roles.mjs` `http`, `audit.mjs` `http` and `pf-report-api.mjs` `call`. Each now GETs the version first.
+- `scripts/check-dashboard-built.mjs` (signed-in branch): sends `null` for a new account.
+- Seeds and migrations: none write through the PUT.
+- Server tests seed through `testing/pf-loaded-base.ts`, which does the same GET-then-PUT.
+
+79.6 **CFO notice.** This is an endpoint change. Notify CFO through EL. Any external script that PUTs the record must GET first and echo `version` as `baseVersion`.
+
+79.7 **Tests / AC:** PFBV-01..PFBV-09 (`stale-save.server.test.ts` #257 block, `expenses-page.dom.test.tsx` PFBV-05/06, `history-page.dom.test.tsx` PFBV-07).

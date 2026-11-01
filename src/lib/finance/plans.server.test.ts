@@ -6,6 +6,9 @@ import { handlePersonalFinanceRequest, handlePersonalFinanceViewRequest } from "
 import { STORAGE_KEY } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { PLANS_KEY } from "./plans.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #231 (personal-finance-spec §65.3, AC PFPV-13..18): the record save merges plans by month on PGLite.
 // alice is the owner; carol a CFO with Read and write; bob a CFO with Read.
@@ -18,7 +21,7 @@ const req = (method: string, body?: unknown, path = "/api/personal-finance") =>
 // Server clock: 15 October 2026 (household month 2026-10).
 const OCT = () => new Date("2026-10-15T16:00:00Z");
 const NOV = () => new Date("2026-11-15T16:00:00Z");
-const put = (who: string, data: Record<string, string>, clock = OCT) => handlePersonalFinanceRequest(req("PUT", { data }), as(who), clock);
+const put = (who: string, data: Record<string, string>, clock = OCT) => pfRequest(req("PUT", { data }), as(who), clock);
 const stored = async (): Promise<Record<string, string> | null> => {
   const rows = await db.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = 'alice'");
   return rows[0]?.data ?? null;
@@ -74,12 +77,12 @@ describe("#231 PFPV record save keeps plans (server merge)", () => {
     assert.equal(amt(await plansNow(), "2026-12"), "1,100");
   });
   it("PFPV-17: GET returns the plans with the record", async () => {
-    const r = await handlePersonalFinanceRequest(req("GET"), as("alice"), OCT);
+    const r = await pfRequest(req("GET"), as("alice"), OCT);
     const d = ((await r.json()) as { data: Record<string, string> }).data;
     assert.equal(JSON.parse(d[PLANS_KEY])["2026-11"].lines.fixed[0].amount, "1,200");
   });
   it("PFPV-18: the owner's DELETE still wipes everything, plans included", async () => {
-    assert.equal((await handlePersonalFinanceRequest(req("DELETE"), as("alice"), OCT)).status, 200);
+    assert.equal((await pfRequest(req("DELETE"), as("alice"), OCT)).status, 200);
     assert.equal(await stored(), null);
     await put("alice", base);
     assert.equal(await plansNow(), undefined);

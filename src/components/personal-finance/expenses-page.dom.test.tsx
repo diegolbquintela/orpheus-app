@@ -2435,6 +2435,71 @@ describe("#242 PFTW-08 / PFTW-09: another tab saved first → the reload message
     const r = await changeSaved(() => ({ income: {}, expenses: {}, rate: null, growth: 5, start: null }));
     assert.deepEqual(r, { ok: false, status: 409, error: STALE_MESSAGE });
   });
+
+  // #257 (spec §79, AC PFBV-05 / PFBV-06): every PUT carries `baseVersion` (null for an empty household's first save,
+  // then the version the tab read); a 428 `base_version_required` shows the same Reload message as a stale save.
+  it("PFBV-05: empty household: the first Save sends baseVersion null (200); after a reload Save sends the GET's version", async () => {
+    await setup();
+    await pg.exec("DELETE FROM personal_finance");
+    const realFetchStub = globalThis.fetch;
+    const bodies: Record<string, unknown>[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      return realFetchStub(input, init);
+    }) as typeof fetch;
+    const el = await open();
+    await click(q(el, "pf-add-fixed"));
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,100");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.ok(bodies.length >= 1, "a PUT was sent");
+    assert.ok(bodies.every((b) => "baseVersion" in b), "every PUT names baseVersion");
+    assert.equal(bodies[0].baseVersion, null, "first save on an empty household: null");
+    assert.equal(statuses.at(-1), 200);
+    assert.equal(text(el, "pf-save"), "");
+    await act(async () => root!.unmount());
+    container!.remove();
+    const version = ((await (await call("GET")).json()) as { version: string | null }).version;
+    assert.equal(typeof version, "string");
+    const n = bodies.length;
+    const again = await open();
+    await type(q(lines(again, "fixed")[0], "pf-monthly"), "1,150");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(bodies.length, n + 1);
+    assert.equal(bodies[n].baseVersion, version, "after a reload: the GET's version");
+    assert.equal(statuses.at(-1), 200);
+  });
+
+  it("PFBV-06: a 428 base_version_required (real API, body without baseVersion) shows the Reload message; nothing written", async () => {
+    await setup();
+    const realFetchStub = globalThis.fetch;
+    let strip = false;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (strip && init?.method === "PUT") {
+        const { baseVersion: _drop, ...rest } = JSON.parse(String(init.body)) as Record<string, unknown>;
+        void _drop;
+        return realFetchStub(input, { ...init, body: JSON.stringify(rest) });
+      }
+      return realFetchStub(input, init);
+    }) as typeof fetch;
+    const el = await open();
+    const before = ((await (await call("GET")).json()) as { data: unknown; version: unknown });
+    strip = true;
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,999");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 428);
+    assert.equal(text(el, "pf-save"), STALE_MESSAGE);
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,999", "the edit stays");
+    assert.deepEqual((await (await call("GET")).json()) as { data: unknown; version: unknown }, { ...before }, "nothing written");
+    strip = false;
+    // Scenario saves read a 428 the same way.
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PUT" ? new Response(JSON.stringify({ error: "x", code: "base_version_required" }), { status: 428 }) : realFetchStub(input, init)) as typeof fetch;
+    const r = await changeSaved(() => ({ income: {}, expenses: {}, rate: null, growth: 5, start: null }));
+    assert.deepEqual(r, { ok: false, status: 428, error: STALE_MESSAGE });
+  });
 });
 
 describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {

@@ -31,7 +31,7 @@ export const loadForScenario = async (): Promise<ScenarioLoad> => {
   }
 };
 
-export type ChangeResult = SaveResult | { ok: false; status: 0 | 409; error: string };
+export type ChangeResult = SaveResult | { ok: false; status: 0 | 409 | 428; error: string };
 
 /**
  * #223 (spec 60, AC PFSS): `Save scenario` / `Delete` for named scenarios, the PJ7 path extended: a fresh GET, then one
@@ -56,6 +56,8 @@ export const changeSaved = async (
       await res.text().catch(() => "");
       // #242 (spec §73): another tab saved between the fresh GET and this PUT.
       if (res.status === 409) return { ok: false, status: 409, error: STALE_MESSAGE };
+      // #257 (spec §79): a 428 (`base_version_required`) reads like a stale save.
+      if (res.status === 428) return { ok: false, status: 428, error: STALE_MESSAGE };
       return { ok: false, status: res.status };
     }
     const body = (await res.json()) as { data?: PfRecord | null };

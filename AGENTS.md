@@ -1361,3 +1361,5 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - **Tests:** `src/components/personal-finance/pf-subnav-labels.dom.test.tsx`.
 
 - **2026-11-01 (#285):** a QA harness that pins the page's clock (`page.clock.setFixedTime(TODAY)`) must compute every expected date-dependent label from that same `TODAY`, never from `new Date()`. Use `qa/tools/pf-window.mjs` for the PF 3- and 12-month window labels and the household month (explicit date, no default). The app's window (last 3 complete America/Toronto months, spec 22 C7) was correct; see spec section 78 and AC PFWB-01..08.
+
+- **2026-11-01 (#257, spec §79, AC PFBV):** `PUT /api/personal-finance` now REQUIRES `baseVersion`. Omitted → 428 `{ code: "base_version_required" }`, nothing written; 409 stale and 200 are unchanged. A first save or an empty household sends `null` (the GET's version). Any new caller (client, QA tool, script) must GET first and echo `version`. Server tests that seed with a plain `{ data }` PUT go through `src/lib/finance/testing/pf-loaded-base.ts` (`loaded(handlePersonalFinanceRequest)`). The CFO was to be notified through EL (endpoint change).

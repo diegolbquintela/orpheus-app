@@ -17,6 +17,9 @@ import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import { exportNetAssetsCheck, seriesNetChecks, storedAsOf, storedStart } from "../../../qa/tools/pf-asof-checks.mjs";
 import { crc32, headerLines } from "./export.ts";
 import { RANGE_TOO_LONG, type Report } from "./report.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #171 (spec section 42, PFAO-01..PFAO-16): an explicit 'as of' month for Starting net assets. PGlite (migrations
 // 0010-0012, unchanged; no migration, no schema change: the month lives in the existing overview JSON value), the real
@@ -41,7 +44,7 @@ const OV = (asOf?: string): Record<string, unknown> => ({
   ...(asOf === undefined ? {} : { asOf }),
 });
 const recordOf = (asOf?: string) => ({ [OVERVIEW_KEY]: JSON.stringify(OV(asOf)) });
-const putRecord = (data: object, at = OCT) => handlePersonalFinanceRequest(rq("PUT", "/api/personal-finance", { data }), as("alice"), () => at);
+const putRecord = (data: object, at = OCT) => pfRequest(rq("PUT", "/api/personal-finance", { data }), as("alice"), () => at);
 const save = async (asOf?: string) => assert.equal((await putRecord(recordOf(asOf))).status, 200);
 const stored = async () => (await pg.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = 'alice'")).rows[0]?.data ?? null;
 const series = async (range: object, at = OCT, who = "alice") =>

@@ -289,7 +289,10 @@ const totals = async (page, id) => {
 async function acct(page, method, data, path = API) {
   if (!page.url().startsWith(base)) await page.goto(`${base}${API}`);
   return page.evaluate(async ([m, url, d]) => {
-    const r = await fetch(url, { method: m, headers: d === undefined ? {} : { "content-type": "application/json" }, body: d === undefined ? undefined : JSON.stringify({ data: d }) });
+    // #257 (spec §79): a record PUT names the version it read (GET first; null = no record yet), or it is refused 428.
+    const baseVersion = m === "PUT" && url === "/api/personal-finance" ? ((await (await fetch(url)).json().catch(() => null))?.version ?? null) : undefined;
+    const body = d === undefined ? undefined : JSON.stringify(baseVersion === undefined ? { data: d } : { data: d, baseVersion });
+    const r = await fetch(url, { method: m, headers: d === undefined ? {} : { "content-type": "application/json" }, body });
     return { status: r.status, body: await r.json().catch(() => null) };
   }, [method, path, data]);
 }

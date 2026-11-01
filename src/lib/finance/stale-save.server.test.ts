@@ -83,13 +83,12 @@ describe("#242 stale save → 409 (PFTW)", () => {
     assert.equal(await stored(), null);
   });
 
-  it("PFTW-05: no baseVersion → last write wins (older tab); a bad baseVersion → 400", async () => {
+  it("PFTW-05 (#257 supersedes the last-write-wins half): no baseVersion → 428; a bad baseVersion → 400", async () => {
     await reset();
     await pf("PUT", "alice", { data: rec("a"), baseVersion: null });
     const r = await pf("PUT", "alice", { data: rec("legacy") });
-    assert.equal(r.status, 200);
-    assert.equal(((await r.json()) as { version: unknown }).version, (await get()).version);
-    assert.deepEqual((await get()).data, rec("legacy"));
+    assert.equal(r.status, 428);
+    assert.deepEqual((await get()).data, rec("a"));
     for (const bad of [1, true, {}]) assert.equal((await pf("PUT", "alice", { data: rec("x"), baseVersion: bad })).status, 400, String(bad));
   });
 
@@ -131,5 +130,62 @@ describe("#242 stale save → 409 (PFTW)", () => {
     const v = (await get()).version;
     const rs = await Promise.all([pf("PUT", "alice", { data: rec("x"), baseVersion: v }), pf("PUT", "alice", { data: rec("y"), baseVersion: v })]);
     assert.deepEqual(rs.map((r) => r.status).sort(), [200, 409]);
+  });
+});
+
+// #257 (spec §79, AC PFBV): baseVersion is required. Omitted → 428 { code: "base_version_required" } and NOTHING is
+// written (no row, no audit); a mismatch is still 409 stale; a match (or null with no record) is 200.
+describe("#257 baseVersion required → 428 (PFBV)", () => {
+  const raw = async () => (await pg.query<{ data: unknown; v: string }>("SELECT data, updated_at::text AS v FROM personal_finance WHERE user_id = 'alice'")).rows[0] ?? null;
+  it("PFBV-01: omitted on an existing record → 428 base_version_required; record, version and audit untouched", async () => {
+    await reset();
+    await pf("PUT", "alice", { data: rec("a"), baseVersion: null });
+    const before = await raw();
+    const n = await audits();
+    for (const who of ["alice", "carol"]) {
+      const r = await pf("PUT", who, { data: rec(`lww-${who}`) });
+      assert.equal(r.status, 428, who);
+      const body = (await r.json()) as { code?: unknown; error?: unknown; data?: unknown; version?: unknown };
+      assert.equal(body.code, "base_version_required");
+      assert.equal(typeof body.error, "string");
+      assert.ok(!("data" in body) && !("version" in body), "a refusal carries no record and no version");
+      assert.deepEqual(await raw(), before, `${who}: same bytes, same updated_at`);
+    }
+    assert.equal(await audits(), n, "no audit row");
+  });
+
+  it("PFBV-02: omitted on an empty household → 428; no row is created; an invalid record is refused the same way", async () => {
+    await reset();
+    const n = await audits();
+    assert.equal((await pf("PUT", "alice", { data: rec("first") })).status, 428);
+    assert.equal((await pf("PUT", "alice", { data: { evil: "x" } })).status, 428, "checked before the record");
+    assert.equal((await pf("PUT", "alice", { data: rec("first"), userId: "alice" })).status, 428);
+    assert.equal(await stored(), null);
+    assert.equal(await audits(), n);
+    assert.equal((await get()).version, null);
+  });
+
+  it("PFBV-03: a mismatch is still 409 stale (string or null base) and writes nothing", async () => {
+    await reset();
+    await pf("PUT", "alice", { data: rec("a"), baseVersion: null });
+    const before = await raw();
+    for (const base of ["2000-01-01 00:00:00+00", null]) {
+      const r = await pf("PUT", "alice", { data: rec("b"), baseVersion: base });
+      assert.equal(r.status, 409, String(base));
+      assert.deepEqual(await r.json(), { error: STALE_MESSAGE, code: "stale" });
+      assert.deepEqual(await raw(), before);
+    }
+  });
+
+  it("PFBV-04: a match → 200 with the new version; null with no record (first save) → 200, row created", async () => {
+    await reset();
+    const first = await pf("PUT", "alice", { data: rec("a"), baseVersion: (await get()).version });
+    assert.equal(first.status, 200);
+    const v1 = ((await first.json()) as { version: string }).version;
+    assert.equal(typeof v1, "string");
+    assert.equal(v1, (await raw())!.v);
+    const next = await pf("PUT", "alice", { data: rec("b"), baseVersion: v1 });
+    assert.equal(next.status, 200);
+    assert.deepEqual((await get()).data, rec("b"));
   });
 });

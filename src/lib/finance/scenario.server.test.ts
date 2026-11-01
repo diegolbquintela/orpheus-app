@@ -7,6 +7,9 @@ import { readFileSync } from "node:fs";
 import { handlePersonalFinanceRequest } from "./account.server.ts";
 import { STORAGE_KEY } from "./expenses.ts";
 import { SCENARIO_KEY } from "./scenario.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 const pg = new PGlite();
 const db = {
@@ -19,7 +22,7 @@ const as = (id: string | null) => ({
   getDb: async () => db,
 });
 const pf = (method: string, who: string | null, body?: unknown) =>
-  handlePersonalFinanceRequest(
+  pfRequest(
     new Request("http://localhost/api/personal-finance", {
       method,
       headers: { "content-type": "application/json" },

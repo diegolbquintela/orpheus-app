@@ -9,6 +9,9 @@ import {
 import { STORAGE_KEY } from "./expenses.ts";
 import { REPORT_KEY, type Report } from "./report.ts";
 import { deleteReport, loadReport, REPORT_API, saveReport } from "./report-client.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #153 (spec section 33, PFR-01..PFR-15): /api/personal-finance/report on PGlite (migrations 0010-0012, unchanged)
 // with a fake session lookup. alice is the owner; bob a CFO with Read; dave has no Personal Finance grant.
@@ -31,7 +34,7 @@ const req = (method: string, body?: unknown, path = REPORT_API) =>
 const rep = (method: string, who: string | null, body?: unknown) =>
   handlePersonalFinanceReportRequest(req(method, body), as(who));
 const rec = (method: string, who: string, body?: unknown) =>
-  handlePersonalFinanceRequest(req(method, body, "/api/personal-finance"), as(who));
+  pfRequest(req(method, body, "/api/personal-finance"), as(who));
 /** The client helpers with `fetch` going straight into the real handler as `who`. */
 const via = (who: string) => async (input: string, init?: RequestInit) =>
   handlePersonalFinanceReportRequest(new Request(`http://localhost${input}`, init), as(who));

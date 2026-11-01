@@ -549,9 +549,9 @@ if (!WITH_DB) {
     const none = await call("GET", PF, "true", undefined, { cookie: token });
     check(none.status === 200 && none.body === '{"data":null,"access":{"owner":true,"write":true}}', `${label}: GET ${PF} (new account) -> ${none.status} ${none.body}`);
     const data = { "orpheus.finance.currency.v1": '"CAD"' };
-    const saved = await call("PUT", PF, "true", undefined, { cookie: token, body: { data } });
+    const saved = await call("PUT", PF, "true", undefined, { cookie: token, body: { data, baseVersion: null } }); // #257: new account → null
     check(saved.status === 200 && saved.body === JSON.stringify({ data, access: { owner: true, write: true } }), `${label}: PUT ${PF} -> ${saved.status} ${saved.body}`);
-    const bad = await call("PUT", PF, "true", undefined, { cookie: token, body: { data: { x: "1" } } });
+    const bad = await call("PUT", PF, "true", undefined, { cookie: token, body: { data: { x: "1" }, baseVersion: null } }); // #257: named, so the 400 is the record check
     check(bad.status === 400, `${label}: PUT ${PF} unknown name -> ${bad.status} ${bad.body}`);
     const second = await call("POST", "/api/auth/sign-in/email", "true", undefined, { body: { email: ALLOWED, password: "check-password-1" } });
     const secondToken = second.cookie.split("; ").filter((c) => c.includes("session_token=")).join("; ");

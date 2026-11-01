@@ -17,7 +17,7 @@ import {
 import { readOwnView, writeOwnView } from "../access/access.server.ts";
 import { VIEW_KEY } from "./view.ts";
 import type { Queryable } from "../dashboard/store.server.ts";
-import { checkRecord, RecordStore, STALE_MESSAGE, type PfRecord } from "./record.ts";
+import { BASE_VERSION_REQUIRED_MESSAGE, checkRecord, RecordStore, STALE_MESSAGE, type PfRecord } from "./record.ts";
 import { recordRefusal } from "./field-errors.ts";
 import { mergePlansText, PLANS_KEY } from "./plans.ts";
 import {
@@ -193,11 +193,12 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     }
     if (!body || typeof body !== "object") return badRequest("Body must be a JSON object.");
     if (namesOtherUser(body.userId, user, g.viewer)) return forbiddenResponse();
-    // #242 (spec §73): `baseVersion` absent = last write wins (an older tab, Q-TW1); else a string or null.
-    if ("baseVersion" in body) {
-      if (body.baseVersion !== null && typeof body.baseVersion !== "string") return badRequest("baseVersion must be a string or null.");
-      base = { version: body.baseVersion };
-    }
+    // #242 (spec §73): `baseVersion` is a string (the version the tab read) or null (no record yet).
+    // #257 (spec §79, AC PFBV): a PUT that omits it is refused with 428 `base_version_required` and nothing is
+    // written (was last write wins, Q-TW1). Checked before the record, so no write path is reached.
+    if (!("baseVersion" in body)) return dashboardJson({ error: BASE_VERSION_REQUIRED_MESSAGE, code: "base_version_required" }, 428);
+    if (body.baseVersion !== null && typeof body.baseVersion !== "string") return badRequest("baseVersion must be a string or null.");
+    base = { version: body.baseVersion };
     const checked = checkRecord(body.data);
     if (!checked.ok) return dashboardJson({ error: checked.error }, checked.status);
     record = checked.record;
@@ -212,12 +213,10 @@ export async function handlePersonalFinanceRequest(request: Request, deps: Dashb
     if (OVERVIEW_KEY in record) record = { ...record, [OVERVIEW_KEY]: withoutEmptyAsOf(record[OVERVIEW_KEY]) };
   }
   if (method === "PUT" && record) {
-    // #242: one write, checked against `base` when the tab sent one; stale → 409 and nothing is written.
-    const save = async (next: PfRecord): Promise<{ stored: PfRecord; version: string | null } | null> => {
-      if (base) return writeRecordIf(db, user.id, next, base.version, clock());
-      const stored = await writeRecord(db, user.id, next, clock());
-      return { stored, version: await readVersion(db, user.id) };
-    };
+    // #242 / #257: one write, always checked against `base`; stale → 409 and nothing is written.
+    const baseVersion = base?.version ?? null;
+    const save = (next: PfRecord): Promise<{ stored: PfRecord; version: string | null } | null> =>
+      writeRecordIf(db, user.id, next, baseVersion, clock());
     const stale = () => dashboardJson({ error: STALE_MESSAGE, code: "stale" }, 409);
     if (!g.access.owner) {
       // The person's toggles stay theirs; the owner's stay in the record.
