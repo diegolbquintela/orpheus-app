@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 import { handlePersonalFinanceReportRequest, handlePersonalFinanceRequest } from "./account.server.ts";
 import { STORAGE_KEY, asExpenses, relinkName, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #168 CFO Q-AM7 (2026-10-20; spec 48.6, PFDU-10): re-adding a deleted name (any case) clears its `(deleted)` label
 // and does NOT rewrite earlier months. Driven through the real record and report handlers on PGlite, under TZ=UTC and
@@ -29,7 +32,7 @@ const months = JSON.stringify({
   "2026-09": { fixed: [L("rent", "1000", "Home", "Chequing")], variable: [], people: [] },
 });
 const REPORT = { series: [{ kind: "category", id: "Travel" }, { kind: "account", id: "Amex" }], range: { preset: "12m" }, chart: "line" };
-const getRecord = async () => ((await (await handlePersonalFinanceRequest(req("GET", "/api/personal-finance"), as)).json()) as { data: Record<string, string> }).data;
+const getRecord = async () => ((await (await pfRequest(req("GET", "/api/personal-finance"), as)).json()) as { data: Record<string, string> }).data;
 const getReport = async () => (await (await handlePersonalFinanceReportRequest(req("GET", "/api/personal-finance/report"), as)).json()) as { labels: string[]; deleted: number[]; missing: number[] };
 
 before(async () => {
@@ -37,7 +40,7 @@ before(async () => {
   for (const f of ["0010_personal_finance.sql", "0011_access.sql", "0012_audit.sql"])
     await pg.exec(readFileSync(new URL(`../../../migrations/${f}`, import.meta.url), "utf8"));
   await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', ["alice", "alice@example.com"]);
-  const r = await handlePersonalFinanceRequest(req("PUT", "/api/personal-finance", { data: { [STORAGE_KEY]: JSON.stringify(shared), [MONTHS_KEY]: months } }), as);
+  const r = await pfRequest(req("PUT", "/api/personal-finance", { data: { [STORAGE_KEY]: JSON.stringify(shared), [MONTHS_KEY]: months } }), as);
   assert.equal(r.status, 200);
   assert.equal((await handlePersonalFinanceReportRequest(req("PUT", "/api/personal-finance/report", { report: REPORT }), as)).status, 200);
 });
@@ -53,7 +56,7 @@ describe("#168 Q-AM7 / PFDU-10: re-adding a deleted name", () => {
     let e = asExpenses(JSON.parse(before[STORAGE_KEY]));
     e = relinkName({ ...e, categories: [...e.categories, "travel"] }, "category", "travel").expenses;
     e = relinkName({ ...e, accounts: [...e.accounts, "AMEX"] }, "account", "AMEX").expenses;
-    const put = await handlePersonalFinanceRequest(req("PUT", "/api/personal-finance", { data: { ...before, [STORAGE_KEY]: JSON.stringify(e) } }), as);
+    const put = await pfRequest(req("PUT", "/api/personal-finance", { data: { ...before, [STORAGE_KEY]: JSON.stringify(e) } }), as);
     assert.equal(put.status, 200);
     const after = await getRecord();
     const ex = JSON.parse(after[STORAGE_KEY]);

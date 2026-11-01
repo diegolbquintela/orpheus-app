@@ -21,6 +21,9 @@ import { householdMonth } from "./overview.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #179 (spec section 41, PFALL-01..PFALL-14; folds in #173): saved reports accept the dynamic `all` range through the
 // ONE range validator; saves are bounded to 2020-01..the current Toronto month; old stored reports keep working.
@@ -62,7 +65,7 @@ const recordWith = (months: Record<string, string>) => ({
   [MONTHS_KEY]: JSON.stringify(Object.fromEntries(Object.entries(months).map(([k, a]) => [k, { fixed: [L("rent", a)], variable: [], people: [] }]))),
 });
 const saveRecord = async (record: object) => {
-  const r = await handlePersonalFinanceRequest(rq("PUT", "/api/personal-finance", { data: record }), as("alice"));
+  const r = await pfRequest(rq("PUT", "/api/personal-finance", { data: record }), as("alice"));
   assert.equal(r.status, 200);
 };
 const ALL: Report = { series: [{ kind: "group", id: "all" }], range: { preset: "all" }, chart: "line" };
@@ -240,7 +243,7 @@ describe("#179 PFALL-09 / 10 old stored reports read, chart and export unchanged
       assert.equal((await get("carol", id)).status, 200, id);
       const c = await (await chart("carol", id)).json();
       const rep = id === "default" ? OLD_OUT : named.find((n) => n.id === id)!.report;
-      assert.deepEqual(c, chartData(fromReport(rep), (await (await handlePersonalFinanceRequest(rq("GET", "/api/personal-finance"), as("alice"))).json()).data, OCT, "saved"), `${id}: chart = the pre-#179 chartData`);
+      assert.deepEqual(c, chartData(fromReport(rep), (await (await pfRequest(rq("GET", "/api/personal-finance"), as("alice"))).json()).data, OCT, "saved"), `${id}: chart = the pre-#179 chartData`);
       for (const f of ["pdf", "png"] as const) assert.deepEqual((await file(await exp("carol", id, f), f)).data, c, `${id} ${f}`);
       const t = ((await file(await exp("carol", id, "pdf"), "pdf")).text as string[]).join("\n");
       assert.ok(t.includes(`Range: ${c.range.from} to ${c.range.to}`), `${id}: the pre-#179 range line`);

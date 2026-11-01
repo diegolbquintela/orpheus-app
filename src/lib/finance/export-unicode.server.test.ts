@@ -32,6 +32,9 @@ import { goldenCases } from "./export-golden/capture.ts";
 import { goldenCrops, rawRgb, sha256 } from "./export-golden/crops.ts";
 import { U1, U2, U3, U4, U5, U6, U7, U8, U9, U_ACCOUNT, U_FALLBACK_NAME, U_FALLBACK_REPORT, U_NAME, U_NOW, U_RECORD, U_REPORT } from "./export-golden/fixture-u.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #176 (spec 50, PFU-01..PFU-23): Unicode text in the PF exports, on PGlite (migrations 0010-0012) with a fake session
 // and the fixture U clock (2026-10-21T12:00Z, Toronto month 2026-10; the report covers the closed months 2026-07..09).
@@ -67,7 +70,7 @@ before(async () => {
   for (const id of ["olga", "cfo", "nog"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
     ('cfo', 'personal_finance', true, false, 'olga'), ('nog', 'dashboard', true, true, 'olga')`);
-  assert.equal((await handlePersonalFinanceRequest(req("PUT", "/api/personal-finance", { data: U_RECORD }), as("olga"))).status, 200);
+  assert.equal((await pfRequest(req("PUT", "/api/personal-finance", { data: U_RECORD }), as("olga"))).status, 200);
   const post = async (name: string, report: unknown) => {
     const r = await handlePersonalFinanceReportsRequest(req("POST", "/api/personal-finance/reports", { name, report }), as("olga"));
     assert.equal(r.status, 201, name);

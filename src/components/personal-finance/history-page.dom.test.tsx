@@ -17,7 +17,7 @@ import {
   PICK_YEAR_NOTE,
   SHARED_VALUES_NOTE,
 } from "@/lib/finance/history";
-import { type SaveHistoryResult, type Version } from "@/lib/finance/history-client";
+import { saveHistory, type SaveHistoryResult, type Version } from "@/lib/finance/history-client";
 import { type Person } from "@/lib/finance/income";
 import { writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
@@ -404,6 +404,46 @@ describe("#214 / #263 History page", () => {
       assert.equal(q(container, "pf-history-status")?.textContent, STALE_MESSAGE);
     } finally {
       (dom.window as unknown as { fetch: unknown }).fetch = orig;
+    }
+  });
+
+  // #257 (spec §79, AC PFBV-07): saveHistory always names baseVersion (null when none is known) and reads a 428
+  // `base_version_required` as stale, so the page shows the Reload message.
+  it("PFBV-07: saveHistory sends baseVersion null when none is known; a 428 → stale + STALE_MESSAGE on the page", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const orig = globalThis.fetch;
+    let reply: () => Response = () => new Response(JSON.stringify({ version: "v-1" }), { status: 200 });
+    (globalThis as unknown as { fetch: unknown }).fetch = async (_u: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "GET") return new Response(JSON.stringify({ data: record(), version: null, access: { owner: true, write: true } }), { status: 200 });
+      bodies.push(JSON.parse(String(init!.body)) as Record<string, unknown>);
+      return reply();
+    };
+    try {
+      const ok = await saveHistory(record());
+      assert.equal(ok.ok, true);
+      assert.ok("baseVersion" in bodies[0], "named even when the caller has no version");
+      assert.equal(bodies[0].baseVersion, null);
+      await saveHistory(record(), null);
+      assert.equal(bodies[1].baseVersion, null);
+      await saveHistory(record(), "v-7");
+      assert.equal(bodies[2].baseVersion, "v-7");
+      reply = () => new Response(JSON.stringify({ error: "Not based on a loaded version.", code: "base_version_required" }), { status: 428 });
+      assert.deepEqual(await saveHistory(record(), "v-7"), { ok: false, stale: true, status: 428, message: STALE_MESSAGE });
+
+      container = dom.window.document.createElement("div");
+      dom.window.document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => root!.render(<HistoryPage now={NOW} />));
+      await act(async () => {});
+      await pick(container, "2025");
+      const rentMar = container.querySelector<HTMLInputElement>('input[data-month="2025-03"][data-figure="expense:rent"]')!;
+      await typeInput(rentMar, "1250");
+      await act(async () => (q(container!, "pf-history-save") as HTMLButtonElement).click());
+      assert.equal(bodies.at(-1)!.baseVersion, null, "the page's first save: the GET's null version");
+      assert.equal(q(container, "pf-stale-error")?.textContent, STALE_MESSAGE);
+      assert.equal(rentMar.value, "1250", "the edit stays");
+    } finally {
+      (globalThis as unknown as { fetch: unknown }).fetch = orig;
     }
   });
 });

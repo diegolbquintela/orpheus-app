@@ -54,6 +54,12 @@ async function http(jar, method, path, body) {
   const headers = { origin: base, accept: "application/json" };
   if (jar?.c.size) headers.cookie = jar.header();
   if (body !== undefined) headers["content-type"] = "application/json";
+  // #257 (spec §79): a record PUT names the version this account reads (GET first; null = no record yet), else 428.
+  if (method === "PUT" && path === "/api/personal-finance" && body && !("baseVersion" in body)) {
+    const g = await fetch(base + path, { headers: { origin: base, accept: "application/json", ...(jar?.c.size ? { cookie: jar.header() } : {}) }, redirect: "manual" });
+    const v = g.ok ? (await g.json().catch(() => null))?.version : null;
+    body = { ...body, baseVersion: typeof v === "string" ? v : null };
+  }
   const r = await fetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: "manual" });
   jar?.take(r);
   const text = await r.text();

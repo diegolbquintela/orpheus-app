@@ -47,6 +47,9 @@ import { crc32 } from "./export.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #158 (spec section 40, PFAPI-04..PFAPI-13): the chart report API contract end to end on PGlite (migrations
 // 0010-0012, unchanged) through the REAL handlers, called via the typed client (`charts-api.ts`) with a fetch that
@@ -110,7 +113,7 @@ before(async () => {
   for (const id of ["alice", "bob", "dave"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
     ('bob', 'personal_finance', true, true, 'alice') /* #162 R2: bob now has Write so his own report saves still run; Read-grant refusals are in reports-write.server.test.ts */, ('dave', 'dashboard', true, true, 'alice')`);
-  const r = await handlePersonalFinanceRequest(new Request("http://localhost/api/personal-finance", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: record }) }), as("alice"));
+  const r = await pfRequest(new Request("http://localhost/api/personal-finance", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data: record }) }), as("alice"));
   assert.equal(r.status, 200);
   // audit_event is append-only: later checks read rows after this baseline.
   base = (await pg.query<{ n: number }>("SELECT COALESCE(MAX(id), 0)::int AS n FROM audit_event")).rows[0].n;

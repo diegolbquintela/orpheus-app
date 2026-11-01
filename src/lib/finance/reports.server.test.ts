@@ -14,6 +14,9 @@ import { REPORTS_KEY } from "./reports.ts";
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #156 (spec section 38, PFRC-01..PFRC-18): /api/personal-finance/reports and /reports/:id on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
@@ -63,7 +66,7 @@ before(async () => {
   for (const id of ["alice", "bob", "dave"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
     ('bob', 'personal_finance', true, true, 'alice') /* #162 R2: bob now has Write so his own report saves still run; Read-grant refusals are in reports-write.server.test.ts */, ('dave', 'dashboard', true, true, 'alice')`);
-  const r = await handlePersonalFinanceRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
+  const r = await pfRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
   assert.equal(r.status, 200);
 });
 
@@ -72,7 +75,7 @@ const list = (who: string | null, method = "GET", body?: unknown, e = env) =>
 const item = (who: string | null, id: string, method = "GET", body?: unknown) =>
   handlePersonalFinanceReportItemRequest(req(method, body, `/api/personal-finance/reports/${id}`), id, as(who));
 const rec = (who: string, method: string, body?: unknown) =>
-  handlePersonalFinanceRequest(req(method, body, "/api/personal-finance"), as(who));
+  pfRequest(req(method, body, "/api/personal-finance"), as(who));
 const rowOf = async (id: string) => (await pg.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = $1", [id])).rows[0]?.data ?? null;
 const actions = async () => (await pg.query<{ action: string }>("SELECT action FROM audit_event ORDER BY id")).rows.map((r) => r.action);
 const R = (chart = "line", id = "all") => ({ series: [{ kind: "group", id }], range: { preset: "12m" }, chart });

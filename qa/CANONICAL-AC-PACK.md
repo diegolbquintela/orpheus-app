@@ -2133,3 +2133,19 @@ Verdict: the app matches spec 22 C7 (the last 3 complete months, America/Toronto
 | PFWB-06 | BLOCK | Unit: the harness helpers give the same answers as PFWB-01..04 at the same instants. |
 | PFWB-07 | BLOCK | Unit (source scan): `personal-finance-e2e.mjs` derives `avg3Label`, `avg12Label` and the PFEC-04 current month from `TODAY`; no `format(new Date())` or `now = new Date()` is left. |
 | PFWB-08 | MAJOR | QA (preview, signed in): PF-89 ×2 and PFEC-04 pass in `personal-finance-e2e` on any run date, including the 1st of a month. |
+
+## PF record PUT requires baseVersion (#257, 2026-11-01; spec §79)
+
+Endpoint change: `PUT /api/personal-finance` without `baseVersion` → 428 `{ code: "base_version_required" }`, nothing written. The PFBV prefix was unused before this section. Notify CFO through EL.
+
+| AC | Severity | Check |
+|---|---|---|
+| PFBV-01 | BLOCK | Unit (`stale-save.server.test.ts`): omitted on an existing record → 428 `base_version_required` with an `error` text and no `data` / `version`. The stored bytes and `updated_at` are unchanged, and no audit row is written, for both the owner and a write-grant person. |
+| PFBV-02 | BLOCK | Unit: omitted on an empty household → 428 and no row is created. An invalid record without `baseVersion` is also 428, because the check runs before the record is validated. |
+| PFBV-03 | BLOCK | Unit: a mismatch (old string, or `null` while a record exists) → 409 `{ error: STALE_MESSAGE, code: "stale" }`, nothing written. |
+| PFBV-04 | BLOCK | Unit: a match → 200 with the new `version`, which equals `updated_at`. `null` with no record (the first save) → 200 and the row is created. |
+| PFBV-05 | BLOCK | DOM (real client + real API on PGlite): an empty household's first Save sends `baseVersion: null` and gets 200. After a reload, Save sends the GET's version. Every PUT names `baseVersion`. |
+| PFBV-06 | BLOCK | DOM: a 428 from the real API shows `STALE_MESSAGE` (Reload) in `pf-save`. The edit stays and nothing is written. A Save scenario answered with 428 → `{ ok: false, status: 428, error: STALE_MESSAGE }`. |
+| PFBV-07 | BLOCK | DOM: `saveHistory` always names `baseVersion` (`null` when unknown). A 428 → `{ stale: true, status: 428, message: STALE_MESSAGE }`, and the History page shows `pf-stale-error` with the edit kept. |
+| PFBV-08 | MAJOR | QA tools: every record PUT in `pf-helpers`, `personal-finance`, `roles`, `audit` and `pf-report-api` GETs the version first. `check-dashboard-built` sends `null` for a new account. |
+| PFBV-09 | MAJOR | QA (preview, signed in): Save on Overview, History and Scenario still saves. A hand-made PUT without `baseVersion` → 428 and the record is unchanged on reload. |

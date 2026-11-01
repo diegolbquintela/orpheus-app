@@ -36,6 +36,12 @@ const same = (a, b) => JSON.stringify(b && typeof b === "object" && "missing" in
 
 /** One HTTP call with the context's cookies; `raw` is sent as the body text as is. */
 async function call(request, method, path, { json, raw } = {}) {
+  // #257 (spec §79): a record PUT names the version it read (GET first; null = no record yet), else 428.
+  if (method === "PUT" && path === RECORD_API && json && !("baseVersion" in json)) {
+    const g = await request.fetch(`${base}${path}`, { headers: { origin: base, accept: "application/json" } });
+    const v = g.ok() ? (await g.json().catch(() => null))?.version : null;
+    json = { ...json, baseVersion: typeof v === "string" ? v : null };
+  }
   const r = await request.fetch(`${base}${path}`, {
     method,
     headers: { origin: base, accept: "application/json", ...(json !== undefined || raw !== undefined ? { "content-type": "application/json" } : {}) },

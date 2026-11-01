@@ -14,6 +14,9 @@ import { NET_BEFORE_ANCHOR, NET_FUTURE, resetCfoUnsetLog, selectedOverview } fro
 import { savedOverviewFigures } from "./months.ts";
 import { readOverview, summarize } from "./overview.ts";
 import { RecordStore } from "./record.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #245 (spec section 67, PFCFO-01..PFCFO-08): GET /api/cfo/pf/* on PGlite (migrations 0010-0012, unchanged) with a
 // test-only key (random per run, never a real one) and a fixed clock. alice owns (ORPHEUS_OWNER_EMAIL); bob has his
@@ -50,7 +53,7 @@ const ALICE = {
 const BOB_SECRET = "bob-only-marker-9431";
 const as = (id: string) => ({ env, getUser: async () => ({ id, email: `${id}@example.com` }), getDb: async () => db });
 const put = (id: string, data: unknown) =>
-  handlePersonalFinanceRequest(new Request("http://localhost/api/personal-finance", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data }) }), as(id));
+  pfRequest(new Request("http://localhost/api/personal-finance", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ data }) }), as(id));
 
 before(async () => {
   await pg.exec('CREATE TABLE "user" (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT \'\', email TEXT NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now())');

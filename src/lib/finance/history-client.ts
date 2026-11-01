@@ -42,10 +42,11 @@ export const saveHistory = async (
   baseVersion?: Version,
 ): Promise<SaveHistoryResult> => {
   try {
-    const payload: { data: PfRecord; baseVersion?: string | null } = { data: record };
-    if (baseVersion !== undefined) {
-      payload.baseVersion = baseVersion === null ? null : String(baseVersion);
-    }
+    // #257 (spec §79): always sent; no version known (no record yet, or none in the GET) = null, never omitted.
+    const payload: { data: PfRecord; baseVersion: string | null } = {
+      data: record,
+      baseVersion: baseVersion === undefined || baseVersion === null ? null : String(baseVersion),
+    };
     const res = await fetch(API, {
       method: "PUT",
       credentials: "same-origin",
@@ -66,12 +67,13 @@ export const saveHistory = async (
         record: body.data ?? record,
       };
     }
-    if (res.status === 409) {
+    // #257: 428 `base_version_required` is shown like a stale save (the Reload banner).
+    if (res.status === 409 || res.status === 428) {
       return {
         ok: false,
         stale: true,
-        status: 409,
-        message: typeof body.error === "string" && body.error ? body.error : STALE_MESSAGE,
+        status: res.status,
+        message: res.status === 409 && typeof body.error === "string" && body.error ? body.error : STALE_MESSAGE,
       };
     }
     return { ok: false, stale: false, status: res.status, message: body.error };

@@ -21,6 +21,9 @@ import { OVERVIEW_KEY } from "./overview.ts";
 import { seriesValues } from "./series.ts";
 import { readPdf, readPng } from "../../../qa/tools/export-parse.mjs";
 import * as H from "../../../qa/tools/pf-helpers.mjs";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #170 (spec 43, PFFX-*): historical FX. PGlite with the real `fx_rates` (migration 0002, unchanged) and the PF tables
 // (0010-0012), the real handlers, fixed clocks and a recorded Bank of Canada Valet response (no network). Runs under
@@ -45,7 +48,7 @@ const recordOf = (months: Record<string, object[]>, household = "CAD", overview:
   [CURRENCY_KEY]: JSON.stringify({ household }),
   [OVERVIEW_KEY]: JSON.stringify(overview),
 });
-const put = async (data: Rec) => assert.equal((await handlePersonalFinanceRequest(rq("PUT", "/api/personal-finance", { data }), as("alice"), () => OCT)).status, 200);
+const put = async (data: Rec) => assert.equal((await pfRequest(rq("PUT", "/api/personal-finance", { data }), as("alice"), () => OCT)).status, 200);
 const rows = async (list: [string, string, string][]) => {
   for (const [q, d, v] of list) await pg.query("INSERT INTO fx_rates (quote, rate_date, cad_per_unit, source) VALUES ($1, $2, $3, 'BOC')", [q, d, v]);
 };
@@ -65,7 +68,7 @@ const RANGES: object[] = [...PRESETS, { from: "2024-01", to: "2026-10" }];
 /** Every surface QA names in PFFX-17a, as text (PDF/PNG bytes are deterministic: the clock is fixed). */
 async function surfaces(): Promise<string[]> {
   const out: string[] = [];
-  out.push(await (await handlePersonalFinanceRequest(rq("GET", "/api/personal-finance"), as("alice"), () => OCT)).text());
+  out.push(await (await pfRequest(rq("GET", "/api/personal-finance"), as("alice"), () => OCT)).text());
   out.push(await (await handlePersonalFinanceReportRequest(rq("GET", "/api/personal-finance/report"), as("alice"), () => OCT)).text());
   out.push(await (await handlePersonalFinanceReportsRequest(rq("GET", "/api/personal-finance/reports"), as("alice"), () => OCT)).text());
   for (const r of RANGES) out.push(await (await series(r)).text());
@@ -146,7 +149,7 @@ describe("#170 PFFX-17a / 18a: byte-identical to the typed-rate path when no row
     assert.equal("fx_fallback_months" in j, false);
     assert.ok((await pdfText()).includes(FX_LINE));
     // And the reply equals the typed-rate (d1308bc) computation exactly.
-    const stored = (await (await handlePersonalFinanceRequest(rq("GET", "/api/personal-finance"), as("alice"), () => OCT)).json()).data;
+    const stored = (await (await pfRequest(rq("GET", "/api/personal-finance"), as("alice"), () => OCT)).json()).data;
     assert.equal(JSON.stringify(j), JSON.stringify(seriesValues({ series: ALL, range: { preset: "all" } } as never, stored, OCT)));
   });
   it("PFFX-18a: CAD-only lines with USD and GBP rows seeded → every surface unchanged", async () => {
@@ -254,7 +257,7 @@ describe("#170 PFFX-21a: the #171 anchor rule with historical rates", () => {
     assert.deepEqual(j.series[1].values.map(cents), [10000, 11660, 13300, 15000]);
   });
   it("contract 11.2 / 12.1 messages unchanged", async () => {
-    const r = await handlePersonalFinanceRequest(rq("PUT", "/api/personal-finance", { data: recordOf(lines, "CAD", { start: "1", asOf: "2019-12" }) }), as("alice"), () => OCT);
+    const r = await pfRequest(rq("PUT", "/api/personal-finance", { data: recordOf(lines, "CAD", { start: "1", asOf: "2019-12" }) }), as("alice"), () => OCT);
     assert.deepEqual(await r.json(), { error: "Month can't be before 2020-01.", field: "overview.asOf" });
     const c = await handlePersonalFinanceReportRequest(rq("PUT", "/api/personal-finance/report", { report: { series: ALL, range: { from: "2024-01", to: "2026-02" }, chart: "line" } }), as("alice"), () => OCT);
     assert.deepEqual(await c.json(), { error: "Range can't be longer than 24 months.", field: "range" });

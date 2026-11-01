@@ -23,6 +23,9 @@ import {
   handleAccountResetRequest,
   handleAccountWhoRequest,
 } from "./account-api.server.ts";
+import { loaded } from "../finance/testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 const ORIGIN = "http://localhost:3000";
 const TEST_SECRET = "test-only-secret-0123456789abcdef0123456789";
@@ -168,7 +171,7 @@ describe("/api/account (#90)", () => {
       people[key].cookie = (await signIn(`${key}@example.com`, people[key].temp)) ?? undefined;
       assert.ok(people[key].cookie, key);
     }
-    const r = await call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: people.cfo.cookie });
+    const r = await call(pfRequest, "/api/personal-finance", { cookie: people.cfo.cookie });
     assert.equal(r.status, 403);
     assert.deepEqual(await r.json(), { error: "Change your password first." });
     const me = await json(await call(handleAccountMeRequest, "/api/account/me", { cookie: people.cfo.cookie }));
@@ -199,10 +202,10 @@ describe("/api/account (#90)", () => {
 
   it("ROLE-10 / ROLE-12 / ROLE-14 / ROLE-15: grants decide reads and writes on the owner's data", async () => {
     const pf = (key: string, method = "GET", body?: unknown) =>
-      call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: people[key].cookie, method, body });
+      call(pfRequest, "/api/personal-finance", { cookie: people[key].cookie, method, body });
     const hold = (key: string, method = "GET", body?: unknown) =>
       call(handleHoldingsRequest as never, "/api/dashboard/holdings", { cookie: people[key].cookie, method, body });
-    assert.equal((await call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: owner, method: "PUT", body: { data: {} } })).status, 200);
+    assert.equal((await call(pfRequest, "/api/personal-finance", { cookie: owner, method: "PUT", body: { data: {} } })).status, 200);
     assert.equal((await pf("cfo")).status, 200);
     assert.equal((await pf("cfo", "PUT", { data: {} })).status, 403);
     assert.equal((await hold("cfo")).status, 403, "PF-only: no Dashboard");
@@ -247,7 +250,7 @@ describe("/api/account (#90)", () => {
   });
 
   it("ROLE-16: a grant change applies on the next request; Remove clears grants and signs the person out; the account stays", async () => {
-    const pf = () => call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: people.cfo.cookie, method: "PUT", body: { data: {} } });
+    const pf = () => call(pfRequest, "/api/personal-finance", { cookie: people.cfo.cookie, method: "PUT", body: { data: {} } });
     assert.equal((await pf()).status, 403);
     const put = await call(handleAccountAccessRequest, "/api/account/access", {
       cookie: owner,
@@ -261,7 +264,7 @@ describe("/api/account (#90)", () => {
     assert.equal((await call(handleAccountMeRequest, "/api/account/me", { cookie: people.cfo.cookie })).status, 401, "signed out everywhere");
     people.cfo.cookie = (await signIn("cfo@example.com", people.cfo.password!)) ?? undefined;
     assert.ok(people.cfo.cookie, "the account stays");
-    assert.equal((await call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: people.cfo.cookie })).status, 403);
+    assert.equal((await call(pfRequest, "/api/personal-finance", { cookie: people.cfo.cookie })).status, 403);
   });
 
   it("ROLE-18: Reset password: new temporary password once, old refused, sessions revoked, forced change again", async () => {
@@ -298,7 +301,7 @@ describe("/api/account (#90)", () => {
 
   it("ROLE-14: with ORPHEUS_OWNER_EMAIL unset nobody has access (the owner neither)", async () => {
     const noOwner = { DASHBOARD_ENABLED: "true" };
-    assert.equal((await call(handlePersonalFinanceRequest, "/api/personal-finance", { cookie: owner }, noOwner)).status, 403);
+    assert.equal((await call(pfRequest, "/api/personal-finance", { cookie: owner }, noOwner)).status, 403);
     assert.equal((await call(handleAccountAccessRequest, "/api/account/access", { cookie: owner }, noOwner)).status, 403);
     assert.deepEqual((await json(await call(handleAccountWhoRequest, "/api/account/who", { cookie: owner }, noOwner))).people, []);
   });

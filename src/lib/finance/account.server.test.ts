@@ -8,6 +8,9 @@ import { STORAGE_KEY } from "./expenses.ts";
 import { VIEW_KEY } from "./view.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { INCOME_KEY } from "./income.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #102 (spec 16.5, PF-33 / PF-36) and #90 (ROLE-10, -11, -14, Q-D1, Q-D11, Q-D13): /api/personal-finance on PGLite
 // with a fake session lookup. alice is the owner; bob a CFO with Read; carol a CFO with Read and write; dave has no
@@ -29,7 +32,7 @@ const req = (method: string, body?: unknown, query = "", path = "/api/personal-f
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 const pf = (method: string, who: string | null, body?: unknown, query = "") =>
-  handlePersonalFinanceRequest(req(method, body, query), as(who));
+  pfRequest(req(method, body, query), as(who));
 const view = (who: string, v: string) =>
   handlePersonalFinanceViewRequest(req("PUT", { view: v }, "", "/api/personal-finance/view"), as(who));
 
@@ -59,7 +62,7 @@ const OWNER = { owner: true, write: true };
 
 describe("/api/personal-finance (#102, #90)", () => {
   it("flag off 404; bad method 405; signed out 401", async () => {
-    const off = await handlePersonalFinanceRequest(req("GET"), as("alice", {}));
+    const off = await pfRequest(req("GET"), as("alice", {}));
     assert.equal(off.status, 404);
     assert.equal((await pf("POST", "alice", {})).status, 405);
     for (const m of ["GET", "PUT", "DELETE"])
@@ -86,9 +89,9 @@ describe("/api/personal-finance (#102, #90)", () => {
       assert.deepEqual(await r.json(), { error: "Forbidden." });
     }
     const noOwner = { DASHBOARD_ENABLED: "true" };
-    assert.equal((await handlePersonalFinanceRequest(req("GET"), as("alice", noOwner))).status, 403);
+    assert.equal((await pfRequest(req("GET"), as("alice", noOwner))).status, 403);
     const typo = { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "nobody@example.com" };
-    assert.equal((await handlePersonalFinanceRequest(req("GET"), as("alice", typo))).status, 403);
+    assert.equal((await pfRequest(req("GET"), as("alice", typo))).status, 403);
   });
 
   it("ROLE-08: a temporary password in place → 403 'Change your password first.'", async () => {

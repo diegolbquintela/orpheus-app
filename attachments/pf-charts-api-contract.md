@@ -340,3 +340,11 @@ R1 `/series`, R2 `/chart` (both bodies) and the R5 export convert each month's f
 | line-historical | FX basis: historical (each month at its Bank of Canada monthly average rate) |
 | line-mixed | FX basis: mixed (Bank of Canada monthly averages; typed rate used for <months>) |
 | mixed-shown | 5 |
+
+## Addendum (#257, 2026-11-01): `PUT /api/personal-finance` requires `baseVersion`
+
+This route is outside this contract's routes; the note is here because this file is the API reference callers read.
+- **Request:** `{ "data": { … }, "baseVersion": "<version from GET>" | null }`. `baseVersion` must be present: either the `version` the caller last read (`GET /api/personal-finance`, or the previous `PUT`'s 200) or `null` when that `GET` showed no record.
+- **428 Precondition Required** `{ "error": "This save was not based on a loaded version. Reload to see the latest, then save again.", "code": "base_version_required" }` when `baseVersion` is absent. Nothing is written. It is checked after sign-in, grants, the JSON body and `userId`, and before the record is validated. A missing `baseVersion` is therefore a 428 even when the record is also invalid.
+- **Unchanged:** 400 when `baseVersion` is not a string or null. 409 `{ "code": "stale" }` when it does not match, including `null` while a record exists. 200 `{ data, access, version }` on a match.
+- **Not affected:** the CFO read-only API (`/api/cfo/pf/*`, #245) is GET / HEAD only. `/api/personal-finance/view` and the report routes have no version check.

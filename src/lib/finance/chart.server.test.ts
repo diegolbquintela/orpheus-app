@@ -6,6 +6,9 @@ import { handlePersonalFinanceChartRequest, handlePersonalFinanceReportRequest, 
 import { STORAGE_KEY, type Line } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
 import { OVERVIEW_KEY } from "./overview.ts";
+import { loaded } from "./testing/pf-loaded-base.ts";
+// #257: seeding PUTs send the GET's version as `baseVersion`, like the client (testing/pf-loaded-base.ts).
+const pfRequest = loaded(handlePersonalFinanceRequest);
 
 // #155 (spec section 37, PFC-01..PFC-16): POST /api/personal-finance/chart (built on #154 /series) on PGlite (migrations 0010-0012,
 // unchanged) with a fake session lookup and a fixed clock. alice owns; bob is a CFO with Read; dave has no Personal
@@ -58,7 +61,7 @@ before(async () => {
   for (const id of ["alice", "bob", "dave"]) await pg.query('INSERT INTO "user" (id, email) VALUES ($1, $2)', [id, `${id}@example.com`]);
   await pg.exec(`INSERT INTO access_grant (user_id, surface, can_read, can_write, granted_by) VALUES
     ('bob', 'personal_finance', true, true, 'alice') /* #162 R2: bob now has Write so his own report saves still run; Read-grant refusals are in reports-write.server.test.ts */, ('dave', 'dashboard', true, true, 'alice')`);
-  const r = await handlePersonalFinanceRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
+  const r = await pfRequest(req("PUT", { data: record }, "/api/personal-finance"), as("alice"));
   assert.equal(r.status, 200);
 });
 
