@@ -2754,3 +2754,16 @@ Dated note 2026-10-24 (#263): supersedes the month-rows / figure-columns orienta
 - **Q-HE1 (built, recommend accept):** Confirm the transposed layout with figures as sticky-left rows (`pf-history-row` / `pf-history-figure`) and stored months in the selected year as columns left-to-right oldest first (`pf-history-col`), keeping `PFHT-07` (no invented gap months).
 - **Q-HE2 (built, recommend accept):** Confirm making stored line-item cells (and legacy overview-only month income/expense cells) editable inline (`pf-history-input`) while keeping derived rows (`Fixed expenses`, `Variable expenses`, `Income`, `Expenses`, `Surplus`, `Net assets`, `Equity coverage`) and missing-line `—` cells read-only with live recalculation.
 - **Q-HE3 (built, recommend accept):** Confirm explicit `Save` (`pf-history-save`) + `Discard` (`pf-history-discard`) in the History toolbar writing via `PUT /api/personal-finance` with `baseVersion` stale-write protection (`409` `STALE_MESSAGE`) and syncing the current month back to `expenses.v2` / `income.v1`.
+
+## 78. Personal Finance: 3-month window on the 1st of the month — verdict (#285, MEDIUM; added 2026-11-01)
+
+78.1 **Report.** QA on PR #284 (2026-11-01): PF-89 (two checks) and PFEC-04 expected `3-month average (Aug–Oct)` on Nov 1, but the page showed `Jul–Sep`.
+
+78.2 **Verdict: the app matches the spec; the harness was wrong. No user-visible change.** Section 22 C7 says the window is the last 3 **complete** months, read in the household timezone (on 2026-10-13 that is Jul–Sep; in January, Oct–Dec of the year before). `completeMonths` / `householdMonth` (`src/lib/finance/overview.ts`) do exactly this in `America/Toronto`. `qa/tools/personal-finance-e2e.mjs` pins the page's clock with `page.clock.setFixedTime(TODAY)`, where `TODAY = new Date(2026, 9, 11, 12)`, so the page correctly shows the window for Oct 11, which is Jul–Sep. Its expected labels (`avg3Label()`, `avg12Label()`) and the PFEC-04 "current month" were computed from the runner's wall clock (`new Date()`). That agreed with the pinned date only while QA ran in October. From Nov 1 the harness expected Aug–Oct and `2026-11`. The cause is not an off-by-one, a UTC-vs-Toronto mix-up or a `Date` rollover. The boundary tests in 78.3 pin those cases.
+
+78.3 **Fix (harness only).** `qa/tools/pf-window.mjs` builds the labels and the household month from an explicit date; it has no wall-clock default. `personal-finance-e2e.mjs` derives them all from `TODAY`. Tests:
+- `src/lib/finance/overview.test.ts` (#285 block) for the app.
+- `scripts/pf-window-harness.test.mjs` for the harness.
+Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the last instant of Oct 31 in Toronto (already Nov 1 UTC), Nov 1 00:00 Toronto, UTC and process-local, Dec 31 → Jan 1, Feb 29 / Mar 1 2028 (leap year), Mar 1 2027, and day-31 dates. AC PFWB-01..PFWB-08.
+
+78.4 **Untouched:** `qa/tools/personal-finance.mjs` and `site-style-regression.mjs` read the window labels from the wall clock on pages whose clock is NOT pinned, so the page and the expectation share the same date and there was nothing to fix.

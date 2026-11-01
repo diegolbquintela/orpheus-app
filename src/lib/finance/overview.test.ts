@@ -682,3 +682,60 @@ describe("#184 QA L1 / L2: concrete PFEC examples and the window rule", () => {
     assert.deepEqual(ok(run({ asOf: "2026-13" }).c), [33.33, 400, 3.33]);
   });
 });
+
+// #285 (spec 22 C7 / 26, AC PFWB-01..04): the 3- and 12-complete-month windows at month boundaries, read in the
+// household timezone (America/Toronto) whatever the process TZ is. The gates run this under TZ=UTC and
+// TZ=America/Los_Angeles. Instants are absolute (Date.UTC) except the "local midnight" case, whose answer depends on
+// the process TZ and is asserted per TZ.
+describe("#285 complete-month window at boundaries (household timezone)", () => {
+  const w3 = (d: Date) => completeMonths3(d);
+  const lab3 = (d: Date) => average3Label(completeMonths3(d));
+  it("PFWB-01 last instant of Oct 31 in Toronto (already Nov 1 in UTC) → Jul–Sep", () => {
+    const d = new Date(Date.UTC(2026, 10, 1, 3, 59, 59, 999)); // 23:59:59.999 EDT
+    assert.equal(householdMonth(d), "2026-10");
+    assert.deepEqual(w3(d), ["2026-07", "2026-08", "2026-09"]);
+    assert.equal(lab3(d), "3-month average (Jul\u2013Sep)");
+  });
+  it("PFWB-01 Nov 1 00:00 Toronto → Aug–Oct; Nov 1 00:00 UTC (Oct 31 20:00 Toronto) → Jul–Sep", () => {
+    const toronto = new Date(Date.UTC(2026, 10, 1, 4, 0, 0, 0));
+    assert.deepEqual(w3(toronto), ["2026-08", "2026-09", "2026-10"]);
+    assert.equal(lab3(toronto), "3-month average (Aug\u2013Oct)");
+    assert.equal(average12Label(completeMonths(toronto, 12)), "12-month average (Nov\u2013Oct)");
+    const utc = new Date(Date.UTC(2026, 10, 1, 0, 0, 0, 0));
+    assert.deepEqual(w3(utc), ["2026-07", "2026-08", "2026-09"]);
+    assert.equal(average12Label(completeMonths(utc, 12)), "12-month average (Oct\u2013Sep)");
+  });
+  it("PFWB-02 Nov 1 00:00 in the process's local time follows Toronto, per TZ", () => {
+    const local = new Date(2026, 10, 1, 0, 0, 0, 0);
+    const tz = process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const want: Record<string, string[]> = {
+      UTC: ["2026-07", "2026-08", "2026-09"], // 00:00Z = Oct 31 20:00 Toronto
+      "America/Los_Angeles": ["2026-08", "2026-09", "2026-10"], // 00:00 PDT = 03:00 EDT Nov 1
+      "America/Toronto": ["2026-08", "2026-09", "2026-10"],
+    };
+    if (want[tz]) assert.deepEqual(w3(local), want[tz]);
+    // Any TZ: same answer as the explicit Toronto month of that instant.
+    const torontoNov = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "2-digit" }).format(local) === "11";
+    assert.deepEqual(w3(local), torontoNov ? ["2026-08", "2026-09", "2026-10"] : ["2026-07", "2026-08", "2026-09"]);
+  });
+  it("PFWB-03 year rollover: Dec 31 23:59:59.999 → Sep–Nov 2026; Jan 1 2027 00:00 Toronto → Oct–Dec 2026", () => {
+    const dec31 = new Date(Date.UTC(2027, 0, 1, 4, 59, 59, 999)); // 23:59:59.999 EST
+    assert.deepEqual(w3(dec31), ["2026-09", "2026-10", "2026-11"]);
+    const jan1 = new Date(Date.UTC(2027, 0, 1, 5, 0, 0, 0));
+    assert.equal(householdMonth(jan1), "2027-01");
+    assert.deepEqual(w3(jan1), ["2026-10", "2026-11", "2026-12"]);
+    assert.equal(lab3(jan1), "3-month average (Oct\u2013Dec)");
+    assert.deepEqual(completeMonths(jan1, 12), ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]);
+    assert.deepEqual(w3(new Date(Date.UTC(2027, 1, 1, 5))), ["2026-11", "2026-12", "2027-01"]);
+  });
+  it("PFWB-04 Feb 29 / Mar 1 (leap 2028, non-leap 2027) and day-31 rollover", () => {
+    assert.deepEqual(w3(new Date(Date.UTC(2028, 1, 29, 17))), ["2027-11", "2027-12", "2028-01"]);
+    assert.deepEqual(w3(new Date(Date.UTC(2028, 2, 1, 4, 59, 59, 999))), ["2027-11", "2027-12", "2028-01"]); // Feb 29 23:59:59.999 EST
+    const mar1 = new Date(Date.UTC(2028, 2, 1, 5)); // Mar 1 00:00 EST
+    assert.deepEqual(w3(mar1), ["2027-12", "2028-01", "2028-02"]);
+    assert.equal(lab3(mar1), "3-month average (Dec\u2013Feb)");
+    assert.deepEqual(w3(new Date(Date.UTC(2027, 2, 1, 5))), ["2026-12", "2027-01", "2027-02"]);
+    assert.deepEqual(w3(new Date(Date.UTC(2028, 2, 31, 16))), ["2027-12", "2028-01", "2028-02"]);
+    assert.deepEqual(w3(new Date(Date.UTC(2026, 4, 31, 16))), ["2026-02", "2026-03", "2026-04"]);
+  });
+});
