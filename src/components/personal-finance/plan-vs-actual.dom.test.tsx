@@ -219,4 +219,15 @@ describe("#276 PFPA Planned vs actual toggle", () => {
     await act(async () => (q(el, "pf-toggle-plan") as HTMLButtonElement).click());
     assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), { closed: ["plan", "overview"] });
   });
+  it("PFPA-08: the note reads 'Actual = what is saved.' and 'saved now' appears nowhere in the section (CFO 2026-11-01)", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    const el = await render();
+    const note = q(el, "pf-plan-note")!.textContent!;
+    assert.equal(
+      note,
+      "Planned = this month's lines as last saved before it started (2026-09-30 08:00 ET). Actual = what is saved. Difference = actual − planned.",
+    );
+    assert.doesNotMatch(q(el, "pf-plan")!.textContent!, /saved now|\bnow\b/i);
+  });
 });
+

@@ -2220,3 +2220,4 @@ check). Spec: `attachments/header-menu-spec.md`.
 | PFPA-06 | HIGH | Closing it keeps the other sections' stored state. |
 | PFPA-07 | HIGH | Invariants: dark style, no gold, no `tnum` on the page, toggle target ≥ 44px, no page overflow at 360 / 390 / 768 / 1440 (the table scrolls inside `.pf-plan`), AA contrast, CLS 0. |
 | PFPA-03 (amended 2026-11-01, CFO) | HIGH | Replaces PFPA-03: the column heads read `Planned (set before the month)` and `Actual (as saved)`, and the head never reads `saved now`. The section still starts open. |
+| PFPA-08 (added 2026-11-01, CFO) | HIGH | The note above the table reads `Actual = what is saved.` (no `now`; `now` suggests a live value). `saved now` appears nowhere in the Planned vs actual section. |

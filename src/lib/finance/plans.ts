@@ -95,7 +95,7 @@ export const PLAN_TITLE = "Planned vs actual";
 export const PLANNED_LABEL = "Planned (set before the month)";
 export const ACTUAL_LABEL = "Actual (as saved)";
 export const planNote = (planned: string): string =>
-  `Planned = this month's lines as last saved before it started (${planned}). Actual = what is saved now. Difference = actual − planned.`;
+  `Planned = this month's lines as last saved before it started (${planned}). Actual = what is saved. Difference = actual − planned.`;
 /** #231 PV4 (spec 65.6, PFPV-26): the household zone the capture time is shown in (stored as UTC ISO). */
 export const PLAN_TIME_ZONE = "America/Toronto";
 /**

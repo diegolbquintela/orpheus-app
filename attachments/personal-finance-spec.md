@@ -2825,3 +2825,5 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 81.5 **Open questions (CFO).** The label wording, and whether the section should start closed.
 
 81.6 **Addendum 2026-11-01 (CFO, via EL).** The Actual column head is `Actual (as saved)` (it was `Actual (saved now)`). `Planned (set before the month)` stays, and the section still starts open. PFPA-03 is amended. This answers the §81.5 questions.
+
+81.7 **Addendum 2026-11-01 (CFO, via EL).** The note's Actual part reads `Actual = what is saved.` (it was `Actual = what is saved now.`), because `now` suggests a live value. The rest of the note is unchanged. AC PFPA-08.
