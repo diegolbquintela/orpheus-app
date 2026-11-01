@@ -477,6 +477,8 @@ describe("#258 PFRL Saved scenarios: Reload from the stale banner", () => {
     const inner = refuse(428);
     await saveAs(el, "Plan B");
     assert.ok(q(el, "pf-saved-stale"), "428 shows the same banner");
+    assert.equal(q(el, "pf-saved-error"), null, "Q-RL2: no field error under the name on a stale Save");
+    assert.equal(q(el, "pf-saved-name")!.getAttribute("aria-invalid"), null);
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const failing = async (url: unknown, init?: { method?: string }) => {
@@ -499,5 +501,45 @@ describe("#258 PFRL Saved scenarios: Reload from the stale banner", () => {
     assert.equal((q(el, "pf-saved-name") as HTMLInputElement).value, "Plan B", "the typed name is kept");
     assert.ok(q(el, "pf-saved-stale"), "the banner stays");
     restore(inner);
+  });
+});
+
+// #258 Q-RL2 (CFO, 2026-11-01; AC PFRL-10/11): a stale Save shows only the banner; other field errors stay.
+describe("#258 PFRL Q-RL2: stale Save has no field error under the name", () => {
+  it("PFRL-10: Save refused 409 → banner with STALE_MESSAGE, no pf-saved-error, name not aria-invalid; the name is kept", async () => {
+    server(record());
+    const el = await render();
+    const inner = globalThis.fetch;
+    const f = async (url: unknown, init?: { method?: string; body?: string }) =>
+      init?.method === "PUT"
+        ? new Response(JSON.stringify({ error: STALE_MESSAGE, code: "stale" }), { status: 409 })
+        : (inner as (u: unknown, i?: unknown) => Promise<Response>)(url, init);
+    (dom.window as unknown as { fetch: unknown }).fetch = f;
+    (globalThis as unknown as { fetch: unknown }).fetch = f;
+    await saveAs(el, "Plan C");
+    assert.equal(q(el, "pf-saved-stale")!.querySelector("p")!.textContent, STALE_MESSAGE);
+    assert.equal(q(el, "pf-saved-error"), null);
+    assert.equal(q(el, "pf-saved-name")!.getAttribute("aria-invalid"), null);
+    assert.equal(qa(el, "pf-saved-section")[0].textContent!.split(STALE_MESSAGE).length - 1, 1, "the message shows once");
+    assert.equal((q(el, "pf-saved-name") as HTMLInputElement).value, "Plan C");
+  });
+
+  it("PFRL-11: validation errors still show under the name (duplicate name), with no stale banner", async () => {
+    server(record());
+    const el = await render();
+    await saveAs(el, "A");
+    await saveAs(el, "A");
+    assert.equal(q(el, "pf-saved-error")?.textContent, NAME_TAKEN);
+    assert.equal(q(el, "pf-saved-name")!.getAttribute("aria-invalid"), "true");
+    assert.equal(q(el, "pf-saved-stale"), null);
+    // A non-stale server refusal still shows its error under the name.
+    const inner = globalThis.fetch;
+    const f = async (url: unknown, init?: { method?: string; body?: string }) =>
+      init?.method === "PUT" ? new Response("{}", { status: 500 }) : (inner as (u: unknown, i?: unknown) => Promise<Response>)(url, init);
+    (dom.window as unknown as { fetch: unknown }).fetch = f;
+    (globalThis as unknown as { fetch: unknown }).fetch = f;
+    await saveAs(el, "B");
+    assert.ok(q(el, "pf-saved-error")?.textContent, "a 500 keeps the field error");
+    assert.equal(q(el, "pf-saved-stale"), null);
   });
 });

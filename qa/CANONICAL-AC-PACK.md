@@ -2165,3 +2165,11 @@ The PFRL prefix was unused before this branch. Defaults pending CFO confirmation
 | PFRL-07 | BLOCK | DOM (Scenario, Save 428): the same banner; disabled + `Reloading…` while loading; a failed reload keeps the typed name and the banner and focuses `pf-saved-reload-error`. |
 | PFRL-08 | MAJOR | QA (preview, signed in, phone 360/390 and 768/1440): the Reload button is ≥44×44 px, wraps under the text without horizontal overflow, meets AA contrast, and no gold or tnum appears; no layout shift on page load (CLS 0). |
 | PFRL-09 | MAJOR | QA (preview, two tabs): on Overview, History and Scenario (Save, Rename, Update, Delete) a stale refusal → Reload → the other tab's data shows without a page reload, and Save then succeeds. |
+
+### PFRL amendment (2026-11-01, CFO Q-RL2 via EL; spec §80.6)
+
+| AC | Severity | Check |
+|---|---|---|
+| PFRL-07 (amended 2026-11-01) | BLOCK | In addition to PFRL-07 as written: after the 428 Save there is no `pf-saved-error` and the name field is not `aria-invalid`. |
+| PFRL-10 | BLOCK | DOM (Scenario, Save 409): `pf-saved-stale` shows `STALE_MESSAGE` with Reload; no `pf-saved-error`; the name field is not `aria-invalid`; the message appears once in the Saved scenarios section; the typed name is kept. |
+| PFRL-11 | BLOCK | DOM (Scenario): validation errors (duplicate name → `NAME_TAKEN`, `aria-invalid="true"`) and a non-stale server failure (500 → `SAVE_FAILED`) still show under the name, with no stale banner. |

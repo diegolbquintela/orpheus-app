@@ -644,7 +644,7 @@ function SavedScenarios({
     if (r.ok) {
       setName("");
       setStatus(`Saved "${entry.name}".`);
-    } else setError("error" in r ? r.error : SAVE_FAILED);
+    } else setError(isStale(r) ? null : "error" in r ? r.error : SAVE_FAILED); // #258 Q-RL2: stale → the banner only
   }
 
   async function remove(e: SavedEntry) {
