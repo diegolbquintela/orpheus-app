@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { DeniedPage } from "@/components/access/denied";
 import { ScenarioPage } from "@/components/personal-finance/scenario-page";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
+import { pfDocTitle } from "@/lib/finance/pf-nav";
 
 // #215 (personal-finance-spec 55): the scenario screen. Same gate as /personal-finance (Read sees it; saving needs write).
 export const Route = createFileRoute("/personal-finance_/scenario")({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/personal-finance_/scenario")({
   loader: ({ context }) => context.access,
   head: () => ({
     meta: [
-      { title: "Scenario · Personal Finance · Orpheus Wisdom" },
+      { title: pfDocTitle("scenario") },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),

@@ -531,6 +531,10 @@ guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
 - The calculator's Start and End are text fields typed as `YYYY-MM-DD`, with one Tab stop each. Spec: `attachments/keyboard-focus-spec.md`; ACs KBF-01..KBF-08.
 - On Safari for Mac, Tab skips buttons and links unless "Press Tab to highlight each item" is on; use Option-Tab to reach them.
 
+## Personal Finance sub-nav names (#275)
+
+- The Personal Finance sub-nav shows **Report Builder**, **Yearly Ledger** and **Scenario Analysis**. The URLs are still `/personal-finance/charts`, `/history` and `/scenario`. The names live in `src/lib/finance/pf-nav.ts`; spec: `attachments/pf-subnav-labels-spec.md`.
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.

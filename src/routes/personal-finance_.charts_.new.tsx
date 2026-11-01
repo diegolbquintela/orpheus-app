@@ -4,6 +4,7 @@ import { DeniedPage } from "@/components/access/denied";
 import { ChartsBuilder } from "@/components/personal-finance/charts-builder";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
 import { NEW_SIGN_IN_NEXT } from "@/lib/finance/builder";
+import { reportDocTitle } from "@/lib/finance/pf-nav";
 
 // #161 (spec 46, Q-AK1): a new report. Same gate as /personal-finance/charts; `?next=` keeps this exact path.
 export const Route = createFileRoute("/personal-finance_/charts_/new")({
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/personal-finance_/charts_/new")({
     return { access: { read: viewer.read, write: viewer.write } };
   },
   loader: ({ context }) => context.access,
-  head: () => ({ meta: [{ title: "New report · Charts · Orpheus Wisdom" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({ meta: [{ title: reportDocTitle("New report") }, { name: "robots", content: "noindex, nofollow" }] }),
   component: NewRoute,
 });
 

@@ -142,8 +142,8 @@ const totalTexts = (label, wide, v = { share: "—", monthly: "0.00", yearly: "0
 const emptyTexts = (wide) => [
   "01",
   "Personal Finance.",
-  // #160 (spec 45, Q-AJ1; QA N2 2026-10-20): the Charts link under the title.
-  "Charts",
+  // #160 (spec 45, Q-AJ1; QA N2 2026-10-20): the Charts link under the title (#275: shown as "Report Builder").
+  "Report Builder",
   // #112 (PF-48): the month control (the select's own text is not counted); #163 (PFM-12): Month and Year.
   "Month",
   "Year",

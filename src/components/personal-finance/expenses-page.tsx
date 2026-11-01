@@ -131,6 +131,7 @@ import {
   type View,
   writeView,
 } from "@/lib/finance/view";
+import { PF_NAV_LABELS, PF_PAGE_TITLES } from "@/lib/finance/pf-nav";
 
 const ADD_ACCOUNT = "__add-account__";
 const ADD_CATEGORY = "__add-category__";
@@ -494,7 +495,7 @@ export function PersonalFinancePage({
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 pt-10 pb-20 sm:px-8 lg:gap-16 lg:pt-14 lg:pb-24">
         <header className="relative">
           <p className="pf-label">01</p>
-          <h1 className="pf-title mt-2">{scenario ? "Scenario." : "Personal Finance."}</h1>
+          <h1 className="pf-title mt-2">{scenario ? PF_PAGE_TITLES.scenario : "Personal Finance."}</h1>
           {scenario ? (
             <>
               <p className="pf-charts-back mt-3">
@@ -512,17 +513,17 @@ export function PersonalFinancePage({
             </>
           ) : null}
           {/* #160 (spec 45, Q-AJ1): the Charts page, linked both ways. */}
-          <p className="pf-charts-back mt-3" hidden={!!scenario}>
+          <p className="pf-charts-back pf-subnav mt-3" hidden={!!scenario} data-testid="pf-subnav">
             <a href="/personal-finance/charts" data-testid="pf-charts-link">
-              Charts
+              {PF_NAV_LABELS.charts}
             </a>
             {/* #214 (spec 53, PFHT-01): the read-only History table. */}
-            <a href="/personal-finance/history" className="ml-6" data-testid="pf-history-link">
-              History
+            <a href="/personal-finance/history" data-testid="pf-history-link">
+              {PF_NAV_LABELS.history}
             </a>
             {/* #215 (spec 55, PFSC-01): the what-if scenario screen. */}
-            <a href="/personal-finance/scenario" className="ml-6" data-testid="pf-scenario-link">
-              Scenario
+            <a href="/personal-finance/scenario" data-testid="pf-scenario-link">
+              {PF_NAV_LABELS.scenario}
             </a>
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}

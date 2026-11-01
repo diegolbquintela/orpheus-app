@@ -4,6 +4,7 @@ import { DeniedPage } from "@/components/access/denied";
 import { ChartsBuilder } from "@/components/personal-finance/charts-builder";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
 import { EDIT_SIGN_IN_NEXT } from "@/lib/finance/builder";
+import { reportDocTitle } from "@/lib/finance/pf-nav";
 
 // #162 (spec 47, Q-AL1, Q-AL3): the saved report viewer is the #161 builder, opened with the saved report. It is editable
 // unless the grant is Read, which is truly read-only (no Update, no Delete, so no leave warning). Signed out it returns
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/personal-finance_/charts_/$id")({
     return { access: { read: viewer.read, write: viewer.write } };
   },
   loader: ({ context }) => context.access,
-  head: () => ({ meta: [{ title: "Report · Charts · Orpheus Wisdom" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({ meta: [{ title: reportDocTitle("Report") }, { name: "robots", content: "noindex, nofollow" }] }),
   component: ViewRoute,
 });
 

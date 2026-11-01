@@ -43,6 +43,7 @@ import { householdMonth } from "@/lib/finance/overview";
 import type { PfRecord } from "@/lib/finance/record";
 import { CHART_TYPES, type ChartType, type Series } from "@/lib/finance/report";
 import { CHARTS_PATH } from "@/lib/finance/reports-list";
+import { PF_NAV_LABELS } from "@/lib/finance/pf-nav";
 
 export type BuilderApi = {
   record: () => Promise<PfRecord | null>;
@@ -451,7 +452,7 @@ function Shell({ readOnly, children }: { readOnly: boolean; children: React.Reac
           <h1 className="pf-title mt-2">Report.</h1>
           <p className="pf-charts-back mt-3">
             <a href={CHARTS_PATH} data-testid="pf-builder-back">
-              Charts
+              {PF_NAV_LABELS.charts}
             </a>
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}

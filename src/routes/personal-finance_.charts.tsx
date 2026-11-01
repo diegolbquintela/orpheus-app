@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { DeniedPage } from "@/components/access/denied";
 import { ChartsPage } from "@/components/personal-finance/charts-page";
 import { getPersonalFinanceViewer } from "@/lib/finance/gate";
+import { pfDocTitle } from "@/lib/finance/pf-nav";
 
 // #160 (spec 45, Q-AJ1): Personal Finance Charts, the saved reports list. Same gate as /personal-finance.
 export const Route = createFileRoute("/personal-finance_/charts")({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/personal-finance_/charts")({
   loader: ({ context }) => context.access,
   head: () => ({
     meta: [
-      { title: "Charts · Personal Finance · Orpheus Wisdom" },
+      { title: pfDocTitle("charts") },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
