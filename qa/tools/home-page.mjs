@@ -305,7 +305,7 @@ async function pageChecks(page, tag, mobile, viewport) {
       mainText: main.innerText.replace(/\s+/g, " ").trim(),
       lines,
       cards: document.querySelectorAll("[data-testid=home-card]").length,
-      forms: document.querySelectorAll("form, input, select, button:not(nav button)").length,
+      forms: document.querySelectorAll("form, input:not(nav input), select, button:not(nav button)").length, // #286: the header overlay's search placeholder is not page UI
       imgs: document.querySelectorAll("body img").length,
       bgImages: [...document.querySelectorAll("body *")].filter((e) => getComputedStyle(e).backgroundImage !== "none").map((e) => e.tagName),
       scroll: [document.scrollingElement.scrollWidth, window.innerWidth],
@@ -313,7 +313,7 @@ async function pageChecks(page, tag, mobile, viewport) {
       body: [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color],
       credit: /wikimedia|wikipedia|public domain|courtesy|rkd|jordaens|huis ten bosch/i.test(document.body.innerText),
       robots: document.querySelector('meta[name="robots"]')?.content,
-      bar: [...document.querySelectorAll('nav[aria-label="Site"] a')].map((a) => Math.round(a.getBoundingClientRect().top)),
+      bar: [...document.querySelectorAll('nav[aria-label="Site"] [data-testid="site-bar"] a, nav[aria-label="Site"] [data-testid="site-bar"] button')].map((a) => Math.round(a.getBoundingClientRect().top)), // #286: visible bar items only
     };
   });
   check(`${tag} ST0-01 charcoal page, chalk type; ST3-07 color-scheme dark on <html> and <body>`, p.body[0] === NIGHT && p.body[1] === CHALK && p.scheme.every((s) => s === "dark"), { body: p.body, scheme: p.scheme });
@@ -332,7 +332,7 @@ async function pageChecks(page, tag, mobile, viewport) {
   check(`${tag} ST3-01 (Q5) no visible credit for the painting`, !p.credit);
   check(`${tag} ST6-01 one painting (the hero img), no CSS background-image`, p.imgs === 1 && p.bgImages.length === 0, { imgs: p.imgs, bg: p.bgImages });
   check(`${tag} ST3-06 no horizontal page scroll`, p.scroll[0] <= p.scroll[1], p.scroll);
-  check(`${tag} ST1-01 the bar fits on one line (${viewport.width} px)`, Math.max(...p.bar) - Math.min(...p.bar) <= 2 && p.bar.length === 5, p.bar);
+  check(`${tag} ST1-01 the bar fits on one line (${viewport.width} px)`, Math.max(...p.bar) - Math.min(...p.bar) <= 2 && p.bar.length === 3, p.bar); // #286: lyre / Search / Menu
   check(`${tag} ST3-04 noindex meta`, p.robots === "noindex, nofollow", p.robots);
   // Focus ring on the three Open links: Tab from the bar's last item.
   await page.locator('nav[aria-label="Site"] a').last().focus();

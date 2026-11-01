@@ -24,7 +24,7 @@
 //         last column, the three cells in a row under the person), 44 px, focus, AA, axe, CLS 0 restored
 //
 //   PF-01 shell: 200, title, noindex meta + X-Robots-Tag, color-scheme dark, charcoal + chalk, the bar unchanged
-//         (#97: Orpheus / Calculator / Dashboard / Personal Finance, Personal Finance current), footer `Orpheus Wisdom`, one Analytics script, no
+//         (#97: Orpheus / Calculator / Dashboard / Personal Finance, Personal Finance current; #286: in the menu overlay, the bar is lyre / Search / Menu), footer `Orpheus Wisdom`, one Analytics script, no
 //         painting; ST1-05 the lyre (aria-hidden SVG) first in the Orpheus link, bar ≤ 48 px, links ≥ 44 px;
 //         /favicon.svg is the lyre
 //   PF-02 exact copy of the new page (phone: labelled cells; wide: the column-label rows), nothing else
@@ -495,7 +495,9 @@ try {
           bg: getComputedStyle(document.body).backgroundColor,
           color: getComputedStyle(document.body).color,
           bar: Math.round(nav.getBoundingClientRect().height * 10) / 10,
-          links: [...nav.querySelectorAll("a")].map((a) => { const r = a.getBoundingClientRect(); return [a.textContent.trim(), a.getAttribute("href"), a.getAttribute("aria-current"), Math.round(r.width), Math.round(r.height)]; }),
+          // #286 (HDR): bar items (lyre link, Search, Menu) and the overlay's links (hidden until opened) apart.
+          bar_: [...nav.querySelector('[data-testid="site-bar"]').querySelectorAll("a, button")].map((a) => { const r = a.getBoundingClientRect(); return [a.textContent.trim() || a.getAttribute("aria-label"), a.getAttribute("href"), a.getAttribute("aria-current"), Math.round(r.width), Math.round(r.height)]; }),
+          links: [...nav.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => [a.textContent.trim(), a.getAttribute("href"), a.getAttribute("aria-current")]),
           lyre: lyre ? { first: home.firstElementChild === lyre, hidden: lyre.getAttribute("aria-hidden"), stroke: lyre.getAttribute("stroke"), color: getComputedStyle(lyre).color, w: Math.round(lr.width), h: Math.round(lr.height), paths: lyre.querySelectorAll("path").length } : null,
           footer: document.querySelector("footer")?.textContent.trim(),
           analytics: document.querySelectorAll('script[src*="/_vercel/insights/script.js"], script[src*="va.vercel-scripts.com"]').length,
@@ -506,9 +508,9 @@ try {
       });
       check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal Finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && /noindex/.test(res.headers()["x-robots-tag"] ?? ""), [res.status(), sh.title, sh.robots]);
       check(`${tag} PF-01 charcoal page, chalk type, color-scheme dark; no painting; page-only classes`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme.every((s) => s === "dark") && sh.paint === 0 && sh.badClass === 0, { bg: sh.bg, color: sh.color, scheme: sh.scheme, paint: sh.paint, badClass: sh.badClass });
-      check(`${tag} PF-01 bar (#97, #90): Orpheus / Calculator / Dashboard / Personal Finance / Account, Personal Finance current (Q1 (d) superseded), footer, one Analytics script`, JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal Finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
+      check(`${tag} PF-01 header (#286): bar Orpheus / Search / Menu; overlay Orpheus / Calculator / Dashboard / Personal Finance / Account, Personal Finance current, footer, one Analytics script`, JSON.stringify(sh.bar_.map((l) => l[0])) === '["Orpheus","Search","Menu"]' && JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal Finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
       check(`${tag} ST1-05 the lyre first in the Orpheus link: aria-hidden, currentColor in chalk, 20 × 20, 5 paths`, sh.lyre && sh.lyre.first && sh.lyre.hidden === "true" && sh.lyre.stroke === "currentColor" && sh.lyre.color === CHALK && sh.lyre.w === 20 && sh.lyre.h === 20 && sh.lyre.paths === 5, sh.lyre);
-      check(`${tag} ST1-05 / ST6-08 bar ≤ 48 px, every link ≥ 44 × 44`, sh.bar <= 48 && sh.links.every((l) => l[3] >= 44 && l[4] >= 44), { bar: sh.bar, links: sh.links.map((l) => [l[0], l[3], l[4]]) });
+      check(`${tag} ST1-05 / ST6-08 bar ≤ 48 px, every bar item ≥ 44 × 44 (#286)`, sh.bar <= 48 && sh.bar_.every((l) => l[3] >= 44 && l[4] >= 44), { bar: sh.bar, items: sh.bar_.map((l) => [l[0], l[3], l[4]]) });
 
       // PF-02 copy (empty page)
       const empty = await mainTexts(page);
