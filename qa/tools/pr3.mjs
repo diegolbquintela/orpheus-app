@@ -23,7 +23,7 @@ async function fillForm(page, inp, tap=false){
   for(let i=1;i<inp.tickers.length;i++){ const b=page.getByRole('button',{name:/Add name/}); await (tap? b.tap() : b.click()); }
   for(let i=0;i<inp.tickers.length;i++){ const r=page.locator('.basket-row').nth(i).locator('input');
     await typeInto(page, r.nth(0), inp.tickers[i], tap); await typeInto(page, r.nth(1), inp.weights[i], tap); }
-  const d=page.locator('input[type=date]');
+  const d=page.locator('input[data-field=start], input[data-field=end]');
   await d.nth(0).fill(inp.start); await d.nth(1).fill(inp.end);
   await typeInto(page, page.locator('label:has-text("Starting capital") input'), inp.capital, tap);
   await typeInto(page, page.locator('label:has-text("Contribution") input'), inp.contribution, tap);

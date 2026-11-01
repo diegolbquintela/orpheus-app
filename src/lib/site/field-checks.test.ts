@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { checkFields, checkListings, parseAmount, type FieldInput } from "./field-checks.ts";
+import { checkFields, checkListings, FIELD_COPY, isoDate, parseAmount, type FieldInput } from "./field-checks.ts";
 import { RESULT_LINES } from "./result-lines.ts";
 
 const ok: FieldInput = {
@@ -143,5 +143,28 @@ describe("result lines (#78, decision 2)", () => {
         ["cagr", "CAGR (%)"],
       ],
     );
+  });
+});
+
+// #274 (KBF-05): Start / End are text fields now; validation must match the old native date input, which gave ""
+// for anything incomplete or impossible, so the same messages appear.
+describe("text date fields keep the date-input validation (#274, KBF-05)", () => {
+  it("isoDate keeps a real YYYY-MM-DD date (trimmed) and blanks everything else", () => {
+    assert.equal(isoDate("2020-10-02"), "2020-10-02");
+    assert.equal(isoDate(" 2024-02-29 "), "2024-02-29", "leap day");
+    for (const bad of ["", "2023-02-29", "2020-13-01", "2020-00-10", "2020-04-31", "2020-1-1", "20201002", "10/02/2020", "2020-10-02x", "abcd-ef-gh", "0000-01-01"])
+      assert.equal(isoDate(bad), "", bad);
+  });
+  it("an impossible or partial date gets the blank message, as before", () => {
+    assert.deepEqual(errors({ start: "2020-13-01" }), { start: FIELD_COPY.startBlank });
+    assert.deepEqual(errors({ end: "2026-02-30" }), { end: FIELD_COPY.endBlank });
+    assert.deepEqual(errors({ start: "2020-10", end: "" }), { start: FIELD_COPY.startBlank, end: FIELD_COPY.endBlank });
+  });
+  it("order is still checked on the real dates, with the same message", () => {
+    assert.deepEqual(errors({ start: "2026-10-01", end: "2020-10-02" }), { end: FIELD_COPY.order });
+    assert.deepEqual(errors({ start: "2020-10-02", end: "2020-10-02" }), { end: FIELD_COPY.order });
+    assert.deepEqual(errors({ start: " 2020-10-02 ", end: "2026-10-01" }), {});
+    // An invalid start never makes a valid end "before" it.
+    assert.deepEqual(errors({ start: "9999-99-99", end: "2026-10-01" }), { start: FIELD_COPY.startBlank });
   });
 });

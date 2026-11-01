@@ -96,7 +96,7 @@ for (const vp of ['desktop', 'mobile']) {
     for (let i = 1; i < rows.length; i++) await page.getByRole('button', { name: /Add name/ }).click();
     // #70: basket rows carry data-testid="basket-row" (before #70: the .basket-row class).
     for (let i = 0; i < rows.length; i++) { const r = page.locator('[data-testid="basket-row"], .basket-row').nth(i).locator('input'); await r.nth(0).fill(rows[i][0]); await r.nth(1).fill(String(rows[i][1])); }
-    const d = page.locator('input[type=date]'); await d.nth(0).fill(start); await d.nth(1).fill(end);
+    const d = page.locator('input[data-field=start], input[data-field=end]'); await d.nth(0).fill(start); await d.nth(1).fill(end);
     await page.locator('label:has-text("Starting capital") input').fill(String(capital));
     await page.locator('label:has-text("Contribution") input').fill(String(contribution));
     await page.locator('select').selectOption(frequency);

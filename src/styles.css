@@ -126,6 +126,11 @@
   .calc-field:focus-visible {
     border-bottom-color: var(--color-chalk);
   }
+  /* #274: the Start / End text fields' YYYY-MM-DD hint, dim on charcoal (7.2:1, AA). */
+  .calc-field::placeholder {
+    color: var(--color-dim);
+    opacity: 1;
+  }
   /* Basket row; the field checks (#78) sit in their own grid areas under each field, so the remove button stays
      on the ticker's underline. */
   .calc-row {
@@ -134,6 +139,10 @@
     grid-template-areas: "ticker remove" "ticker-error ticker-error" "weight weight" "weight-error weight-error";
     align-items: end;
     column-gap: 1rem;
+    /* #274 (KBF-04): Tab follows the grid rows, so on a phone the remove button (beside the ticker) comes before
+       the weight. Layout-only: no DOM move and no visual change; wide, the grid rows already equal DOM order.
+       Browsers without reading-flow keep DOM order. */
+    reading-flow: grid-rows;
   }
   .calc-row > .calc-weight {
     margin-top: 1.25rem;

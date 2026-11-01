@@ -23,6 +23,20 @@ export const FIELD_COPY = {
     `${ticker} trades in ${currency}; this basket is in ${basket}. One currency per basket.`,
 } as const;
 
+/**
+ * #274 (KBF-05): Start and End are plain text fields (`YYYY-MM-DD`, one Tab stop each, Safari-friendly). A native
+ * date input reported "" for anything incomplete or impossible, so a typed value counts only when it is a real
+ * calendar date in that form; anything else reads as blank and gets the same "Add a start/end date." message.
+ */
+export function isoDate(value: string): string {
+  const text = value.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!m) return "";
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return y >= 1 && date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d ? text : "";
+}
+
 export const tickerField = (index: number) => `ticker-${index}`;
 export const weightField = (index: number) => `weight-${index}`;
 
@@ -80,9 +94,11 @@ export function checkFields(input: FieldInput): FieldResult {
   });
   if (!anyRow) errors[tickerField(0)] = FIELD_COPY.tickerBlank;
 
-  if (!input.start) errors.start = FIELD_COPY.startBlank;
-  if (!input.end) errors.end = FIELD_COPY.endBlank;
-  else if (input.start && input.end <= input.start) errors.end = FIELD_COPY.order;
+  const start = isoDate(input.start);
+  const end = isoDate(input.end);
+  if (!start) errors.start = FIELD_COPY.startBlank;
+  if (!end) errors.end = FIELD_COPY.endBlank;
+  else if (start && end <= start) errors.end = FIELD_COPY.order;
 
   const capital = aboveZero(input.capital);
   const contribution = aboveZero(input.contribution);
