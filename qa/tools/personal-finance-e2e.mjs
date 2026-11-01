@@ -592,6 +592,43 @@ try {
       await page.getByTestId("pf-toggle-income").click();
       await page.getByTestId("pf-toggle-overview").click();
       await settle(page);
+      // #276 (spec §81, PFPA-01..08; QA BV1): Planned vs actual. Save November while October is current (that writes
+      // November's plan), move the page clock into November, then close / reopen the section from its heading.
+      await pickMonth(page, "2026-11");
+      await page.getByTestId("pf-month-save").click();
+      await settle(page);
+      await page.clock.setFixedTime(new Date(2026, 10, 11, 12));
+      await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+      await ready(page);
+      const pv = { shown: await page.getByTestId("pf-plan").count() };
+      if (pv.shown) {
+        pv.heads = await page.locator("[data-testid=pf-plan] thead th").allTextContents();
+        pv.note = await txt(page.getByTestId("pf-plan-note"));
+        pv.saidNow = /saved now/.test(await txt(page.getByTestId("pf-plan")));
+        const t = page.getByTestId("pf-toggle-plan");
+        pv.open0 = await t.getAttribute("aria-expanded");
+        pv.h = await t.evaluate((e) => Math.round(e.getBoundingClientRect().height));
+        await t.click();
+        await settle(page);
+        pv.closed = await t.getAttribute("aria-expanded");
+        pv.bodyKids = await page.getByTestId("pf-body-plan").evaluate((e) => e.children.length);
+        pv.viewClosed = ((await acct(page, base, "GET")).body?.data ?? {})["orpheus.finance.view.v1"];
+        await t.click();
+        await settle(page);
+        pv.reopened = await t.getAttribute("aria-expanded");
+        pv.viewOpen = ((await acct(page, base, "GET")).body?.data ?? {})["orpheus.finance.view.v1"];
+      }
+      const closedView = (() => { try { return JSON.parse(pv.viewClosed ?? "null")?.closed ?? []; } catch { return []; } })();
+      const openView = (() => { try { return JSON.parse(pv.viewOpen ?? "null")?.closed ?? []; } catch { return []; } })();
+      check(`${tag} PFPA-01/02/03/08 Planned vs actual (November, planned in October): heading toggle open → closed → open (≥ 44 px); "plan" in orpheus.finance.view.v1 while closed and gone after reopening; heads "Planned (set before the month)" / "Actual (as saved)"; note "Actual = what is saved." with no "saved now"`,
+        pv.shown === 1 && pv.open0 === "true" && pv.closed === "false" && pv.bodyKids === 0 && pv.reopened === "true" && pv.h >= 44 &&
+          closedView.includes("plan") && !openView.includes("plan") &&
+          pv.heads?.[1] === "Planned (set before the month)" && pv.heads?.[2] === "Actual (as saved)" &&
+          /Actual = what is saved\. Difference/.test(pv.note ?? "") && pv.saidNow === false,
+        pv);
+      await page.clock.setFixedTime(TODAY);
+      await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+      await ready(page);
       check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);

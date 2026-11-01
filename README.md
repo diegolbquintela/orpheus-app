@@ -541,6 +541,10 @@ guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
 
 The app is unchanged: the 3-month average still covers the last 3 complete Toronto months (`Aug–Oct` on Nov 1). The QA harness `personal-finance-e2e` now reads its expected window labels from the date the page's clock is pinned to (`qa/tools/pf-window.mjs`), not from the run date. Spec section 78, AC PFWB-01..08.
 
+## Personal Finance Planned vs actual (#276)
+
+- 2026-11-01: the Planned vs actual heading opens and closes the section like the other PF sections. The state is `"plan"` in the existing `orpheus.finance.view.v1` view value, and the section starts open. The columns read `Planned (set before the month)` and `Actual (as saved)`, and the note says `Actual = what is saved.` No calculation change. Spec `attachments/personal-finance-spec.md` §81, AC PFPA.
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.
