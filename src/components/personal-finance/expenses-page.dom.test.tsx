@@ -2500,6 +2500,101 @@ describe("#242 PFTW-08 / PFTW-09: another tab saved first → the reload message
     const r = await changeSaved(() => ({ income: {}, expenses: {}, rate: null, growth: 5, start: null }));
     assert.deepEqual(r, { ok: false, status: 428, error: STALE_MESSAGE });
   });
+
+  // #258 (spec 80, AC PFRL-01..03): the stale banner's one-click Reload re-reads the record in place.
+  const reloadBtn = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('[data-testid="pf-stale-reload"]');
+  async function staleWith(el: HTMLElement, value: string) {
+    await click(q(el, "pf-add-fixed"));
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,200");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 200);
+    await otherTabSaves();
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), value);
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(statuses.at(-1), 409);
+  }
+
+  it("PFRL-01: a stale save shows Reload right after the banner text; no Reload when the save is fine or merely failed", async () => {
+    await setup();
+    await pg.exec("DELETE FROM personal_finance");
+    const el = await open();
+    assert.equal(reloadBtn(el), null, "no banner, no button");
+    await staleWith(el, "1,500");
+    const btn = reloadBtn(el)!;
+    assert.ok(btn, "the button shows");
+    assert.equal(btn.textContent, "Reload");
+    assert.equal(btn.type, "button");
+    assert.ok(btn.classList.contains("pf-button"), "the 44px pf-button");
+    assert.equal(q(el, "pf-save").nextElementSibling, btn.parentElement, "right after the banner text");
+    assert.ok(q(el, "pf-save").classList.contains("pf-save-stale"), "the banner sits in the flow");
+    assert.equal(text(el, "pf-save"), STALE_MESSAGE, "the banner text is unchanged");
+  });
+
+  it("PFRL-02: Reload re-fetches in place: one GET, edits discarded, banner gone, heading focused, next Save based on the fresh version", async () => {
+    await setup();
+    await pg.exec("DELETE FROM personal_finance");
+    const el = await open();
+    await staleWith(el, "1,500");
+    const href = dom.window.location.href;
+    const realStub = globalThis.fetch;
+    const methods: string[] = [];
+    const bodies: Record<string, unknown>[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      methods.push(init?.method ?? "GET");
+      if (init?.method === "PUT") bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      return realStub(input, init);
+    }) as typeof fetch;
+    await click(reloadBtn(el)!);
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.deepEqual(methods, ["GET"], "one fresh GET, nothing written");
+    assert.equal(dom.window.location.href, href, "no page reload");
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,200", "the server's value; the edit is gone");
+    assert.equal(text(el, "pf-save"), "", "banner gone");
+    assert.equal(reloadBtn(el), null);
+    assert.equal(dom.window.document.activeElement?.tagName, "H1", "focus on the page heading");
+    const version = ((await (await call("GET")).json()) as { version: string }).version;
+    await type(q(lines(el, "fixed")[0], "pf-monthly"), "1,700");
+    await saveNow();
+    await act(async () => new Promise((r) => setTimeout(r, 50)));
+    assert.equal(bodies.at(-1)!.baseVersion, version, "based on the reloaded version");
+    assert.equal(statuses.at(-1), 200);
+    assert.equal(text(el, "pf-save"), "");
+  });
+
+  it("PFRL-03: while reloading the button is disabled and reads Reloading…; a failed reload shows a focused inline error and keeps the edit", async () => {
+    await setup();
+    await pg.exec("DELETE FROM personal_finance");
+    const el = await open();
+    await staleWith(el, "1,500");
+    const realStub = globalThis.fetch;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "GET") {
+        await gate;
+        return new Response("{}", { status: 500 });
+      }
+      return realStub(input, init);
+    }) as typeof fetch;
+    await click(reloadBtn(el)!);
+    assert.equal(reloadBtn(el)!.disabled, true, "disabled while loading");
+    assert.equal(reloadBtn(el)!.textContent, "Reloading…");
+    await act(async () => {
+      release();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    const err = q(el, "pf-stale-reload-error");
+    assert.ok(err, "inline error");
+    assert.equal(err.textContent, "Couldn't reload. Your edits are kept; try again.");
+    assert.equal(err.getAttribute("role"), "alert");
+    assert.equal(dom.window.document.activeElement?.getAttribute("data-testid"), "pf-stale-reload-error", "focus on the error");
+    assert.equal((q(lines(el, "fixed")[0], "pf-monthly") as HTMLInputElement).value, "1,500", "the edit is kept");
+    assert.equal(text(el, "pf-save"), STALE_MESSAGE, "the banner stays");
+    assert.equal(reloadBtn(el)!.disabled, false, "can try again");
+    assert.equal(reloadBtn(el)!.textContent, "Reload");
+  });
 });
 
 describe("#163 any past month: Month + Year (PFM-01..PFM-10)", () => {

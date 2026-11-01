@@ -2149,3 +2149,34 @@ Endpoint change: `PUT /api/personal-finance` without `baseVersion` → 428 `{ co
 | PFBV-07 | BLOCK | DOM: `saveHistory` always names `baseVersion` (`null` when unknown). A 428 → `{ stale: true, status: 428, message: STALE_MESSAGE }`, and the History page shows `pf-stale-error` with the edit kept. |
 | PFBV-08 | MAJOR | QA tools: every record PUT in `pf-helpers`, `personal-finance`, `roles`, `audit` and `pf-report-api` GETs the version first. `check-dashboard-built` sends `null` for a new account. |
 | PFBV-09 | MAJOR | QA (preview, signed in): Save on Overview, History and Scenario still saves. A hand-made PUT without `baseVersion` → 428 and the record is unchanged on reload. |
+
+## PF stale banner one-click Reload (#258, 2026-11-01; spec §80)
+
+The PFRL prefix was unused before this branch. Defaults pending CFO confirmation at READY.
+
+| AC | Severity | Check |
+|---|---|---|
+| PFRL-01 | BLOCK | DOM (Overview, real client + real API on PGlite): a 409 stale save shows `Reload` (`pf-stale-reload`, a `pf-button`, `type="button"`) directly after the `pf-save` banner text; the banner text is still exactly `STALE_MESSAGE`; no button without a stale refusal. |
+| PFRL-02 | BLOCK | DOM (Overview): Reload sends exactly one GET and no PUT, does not navigate, shows the server's value (the unsaved edit is gone), removes the banner and button, focuses the `h1`; the next Save sends the fresh `version` as `baseVersion` and gets 200. |
+| PFRL-03 | BLOCK | DOM (Overview): while the GET is pending the button is disabled and reads `Reloading…`; a failed GET shows `Couldn't reload. Your edits are kept; try again.` (`role="alert"`, focused), keeps the edit and the banner, and re-enables `Reload`. |
+| PFRL-04 | BLOCK | DOM (History): Reload sits right after `pf-history-status`; one fresh load replaces the record and version (the edit is gone, the year stays), the banner goes, the `h1` is focused, and the next save is based on the fresh version. |
+| PFRL-05 | BLOCK | DOM (History): disabled + `Reloading…` while loading; a failed load keeps the edit and the banner and focuses the inline error. |
+| PFRL-06 | BLOCK | DOM (Scenario, Delete 409): a visible banner `pf-saved-stale` with `STALE_MESSAGE` and `pf-saved-reload` right after it; Reload makes one GET and no PUT, shows another tab's scenario, removes the banner, focuses the `h1`; Delete then works. |
+| PFRL-07 | BLOCK | DOM (Scenario, Save 428): the same banner; disabled + `Reloading…` while loading; a failed reload keeps the typed name and the banner and focuses `pf-saved-reload-error`. |
+| PFRL-08 | MAJOR | QA (preview, signed in, phone 360/390 and 768/1440): the Reload button is ≥44×44 px, wraps under the text without horizontal overflow, meets AA contrast, and no gold or tnum appears; no layout shift on page load (CLS 0). |
+| PFRL-09 | MAJOR | QA (preview, two tabs): on Overview, History and Scenario (Save, Rename, Update, Delete) a stale refusal → Reload → the other tab's data shows without a page reload, and Save then succeeds. |
+
+### PFRL amendment (2026-11-01, CFO Q-RL2 via EL; spec §80.6)
+
+| AC | Severity | Check |
+|---|---|---|
+| PFRL-07 (amended 2026-11-01) | BLOCK | In addition to PFRL-07 as written: after the 428 Save there is no `pf-saved-error` and the name field is not `aria-invalid`. |
+| PFRL-10 | BLOCK | DOM (Scenario, Save 409): `pf-saved-stale` shows `STALE_MESSAGE` with Reload; no `pf-saved-error`; the name field is not `aria-invalid`; the message appears once in the Saved scenarios section; the typed name is kept. |
+| PFRL-11 | BLOCK | DOM (Scenario): validation errors (duplicate name → `NAME_TAKEN`, `aria-invalid="true"`) and a non-stale server failure (500 → `SAVE_FAILED`) still show under the name, with no stale banner. |
+
+### PFRL amendments (2026-11-01, QA BT1 / BT4; spec §80.7, §80.8)
+
+| AC | Severity | Check |
+|---|---|---|
+| PFRL-08 (addendum 2026-11-01, QA BT1) | MAJOR | PFRL-08 (addendum 2026-11-01, QA BT1): the Reload button may sit inline beside the banner text on wide screens (e.g. History at 1440px) and wraps under the text on narrow ones; both pass. |
+| PFRL-10 (amended 2026-11-01, QA BT4) | BLOCK | In addition to PFRL-10 as written: a Rename refused 409 or 428 shows only `pf-saved-stale` (message once); no `pf-saved-rename-error`, the rename field is not `aria-invalid`, and the typed name is kept. A duplicate rename (`NAME_TAKEN`) and a 500 still show under the rename field (500 with `aria-invalid="true"`, no stale banner). |

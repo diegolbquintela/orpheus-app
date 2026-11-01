@@ -447,3 +447,85 @@ describe("#214 / #263 History page", () => {
     }
   });
 });
+
+// #258 (spec 80, AC PFRL-04/05): the History stale banner's one-click Reload (in place, through the page's own load).
+describe("#258 PFRL History: Reload from the stale banner", () => {
+  const rentOf = (el: HTMLElement) => el.querySelector<HTMLInputElement>('input[data-month="2025-03"][data-figure="expense:rent"]')!;
+  const fresher = (): PfRecord => {
+    const s = new RecordStore(record());
+    writeMonths(s, {
+      "2025-03": { fixed: [line("rent", "1300")], variable: [], people: [ann] },
+      "2025-07": { fixed: [line("rent", "1050")], variable: [line("food", "200")], people: [ann] },
+      "2026-01": { fixed: [line("rent", "1100")], variable: [], people: [ann] },
+    });
+    return s.data;
+  };
+  async function staleEl(second: () => Promise<LoadResult>, bases: (Version | undefined)[] = []) {
+    let n = 0;
+    const loads: number[] = [];
+    const el = await render(
+      async () => {
+        n += 1;
+        loads.push(n);
+        return n === 1 ? { ok: true, record: record(), version: "v-old", write: true } : second();
+      },
+      () => {},
+      {
+        save: async (_rec, base) => {
+          bases.push(base);
+          return base === "v-new" ? { ok: true, version: "v-next" } : { ok: false, stale: true, status: 409, message: STALE_MESSAGE };
+        },
+      },
+    );
+    await pick(el, "2025");
+    await typeInput(rentOf(el), "1400");
+    await act(async () => (q(el, "pf-history-save") as HTMLButtonElement).click());
+    assert.equal(q(el, "pf-stale-error")?.textContent, STALE_MESSAGE);
+    return { el, loads };
+  }
+
+  it("PFRL-04: Reload sits right after the banner text; one fresh load replaces the record and version, drops the edit, focuses the heading", async () => {
+    const bases: (Version | undefined)[] = [];
+    const { el, loads } = await staleEl(async () => ({ ok: true, record: fresher(), version: "v-new", write: true }), bases);
+    const btn = q(el, "pf-stale-reload") as HTMLButtonElement;
+    assert.ok(btn, "the button shows");
+    assert.equal(btn.textContent, "Reload");
+    assert.equal(q(el, "pf-history-status")!.nextElementSibling, btn.parentElement, "right after the banner text");
+    assert.ok(btn.classList.contains("pf-button"), "44px pf-button");
+    await act(async () => btn.click());
+    await act(async () => new Promise((r) => setTimeout(r, 10)));
+    assert.equal(loads.length, 2, "one fresh load");
+    assert.equal(rentOf(el).value, "1,300.00", "the server's value; the edit is gone");
+    assert.equal(q(el, "pf-stale-error"), null, "banner gone");
+    assert.equal(q(el, "pf-stale-reload"), null);
+    assert.equal(q(el, "pf-history-status")!.textContent, "");
+    assert.equal(dom.window.document.activeElement?.tagName, "H1", "focus on the page heading");
+    await typeInput(rentOf(el), "1500");
+    await act(async () => (q(el, "pf-history-save") as HTMLButtonElement).click());
+    assert.equal(bases.at(-1), "v-new", "the next save is based on the reloaded version");
+    assert.equal(q(el, "pf-stale-error"), null);
+  });
+
+  it("PFRL-05: while reloading: disabled + Reloading…; a failed reload keeps the edit and the banner and focuses an inline error", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const { el } = await staleEl(async () => {
+      await gate;
+      return { ok: false, status: 500 };
+    });
+    await act(async () => (q(el, "pf-stale-reload") as HTMLButtonElement).click());
+    assert.equal((q(el, "pf-stale-reload") as HTMLButtonElement).disabled, true);
+    assert.equal(q(el, "pf-stale-reload")!.textContent, "Reloading…");
+    await act(async () => {
+      release();
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    const err = q(el, "pf-stale-reload-error");
+    assert.equal(err?.textContent, "Couldn't reload. Your edits are kept; try again.");
+    assert.equal(err?.getAttribute("role"), "alert");
+    assert.equal(dom.window.document.activeElement?.getAttribute("data-testid"), "pf-stale-reload-error", "focus on the error");
+    assert.equal(rentOf(el).value, "1400", "the edit is kept");
+    assert.equal(q(el, "pf-stale-error")?.textContent, STALE_MESSAGE, "the banner stays");
+    assert.equal((q(el, "pf-stale-reload") as HTMLButtonElement).disabled, false);
+  });
+});

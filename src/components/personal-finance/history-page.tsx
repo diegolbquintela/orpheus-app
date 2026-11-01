@@ -30,6 +30,7 @@ import {
 import { loadRecord, saveHistory, type LoadResult, type SaveHistoryResult, type Version } from "@/lib/finance/history-client";
 import { lastTwelve, type MonthKey } from "@/lib/finance/overview";
 import { STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
+import { StaleReload } from "./stale-reload";
 
 export type { LoadResult, SaveHistoryResult };
 
@@ -177,6 +178,25 @@ export function HistoryPage({
     setStaleMessage(res.stale ? res.message || STALE_MESSAGE : null);
   };
 
+  /**
+   * #258 (spec 80, AC PFRL): the stale banner's `Reload`: one fresh GET in place (no page reload). Success takes the
+   * server's record and version (the next save is based on it) and drops the unsaved edits, as the banner warns;
+   * failure leaves the edits and the banner as they are.
+   */
+  const handleReload = async (): Promise<boolean> => {
+    const r = await load();
+    if (!r.ok) {
+      if (r.status === 401) onSignedOut();
+      return false;
+    }
+    setState({ kind: "ready", record: r.record, version: r.version, write: r.write });
+    setDraftInputs({});
+    setSaveFailed(false);
+    setStaleMessage(null);
+    setSavedOnce(false);
+    return true;
+  };
+
   const statusText = staleMessage
     ? staleMessage
     : saveFailed
@@ -284,6 +304,8 @@ export function HistoryPage({
                       >
                         {staleMessage ? <span data-testid="pf-stale-error">{statusText}</span> : statusText}
                       </span>
+                      {/* #258 (spec 80, PFRL-04): one-click Reload right after the stale banner's text. */}
+                      {staleMessage ? <StaleReload onReload={handleReload} /> : null}
                     </>
                   ) : null}
                 </div>
