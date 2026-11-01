@@ -119,10 +119,11 @@ import {
   YEAR_CONTROL_LABEL,
   yearChoices,
 } from "@/lib/finance/months";
-import { loadAccountStore, type LoadStore, type StoreLike } from "@/lib/finance/account-client";
+import { loadAccountStore, type LoadStore, type SaveFailure, type StoreLike } from "@/lib/finance/account-client";
 import { backfillPlans, planFor, syncFuturePlans } from "@/lib/finance/plans";
 import { PlanVsActual } from "./plan-vs-actual";
 import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
+import { StaleReload } from "./stale-reload";
 import {
   isOpen,
   readView,
@@ -220,13 +221,47 @@ export function PersonalFinancePage({
   /** #165: category / account deletes made on the shown month (applied to it and later months on Save). */
   const [deletes, setDeletes] = useState<PendingDelete[]>([]);
 
+  // #258 (spec 80): the page is alive (a reload after unmount does nothing).
+  const aliveRef = useRef(true);
+  const onSavedRef = useRef((ok: boolean, why?: SaveFailure) => {
+    if (!aliveRef.current) return;
+    setSaveFailed(!ok);
+    setStale(!ok && why === "stale");
+  });
+  /**
+   * #258 (spec 80, AC PFRL): the stale banner's `Reload`: a fresh read through the same loader (in place, no page
+   * reload). The shown month reopens from the server's record (unsaved edits discarded, as the banner says) and the
+   * next save is based on the fresh version. On failure nothing on screen changes (edits kept).
+   */
+  async function reloadInPlace(): Promise<boolean> {
+    let store: StoreLike;
+    try {
+      store = await loadStore({ onSaved: (ok, why) => onSavedRef.current(ok, why) });
+    } catch {
+      return false;
+    }
+    if (!aliveRef.current) return false;
+    currentStore = store;
+    migrateExpenses(store);
+    const today = fixedNow ?? new Date();
+    const cur = lastTwelve(today)[11];
+    migrateMonths(store, cur);
+    setNow(today);
+    setView(readView(store));
+    open(month ?? cur, cur);
+    setSaveFailed(false);
+    setStale(false);
+    setSaved((n) => n + 1);
+    return true;
+  }
+
   useEffect(() => {
     let alive = true;
+    aliveRef.current = true;
     loadStore({
       onSaved: (ok, why) => {
         if (!alive) return;
-        setSaveFailed(!ok);
-        setStale(!ok && why === "stale");
+        onSavedRef.current(ok, why);
       },
     })
       .then((store) => {
@@ -248,6 +283,7 @@ export function PersonalFinancePage({
       .catch(() => alive && setSaveFailed(true));
     return () => {
       alive = false;
+      aliveRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fixedNow, loadStore]);
@@ -528,9 +564,11 @@ export function PersonalFinancePage({
           </p>
           {readOnly ? <ReadOnlyLine className="mt-3" /> : null}
           {/* #222 F1: no save status on the scenario screen. */}
-          <p className="pf-save" role="status" data-testid="pf-save" hidden={!!scenario}>
+          <p className={stale && saveFailed ? "pf-save pf-save-stale" : "pf-save"} role="status" data-testid="pf-save" hidden={!!scenario}>
             {saveFailed ? (stale ? STALE_MESSAGE : "Not saved.") : ""}
           </p>
+          {/* #258 (spec 80, PFRL-01): one-click Reload right after the stale banner's text. */}
+          {saveFailed && stale && !scenario ? <StaleReload onReload={reloadInPlace} /> : null}
           {scenario ? null : <MonthControl
             now={now}
             month={month}

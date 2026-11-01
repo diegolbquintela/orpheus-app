@@ -17,7 +17,8 @@ import { PersonalFinancePage, type ScenarioLive } from "@/components/personal-fi
 import { ReadOnlyLine } from "@/components/access/denied";
 import { equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS } from "@/lib/finance/overview";
 import { formatMoney } from "@/lib/finance/money";
-import { RecordStore, type PfRecord } from "@/lib/finance/record";
+import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
+import { StaleReload } from "./stale-reload";
 import type { LoadStore } from "@/lib/finance/account-client";
 import {
   DEFAULT_HORIZON,
@@ -122,6 +123,28 @@ export function ScenarioPage({
     setLoaded({ record: r.record, access: r.access });
     return new RecordStore({ ...(r.record ?? {}) });
   });
+  // #258 (spec 80): bumped by the stale banner's Reload so the screen remounts from the freshly read record.
+  const [generation, setGeneration] = useState(0);
+  /**
+   * #258 (spec 80, AC PFRL-06/07): the Saved scenarios stale banner's `Reload`: one fresh GET in place (no page
+   * reload). The screen is rebuilt from it (lever edits discarded, as the banner warns); a reopened scenario stays
+   * open when it still exists. On failure nothing changes.
+   */
+  const reload = async (): Promise<boolean> => {
+    const r = await load();
+    if (!r.ok) {
+      if (r.status === 401) onSignedOut();
+      return false;
+    }
+    latest.current = r.record;
+    const o = openedRef.current;
+    const still = o ? (readScenario(r.record)?.saved ?? []).find((x) => x.id === o.id) ?? null : null;
+    openedRef.current = still;
+    setOpened(still);
+    setLoaded({ record: r.record, access: r.access });
+    setGeneration((g) => g + 1);
+    return true;
+  };
   const savedList = readScenario(loaded?.record ?? null)?.saved ?? [];
   const afterChange = (r: ChangeResult) => {
     if (r.ok && loaded) {
@@ -147,7 +170,7 @@ export function ScenarioPage({
         </aside>
       ) : null}
       <PersonalFinancePage
-        key={opened?.id ?? "latest"}
+        key={`${opened?.id ?? "latest"}:${generation}`}
         now={now}
         loadStore={loadStore}
         scenario={{
@@ -169,6 +192,7 @@ export function ScenarioPage({
                 comparing,
                 setComparing,
                 change: async (c) => afterChange(await change(c)),
+                reload,
               }}
             />
           ),
@@ -191,6 +215,8 @@ export type Named = {
   comparing?: boolean;
   setComparing?: (v: boolean | ((prev: boolean) => boolean)) => void;
   change: (c: Parameters<typeof changeSaved>[0]) => Promise<ChangeResult>;
+  /** #258 (spec 80): the stale banner's in-place Reload (absent: no button). */
+  reload?: () => Promise<boolean>;
 };
 
 export function ScenarioProjection({
@@ -524,6 +550,9 @@ function SavedScenarios({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  // #258 (spec 80): the last Save / Rename / Update / Delete was refused as stale (409) or base-less (428).
+  const [stale, setStale] = useState(false);
+  const isStale = (r: ChangeResult) => !r.ok && (r.status === 409 || r.status === 428);
   const [localPicked, setLocalPicked] = useState<string[]>([]);
   const picked = named.picked ?? localPicked;
   const setPicked = named.setPicked ?? setLocalPicked;
@@ -565,6 +594,7 @@ function SavedScenarios({
     setRenameErr(null);
     setBusy(true);
     const r = await named.change((s) => renameSaved(s, e.id, draft));
+    setStale(isStale(r));
     setBusy(false);
     if (r.ok) {
       setRenaming(null);
@@ -582,6 +612,7 @@ function SavedScenarios({
     setBusy(true);
     const next = snapshot();
     const r = await named.change((s) => updateSaved(s, e.id, next));
+    setStale(isStale(r));
     setBusy(false);
     if (r.ok) {
       setStatus(`Updated "${e.name}".`);
@@ -608,6 +639,7 @@ function SavedScenarios({
       lines: JSON.stringify(v.lines),
     };
     const r = await named.change((s) => addSaved(s, entry));
+    setStale(isStale(r));
     setBusy(false);
     if (r.ok) {
       setName("");
@@ -619,6 +651,7 @@ function SavedScenarios({
     if (!window.confirm(deleteScenarioQuestion(e.name))) return;
     setBusy(true);
     const r = await named.change((s) => removeSaved(s, e.id));
+    setStale(isStale(r));
     setBusy(false);
     if (r.ok) {
       setPicked((p) => {
@@ -693,6 +726,13 @@ function SavedScenarios({
         <p className="sr-only" role="status" data-testid="pf-saved-status">
           {status}
         </p>
+        {/* #258 (spec 80, PFRL-06): a visible stale banner with its one-click Reload right after the text. */}
+        {stale ? (
+          <div className="mt-3" data-testid="pf-saved-stale">
+            <p className="pf-error">{STALE_MESSAGE}</p>
+            {named.reload ? <StaleReload onReload={named.reload} testId="pf-saved-reload" /> : null}
+          </div>
+        ) : null}
         <div className="mt-4">
           <button
             type="button"

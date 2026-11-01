@@ -595,6 +595,25 @@
   .pf-save:empty {
     display: none;
   }
+  /* #258 (spec 80): a stale save's banner sits in the flow so its Reload button (44px) never covers the row below. */
+  .pf-save.pf-save-stale {
+    position: static;
+  }
+  .pf-stale-reload {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+    max-width: 100%;
+  }
+  .pf-stale-reload > .pf-button {
+    min-width: 2.75rem;
+  }
+  .pf-stale-reload > .pf-error:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
   /* #112: the month control row (reserved: nothing moves when Save shows or the note fills). */
   .pf-month-row {
     display: flex;

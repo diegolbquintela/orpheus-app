@@ -417,3 +417,87 @@ describe("#261 saved scenarios table + compare button (PFST-01..08)", () => {
     assert.equal(q(el, "pf-compare-section"), null, "after delete below 2, CompareTable stays hidden until Compare selected is clicked again");
   });
 });
+
+// #258 (spec 80, AC PFRL-06/07): Saved scenarios' stale banner (Save / Rename / Update / Delete refused 409 or 428)
+// shows the message on screen with a one-click Reload right after it, through the page's own load (in place).
+describe("#258 PFRL Saved scenarios: Reload from the stale banner", () => {
+  const refuse = (status: 409 | 428) => {
+    const inner = globalThis.fetch as (u: unknown, i?: unknown) => Promise<Response>;
+    const f = async (url: unknown, init?: { method?: string; body?: string }) =>
+      init?.method === "PUT"
+        ? new Response(JSON.stringify({ error: "x", code: status === 409 ? "stale" : "base_version_required" }), { status })
+        : inner(url, init);
+    (dom.window as unknown as { fetch: unknown }).fetch = f;
+    (globalThis as unknown as { fetch: unknown }).fetch = f;
+    return inner;
+  };
+  const restore = (inner: unknown) => {
+    (dom.window as unknown as { fetch: unknown }).fetch = inner;
+    (globalThis as unknown as { fetch: unknown }).fetch = inner;
+  };
+
+  it("PFRL-06: Delete refused as stale (409): visible banner + Reload right after it; Reload re-reads in place (another tab's scenario shows), banner gone, heading focused", async () => {
+    const st = server(record());
+    const el = await render();
+    await saveAs(el, "A");
+    await openTable(el);
+    assert.equal(q(el, "pf-saved-stale"), null, "no banner before a refusal");
+    const inner = refuse(409);
+    confirmAs(true);
+    await click(qa(el, "pf-saved-delete")[0]);
+    const banner = q(el, "pf-saved-stale")!;
+    assert.ok(banner, "a visible banner");
+    assert.equal(banner.querySelector("p")!.textContent, STALE_MESSAGE);
+    const btn = q(el, "pf-saved-reload") as HTMLButtonElement;
+    assert.equal(btn.textContent, "Reload");
+    assert.equal(banner.querySelector("p")!.nextElementSibling, btn.parentElement, "right after the banner text");
+    assert.ok(btn.classList.contains("pf-button"), "44px pf-button");
+    // Another tab adds a scenario meanwhile.
+    const sc = readScenario(st.record)!;
+    st.record = { ...st.record, [SCENARIO_KEY]: JSON.stringify({ ...sc, saved: [...sc.saved!, { ...sc.saved![0], id: "other", name: "Other" }] }) };
+    restore(inner);
+    const gets = st.calls.filter((c) => c.method === "GET").length;
+    const puts = st.calls.filter((c) => c.method === "PUT").length;
+    await click(btn);
+    await act(async () => new Promise((r) => setTimeout(r, 10)));
+    assert.equal(st.calls.filter((c) => c.method === "GET").length, gets + 1, "one fresh GET");
+    assert.equal(st.calls.filter((c) => c.method === "PUT").length, puts, "nothing written");
+    assert.deepEqual(names(el), ["A", "Other"], "the fresh record");
+    assert.equal(q(el, "pf-saved-stale"), null, "banner gone");
+    assert.equal(dom.window.document.activeElement?.tagName, "H1", "focus on the page heading");
+    confirmAs(true);
+    await click(qa(el, "pf-saved-delete")[0]);
+    assert.deepEqual(names(el), ["Other"], "Delete works after the reload");
+    assert.equal(q(el, "pf-saved-stale"), null);
+  });
+
+  it("PFRL-07: Save refused 428: banner + Reload; while reloading disabled + Reloading…; a failed reload keeps the typed name and focuses an inline error", async () => {
+    server(record());
+    const el = await render();
+    const inner = refuse(428);
+    await saveAs(el, "Plan B");
+    assert.ok(q(el, "pf-saved-stale"), "428 shows the same banner");
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const failing = async (url: unknown, init?: { method?: string }) => {
+      if ((init?.method ?? "GET") === "GET") {
+        await gate;
+        return new Response("{}", { status: 500 });
+      }
+      return (inner as (u: unknown, i?: unknown) => Promise<Response>)(url, init);
+    };
+    restore(failing);
+    await act(async () => (q(el, "pf-saved-reload") as HTMLButtonElement).click());
+    assert.equal((q(el, "pf-saved-reload") as HTMLButtonElement).disabled, true);
+    assert.equal(q(el, "pf-saved-reload")!.textContent, "Reloading…");
+    await act(async () => {
+      release();
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    assert.equal(q(el, "pf-saved-reload-error")?.textContent, "Couldn't reload. Your edits are kept; try again.");
+    assert.equal(dom.window.document.activeElement?.getAttribute("data-testid"), "pf-saved-reload-error", "focus on the error");
+    assert.equal((q(el, "pf-saved-name") as HTMLInputElement).value, "Plan B", "the typed name is kept");
+    assert.ok(q(el, "pf-saved-stale"), "the banner stays");
+    restore(inner);
+  });
+});

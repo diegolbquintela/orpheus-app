@@ -2789,3 +2789,19 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 79.6 **CFO notice.** This is an endpoint change. Notify CFO through EL. Any external script that PUTs the record must GET first and echo `version` as `baseVersion`.
 
 79.7 **Tests / AC:** PFBV-01..PFBV-09 (`stale-save.server.test.ts` #257 block, `expenses-page.dom.test.tsx` PFBV-05/06, `history-page.dom.test.tsx` PFBV-07).
+
+## 80. Personal Finance: one-click `Reload` in the stale-save banner (#258, LOW; added 2026-11-01; follow-up to §73 / #242 Q-TW3 and §79 / #257)
+
+80.1 **What.** Wherever a save is refused as stale (409 `stale`) or base-less (428 `base_version_required`), the banner text (`STALE_MESSAGE`, unchanged) is followed directly by a `Reload` button. Surfaces: Overview (`pf-save` + `pf-stale-reload`), History (`pf-history-status` / `pf-stale-error` + `pf-stale-reload`), and Saved scenarios on the Scenario screen for Save, Rename, Update and Delete (a new visible banner `pf-saved-stale` + `pf-saved-reload`; the screen-reader `pf-saved-status` / field error texts are unchanged).
+
+80.2 **Behaviour (defaults; CFO confirms at READY).**
+- In place: one fresh `GET /api/personal-finance` through the page's own loader; no full page reload, no write.
+- Success: the screen shows the server's record; unsaved edits are discarded (the banner already says so); the next save is based on the fresh `version` (`baseVersion`). Overview reopens the month that was shown; History keeps the chosen year; the Scenario screen rebuilds from the fresh record (lever edits discarded; a reopened saved scenario stays open if it still exists). The banner and button go; focus moves to the page heading (`h1`, made focusable with `tabindex="-1"`).
+- While loading: the button is disabled (`aria-busy`) and reads `Reloading…`.
+- Failure (network or non-2xx): an inline error `Couldn't reload. Your edits are kept; try again.` (`role="alert"`, focused) shows after the button; edits and the banner stay; the button can be pressed again. A 401 goes to sign-in as on load.
+
+80.3 **Layout.** The button is a `pf-button` (44px tall; min 44px wide) in `.pf-stale-reload` (flex, wraps on phones). On Overview the stale banner sits in the flow (`.pf-save-stale`, `position: static`) so the button never covers the row below; the plain `Not saved.` line stays absolutely positioned as before. No tnum, no gold, no new colours.
+
+80.4 **No change** to the API, the schema, storage keys, env vars or dependencies. Copy lives in `src/lib/finance/stale-reload.ts`; the component is `src/components/personal-finance/stale-reload.tsx`.
+
+80.5 **Tests / AC:** PFRL-01..PFRL-09 (`expenses-page.dom.test.tsx` PFRL-01..03, `history-page.dom.test.tsx` PFRL-04/05, `saved-scenarios.dom.test.tsx` PFRL-06/07).
