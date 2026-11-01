@@ -2180,3 +2180,30 @@ The PFRL prefix was unused before this branch. Defaults pending CFO confirmation
 |---|---|---|
 | PFRL-08 (addendum 2026-11-01, QA BT1) | MAJOR | PFRL-08 (addendum 2026-11-01, QA BT1): the Reload button may sit inline beside the banner text on wide screens (e.g. History at 1440px) and wraps under the text on narrow ones; both pass. |
 | PFRL-10 (amended 2026-11-01, QA BT4) | BLOCK | In addition to PFRL-10 as written: a Rename refused 409 or 428 shows only `pf-saved-stale` (message once); no `pf-saved-rename-error`, the rename field is not `aria-invalid`, and the typed name is kept. A duplicate rename (`NAME_TAKEN`) and a 500 still show under the rename field (500 with `aria-invalid="true"`, no stale banner). |
+
+## Amendment 2026-11-01 (#286): site header and menu (HDR)
+
+Supersedes RM-22, RM-23 and RM-24 (EL decision, #286). RM-21 stays as written (the server-side, fail-closed owner
+check). Spec: `attachments/header-menu-spec.md`.
+
+| AC | Severity | Check |
+|---|---|---|
+| HDR-01 | BLOCK | `nav[aria-label=Site][data-testid=site-menu]`, sticky `top-0`, charcoal. The bar holds exactly: the lyre + `Orpheus` link to `/`, `Get Started`, a Search button, a Menu button (in that order); each target ≥ 44 × 44 px; no bar link has `aria-current`. |
+| HDR-02 | BLOCK | `Get Started` is one link to `/calculator`, chalk background with charcoal text (no gold), visible at every width down to 360 px. |
+| HDR-03 | BLOCK | The Menu button opens a full-page overlay (`role=dialog`, `aria-modal=true`, covers the viewport; not a dropdown); `aria-expanded` follows; an X button (`Close menu`) closes it. |
+| HDR-04 | BLOCK | The overlay is in the server HTML, `hidden` until opened; its links are, in order, Orpheus, Calculator, Dashboard, Personal Finance, Account (last), each by its full name (no abbreviation, no glyph-only item). |
+| HDR-05 | BLOCK | Exactly one `aria-current="page"` per known page, on the overlay link; none on unknown paths. |
+| HDR-06 | BLOCK | Owner only: `Renaissance Man` (full name) right before Account, `aria-current` on `/renaissance`. With no owner link (null, undefined, omitted) the markup is identical and has no `renaissance` (any case) and no `RM`; signed-out HTML of every page has no `/renaissance` (RM-21, fail-closed). |
+| HDR-07 | MAJOR | The Search button opens the overlay with focus in a labelled search field (placeholder `Search Orpheus`, note `Search is coming soon.`) that searches nothing: no form, no fetch, no navigation. |
+| HDR-08 | BLOCK | Esc closes the overlay; focus returns to the button that opened it (Menu or Search). |
+| HDR-09 | BLOCK | While open, Tab and Shift-Tab are trapped inside the overlay (wrap last → first and first → last). |
+| HDR-10 | MINOR | `MENU_EXTRA_SECTIONS` exists and is empty (hook for Obsidian columns; no Obsidian links yet). |
+| HDR-11 | BLOCK | At 360 / 390 / 768 / 1440 px: no horizontal overflow (bar or open overlay), CLS 0, AA contrast, no tabular numerals, no gold; the `Orpheus Wisdom` footer unchanged. |
+| HDR-12 | BLOCK | `npm run check:dashboard-built` checks the header (lyre link, Get Started, Search and Menu buttons, hidden overlay, link order, no `/renaissance` signed out) and release-smoke's `menuOk` passes unchanged. |
+
+### Addendum 2026-11-01 (#286, Diego via EL): no primary action
+
+| AC | Severity | Check |
+|---|---|---|
+| HDR-01 (amended 2026-11-01) | BLOCK | In addition to HDR-01 as written: the bar holds exactly the lyre + `Orpheus` link to `/`, the Search button and the Menu button, in that order; `Get Started` is not part of it. |
+| HDR-02 (amended 2026-11-01) | BLOCK | Replaces HDR-02: the header has no primary action. No `Get Started` text, no `site-get-started` element, and the nav's only `/calculator` link is the overlay's `Calculator`. HDR-11/12 apply to the bar without it. |

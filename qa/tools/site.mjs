@@ -22,15 +22,23 @@ const browser = await chromium.launch();
 async function shell(page, path, want) {
   const nav = page.locator('nav[aria-label="Site"]');
   check(`${path}: menu visible`, await nav.isVisible());
-  const links = await nav.locator('a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')]));
-  check(`${path}: menu items`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal Finance', '/personal-finance'], ['Account', '/account']]), links);
-  const current = await nav.locator('[aria-current="page"]').allTextContents();
+  // #286 (HDR): the bar is lyre / Search / Menu; the page links live in the full-page overlay (hidden until opened).
+  const bar = await nav.locator('[data-testid="site-bar"]').locator('a, button').evaluateAll((as) => as.map((a) => a.textContent.trim() || a.getAttribute('aria-label')));
+  check(`${path}: bar items (#286)`, JSON.stringify(bar) === JSON.stringify(['Orpheus', 'Search', 'Menu']), bar);
+  const links = await nav.locator('[data-testid="site-menu-links"] a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')]));
+  check(`${path}: overlay menu items (#286)`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal Finance', '/personal-finance'], ['Account', '/account']]), links);
+  const current = await nav.locator('[aria-current="page"]').allTextContents(); // overlay links only (#286)
   check(`${path}: current page ${want ?? '(none)'}`, JSON.stringify(current) === JSON.stringify(want ? [want] : []), current);
   if (want) {
     const style = await nav.locator('[aria-current="page"]').evaluate((a) => getComputedStyle(a).textDecorationLine);
     check(`${path}: current page has a visual state (underline)`, /underline/.test(style), style);
   }
-  check(`${path}: no dropdowns`, (await nav.locator('button, select, details, [aria-haspopup], [role=menu]').count()) === 0);
+  // #286: no dropdowns; the Menu button opens a full-page dialog (hidden until opened), Esc closes it.
+  check(`${path}: no dropdowns; overlay hidden until opened (#286)`, (await nav.locator('select, details, [aria-haspopup], [role=menu]').count()) === 0 && (await nav.locator('[data-testid="site-overlay"]').isHidden()));
+  await page.getByTestId('site-menu-open').click();
+  check(`${path}: Menu opens the full-page overlay (#286)`, await nav.locator('[data-testid="site-overlay"]').isVisible());
+  await page.keyboard.press('Escape');
+  check(`${path}: Esc closes it (#286)`, await nav.locator('[data-testid="site-overlay"]').isHidden());
   const pos = await nav.evaluate((n) => getComputedStyle(n).position);
   await page.mouse.wheel(0, 4000); await page.waitForTimeout(300);
   const top = await nav.evaluate((n) => Math.round(n.getBoundingClientRect().top));

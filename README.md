@@ -14,6 +14,8 @@ Every page has the same menu, a thin bar that stays at the top: "Orpheus" (home)
 Dashboard item shows even when the flag is off. The footer reads "Orpheus Wisdom" and nothing else. Every page is
 `noindex` (meta tag plus the `X-Robots-Tag` header).
 
+2026-11-01 note (#286): the bar above is superseded. The header is now the lyre + "Orpheus" (home), a Search button and a Menu (hamburger) button, with no primary action; the page links (Orpheus, Calculator, Dashboard, Personal Finance, Account) live in a full-page overlay with an X close button, Esc to close and a focus trap. Spec `attachments/header-menu-spec.md`, AC HDR.
+
 **Analytics.** Vercel Web Analytics (`@vercel/analytics`, mounted once in `src/routes/__root.tsx`) collects
 anonymous page views only: the page path with query strings stripped, no cookies, no custom events, no
 emails, tickers or holdings. Why: to see which tools get used. There are no other trackers. The calculator's saved
@@ -774,6 +776,8 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Seed:** run `node --experimental-strip-types scripts/renaissance-seed.ts <tracker.md>` for a dry run. Add `--post <origin>` to send the bodies through the endpoint once; the script never touches the database.
 
 2026-10-30 note (#271): the owner also gets a **Renaissance Man** link in the site bar (it shows `RM` below 768 px, and the bar may wrap on phones). It uses the same server-side owner check as `/renaissance`. Everyone else's bar is unchanged and carries nothing about it. Spec §9; AC RM-21..RM-24.
+
+2026-11-01 note (#286): superseded. The owner's link now sits in the full-page menu overlay as **Renaissance Man** (full name, no `RM`), right before Account, with the same server-side, fail-closed owner check (RM-21); RM-22..RM-24 are replaced by AC HDR. See `attachments/header-menu-spec.md`.
 
 ## Testing ownership: QA functional + post-deploy regression; EL coordinates (Diego, 2026-11-01)
 

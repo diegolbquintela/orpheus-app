@@ -262,8 +262,18 @@ for (const flag of [undefined, "true"]) {
   check(/href="\/dashboard"[^>]*>Dashboard</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Dashboard item`);
   check(/href="\/personal-finance"[^>]*>Personal Finance</.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Personal Finance item (#97)`);
   // #90 (ROLE-01): Account last; the person glyph (phones) and the word (visually hidden below 640 px).
-  check(/<li><a href="\/account"[^>]*><svg [^>]*aria-hidden="true"[^>]*data-testid="person-glyph"[\s\S]*?<\/svg><span class="sr-only sm:not-sr-only">Account<\/span><\/a><\/li><\/ul>/.test(home.body.match(SITE_MENU)?.[0] ?? ""), `${label}: / menu lacks the Account item last (#90)`);
-  check(((home.body.match(SITE_MENU)?.[0] ?? "").match(/<a /g) ?? []).length === 5, `${label}: / menu is not five links (#90)`);
+  // #286 (HDR, supersedes the #90 five-link bar): the header bar (lyre home link, the Search and Menu buttons; no
+  // primary action, HDR-02 amended 2026-11-01) and the full-page overlay in the server HTML, hidden, its links in order with Account last.
+  const nav = home.body.match(SITE_MENU)?.[0] ?? "";
+  check(/<a href="\/"[^>]*data-testid="site-logo"[^>]*><svg [^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus<\/span><\/a>/.test(nav), `${label}: / header lacks the lyre home link (#286)`);
+  check(!/Get Started|site-get-started/.test(nav) && (nav.match(/<a href="\/calculator"/g) ?? []).length === 1, `${label}: / header has a primary action (Get Started removed, HDR-02 amended)`);
+  check(/<button type="button"[^>]*aria-label="Search"[^>]*aria-expanded="false"/.test(nav), `${label}: / header lacks the Search button (#286)`);
+  check(/<button type="button"[^>]*aria-label="Menu"[^>]*aria-expanded="false"/.test(nav), `${label}: / header lacks the Menu button (#286)`);
+  const overlay = nav.match(/<div id="[^"]*"[^>]*role="dialog"[^>]*>[\s\S]*$/)?.[0] ?? "";
+  check(/^<div [^>]*\bhidden=""/.test(overlay), `${label}: / overlay missing from the HTML or not hidden (#286)`);
+  check(JSON.stringify([...(overlay.match(/<ul [^>]*data-testid="site-menu-links"[\s\S]*?<\/ul>/)?.[0] ?? "").matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[1]} ${m[2]}`)) === JSON.stringify(["/ Orpheus", "/calculator Calculator", "/dashboard Dashboard", "/personal-finance Personal Finance", "/account Account"]), `${label}: / overlay links not Orpheus, Calculator, Dashboard, Personal Finance, Account (last) (#286)`);
+  // RM-21 (fail-closed): signed out, the owner-only link never reaches the HTML.
+  check(!/renaissance/i.test(nav), `${label}: signed-out / menu mentions /renaissance (RM-21)`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);
   const heroImg = home.body.match(/<header [^>]*data-testid="home-hero"[\s\S]*?(<img [^>]*>)/)?.[1] ?? "";
   check(/ alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange \(1652\)"/.test(heroImg) && / width="3300"/.test(heroImg) && / height="2200"/.test(heroImg), `${label}: / lacks the Jordaens hero img (alt, width, height): ${heroImg}`);

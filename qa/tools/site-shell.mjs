@@ -6,6 +6,7 @@
 // QA_PASSWORD are in env; through session.mjs, never logged): /dashboard and /personal-finance (#97 bar item; #102).
 //
 // Per page and width:
+//   (#286, 2026-11-01: the bar is now lyre Orpheus / Search / Menu, the page links in the full-page overlay; HDR ACs.)
 //   ST1-01 one thin charcoal bar (≤ 48 px), sticky at the top on scroll, Orpheus left / Calculator, Dashboard,
 //          Personal Finance right (#97; order, hrefs, one line, text only, 12 px below 640 px / 14 px from 640,
 //          links ≥ 44 px tall), no dropdowns, no horizontal page scroll
@@ -139,36 +140,38 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   const tag = `[${vp}] ${path}`;
   const nav = page.locator('nav[aria-label="Site"]');
   check(`${tag} ST1-01 bar visible`, await nav.isVisible());
+  // #286 (HDR, supersedes the five-link bar): the bar is lyre + Orpheus / Search / Menu; the page links (ITEMS) are in the
+  // full-page overlay, hidden until opened. Bar items are read from [data-testid=site-bar] only, so hidden overlay links
+  // never count as bar items.
   const bar = await nav.evaluate((n) => {
     const cs = getComputedStyle(n);
     const r = n.getBoundingClientRect();
-    const links = [...n.querySelectorAll("a")].map((a) => {
+    const items = [...n.querySelector('[data-testid="site-bar"]').querySelectorAll("a, button")].map((a) => {
       const s = getComputedStyle(a);
       const b = a.getBoundingClientRect();
-      return { text: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current"), color: s.color, deco: s.textDecorationLine, size: parseFloat(s.fontSize), x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + b.height / 2), h: Math.round(b.height), w: Math.round(b.width), icons: a.getAttribute("href") === "/" ? 0 : [...a.querySelectorAll("svg, img")].filter((e) => getComputedStyle(e).display !== "none").length };
+      return { text: a.textContent.trim() || a.getAttribute("aria-label"), href: a.getAttribute("href"), current: a.getAttribute("aria-current"), color: s.color, x: Math.round(b.left), right: Math.round(b.right), y: Math.round(b.top + b.height / 2), h: Math.round(b.height), w: Math.round(b.width) };
     });
-    return { bg: cs.backgroundColor, position: cs.position, height: Math.round(r.height), links, popups: n.querySelectorAll("button, select, details, [aria-haspopup], [role=menu]").length };
+    const links = [...n.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => ({ text: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current") }));
+    return { bg: cs.backgroundColor, position: cs.position, height: Math.round(r.height), items, links, overlayHidden: n.querySelector('[data-testid="site-overlay"]')?.hidden === true, popups: n.querySelectorAll("select, details, [aria-haspopup], [role=menu]").length };
   });
   check(`${tag} ST1-01 charcoal, thin (≤ 48 px)`, bar.bg === NIGHT && bar.height <= 48, { bg: bar.bg, height: bar.height });
-  check(`${tag} ST1-01 items, hrefs, order`, JSON.stringify(bar.links.map((l) => [l.text, l.href])) === JSON.stringify(ITEMS), bar.links.map((l) => l.text));
-  const ys = bar.links.map((l) => l.y);
-  // Right group right-aligned: Dashboard ends within the bar's side padding (≤ 40 px from the right edge, or
-  // the 1152 px column's edge on wide screens), Calculator just before it, Orpheus at the left.
+  check(`${tag} ST1-01 (#286) bar items: Orpheus (lyre) / Search / Menu, no current mark on them`, JSON.stringify(bar.items.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Search", null], ["Menu", null]]) && bar.items.every((l) => l.current === null), bar.items.map((l) => l.text));
+  check(`${tag} ST1-01 (#286) overlay links (hidden until opened): items, hrefs, order, Account last`, bar.overlayHidden && JSON.stringify(bar.links.map((l) => [l.text, l.href])) === JSON.stringify(ITEMS), bar.links.map((l) => l.text));
+  const ys = bar.items.map((l) => l.y);
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
-  const last = bar.links.at(-1);
-  check(`${tag} ST1-01 / ROLE-01 Orpheus left, Calculator, Dashboard, Personal Finance, Account right, one line, no overlap`, bar.links[0].x < viewport.width / 4 && bar.links.every((l, i) => i === 0 || l.x >= bar.links[i - 1].right) && bar.links[1].x - bar.links[0].right >= 8 && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.links.map((l) => [l.x, l.right, l.y]));
-  // #90 (EL, Q21 amended): 11 px through 399 px so the five items fit at 360; 12 px from 400 px; 14 px from 640.
-  const size = viewport.width < 400 ? 11 : viewport.width < 640 ? 12 : 14;
-  // #90 (ROLE-01, Q-D8): Account is the one icon on the right (the person glyph below 640 px; the word from 640 px).
-  const wantIcons = (l) => (l.href === "/account" && viewport.width < 640 ? 1 : 0);
-  check(`${tag} ST1-01 / ROLE-01 text only on the right except Account's glyph below 640 px, ${size} px text (Q21), every link ≥ 44 px tall and wide`, bar.links.every((l) => l.icons === wantIcons(l) && l.size === size && l.h >= 44 && l.w >= 44), bar.links.map((l) => [l.text, l.size, l.w, l.h, l.icons]));
-  check(`${tag} ST1-01 no dropdowns`, bar.popups === 0);
+  const last = bar.items.at(-1);
+  check(`${tag} ST1-01 (#286) Orpheus left, Search and Menu right, one line, no overlap`, bar.items[0].x < viewport.width / 4 && bar.items.every((l, i) => i === 0 || l.x >= bar.items[i - 1].right) && last.right >= colRight - 40 && last.right <= viewport.width && Math.max(...ys) - Math.min(...ys) <= 2, bar.items.map((l) => [l.x, l.right, l.y]));
+  check(`${tag} ST1-01 every bar item ≥ 44 px tall and wide`, bar.items.every((l) => l.h >= 44 && l.w >= 44), bar.items.map((l) => [l.text, l.w, l.h]));
+  check(`${tag} ST1-01 no dropdowns (#286: the menu is a full-page dialog)`, bar.popups === 0);
   const current = bar.links.filter((l) => l.current === "page");
   check(`${tag} ST1-02 current page ${want ?? "(none)"}`, JSON.stringify(current.map((l) => l.text)) === JSON.stringify(want ? [want] : []), current.map((l) => l.text));
-  for (const l of bar.links) {
+  check(`${tag} ST1-02 Orpheus (bar) off-white`, bar.items[0].color === CHALK, bar.items[0].color);
+  // The overlay links' paint (computed while hidden, so the Tab walk below is not moved): current chalk + underline,
+  // the others dim. Opening and closing the overlay is covered by site.mjs and the DOM tests.
+  const paint = await nav.evaluate((n) => [...n.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => ({ text: a.textContent, current: a.getAttribute("aria-current"), color: getComputedStyle(a).color, deco: getComputedStyle(a).textDecorationLine })));
+  for (const l of paint) {
     const isCur = l.current === "page";
-    const wantColor = isCur || l.text === "Orpheus" ? CHALK : DIM;
-    check(`${tag} ST1-02 ${l.text}: ${isCur ? "off-white + underline" : l.text === "Orpheus" ? "off-white, no underline" : "dim, no underline"}`, l.color === wantColor && /underline/.test(l.deco) === isCur, { color: l.color, deco: l.deco });
+    check(`${tag} ST1-02 ${l.text}: ${isCur ? "off-white + underline" : "dim, no underline"}`, l.color === (isCur ? CHALK : DIM) && /underline/.test(l.deco) === isCur, { color: l.color, deco: l.deco });
   }
   await page.mouse.wheel(0, 3000);
   await page.waitForTimeout(250);
@@ -185,7 +188,7 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   const scan = await contrastScan(page);
   check(`${tag} ST0-03 AA contrast for every visible text (bar, content, footer)`, scan.bad.length === 0, scan.bad.length ? scan.bad : { texts: scan.n });
   // Strip aria-current and React's generated ids before comparing the bar across pages.
-  const html = (await nav.evaluate((n) => n.outerHTML)).replace(/ aria-current="page"/g, "");
+  const html = (await nav.evaluate((n) => n.outerHTML)).replace(/ aria-current="page"/g, "").replace(/ (id|for|aria-controls|aria-describedby)="[^"]*"/g, " $1");
   if (!navHtml.has(vp)) navHtml.set(vp, new Set());
   navHtml.get(vp).add(html);
 }
@@ -315,18 +318,14 @@ try {
     const bTo = new URL(b.headers.get("location") ?? "/x", base);
     check(`signed-out ${path} → 307 /dashboard/sign-in?next=${next}, noindex (#161 PFCB-01)`, b.status === 307 && bTo.pathname === "/dashboard/sign-in" && bTo.searchParams.get("next") === next && /noindex/i.test(b.headers.get("x-robots-tag") ?? ""), [b.status, b.headers.get("location"), b.headers.get("x-robots-tag")]);
   }
-  // #90 D1 (ROLE-01): the 11 px edge: 11 px at 399 px, 12 px at 400 px; `Personal Finance` on one line at both.
-  for (const [w, want] of [[399, 11], [400, 12]]) {
+  // #90 D1 superseded by #286: the bar no longer holds the page links; at 399 / 400 px the three bar items sit on one
+  // line with no horizontal scroll.
+  for (const w of [399, 400]) {
     const pg = await browser.newPage({ viewport: { width: w, height: 800 } });
     await pg.goto(`${base}/`, { waitUntil: "networkidle" });
     await fontWait(pg, `[${w}] /`);
-    const m = await pg.locator('nav[aria-label="Site"]').evaluate((n) => {
-      const pf = n.querySelector('a[href="/personal-finance"]');
-      const r = document.createRange();
-      r.selectNodeContents(pf);
-      return { sizes: [...n.querySelectorAll("a")].map((a) => parseFloat(getComputedStyle(a).fontSize)), pfLines: new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size };
-    });
-    check(`[${w}] ROLE-01 bar text ${want} px, Personal Finance on one line`, m.sizes.every((s) => s === want) && m.pfLines === 1, m);
+    const m = await pg.locator('nav[aria-label="Site"] [data-testid="site-bar"]').evaluate((b) => ({ ys: [...b.querySelectorAll("a, button")].map((a) => Math.round(a.getBoundingClientRect().top)), scroll: document.documentElement.scrollWidth - document.documentElement.clientWidth }));
+    check(`[${w}] #286 bar items on one line, no horizontal scroll`, new Set(m.ys).size === 1 && m.scroll <= 0, m);
     await pg.close();
   }
   await signedOut(browser, base, false);

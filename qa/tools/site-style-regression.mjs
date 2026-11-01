@@ -294,12 +294,17 @@ async function ownChecks(browser) {
           const home = nav.querySelector('a[href="/"]');
           const svg = home?.firstElementChild;
           const lyre = svg?.tagName.toLowerCase() === "svg" && svg.getAttribute("aria-hidden") === "true" && svg.querySelectorAll("path").length === 5 && Math.round(svg.getBoundingClientRect().width) === 20;
-          const links = [...nav.querySelectorAll("a")].map((a) => { const r = a.getBoundingClientRect(); return { text: a.textContent.trim(), href: a.getAttribute("href"), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, current: a.getAttribute("aria-current") }; });
+          // #286 (HDR): the visible bar items (lyre link, Search, Menu); the overlay's links are counted apart (hidden until opened).
+          const links = [...nav.querySelector('[data-testid="site-bar"]').querySelectorAll("a, button")].map((a) => { const r = a.getBoundingClientRect(); return { text: a.textContent.trim() || a.getAttribute("aria-label"), href: a.getAttribute("href"), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, current: a.getAttribute("aria-current") }; });
+          const menu = [...nav.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => ({ text: a.textContent.trim(), href: a.getAttribute("href"), current: a.getAttribute("aria-current") }));
+          const overlayHidden = nav.querySelector('[data-testid="site-overlay"]')?.hidden === true;
           return {
             lyre,
             bar: Math.round(nav.getBoundingClientRect().height * 10) / 10,
             barBg: getComputedStyle(nav).backgroundColor,
             links,
+            menu,
+            overlayHidden,
             footer: document.querySelector("footer")?.textContent.trim(),
             bodyBg: getComputedStyle(document.body).backgroundColor,
             bodyColor: getComputedStyle(document.body).color,
@@ -309,9 +314,9 @@ async function ownChecks(browser) {
             analytics: document.querySelectorAll('script[src*="/_vercel/insights/script.js"], script[src*="va.vercel-scripts.com"]').length,
           };
         });
-        check(`${tag} ST6-04 bar: charcoal, ≤ 48 px, Orpheus / Calculator / Dashboard / Personal Finance (#97) / Account (#90), current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]) });
+        check(`${tag} ST6-04 (#286 HDR) bar: charcoal, ≤ 48 px, exactly lyre Orpheus / Search / Menu; overlay (hidden) Orpheus / Calculator / Dashboard / Personal Finance / Account, current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Search", null], ["Menu", null]]) && sh.links.every((l) => l.current === null) && sh.overlayHidden && JSON.stringify(sh.menu.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.menu.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]), menu: sh.menu.map((l) => [l.text, l.current]), overlayHidden: sh.overlayHidden });
         check(`${tag} ST1-05 the lyre mark (aria-hidden SVG, 20 px) first in the Orpheus link`, sh.lyre === true, sh.lyre);
-        check(`${tag} ST6-08 bar links ≥ 44 × 44 px tap targets, bar ≤ 48 px`, sh.links.every((l) => l.h >= 44 && l.w >= 44) && sh.bar <= 48, { bar: sh.bar, links: sh.links.map((l) => [l.text, l.w, l.h]) });
+        check(`${tag} ST6-08 (#286) bar items (lyre link, Search, Menu) ≥ 44 × 44 px tap targets, bar ≤ 48 px`, sh.links.every((l) => l.h >= 44 && l.w >= 44) && sh.bar <= 48, { bar: sh.bar, links: sh.links.map((l) => [l.text, l.w, l.h]) });
         check(`${tag} ST6-04 footer exactly \`Orpheus Wisdom\`; charcoal page, chalk type, color-scheme dark`, sh.footer === "Orpheus Wisdom" && sh.bodyBg === NIGHT && sh.bodyColor === CHALK && sh.scheme.every((s) => s === "dark"), { footer: sh.footer, bg: sh.bodyBg, color: sh.bodyColor, scheme: sh.scheme });
         check(`${tag} ST6-05 noindex meta, one Analytics script, no horizontal scroll`, /noindex/.test(sh.robots ?? "") && sh.analytics === 1 && sh.scroll <= 0, { robots: sh.robots, analytics: sh.analytics, scroll: sh.scroll });
 

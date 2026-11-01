@@ -118,6 +118,8 @@ try {
       try {
         if (start) {
           await page.goto(`${base}${start}`, { waitUntil: "networkidle" });
+          // #286: the bar's page links live in the menu overlay; open it first.
+          if (click.startsWith('nav[aria-label="Site"]')) await page.getByTestId("site-menu-open").click();
           await page.locator(click).click();
           await page.waitForURL((u) => u.pathname === "/dashboard/sign-in", { timeout: 20000 }).catch(() => {});
           await page.waitForLoadState("networkidle");
@@ -181,10 +183,14 @@ try {
       const entry = [];
       for (const [start, click] of [["/calculator", 'nav[aria-label="Site"] a[href="/personal-finance"]'], ["/", '[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]']]) {
         await page.goto(`${base}${start}`, { waitUntil: "networkidle" });
+        // #286: the bar's page links live in the menu overlay; open it first.
+        if (click.startsWith('nav[aria-label="Site"]')) await page.getByTestId("site-menu-open").click();
         await page.locator(click).click();
         await page.waitForURL((u) => u.pathname === PATH, { timeout: 20000 }).catch(() => {});
         await ready(page).catch(() => {});
-        entry.push([new URL(page.url()).pathname, await page.locator('nav[aria-label="Site"] a[aria-current=page]').allTextContents(), await page.title()]);
+        await page.getByTestId("site-menu-open").click();
+        entry.push([new URL(page.url()).pathname, await page.locator('nav[aria-label="Site"] [data-testid="site-menu-links"] a[aria-current=page]').allTextContents(), await page.title()]);
+        await page.keyboard.press("Escape");
       }
       await page.goto(`${base}${SIGN_IN_NEXT}`, { waitUntil: "networkidle" });
       const direct = new URL(page.url()).pathname;
