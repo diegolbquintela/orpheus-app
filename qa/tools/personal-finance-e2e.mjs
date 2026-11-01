@@ -21,20 +21,8 @@ import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { API, FX_HISTORY_NOTE, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
-// #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
-const avg12Label = (withData = 12, now = new Date()) => {
-  if (withData < 12) return `12-month average (${withData} of 12 months)`;
-  // #132 (PF-115) / #140 (PF-121): the 12 complete household months (America/Toronto), the 3-month label style.
-  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
-  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
-  return `12-month average (${name(12)}\u2013${name(1)})`; // #140 (PF-121): 12 complete months
-};
-const avg3Label = (now = new Date()) => {
-  // C7 (approved 2026-10-13): the 3 complete months before the current one, in the household timezone.
-  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(now).split("-").map(Number);
-  const name = (back) => new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1 - back, 1)));
-  return `3-month average (${name(3)}\u2013${name(1)})`;
-};
+// #285: the window labels come from the PAGE's pinned clock (TODAY), not the runner's wall clock (qa/tools/pf-window.mjs).
+import { avg3Label as avg3At, avg12Label as avg12At, householdMonth } from "./pf-window.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -54,6 +42,9 @@ const VIEWPORTS = [
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const TODAY = new Date(2026, 9, 11, 12);
+// #285: expected labels and the "current month" follow TODAY, the date page.clock.setFixedTime gives the app.
+const avg3Label = () => avg3At(TODAY);
+const avg12Label = (withData = 12) => avg12At(TODAY, withData);
 const SIGN_IN_NEXT = "/dashboard/sign-in?next=%2Fpersonal-finance";
 const shot = async (page, name) => {
   const file = join(CFG.out, name);
@@ -379,7 +370,7 @@ try {
       check(`${tag} PF-89 (#126) / PF-120 (#132) / PF-128 (#140) This month · 3-month average · ${avg12Label(1)}; C7: ${avg3Label()} = 4,000 / 9,000 / 5,000 (Jul, Aug, Sep empty take the 12-complete-month average, #140 PF-125); no horizontal scroll`, JSON.stringify(heads.map((h) => h.trim()).slice(1)) === JSON.stringify(["This month", avg3Label(), avg12Label(1)]) && JSON.stringify(avg3) === JSON.stringify(["4,000.00", "9,000.00", "5,000.00"]) && scroll <= 0, { heads, avg3, scroll });
       // #184 (spec 44.3, PFEC-04 / PFEC-12): an as-of month = the current Toronto month anchors net assets at the start
       // (net(A−1) = start), so the coverage equals the typed-start line; clearing it restores it exactly.
-      const curMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+      const curMonth = householdMonth(TODAY); // #285: the page's current month (pinned clock), not the runner's
       await page.getByTestId("pf-as-of").fill(curMonth);
       const cvAsOf = await cov();
       await page.getByTestId("pf-as-of").fill("");

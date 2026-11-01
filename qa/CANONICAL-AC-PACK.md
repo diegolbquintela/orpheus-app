@@ -2118,3 +2118,18 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFNL-04: Routes, URLs, query params, sign-in `next=` targets, data and storage keys are unchanged. (DOM, unit)
 - PFNL-05: At 360 / 390 / 768 / 1440 px: no horizontal overflow, CLS 0, no tnum, no gold, dark style, tap targets ≥ 44 px. (headless)
 - PFNL-06: **QA-owned, signed in on the preview:** each sub-nav link opens its page (Report Builder → the reports list, Yearly Ledger → the ledger table, Scenario Analysis → the scenario screen), and every page title and heading matches PFNL-02. (QA)
+
+## PF 3-month window at month boundaries (#285, 2026-11-01; spec section 78)
+
+Verdict: the app matches spec 22 C7 (the last 3 complete months, America/Toronto). The PF-89 / PFEC-04 failures on Nov 1 came from the harness: it computed the expected labels from the wall clock while the page's clock was pinned to Oct 11. The PFWB prefix was unused before this section.
+
+| AC | Severity | Check |
+|---|---|---|
+| PFWB-01 | BLOCK | Unit (`overview.test.ts`): Oct 31 23:59:59.999 Toronto (= Nov 1 03:59:59.999Z) → `Jul–Sep`. Nov 1 00:00 Toronto → `Aug–Oct`, 12-month `Nov–Oct`. Nov 1 00:00Z (Oct 31 in Toronto) → `Jul–Sep`. |
+| PFWB-02 | BLOCK | Unit: Nov 1 00:00 process-local follows Toronto. Under TZ=UTC that is `Jul–Sep`; under TZ=America/Los_Angeles it is `Aug–Oct`. |
+| PFWB-03 | BLOCK | Unit: year rollover. Dec 31 23:59:59.999 Toronto → 2026-09..11. Jan 1 2027 00:00 Toronto → 2026-10..12 (`Oct–Dec`), 12-month 2026-01..12. Feb 1 → 2026-11..2027-01. |
+| PFWB-04 | BLOCK | Unit: Feb 29 2028 → 2027-11..2028-01. Feb 29 23:59:59.999 → the same. Mar 1 2028 00:00 → 2027-12..2028-02 (`Dec–Feb`). Mar 1 2027 → 2026-12..2027-02. Mar 31 and May 31 do not roll over. |
+| PFWB-05 | BLOCK | Unit (`scripts/pf-window-harness.test.mjs`): the harness helpers at the pinned `TODAY` (Oct 11 2026) give `Jul–Sep` / `Oct–Sep` whatever the real date is. With no date given they throw (no wall-clock default). |
+| PFWB-06 | BLOCK | Unit: the harness helpers give the same answers as PFWB-01..04 at the same instants. |
+| PFWB-07 | BLOCK | Unit (source scan): `personal-finance-e2e.mjs` derives `avg3Label`, `avg12Label` and the PFEC-04 current month from `TODAY`; no `format(new Date())` or `now = new Date()` is left. |
+| PFWB-08 | MAJOR | QA (preview, signed in): PF-89 ×2 and PFEC-04 pass in `personal-finance-e2e` on any run date, including the 1st of a month. |

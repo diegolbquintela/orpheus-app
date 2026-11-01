@@ -1359,3 +1359,5 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - **What didn't change:** routes, test ids and storage still say charts / history / scenario.
   - **Phone wrap:** `.pf-subnav` (flex-wrap, 1.5rem gap) replaces the per-link `ml-6`.
   - **Tests:** `src/components/personal-finance/pf-subnav-labels.dom.test.tsx`.
+
+- **2026-11-01 (#285):** a QA harness that pins the page's clock (`page.clock.setFixedTime(TODAY)`) must compute every expected date-dependent label from that same `TODAY`, never from `new Date()`. Use `qa/tools/pf-window.mjs` for the PF 3- and 12-month window labels and the household month (explicit date, no default). The app's window (last 3 complete America/Toronto months, spec 22 C7) was correct; see spec section 78 and AC PFWB-01..08.

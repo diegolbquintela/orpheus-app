@@ -535,6 +535,10 @@ guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
 
 - The Personal Finance sub-nav shows **Report Builder**, **Yearly Ledger** and **Scenario Analysis**. The URLs are still `/personal-finance/charts`, `/history` and `/scenario`. The names live in `src/lib/finance/pf-nav.ts`; spec: `attachments/pf-subnav-labels-spec.md`.
 
+## PF 3-month window on the 1st of the month (#285)
+
+The app is unchanged: the 3-month average still covers the last 3 complete Toronto months (`Aug–Oct` on Nov 1). The QA harness `personal-finance-e2e` now reads its expected window labels from the date the page's clock is pinned to (`qa/tools/pf-window.mjs`), not from the run date. Spec section 78, AC PFWB-01..08.
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.
