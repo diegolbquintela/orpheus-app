@@ -2173,3 +2173,10 @@ The PFRL prefix was unused before this branch. Defaults pending CFO confirmation
 | PFRL-07 (amended 2026-11-01) | BLOCK | In addition to PFRL-07 as written: after the 428 Save there is no `pf-saved-error` and the name field is not `aria-invalid`. |
 | PFRL-10 | BLOCK | DOM (Scenario, Save 409): `pf-saved-stale` shows `STALE_MESSAGE` with Reload; no `pf-saved-error`; the name field is not `aria-invalid`; the message appears once in the Saved scenarios section; the typed name is kept. |
 | PFRL-11 | BLOCK | DOM (Scenario): validation errors (duplicate name → `NAME_TAKEN`, `aria-invalid="true"`) and a non-stale server failure (500 → `SAVE_FAILED`) still show under the name, with no stale banner. |
+
+### PFRL amendments (2026-11-01, QA BT1 / BT4; spec §80.7, §80.8)
+
+| AC | Severity | Check |
+|---|---|---|
+| PFRL-08 (addendum 2026-11-01, QA BT1) | MAJOR | PFRL-08 (addendum 2026-11-01, QA BT1): the Reload button may sit inline beside the banner text on wide screens (e.g. History at 1440px) and wraps under the text on narrow ones; both pass. |
+| PFRL-10 (amended 2026-11-01, QA BT4) | BLOCK | In addition to PFRL-10 as written: a Rename refused 409 or 428 shows only `pf-saved-stale` (message once); no `pf-saved-rename-error`, the rename field is not `aria-invalid`, and the typed name is kept. A duplicate rename (`NAME_TAKEN`) and a 500 still show under the rename field (500 with `aria-invalid="true"`, no stale banner). |

@@ -543,3 +543,42 @@ describe("#258 PFRL Q-RL2: stale Save has no field error under the name", () => 
     assert.equal(q(el, "pf-saved-stale"), null);
   });
 });
+
+// #258 QA BT4 (2026-11-01; AC PFRL-10 amended): a stale Rename shows only the banner; other rename errors stay.
+describe("#258 PFRL BT4: stale Rename has no field error under the rename field", () => {
+  const putReplies = (reply: () => Response) => {
+    const inner = globalThis.fetch as (u: unknown, i?: unknown) => Promise<Response>;
+    const f = async (url: unknown, init?: { method?: string; body?: string }) => (init?.method === "PUT" ? reply() : inner(url, init));
+    (dom.window as unknown as { fetch: unknown }).fetch = f;
+    (globalThis as unknown as { fetch: unknown }).fetch = f;
+  };
+  it("PFRL-10b: Rename refused 409 or 428 → banner only (no pf-saved-rename-error, not aria-invalid, typed name kept); a duplicate name and a 500 still show under the field", async () => {
+    server(record());
+    const el = await render();
+    await saveAs(el, "A");
+    await saveAs(el, "B");
+    await openTable(el);
+    await click(qa(el, "pf-saved-rename")[0]);
+    // Validation (client-side) still shows under the field.
+    await type(q(el, "pf-saved-rename-name")!, "b");
+    await click(q(el, "pf-saved-rename-save")!);
+    assert.equal(q(el, "pf-saved-rename-error")?.textContent, NAME_TAKEN);
+    for (const status of [409, 428] as const) {
+      putReplies(() => new Response(JSON.stringify({ error: "x", code: status === 409 ? "stale" : "base_version_required" }), { status }));
+      await type(q(el, "pf-saved-rename-name")!, "Alpha");
+      await click(q(el, "pf-saved-rename-save")!);
+      assert.ok(q(el, "pf-saved-stale"), `${status}: the banner shows`);
+      assert.equal(q(el, "pf-saved-stale")!.querySelector("p")!.textContent, STALE_MESSAGE);
+      assert.equal(q(el, "pf-saved-rename-error"), null, `${status}: no rename field error`);
+      assert.equal(q(el, "pf-saved-rename-name")!.getAttribute("aria-invalid"), null, `${status}: not invalid`);
+      assert.equal((q(el, "pf-saved-rename-name") as HTMLInputElement).value, "Alpha", `${status}: typed name kept`);
+      assert.equal(qa(el, "pf-saved-section")[0].textContent!.split(STALE_MESSAGE).length - 1, 1, `${status}: the message shows once`);
+    }
+    // A non-stale server failure still shows under the field.
+    putReplies(() => new Response("{}", { status: 500 }));
+    await click(q(el, "pf-saved-rename-save")!);
+    assert.ok(q(el, "pf-saved-rename-error")?.textContent, "a 500 keeps the rename field error");
+    assert.equal(q(el, "pf-saved-rename-name")!.getAttribute("aria-invalid"), "true");
+    assert.equal(q(el, "pf-saved-stale"), null, "no stale banner on a 500");
+  });
+});

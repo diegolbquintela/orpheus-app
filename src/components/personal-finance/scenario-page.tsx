@@ -600,7 +600,7 @@ function SavedScenarios({
       setRenaming(null);
       setStatus(`Renamed "${e.name}" to "${draft.trim()}".`);
       reopenIf(e.id, r);
-    } else setRenameErr("error" in r ? r.error : SAVE_FAILED);
+    } else setRenameErr(isStale(r) ? null : "error" in r ? r.error : SAVE_FAILED); // #258 BT4: stale → the banner only
   }
 
   async function update(e: SavedEntry) {
