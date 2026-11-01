@@ -590,7 +590,7 @@ export function PersonalFinancePage({
           {/* #231 Q4 (spec 65.4): Planned vs actual for a current or past month with a plan; read-only (Q3). */}
           {(() => {
             const pv = !scenario && month && current ? planFor(storage(), month, current) : null;
-            return pv ? <PlanVsActual month={month!} capturedAt={pv.plan.capturedAt} comparison={pv.comparison} /> : null;
+            return pv ? <PlanVsActual month={month!} capturedAt={pv.plan.capturedAt} comparison={pv.comparison} open={!view || isOpen(view, "plan")} onToggle={view ? () => toggle("plan") : undefined} /> : null;
           })()}
         </header>
 

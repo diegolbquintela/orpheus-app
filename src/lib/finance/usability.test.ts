@@ -179,4 +179,16 @@ describe("#105 expense categories (PF-44..46)", () => {
       [],
     );
   });
+
+  it("#276 PFPA-02: \"plan\" is a section in the same key; ordered first; a stored plan close round-trips", () => {
+    const m = new Memory();
+    const v = toggleSection(toggleSection({ closed: [] }, "overview"), "plan");
+    assert.deepEqual(v, { closed: ["plan", "overview"] });
+    assert.equal(isOpen(v, "plan"), false);
+    writeView(m, v);
+    assert.deepEqual([...m.map.keys()], [VIEW_KEY]);
+    assert.deepEqual(readView(m), v);
+    assert.deepEqual(asView({ closed: ["plan"] }), { closed: ["plan"] });
+    assert.equal(checkRecord({ [VIEW_KEY]: JSON.stringify(v) }).ok, true);
+  });
 });

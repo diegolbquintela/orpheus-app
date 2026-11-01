@@ -5,7 +5,8 @@ import { afterEach, describe, it } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MONTHS_KEY } from "@/lib/finance/months";
-import { PLANS_KEY } from "@/lib/finance/plans";
+import { ACTUAL_LABEL, PLANNED_LABEL, PLANS_KEY } from "@/lib/finance/plans";
+import { VIEW_KEY } from "@/lib/finance/view";
 import { PersonalFinancePage } from "./expenses-page";
 import { loadLocalStore } from "@/lib/finance/account-client";
 
@@ -76,7 +77,9 @@ describe("#231 PFPV Planned vs actual (month view)", () => {
     seed({ "2026-10": ml("900", "60,000"), "2026-12": ml("5", "60,000") }, OCT_PLAN);
     const el = await render({ readOnly: true });
     assert.match(q(el, "pf-plan-expenses")!.textContent!, /Under plan · better than plan/);
-    assert.equal(el.querySelector("[data-testid=pf-plan] button, [data-testid=pf-plan] input"), null);
+    // #276 PFPA-01: the section toggle is the only button (a view preference, like the other sections' toggles).
+    assert.deepEqual([...el.querySelectorAll("[data-testid=pf-plan] button")].map((b) => b.getAttribute("data-testid")), ["pf-toggle-plan"]);
+    assert.equal(el.querySelector("[data-testid=pf-plan] input, [data-testid=pf-plan] select"), null);
     assert.equal(plans()["2026-12"], undefined, "no backfill for a Read user");
   });
   it("PFPV-21: a future month, or a month without a plan, shows no table (Q4)", async () => {
@@ -128,5 +131,88 @@ describe("#231 PFPV Planned vs actual (month view)", () => {
       assert.equal(q(el, id)!.getAttribute("data-tone"), "");
     }
     assert.notEqual([...q(el, "pf-plan-expenses")!.querySelectorAll("td")][0].textContent, "—", "planned still shown");
+  });
+});
+
+// #276 (spec §81, AC PFPA-01..06): the Planned vs actual section toggle and labels; the numbers are pinned unchanged.
+const rows = (el: ParentNode) =>
+  [...el.querySelectorAll('[data-testid="pf-plan"] tbody tr')].map((r) => [...r.children].map((c) => c.textContent));
+const PINNED = [
+  ["Expenses", "1,000.00", "1,200.00", "+200.00", "+20.0%", "Over plan · worse than plan"],
+  ["Income", "5,000.00", "4,500.00", "-500.00", "-10.0%", "Under plan · worse than plan"],
+  ["Surplus", "4,000.00", "3,300.00", "-700.00", "-17.5%"],
+];
+describe("#276 PFPA Planned vs actual toggle", () => {
+  it("PFPA-01: the heading is the shared section toggle; open by default; closing hides the body", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    const el = await render();
+    const t = q(el, "pf-toggle-plan") as HTMLButtonElement;
+    assert.ok(t, "toggle shows");
+    assert.equal(t.className, "pf-section-toggle", "the same class as the Income / Expenses toggles");
+    assert.equal(t.closest("h2")!.id, "pf-plan-title");
+    assert.equal(q(el, "pf-plan")!.getAttribute("aria-labelledby"), "pf-plan-title");
+    assert.equal(t.getAttribute("aria-expanded"), "true");
+    assert.equal(t.getAttribute("aria-controls"), "pf-plan-body");
+    assert.ok(el.querySelector("#pf-plan-body table"));
+    await act(async () => t.click());
+    assert.equal(t.getAttribute("aria-expanded"), "false");
+    assert.equal(q(el, "pf-body-plan")!.children.length, 0, "body empty when closed");
+    assert.equal(q(el, "pf-plan-note"), null);
+    assert.ok(q(el, "pf-toggle-plan"), "the heading stays");
+    await act(async () => t.click());
+    assert.equal(t.getAttribute("aria-expanded"), "true");
+    assert.ok(q(el, "pf-plan-expenses"));
+  });
+  it("PFPA-02: the state is kept in the existing view key (no new storage key) and survives a reload", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    let el = await render();
+    const before = new Set(Object.keys(dom.window.localStorage));
+    await act(async () => (q(el, "pf-toggle-plan") as HTMLButtonElement).click());
+    assert.equal(VIEW_KEY, "orpheus.finance.view.v1");
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), { closed: ["plan"] });
+    const added = Object.keys(dom.window.localStorage).filter((k) => !before.has(k));
+    assert.ok(added.every((k) => k === VIEW_KEY), `only the view key may be added, got ${added.join(",")}`);
+    assert.ok(!Object.keys(dom.window.localStorage).some((k) => /plan.*(open|toggle|view)/i.test(k)));
+    await act(async () => root?.unmount());
+    container?.remove();
+    el = await render();
+    assert.equal(q(el, "pf-toggle-plan")!.getAttribute("aria-expanded"), "false", "closed after reload");
+    assert.equal(q(el, "pf-toggle-income")!.getAttribute("aria-expanded"), "true", "other sections untouched");
+  });
+  it("PFPA-03: the column labels say where each number comes from", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    const el = await render();
+    const heads = [...el.querySelectorAll('[data-testid="pf-plan"] thead th')].map((h) => h.textContent);
+    assert.deepEqual(heads, ["October 2026", PLANNED_LABEL, ACTUAL_LABEL, "Difference", "% of plan", "Direction"]);
+    assert.equal(PLANNED_LABEL, "Planned (set before the month)");
+    assert.equal(ACTUAL_LABEL, "Actual (saved now)");
+  });
+  it("PFPA-04: the numbers are pinned and identical before and after a close / open", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    const el = await render();
+    const first = rows(el);
+    for (let i = 0; i < PINNED.length; i++) assert.deepEqual(first[i].slice(0, PINNED[i].length), PINNED[i]);
+    assert.equal(first.length, 5);
+    const t = q(el, "pf-toggle-plan") as HTMLButtonElement;
+    await act(async () => t.click());
+    await act(async () => t.click());
+    assert.deepEqual(rows(el), first);
+  });
+  it("PFPA-05: a Read user can open / close it too; nothing else is written", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    const el = await render({ readOnly: true });
+    const plansBefore = dom.window.localStorage.getItem(PLANS_KEY);
+    const t = q(el, "pf-toggle-plan") as HTMLButtonElement;
+    assert.equal(t.disabled, false);
+    await act(async () => t.click());
+    assert.equal(t.getAttribute("aria-expanded"), "false");
+    assert.equal(dom.window.localStorage.getItem(PLANS_KEY), plansBefore);
+  });
+  it("PFPA-06: closing Planned vs actual leaves the other sections' stored state as it was", async () => {
+    seed({ "2026-10": ml("1,200", "54,000") }, OCT_PLAN);
+    dom.window.localStorage.setItem(VIEW_KEY, JSON.stringify({ closed: ["overview"] }));
+    const el = await render();
+    await act(async () => (q(el, "pf-toggle-plan") as HTMLButtonElement).click());
+    assert.deepEqual(JSON.parse(dom.window.localStorage.getItem(VIEW_KEY)!), { closed: ["plan", "overview"] });
   });
 });

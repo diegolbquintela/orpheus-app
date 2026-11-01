@@ -2207,3 +2207,15 @@ check). Spec: `attachments/header-menu-spec.md`.
 |---|---|---|
 | HDR-01 (amended 2026-11-01) | BLOCK | In addition to HDR-01 as written: the bar holds exactly the lyre + `Orpheus` link to `/`, the Search button and the Menu button, in that order; `Get Started` is not part of it. |
 | HDR-02 (amended 2026-11-01) | BLOCK | Replaces HDR-02: the header has no primary action. No `Get Started` text, no `site-get-started` element, and the nav's only `/calculator` link is the overlay's `Calculator`. HDR-11/12 apply to the bar without it. |
+
+## PFPA — Planned vs actual toggle and labels (#276, 2026-11-01; spec §81)
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFPA-01 | BLOCK | The `Planned vs actual` heading is a `pf-section-toggle` button (`pf-toggle-plan`, `aria-expanded`, `aria-controls=pf-plan-body`), open by default. Closing it empties `pf-body-plan` and keeps the heading. The toggle is the only button in the section (PFPV-20 amended to allow it). |
+| PFPA-02 | BLOCK | The state is stored only in the existing `orpheus.finance.view.v1` (`{"closed":["plan",…]}`, page order). No other storage key is added, and it survives a reload. |
+| PFPA-03 | HIGH | The column heads read `Planned (set before the month)` and `Actual (saved now)`. |
+| PFPA-04 | BLOCK | No calculation change: on the October fixture, Expenses 1,000.00 / 1,200.00 / +200.00 / +20.0%, Income 5,000.00 / 4,500.00 / -500.00 / -10.0% and Surplus 4,000.00 / 3,300.00 / -700.00 / -17.5% are identical before and after a close and open. |
+| PFPA-05 | HIGH | Read users can open and close it; no plan is written. |
+| PFPA-06 | HIGH | Closing it keeps the other sections' stored state. |
+| PFPA-07 | HIGH | Invariants: dark style, no gold, no `tnum` on the page, toggle target ≥ 44px, no page overflow at 360 / 390 / 768 / 1440 (the table scrolls inside `.pf-plan`), AA contrast, CLS 0. |

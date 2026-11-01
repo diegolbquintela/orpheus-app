@@ -7,7 +7,8 @@
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 export const VIEW_KEY = "orpheus.finance.view.v1";
-export const SECTIONS = ["income", "expenses", "summary", "overview"] as const;
+// #276 (spec §81, PFPA-01): "plan" (Planned vs actual) joins the same list under the same key; no new storage key.
+export const SECTIONS = ["plan", "income", "expenses", "summary", "overview"] as const;
 export type SectionKey = (typeof SECTIONS)[number];
 export type View = { closed: SectionKey[] };
 export const ALL_OPEN: View = { closed: [] };
