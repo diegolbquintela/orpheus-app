@@ -311,6 +311,13 @@ These rules exist so no ticket gets missed.
 4. Stall check: the daily orpheus-app loop and any active run look for open tickets with no PR activity for 30 minutes during an active run, or none since the last loop run. Engineering Lead re-pings the owner urgently and reports the stall to Chief of Staff. Reporting a stall to Chief of Staff is an allowed ping for Engineering Lead.
 5. The GitHub issues and their labels are the task list of record. Each ticket carries exactly one status label: `todo`, then `in-progress` (draft PR open), then `in-QA` (CI green, sent to QA), then `done` (merged and prod-checked). Whoever moves the ticket moves its label in the same turn. Engineering Lead moves `in-QA` to `done` after the merge and the production check.
 
+## Testing ownership: QA functional + post-deploy regression; EL coordinates (Diego, 2026-11-01)
+
+- **QA owns functional testing**: a periodic functional pass of the live app, plus a **full regression after every production deployment**.
+- **Engineering Lead coordinates**: EL makes sure these tests run as part of the normal SDLC loop (handoffs, post-merge prod check, then the post-deploy full regression).
+- **Chief of Staff is told only on failure or block**: CoS hears about test results only when something fails or is blocked. Passing runs are not reported to CoS.
+- **Existing QA volume rules still apply** (Vercel free-tier limits): previews at 390 + 1440 with `CLS_RUNS=1`, one rerun per flake, and no `npm run build`.
+
 ## Feature flags: feature work lands behind a flag until a release go
 
 *Active since 2026-10-02, when the dashboard spec was approved.*

@@ -70,3 +70,10 @@ These numbers are historical simulation outputs for testing.
 Addendum (#135, 79f134c): `fontsSettled` allows up to **5** loads (not 3), because the font revalidates on every reload (`max-age=0, must-revalidate`).
 
 Addendum (#135, 2026-10-15, QA round 2): `fontsSettled` allows up to **3** loads again (supersedes the 5-load note above), with a 1 s settle after each reload.
+
+## Testing ownership: QA functional + post-deploy regression; EL coordinates (Diego, 2026-11-01)
+
+- **QA owns functional testing**: a periodic functional pass of the live app, plus a **full regression after every production deployment**.
+- **Engineering Lead coordinates**: EL makes sure these tests run as part of the normal SDLC loop (handoffs, post-merge prod check, then the post-deploy full regression).
+- **Chief of Staff is told only on failure or block**: CoS hears about test results only when something fails or is blocked. Passing runs are not reported to CoS.
+- **Existing QA volume rules still apply** (Vercel free-tier limits): previews at 390 + 1440 with `CLS_RUNS=1`, one rerun per flake, and no `npm run build`.
