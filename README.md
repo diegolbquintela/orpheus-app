@@ -526,6 +526,11 @@ guard) run in `npm test` through `scripts/run-dom-tests.mjs`.
   `Allow: GET, HEAD`. Both are hidden on production (the API is 404 there).
 - After a week of previews, check Neon's usage page against the Free plan limits (spec §4).
 
+## Keyboard focus (#274)
+
+- The calculator's Start and End are text fields typed as `YYYY-MM-DD`, with one Tab stop each. Spec: `attachments/keyboard-focus-spec.md`; ACs KBF-01..KBF-08.
+- On Safari for Mac, Tab skips buttons and links unless "Press Tab to highlight each item" is on; use Option-Tab to reach them.
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.
@@ -757,8 +762,3 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Seed:** run `node --experimental-strip-types scripts/renaissance-seed.ts <tracker.md>` for a dry run. Add `--post <origin>` to send the bodies through the endpoint once; the script never touches the database.
 
 2026-10-30 note (#271): the owner also gets a **Renaissance Man** link in the site bar (it shows `RM` below 768 px, and the bar may wrap on phones). It uses the same server-side owner check as `/renaissance`. Everyone else's bar is unchanged and carries nothing about it. Spec §9; AC RM-21..RM-24.
-
-## Keyboard focus (#274)
-
-- The calculator's Start and End are text fields typed as `YYYY-MM-DD`, with one Tab stop each. Spec: `attachments/keyboard-focus-spec.md`; ACs KBF-01..KBF-08.
-- On Safari for Mac, Tab skips buttons and links unless "Press Tab to highlight each item" is on; use Option-Tab to reach them.
