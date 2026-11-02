@@ -123,7 +123,7 @@ describe("personal finance page (#84)", () => {
     assert.equal(el.querySelector("h1")!.textContent, "Personal Finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
-      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Expenses summary", "Overview"],
+      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Expenses summary", "Overview", "Last 12 months"], // #280 (PFCH): the Overview chart's visible title (h3),
     );
     for (const head of qa(el, "pf-head"))
       assert.deepEqual(

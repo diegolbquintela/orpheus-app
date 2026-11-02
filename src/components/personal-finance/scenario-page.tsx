@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { PersonalFinancePage, type ScenarioLive } from "@/components/personal-finance/expenses-page";
 import { ReadOnlyLine } from "@/components/access/denied";
+import { ChartHeading } from "./chart-heading";
+import { chartAria, COMPARE_CHART_TITLE, compareChartSub, projectedChartSub, projectedChartTitle } from "@/lib/finance/chart-titles";
 import { equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS } from "@/lib/finance/overview";
 import { formatMoney } from "@/lib/finance/money";
 import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
@@ -325,7 +327,7 @@ export function ScenarioProjection({
             </button>
           ))}
         </div>
-        <ScenarioChart points={proj.points} width={chartWidth} />
+        <ScenarioChart points={proj.points} width={chartWidth} title={projectedChartTitle(horizonLabel(horizon))} sub={projectedChartSub(live.current)} />
       </section>
       <section className="pf-section" aria-labelledby={`${uid}-totals`} data-testid="pf-scenario-totals-section">
         <p className="pf-label">07</p>
@@ -424,7 +426,8 @@ function TotalsTable({
 const axisWidth = (values: number[]): number =>
   Math.max(48, ...values.map((v) => COMPACT.format(v).length * 7 + 14));
 
-function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number }) {
+function ScenarioChart({ points, width, title, sub }: { points: ProjPoint[]; width?: number; title: string; sub: string }) {
+  const hid = useId();
   const last = points[points.length - 1];
   const flowW = axisWidth(points.flatMap((p) => [p.income, p.expenses]));
   const netW = axisWidth(points.map((p) => p.net));
@@ -505,10 +508,10 @@ function ScenarioChart({ points, width }: { points: ProjPoint[]; width?: number 
       data-testid="pf-scenario-chart"
       data-months={points.length}
       data-net-last={last ? last.net.toFixed(2) : ""}
+      {...chartAria(hid)}
     >
-      <figcaption className="sr-only">
-        Projected income, expenses and net assets by month
-      </figcaption>
+      {/* #280 (spec §85, PFCH): visible title + subtitle (was an sr-only caption), shared with Overview and Compare. */}
+      <ChartHeading id={hid} title={title} sub={sub} testId="pf-scenario-chart-head" />
       <div className="pf-chart-plot" aria-hidden="true">
         {width ? (
           chart(240)
@@ -943,8 +946,9 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
           ))}
         </div>
       </div>
-      <figure className="pf-chart mt-4 min-w-0" data-testid="pf-compare-chart" data-lines={cols.length}>
-        <figcaption className="sr-only">Projected net assets by month, for each compared scenario</figcaption>
+      <figure className="pf-chart mt-4 min-w-0" data-testid="pf-compare-chart" data-lines={cols.length} {...chartAria(`${uid}-chart`)}>
+        {/* #280 (spec §85, PFCH): the same visible title + subtitle as the other two charts. */}
+        <ChartHeading id={`${uid}-chart`} title={COMPARE_CHART_TITLE} sub={compareChartSub(horizonLabel(horizon))} testId="pf-compare-chart-head" />
         <div className="pf-chart-plot" aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>

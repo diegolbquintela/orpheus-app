@@ -2304,3 +2304,20 @@ Q-2C1..2C4 are accepted as built (This screen counts as 1 of 2; locked not hidde
 | PF2C-13 | BLOCK | **CB2.** Through the real page, a scenario keeps its colour (legend `data-colour` and swatch) through every Saved sort, removing and re-adding columns and re-picking; it is the same value as `compareColour` on the Saved entry; a position-based palette fails. (DOM) |
 | PF2C-14 | BLOCK | Colouring sends no request and writes no storage. (DOM) |
 | PF2C-15 | HIGH | Chromium at 360 / 390 / 768 / 1440: across re-sorts and column swaps each scenario's legend swatch and chart line stroke keep one colour, stroke equals swatch, `This screen` keeps one colour, no page overflow, CLS 0. (Chromium CB2-L1..L5) |
+
+## PFCH: Personal Finance scenario screen charts, titled (#280, MEDIUM; added 2026-11-02)
+
+Spec §85. Choice (b): both charts stay (they plot different things, proven on one fixture), each with a visible title and subtitle; Compare uses the same heading. Client-side only; projection math unchanged.
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFCH-01 | BLOCK | Titles/subtitles word for word: Overview `Last 12 months` / `Income, expenses and net assets for each month up to {Month YYYY}.` (+ Future: scenario screen `, then {N years} ahead: net assets as in Projected path, income and expenses at 12-month averages.`, main page `, then {N years} ahead at your 12-month averages.`); Projected path `Next {horizon} from now` / `This screen's {Month YYYY} income and expenses held flat, starting from Net assets now.`; Compare `Net assets by scenario` / `This screen and the saved scenario, each projected over {horizon} from its own net assets now.` (unit) |
+| PFCH-02 | BLOCK | Findings pinned: Overview plots the 12 months to this month (recorded flows, 12-month averages where empty, net null before the first recorded month). (unit, findings fixture) |
+| PFCH-03 | BLOCK | Findings pinned: Projected path = Now + horizon points, this month's flows flat, net values pinned; with Future on, Overview's future net equals Projected path 13/13 while its flows are the 12-month averages; only Projected path follows the horizon. (unit) |
+| PFCH-04 | BLOCK | Scenario screen: exactly 2 charts before Compare, each with a visible `h3` title and `p` subtitle in its figcaption, wired by `aria-labelledby` / `aria-describedby`; distinct titles; no sr-only captions left. (DOM) |
+| PFCH-05 | HIGH | Projected path title follows the horizon; Overview's does not; Overview subtitle follows Future. (DOM) |
+| PFCH-06 | BLOCK | Chart data unchanged from main 07ecdd0 (`data-months` / `data-net-last`, Future off/on, 12 and 60 months), values captured on 07ecdd0. (DOM) |
+| PFCH-07 | HIGH | Compare chart uses the same heading component (title, horizon subtitle, wiring); one `.pf-chart-head` per chart. (DOM) |
+| PFCH-08 | HIGH | Reopening a saved scenario keeps both titled charts. (DOM) |
+| PFCH-09 | BLOCK | Headings send no request and write no storage. (DOM) |
+| PFCH-10 | HIGH | Chromium 360/390/768/1440: visible wired h3 titles and subtitles (2, then 3 with Compare, and after reopening), AA ≥ 4.5, no gold, no tnum, no clipped text, legends fit, no page overflow, CLS 0, no request/storage write. (Chromium PFCH-L1..L8, 72/72) |

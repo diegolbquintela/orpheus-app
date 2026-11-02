@@ -806,3 +806,5 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 - **Engineering Lead coordinates**: EL makes sure these tests run as part of the normal SDLC loop (handoffs, post-merge prod check, then the post-deploy full regression).
 - **Chief of Staff is told only on failure or block**: CoS hears about test results only when something fails or is blocked. Passing runs are not reported to CoS.
 - **Existing QA volume rules still apply** (Vercel free-tier limits): previews at 390 + 1440 with `CLS_RUNS=1`, one rerun per flake, and no `npm run build`.
+
+**Chart titles (#280, 2026-11-02).** Each chart on the scenario screen now has a visible title and one-line subtitle: `Last 12 months` (what was recorded each month) and `Next {horizon} from now` (where this screen's numbers lead). Compare's chart is titled `Net assets by scenario`. The charts' data did not change.
