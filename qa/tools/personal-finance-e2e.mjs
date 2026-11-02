@@ -17,6 +17,8 @@
 //   Projected path present, no writes; Read user (QA_CFO_READ) or SKIPPED (NOT A PASS); reset.
 //   #281 PFWI-11..16: the Scenario what-if note (owner text / Read text, under the title), the Net assets now hint, old
 //   strings absent, no writes; Read user (QA_CFO_READ) or SKIPPED (NOT A PASS); reset. Runs before PFCH.
+//   #282 PFGR-01/03..08/10: the Growth earned line, the "Count equity coverage as income" box (off, 44 px, on rows with
+//   Over "—", existing rows identical, reload off, no writes / storage); Read user (QA_CFO_READ) or SKIPPED; reset.
 //   #278: every log line and the JSON artifact mask email addresses as <email> (qa/tools/redact.mjs).
 //   PFE-12 (regression) is site-style-regression.mjs's run on the same preview.
 // The signed-in part refuses to run against production (it writes to the account).
@@ -1011,6 +1013,107 @@ try {
           const back = (await acct(page, base, "GET")).body?.data ?? {};
           const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapW).sort()) && Object.keys(snapW).every((k) => back[k] === snapW[k]);
           check(`${tag} PFWI-16 reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
+        }
+      }
+      // #282 (spec §87, AC PFGR-10): signed-in Growth earned line + "Count equity coverage as income" on
+      // /personal-finance/scenario. Owner: the dim line under Growth earned, the box labelled, off, label ≥ 44 px; on
+      // (when a rate and start exist; else the disabled state) the two extra rows (third cell: the summed monthly coverage, "Total over {horizon}"), every existing
+      // Totals row and net assets identical on or off; toggling sends NO non-GET /api/* and writes no storage; a reload
+      // shows it off. A REAL Read user (QA_CFO_READ; SKIPPED (NOT A PASS) when unset) sees and toggles it, no writes.
+      // Reset at the end. (The Read sign-in per viewport is unchanged: the 429 is the known CH3 follow-up.)
+      {
+        const snapG = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+        const GR_NOTE = "What growth added to net assets, beyond surplus.";
+        const GR_LABEL = "Count equity coverage as income";
+        const GR_ROWS = ["Net income + equity coverage", "Surplus + equity coverage"];
+        const grView = async (pg) => {
+          const w = [];
+          const onReq = (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") w.push(`${q.method()} ${u.pathname}`); };
+          pg.on("request", onReq);
+          await pg.goto(`${base}/personal-finance/scenario`, { waitUntil: "networkidle" });
+          await pg.getByTestId("pf-coverage-income-toggle").waitFor({ timeout: 20000 });
+          const net = pg.getByTestId("pf-scenario-net");
+          await net.fill("120000");
+          await pg.waitForTimeout(300);
+          const st0 = await pg.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]));
+          const read = () => pg.evaluate(() => {
+            const rows = [...document.querySelectorAll("[data-testid=pf-scenario-totals] [data-testid^=pf-scenario-row-]")];
+            const extra = rows.filter((r) => /-(income|surplus)-coverage$/.test(r.getAttribute("data-testid")));
+            const box = document.querySelector("[data-testid=pf-coverage-income-toggle]");
+            const label = box?.closest("label");
+            return {
+              note: [...document.querySelectorAll("[data-testid=pf-scenario-row-growth] [data-testid=pf-growth-note]")].map((n) => n.textContent),
+              label: label?.textContent ?? null, h: label ? label.getBoundingClientRect().height : 0, checked: !!box?.checked, disabled: !!box?.disabled,
+              rateNote: document.querySelector("[data-testid=pf-coverage-income-note]")?.textContent ?? null,
+              existing: rows.filter((r) => !extra.includes(r)).map((r) => r.textContent).join("|") + "|" + document.querySelector("[data-testid=pf-scenario-net]")?.value,
+              extra: extra.map((r) => [r.querySelector("[role=rowheader]")?.textContent, r.querySelector("[data-testid=pf-coverage-total-caption]")?.textContent]),
+              // #282 Q-GR5 (amended 2026-11-02): [value, the same row's base (Net income / Surplus) over the horizon].
+              totals: extra.map((r, i) => [r.querySelector("[data-testid=pf-coverage-total-value]")?.textContent, document.querySelector(`[data-testid=pf-scenario-row-${i ? "surplus" : "income"}] [data-testid=pf-scenario-total]`)?.textContent]),
+              head: document.querySelector("[data-testid=pf-scenario-total-head]")?.textContent ?? null,
+              overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+            };
+          });
+          const off = await read();
+          let on = null, back = null;
+          if (!off.disabled) {
+            await pg.getByTestId("pf-coverage-income-toggle").click();
+            on = await read();
+            await pg.getByTestId("pf-coverage-income-toggle").click();
+            back = await read();
+          }
+          const storage = (await pg.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]))) === st0;
+          let reload = null;
+          if (on) {
+            await pg.getByTestId("pf-coverage-income-toggle").click();
+            await pg.reload({ waitUntil: "networkidle" });
+            await pg.getByTestId("pf-coverage-income-toggle").waitFor({ timeout: 20000 });
+            reload = await pg.getByTestId("pf-coverage-income-toggle").isChecked();
+          }
+          pg.off("request", onReq);
+          return { off, on, back, storage, reload, writes: w };
+        };
+        const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
+        const grCheck = (who, o) => {
+          check(`${tag} PFGR-01 (#282) ${who}: Growth earned has one dim line "${GR_NOTE}"`, o.off.note.length === 1 && o.off.note[0] === GR_NOTE, { note: o.off.note });
+          check(`${tag} PFGR-03 (#282) ${who}: "${GR_LABEL}" box off by default, label ≥ 44 px, no extra rows, no overflow`, o.off.label === GR_LABEL && !o.off.checked && o.off.h >= 44 && o.off.extra.length === 0 && !o.off.overflow, { label: o.off.label, checked: o.off.checked, h: o.off.h, extra: o.off.extra.length, overflow: o.off.overflow });
+          if (!o.on) {
+            check(`${tag} PFGR-06 (#282) ${who}: disabled with no rate / start (rate note "Set rate under Expenses" when the rate is missing)`, o.off.disabled && (o.off.rateNote === null || o.off.rateNote === "Set rate under Expenses"), { disabled: o.off.disabled, rateNote: o.off.rateNote });
+            skip(`${tag} PFGR-04/05/07 ${who} box on: qa-pf has no withdrawal rate, so the box is disabled (PFGR-06 checked instead)`);
+          } else {
+            // Amended 2026-11-02 (Q-GR5): the third cell is the base over the horizon + the summed monthly coverage (> the
+            // base: net assets 120,000 > 0 every month), captioned "Total over {horizon}"; the shared header is unchanged.
+            const num = (t) => Number(String(t ?? "").replace(/,/g, ""));
+            const cap = `Total over ${String(o.on.head ?? "").replace(/^Over /, "")}`;
+            check(`${tag} PFGR-04 (#282, amended Q-GR5) ${who}: on shows exactly ${GR_ROWS.join(" / ")}, each third cell a total > its row over the horizon, captioned "${cap}"; header "${o.on.head}" unchanged`, JSON.stringify(o.on.extra) === JSON.stringify(GR_ROWS.map((n) => [n, cap])) && /^Over /.test(o.on.head ?? "") && o.on.head === o.off.head && o.on.totals.every(([v, b]) => Number.isFinite(num(v)) && num(v) > num(b)) && !o.on.overflow, { extra: o.on.extra, totals: o.on.totals, head: o.on.head, overflow: o.on.overflow });
+            check(`${tag} PFGR-05 (#282) ${who}: every existing Totals row and net assets identical on / off`, o.on.existing === o.off.existing && o.back.existing === o.off.existing && o.back.extra.length === 0, { same: o.on.existing === o.off.existing });
+            check(`${tag} PFGR-07 (#282) ${who}: reload shows the box off`, o.reload === false, { reload: o.reload });
+          }
+          check(`${tag} PFGR-07/08 (#282) ${who}: NO non-GET /api/*, no storage write`, o.writes.length === 0 && o.storage, { writes: o.writes, storage: o.storage });
+        };
+        try {
+          const before = await ownerRaw();
+          grCheck("owner", await grView(page));
+          check(`${tag} PFGR-07 (#282) owner: the record byte-identical after toggling`, (await ownerRaw()) === before, {});
+          const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
+          if (!rEmail || !rPassword) skip(`${tag} PFGR-08 Read-user coverage box, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+          else {
+            const rd = {};
+            const ownerBefore = await ownerRaw();
+            await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFGR Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
+              rd.o = await grView(rp);
+            });
+            if (rd.o) grCheck("Read user (QA_CFO_READ)", rd.o);
+            else check(`${tag} PFGR-08 (#282) Read user view ran`, false, {});
+            check(`${tag} PFGR-08 (#282) Read user: the owner's record byte-identical`, (await ownerRaw()) === ownerBefore, {});
+          }
+        } catch (e) {
+          check(`${tag} PFGR step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        } finally {
+          const d = await acct(page, base, "DELETE");
+          const p = await acct(page, base, "PUT", snapG);
+          const back = (await acct(page, base, "GET")).body?.data ?? {};
+          const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapG).sort()) && Object.keys(snapG).every((k) => back[k] === snapG[k]);
+          check(`${tag} PFGR-10 reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
         }
       }
       // #280 (spec §85 + Q-CH2 addendum, AC PFCH-15/16/17): signed-in chart titles. On /personal-finance the Overview chart

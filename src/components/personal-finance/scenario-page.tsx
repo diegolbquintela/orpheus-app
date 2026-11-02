@@ -18,7 +18,7 @@ import { PersonalFinancePage, type ScenarioLive } from "@/components/personal-fi
 import { ReadOnlyLine } from "@/components/access/denied";
 import { ChartHeading } from "./chart-heading";
 import { chartAria, COMPARE_CHART_TITLE, compareChartSub, projectedChartSub, projectedChartTitle } from "@/lib/finance/chart-titles";
-import { equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS } from "@/lib/finance/overview";
+import { COVERAGE_RATE_NOTE, equityCoverage, EXPENSES, INCOME, monthName, NET_ASSETS, SURPLUS } from "@/lib/finance/overview";
 import { formatMoney } from "@/lib/finance/money";
 import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
 import { StaleReload } from "./stale-reload";
@@ -45,6 +45,10 @@ import {
   project,
   savedInputs,
   SCENARIO_PATH,
+  COUNT_COVERAGE_LABEL,
+  coverageTotalCaption,
+  GROWTH_EARNED_NOTE,
+  withCoverage,
 } from "@/lib/finance/scenario";
 import { changeSaved, loadForScenario, type Access, type ChangeResult, type ScenarioLoad } from "@/lib/finance/scenario-client";
 import { readScenario } from "@/lib/finance/scenario-key";
@@ -358,13 +362,18 @@ function TotalsTable({
   inputs: Inputs;
 }) {
   const t = proj.totals;
+  const uid = useId();
+  // #282 (spec §87, PFGR-03/07): what-if only. React state on this screen: off on every open, reopen and reload; never
+  // stored, sent or kept in a saved scenario (saved-scenarios.ts keptValues copies record keys only).
+  const [countCoverage, setCountCoverage] = useState(false);
   const nowCov = equityCoverage(saved.start, saved.rate, saved.expenses);
   const scCov = equityCoverage(inputs.start, inputs.rate, inputs.expenses);
-  const rows: { key: string; name: string; today: string; scenario: string; total: string }[] = [
+  const canCount = scCov.status === "ok";
+  const rows: { key: string; name: string; note?: string; today: string; scenario: string; total: string }[] = [
     { key: "income", name: "Net income", today: money(today.totals.monthlyIncome), scenario: money(t.monthlyIncome), total: money(t.income) },
     { key: "expenses", name: EXPENSES, today: money(today.totals.monthlyExpenses), scenario: money(t.monthlyExpenses), total: money(t.expenses) },
     { key: "surplus", name: SURPLUS, today: money(today.totals.monthlySurplus), scenario: money(t.monthlySurplus), total: money(t.surplus) },
-    { key: "growth", name: "Growth earned", today: "—", scenario: "—", total: money(t.growthEarned) },
+    { key: "growth", name: "Growth earned", note: GROWTH_EARNED_NOTE, today: "—", scenario: "—", total: money(t.growthEarned) },
     { key: "net", name: NET_ASSETS, today: money(saved.start), scenario: money(inputs.start), total: money(t.netEnd) },
     {
       key: "coverage",
@@ -381,7 +390,38 @@ function TotalsTable({
       total: formatPercent(t.coverageShare),
     },
   ];
+  // #282 PFGR-04: separate lines only, after the existing rows (which stay exactly as above, PFGR-05).
+  const extra =
+    countCoverage && canCount
+      ? withCoverage(today, nowCov.status === "ok" ? nowCov.monthly : null, proj, scCov.monthly, horizon).map((r) => ({
+          key: r.key,
+          name: r.name,
+          today: money(r.today),
+          scenario: money(r.scenario),
+          total: money(r.total),
+          caption: coverageTotalCaption(horizon),
+        }))
+      : [];
   return (
+    <>
+      <div className="pf-coverage-income mt-4" data-testid="pf-coverage-income">
+        <label className="pf-rate-source pf-saved-compare-label flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={countCoverage && canCount}
+            disabled={!canCount}
+            aria-describedby={!canCount && scCov.status === "no_rate" ? `${uid}-cov-note` : undefined}
+            onChange={(e) => setCountCoverage(e.target.checked)}
+            data-testid="pf-coverage-income-toggle"
+          />
+          {COUNT_COVERAGE_LABEL}
+        </label>
+        {!canCount && scCov.status === "no_rate" ? (
+          <span id={`${uid}-cov-note`} className="pf-rate-source" data-testid="pf-coverage-income-note">
+            {COVERAGE_RATE_NOTE}
+          </span>
+        ) : null}
+      </div>
     <div
       className="pf-scenario-scroll mt-4"
       role="region"
@@ -404,10 +444,16 @@ function TotalsTable({
             {`Over ${horizonLabel(horizon)}`}
           </span>
         </div>
-        {rows.map((r) => (
+        {[...rows, ...extra].map((r: { key: string; name: string; note?: string; today: string; scenario: string; total: string; caption?: string }) => (
           <div key={r.key} className="pf-ov-row" role="row" data-testid={`pf-scenario-row-${r.key}`}>
             <span role="rowheader" className="pf-ov-name">
               {r.name}
+              {/* #282 PFGR-01: the dim line under Growth earned. */}
+              {r.note ? (
+                <span className="pf-history-note block" data-testid="pf-growth-note">
+                  {r.note}
+                </span>
+              ) : null}
             </span>
             <span role="cell" className="pf-ov-value" data-testid="pf-scenario-today">
               {r.today}
@@ -416,12 +462,20 @@ function TotalsTable({
               {r.scenario}
             </span>
             <span role="cell" className="pf-ov-value" data-testid="pf-scenario-total">
-              {r.total}
+              {/* #282 Q-GR5: the shared "Over {horizon}" header also heads the existing rows (end-of-horizon figures for the
+                  coverage rows), so it stays; the two +coverage rows say in their own cell that theirs is a total. */}
+              {r.caption ? <span data-testid="pf-coverage-total-value">{r.total}</span> : r.total}
+              {r.caption ? (
+                <span className="pf-history-note block whitespace-normal" data-testid="pf-coverage-total-caption">
+                  {r.caption}
+                </span>
+              ) : null}
             </span>
           </div>
         ))}
       </div>
     </div>
+    </>
   );
 }
 
@@ -905,13 +959,13 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
     { id: THIS_SCREEN_ID, name: "This screen", proj: project(live, horizon) },
     ...entries.map((e) => ({ id: e.id, name: e.name, proj: project({ ...e.inputs, current: live.current }, horizon) })),
   ];
-  const rows: { key: string; name: string; cell: (p: ReturnType<typeof project>) => string }[] = [
+  const rows: { key: string; name: string; note?: string; cell: (p: ReturnType<typeof project>) => string }[] = [
     { key: "income", name: "Net income, a month", cell: (p) => money(p.totals.monthlyIncome) },
     { key: "expenses", name: "Expenses, a month", cell: (p) => money(p.totals.monthlyExpenses) },
     { key: "surplus", name: "Surplus, a month", cell: (p) => money(p.totals.monthlySurplus) },
     { key: "start", name: "Net assets now", cell: (p) => money(p.points[0]?.net ?? null) },
     { key: "end", name: `Net assets after ${horizonLabel(horizon)}`, cell: (p) => money(p.totals.netEnd) },
-    { key: "growth-earned", name: `Growth earned over ${horizonLabel(horizon)}`, cell: (p) => money(p.totals.growthEarned) },
+    { key: "growth-earned", name: `Growth earned over ${horizonLabel(horizon)}`, note: GROWTH_EARNED_NOTE, cell: (p) => money(p.totals.growthEarned) },
   ];
   const data = cols[0].proj.points.map((pt, i) => ({
     label: pt.label,
@@ -939,6 +993,12 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
             <div key={r.key} className="pf-ov-row" role="row" data-testid={`pf-compare-row-${r.key}`}>
               <span role="rowheader" className="pf-ov-name">
                 {r.name}
+                {/* #282 PFGR-02: the same dim line on Compare. */}
+                {r.note ? (
+                  <span className="pf-history-note block" data-testid="pf-growth-note">
+                    {r.note}
+                  </span>
+                ) : null}
               </span>
               {cols.map((c) => (
                 <span key={c.id} role="cell" className="pf-ov-value" data-testid="pf-compare-cell">

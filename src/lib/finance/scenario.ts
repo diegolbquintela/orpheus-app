@@ -304,3 +304,70 @@ export const withScenario = (record: PfRecord | null, s: Scenario): PfRecord => 
   ...(record ?? {}),
   [SCENARIO_KEY]: scenarioText(s),
 });
+
+// #282 (attachments/personal-finance-spec.md §87, AC PFGR): the Growth earned line and the optional
+// "Count equity coverage as income" rows on the scenario screen. Display only: `project` is unchanged, and nothing here
+// feeds income, surplus, net assets, Growth earned, the charts or Compare.
+export const GROWTH_EARNED_NOTE = "What growth added to net assets, beyond surplus.";
+export const COUNT_COVERAGE_LABEL = "Count equity coverage as income";
+export const INCOME_WITH_COVERAGE = "Net income + equity coverage";
+export const SURPLUS_WITH_COVERAGE = "Surplus + equity coverage";
+
+/** #282 Q-GR5 (spec §87.6): the caption on the two rows' third cell, so the sum is not read as a monthly figure. */
+export const coverageTotalCaption = (h: Horizon): string => `Total over ${horizonLabel(h)}`;
+
+/**
+ * #282 Q-GR5 (CFO 2026-11-02, spec §87.6): the equity coverage counted in the two rows' third cell = the SUM of each
+ * projected month's monthly coverage over the horizon (months 1..horizon; month 0 is now, as in `Totals`). Each month
+ * uses the projection's own net-assets series (`proj.points[i].net`, not recomputed) and `equityCoverage` (overview.ts:
+ * net × rate ÷ 100 ÷ 12; a month with net ≤ 0 adds 0). Null with no rate. Not horizon × end coverage.
+ */
+export function coverageOverHorizon(proj: Projection, horizon: number): number | null {
+  if (proj.rate === null || !(proj.rate > 0)) return null;
+  let sum = 0;
+  for (const p of proj.points.slice(1, horizon + 1)) {
+    const c = equityCoverage(p.net, proj.rate, p.expenses);
+    if (c.status === "ok") sum += c.monthly;
+  }
+  return round2(sum);
+}
+
+export type CoverageRow = {
+  key: "income-coverage" | "surplus-coverage";
+  name: string;
+  today: number | null;
+  scenario: number | null;
+  total: number | null;
+};
+
+/**
+ * #282 PFGR-04: the two extra rows (Today / Scenario, a month: net income and surplus each plus the monthly coverage;
+ * the third cell: the horizon's income / surplus + `coverageOverHorizon`, the summed monthly coverage) from the
+ * monthly equity coverage (`equityCoverage` in overview.ts; null when it has no rate or start → "—"). Pure.
+ */
+export function withCoverage(
+  today: Projection,
+  todayCoverage: number | null,
+  proj: Projection,
+  coverage: number | null,
+  horizon: number,
+): CoverageRow[] {
+  const add = (a: number, b: number | null) => (b === null ? null : a + b);
+  const over = coverageOverHorizon(proj, horizon);
+  return [
+    {
+      key: "income-coverage",
+      name: INCOME_WITH_COVERAGE,
+      today: add(today.totals.monthlyIncome, todayCoverage),
+      scenario: add(proj.totals.monthlyIncome, coverage),
+      total: add(proj.totals.income, over),
+    },
+    {
+      key: "surplus-coverage",
+      name: SURPLUS_WITH_COVERAGE,
+      today: add(today.totals.monthlySurplus, todayCoverage),
+      scenario: add(proj.totals.monthlySurplus, coverage),
+      total: add(proj.totals.surplus, over),
+    },
+  ];
+}
