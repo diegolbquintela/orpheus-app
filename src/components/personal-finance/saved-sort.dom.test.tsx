@@ -1,4 +1,4 @@
-// #278 (attachments/pf-saved-scenarios-sort-spec.md, AC PFSO-06..12): the Saved scenarios table's sortable headers,
+// #278 (attachments/personal-finance-spec.md §83, AC PFSO-06..12): the Saved scenarios table's sortable headers,
 // through the real ScenarioPage against an in-memory fake of `/api/personal-finance`: every data column ascending /
 // descending / back to the saved order, the stable tiebreak, aria-sort, the button names, keyboard reach, no request,
 // no storage write, the calculation and each row's values unchanged.

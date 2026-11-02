@@ -1,5 +1,5 @@
 /**
- * #278 (spec attachments/pf-saved-scenarios-sort-spec.md, AC PFSO): the Saved scenarios table's column sort. Client
+ * #278 (attachments/personal-finance-spec.md §83, AC PFSO): the Saved scenarios table's column sort. Client
  * side and in memory only: nothing is stored, sent or recalculated; the saved list itself is never reordered.
  *
  * A header click cycles: default → ascending → descending → default. Clicking another column starts it ascending.

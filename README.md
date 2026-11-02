@@ -657,6 +657,8 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 
 **Sortable Saved scenarios (#278, 2026-11-01).** On the Saved scenarios table, click `Scenario name` or `From` to sort ascending, again for descending, and a third time to return to the saved order (oldest first). Ties keep saved order. The sort is not saved and resets on reload; nothing is written. Spec §83, AC PFSO-01..PFSO-18.
 
+**Compare follows the sort; e2e coverage (#278, 2026-11-02).** The Compare table orders its scenario columns by the Saved table's current sort (saved order when none). `qa/tools/personal-finance-e2e.mjs` checks the sort signed in (PFSO-23; needs QA creds, otherwise `SKIPPED (NOT A PASS)`, exit 3) and masks every email address in its output and JSON as `<email>`.
+
 **12-month averages over the same months (#146).** The 12-month income and expense averages, and so the surplus, both use the complete months that have expense entries. An income-only month counts toward neither. An expense month with no income counts as 0 income, unless none of them has income, in which case the income average shows `—`. Spec section 29, PF-143..PF-149.
 
 **Rate used = the lower of the two (#138).** Rate used is now min(Withdrawal rate, Portfolio ROIC ÷ 2) when both are set, and the one that is set otherwise. A typed 0 counts as not set, and any rate field in error gives `—`. A line under the value says which was used. Spec section 30, PF-150..PF-157.
