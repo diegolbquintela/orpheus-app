@@ -23,6 +23,7 @@ import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, DELETE_ACCOUNT, DELETE_CATEGORY, DELETED_SUFFIX, deleteNameQuestion, PATH, acct, blankMonth, line, monthChoices, pickMonth, ready, shownMonth, trackSaves, txt, val } from "./pf-helpers.mjs";
+import { householdMonth } from "./pf-window.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -43,7 +44,8 @@ const VIEWPORTS = [
 // clock), not a hardcoded October 2026. CUR_* name it; NEXT_* is the first of the next month (PF-56 rollover).
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const REAL_NOW = new Date();
-const CUR = { y: REAL_NOW.getFullYear(), m: REAL_NOW.getMonth() };
+// BY4: the current month is the household's (America/Toronto, pf-window.mjs), not the runner's local clock.
+const CUR = (([y, m]) => ({ y, m: m - 1 }))(householdMonth(REAL_NOW).split("-").map(Number));
 const keyOf = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
 const CUR_KEY = keyOf(CUR.y, CUR.m);
 const CUR_MON = MONTH_NAMES[CUR.m];
@@ -61,9 +63,16 @@ const MONTH_CHOICES = { labels: ["Month", "Year"], months: monthOptsIn(CUR.y, LA
 const PAST = addMonths(CUR.y, CUR.m, -4);
 const PAST_KEY = keyOf(PAST.y, PAST.m);
 const PAST_MON = MONTH_NAMES[PAST.m];
+// BY1 (#247, spec 68 PFOS): the Overview's first column is the SELECTED month, not the current one. The edit gives the
+// selected (past) month rent 4,000 and wages 108,000 / 12; its only complete month is the 12-month average, so both match.
+const SEL_EXP = 4000, SEL_INC = 108000 / 12;
+const n2 = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const SEL_OV = { expenses: [n2(SEL_EXP), n2(SEL_EXP)], income: [n2(SEL_INC), n2(SEL_INC)], surplus: [n2(SEL_INC - SEL_EXP), n2(SEL_INC - SEL_EXP)] };
 const OLD_Y = CUR.y - 5;
 const OLD_KEY = keyOf(OLD_Y, 2);
 const OLD_NAME = `March ${OLD_Y}`;
+// BY4: the #165 PFD seed month (was 2026-03): March of last year, never the current or the past (−4) month.
+const PFD_KEY = keyOf(CUR.y - 1, 2);
 const NEXT_1 = new Date(CUR.y, CUR.m + 1, 1, 9);
 const NEXT_KEY = keyOf(NEXT_1.getFullYear(), NEXT_1.getMonth());
 const NEXT_NAME = `${MONTH_NAMES[NEXT_1.getMonth()]} ${NEXT_1.getFullYear()}`;
@@ -90,7 +99,18 @@ const OLD = {
 const email = process.env.QA_EMAIL;
 const password = process.env.QA_PASSWORD;
 const prod = new URL(base).hostname === new URL(DEFAULT_BASE_URL).hostname;
+// BY5 (pf-months reload hang, ~17 min): each reload is a step capped at STEP_MS (a timeout throws → eachViewport's
+// "ran to the end" FAIL, then sign-out); the whole run is capped at RUN_MS: FAIL, close the browser, exit 1.
+const STEP_MS = 75_000, RUN_MS = 20 * 60_000;
+const step = (name, p) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`BY5 step timeout (${STEP_MS / 1000}s): ${name}`)), STEP_MS); })]).finally(() => clearTimeout(t)); };
 const browser = await chromium.launch();
+const watchdog = setTimeout(() => {
+  check(`BY5 the whole run finished within ${RUN_MS / 60_000} min`, false, "hung: browser closed, exit 1");
+  writeFileSync(join(CFG.out, "pf-months.json"), JSON.stringify(R, null, 2));
+  void browser.close().catch(() => {});
+  setTimeout(() => process.exit(1), 15_000).unref();
+}, RUN_MS);
+watchdog.unref();
 try {
   if (!email || !password) skip("pf-months (signed in, the whole tool): set QA_EMAIL / QA_PASSWORD in env (the preview QA account)");
   else if (prod) check("pf-months runs on a preview only (it writes to the account): refused on production", false, base);
@@ -167,7 +187,7 @@ try {
       const rec1 = await stored();
       const months1 = JSON.parse(rec1[MONTHS_KEY] ?? "{}");
       const legacy = JSON.parse(rec1[OVERVIEW_KEY] ?? "{}").months;
-      check(`${tag} PF-52 / PF-53 Save: one PUT; stays on ${PAST_MON}; note gone; Save hidden; #140 average 4,000 / 9,000 / 5,000 from ${PAST_MON}'s lines; ${PAST_MON}'s old totals dropped; ${CUR_MON} unchanged`, JSON.stringify({ month: after.month, note: after.note, save: after.save, puts: after.puts }) === JSON.stringify({ month: PAST_KEY, note: "", save: 0, puts: 1 }) && JSON.stringify(after.ov) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && months1[PAST_KEY]?.fixed?.[0]?.amount === "4,000" && months1[CUR_KEY]?.fixed?.[0]?.amount === "1,750" && JSON.stringify(legacy) === "{}", { after, months: Object.keys(months1), legacy });
+      check(`${tag} PF-52 / PF-53 Save: one PUT; stays on ${PAST_MON}; note gone; Save hidden; #247 first column (selected ${PAST_MON}) and #140 average both 4,000 / 9,000 / 5,000 from ${PAST_MON}'s lines; ${PAST_MON}'s old totals dropped; ${CUR_MON} unchanged`, JSON.stringify({ month: after.month, note: after.note, save: after.save, puts: after.puts }) === JSON.stringify({ month: PAST_KEY, note: "", save: 0, puts: 1 }) && JSON.stringify(after.ov) === JSON.stringify(SEL_OV) && months1[PAST_KEY]?.fixed?.[0]?.amount === "4,000" && months1[CUR_KEY]?.fixed?.[0]?.amount === "1,750" && JSON.stringify(legacy) === "{}", { after, months: Object.keys(months1), legacy });
 
       // PF-54 switching with unsaved changes: Cancel keeps; OK drops.
       await page.getByTestId("pf-growth").fill("5");
@@ -203,7 +223,7 @@ try {
       check(`${tag} PF-58 the control under the title; select ≥ 44 px and ≤ 16rem, Save ≥ 44 px on its row; no horizontal scroll; no gold; strict CLS 0 (load, Save shown / hidden)`, lay.below && lay.sel[0] >= 44 && lay.sel[1] <= 256 && lay.save >= 44 && lay.row && lay.scroll <= 0 && lay.gold === 0 && cls === 0 && cls2 === 0, { ...lay, cls, cls2 });
 
       // PF-50 a reload shows only what was saved.
-      await page.reload({ waitUntil: "networkidle" });
+      await step("reload", page.reload({ waitUntil: "networkidle" }));
       await ready(page);
       await pickMonth(page, PAST_KEY);
       const back = { june: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), note: await note(), ov: await ov() };
@@ -228,7 +248,7 @@ try {
       await pickMonth(page, DEC_PREV);
       await page.getByTestId("pf-month-year").selectOption(String(LAST.y));
       const clamp = await shownMonth(page);
-      await page.reload({ waitUntil: "networkidle" });
+      await step("reload", page.reload({ waitUntil: "networkidle" }));
       await ready(page);
       await pickMonth(page, OLD_KEY);
       const oldBack = { rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), note: await note(), stored: Object.keys(JSON.parse((await stored())[MONTHS_KEY] ?? "{}")) };
@@ -237,7 +257,7 @@ try {
 
       // PF-56 rollover: 1 November 2026, November empty → a copy of October (the most recent month with lines).
       await page.clock.setFixedTime(NOV_1);
-      await page.reload({ waitUntil: "networkidle" });
+      await step("reload", page.reload({ waitUntil: "networkidle" }));
       await ready(page);
       const roll = { month: await shownMonth(page), first: (await monthChoices(page)).years[0], disabled: (await monthChoices(page)).months.filter((m) => m.endsWith("(disabled)")), note: await note(), save: await save.isVisible(), rent: await val(line(page, "fixed", 0).getByTestId("pf-monthly")), stored: Object.keys(JSON.parse((await stored())[MONTHS_KEY] ?? "{}")) };
       check(`${tag} PF-56 rollover (clock 1 ${NEXT_NAME}): ${NEXT_NAME} shown (#229: months up to ${LAST_KEY} open), a copy of ${CUR_MON}'s lines with COPIED; Save shown; nothing stored`, JSON.stringify(roll) === JSON.stringify({ month: NEXT_KEY, first: String(NEXT_LAST.y), disabled: NEXT_DISABLED, note: COPIED, save: true, rent: "1,750", stored: [OLD_KEY, PAST_KEY, CUR_KEY] }), roll);
@@ -258,7 +278,7 @@ try {
         }),
       });
       await page.clock.setFixedTime(TODAY);
-      await page.reload({ waitUntil: "networkidle" });
+      await step("reload", page.reload({ waitUntil: "networkidle" }));
       await ready(page);
       await pickMonth(page, "2025-06");
       const fixedPos = () => page.evaluate(() => ["pf-month", "pf-month-year", "pf-month-copy-line"].map((id) => document.querySelector(`[data-testid=${id}]`)).concat(document.querySelector(".pf-month-save")).map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY)]; }));
@@ -283,17 +303,17 @@ try {
       }
       await page.setViewportSize(viewport);
       check(`${tag} PF-58 / PFM-11 per change (EL 2026-10-16) at 360 / 400 / 1024 / 1440: data → data strict CLS 0 (${PAST_MON} ⇄ March 2025, and March 2025 ⇄ March 2026 by Year only, #165); data → blank / blank → data exempt from CLS, but Month, Year, Save and the Copy line don't move`, Object.values(per).every((r) => r.dd.cls === 0 && r.dd2.cls === 0 && r.yy.cls === 0 && r.yy2.cls === 0 && !r.yy.moved && !r.yy2.moved && !r.dd.moved && !r.dd2.moved && !r.db.moved && !r.bd.moved), per);
-      // #165 PFD-01..PFD-04 / PFD-12 (option A KEEP): delete Travel and Amex while June 2026 is shown, Save; March keeps
+      // #165 PFD-01..PFD-04 / PFD-12 (option A KEEP): delete Travel and Amex while the past (−4) month is shown, Save; March of last year (PFD_KEY) keeps
       // them on its line as "(deleted)" (stored unchanged); June and October lose them; not offered for another line.
       const T65 = (id, a) => ({ ...RENT, id, name: "Trip", amount: a, category: "Travel", account: "Amex" });
       const M65 = (id, a) => ({ fixed: [R58(`${id}r`, "1,000")], variable: [T65(`${id}t`, a)], people: [] });
       await acct(page, base, "PUT", {
         [KEY]: JSON.stringify({ fixed: [R58("o1", "1,000")], variable: [T65("ot", "400")], accounts: ["Amex"], categories: ["Travel"] }),
-        [MONTHS_KEY]: JSON.stringify({ "2026-03": M65("m", "200"), [PAST_KEY]: M65("j", "300"), [CUR_KEY]: M65("o", "400") }),
+        [MONTHS_KEY]: JSON.stringify({ [PFD_KEY]: M65("m", "200"), [PAST_KEY]: M65("j", "300"), [CUR_KEY]: M65("o", "400") }),
       });
-      await page.reload({ waitUntil: "networkidle" });
+      await step("reload", page.reload({ waitUntil: "networkidle" }));
       await ready(page);
-      const march65 = JSON.stringify(JSON.parse((await stored())[MONTHS_KEY])["2026-03"]);
+      const march65 = JSON.stringify(JSON.parse((await stored())[MONTHS_KEY])[PFD_KEY]);
       await pickMonth(page, PAST_KEY);
       const hasDeleteUi = (await page.getByTestId("pf-delete-category").count()) > 0;
       if (hasDeleteUi) {
@@ -309,26 +329,26 @@ try {
         await page.waitForTimeout(1200);
         page.off("dialog", onDialog165);
         const m65 = JSON.parse((await stored())[MONTHS_KEY]);
-        await pickMonth(page, "2026-03");
+        await pickMonth(page, PFD_KEY);
         const marchView = await page.evaluate(() => {
           const sel = document.querySelector("[data-testid=pf-group-variable] [data-testid=pf-line] [data-testid=pf-category]");
           const other = document.querySelector("[data-testid=pf-group-fixed] [data-testid=pf-line] [data-testid=pf-category]");
           return { line: sel?.selectedOptions[0]?.textContent, otherOffers: [...(other?.options ?? [])].some((o) => o.value === "Travel"), rows: [...document.querySelectorAll("[data-testid=pf-cat-name], [data-testid=pf-acct-name]")].map((e) => e.textContent.trim()) };
         });
-        check(`${tag} #165 PFD-01..PFD-04 / PFD-12 "${DELETE_CATEGORY}" / "${DELETE_ACCOUNT}" on ${PAST_MON} 2026 ask "${deleteNameQuestion("Travel")}"; after Save ${PAST_MON} and ${CUR_MON} lose Travel / Amex, March is stored unchanged and shows "Travel${DELETED_SUFFIX}" / "Amex${DELETED_SUFFIX}"; Travel is not offered for another line`,
-          JSON.stringify(texts65) === JSON.stringify([DELETE_CATEGORY, DELETE_ACCOUNT]) && JSON.stringify(asked65) === JSON.stringify([deleteNameQuestion("Travel"), deleteNameQuestion("Amex")]) && JSON.stringify(m65["2026-03"]) === march65 && m65[PAST_KEY].variable[0].category === "" && m65[CUR_KEY].variable[0].account === "" && marchView.line === `Travel${DELETED_SUFFIX}` && !marchView.otherOffers && marchView.rows.includes(`Travel${DELETED_SUFFIX}`) && marchView.rows.includes(`Amex${DELETED_SUFFIX}`),
-          { texts65, asked65, march: JSON.stringify(m65["2026-03"]) === march65, june: m65[PAST_KEY].variable[0], marchView });
+        check(`${tag} #165 PFD-01..PFD-04 / PFD-12 "${DELETE_CATEGORY}" / "${DELETE_ACCOUNT}" on ${PAST_MON} ${PAST.y} ask "${deleteNameQuestion("Travel")}"; after Save ${PAST_MON} and ${CUR_MON} lose Travel / Amex, March is stored unchanged and shows "Travel${DELETED_SUFFIX}" / "Amex${DELETED_SUFFIX}"; Travel is not offered for another line`,
+          JSON.stringify(texts65) === JSON.stringify([DELETE_CATEGORY, DELETE_ACCOUNT]) && JSON.stringify(asked65) === JSON.stringify([deleteNameQuestion("Travel"), deleteNameQuestion("Amex")]) && JSON.stringify(m65[PFD_KEY]) === march65 && m65[PAST_KEY].variable[0].category === "" && m65[CUR_KEY].variable[0].account === "" && marchView.line === `Travel${DELETED_SUFFIX}` && !marchView.otherOffers && marchView.rows.includes(`Travel${DELETED_SUFFIX}`) && marchView.rows.includes(`Amex${DELETED_SUFFIX}`),
+          { texts65, asked65, march: JSON.stringify(m65[PFD_KEY]) === march65, june: m65[PAST_KEY].variable[0], marchView });
       } else {
         // PF_DELETE_UI = false (branch fix/pf-keep-deleted-protection-only): the Delete flow can't run, so it's SKIPPED
         // with this reason; the KEEP protection is still checked on a record that already has deleted names.
         console.log(`INFO ${tag} #165 PFD-01 / PFD-13 Delete flow SKIPPED: no Delete buttons (PF_DELETE_UI = false, protection-only build)`);
         await acct(page, base, "PUT", {
           [KEY]: JSON.stringify({ fixed: [R58("o1", "1,000")], variable: [], accounts: [], categories: [], deletedCategories: [{ name: "Travel", from: PAST_KEY }], deletedAccounts: [{ name: "Amex", from: PAST_KEY }] }),
-          [MONTHS_KEY]: JSON.stringify({ "2026-03": M65("m", "200"), [CUR_KEY]: { fixed: [R58("or", "1,000")], variable: [], people: [] } }),
+          [MONTHS_KEY]: JSON.stringify({ [PFD_KEY]: M65("m", "200"), [CUR_KEY]: { fixed: [R58("or", "1,000")], variable: [], people: [] } }),
         });
-        await page.reload({ waitUntil: "networkidle" });
+        await step("reload", page.reload({ waitUntil: "networkidle" }));
         await ready(page);
-        await pickMonth(page, "2026-03");
+        await pickMonth(page, PFD_KEY);
         const view = await page.evaluate(() => ({
           line: document.querySelector("[data-testid=pf-group-variable] [data-testid=pf-line] [data-testid=pf-category]")?.selectedOptions[0]?.textContent,
           rows: [...document.querySelectorAll("[data-testid=pf-cat-name], [data-testid=pf-acct-name]")].map((e) => e.textContent.trim()),
@@ -351,6 +371,7 @@ try {
   });
 } finally {
   await browser.close();
+  clearTimeout(watchdog);
 }
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "pf-months.json"), JSON.stringify(R, null, 2));

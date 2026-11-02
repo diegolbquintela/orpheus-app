@@ -70,6 +70,9 @@ const WHITE = "rgb(255, 255, 255)";
 const INK = "rgb(30, 33, 36)";
 // #90 (ROLE-01): Account last.
 const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
+// BY3 (#267 / #286 / #293): signed in as the owner the overlay adds `Renaissance Man` (server-decided, RM-21) before
+// Account: 6 links. Signed out (and for non-owners) the HTML never holds it: the 5 above.
+const ITEMS_OWNER = [...ITEMS.slice(0, -1), ["Renaissance Man", "/renaissance"], ITEMS.at(-1)];
 const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
@@ -136,7 +139,8 @@ async function contrastScan(page) {
   });
 }
 
-async function shell(page, { vp, path, want, kind, viewport }) {
+async function shell(page, { vp, path, want, kind, viewport, owner = false }) {
+  const items = owner ? ITEMS_OWNER : ITEMS;
   const tag = `[${vp}] ${path}`;
   const nav = page.locator('nav[aria-label="Site"]');
   check(`${tag} ST1-01 bar visible`, await nav.isVisible());
@@ -156,7 +160,7 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   });
   check(`${tag} ST1-01 charcoal, thin (≤ 48 px)`, bar.bg === NIGHT && bar.height <= 48, { bg: bar.bg, height: bar.height });
   check(`${tag} ST1-01 (#286) bar items: Orpheus (lyre) / Search / Menu, no current mark on them`, JSON.stringify(bar.items.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Search", null], ["Menu", null]]) && bar.items.every((l) => l.current === null), bar.items.map((l) => l.text));
-  check(`${tag} ST1-01 (#286) overlay links (hidden until opened): items, hrefs, order, Account last`, bar.overlayHidden && JSON.stringify(bar.links.map((l) => [l.text, l.href])) === JSON.stringify(ITEMS), bar.links.map((l) => l.text));
+  check(`${tag} ST1-01 (#286) overlay links (hidden until opened): ${items.length} items${owner ? " incl. Renaissance Man (owner)" : ""}, hrefs, order, Account last`, bar.overlayHidden && JSON.stringify(bar.links.map((l) => [l.text, l.href])) === JSON.stringify(items), bar.links.map((l) => l.text));
   const ys = bar.items.map((l) => l.y);
   const colRight = Math.min(viewport.width, (viewport.width + 1152) / 2);
   const last = bar.items.at(-1);
@@ -189,8 +193,10 @@ async function shell(page, { vp, path, want, kind, viewport }) {
   check(`${tag} ST0-03 AA contrast for every visible text (bar, content, footer)`, scan.bad.length === 0, scan.bad.length ? scan.bad : { texts: scan.n });
   // Strip aria-current and React's generated ids before comparing the bar across pages.
   const html = (await nav.evaluate((n) => n.outerHTML)).replace(/ aria-current="page"/g, "").replace(/ (id|for|aria-controls|aria-describedby)="[^"]*"/g, " $1");
-  if (!navHtml.has(vp)) navHtml.set(vp, new Set());
-  navHtml.get(vp).add(html);
+  // BY3: ST1-04 compares the bar per viewport within one view (signed out / owner): the owner's overlay adds one link.
+  const key = `${vp}${owner ? " owner" : ""}`;
+  if (!navHtml.has(key)) navHtml.set(key, new Set());
+  navHtml.get(key).add(html);
 }
 
 async function focusRing(page, tag) {
@@ -347,7 +353,7 @@ try {
           check(`[${vp}] /dashboard content visible (released)`, await page.locator('[data-testid="holdings-section"], [data-testid="holdings-empty"], [data-testid="holding-row"]').first().isVisible().catch(() => false));
           const panel = await page.locator(content).evaluate((e) => ({ bg: getComputedStyle(e).backgroundColor, color: getComputedStyle(e).color }));
           check(`[${vp}] /dashboard ST0-05 content panel as on main (white, ink)`, panel.bg === WHITE && panel.color === INK, panel);
-          await shell(page, { vp, path: "/dashboard", want: "Dashboard", kind: "dashboard", viewport });
+          await shell(page, { vp, path: "/dashboard", want: "Dashboard", kind: "dashboard", viewport, owner: true });
           const file = join(CFG.out, `dashboard-${viewport.width}.png`);
           await page.screenshot({ path: file, fullPage: true });
           R.shots.push(file);
@@ -358,7 +364,7 @@ try {
           await page.goto(`${host}/personal-finance`, { waitUntil: "networkidle" });
           await page.waitForTimeout(300);
           await fontWait(page, `[${vp}] /personal-finance`);
-          await shell(page, { vp, path: "/personal-finance", want: "Personal Finance", kind: "dark", viewport });
+          await shell(page, { vp, path: "/personal-finance", want: "Personal Finance", kind: "dark", viewport, owner: true });
           const file = join(CFG.out, `personal-finance-${viewport.width}.png`);
           await page.screenshot({ path: file, fullPage: true });
           R.shots.push(file);

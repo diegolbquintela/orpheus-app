@@ -69,6 +69,7 @@ import { refuseIfProd } from "./prod-guard.mjs";
 import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER } from "./pf-helpers.mjs"; // #171
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
+import { householdMonth } from "./pf-window.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -362,7 +363,8 @@ const STORED_CURRENCY = JSON.stringify({ household: "USD" });
 // clock), not a hardcoded October 2026. CUR_* name it.
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const REAL_NOW = new Date();
-const CUR = { y: REAL_NOW.getFullYear(), m: REAL_NOW.getMonth() };
+// BY4: the current month is the household's (America/Toronto, pf-window.mjs), not the runner's local clock.
+const CUR = (([y, m]) => ({ y, m: m - 1 }))(householdMonth(REAL_NOW).split("-").map(Number));
 const keyOf = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
 const CUR_KEY = keyOf(CUR.y, CUR.m);
 const CUR_MON = MONTH_NAMES[CUR.m];
@@ -380,6 +382,11 @@ const MONTH_CHOICES = { labels: ["Month", "Year"], months: monthOptsIn(CUR.y, LA
 const PAST = addMonths(CUR.y, CUR.m, -4);
 const PAST_KEY = keyOf(PAST.y, PAST.m);
 const PAST_MON = MONTH_NAMES[PAST.m];
+// BY1 (#247, spec 68 PFOS): the Overview's first column is the SELECTED month, not the current one. The edit gives the
+// selected (past) month rent 4,000 and wages 108,000 / 12; its only complete month is the 12-month average, so both match.
+const SEL_EXP = 4000, SEL_INC = 108000 / 12;
+const n2 = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const SEL_OV = { expenses: [n2(SEL_EXP), n2(SEL_EXP)], income: [n2(SEL_INC), n2(SEL_INC)], surplus: [n2(SEL_INC - SEL_EXP), n2(SEL_INC - SEL_EXP)] };
 // BX1 (#228, spec 64): the 12-month chart adds only months with figures: start 10,000 + the past month's surplus
 // (9,000 − 4,000) + the current month's (11,200 − 1,750). Future months add the 12-month average (the past month alone).
 const PAST_SURPLUS = 9000 - 4000;
@@ -1039,7 +1046,7 @@ try {
         await settle(p3);
         const t1 = await ov();
         const afterSave = { month: await shownMonth(p3), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
-        check(`${tag} PF-50 / PF-52 / PF-53 ${PAST_MON} edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #140 average over 12 complete months (${PAST_MON} alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on ${PAST_MON}, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: PAST_KEY, note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
+        check(`${tag} PF-50 / PF-52 / PF-53 ${PAST_MON} edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #247 first column = the selected ${PAST_MON} and #140 average over 12 complete months (${PAST_MON} alone), both 4,000 / 9,000 / 5,000; stays on ${PAST_MON}, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify(SEL_OV) && JSON.stringify(t1) === JSON.stringify(SEL_OV) && JSON.stringify(afterSave) === JSON.stringify({ month: PAST_KEY, note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
         check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → ${fmt2(NET12)} (#140)`, ch1.months === "12" && ch1.net === NET12.toFixed(2) && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
