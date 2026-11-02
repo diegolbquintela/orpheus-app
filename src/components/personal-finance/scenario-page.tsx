@@ -50,6 +50,9 @@ import { householdMonth } from "@/lib/finance/overview";
 import {
   addSaved,
   basisChanged,
+  COMPARE_LIMIT_HINT,
+  compareColour,
+  THIS_SCREEN_ID,
   COMPARE_MAX,
   COMPARE_MIN,
   COMPARE_SELECTED,
@@ -675,6 +678,10 @@ function SavedScenarios({
     });
   // #278 Q-SO5: Compare columns follow the Saved table's current sort (saved order when none); "This screen" stays first.
   const compared = sortSaved(list, sort).filter((e) => picked.includes(e.id));
+  // #279 (spec §84): at the limit, every unpicked box is locked (aria-disabled, still focusable, described by the hint);
+  // deselecting the picked one unlocks them. The hint's line is always reserved, so showing it shifts nothing.
+  const atLimit = picked.length >= COMPARE_MAX;
+  const hintId = `${uid}-compare-limit`;
 
   return (
     <>
@@ -785,7 +792,8 @@ function SavedScenarios({
                           <input
                             type="checkbox"
                             checked={picked.includes(e.id)}
-                            disabled={!picked.includes(e.id) && picked.length >= COMPARE_MAX}
+                            aria-disabled={atLimit && !picked.includes(e.id) ? true : undefined}
+                            aria-describedby={atLimit && !picked.includes(e.id) ? hintId : undefined}
                             onChange={() => togglePick(e.id)}
                             data-testid="pf-saved-compare"
                           />
@@ -863,10 +871,13 @@ function SavedScenarios({
                 </tbody>
               </table>
             </div>
+            <p id={hintId} className="pf-compare-hint" aria-live="polite" data-testid="pf-saved-compare-hint" data-shown={atLimit}>
+              {atLimit ? COMPARE_LIMIT_HINT : ""}
+            </p>
             {picked.length >= COMPARE_MIN ? (
               <button
                 type="button"
-                className="pf-button pf-button-primary mt-4"
+                className="pf-button pf-button-primary mt-2"
                 onClick={() => setComparing(true)}
                 data-testid="pf-saved-compare-button"
               >
@@ -885,7 +896,7 @@ function SavedScenarios({
 function CompareTable({ live, entries, horizon }: { live: Inputs; entries: SavedEntry[]; horizon: Horizon }) {
   const uid = useId();
   const cols = [
-    { id: "now", name: "This screen", proj: project(live, horizon) },
+    { id: THIS_SCREEN_ID, name: "This screen", proj: project(live, horizon) },
     ...entries.map((e) => ({ id: e.id, name: e.name, proj: project({ ...e.inputs, current: live.current }, horizon) })),
   ];
   const rows: { key: string; name: string; cell: (p: ReturnType<typeof project>) => string }[] = [
@@ -900,7 +911,6 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
     label: pt.label,
     ...Object.fromEntries(cols.map((c) => [c.id, c.proj.points[i]?.net ?? null])),
   }));
-  const colors = ["var(--color-chalk)", "var(--color-green)", "var(--color-alert)", "var(--color-dim)"];
   return (
     <section className="pf-section" aria-labelledby={`${uid}-cmp`} data-testid="pf-compare-section">
       <p className="pf-label">09</p>
@@ -942,16 +952,16 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
               <XAxis dataKey="label" tick={{ fill: "var(--color-dim)", fontSize: 12 }} tickLine={false} axisLine={false} ticks={xTickIndexes(data.length).map((i) => data[i].label)} interval={0} />
               <YAxis tick={{ fill: "var(--color-dim)", fontSize: 12 }} tickLine={false} axisLine={false} width={axisWidth(data.flatMap((d) => cols.map((c) => (d as unknown as Record<string, number>)[c.id] ?? 0)))} tickFormatter={(v: number) => COMPACT.format(v)} />
               <ReferenceLine y={0} stroke="var(--color-rule)" />
-              {cols.map((c, i) => (
-                <Line key={c.id} type="linear" dataKey={c.id} name={c.name} stroke={colors[i]} strokeWidth={2} dot={false} isAnimationActive={false} />
+              {cols.map((c) => (
+                <Line key={c.id} type="linear" dataKey={c.id} name={c.name} stroke={compareColour(c)} strokeWidth={2} dot={false} isAnimationActive={false} />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
         <ul className="pf-legend">
-          {cols.map((c, i) => (
-            <li key={c.id}>
-              <span className="pf-swatch" style={{ background: colors[i] }} aria-hidden="true" />
+          {cols.map((c) => (
+            <li key={c.id} data-testid="pf-compare-legend-item" data-colour={compareColour(c)}>
+              <span className="pf-swatch" style={{ background: compareColour(c) }} aria-hidden="true" />
               {`${c.name} (net assets)`}
             </li>
           ))}

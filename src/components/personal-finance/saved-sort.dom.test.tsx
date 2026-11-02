@@ -153,45 +153,24 @@ describe("#278 Saved scenarios column sort (PFSO)", () => {
     assert.deepEqual(checked(), first);
   });
 
-  it("PFSO-19/20/21 (Q-SO5): Compare follows the Saved sort per column and direction, ties in saved order, back to saved order on the third click; nothing sent or stored", async () => {
+  // #279 (spec §84, PF2C): Compare is This screen + 1 saved, so Q-SO5's sort-follows has one saved column to place.
+  it("PFSO-19/20/21 (amended #279): with This screen + 1 saved, re-sorting keeps Compare [This screen, X] with X's figures, the lock follows the picked id, nothing sent or stored", async () => {
     const calls = server(record());
     const el = await render();
-    // Pick s4, s1, s2 (ticked in that order; picking order must not matter): ties Éclair = Eclair, and 2026-09 twice.
-    for (const i of [4, 1, 2]) await click(q(qa(el, "pf-saved-item")[i], "pf-saved-compare")!);
+    await click(q(qa(el, "pf-saved-item")[1], "pf-saved-compare")!);
     await click(q(el, "pf-saved-compare-button")!);
     const before = { calls: calls.length, storage: storage() };
-    const INCOME: Record<string, string> = {};
-    // Column headers, and each column's own income cell, so a value can never drift from its scenario.
-    const cmp = () => {
-      const heads = qa(el, "pf-compare-head").map((h) => h.textContent!.trim());
-      const inc = qa(q(el, "pf-compare-row-income")!, "pf-compare-cell").map((c) => c.textContent!.trim());
-      heads.forEach((h, i) => {
-        INCOME[h] ??= inc[i];
-        assert.equal(inc[i], INCOME[h], `${h}'s figures move with it`);
-      });
-      return heads;
-    };
-    const saved = ["This screen", "alpha 2", "Éclair", "Eclair"];
-    assert.deepEqual(cmp(), saved, "no sort: saved order, This screen first");
-    assert.equal(new Set(Object.values(INCOME)).size, 4, "fixture: every column's income differs");
-    const steps: [string, string[]][] = [
-      ["name", ["This screen", "alpha 2", "Éclair", "Eclair"]],
-      ["name", ["This screen", "Éclair", "Eclair", "alpha 2"]],
-      ["name", saved],
-      ["from", ["This screen", "Éclair", "alpha 2", "Eclair"]],
-      ["from", ["This screen", "alpha 2", "Eclair", "Éclair"]],
-      ["from", saved],
-      ["from", ["This screen", "Éclair", "alpha 2", "Eclair"]],
-      ["name", ["This screen", "alpha 2", "Éclair", "Eclair"]],
-    ];
-    for (const [col, want] of steps) {
+    const cmp = () => [qa(el, "pf-compare-head").map((h) => h.textContent!.trim()), qa(q(el, "pf-compare-row-income")!, "pf-compare-cell").map((c) => c.textContent!.trim())];
+    const want = cmp();
+    assert.deepEqual(want[0], ["This screen", "alpha 2"]);
+    const lockedNames = () => qa(el, "pf-saved-item").filter((tr) => q(tr, "pf-saved-compare")!.getAttribute("aria-disabled") === "true").map((tr) => q(tr, "pf-saved-item-name")!.textContent);
+    for (const col of ["name", "name", "name", "from", "from", "from", "from"]) {
       await click(q(el, `pf-saved-sort-${col}`)!);
       assert.deepEqual(cmp(), want, `after ${col}`);
-      const savedNames = rows(el).map((r) => r.split("|")[0]).filter((n) => want.includes(n));
-      assert.deepEqual(savedNames, want.slice(1), "Compare matches the Saved table's order");
+      assert.deepEqual(lockedNames().sort(), ["Delta", "Eclair", "alpha 10", "Éclair"].sort(), "every unpicked row stays locked");
       assert.equal(calls.length, before.calls, "no request");
       assert.equal(storage(), before.storage, "no storage write");
     }
-    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "4");
+    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "2");
   });
 });

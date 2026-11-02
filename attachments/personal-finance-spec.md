@@ -2887,3 +2887,20 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 - Chart line colours are assigned by column position (as before #278), so a scenario's line colour can change when the sort changes.
 - AC PFSO-19..PFSO-22.
 - **2026-11-02 (QA CA1–CA3):** the signed-in e2e step PFSO-23 covers the cycle, `aria-sort`, non-sortable `Select` / `Actions`, Compare order, no writes, and a Read user; PFSO-24 states the Compare order rule; e2e output masks email addresses (PFSO-25).
+
+## 84. Personal Finance: Compare at most 2 scenarios (#279, MEDIUM; added 2026-11-02)
+
+- **Compare shows at most 2 columns, and `This screen` counts as one.** So Compare is `This screen` + exactly 1 saved scenario. This supersedes the 2..3 saved picks of #223 (Q-SS1). **Flagged for the CFO:** the alternative reading (2 saved, `This screen` not counted, 3 columns) was not built.
+- **Locked, not hidden.** Once one saved scenario is ticked, every other Compare box is `aria-disabled="true"` (dimmed, `not-allowed` cursor), stays focusable and announced, and is `aria-describedby` a short hint: `Compare limit reached: This screen and 1 saved scenario.` Clicking or pressing Space on a locked box does nothing. Hiding the boxes would shift the table and hide why; native `disabled` would drop them from the tab order without explanation.
+- The hint line's space is always reserved (CLS 0) and is `aria-live="polite"`; it is empty until the limit is reached. Unticking the pick unlocks every box and clears the hint.
+- Compare (and the chart) still follow the Saved sort (§83 Q-SO5) with `This screen` first; with one saved column that order is trivially stable. The 2-column output is unchanged.
+- Client-side only: the selection is React state, not persisted. No request, storage, table, migration, key, env var or dependency; calc is unchanged.
+- AC PF2C-01..PF2C-09.
+
+### Addendum 2026-11-02 (#279 CB2, EL/CFO on PR #297)
+
+- Q-2C1..2C4 are accepted as built. The #278 sort carry-over stays as a fallback.
+- **Colours are pinned to the scenario, not the column position.** Compare's chart lines and legend swatches use `compareColour` (`src/lib/finance/saved-scenarios.ts`) with the existing 4-colour Compare palette (no new colours, no size change). `This screen` always takes slot 0. A saved scenario takes slot `1 + fnv1a(id) mod 3`, a 32-bit FNV-1a hash of its stored id (its name if it has no id). So a scenario's colour does not change on re-sort, when columns are added or removed, or across visits, and it is computed by the same function from the same Saved entry wherever it is shown. Saved scenarios skip slot 0, so they never share `This screen`'s colour.
+- **Collisions:** with 3 slots for saved scenarios, two scenarios can share a colour (about 1 in 3 for any pair). This is accepted. Nothing is stored to avoid it, and today Compare shows only one saved scenario at a time, so a clash cannot appear on screen.
+- The Saved scenarios table itself has no chart or swatch today; "the same colour in Saved and Compare" holds because both read `compareColour` of the same entry.
+- Client-side only: no storage, calc, dependency, table, migration, key or env change. AC PF2C-10..PF2C-15.
