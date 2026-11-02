@@ -951,8 +951,8 @@ try {
       // A REAL Read user (QA_CFO_READ) repeats it read-only; SKIPPED (NOT A PASS) when unset. Reset at the end.
       {
         const snapC = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
-        // The subtitle month is the PAGE's month (the owner page runs on the pinned TODAY; a second context on its own clock).
-        const ovSub = (pg) => pg.evaluate(() => `Income, expenses and net assets for each month up to ${new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "America/Toronto" }).format(new Date())} (recorded history).`);
+        // The subtitle month is the pinned TODAY (#285): the owner page runs on it and the Read-user context is pinned too.
+        const OV_SUB = `Income, expenses and net assets for each month up to ${new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "America/Toronto" }).format(TODAY)} (recorded history).`;
         const thisMonth = householdMonth(TODAY);
         const head = (pg, fig) => pg.evaluate((id) => {
           const f = document.querySelector(`[data-testid=${id}]`); if (!f) return null;
@@ -965,7 +965,7 @@ try {
           const out = { main: [], scen: [] };
           await pg.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
           await pg.getByTestId("pf-chart").waitFor({ timeout: 20000 });
-          out.sub = await ovSub(pg);
+          out.sub = OV_SUB;
           const futureOn = async (into) => {
             into.push(await head(pg, "pf-chart"));
             const tg = pg.getByTestId("pf-future-toggle");
@@ -1009,6 +1009,7 @@ try {
             await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFCH Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
               const w2 = [];
               rp.on("request", (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") w2.push(`${q.method()} ${u.pathname}`); });
+              await rp.clock.setFixedTime(TODAY);
               rd.o = await pass(rp);
               await rp.waitForTimeout(1500);
               rd.writes = w2;
