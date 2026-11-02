@@ -13,9 +13,15 @@ import type { PfRecord } from "./record.ts";
 import { NAME_MAX, NO_SCENARIO, SAVED_MAX, type SavedEntry, type Scenario } from "./scenario-key.ts";
 
 export { NAME_MAX, SAVED_MAX, type SavedEntry };
-/** #223 CFO Q-SS1 (built): up to 3 saved scenarios side by side with the screen as it is now. */
-export const COMPARE_MIN = 2;
-export const COMPARE_MAX = 3;
+/**
+ * #279 (spec §84, AC PF2C; supersedes #223 Q-SS1's 2..3): Compare shows at most 2 columns, and `This screen` COUNTS as
+ * one of them, so exactly 1 saved scenario is picked beside it. MIN / MAX count saved picks; COMPARE_COLUMNS_MAX all columns.
+ */
+export const COMPARE_COLUMNS_MAX = 2;
+export const COMPARE_MIN = 1;
+export const COMPARE_MAX = COMPARE_COLUMNS_MAX - 1;
+/** #279: shown (and named by aria-describedby on each locked checkbox) while the limit is reached. */
+export const COMPARE_LIMIT_HINT = "Compare limit reached: This screen and 1 saved scenario.";
 export const COMPARE_TOGGLE = "Compare with saved scenarios";
 export const COMPARE_SELECTED = "Compare selected";
 /** The page values a saved scenario keeps (the screen's what-ifs); anything else is never kept. */

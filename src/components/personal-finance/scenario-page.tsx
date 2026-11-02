@@ -50,6 +50,7 @@ import { householdMonth } from "@/lib/finance/overview";
 import {
   addSaved,
   basisChanged,
+  COMPARE_LIMIT_HINT,
   COMPARE_MAX,
   COMPARE_MIN,
   COMPARE_SELECTED,
@@ -675,6 +676,10 @@ function SavedScenarios({
     });
   // #278 Q-SO5: Compare columns follow the Saved table's current sort (saved order when none); "This screen" stays first.
   const compared = sortSaved(list, sort).filter((e) => picked.includes(e.id));
+  // #279 (spec §84): at the limit, every unpicked box is locked (aria-disabled, still focusable, described by the hint);
+  // deselecting the picked one unlocks them. The hint's line is always reserved, so showing it shifts nothing.
+  const atLimit = picked.length >= COMPARE_MAX;
+  const hintId = `${uid}-compare-limit`;
 
   return (
     <>
@@ -785,7 +790,8 @@ function SavedScenarios({
                           <input
                             type="checkbox"
                             checked={picked.includes(e.id)}
-                            disabled={!picked.includes(e.id) && picked.length >= COMPARE_MAX}
+                            aria-disabled={atLimit && !picked.includes(e.id) ? true : undefined}
+                            aria-describedby={atLimit && !picked.includes(e.id) ? hintId : undefined}
                             onChange={() => togglePick(e.id)}
                             data-testid="pf-saved-compare"
                           />
@@ -863,10 +869,13 @@ function SavedScenarios({
                 </tbody>
               </table>
             </div>
+            <p id={hintId} className="pf-compare-hint" aria-live="polite" data-testid="pf-saved-compare-hint" data-shown={atLimit}>
+              {atLimit ? COMPARE_LIMIT_HINT : ""}
+            </p>
             {picked.length >= COMPARE_MIN ? (
               <button
                 type="button"
-                className="pf-button pf-button-primary mt-4"
+                className="pf-button pf-button-primary mt-2"
                 onClick={() => setComparing(true)}
                 data-testid="pf-saved-compare-button"
               >

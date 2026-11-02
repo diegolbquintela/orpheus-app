@@ -2271,3 +2271,23 @@ check). Spec: `attachments/header-menu-spec.md`.
 | PFSO-23 | HIGH | **Added 2026-11-02 (QA CA1).** `qa/tools/personal-finance-e2e.mjs`, signed in on the preview (owner qa-pf, real clock): 4 seeded saved scenarios with ties; `Scenario name` and `From` each cycle ascending → descending → saved order; `aria-sort` follows; `Select` / `Actions` not sortable; Compare follows the sort and keeps saved order with none; no non-GET `/api/*` and the owner's record byte-identical (compared, never logged). A real Read user (QA_CFO_READ) repeats it read-only, or the run says `SKIPPED (NOT A PASS)` and exits 3. qa-pf is reset to its snapshot afterwards. (e2e on preview) |
 | PFSO-24 | BLOCK | **Added 2026-11-02 (QA CA3; restates Q-SO5 as one criterion).** Compare's scenario column order is always `sortSaved(saved, current Saved sort)` restricted to the ticked scenarios: same column, direction and stored-order tiebreak; with no sort active it is saved order; `This screen` is first. (DOM PFSO-19/20, Chromium PFSO-22, e2e PFSO-23) |
 | PFSO-25 | HIGH | **Added 2026-11-02 (QA: emails in e2e output).** `personal-finance-e2e.mjs` masks every email-shaped string as `<email>` in all console output and in `personal-finance-e2e.json` (`qa/tools/redact.mjs`); credential values are never logged. Pinned by `scripts/qa-redact.test.mjs` (REDACT-01..04). (unit) |
+
+## PF2C — Compare at most 2, `This screen` counts as one (#279, 2026-11-02; spec §84)
+
+Prefix PF2C was grep-confirmed unused in this pack and the repo before #279. Client-side only: no request, storage, table, migration, key, env var or dependency, and calc is unchanged.
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PF2C-01 | BLOCK | `COMPARE_COLUMNS_MAX = 2`, `COMPARE_MIN = COMPARE_MAX = 1` saved pick, hint text `Compare limit reached: This screen and 1 saved scenario.` (unit) |
+| PF2C-02 | BLOCK | With `This screen` alone nothing is locked and the hint line is reserved but empty; one saved pick locks every other box, each `aria-describedby` the hint. (DOM) |
+| PF2C-03 | BLOCK | A further pick is blocked with one saved picked, on repeated attempts; Compare is unchanged. (DOM) |
+| PF2C-04 | BLOCK | Deselecting the pick unlocks every box and empties the hint; a different scenario can then be picked. (DOM) |
+| PF2C-05 | HIGH | Locked boxes use `aria-disabled="true"` (not native `disabled`), stay in the tab order, and Space does nothing. (DOM, Chromium) |
+| PF2C-06 | BLOCK | The 2-column Compare output (income, expenses, surplus, start, end, growth earned) is identical to the pre-#279 output for the same pick. (DOM) |
+| PF2C-07 | BLOCK | `This screen` is the first column under every Saved sort; the pick stays the second (Q-SO5 holds, trivially with one saved column). (DOM, Chromium) |
+| PF2C-08 | BLOCK | Picking, blocking and unlocking send no request, write no storage, and leave the calculation unchanged. (DOM, Chromium) |
+| PF2C-09 | HIGH | Chromium at 360 / 390 / 768 / 1440: lock after one pick, hint in reserved space (CLS 0), hint AA ≥ 4.5, no tnum, no gold, dark, 44px label targets, no page overflow, deselect unlocks. (Chromium PF2C-L1..L9) |
+
+### Amendment 2026-11-02 (#279): superseded criteria
+
+PFSS-30/31, PFST-06/07/08 and PFSO-19..22 assumed 2..3 saved picks (#223 Q-SS1). Under #279 they are asserted with one saved pick beside `This screen`; their multi-pick ordering parts (Compare follows the sort across several saved columns, PFSO-20 tie order) are no longer reachable in the UI. `sortSaved` itself is unchanged and still unit-tested.

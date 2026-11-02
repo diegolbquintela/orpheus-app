@@ -179,7 +179,8 @@ describe("#223 saved scenarios", () => {
     assert.equal(monthCell(el, "expenses"), "1,000.00");
   });
 
-  it("PFSS-30/31: Compare shows the screen and up to 3 saved scenarios side by side, with a net-assets chart", async () => {
+  // #279 (spec §84, PF2C): amended from 2..3 saved to This screen + exactly 1 saved (This screen counts as one of 2).
+  it("PFSS-30/31 (amended #279): Compare shows the screen and 1 saved scenario side by side, with a net-assets chart", async () => {
     server(record());
     const el = await render();
     for (const [n, amt] of [["A", "3,000"], ["B", "3,500"], ["C", "4,000"], ["D", "4,500"]] as const) {
@@ -189,20 +190,17 @@ describe("#223 saved scenarios", () => {
     await openTable(el);
     const boxes = qa(el, "pf-saved-compare") as HTMLInputElement[];
     assert.equal(q(el, "pf-saved-compare-button"), null);
-    await click(boxes[0]);
-    assert.equal(q(el, "pf-saved-compare-button"), null, "1 checked does not show Compare selected");
-    assert.equal(q(el, "pf-compare-section"), null, "1 checked does not auto-open CompareTable");
     await click(boxes[1]);
-    assert.ok(q(el, "pf-saved-compare-button"), "2 checked shows Compare selected");
+    assert.ok(q(el, "pf-saved-compare-button"), "1 checked (with This screen = 2) shows Compare selected");
     assert.equal(q(el, "pf-compare-section"), null, "CompareTable waits for Compare selected click");
     await click(boxes[2]);
     await click(boxes[3]);
     await click(q(el, "pf-saved-compare-button")!);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B", "C"]);
-    assert.equal(boxes[3].disabled, true, "a 4th can't be picked");
-    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "4");
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "B"]);
+    assert.equal(boxes[2].getAttribute("aria-disabled"), "true", "a 2nd saved can't be picked");
+    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "2");
     const exp = qa(q(el, "pf-compare-row-expenses")!, "pf-compare-cell").map((c) => c.textContent);
-    assert.deepEqual(exp, ["5,000.00", "3,500.00", "4,000.00", "4,500.00"]);
+    assert.deepEqual(exp, ["5,000.00", "4,000.00"]);
   });
 
   it("PFSS-35/36/40: Delete asks; Cancel keeps it; OK removes only that scenario (scenario value only)", async () => {
@@ -267,11 +265,10 @@ describe("#223 saved scenarios", () => {
     assert.equal(q(el, "pf-saved-delete"), null);
     await click(qa(el, "pf-saved-open")[0]);
     assert.equal(monthCell(el, "expenses"), "2,000.00");
-    await click(qa(el, "pf-saved-compare")[0]);
     assert.equal(q(el, "pf-saved-compare-button"), null);
     await click(qa(el, "pf-saved-compare")[1]);
     await click(q(el, "pf-saved-compare-button")!);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Plan", "Alt"]);
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alt"]);
     assert.deepEqual(st.calls.map((c) => c.method), ["GET"], "nothing sent");
   });
 });
@@ -291,11 +288,13 @@ describe("#236 PFTX-03: the saved-scenario Compare checkbox's tap target is its 
     const puts = st.calls.filter((c) => c.method === "PUT").length;
     await click(label0);
     assert.equal(boxes[0].checked, true);
-    assert.equal(q(el, "pf-saved-compare-button"), null, "only 1 checked");
     await click(label1);
-    assert.equal(boxes[1].checked, true);
+    assert.equal(boxes[1].checked, false, "#279: a 2nd saved is locked");
+    await click(label0);
+    await click(label1);
+    assert.equal(boxes[1].checked, true, "the label picks it once unlocked");
     await click(q(el, "pf-saved-compare-button")!);
-    assert.equal(qa(el, "pf-compare-head").length, 3);
+    assert.equal(qa(el, "pf-compare-head").length, 2);
     assert.equal(st.calls.filter((c) => c.method === "PUT").length, puts, "compare sends nothing");
   });
 });
@@ -347,7 +346,7 @@ describe("#261 saved scenarios table + compare button (PFST-01..08)", () => {
     assert.equal(st.calls.length, callsBeforeToggle, "toggling table sends zero network requests");
   });
 
-  it("PFST-06/07/08: Compare selected requires 2+ checked rows, opens CompareTable on click, and hides CompareTable if unchecked or deleted below 2 until clicked again", async () => {
+  it("PFST-06/07/08 (amended #279): Compare selected shows at 1 checked (This screen + 1), opens CompareTable on click, follows a swap, and hides CompareTable when unchecked or deleted to 0 until clicked again", async () => {
     const st = server(record());
     const el = await render();
     await saveAs(el, "A");
@@ -357,15 +356,12 @@ describe("#261 saved scenarios table + compare button (PFST-01..08)", () => {
 
     const callsAfterSetup = st.calls.length;
     const boxes = () => qa(el, "pf-saved-compare") as HTMLInputElement[];
+    const heads = () => qa(el, "pf-compare-head").map((h) => h.textContent);
 
     assert.equal(q(el, "pf-saved-compare-button"), null);
     assert.equal(q(el, "pf-compare-section"), null);
 
     await click(boxes()[0]);
-    assert.equal(q(el, "pf-saved-compare-button"), null);
-    assert.equal(q(el, "pf-compare-section"), null);
-
-    await click(boxes()[1]);
     const cmpBtn = q(el, "pf-saved-compare-button")!;
     assert.equal(cmpBtn.textContent, "Compare selected");
     assert.ok(cmpBtn.classList.contains("pf-button"));
@@ -373,48 +369,38 @@ describe("#261 saved scenarios table + compare button (PFST-01..08)", () => {
 
     await click(cmpBtn);
     assert.ok(q(el, "pf-compare-section"));
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B"]);
+    assert.deepEqual(heads(), ["This screen", "A"]);
     assert.equal(st.calls.length, callsAfterSetup, "checking boxes and clicking Compare selected send zero requests");
 
-    // Checking a 3rd row while CompareTable is open updates CompareTable to 3 scenarios; unchecking 3 -> 2 keeps CompareTable open
+    // A 2nd saved is locked while Compare is open; swapping (uncheck A, check C) needs Compare selected again.
     await click(boxes()[2]);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B", "C"]);
-    await click(boxes()[2]);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "B"]);
-
-    // Uncheck one so fewer than 2 remain checked (2 -> 1) -> CompareTable and Compare selected button hide
-    await click(boxes()[1]);
+    assert.deepEqual(heads(), ["This screen", "A"]);
+    await click(boxes()[0]);
     assert.equal(q(el, "pf-saved-compare-button"), null);
     assert.equal(q(el, "pf-compare-section"), null);
-
-    // Re-checking a 2nd row shows the button again, but CompareTable stays hidden until Compare selected is clicked again
     await click(boxes()[2]);
     assert.ok(q(el, "pf-saved-compare-button"));
     assert.equal(q(el, "pf-compare-section"), null, "stays hidden until Compare selected is clicked again");
     await click(q(el, "pf-saved-compare-button")!);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "A", "C"]);
+    assert.deepEqual(heads(), ["This screen", "C"]);
 
-    // Renaming a compared scenario updates its column header in CompareTable immediately
-    await click(qa(el, "pf-saved-rename")[0]);
-    await type(q(el, "pf-saved-rename-name")!, "Alpha");
+    // Renaming the compared scenario updates its column header immediately
+    await click(qa(el, "pf-saved-rename")[2]);
+    await type(q(el, "pf-saved-rename-name")!, "Gamma");
     await click(q(el, "pf-saved-rename-save")!);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alpha", "C"]);
+    assert.deepEqual(heads(), ["This screen", "Gamma"]);
 
-    // Check B as well (3 checked: Alpha, B, C), then delete B (3 -> 2 checked): CompareTable stays open with Alpha and C
-    await click(boxes()[1]);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alpha", "B", "C"]);
+    // Deleting an unpicked one keeps Compare open; deleting the picked one hides it and unlocks the rest
     confirmAs(true);
     await click(qa(el, "pf-saved-delete")[1]);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "Alpha", "C"]);
-
-    // Deleting C so fewer than 2 remain checked (2 -> 1) hides CompareTable and resets comparing state
+    assert.deepEqual(heads(), ["This screen", "Gamma"]);
     await click(qa(el, "pf-saved-delete")[1]);
     assert.equal(q(el, "pf-saved-compare-button"), null);
     assert.equal(q(el, "pf-compare-section"), null);
-    await saveAs(el, "D");
-    await click(boxes()[1]);
+    assert.equal(boxes()[0].getAttribute("aria-disabled"), null, "unlocked after the picked one is deleted");
+    await click(boxes()[0]);
     assert.ok(q(el, "pf-saved-compare-button"));
-    assert.equal(q(el, "pf-compare-section"), null, "after delete below 2, CompareTable stays hidden until Compare selected is clicked again");
+    assert.equal(q(el, "pf-compare-section"), null, "after delete, CompareTable stays hidden until Compare selected is clicked again");
   });
 });
 
