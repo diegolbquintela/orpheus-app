@@ -145,7 +145,7 @@ export function OverviewBlock({
               <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
-              <OverviewChart summary={summary} width={chartWidth} sub={overviewChartSub(summary.current, overview.future, overview.years, scenarioScreen)} />
+              <OverviewChart summary={summary} width={chartWidth} sub={overviewChartSub(summary.current)} />
             </Lock>
           ) : null}
         </div>
@@ -428,7 +428,10 @@ function Future({
 
 function OverviewChart({ summary, width, sub }: { summary: Summary; width?: number; sub: string }) {
   const hid = useId();
-  const data = summary.points;
+  // #280 Q-CH2 (spec §85 addenda): on every screen the chart is recorded history only and ends at this month; the
+  // Future years stay in text (coverage line, Future controls) and `Next {horizon} from now` owns the forward path.
+  // Display filter only: `summarize` is unchanged.
+  const data = summary.points.filter((p) => !p.future);
   const last = data[data.length - 1];
   const tooltipValue = (value: unknown) => orDash(typeof value === "number" ? value : null);
   const chart = (h?: number) => (

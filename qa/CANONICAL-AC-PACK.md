@@ -2321,3 +2321,14 @@ Spec §85. Choice (b): both charts stay (they plot different things, proven on o
 | PFCH-08 | HIGH | Reopening a saved scenario keeps both titled charts. (DOM) |
 | PFCH-09 | BLOCK | Headings send no request and write no storage. (DOM) |
 | PFCH-10 | HIGH | Chromium 360/390/768/1440: visible wired h3 titles and subtitles (2, then 3 with Compare, and after reopening), AA ≥ 4.5, no gold, no tnum, no clipped text, legends fit, no page overflow, CLS 0, no request/storage write. (Chromium PFCH-L1..L8, 72/72) |
+
+### Amendment 2026-11-02 (#280 Q-CH1..CH4, CFO via EL on PR #298): Overview charts are recorded history only
+
+Q-CH1 (wording, provided each subtitle says recorded history vs flat forward projection), Q-CH3 (main-page heading) and Q-CH4 (sr captions replaced) accepted. Q-CH2 changed: every Overview chart (`Last 12 months`, main page and scenario screen) stops at this month, Future on or off; `Next {horizon} from now` owns the forward path. This supersedes the Future-on subtitles in PFCH-01, PFCH-05's "subtitle follows Future", and PFCH-03's Overview-forward overlap as a chart behaviour (the `summarize` maths is unchanged and still pinned there).
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFCH-11 | BLOCK | Scenario screen, Future on, each Future year: the Overview chart has the 12 recorded months and the same last net as Future off (no forward years); Projected path data unchanged (07ecdd0 baseline). (DOM) |
+| PFCH-12 | BLOCK | Subtitles word for word on every screen: Overview `Income, expenses and net assets for each month up to {Month YYYY} (recorded history).` (no `ahead` / `year` / `average`, Future on or off); Projected path `Flat forward projection: this screen's {Month YYYY} income and expenses held flat, starting from Net assets now.`; Compare unchanged. (unit + DOM) |
+| PFCH-13 | BLOCK | Main page, Future off and each Future year: the Overview chart stays 12 months with the same last net; the subtitle above; no storage write from the year choices. Coverage figures (from the unchanged forward net) unchanged: PF-84 / PF-125 pin 07ecdd0's horizon-end net (113,000 / 159,000). (DOM) |
+| PFCH-14 | HIGH | Chromium 360/390/768/1440: main page (PFCH-M1..M7: visible wired h3 + recorded-history subtitle, AA, no tnum, no overflow, 12 months for every Future year, Future years still in the coverage text, CLS 0, no request/write) and scenario screen (PFCH-L1..L8). |

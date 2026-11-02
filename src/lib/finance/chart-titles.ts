@@ -1,22 +1,18 @@
 // #280 (personal-finance-spec §85, AC PFCH): visible titles and subtitles for the three Personal Finance line charts on
 // the scenario screen (and the Overview chart on the main page), so each says what it plots. Text only: no figure,
 // series or projection changes.
-import { monthName, yearsLabel, type MonthKey, type Years } from "./overview.ts";
+import { monthName, type MonthKey } from "./overview.ts";
 
-/** Overview (`04`): the recorded months, optionally followed by the Future years. */
+/** Overview (`04`): the recorded months to this month. */
 export const OVERVIEW_CHART_TITLE = "Last 12 months";
-export function overviewChartSub(current: MonthKey, future: boolean, years: Years, scenario: boolean): string {
-  const base = `Income, expenses and net assets for each month up to ${monthName(current)}`;
-  if (!future) return `${base}.`;
-  return scenario
-    ? `${base}, then ${yearsLabel(years)} ahead: net assets as in Projected path, income and expenses at 12-month averages.`
-    : `${base}, then ${yearsLabel(years)} ahead at your 12-month averages.`;
-}
+// #280 Q-CH2 (2026-11-02): recorded history ending this month on every screen, Future on or off.
+export const overviewChartSub = (current: MonthKey): string =>
+  `Income, expenses and net assets for each month up to ${monthName(current)} (recorded history).`;
 
 /** Projected path (`06`): this screen's current month held flat over the chosen horizon. */
 export const projectedChartTitle = (horizon: string): string => `Next ${horizon} from now`;
 export const projectedChartSub = (current: MonthKey): string =>
-  `This screen's ${monthName(current)} income and expenses held flat, starting from Net assets now.`;
+  `Flat forward projection: this screen's ${monthName(current)} income and expenses held flat, starting from Net assets now.`;
 
 /** Compare (`09`): net assets only, one line per column. */
 export const COMPARE_CHART_TITLE = "Net assets by scenario";

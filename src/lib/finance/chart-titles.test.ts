@@ -10,13 +10,13 @@ import { chartAria, COMPARE_CHART_TITLE, compareChartSub, OVERVIEW_CHART_TITLE, 
 describe("#280 PFCH-01: chart titles and subtitles", () => {
   it("each chart says what it plots", () => {
     assert.equal(OVERVIEW_CHART_TITLE, "Last 12 months");
-    assert.equal(overviewChartSub("2026-10", false, 1, true), "Income, expenses and net assets for each month up to October 2026.");
-    assert.equal(overviewChartSub("2026-10", false, 5, false), "Income, expenses and net assets for each month up to October 2026.");
-    assert.equal(overviewChartSub("2026-10", true, 1, false), "Income, expenses and net assets for each month up to October 2026, then 1 year ahead at your 12-month averages.");
-    assert.equal(overviewChartSub("2026-10", true, 5, true), "Income, expenses and net assets for each month up to October 2026, then 5 years ahead: net assets as in Projected path, income and expenses at 12-month averages.");
+    // #280 Q-CH2 (2026-11-02): one subtitle on every screen, recorded history ending this month (no forward years).
+    assert.equal(overviewChartSub("2026-10"), "Income, expenses and net assets for each month up to October 2026 (recorded history).");
+    assert.equal(overviewChartSub("2027-01"), "Income, expenses and net assets for each month up to January 2027 (recorded history).");
+    assert.doesNotMatch(overviewChartSub("2026-10"), /ahead|year|average/);
     assert.equal(projectedChartTitle("12 months"), "Next 12 months from now");
     assert.equal(projectedChartTitle("3 years"), "Next 3 years from now");
-    assert.equal(projectedChartSub("2026-10"), "This screen's October 2026 income and expenses held flat, starting from Net assets now.");
+    assert.equal(projectedChartSub("2026-10"), "Flat forward projection: this screen's October 2026 income and expenses held flat, starting from Net assets now.");
     assert.equal(COMPARE_CHART_TITLE, "Net assets by scenario");
     assert.equal(compareChartSub("5 years"), "This screen and the saved scenario, each projected over 5 years from its own net assets now.");
     assert.deepEqual(chartAria("x"), { "aria-labelledby": "x-title", "aria-describedby": "x-sub" });

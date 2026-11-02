@@ -76,7 +76,9 @@ const heading = (el: HTMLElement, fig: string, head: string) => {
 };
 const data = (el: HTMLElement, fig: string) => [q(el, fig)!.getAttribute("data-months"), q(el, fig)!.getAttribute("data-net-last")];
 // Captured on main 07ecdd0 (pre-#280) with this fixture: [months, net at the last point].
-const BEFORE = { overview: ["12", "9000.00"], projected12: ["13", "63000.00"], projected60: ["61", "279000.00"], overviewFuture1: ["24", "63000.00"] };
+// (07ecdd0 drew overviewFuture1 = ["24", "63000.00"] on the scenario screen; #280 Q-CH2 ends it at this month, so it
+// equals the Future-off history and the Projected path data stays the 07ecdd0 baseline.)
+const BEFORE = { overview: ["12", "9000.00"], projected12: ["13", "63000.00"], projected60: ["61", "279000.00"], overviewFuture1: ["12", "9000.00"] };
 
 describe("#280 two clearly titled charts on the scenario screen (PFCH)", () => {
   it("PFCH-04: exactly two charts before Compare, each with its own visible h3 title and subtitle, wired to its figure", async () => {
@@ -85,8 +87,8 @@ describe("#280 two clearly titled charts on the scenario screen (PFCH)", () => {
     assert.equal(el.querySelectorAll("figure.pf-chart").length, 2);
     const ov = heading(el, "pf-chart", "pf-chart-head");
     const pj = heading(el, "pf-scenario-chart", "pf-scenario-chart-head");
-    assert.deepEqual(ov, { tag: "H3", title: "Last 12 months", sub: "Income, expenses and net assets for each month up to October 2026.", wired: true, cap: true });
-    assert.deepEqual(pj, { tag: "H3", title: "Next 12 months from now", sub: "This screen's October 2026 income and expenses held flat, starting from Net assets now.", wired: true, cap: true });
+    assert.deepEqual(ov, { tag: "H3", title: "Last 12 months", sub: "Income, expenses and net assets for each month up to October 2026 (recorded history).", wired: true, cap: true });
+    assert.deepEqual(pj, { tag: "H3", title: "Next 12 months from now", sub: "Flat forward projection: this screen's October 2026 income and expenses held flat, starting from Net assets now.", wired: true, cap: true });
     assert.notEqual(ov.title, pj.title);
     assert.equal(el.querySelectorAll("figcaption.sr-only").length, 0, "no hidden-only captions left");
   });
@@ -98,7 +100,9 @@ describe("#280 two clearly titled charts on the scenario screen (PFCH)", () => {
     assert.equal(heading(el, "pf-scenario-chart", "pf-scenario-chart-head").title, "Next 5 years from now");
     assert.equal(heading(el, "pf-chart", "pf-chart-head").title, "Last 12 months", "Overview does not follow the horizon");
     await click(q(el, "pf-future-toggle")!);
-    assert.equal(heading(el, "pf-chart", "pf-chart-head").sub, "Income, expenses and net assets for each month up to October 2026, then 1 year ahead: net assets as in Projected path, income and expenses at 12-month averages.");
+    // #280 Q-CH2: Future no longer changes the scenario Overview's subtitle (recorded history ending this month).
+    assert.equal(heading(el, "pf-chart", "pf-chart-head").sub, "Income, expenses and net assets for each month up to October 2026 (recorded history).");
+    assert.doesNotMatch(heading(el, "pf-chart", "pf-chart-head").sub, /ahead|year/);
   });
 
   it("PFCH-06: the charts plot exactly what they did before #280 (months and last net, Future off/on, horizons)", async () => {
@@ -110,6 +114,21 @@ describe("#280 two clearly titled charts on the scenario screen (PFCH)", () => {
     assert.deepEqual(data(el, "pf-scenario-chart"), BEFORE.projected60);
     await click(q(el, "pf-future-toggle")!);
     assert.deepEqual(data(el, "pf-chart"), BEFORE.overviewFuture1);
+  });
+
+  it("PFCH-11 (#280 Q-CH2, scenario screen): with Future on (1 / 3 / 5 years) the scenario Overview ends at this month: no forward years; Projected path unchanged", async () => {
+    server(record());
+    const el = await render();
+    const pj0 = data(el, "pf-scenario-chart");
+    await click(q(el, "pf-future-toggle")!);
+    const years = qa(el, "pf-year");
+    assert.ok(years.length >= 2, "Future year choices shown");
+    for (const yb of years) {
+      await click(yb);
+      assert.deepEqual(data(el, "pf-chart"), BEFORE.overview, `Future ${yb.getAttribute("data-years")}: history only`);
+      assert.deepEqual(data(el, "pf-scenario-chart"), pj0, "Projected path data unchanged by Future");
+    }
+    assert.deepEqual(pj0, BEFORE.projected12);
   });
 
   it("PFCH-07: Compare's chart uses the same heading (title, subtitle with the horizon, wiring)", async () => {
