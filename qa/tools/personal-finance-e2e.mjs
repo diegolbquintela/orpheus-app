@@ -10,6 +10,8 @@
 //   equity cover + override; PFE-08 Overview / the month control (#112; today fixed at 11 October 2026); PFE-09 Future at growth 5;
 //   PFE-10 reload / second device / ?userId 403 / Not saved.; PFE-11 style + strict CLS 0 cold load of the full
 //   budget; PFE-13 the QA account's Personal Finance record is RESET before each viewport and left empty.
+//   #277 BW1 PFNT: a note on a Fixed line (maxlength 500, counter, Save, reload), a REAL Read user (QA_CFO_READ) sees
+//   plain text with no non-GET /api/* (SKIPPED (NOT A PASS) when unset), then qa-pf is reset to its snapshot.
 //   PFE-12 (regression) is site-style-regression.mjs's run on the same preview.
 // The signed-in part refuses to run against production (it writes to the account).
 //
@@ -488,7 +490,7 @@ try {
       // PFE-11 style on the full page.
       const sh = await page.evaluate(() => {
         const nav = document.querySelector('nav[aria-label="Site"]');
-        const home = nav.querySelector('a[href="/"]');
+        const home = nav.querySelector('[data-testid="site-bar"] a[data-testid="site-logo"]');
         return {
           bg: getComputedStyle(document.body).backgroundColor,
           color: getComputedStyle(document.body).color,
@@ -722,6 +724,82 @@ try {
       const put = await acct(page, base, "PUT", snap);
       const after = (await acct(page, base, "GET")).body?.data ?? {};
       check(`${tag} PFPA reset: the record is back to its pre-step value (no ${PLANS}, the view value restored)`, del.status === 200 && put.status === 200 && !(PLANS in after) && after["orpheus.finance.view.v1"] === snap["orpheus.finance.view.v1"], { del: del.status, put: put.status, plans: PLANS in after, view: after["orpheus.finance.view.v1"] });
+      // #277 BW1 (spec §82, AC PFNT-01..09): a signed-in note on a Fixed line. Real clock (the server's month), so the
+      // Save lands in the real current month. 501st character refused (maxlength 500, counter from 400); Save, reload,
+      // stored and shown; a REAL Read user (QA_CFO_READ, BV4 pattern) sees plain text and sends no non-GET /api/*.
+      // Reset at the end: snapshot → DELETE → PUT the snapshot → verify byte-identical.
+      {
+        const NOTE = "QA PFNT note: lease ends in June";
+        const snapN = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+        const nt = {};
+        try {
+          await page.clock.setFixedTime(new Date());
+          await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+          await ready(page);
+          const row = line(page, "fixed", 0);
+          nt.lines = await page.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").count();
+          const toggle = row.getByTestId("pf-note-toggle");
+          nt.toggleH = await toggle.evaluate((e) => Math.round(e.getBoundingClientRect().height));
+          nt.closed = await toggle.getAttribute("aria-expanded");
+          await toggle.click();
+          nt.open = await toggle.getAttribute("aria-expanded");
+          const area = page.getByTestId("pf-note").first();
+          nt.maxlength = await area.getAttribute("maxlength");
+          await area.fill("a".repeat(10));
+          nt.countShort = await page.getByTestId("pf-note-count").count();
+          await area.fill("a".repeat(499));
+          await area.pressSequentially("bc"); // the 501st character is refused by maxlength
+          nt.len = (await area.inputValue()).length;
+          nt.countLong = await txt(page.getByTestId("pf-note-count").first()).catch(() => null);
+          await area.fill(NOTE);
+          await page.getByTestId("pf-month-save").click();
+          await settle(page);
+          const rec = (await acct(page, base, "GET")).body?.data ?? {};
+          const exp = (() => { try { return JSON.parse(rec["orpheus.finance.expenses.v2"] ?? "{}"); } catch { return {}; } })();
+          const mon = (() => { try { return JSON.parse(rec["orpheus.finance.months.v1"] ?? "{}"); } catch { return {}; } })();
+          nt.storedExpenses = exp.fixed?.[0]?.note === NOTE;
+          nt.storedMonth = mon[householdMonth(new Date())]?.fixed?.[0]?.note === NOTE;
+          await page.reload({ waitUntil: "networkidle" });
+          await ready(page);
+          nt.dot = await row.getByTestId("pf-note-toggle").getAttribute("data-has-note");
+          nt.preview = mobile ? null : await txt(row.getByTestId("pf-note-preview")).catch(() => null);
+          await row.getByTestId("pf-note-toggle").click();
+          nt.reloaded = await page.getByTestId("pf-note").first().inputValue();
+          await row.getByTestId("pf-note-toggle").click();
+          check(`${tag} PFNT-01/04/05/06 signed in: note toggle ≥ 44 px (aria-expanded false → true), maxlength 500 refuses the 501st character, counter only near the limit, Save, reload: the note is stored (expenses + the real current month) and shown (dot${mobile ? "" : ", preview"}, textarea)`,
+            nt.lines >= 1 && nt.toggleH >= 44 && nt.closed === "false" && nt.open === "true" && nt.maxlength === "500" && nt.len === 500 && nt.countShort === 0 && /500/.test(nt.countLong ?? "") &&
+              nt.storedExpenses && nt.storedMonth && nt.dot === "true" && (mobile || nt.preview === NOTE) && nt.reloaded === NOTE, nt);
+          // Read user (BV4 pattern): creds from env, never printed; loud skip when unset.
+          const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
+          if (!rEmail || !rPassword) skip(`${tag} PFNT-07 Read-user note view, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+          else {
+            const rd = {};
+            await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFNT Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
+              const writes = [];
+              rp.on("request", (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") writes.push(`${q.method()} ${u.pathname}`); });
+              await rp.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+              await rp.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+              const rRow = rp.locator("[data-testid=pf-group-fixed] [data-testid=pf-line]").first();
+              rd.text = await rRow.getByTestId("pf-note-text").textContent().catch(() => null);
+              rd.textareas = await rp.getByTestId("pf-note").count();
+              rd.toggles = await rp.getByTestId("pf-note-toggle").count();
+              await rp.waitForTimeout(1500);
+              rd.writes = writes;
+            });
+            check(`${tag} PFNT-07 Read user (second context, QA_CFO_READ): the note is plain text, no textarea / toggle; NO non-GET request to /api/*`,
+              (rd.text ?? "").includes(NOTE) && rd.textareas === 0 && rd.toggles === 0 && rd.writes?.length === 0, { textareas: rd.textareas, toggles: rd.toggles, writes: rd.writes, shown: (rd.text ?? "").includes(NOTE) });
+          }
+        } catch (e) {
+          check(`${tag} PFNT step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        } finally {
+          await page.clock.setFixedTime(TODAY);
+          const d = await acct(page, base, "DELETE");
+          const p = await acct(page, base, "PUT", snapN);
+          const back = (await acct(page, base, "GET")).body?.data ?? {};
+          const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapN).sort()) && Object.keys(snapN).every((k) => back[k] === snapN[k]);
+          check(`${tag} PFNT reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
+        }
+      }
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
       check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });

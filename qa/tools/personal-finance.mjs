@@ -353,7 +353,20 @@ const STORED_INCOME = JSON.stringify({
 const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
 const STORED_CURRENCY = JSON.stringify({ household: "USD" });
 // #94: today is fixed at 11 October 2026 (local) for the Overview checks; June typed, Future on, 5 years.
-const TODAY = new Date(2026, 9, 11, 12);
+// BW2 (#277 harness, 2026-11-01): the month under test is the REAL current month (the server's Save rules use the real
+// clock), not a hardcoded October 2026. CUR_* name it.
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const REAL_NOW = new Date();
+const CUR = { y: REAL_NOW.getFullYear(), m: REAL_NOW.getMonth() };
+const keyOf = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
+const CUR_KEY = keyOf(CUR.y, CUR.m);
+const CUR_MON = MONTH_NAMES[CUR.m];
+const CUR_NAME = `${CUR_MON} ${CUR.y}`;
+const COPIED = `Copied from ${CUR_NAME} — edit and save.`;
+const monthOpts = (m) => MONTH_NAMES.map((n, i) => `${n.slice(0, 3)}${i > m ? " (disabled)" : ""}`);
+const yearsFrom = (y) => Array.from({ length: y - 2019 }, (_, i) => String(y - i));
+const MONTH_CHOICES = { labels: ["Month", "Year"], months: monthOpts(CUR.m), years: yearsFrom(CUR.y) };
+const TODAY = new Date(CUR.y, CUR.m, Math.min(REAL_NOW.getDate(), 28), 12);
 const STORED_OVERVIEW = JSON.stringify({ start: "10,000", growth: "5", future: true, years: 5, months: {} });
 const OV_EXPENSES = JSON.stringify({ fixed: [{ id: "o1", name: "Rent", amount: "1,750", per: "month", equity: "", account: "" }], variable: [], accounts: [] });
 const OV_INCOME = JSON.stringify({ people: [{ id: "o2", name: "Me", wages: "134,400", bonus: "", tax: "", share: "100", countWages: true, countBonus: false }] });
@@ -485,7 +498,7 @@ try {
       // PF-01 shell
       const sh = await page.evaluate(() => {
         const nav = document.querySelector('nav[aria-label="Site"]');
-        const home = nav.querySelector('a[href="/"]');
+        const home = nav.querySelector('[data-testid="site-bar"] a[data-testid="site-logo"]');
         const lyre = home.querySelector("svg");
         const lr = lyre?.getBoundingClientRect();
         return {
@@ -735,7 +748,7 @@ try {
       }
       // Focus: every Tab stop from the top shows a ≥ 2 px ring (or a chalk underline on a field) at ≥ 3:1.
       // Start the keyboard walk at the bar's Orpheus link (Shift+Tab, Tab: a keyboard focus, not a programmatic one).
-      await page.locator('nav[aria-label="Site"] a[href="/"]').focus();
+      await page.locator('nav[aria-label="Site"] [data-testid="site-bar"] a[data-testid="site-logo"]').focus();
       await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Tab");
       const stops = [];
@@ -989,13 +1002,13 @@ try {
         const note = () => p3.getByTestId("pf-month-note").textContent().then((t) => t.trim());
         const opts = [await shownMonth(p3), await monthChoices(p3)];
         const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
-        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); #163 Month (Jan..Dec, Nov / Dec disabled) + Year (2026 … 2020), October 2026 shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === "2026-10" && JSON.stringify(opts[1]) === JSON.stringify({"labels":["Month","Year"],"months":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov (disabled)","Dec (disabled)"],"years":["2026","2025","2024","2023","2022","2021","2020"]}) && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
+        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); #163 Month (Jan..Dec, later months disabled) + Year (${CUR.y} … 2020), ${CUR_NAME} shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === CUR_KEY && JSON.stringify(opts[1]) === JSON.stringify(MONTH_CHOICES) && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
         await pickMonth(p3, "2026-06");
         const blankJune = await blankMonth(p3);
         check(`${tag} #163 PFM-15 empty June opens blank (no lines, people, note or Save); the control's texts are Month, Year, "Copy from current month"`, JSON.stringify(blankJune) === JSON.stringify(BLANK_PAST), blankJune);
         await p3.getByTestId("pf-month-copy").click();
         const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
-        check(`${tag} PF-51 / #163 PFM-16 empty June after "Copy from current month": a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
+        check(`${tag} PF-51 / #163 PFM-16 empty June after "Copy from current month": a copy of ${CUR_MON}'s lines and COPIED; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: COPIED, save: true, rent: "1,750", wages: "134,400" }), copy);
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
         await p3.getByTestId("pf-person-wages").fill("108,000");
         const draft = await ov();
@@ -1056,7 +1069,7 @@ try {
         // #112 (PF-54): switching with unsaved changes asks; Cancel keeps the month and the edits.
         const asked = [];
         p3.once("dialog", (d) => { asked.push([d.type(), d.message()]); void d.dismiss(); });
-        await pickMonth(p3, "2026-10");
+        await pickMonth(p3, CUR_KEY);
         await p3.waitForTimeout(200);
         const kept = { asked, month: await shownMonth(p3), start: await val(p3.getByTestId("pf-start")) };
         check(`${tag} PF-54 switching with unsaved changes asks "Discard unsaved changes?"; Cancel keeps June and the edits`, JSON.stringify(kept) === JSON.stringify({ asked: [["confirm", "Discard unsaved changes?"]], month: "2026-06", start: "10,000" }), kept);
@@ -1077,13 +1090,13 @@ try {
         await pickMonth(p3, "2026-06");
         const back = { onLoad, t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), await val(p3.getByTestId("pf-person-wages"))], note: await note(), net: (await chart()).net };
         const monthsStored = Object.keys(JSON.parse(rec3[MONTHS_KEY] ?? "{}"));
-        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} October and June (only PF names; nothing in localStorage); a reload opens October and June restores (#140: 4,000 / 9,000, net 434,087.85)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === '["2026-06","2026-10"]' && JSON.stringify(back) === JSON.stringify({ onLoad: "2026-10", t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "434087.85" }), { stored, monthsStored, back });
+        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} ${CUR_MON} and June (only PF names; nothing in localStorage); a reload opens ${CUR_MON} and June restores (#140: 4,000 / 9,000, net 434,087.85)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === JSON.stringify(["2026-06", CUR_KEY]) && JSON.stringify(back) === JSON.stringify({ onLoad: CUR_KEY, t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "434087.85" }), { stored, monthsStored, back });
         // June back to October's lines (and Save): the average returns to 1,750 / 11,200.
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
         await p3.getByTestId("pf-person-wages").fill("134,400");
         await settle(p3);
         const t2 = await ov();
-        check(`${tag} PF-53 June saved as October's figures: the 12-month average (June alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750.00", "1,750.00"], income: ["11,200.00", "11,200.00"], surplus: ["9,450.00", "9,450.00"] }), { t2 });
+        check(`${tag} PF-53 June saved as ${CUR_MON}'s figures: the 12-month average (June alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750.00", "1,750.00"], income: ["11,200.00", "11,200.00"], surplus: ["9,450.00", "9,450.00"] }), { t2 });
         check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / month control)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
         check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n").slice(0, 4).join(" | "));
