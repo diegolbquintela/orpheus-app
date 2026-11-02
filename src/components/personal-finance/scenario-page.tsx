@@ -181,6 +181,7 @@ export function ScenarioPage({
         now={now}
         loadStore={loadStore}
         scenario={{
+          write: !!loaded?.access.write,
           render: (live) => (
             <ScenarioProjection
               live={live}

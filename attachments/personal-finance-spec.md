@@ -2944,3 +2944,5 @@ Every Overview chart (`Last 12 months`, on the main page and the scenario screen
 It appears only there (not in Compare, the This screen column or any hint). No logic, calc, storage, key, table, env var or dependency changes. AC: PFWI-01..06.
 
 86.4 **Same nuance, net-assets hint.** The Net assets now field's hint ended ` A what-if: never saved. A negative amount is allowed.`; Save scenario keeps that start (`inputs.start`), so it now ends ` A what-if: it never changes your saved net assets. A negative amount is allowed.` (AC PFWI-07). Its basis text before it is unchanged.
+
+86.5 **CFO answers (Q-WI1..WI5, 2026-11-02; supersedes the 86.3 note text).** Owner/writer note: `What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.` Read users (the load's `access.write` false, the same session access the page already uses; nothing new stored or requested) see only `What-ifs only: edits are cleared when you leave.` Same place under the `Scenario Analysis.` title, same style; the note stays (Q-WI4); the 86.4 Net assets now hint is unchanged (Q-WI5). AC: PFWI amendment 2026-11-02.

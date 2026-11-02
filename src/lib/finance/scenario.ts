@@ -64,7 +64,11 @@ export const SCENARIO_PATH = "/personal-finance/scenario";
 export const SCENARIO_TITLE = PF_PAGE_TITLES.scenario;
 // #281 (spec §86, AC PFWI; was "What-if only. Nothing on this screen is ever saved.", untrue once #223 Save scenario
 // wrote named scenarios): edits stay in memory (no `save` on the screen's store), only Save / Rename / Update / Delete write.
-export const WHAT_IF_NOTE = "Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy.";
+// #281 Q-WI1 / Q-WI2 (CFO, 2026-11-02): shorter; Read users (no Save) get the first sentence only.
+export const WHAT_IF_NOTE_READ = "What-ifs only: edits are cleared when you leave.";
+export const WHAT_IF_NOTE = `${WHAT_IF_NOTE_READ} Save scenario keeps a named copy.`;
+/** #281 Q-WI2: the note for this session's access (writers can Save scenario; Read users cannot). */
+export const whatIfNote = (write: boolean) => (write ? WHAT_IF_NOTE : WHAT_IF_NOTE_READ);
 export const BASED_ON_LAST_MONTH = "Based on last month";
 export const LOAD_ERROR = "Couldn't load your figures.";
 export const NET_ASSETS_ERROR = "Enter an amount, for example 25,000 or -1,500.50.";

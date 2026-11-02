@@ -2358,3 +2358,10 @@ CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of th
 - **PFWI-05** At 360 / 390 / 768 / 1440: the note wraps with no horizontal overflow, CLS 0, AA contrast, no tabular numerals; 44px targets around it unchanged.
 - **PFWI-06** No change to what-if logic or any figure: the scenario DOM and unit suites pass unchanged apart from the note text.
 - **PFWI-07** (spec 86.4) The Net assets now hint ends `A what-if: it never changes your saved net assets. A negative amount is allowed.` (was `A what-if: never saved. …`).
+
+### Amendment 2026-11-02 (#281 Q-WI1..WI5, CFO via EL on PR #300): shorter note; Read variant
+
+- **PFWI-01 (amended)** For owners/writers the note reads exactly `What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.` (supersedes the longer PFWI-01 text).
+- **PFWI-08** For Read users the note reads exactly `What-ifs only: edits are cleared when you leave.` (no Save sentence).
+- **PFWI-09** Read is detected from the scenario load's existing `access.write` (the session access, as `personal-finance.tsx` `readOnly={!access.write}`); no new storage, request, key or dependency.
+- **PFWI-10** Placement unchanged for both: one `pf-scenario-whatif` note directly under the `Scenario Analysis.` title, same style; PFWI-02..07 still hold (PFWI-07 hint text unchanged).

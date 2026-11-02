@@ -812,3 +812,5 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Chart titles QA (#280 PFCH, 2026-11-02).** The Personal Finance e2e (`qa/tools/personal-finance-e2e.mjs`) now checks the chart titles and subtitles on the main page and the scenario screen, that `Last 12 months` stays at the recorded months with Future on, and that nothing is written.
 
 **What-if note (#281, 2026-11-02).** The note under the Scenario Analysis title now says what is kept: "Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy." (was "What-if only. Nothing on this screen is ever saved.").
+
+**What-if note, CFO update (#281, 2026-11-02).** Superseding the note text above: owners see "What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy."; Read users see "What-ifs only: edits are cleared when you leave."
