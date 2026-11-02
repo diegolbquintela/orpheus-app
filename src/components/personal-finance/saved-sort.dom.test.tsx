@@ -27,7 +27,7 @@ const NOW = new Date("2026-10-16T16:00:00Z");
 const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month" as const, equity: "", account: "", currency: "", rate: "", category: "", note: "" });
 const person = { id: "p1", name: "Ana", wages: "120,000", bonus: "", tax: "25", share: "100", countWages: true, countBonus: false, foreign: false, currency: "", rate: "" };
 const entry = (id: string, name: string, basis: string): SavedEntry => ({
-  id, name, basis, savedAt: "2026-10-01T00:00:00Z", inputs: { start: 0, income: 7500, expenses: 3000, growth: 5, rate: null }, values: {}, lines: "{}",
+  id, name, basis, savedAt: "2026-10-01T00:00:00Z", inputs: { start: 0, income: 7000 + 100 * Number(id.slice(1)), expenses: 3000, growth: 5, rate: null }, values: {}, lines: "{}",
 });
 // Stored (default) order 0..4; ties: Éclair = Eclair (accents ignored), From 2026-05 twice and 2026-09 twice.
 const SAVED = [entry("s0", "Delta", "2026-05"), entry("s1", "alpha 2", "2026-09"), entry("s2", "Éclair", "2026-05"), entry("s3", "alpha 10", "2025-12"), entry("s4", "Eclair", "2026-09")];
@@ -151,5 +151,47 @@ describe("#278 Saved scenarios column sort (PFSO)", () => {
     const first = checked();
     await click(q(el, "pf-saved-sort-from")!);
     assert.deepEqual(checked(), first);
+  });
+
+  it("PFSO-19/20/21 (Q-SO5): Compare follows the Saved sort per column and direction, ties in saved order, back to saved order on the third click; nothing sent or stored", async () => {
+    const calls = server(record());
+    const el = await render();
+    // Pick s4, s1, s2 (ticked in that order; picking order must not matter): ties Éclair = Eclair, and 2026-09 twice.
+    for (const i of [4, 1, 2]) await click(q(qa(el, "pf-saved-item")[i], "pf-saved-compare")!);
+    await click(q(el, "pf-saved-compare-button")!);
+    const before = { calls: calls.length, storage: storage() };
+    const INCOME: Record<string, string> = {};
+    // Column headers, and each column's own income cell, so a value can never drift from its scenario.
+    const cmp = () => {
+      const heads = qa(el, "pf-compare-head").map((h) => h.textContent!.trim());
+      const inc = qa(q(el, "pf-compare-row-income")!, "pf-compare-cell").map((c) => c.textContent!.trim());
+      heads.forEach((h, i) => {
+        INCOME[h] ??= inc[i];
+        assert.equal(inc[i], INCOME[h], `${h}'s figures move with it`);
+      });
+      return heads;
+    };
+    const saved = ["This screen", "alpha 2", "Éclair", "Eclair"];
+    assert.deepEqual(cmp(), saved, "no sort: saved order, This screen first");
+    assert.equal(new Set(Object.values(INCOME)).size, 4, "fixture: every column's income differs");
+    const steps: [string, string[]][] = [
+      ["name", ["This screen", "alpha 2", "Éclair", "Eclair"]],
+      ["name", ["This screen", "Éclair", "Eclair", "alpha 2"]],
+      ["name", saved],
+      ["from", ["This screen", "Éclair", "alpha 2", "Eclair"]],
+      ["from", ["This screen", "alpha 2", "Eclair", "Éclair"]],
+      ["from", saved],
+      ["from", ["This screen", "Éclair", "alpha 2", "Eclair"]],
+      ["name", ["This screen", "alpha 2", "Éclair", "Eclair"]],
+    ];
+    for (const [col, want] of steps) {
+      await click(q(el, `pf-saved-sort-${col}`)!);
+      assert.deepEqual(cmp(), want, `after ${col}`);
+      const savedNames = rows(el).map((r) => r.split("|")[0]).filter((n) => want.includes(n));
+      assert.deepEqual(savedNames, want.slice(1), "Compare matches the Saved table's order");
+      assert.equal(calls.length, before.calls, "no request");
+      assert.equal(storage(), before.storage, "no storage write");
+    }
+    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "4");
   });
 });

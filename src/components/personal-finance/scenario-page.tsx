@@ -673,7 +673,8 @@ function SavedScenarios({
       if (next.length < COMPARE_MIN) setComparing(false);
       return next;
     });
-  const compared = list.filter((e) => picked.includes(e.id));
+  // #278 Q-SO5: Compare columns follow the Saved table's current sort (saved order when none); "This screen" stays first.
+  const compared = sortSaved(list, sort).filter((e) => picked.includes(e.id));
 
   return (
     <>

@@ -2259,3 +2259,12 @@ check). Spec: `attachments/header-menu-spec.md`.
 | PFSO-16 | BLOCK | AA contrast for the headers and marks on charcoal. (Chromium) |
 | PFSO-17 | HIGH | CLS 0 while sorting. (Chromium) |
 | PFSO-18 | BLOCK | No request and no storage write while sorting in the browser. (Chromium) |
+
+### Amendment 2026-11-02 (CFO Q-SO5 via EL; supersedes "Compare keeps saved order" in spec §83)
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFSO-19 | BLOCK | Compare's scenario columns follow the Saved sort, ascending and descending, for `Scenario name` and `From`; `This screen` stays first; each column keeps its own figures. (DOM) |
+| PFSO-20 | BLOCK | Compare ties keep saved order in both directions (Éclair = Eclair; same `From` month), and the third click returns Compare to saved order regardless of the order the scenarios were ticked in. (DOM) |
+| PFSO-21 | BLOCK | Re-sorting with Compare open sends no request and writes no storage. (DOM) |
+| PFSO-22 | HIGH | Chromium at 360 / 390 / 768 / 1440: Compare headers match the Saved rows' order through the cycle and reset to saved order, no page overflow, CLS 0. (Chromium) |
