@@ -2904,3 +2904,27 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 - **Collisions:** with 3 slots for saved scenarios, two scenarios can share a colour (about 1 in 3 for any pair). This is accepted. Nothing is stored to avoid it, and today Compare shows only one saved scenario at a time, so a clash cannot appear on screen.
 - The Saved scenarios table itself has no chart or swatch today; "the same colour in Saved and Compare" holds because both read `compareColour` of the same entry.
 - Client-side only: no storage, calc, dependency, table, migration, key or env change. AC PF2C-10..PF2C-15.
+
+## 85. Personal Finance: the two charts on the scenario screen, titled (#280, MEDIUM; added 2026-11-02)
+
+**Issue.** Viewing a saved scenario shows two charts (one under Overview, one under "Projected path") with no visible titles, which read as duplicates.
+
+**Findings** (one fixture: now 2026-10-16, recorded months 2026-05..10, Starting net assets 10,000, growth 5 %; pinned in `chart-titles.test.ts` PFCH-02/03):
+
+| | Overview chart (`OverviewChart`, `summarize().points`) | Projected path chart (`ScenarioChart`, `project().points`) |
+|---|---|---|
+| Series | Income, Expenses (left axis), Net assets (right axis) | Same three series |
+| X range | 12 months to this month (2025-11..2026-10); + `years×12` future months only if Future is on | Now (this month) + horizon (12 / 36 / 60 / 120 months, default 12) |
+| Income / expenses | Each month's recorded figure; 12-month average for empty months (7,300 / 3,000); averages in future months | This month's figure held flat (7,500 / 3,100) |
+| Net assets | From Starting net assets through recorded months; null before the first; future months stepped with this month's surplus (#241) | From the typed `Net assets now` field, signed growth |
+| Source | The live screen (a reopened saved scenario is prefilled into it); neither reads the saved snapshot separately | Same |
+| Tooltip / legend | Month name; plain names; no axis labels; hidden caption | `Now (end of …)`; axis notes in the legend; axis label `A month` |
+| Overlap | Future off: 1 month. Future on: 13 months, net equal 13/13, income/expenses equal 1/13 | |
+
+**Choice (b): keep both**, because a user would notice: one is history (what happened, month by month), the other is the forward path for the chosen horizon from the typed start. Merging would lose either the history or the horizon. Each now has a visible `h3` title and subtitle (`ChartHeading`, `chart-titles.ts`): `Last 12 months` and `Next {horizon} from now`; Compare's chart uses the same heading (`Net assets by scenario`). The main page's Overview chart shows the same visible heading. No series, point, tooltip or legend changed; no projection math, storage, request or dependency change.
+
+**Open (CFO).** With Future on, Overview's forward part repeats Projected path's net (with averaged flows); the subtitle says so. Option: stop the scenario screen's Overview chart at this month.
+
+### §85 addendum 2026-11-02 (Q-CH2, CFO via EL on PR #298): Overview charts stop at this month
+
+Every Overview chart (`Last 12 months`, on the main page and the scenario screen) plots recorded history only and ends at this month, with Future on or off. This is a display filter in `OverviewChart` (`points.filter(p => !p.future)`); `summarize` and the projection maths are unchanged. The Future years still appear in text (the coverage line `… in N years` and the Future controls); the forward path is the `Next {horizon} from now` chart. The Overview subtitle drops `, then N years ahead…` everywhere: `Income, expenses and net assets for each month up to {Month YYYY} (recorded history).` Projected path: `Flat forward projection: this screen's {Month YYYY} income and expenses held flat, starting from Net assets now.` Compare unchanged. The open question in §85 is resolved by this.

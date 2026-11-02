@@ -25,7 +25,6 @@ import {
   COVERAGE_START_NOTE,
   coverageLabel,
   overviewCoverage,
-  CHART_CAPTION,
   EXPENSES,
   FUTURE_LABEL,
   type Figures,
@@ -53,6 +52,8 @@ import { Lock, SectionHead } from "./pf-cells";
 import { PeriodChoice } from "./period-choice";
 import { scenarioGrowthBad, scenarioGrowthOrZero } from "@/lib/finance/scenario";
 import { PeriodInput } from "./period-input";
+import { ChartHeading } from "./chart-heading";
+import { chartAria, OVERVIEW_CHART_TITLE, overviewChartSub } from "@/lib/finance/chart-titles";
 
 const orDash = (value: number | null): string =>
   value === null ? NOT_COMPUTED : formatMoney(value);
@@ -144,7 +145,7 @@ export function OverviewBlock({
               <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
-              <OverviewChart summary={summary} width={chartWidth} />
+              <OverviewChart summary={summary} width={chartWidth} sub={overviewChartSub(summary.current)} />
             </Lock>
           ) : null}
         </div>
@@ -425,8 +426,12 @@ function Future({
   );
 }
 
-function OverviewChart({ summary, width }: { summary: Summary; width?: number }) {
-  const data = summary.points;
+function OverviewChart({ summary, width, sub }: { summary: Summary; width?: number; sub: string }) {
+  const hid = useId();
+  // #280 Q-CH2 (spec §85 addenda): on every screen the chart is recorded history only and ends at this month; the
+  // Future years stay in text (coverage line, Future controls) and `Next {horizon} from now` owns the forward path.
+  // Display filter only: `summarize` is unchanged.
+  const data = summary.points.filter((p) => !p.future);
   const last = data[data.length - 1];
   const tooltipValue = (value: unknown) => orDash(typeof value === "number" ? value : null);
   const chart = (h?: number) => (
@@ -501,8 +506,10 @@ function OverviewChart({ summary, width }: { summary: Summary; width?: number })
       data-testid="pf-chart"
       data-months={data.length}
       data-net-last={last?.net == null ? "" : last.net.toFixed(2)}
+      {...chartAria(hid)}
     >
-      <figcaption className="sr-only">{CHART_CAPTION}</figcaption>
+      {/* #280 (spec §85, PFCH): a visible title and subtitle (was an sr-only CHART_CAPTION), so it reads apart from Projected path. */}
+      <ChartHeading id={hid} title={OVERVIEW_CHART_TITLE} sub={sub} testId="pf-chart-head" />
       <div className="pf-chart-plot" aria-hidden="true">
         {width ? (
           chart(240)

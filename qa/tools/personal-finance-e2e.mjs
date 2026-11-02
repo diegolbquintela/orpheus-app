@@ -13,6 +13,8 @@
 //   #277 BW1 PFNT: a note on a Fixed line (maxlength 500, counter, Save, reload), a REAL Read user (QA_CFO_READ) sees
 //   plain text with no non-GET /api/* (SKIPPED (NOT A PASS) when unset), then qa-pf is reset to its snapshot.
 //   #278 CA1 PFSO-23: Saved scenarios sort (name / From cycle, aria-sort, Compare follows), owner + Read user, no writes, reset.
+//   #280 PFCH-15..17: chart titles / subtitles on the main page and the scenario screen, Overview 12 months with Future on,
+//   Projected path present, no writes; Read user (QA_CFO_READ) or SKIPPED (NOT A PASS); reset.
 //   #278: every log line and the JSON artifact mask email addresses as <email> (qa/tools/redact.mjs).
 //   PFE-12 (regression) is site-style-regression.mjs's run on the same preview.
 // The signed-in part refuses to run against production (it writes to the account).
@@ -60,15 +62,9 @@ const shot = async (page, name) => {
   await page.screenshot({ path: file, fullPage: true });
   R.shots.push(file);
 };
-// PFE-09: the page's Future formula (section 15): monthly x ← x × (1 + g)^(1/12) + average surplus.
-const future = (x, surplus, months, g = 5) => {
-  const r = (1 + g / 100) ** (1 / 12);
-  for (let i = 0; i < months; i++) x = x * r + surplus;
-  return x;
-};
-// #140 (PF-128): the 12-month average is over 12 complete months, so June alone (October is the current month).
-const AVG_SURPLUS = 5000;
-const NET_12 = 10000 + 10 * 5000 + 5000 + 10533 + 1 / 3; // 75,533.33
+// PFE-09 / PF-89 (#280 QA r3 CF1, EL): the harness Future formula (monthly x ← x × (1 + g)^(1/12) + average surplus,
+// from 10,000 + … = 75,533.33) is the BI2 model and disagrees with the app, so it was removed; the forward net is the
+// app's own figure, read back from its coverage line.
 
 let AXE = null;
 if (process.env.AXE_PATH) AXE = readFileSync(process.env.AXE_PATH, "utf8");
@@ -473,20 +469,33 @@ try {
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 
       // PFE-09 Future at a typed growth rate.
+      // #280 Q-CH2 (CE3) + QA r3 CF1 (EL): the Overview chart is recorded history ending this month, so it no longer
+      // carries the forward net; the harness Future formula (`future()`) is the BI2 model and does NOT agree with the app,
+      // so it is not used for an expected value. The forward net is the APP's own figure, read back from its coverage line
+      // (net = yearly × 100 / rate); PF-89 then checks the coverage lines are consistent with that net and the 12-month
+      // average expenses 4,000. Any check of the forward net's VALUE against a model is BI2 (known, out of scope).
+      const covNum = (t, re) => { const m = (t ?? "").match(re); return m ? Number(m[1].replace(/,/g, "")) : NaN; };
+      const covNet = async () => (covNum((await cov())[0], /\(([\d,]+\.\d\d) [A-Z]{3}\/yr\)/) * 100) / rateNow;
+      const y0 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
       await page.getByTestId("pf-growth").fill("5");
       await page.getByTestId("pf-future-toggle").click();
       const y1 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
+      y1.fwd = await covNet();
       await page.locator("[data-testid=pf-year][data-years='5']").click();
       const y5 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
-      const [w1, w5] = [future(NET_12, AVG_SURPLUS, 12), future(NET_12, AVG_SURPLUS, 60)];
+      y5.fwd = await covNet();
       {
-        // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets and the average expenses 4,000 (#140: 12 complete months).
+        // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets (the app's, above) and the
+        // 12-month average expenses 4,000 (#140: 12 complete months). Lines rebuilt from the app's yearly figure.
         const cf = await cov();
-        const y = (y5.net * rateNow) / 100;
-        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((y / 12 / 4000) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
-        check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the projected net assets ${y5.net.toFixed(2)} and the 12-month average expenses`, JSON.stringify(cf) === JSON.stringify(want), { cf, want });
+        const yr = covNum(cf[0], /\(([\d,]+\.\d\d) [A-Z]{3}\/yr\)/);
+        const mo = covNum(cf[0], /: ([\d,]+\.\d\d) [A-Z]{3}\/mo/);
+        const pct = covNum(cf[1], /covers ([\d.]+)%/);
+        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(mo)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${pct.toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+        const consistent = !(Number.isFinite(rateNow) && rateNow > 0) || (Math.abs(mo - yr / 12) <= 0.006 && Math.abs(pct - (yr / 12 / 4000) * 100) <= 0.006 && y5.fwd > y1.fwd && y1.fwd > y0.net);
+        check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the app's projected net assets (${Number.isFinite(y5.fwd) ? y5.fwd.toFixed(2) : "—"}, from its coverage line) and the 12-month average expenses 4,000: /mo = /yr ÷ 12, % = /mo ÷ 4,000, 5-year net > 1-year net > today's`, JSON.stringify(cf) === JSON.stringify(want) && consistent, { cf, want, y0: y0.net, y1: y1.fwd, y5: y5.fwd });
       }
-      check(`${tag} PFE-09 growth 5: 1 year 24 points ≈ ${w1.toFixed(2)}, 5 years 72 points ≈ ${w5.toFixed(2)} (± 0.01)`, y1.months === "24" && Math.abs(y1.net - w1) <= 0.011 && y5.months === "72" && Math.abs(y5.net - w5) <= 0.011, { y1, y5, w1, w5 });
+      check(`${tag} PFE-09 growth 5 (#280 Q-CH2): the Overview chart stays at the 12 recorded months ending this month for 1 and 5 years, with the same last net as Future off (${y0.net.toFixed(2)})`, y0.months === "12" && y1.months === "12" && y5.months === "12" && y1.net === y0.net && y5.net === y0.net, { y0, y1, y5 });
       await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
       await shot(page, `e2e-full-${viewport.width}.png`);
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
@@ -523,7 +532,7 @@ try {
       await page.reload({ waitUntil: "networkidle" });
       await ready(page);
       const reloaded = await figures(page);
-      check(`${tag} PFE-10 a reload shows every figure unchanged (from the account; Future on at 5 years)`, JSON.stringify(reloaded) === JSON.stringify(before) && before.future === "true" && before.chart.months === "72", { before, reloaded: JSON.stringify(reloaded) === JSON.stringify(before) ? "same" : reloaded });
+      check(`${tag} PFE-10 a reload shows every figure unchanged (from the account; Future on at 5 years; #280: chart at the 12 recorded months)`, JSON.stringify(reloaded) === JSON.stringify(before) && before.future === "true" && before.chart.months === "12", { before, reloaded: JSON.stringify(reloaded) === JSON.stringify(before) ? "same" : reloaded });
       let other = null;
       await eachViewport({ browser, baseUrl: base, email, password, check: (n, ok, d) => check(`${tag} PFE-10 second device ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: p2 }) => {
         await p2.clock.setFixedTime(TODAY);
@@ -933,6 +942,98 @@ try {
           const back = (await acct(page, base, "GET")).body?.data ?? {};
           const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapS).sort()) && Object.keys(snapS).every((k) => back[k] === snapS[k]);
           check(`${tag} PFSO reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
+        }
+      }
+      // #280 (spec §85 + Q-CH2 addendum, AC PFCH-15/16/17): signed-in chart titles. On /personal-finance the Overview chart
+      // is titled "Last 12 months" with the recorded-history subtitle and stays at 12 months for Future off and every
+      // Future year; on /personal-finance/scenario the Overview chart does the same and "Next 12 months from now" (the
+      // flat forward projection) is present. NO non-GET /api/*, no storage write, the owner's record byte-identical.
+      // A REAL Read user (QA_CFO_READ) repeats it read-only; SKIPPED (NOT A PASS) when unset. Reset at the end.
+      {
+        const snapC = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+        // The subtitle month is the pinned TODAY (#285): the owner page runs on it and the Read-user context is pinned too.
+        const OV_SUB = `Income, expenses and net assets for each month up to ${new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "America/Toronto" }).format(TODAY)} (recorded history).`;
+        const thisMonth = householdMonth(TODAY);
+        const head = (pg, fig) => pg.evaluate((id) => {
+          const f = document.querySelector(`[data-testid=${id}]`); if (!f) return null;
+          const t = f.querySelector(".pf-chart-title"), s = f.querySelector(".pf-chart-sub");
+          return { tag: t?.tagName ?? null, title: t?.textContent ?? null, sub: s?.textContent ?? null, wired: !!t && !!s && f.getAttribute("aria-labelledby") === t.id && f.getAttribute("aria-describedby") === s.id, months: f.dataset.months ?? null, net: f.dataset.netLast ?? null };
+        }, fig);
+        const storageOf = (pg) => pg.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]));
+        // One pass on a page: main page (Future off, on, each year), then the scenario screen (same, plus Projected path).
+        // QA r3 CF2: for the Read user the MAIN page's Future toggle sits in `<fieldset disabled class="pf-lock">`, so it
+        // is asserted locked and not clicked (Future off and the 12-month Overview are still checked); the scenario
+        // screen's toggle works read-only, so it is clicked there. The owner clicks on both screens.
+        const pass = async (pg, read = false) => {
+          const out = { main: [], scen: [], read };
+          await pg.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+          await pg.getByTestId("pf-chart").waitFor({ timeout: 20000 });
+          out.sub = OV_SUB;
+          const lockOf = () => pg.getByTestId("pf-future-toggle").evaluate((b) => { const fs = b.closest("fieldset"); return { inLock: !!fs && fs.disabled && fs.classList.contains("pf-lock"), disabled: b.matches(":disabled"), pressed: b.getAttribute("aria-pressed") }; });
+          const futureOn = async (into, clickable = true) => {
+            into.push(await head(pg, "pf-chart"));
+            if (!clickable) return;
+            const tg = pg.getByTestId("pf-future-toggle");
+            if ((await tg.getAttribute("aria-pressed")) !== "true") await tg.click();
+            const n = await pg.getByTestId("pf-year").count();
+            for (let i = 0; i < n; i++) { await pg.getByTestId("pf-year").nth(i).click(); into.push(await head(pg, "pf-chart")); }
+          };
+          const st0 = await storageOf(pg);
+          out.mainLock = await lockOf();
+          await futureOn(out.main, !read);
+          out.mainStorage = (await storageOf(pg)) === st0;
+          await pg.goto(`${base}/personal-finance/scenario`, { waitUntil: "networkidle" });
+          await pg.getByTestId("pf-scenario-path").waitFor({ timeout: 20000 });
+          const st1 = await storageOf(pg);
+          out.scenLock = await lockOf();
+          await futureOn(out.scen);
+          out.proj = await head(pg, "pf-scenario-chart");
+          out.scenStorage = (await storageOf(pg)) === st1;
+          return out;
+        };
+        const ovOk = (sub) => (h) => !!h && h.tag === "H3" && h.title === "Last 12 months" && h.sub === sub && h.wired && h.months === "12";
+        const lockOk = (o) => (o.read ? o.mainLock?.inLock === true && o.mainLock.disabled === true : o.mainLock?.inLock === false) && o.scenLock?.disabled === false;
+        const passOk = (o) => lockOk(o) && o.main.length >= (o.read ? 1 : 3) && o.main.every(ovOk(o.sub)) && new Set(o.main.map((h) => h.net)).size === 1 && o.scen.length >= 3 && o.scen.every(ovOk(o.sub)) && new Set(o.scen.map((h) => h.net)).size === 1 &&
+          !!o.proj && o.proj.tag === "H3" && o.proj.title === "Next 12 months from now" && /^Flat forward projection: this screen's .+ income and expenses held flat, starting from Net assets now\.$/.test(o.proj.sub ?? "") && o.proj.wired && o.proj.months === "13" && o.mainStorage && o.scenStorage;
+        const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
+        try {
+          const writes = [];
+          const onReq = (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && !u.pathname.startsWith("/api/auth/") && q.method() !== "GET") writes.push(`${q.method()} ${u.pathname}`); };
+          const before = await ownerRaw();
+          page.on("request", onReq);
+          const o = await pass(page);
+          await page.waitForTimeout(1500);
+          page.off("request", onReq);
+          const same = (await ownerRaw()) === before;
+          check(`${tag} PFCH-15 (#280) signed in: main page and scenario screen Overview "Last 12 months" + "(recorded history)" subtitle (h3, aria-wired), 12 months ending ${thisMonth} for Future off and every Future year; scenario "Next 12 months from now" + "Flat forward projection: …" (13 points)`,
+            passOk(o), { main: o.main, scen: o.scen, proj: o.proj });
+          check(`${tag} PFCH-16 (#280) signed in: the chart headings and Future years send NO non-GET /api/*, write no storage; the owner's record byte-identical`,
+            writes.length === 0 && o.mainStorage && o.scenStorage && same, { writes, mainStorage: o.mainStorage, scenStorage: o.scenStorage, same });
+          const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
+          if (!rEmail || !rPassword) skip(`${tag} PFCH-17 Read-user chart titles, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+          else {
+            const rd = {};
+            const ownerBefore = await ownerRaw();
+            await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFCH Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
+              const w2 = [];
+              rp.on("request", (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") w2.push(`${q.method()} ${u.pathname}`); });
+              await rp.clock.setFixedTime(TODAY);
+              rd.o = await pass(rp, true);
+              await rp.waitForTimeout(1500);
+              rd.writes = w2;
+            });
+            rd.same = (await ownerRaw()) === ownerBefore;
+            check(`${tag} PFCH-17 (#280) Read user (second context, QA_CFO_READ): main-page Future toggle locked (disabled fieldset.pf-lock, not clicked; Future off 12-month Overview), scenario screen the same Future clicks; the same titles, subtitles and 12-month Overview; NO non-GET /api/*; no storage write; the owner's record byte-identical`,
+              !!rd.o && passOk(rd.o) && rd.writes?.length === 0 && rd.same === true, { mainLock: rd.o?.mainLock, scenLock: rd.o?.scenLock, main: rd.o?.main, scen: rd.o?.scen, proj: rd.o?.proj, writes: rd.writes, same: rd.same });
+          }
+        } catch (e) {
+          check(`${tag} PFCH step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        } finally {
+          const d = await acct(page, base, "DELETE");
+          const p = await acct(page, base, "PUT", snapC);
+          const back = (await acct(page, base, "GET")).body?.data ?? {};
+          const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapC).sort()) && Object.keys(snapC).every((k) => back[k] === snapC[k]);
+          check(`${tag} PFCH reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
         }
       }
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });

@@ -2304,3 +2304,47 @@ Q-2C1..2C4 are accepted as built (This screen counts as 1 of 2; locked not hidde
 | PF2C-13 | BLOCK | **CB2.** Through the real page, a scenario keeps its colour (legend `data-colour` and swatch) through every Saved sort, removing and re-adding columns and re-picking; it is the same value as `compareColour` on the Saved entry; a position-based palette fails. (DOM) |
 | PF2C-14 | BLOCK | Colouring sends no request and writes no storage. (DOM) |
 | PF2C-15 | HIGH | Chromium at 360 / 390 / 768 / 1440: across re-sorts and column swaps each scenario's legend swatch and chart line stroke keep one colour, stroke equals swatch, `This screen` keeps one colour, no page overflow, CLS 0. (Chromium CB2-L1..L5) |
+
+## PFCH: Personal Finance scenario screen charts, titled (#280, MEDIUM; added 2026-11-02)
+
+Spec §85. Choice (b): both charts stay (they plot different things, proven on one fixture), each with a visible title and subtitle; Compare uses the same heading. Client-side only; projection math unchanged.
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFCH-01 | BLOCK | Titles/subtitles word for word: Overview `Last 12 months` / `Income, expenses and net assets for each month up to {Month YYYY}.` (+ Future: scenario screen `, then {N years} ahead: net assets as in Projected path, income and expenses at 12-month averages.`, main page `, then {N years} ahead at your 12-month averages.`); Projected path `Next {horizon} from now` / `This screen's {Month YYYY} income and expenses held flat, starting from Net assets now.`; Compare `Net assets by scenario` / `This screen and the saved scenario, each projected over {horizon} from its own net assets now.` (unit) |
+| PFCH-02 | BLOCK | Findings pinned: Overview plots the 12 months to this month (recorded flows, 12-month averages where empty, net null before the first recorded month). (unit, findings fixture) |
+| PFCH-03 | BLOCK | Findings pinned: Projected path = Now + horizon points, this month's flows flat, net values pinned; with Future on, Overview's future net equals Projected path 13/13 while its flows are the 12-month averages; only Projected path follows the horizon. (unit) |
+| PFCH-04 | BLOCK | Scenario screen: exactly 2 charts before Compare, each with a visible `h3` title and `p` subtitle in its figcaption, wired by `aria-labelledby` / `aria-describedby`; distinct titles; no sr-only captions left. (DOM) |
+| PFCH-05 | HIGH | Projected path title follows the horizon; Overview's does not; Overview subtitle follows Future. (DOM) |
+| PFCH-06 | BLOCK | Chart data unchanged from main 07ecdd0 (`data-months` / `data-net-last`, Future off/on, 12 and 60 months), values captured on 07ecdd0. (DOM) |
+| PFCH-07 | HIGH | Compare chart uses the same heading component (title, horizon subtitle, wiring); one `.pf-chart-head` per chart. (DOM) |
+| PFCH-08 | HIGH | Reopening a saved scenario keeps both titled charts. (DOM) |
+| PFCH-09 | BLOCK | Headings send no request and write no storage. (DOM) |
+| PFCH-10 | HIGH | Chromium 360/390/768/1440: visible wired h3 titles and subtitles (2, then 3 with Compare, and after reopening), AA ≥ 4.5, no gold, no tnum, no clipped text, legends fit, no page overflow, CLS 0, no request/storage write. (Chromium PFCH-L1..L8, 72/72) |
+
+### Amendment 2026-11-02 (#280 Q-CH1..CH4, CFO via EL on PR #298): Overview charts are recorded history only
+
+Q-CH1 (wording, provided each subtitle says recorded history vs flat forward projection), Q-CH3 (main-page heading) and Q-CH4 (sr captions replaced) accepted. Q-CH2 changed: every Overview chart (`Last 12 months`, main page and scenario screen) stops at this month, Future on or off; `Next {horizon} from now` owns the forward path. This supersedes the Future-on subtitles in PFCH-01, PFCH-05's "subtitle follows Future", and PFCH-03's Overview-forward overlap as a chart behaviour (the `summarize` maths is unchanged and still pinned there).
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFCH-11 | BLOCK | Scenario screen, Future on, each Future year: the Overview chart has the 12 recorded months and the same last net as Future off (no forward years); Projected path data unchanged (07ecdd0 baseline). (DOM) |
+| PFCH-12 | BLOCK | Subtitles word for word on every screen: Overview `Income, expenses and net assets for each month up to {Month YYYY} (recorded history).` (no `ahead` / `year` / `average`, Future on or off); Projected path `Flat forward projection: this screen's {Month YYYY} income and expenses held flat, starting from Net assets now.`; Compare unchanged. (unit + DOM) |
+| PFCH-13 | BLOCK | Main page, Future off and each Future year: the Overview chart stays 12 months with the same last net; the subtitle above; no storage write from the year choices. Coverage figures (from the unchanged forward net) unchanged: PF-84 / PF-125 pin 07ecdd0's horizon-end net (113,000 / 159,000). (DOM) |
+| PFCH-14 | HIGH | Chromium 360/390/768/1440: main page (PFCH-M1..M7: visible wired h3 + recorded-history subtitle, AA, no tnum, no overflow, 12 months for every Future year, Future years still in the coverage text, CLS 0, no request/write) and scenario screen (PFCH-L1..L8). |
+
+### Amendment 2026-11-02 (#280 QA r2 CE1 / CE3, EL): the signed-in e2e covers PFCH; PFCH-10 evidence restated
+
+CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of the real ScenarioPage (and, from PFCH-14, the main page, PFCH-M1..M7, 72/72) in /workspace/swe/t280/inv; `qa/tools` did not change in 2e03274 or 099cb25. In this follow-up push (harness and docs only, no product change) `qa/tools/personal-finance-e2e.mjs` gains the signed-in PFCH step (PFCH-15..17 below) and is updated for Q-CH2 (CE3: PF-89 Future and PFE-09 take the forward net from the Future formula / the coverage line, not the Overview chart's last point; PFE-09 / PFE-10 expect the chart's 12 recorded months, no 24 / 72). PFCH-10's evidence is therefore: Chromium 72/72 (local fixture) + the e2e PFCH step.
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFCH-15 | BLOCK | e2e signed in (owner, pinned clock): main page and scenario screen Overview `Last 12 months` (h3, aria-wired) with `… up to {page month} (recorded history).`, 12 months and one last net for Future off and every Future year; scenario `Next 12 months from now` with `Flat forward projection: …`, 13 points. |
+| PFCH-16 | BLOCK | e2e signed in: those steps send no non-GET `/api/*`, write no local/session storage, and leave the owner's record byte-identical. |
+| PFCH-17 | HIGH | e2e Read user (QA_CFO_READ_EMAIL / _PASSWORD from env, never printed): the same, read-only, no non-GET `/api/*`; SKIPPED (NOT A PASS, exit 3) when unset. Then qa-pf is reset to its pre-step snapshot (DELETE, PUT, byte-identical). |
+
+### Amendment 2026-11-02 (#280 QA r3 CF1–CF3, EL): harness follow-up; PFCH-17 wording
+
+- CF1: PF-89 (Future 5 years) and PFE-09 no longer use the harness Future formula (the BI2 model, which disagrees with the app). The forward net is the app's own figure, read back from its coverage line; PF-89 checks the coverage lines against it (/mo = /yr ÷ 12, % = /mo ÷ 4,000, 5-year net > 1-year net > today's). PFE-09 checks the Overview chart keeps the Future-off 12 months and last net for 1 and 5 years. Any value check against a forward model is BI2.
+- CF2: PFCH-17 now reads: the Read user's main-page Future toggle is asserted locked (inside `fieldset[disabled].pf-lock`) and not clicked, with Future off and the 12-month Overview still checked; on the scenario screen the Read user clicks Future and every year as the owner does. PFCH-15 (owner) and PFCH-16 are unchanged.
+- CF3: `personal-finance.mjs` PF-30 / PF-31 expect the chart's 12 recorded months and last net `NET12` for Future 1 / 5 / 15 years and after reload (was 24 / 72 / 192 and NET_F1 / NET_F5).

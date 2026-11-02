@@ -123,7 +123,7 @@ describe("personal finance page (#84)", () => {
     assert.equal(el.querySelector("h1")!.textContent, "Personal Finance.");
     assert.deepEqual(
       [...el.querySelectorAll("h2, h3")].map((h) => h.textContent),
-      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Expenses summary", "Overview"],
+      ["Income", "Income table", "Expenses", "Fixed", "Variable", "Expenses summary", "Overview", "Last 12 months"], // #280 (PFCH): the Overview chart's visible title (h3),
     );
     for (const head of qa(el, "pf-head"))
       assert.deepEqual(
@@ -850,11 +850,21 @@ describe("Overview and the month control (#94, #112; PF-26..31, PF-48..56)", () 
     assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "24450.00"); // #228 (spec 64): 10,000 + 5,000 (Jun, the first month with figures) + 9,450; empty months add nothing
     await type(q(el, "pf-growth"), "5");
     await click(q(el, "pf-future-toggle"));
-    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "24");
-    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "87035.39"); // #228: from 24,450 now
+    // #280 Q-CH2 (spec §85 addendum 2): the chart is recorded history ending this month, Future on or off (was 24 /
+    // 87035.39 and 72 / 370273.77: those forward figures are unchanged in `summarize`, pinned in overview.test.ts).
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
+    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "24450.00");
+    const before280 = { ls: JSON.stringify({ ...dom.window.localStorage }), ss: JSON.stringify({ ...dom.window.sessionStorage }) };
+    for (const yb of qa(el, "pf-year")) {
+      await click(yb);
+      assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12", `PFCH-13: Future ${yb.getAttribute("data-years")}: no forward years`);
+      assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "24450.00");
+      assert.equal(text(q(el, "pf-chart"), "pf-chart-head-sub"), "Income, expenses and net assets for each month up to October 2026 (recorded history).");
+    }
+    assert.ok(qa(el, "pf-year").length >= 2);
+    assert.equal(JSON.stringify({ ...dom.window.localStorage }), before280.ls, "PFCH-13: no storage write from the Future years");
+    assert.equal(JSON.stringify({ ...dom.window.sessionStorage }), before280.ss);
     await click(qa(el, "pf-year")[1]);
-    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "72");
-    assert.equal(q(el, "pf-chart").getAttribute("data-net-last"), "370273.77"); // #228: from 24,450 now
     await type(q(el, "pf-growth"), "five");
     assert.equal(text(q(el, "pf-overview"), "pf-error"), "Enter a number, 0 or more.");
     // Switching with unsaved changes asks; Cancel keeps the month and the edits; OK drops them.
@@ -1502,7 +1512,10 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
   it("PF-84: Future on → projected net assets at the horizon end, average expenses, 'in N years'; off restores", async () => {
     /* #140: Sep, a complete month, so the 12-month average has it */ seed({ start: "100,000", withdrawal: "4", future: true, years: 1, months: { "2026-09": { expenses: "1,000", income: "2,000" } } });
     const el = await render();
-    const last = Number(q(el, "pf-chart").getAttribute("data-net-last"));
+    // #280 Q-CH2: the chart now ends at this month, so the horizon-end net (unchanged maths) is pinned here as 07ecdd0's
+    // chart drew it (data-net-last 113000.00), not read off the chart.
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
+    const last = 113000;
     const yearly = last * 0.04;
     const fmt = (n: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); // #142: two decimals
     assert.deepEqual(covText(el), [`Equity coverage in 1 year: ${fmt(yearly / 12)} CAD/mo (${fmt(yearly)} CAD/yr)`, `* 4% yearly, covers ${((yearly / 12 / 1000) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."]);
@@ -1592,7 +1605,9 @@ describe("#126 Overview: equity coverage and 3-month average (PF-79..PF-88)", ()
     seed({ start: "120,000", withdrawal: "4", future: true, years: 1, months: { "2025-10": { expenses: "6,000", income: "9,000" }, "2026-09": { expenses: "2,000", income: "9,000" }, "2026-10": { expenses: "40,000", income: "9,000" } } });
     const el = await render(new Date("2026-10-14T12:00:00-04:00"));
     assert.equal(text(q(el, "pf-ov-expenses"), "pf-ov-avg"), "4,000.00");
-    const last = Number(q(el, "pf-chart").getAttribute("data-net-last"));
+    // #280 Q-CH2: horizon-end net pinned as 07ecdd0's chart drew it (159000.00); the chart now ends at this month.
+    assert.equal(q(el, "pf-chart").getAttribute("data-months"), "12");
+    const last = 159000;
     const share = ((last * 0.04) / 12 / 4000) * 100;
     assert.equal(text(cov(el), "pf-coverage-rate-note"), `* 4% yearly, covers ${share.toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`);
   });
