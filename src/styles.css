@@ -1746,7 +1746,7 @@ th[aria-sort="descending"] .pf-sort-mark {
     min-height: 1.25rem;
   }
 }
-.pf-saved-compare-label input[aria-disabled="true"] {
+input[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }
