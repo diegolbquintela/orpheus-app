@@ -304,3 +304,62 @@ export const withScenario = (record: PfRecord | null, s: Scenario): PfRecord => 
   ...(record ?? {}),
   [SCENARIO_KEY]: scenarioText(s),
 });
+
+// #282 (attachments/personal-finance-spec.md §87, AC PFGR): the Growth earned line and the optional
+// "Count equity coverage as income" rows on the scenario screen. Display only: `project` is unchanged, and nothing here
+// feeds income, surplus, net assets, Growth earned, the charts or Compare.
+export const GROWTH_EARNED_NOTE = "What growth added to net assets, beyond surplus.";
+export const COUNT_COVERAGE_LABEL = "Count equity coverage as income";
+export const INCOME_WITH_COVERAGE = "Net income + equity coverage";
+export const SURPLUS_WITH_COVERAGE = "Surplus + equity coverage";
+
+/**
+ * Q-GR5 (CFO, READY): the equity coverage counted in the two rows' `Over {horizon}` column. Built: null, shown "—".
+ * Swapping is a one-line change HERE, e.g. the sum of each projected month's coverage
+ * (`proj.points.slice(1).reduce((s, p) => s + Math.max(0, p.net) * (proj.rate ?? 0) / 1200, 0)`) or
+ * `horizon * (proj.totals.coverageMonthly ?? 0)`.
+ */
+export function coverageOverHorizon(proj: Projection, horizon: number): number | null {
+  void proj;
+  void horizon;
+  return null;
+}
+
+export type CoverageRow = {
+  key: "income-coverage" | "surplus-coverage";
+  name: string;
+  today: number | null;
+  scenario: number | null;
+  total: number | null;
+};
+
+/**
+ * #282 PFGR-04: the two extra rows (Today / Scenario, a month, and Over {horizon}): net income and surplus each plus the
+ * monthly equity coverage (`equityCoverage` in overview.ts; null when it has no rate or start → "—"). Pure.
+ */
+export function withCoverage(
+  today: Projection,
+  todayCoverage: number | null,
+  proj: Projection,
+  coverage: number | null,
+  horizon: number,
+): CoverageRow[] {
+  const add = (a: number, b: number | null) => (b === null ? null : a + b);
+  const over = coverageOverHorizon(proj, horizon);
+  return [
+    {
+      key: "income-coverage",
+      name: INCOME_WITH_COVERAGE,
+      today: add(today.totals.monthlyIncome, todayCoverage),
+      scenario: add(proj.totals.monthlyIncome, coverage),
+      total: add(proj.totals.income, over),
+    },
+    {
+      key: "surplus-coverage",
+      name: SURPLUS_WITH_COVERAGE,
+      today: add(today.totals.monthlySurplus, todayCoverage),
+      scenario: add(proj.totals.monthlySurplus, coverage),
+      total: add(proj.totals.surplus, over),
+    },
+  ];
+}

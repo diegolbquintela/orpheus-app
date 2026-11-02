@@ -254,3 +254,38 @@ describe("#215 stored scenario value (unchanged)", () => {
     assert.equal(readScenario({}), null);
   });
 });
+
+// #282 (spec §87, AC PFGR-04/05): the display-only "+ equity coverage" rows.
+import { COUNT_COVERAGE_LABEL, coverageOverHorizon, GROWTH_EARNED_NOTE, INCOME_WITH_COVERAGE, SURPLUS_WITH_COVERAGE, withCoverage } from "./scenario.ts";
+describe("#282 withCoverage / coverageOverHorizon", () => {
+  const inp: Inputs = { current: "2026-10", start: 100000, income: 7500, expenses: 3000, growth: 5, rate: 4 };
+  it("PFGR-04: Today / Scenario = net income and surplus + the monthly coverage; null coverage → null (\"—\")", () => {
+    const today = project({ ...inp, income: 7000 }, 12);
+    const proj = project(inp, 12);
+    const rows = withCoverage(today, 300, proj, 333.33, 12);
+    assert.deepEqual(rows.map((r) => [r.key, r.name]), [["income-coverage", INCOME_WITH_COVERAGE], ["surplus-coverage", SURPLUS_WITH_COVERAGE]]);
+    assert.equal(rows[0].today, 7300);
+    assert.equal(rows[0].scenario, 7833.33);
+    assert.equal(rows[1].today, 4300);
+    assert.equal(rows[1].scenario, 4833.33);
+    assert.equal(withCoverage(today, null, proj, 333.33, 12)[0].today, null);
+    assert.equal(INCOME_WITH_COVERAGE, "Net income + equity coverage");
+    assert.equal(SURPLUS_WITH_COVERAGE, "Surplus + equity coverage");
+    assert.equal(COUNT_COVERAGE_LABEL, "Count equity coverage as income");
+    assert.equal(GROWTH_EARNED_NOTE, "What growth added to net assets, beyond surplus.");
+  });
+  it("PFGR-04 / Q-GR5: Over {horizon} is null (\"—\") for both rows, from coverageOverHorizon only", () => {
+    // Q-GR5: when the CFO picks "sum of monthly coverage" or "horizon × end coverage", change coverageOverHorizon
+    // (scenario.ts) and update these two expectations; withCoverage then adds it to the horizon's income / surplus.
+    const proj = project(inp, 60);
+    assert.equal(coverageOverHorizon(proj, 60), null);
+    for (const r of withCoverage(proj, 1, proj, 1, 60)) assert.equal(r.total, null, r.key);
+  });
+  it("PFGR-05: pure: the projection is unchanged by building the rows", () => {
+    const proj = project(inp, 12);
+    const before = JSON.stringify(proj);
+    withCoverage(proj, 333.33, proj, 333.33, 12);
+    assert.equal(JSON.stringify(proj), before);
+    assert.equal(JSON.stringify(project(inp, 12)), before);
+  });
+});

@@ -2374,3 +2374,16 @@ CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of th
 - **PFWI-14** Owner: viewing sends no non-GET `/api/*` and writes no localStorage / sessionStorage; the record is byte-identical.
 - **PFWI-15** Read user: PFWI-13 and PFWI-14 hold too, and the owner's record is byte-identical.
 - **PFWI-16** qa-pf is reset to its pre-step record afterwards (DELETE, PUT the snapshot, every value byte-identical).
+
+## PFGR: Growth earned line and equity coverage as income (#282, spec §87, 2026-11-02)
+
+- **PFGR-01** Totals: the row is still named `Growth earned` and has exactly one dim line `What growth added to net assets, beyond surplus.` (`pf-growth-note`, `pf-history-note` style) under the name.
+- **PFGR-02** Compare: `Growth earned over {horizon}` has the same dim line.
+- **PFGR-03** Above the Totals table, a checkbox labelled `Count equity coverage as income`, off by default, its label ≥ 44 px tall; off, no extra rows or their names anywhere.
+- **PFGR-04** On, the two rows `Net income + equity coverage` and `Surplus + equity coverage` follow the table: Today / Scenario = the row's monthly net income / surplus + that column's monthly equity coverage; Over {horizon} is `—` (Q-GR5).
+- **PFGR-05** Every existing Totals row, both charts, Compare and net assets are byte-identical with the box on or off.
+- **PFGR-06** With no rate or no start the box is disabled; with no rate it shows `Set rate under Expenses`.
+- **PFGR-07** Cleared on leave / reopen / reload; not in a saved scenario (Save with it on and off gives identical saved values); toggling sends no request and writes no localStorage / sessionStorage.
+- **PFGR-08** A Read user sees the box and can toggle it (rows appear), with no non-GET request.
+- **PFGR-09** At 360 / 390 / 768 / 1440: no horizontal overflow (the label and rows wrap), AA contrast, CLS 0, no gold, no tnum / tabular-nums.
+- **PFGR-10** The signed-in e2e step (`qa/tools/personal-finance-e2e.mjs`, PFGR) resets qa-pf to its pre-step record (DELETE, PUT the snapshot, byte-identical).

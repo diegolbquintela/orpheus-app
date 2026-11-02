@@ -2946,3 +2946,17 @@ It appears only there (not in Compare, the This screen column or any hint). No l
 86.4 **Same nuance, net-assets hint.** The Net assets now field's hint ended ` A what-if: never saved. A negative amount is allowed.`; Save scenario keeps that start (`inputs.start`), so it now ends ` A what-if: it never changes your saved net assets. A negative amount is allowed.` (AC PFWI-07). Its basis text before it is unchanged.
 
 86.5 **CFO answers (Q-WI1..WI5, 2026-11-02; supersedes the 86.3 note text).** Owner/writer note: `What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.` Read users (the load's `access.write` false, the same session access the page already uses; nothing new stored or requested) see only `What-ifs only: edits are cleared when you leave.` Same place under the `Scenario Analysis.` title, same style; the note stays (Q-WI4); the 86.4 Net assets now hint is unchanged (Q-WI5). AC: PFWI amendment 2026-11-02.
+
+## 87. Growth earned line and equity coverage as income (#282, 2026-11-02)
+
+87.1 **Growth earned line.** The scenario Totals row `Growth earned` and the Compare row `Growth earned over {horizon}` keep their names and add, under the name, the dim line (`pf-history-note`, `data-testid="pf-growth-note"`) `What growth added to net assets, beyond surplus.` (`GROWTH_EARNED_NOTE`, src/lib/finance/scenario.ts). AC: PFGR-01/02.
+
+87.2 **Count equity coverage as income.** Above the Totals table, a checkbox labelled `Count equity coverage as income` (`data-testid="pf-coverage-income-toggle"`; the label is the ≥ 44 px target, `.pf-saved-compare-label`), off by default. On, two extra rows follow the table: `Net income + equity coverage` and `Surplus + equity coverage` (Today, Scenario a month, Over {horizon}), each the row's monthly figure + the monthly equity coverage of that column (`equityCoverage`, overview.ts; Today from the saved figures, Scenario from the inputs; "—" when that column has none). Built by the pure `withCoverage` (scenario.ts). AC: PFGR-03/04.
+
+87.3 **Separate lines only.** Coverage is never fed into the projection, net assets, Growth earned, either chart or Compare; every existing row, chart, Compare and net assets is byte-identical with the box on or off. AC: PFGR-05.
+
+87.4 **Disabled.** With no rate (or no positive starting net assets) the box is disabled; with no rate it shows the existing `Set rate under Expenses` (`COVERAGE_RATE_NOTE`). AC: PFGR-06.
+
+87.5 **Not kept.** React state on the scenario screen only: off on every open, reopen of a saved scenario and reload; not in saved scenarios (keptValues copies record keys only); no localStorage / sessionStorage, no request. Read users see and toggle it (no writes). AC: PFGR-07/08.
+
+87.6 **Over {horizon} (Q-GR5 open).** The two rows' Over {horizon} cell is "—" (`coverageOverHorizon` returns null). The CFO may choose the sum of monthly coverage or horizon × end coverage; that is a one-line change in `coverageOverHorizon`.
