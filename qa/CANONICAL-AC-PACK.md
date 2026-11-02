@@ -2342,3 +2342,9 @@ CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of th
 | PFCH-15 | BLOCK | e2e signed in (owner, pinned clock): main page and scenario screen Overview `Last 12 months` (h3, aria-wired) with `… up to {page month} (recorded history).`, 12 months and one last net for Future off and every Future year; scenario `Next 12 months from now` with `Flat forward projection: …`, 13 points. |
 | PFCH-16 | BLOCK | e2e signed in: those steps send no non-GET `/api/*`, write no local/session storage, and leave the owner's record byte-identical. |
 | PFCH-17 | HIGH | e2e Read user (QA_CFO_READ_EMAIL / _PASSWORD from env, never printed): the same, read-only, no non-GET `/api/*`; SKIPPED (NOT A PASS, exit 3) when unset. Then qa-pf is reset to its pre-step snapshot (DELETE, PUT, byte-identical). |
+
+### Amendment 2026-11-02 (#280 QA r3 CF1–CF3, EL): harness follow-up; PFCH-17 wording
+
+- CF1: PF-89 (Future 5 years) and PFE-09 no longer use the harness Future formula (the BI2 model, which disagrees with the app). The forward net is the app's own figure, read back from its coverage line; PF-89 checks the coverage lines against it (/mo = /yr ÷ 12, % = /mo ÷ 4,000, 5-year net > 1-year net > today's). PFE-09 checks the Overview chart keeps the Future-off 12 months and last net for 1 and 5 years. Any value check against a forward model is BI2.
+- CF2: PFCH-17 now reads: the Read user's main-page Future toggle is asserted locked (inside `fieldset[disabled].pf-lock`) and not clicked, with Future off and the 12-month Overview still checked; on the scenario screen the Read user clicks Future and every year as the owner does. PFCH-15 (owner) and PFCH-16 are unchanged.
+- CF3: `personal-finance.mjs` PF-30 / PF-31 expect the chart's 12 recorded months and last net `NET12` for Future 1 / 5 / 15 years and after reload (was 24 / 72 / 192 and NET_F1 / NET_F5).

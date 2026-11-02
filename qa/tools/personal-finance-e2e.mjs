@@ -62,15 +62,9 @@ const shot = async (page, name) => {
   await page.screenshot({ path: file, fullPage: true });
   R.shots.push(file);
 };
-// PFE-09: the page's Future formula (section 15): monthly x ← x × (1 + g)^(1/12) + average surplus.
-const future = (x, surplus, months, g = 5) => {
-  const r = (1 + g / 100) ** (1 / 12);
-  for (let i = 0; i < months; i++) x = x * r + surplus;
-  return x;
-};
-// #140 (PF-128): the 12-month average is over 12 complete months, so June alone (October is the current month).
-const AVG_SURPLUS = 5000;
-const NET_12 = 10000 + 10 * 5000 + 5000 + 10533 + 1 / 3; // 75,533.33
+// PFE-09 / PF-89 (#280 QA r3 CF1, EL): the harness Future formula (monthly x ← x × (1 + g)^(1/12) + average surplus,
+// from 10,000 + … = 75,533.33) is the BI2 model and disagrees with the app, so it was removed; the forward net is the
+// app's own figure, read back from its coverage line.
 
 let AXE = null;
 if (process.env.AXE_PATH) AXE = readFileSync(process.env.AXE_PATH, "utf8");
@@ -475,27 +469,33 @@ try {
       await page.getByTestId("pf-coverage").screenshot({ path: join(CFG.out, `e2e-coverage-${viewport.width}.png`) });
 
       // PFE-09 Future at a typed growth rate.
+      // #280 Q-CH2 (CE3) + QA r3 CF1 (EL): the Overview chart is recorded history ending this month, so it no longer
+      // carries the forward net; the harness Future formula (`future()`) is the BI2 model and does NOT agree with the app,
+      // so it is not used for an expected value. The forward net is the APP's own figure, read back from its coverage line
+      // (net = yearly × 100 / rate); PF-89 then checks the coverage lines are consistent with that net and the 12-month
+      // average expenses 4,000. Any check of the forward net's VALUE against a model is BI2 (known, out of scope).
+      const covNum = (t, re) => { const m = (t ?? "").match(re); return m ? Number(m[1].replace(/,/g, "")) : NaN; };
+      const covNet = async () => (covNum((await cov())[0], /\(([\d,]+\.\d\d) [A-Z]{3}\/yr\)/) * 100) / rateNow;
+      const y0 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
       await page.getByTestId("pf-growth").fill("5");
       await page.getByTestId("pf-future-toggle").click();
-      // #280 Q-CH2 (CE3): the Overview chart is recorded history ending this month, so it no longer carries the forward
-      // net. The forward net is checked through the coverage line (unchanged maths): coverage = net × rate / 12.
-      const covNet = async () => { const t = (await cov())[0] ?? ""; const m = t.match(/: ([\d,]+\.\d\d) /); return m ? (Number(m[1].replace(/,/g, "")) * 12 * 100) / rateNow : NaN; };
       const y1 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
       y1.fwd = await covNet();
       await page.locator("[data-testid=pf-year][data-years='5']").click();
       const y5 = await page.getByTestId("pf-chart").evaluate((f) => ({ months: f.dataset.months, net: Number(f.dataset.netLast) }));
       y5.fwd = await covNet();
-      const [w1, w5] = [future(NET_12, AVG_SURPLUS, 12), future(NET_12, AVG_SURPLUS, 60)];
-      // Coverage is shown to the cent, so the net read back from it is within rate-scaled rounding (0.005 × 12 × 100 / rate).
-      const fwdTol = Number.isFinite(rateNow) && rateNow > 0 ? (0.006 * 12 * 100) / rateNow : Infinity;
       {
-        // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets and the average expenses 4,000 (#140: 12 complete months).
+        // #126 PF-89: with Future on (5 years) the coverage uses the projected net assets (the app's, above) and the
+        // 12-month average expenses 4,000 (#140: 12 complete months). Lines rebuilt from the app's yearly figure.
         const cf = await cov();
-        const y = (w5 * rateNow) / 100; // #280 CE3: from the Future formula's forward net, not the chart's last point
-        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(y / 12)} ${hh}/mo (${NUM.format(y)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${((y / 12 / 4000) * 100).toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
-        check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the projected net assets ${w5.toFixed(2)} (Future formula) and the 12-month average expenses`, JSON.stringify(cf) === JSON.stringify(want), { cf, want });
+        const yr = covNum(cf[0], /\(([\d,]+\.\d\d) [A-Z]{3}\/yr\)/);
+        const mo = covNum(cf[0], /: ([\d,]+\.\d\d) [A-Z]{3}\/mo/);
+        const pct = covNum(cf[1], /covers ([\d.]+)%/);
+        const want = Number.isFinite(rateNow) && rateNow > 0 ? [`Equity coverage in 5 years: ${NUM.format(mo)} ${hh}/mo (${NUM.format(yr)} ${hh}/yr)`, `* ${rateTxt} yearly, covers ${pct.toFixed(2)}% of projected monthly expenses at horizon end (held at 12-month average).`, "** Coverage rate is derived from Rate Used under Expenses section."] : ["Equity coverage in 5 years: —", "Set rate under Expenses", "** Coverage rate is derived from Rate Used under Expenses section."];
+        const consistent = !(Number.isFinite(rateNow) && rateNow > 0) || (Math.abs(mo - yr / 12) <= 0.006 && Math.abs(pct - (yr / 12 / 4000) * 100) <= 0.006 && y5.fwd > y1.fwd && y1.fwd > y0.net);
+        check(`${tag} PF-89 (#126) Future 5 years: Equity coverage on the app's projected net assets (${Number.isFinite(y5.fwd) ? y5.fwd.toFixed(2) : "—"}, from its coverage line) and the 12-month average expenses 4,000: /mo = /yr ÷ 12, % = /mo ÷ 4,000, 5-year net > 1-year net > today's`, JSON.stringify(cf) === JSON.stringify(want) && consistent, { cf, want, y0: y0.net, y1: y1.fwd, y5: y5.fwd });
       }
-      check(`${tag} PFE-09 growth 5 (#280 Q-CH2): the Overview chart stays at the 12 recorded months ending this month (last net ${NET_12.toFixed(2)}) for 1 and 5 years; the forward net from the coverage line ≈ ${w1.toFixed(2)} (1 year), ${w5.toFixed(2)} (5 years)`, y1.months === "12" && y5.months === "12" && Math.abs(y1.net - NET_12) <= 0.011 && Math.abs(y5.net - NET_12) <= 0.011 && Math.abs(y1.fwd - w1) <= fwdTol && Math.abs(y5.fwd - w5) <= fwdTol, { y1, y5, w1, w5, fwdTol });
+      check(`${tag} PFE-09 growth 5 (#280 Q-CH2): the Overview chart stays at the 12 recorded months ending this month for 1 and 5 years, with the same last net as Future off (${y0.net.toFixed(2)})`, y0.months === "12" && y1.months === "12" && y5.months === "12" && y1.net === y0.net && y5.net === y0.net, { y0, y1, y5 });
       await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
       await shot(page, `e2e-full-${viewport.width}.png`);
       await page.getByTestId("pf-overview").scrollIntoViewIfNeeded();
@@ -961,31 +961,39 @@ try {
         }, fig);
         const storageOf = (pg) => pg.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]));
         // One pass on a page: main page (Future off, on, each year), then the scenario screen (same, plus Projected path).
-        const pass = async (pg) => {
-          const out = { main: [], scen: [] };
+        // QA r3 CF2: for the Read user the MAIN page's Future toggle sits in `<fieldset disabled class="pf-lock">`, so it
+        // is asserted locked and not clicked (Future off and the 12-month Overview are still checked); the scenario
+        // screen's toggle works read-only, so it is clicked there. The owner clicks on both screens.
+        const pass = async (pg, read = false) => {
+          const out = { main: [], scen: [], read };
           await pg.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
           await pg.getByTestId("pf-chart").waitFor({ timeout: 20000 });
           out.sub = OV_SUB;
-          const futureOn = async (into) => {
+          const lockOf = () => pg.getByTestId("pf-future-toggle").evaluate((b) => { const fs = b.closest("fieldset"); return { inLock: !!fs && fs.disabled && fs.classList.contains("pf-lock"), disabled: b.matches(":disabled"), pressed: b.getAttribute("aria-pressed") }; });
+          const futureOn = async (into, clickable = true) => {
             into.push(await head(pg, "pf-chart"));
+            if (!clickable) return;
             const tg = pg.getByTestId("pf-future-toggle");
             if ((await tg.getAttribute("aria-pressed")) !== "true") await tg.click();
             const n = await pg.getByTestId("pf-year").count();
             for (let i = 0; i < n; i++) { await pg.getByTestId("pf-year").nth(i).click(); into.push(await head(pg, "pf-chart")); }
           };
           const st0 = await storageOf(pg);
-          await futureOn(out.main);
+          out.mainLock = await lockOf();
+          await futureOn(out.main, !read);
           out.mainStorage = (await storageOf(pg)) === st0;
           await pg.goto(`${base}/personal-finance/scenario`, { waitUntil: "networkidle" });
           await pg.getByTestId("pf-scenario-path").waitFor({ timeout: 20000 });
           const st1 = await storageOf(pg);
+          out.scenLock = await lockOf();
           await futureOn(out.scen);
           out.proj = await head(pg, "pf-scenario-chart");
           out.scenStorage = (await storageOf(pg)) === st1;
           return out;
         };
         const ovOk = (sub) => (h) => !!h && h.tag === "H3" && h.title === "Last 12 months" && h.sub === sub && h.wired && h.months === "12";
-        const passOk = (o) => o.main.length >= 3 && o.main.every(ovOk(o.sub)) && new Set(o.main.map((h) => h.net)).size === 1 && o.scen.length >= 3 && o.scen.every(ovOk(o.sub)) && new Set(o.scen.map((h) => h.net)).size === 1 &&
+        const lockOk = (o) => (o.read ? o.mainLock?.inLock === true && o.mainLock.disabled === true : o.mainLock?.inLock === false) && o.scenLock?.disabled === false;
+        const passOk = (o) => lockOk(o) && o.main.length >= (o.read ? 1 : 3) && o.main.every(ovOk(o.sub)) && new Set(o.main.map((h) => h.net)).size === 1 && o.scen.length >= 3 && o.scen.every(ovOk(o.sub)) && new Set(o.scen.map((h) => h.net)).size === 1 &&
           !!o.proj && o.proj.tag === "H3" && o.proj.title === "Next 12 months from now" && /^Flat forward projection: this screen's .+ income and expenses held flat, starting from Net assets now\.$/.test(o.proj.sub ?? "") && o.proj.wired && o.proj.months === "13" && o.mainStorage && o.scenStorage;
         const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
         try {
@@ -1010,13 +1018,13 @@ try {
               const w2 = [];
               rp.on("request", (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") w2.push(`${q.method()} ${u.pathname}`); });
               await rp.clock.setFixedTime(TODAY);
-              rd.o = await pass(rp);
+              rd.o = await pass(rp, true);
               await rp.waitForTimeout(1500);
               rd.writes = w2;
             });
             rd.same = (await ownerRaw()) === ownerBefore;
-            check(`${tag} PFCH-17 (#280) Read user (second context, QA_CFO_READ): the same titles, subtitles and 12-month Overview; NO non-GET /api/*; no storage write; the owner's record byte-identical`,
-              !!rd.o && passOk(rd.o) && rd.writes?.length === 0 && rd.same === true, { main: rd.o?.main, scen: rd.o?.scen, proj: rd.o?.proj, writes: rd.writes, same: rd.same });
+            check(`${tag} PFCH-17 (#280) Read user (second context, QA_CFO_READ): main-page Future toggle locked (disabled fieldset.pf-lock, not clicked; Future off 12-month Overview), scenario screen the same Future clicks; the same titles, subtitles and 12-month Overview; NO non-GET /api/*; no storage write; the owner's record byte-identical`,
+              !!rd.o && passOk(rd.o) && rd.writes?.length === 0 && rd.same === true, { mainLock: rd.o?.mainLock, scenLock: rd.o?.scenLock, main: rd.o?.main, scen: rd.o?.scen, proj: rd.o?.proj, writes: rd.writes, same: rd.same });
           }
         } catch (e) {
           check(`${tag} PFCH step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);

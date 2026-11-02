@@ -391,9 +391,7 @@ const SEL_OV = { expenses: [n2(SEL_EXP), n2(SEL_EXP)], income: [n2(SEL_INC), n2(
 // (9,000 − 4,000) + the current month's (11,200 − 1,750). Future months add the 12-month average (the past month alone).
 const PAST_SURPLUS = 9000 - 4000;
 const NET12 = 10000 + PAST_SURPLUS + (11200 - 1750);
-const futureNet = (x, surplus, months, g = 5) => { const r = (1 + g / 100) ** (1 / 12); for (let i = 0; i < months; i++) x = x * r + surplus; return x; };
-const NET_F1 = futureNet(NET12, PAST_SURPLUS, 12).toFixed(2);
-const NET_F5 = futureNet(NET12, PAST_SURPLUS, 60).toFixed(2);
+// #280 Q-CH2 (QA r3 CF3): NET_F1 / NET_F5 (the BI2 forward model) are no longer on the chart; removed.
 const fmt2 = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const TODAY = new Date(CUR.y, CUR.m, Math.min(REAL_NOW.getDate(), 28), 12);
 const STORED_OVERVIEW = JSON.stringify({ start: "10,000", growth: "5", future: true, years: 5, months: {} });
@@ -1060,12 +1058,15 @@ try {
         const f5 = await chart();
         await p3.locator("[data-testid=pf-year][data-years='15']").click();
         const f15 = await chart();
-        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: 1 year 24 points → ${fmt2(NET_F1)}; 5 years 72 → ${fmt2(NET_F5)} (#140); 15 years 192`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "24" && f1.net === NET_F1 && f5.months === "72" && f5.net === NET_F5 && f15.months === "192", { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: f15.months });
+        // #280 Q-CH2 (QA r3 CF3): the Overview chart is recorded history ending this month, so every Future year draws the
+        // same 12 points and last net as Future off (${fmt2(NET12)}); the forward figures (BI2 model NET_F1 / NET_F5) are no
+        // longer on the chart.
+        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: the chart stays at 12 recorded months, net ${fmt2(NET12)}, for 1 / 5 / 15 years (#280 Q-CH2)`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "12" && f1.net === NET12.toFixed(2) && f5.months === "12" && f5.net === NET12.toFixed(2) && f15.months === "12" && f15.net === NET12.toFixed(2), { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: [f15.months, f15.net] });
         await p3.getByTestId("pf-growth").fill("five");
         const gErr = await p3.getByTestId("pf-ov-fields").getByTestId("pf-error").textContent().catch(() => null);
         const f15b = await chart();
         await p3.getByTestId("pf-growth").fill("5");
-        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: ${fmt2(NET12)} + 180 × ${fmt2(PAST_SURPLUS)}, #140)`, gErr === "Enter a number, 0 or more." && f15b.net === (NET12 + 180 * PAST_SURPLUS).toFixed(2), { gErr, net: f15b.net });
+        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." (chart: 12 recorded months, ${fmt2(NET12)}, #280 Q-CH2)`, gErr === "Enter a number, 0 or more." && f15b.net === NET12.toFixed(2), { gErr, net: f15b.net }); // #280 Q-CH2: the chart ends at this month (was NET12 + 180 × surplus)
         await p3.locator("[data-testid=pf-year][data-years='5']").click();
         // Layout (Save shown: start / growth are unsaved).
         const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(sel), me: await box(saveBtn), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
@@ -1119,7 +1120,7 @@ try {
         await pickMonth(p3, PAST_KEY);
         const back = { onLoad, t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), await val(p3.getByTestId("pf-person-wages"))], note: await note(), net: (await chart()).net };
         const monthsStored = Object.keys(JSON.parse(rec3[MONTHS_KEY] ?? "{}"));
-        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} ${CUR_MON} and ${PAST_MON} (only PF names; nothing in localStorage); a reload opens ${CUR_MON} and ${PAST_MON} restores (#140: 4,000 / 9,000, net ${fmt2(NET_F5)})`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === JSON.stringify([PAST_KEY, CUR_KEY]) && JSON.stringify(back) === JSON.stringify({ onLoad: CUR_KEY, t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: NET_F5 }), { stored, monthsStored, back });
+        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} ${CUR_MON} and ${PAST_MON} (only PF names; nothing in localStorage); a reload opens ${CUR_MON} and ${PAST_MON} restores (#140: 4,000 / 9,000, chart net ${fmt2(NET12)}, #280)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === JSON.stringify([PAST_KEY, CUR_KEY]) && JSON.stringify(back) === JSON.stringify({ onLoad: CUR_KEY, t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: NET12.toFixed(2) /* #280 Q-CH2: chart ends at this month (was NET_F5) */ }), { stored, monthsStored, back });
         // June back to October's lines (and Save): the average returns to 1,750 / 11,200.
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
         await p3.getByTestId("pf-person-wages").fill("134,400");
