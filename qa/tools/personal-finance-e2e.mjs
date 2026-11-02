@@ -841,7 +841,17 @@ try {
           nameAsc: [N[1], N[0], N[2], N[3]], nameDesc: [N[2], N[3], N[0], N[1]],
           fromAsc: [N[1], N[3], N[0], N[2]], fromDesc: [N[0], N[2], N[1], N[3]],
         };
-        const CMP = [1, 2, 3]; // compare alpha 2, Éclair, Eclair (tie)
+        // #279 (spec §84, AC PF2C): Compare is capped at 2 columns and This screen counts as one, so ONE saved scenario is
+        // ticked (alpha 2); every other box must then be locked (aria-disabled, aria-describedby → the reserved hint).
+        const CMP = [1]; // compare alpha 2 beside This screen
+        const HINT = "Compare limit reached: This screen and 1 saved scenario.";
+        // Lock state of every Compare box plus the hint, in row order.
+        const lockState = (pg) => pg.evaluate(() => {
+          const hint = document.querySelector("[data-testid=pf-saved-compare-hint]");
+          return { hint: hint?.textContent ?? null, hintId: hint?.id ?? null, boxes: [...document.querySelectorAll("[data-testid=pf-saved-compare]")].map((b) => ({ on: b.checked, dis: b.getAttribute("aria-disabled"), desc: b.getAttribute("aria-describedby"), native: b.disabled })) };
+        });
+        const lockedOk = (l) => !!l && !!l.hintId && l.hint === HINT && l.boxes.every((b, i) => (CMP.includes(i) ? b.on && b.dis === null : !b.on && b.dis === "true" && b.desc === l.hintId && !b.native));
+        const unlockedOk = (l) => !!l && l.hint === "" && l.boxes.every((b) => !b.on && b.dis === null && !b.desc);
         const cmpWant = (order) => order.filter((n) => CMP.map((i) => N[i]).includes(n));
         // One cycle on a page; returns the observed states (names, aria-sort, Compare heads after each click).
         const cycle = async (pg, compare) => {
@@ -855,9 +865,18 @@ try {
           const out = { th: await pg.$$eval("[data-testid=pf-saved-table] thead th", (a) => a.map((t) => [t.textContent.trim(), t.getAttribute("aria-sort"), !!t.querySelector("button")])) };
           if (compare) {
             const boxes = pg.getByTestId("pf-saved-compare");
+            // PF2C: lock after one pick; clicking a locked box does nothing; deselect unlocks; re-pick for the cycle.
+            out.unlocked0 = await lockState(pg);
+            for (const i of CMP) await boxes.nth(i).check();
+            out.locked = await lockState(pg);
+            await boxes.nth(2).click({ force: true });
+            out.afterLockedClick = await lockState(pg);
+            for (const i of CMP) await boxes.nth(i).uncheck();
+            out.unlocked = await lockState(pg);
             for (const i of CMP) await boxes.nth(i).check();
             await pg.getByTestId("pf-saved-compare-button").click();
             await pg.getByTestId("pf-compare-table").waitFor();
+            out.first = await pg.$$eval("[data-testid=pf-compare-head]", (a) => a.map((e) => e.textContent.trim()));
           }
           out.steps = [{ names: await names(), aria: await aria(), heads: await heads() }];
           for (const c of ["name", "name", "name", "from", "from", "from"]) {
@@ -885,6 +904,9 @@ try {
           page.off("request", onReq);
           so.same = (await ownerRaw()) === before;
           so.writes = writes;
+          check(`${tag} PF2C e2e signed in: with 1 saved ticked every other Compare box is aria-disabled (not disabled) and described by the hint "${HINT}"; a click on a locked box does nothing; deselecting unlocks and empties the hint; Compare is This screen + 1; NO non-GET /api/*`,
+            unlockedOk(o.unlocked0) && lockedOk(o.locked) && lockedOk(o.afterLockedClick) && unlockedOk(o.unlocked) && JSON.stringify(o.first) === JSON.stringify(["This screen", N[CMP[0]]]) && so.writes.length === 0,
+            { unlocked0: o.unlocked0, locked: o.locked, afterLockedClick: o.afterLockedClick, unlocked: o.unlocked, first: o.first, writes: so.writes });
           check(`${tag} PFSO-23 signed in: Scenario name and From cycle ascending → descending → saved order (ties in saved order), aria-sort follows, Select / Actions not sortable, Compare follows the sort and keeps saved order with none; NO non-GET /api/*; the owner's record byte-identical`,
             so.seed === 200 && cycleOk(o, true) && thOk(o.th) && so.writes.length === 0 && so.same === true, { seed: so.seed, steps: o.steps, th: o.th, writes: so.writes, same: so.same });
           const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
