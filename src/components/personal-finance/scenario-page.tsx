@@ -1,7 +1,8 @@
 // #215 (personal-finance-spec 55) / #221 (spec 57, AC PFPJ): the scenario screen. Since #221 it is the Personal Finance
 // page itself in scenario mode (Income through Overview, categories removed; prefilled from the saved record), whose
-// edits are what-ifs that are never sent, then the projection and totals below. Nothing on this screen is ever written
-// (CFO scope cut 2026-10-22): the net-assets field is a local starting value. One GET on open, no PUT, ever.
+// edits are what-ifs that are never sent, then the projection and totals below. No edit, toggle or year button is ever
+// written (CFO scope cut 2026-10-22): the net-assets field is a local starting value. One GET on open; since #223 / #233
+// only Save scenario, Rename, Update and Delete PUT (the scenario value only). #281: the on-screen note says so.
 import { useId, useRef, useState } from "react";
 import {
   CartesianGrid,
@@ -180,6 +181,7 @@ export function ScenarioPage({
         now={now}
         loadStore={loadStore}
         scenario={{
+          write: !!loaded?.access.write,
           render: (live) => (
             <ScenarioProjection
               live={live}
@@ -300,7 +302,8 @@ export function ScenarioProjection({
           />
           <span id={`${uid}-net-hint`} className="pf-rate-source">
             <span data-testid="pf-scenario-net-basis">{netBasis(live.overview, live.now, o.net, undefined, live.page, live.lines)}</span>
-            {" A what-if: never saved. A negative amount is allowed."}
+            {/* #281 (spec 86.4): was "never saved", untrue once Save scenario keeps the start. */}
+            {" A what-if: it never changes your saved net assets. A negative amount is allowed."}
           </span>
           {netBad ? (
             <span id={`${uid}-net-error`} className="pf-error" data-testid="pf-scenario-net-error">

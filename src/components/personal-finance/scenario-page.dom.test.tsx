@@ -11,7 +11,7 @@ import { writeExpenses } from "@/lib/finance/expenses";
 import { writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
-import { BASED_ON_LAST_MONTH, GROWTH_ERROR, NET_ASSETS_ERROR, NO_DATA, NOTHING_SAVED, startOnlyNote, WHAT_IF_NOTE } from "@/lib/finance/scenario";
+import { BASED_ON_LAST_MONTH, GROWTH_ERROR, NET_ASSETS_ERROR, NO_DATA, NOTHING_SAVED, startOnlyNote, WHAT_IF_NOTE, WHAT_IF_NOTE_READ } from "@/lib/finance/scenario";
 import type { ScenarioLoad } from "@/lib/finance/scenario-client";
 
 let root: Root | undefined;
@@ -136,6 +136,12 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
     assert.equal(l.count(), 1);
     assert.equal(el.querySelector("h1")?.textContent, "Scenario Analysis.", "#275 PFNL-02");
     assert.equal(q(el, "pf-scenario-whatif")?.textContent, WHAT_IF_NOTE);
+    const OLD_WHAT_IF_NOTE = "What-if only. Nothing on this screen is ever saved."; // #281: the old note
+    // #281 PFWI-01 / PFWI-02: the exact new note; the old "Nothing on this screen is ever saved." is nowhere on the screen.
+    // #281 Q-WI1 (CFO 2026-11-02): the shorter owner note.
+    assert.equal(WHAT_IF_NOTE, "What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.");
+    assert.ok(!el.textContent?.includes(OLD_WHAT_IF_NOTE) && !el.textContent?.includes("ever saved"), "PFWI-02"); assert.ok(el.textContent?.includes("A what-if: it never changes your saved net assets. A negative amount is allowed."), "PFWI-07");
+    assert.equal(el.querySelectorAll('[data-testid="pf-scenario-whatif"]').length, 1, "PFWI-03: one note, under the title");
     assert.equal(q(el, "pf-scenario-basis")?.textContent, `${BASED_ON_LAST_MONTH} (September 2026).`);
     for (const id of ["pf-income-block", "pf-expenses-block", "pf-summary-block", "pf-overview", "pf-scenario-chart", "pf-scenario-totals"]) assert.ok(q(el, id), id);
     for (const id of ["pf-filter", "pf-filter-cell", "pf-categories", "pf-month-control", "pf-month-save", "pf-scenario-save"]) assert.equal(q(el, id), null, id);
@@ -200,6 +206,11 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
   it("PFPJ-36: Read users get the same what-if screen (edits live, nothing sent) and the read-only line", async () => {
     const el = await render(ok(record(), READ).load);
     assert.ok(el.textContent?.includes("Read only"));
+    // #281 Q-WI2 (PFWI-08): Read users (access.write false) get the first sentence only, in the same place.
+    assert.equal(q(el, "pf-scenario-whatif")?.textContent, "What-ifs only: edits are cleared when you leave.");
+    assert.equal(q(el, "pf-scenario-whatif")?.textContent, WHAT_IF_NOTE_READ);
+    assert.ok(!el.textContent?.includes("Save scenario keeps a named copy."), "PFWI-08: no save sentence for Read");
+    assert.equal(el.querySelector("h1")?.parentElement?.querySelectorAll('[data-testid="pf-scenario-whatif"]').length, 1, "PFWI-10: under the title");
     await type(q(el, "pf-scenario-net")!, "-100");
     assert.equal(monthCell(el, "net"), "-100.00");
     assert.deepEqual(fetches, []);

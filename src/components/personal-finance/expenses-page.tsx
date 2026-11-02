@@ -78,7 +78,7 @@ import { PeriodChoice } from "./period-choice";
 import { PeriodInput } from "./period-input";
 import { Cell, Lock, SectionHead } from "./pf-cells";
 import { ReadOnlyLine } from "@/components/access/denied";
-import { basisNote as scenarioBasis, WHAT_IF_NOTE as SCENARIO_WHAT_IF } from "@/lib/finance/scenario";
+import { basisNote as scenarioBasis, whatIfNote } from "@/lib/finance/scenario";
 
 import {
   type Figures,
@@ -176,7 +176,11 @@ export type ScenarioLive = {
    */
   values: () => { record: PfRecord; lines: MonthLines };
 };
-export type ScenarioMode = { render: (live: ScenarioLive) => ReactNode };
+export type ScenarioMode = {
+  render: (live: ScenarioLive) => ReactNode;
+  /** #281 Q-WI2: the session's write access (`access.write`); false = Read user (the note drops its Save sentence). */
+  write?: boolean;
+};
 
 export function PersonalFinancePage({
   now: fixedNow,
@@ -493,7 +497,8 @@ export function PersonalFinancePage({
     // kept in the store (sent with the next successful Save), but no PUT is sent; `Not saved.` shows and stays until
     // a save succeeds; the edits stay on screen.
     const blockedNow = hasErrors && !readOnly;
-    // #222 F1: never `Not saved.` on the scenario screen (a sandbox: nothing is ever saved there).
+    // #222 F1: never `Not saved.` on the scenario screen (edits are never saved there; only Save scenario, Rename,
+    // Update and Delete write, #281 spec §86).
     if (blockedNow && !scenario) setSaveFailed(true);
     setView((current) => {
       if (!current) return current;
@@ -541,7 +546,7 @@ export function PersonalFinancePage({
                 </a>
               </p>
               <p className="pf-history-note mt-3" data-testid="pf-scenario-whatif">
-                {SCENARIO_WHAT_IF}
+                {whatIfNote(scenario.write !== false)}
               </p>
               <p className="pf-history-note mt-1" data-testid="pf-scenario-basis">
                 {/* #228 AQ1 (spec 64.5): a saved Starting net assets is named when no month is saved. */}

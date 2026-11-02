@@ -2348,3 +2348,29 @@ CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of th
 - CF1: PF-89 (Future 5 years) and PFE-09 no longer use the harness Future formula (the BI2 model, which disagrees with the app). The forward net is the app's own figure, read back from its coverage line; PF-89 checks the coverage lines against it (/mo = /yr ÷ 12, % = /mo ÷ 4,000, 5-year net > 1-year net > today's). PFE-09 checks the Overview chart keeps the Future-off 12 months and last net for 1 and 5 years. Any value check against a forward model is BI2.
 - CF2: PFCH-17 now reads: the Read user's main-page Future toggle is asserted locked (inside `fieldset[disabled].pf-lock`) and not clicked, with Future off and the 12-month Overview still checked; on the scenario screen the Read user clicks Future and every year as the owner does. PFCH-15 (owner) and PFCH-16 are unchanged.
 - CF3: `personal-finance.mjs` PF-30 / PF-31 expect the chart's 12 recorded months and last net `NET12` for Future 1 / 5 / 15 years and after reload (was 24 / 72 / 192 and NET_F1 / NET_F5).
+
+## PFWI: the Scenario page's what-if note (#281, spec §86; added 2026-11-02)
+
+- **PFWI-01** The note under the `Scenario Analysis.` title (`pf-scenario-whatif`) reads exactly `Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy.`
+- **PFWI-02** `What-if only. Nothing on this screen is ever saved.` (and "ever saved") appears nowhere on the screen, for owner and Read user.
+- **PFWI-03** Exactly one note, in the same place and style (`pf-history-note`, dark theme, no gold); Compare, the This screen column and the Compare hints carry no copy of it.
+- **PFWI-04** The note is true: editing any field, the Future toggle or a year button sends no request and writes no localStorage/sessionStorage; reloading the screen shows the saved figures again; Save scenario, Rename, Update and Delete are the only writes (scenario value only, HTL-07).
+- **PFWI-05** At 360 / 390 / 768 / 1440: the note wraps with no horizontal overflow, CLS 0, AA contrast, no tabular numerals; 44px targets around it unchanged.
+- **PFWI-06** No change to what-if logic or any figure: the scenario DOM and unit suites pass unchanged apart from the note text.
+- **PFWI-07** (spec 86.4) The Net assets now hint ends `A what-if: it never changes your saved net assets. A negative amount is allowed.` (was `A what-if: never saved. …`).
+
+### Amendment 2026-11-02 (#281 Q-WI1..WI5, CFO via EL on PR #300): shorter note; Read variant
+
+- **PFWI-01 (amended)** For owners/writers the note reads exactly `What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.` (supersedes the longer PFWI-01 text).
+- **PFWI-08** For Read users the note reads exactly `What-ifs only: edits are cleared when you leave.` (no Save sentence).
+- **PFWI-09** Read is detected from the scenario load's existing `access.write` (the session access, as `personal-finance.tsx` `readOnly={!access.write}`); no new storage, request, key or dependency.
+- **PFWI-10** Placement unchanged for both: one `pf-scenario-whatif` note directly under the `Scenario Analysis.` title, same style; PFWI-02..07 still hold (PFWI-07 hint text unchanged).
+
+### Amendment 2026-11-02 (#281 QA r1 CH1, EL): signed-in PFWI e2e step (`qa/tools/personal-finance-e2e.mjs`, before PFCH)
+
+- **PFWI-11** Owner (signed in, `/personal-finance/scenario`): exactly one `pf-scenario-whatif` note, directly under the `Scenario Analysis.` title, reading exactly `What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.`
+- **PFWI-12** A REAL Read user (`QA_CFO_READ_EMAIL` / `QA_CFO_READ_PASSWORD` from env, never printed; SKIPPED (NOT A PASS), exit 3, when unset): the same placement, reading exactly `What-ifs only: edits are cleared when you leave.`, and no `Save scenario keeps a named copy.` anywhere on the screen.
+- **PFWI-13** Owner: the Net assets now hint ends `A what-if: it never changes your saved net assets. A negative amount is allowed.`; none of the old strings (`What-if only. Nothing on this screen is ever saved.`, the longer #281 r1 note, `A what-if: never saved.`) is on the screen.
+- **PFWI-14** Owner: viewing sends no non-GET `/api/*` and writes no localStorage / sessionStorage; the record is byte-identical.
+- **PFWI-15** Read user: PFWI-13 and PFWI-14 hold too, and the owner's record is byte-identical.
+- **PFWI-16** qa-pf is reset to its pre-step record afterwards (DELETE, PUT the snapshot, every value byte-identical).
