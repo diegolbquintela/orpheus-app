@@ -2236,3 +2236,38 @@ check). Spec: `attachments/header-menu-spec.md`.
 | PFNT-08 | HIGH | The CFO API (`/api/cfo/pf/months`, `/months/:month`, `/lines`, `/plans`) returns `note` in every expense line as an additive field. The schema is still `cfo-pf.v1`, and the API is still GET / HEAD only with no writes. |
 | PFNT-09 | BLOCK | Invariants: dark style, no gold, no `tnum`, 44px targets, no page overflow at 360 / 390 / 768 / 1440 (long notes wrap), AA contrast (chalk / dim on charcoal), CLS 0, the lyre and the `Orpheus Wisdom` footer unchanged. The preview under the name is hidden below 640px. |
 | PFNT-10 | HIGH | **Amendment 2026-11-01 (CFO Q-NT2; supersedes PFNT-08):** no CFO API endpoint returns a `note` key or any note text. For the same data, every endpoint is byte-identical with and without notes (as before #277). The schema is still `cfo-pf.v1`, the API is GET / HEAD only, and nothing is written. Notes are still saved in the PF record, months and plans. |
+
+## PFSO — Sortable columns on Saved scenarios (#278, 2026-11-01; spec §83)
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFSO-01 | BLOCK | `nextSort` cycles none → ascending → descending → saved order; another column starts at ascending. (unit) |
+| PFSO-02 | BLOCK | `Scenario name` ascending / descending use the base-sensitivity numeric collator (case and accents ignored, 2 before 10). (unit) |
+| PFSO-03 | BLOCK | `From` ascending / descending order by the `yyyy-mm` basis. (unit) |
+| PFSO-04 | BLOCK | Ties keep saved order in both directions; the default (null) returns saved order; the input is not mutated. (unit) |
+| PFSO-05 | HIGH | `ariaSort` and `sortLabel` give the right state and next action per column. (unit) |
+| PFSO-06 | BLOCK | Clicking each header cycles the rendered rows ascending → descending → saved order. (DOM) |
+| PFSO-07 | BLOCK | Rendered ties keep saved order in both directions. (DOM) |
+| PFSO-08 | BLOCK | `aria-sort` on the active header follows the cycle; the other is `none`. (DOM) |
+| PFSO-09 | HIGH | Headers hold `button type=button` with state labels and a `data-sort` mark; header text is just the column name; `Select` and `Actions` are not sortable. (DOM) |
+| PFSO-10 | BLOCK | Sorting makes no request and writes no storage. (DOM) |
+| PFSO-11 | BLOCK | Calc outputs (scenario totals) are identical before and after sorting. (DOM) |
+| PFSO-12 | BLOCK | Each row keeps its own values, `Open` label and checkbox state after sorting. (DOM) |
+| PFSO-13 | HIGH | Header buttons are at least 44×44px and hit-testable at 360 / 390 / 768 / 1440. (Chromium) |
+| PFSO-14 | BLOCK | Keyboard: Tab to a header button, Enter and Space cycle the sort. (Chromium) |
+| PFSO-15 | BLOCK | No page overflow at 360 / 390 / 768 / 1440, no gold, no `tnum`, dark style; marks ↕ / ▲ / ▼ drawn by CSS (sorted chalk, unsorted dim). (Chromium) |
+| PFSO-16 | BLOCK | AA contrast for the headers and marks on charcoal. (Chromium) |
+| PFSO-17 | HIGH | CLS 0 while sorting. (Chromium) |
+| PFSO-18 | BLOCK | No request and no storage write while sorting in the browser. (Chromium) |
+
+### Amendment 2026-11-02 (CFO Q-SO5 via EL; supersedes "Compare keeps saved order" in spec §83)
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFSO-19 | BLOCK | Compare's scenario columns follow the Saved sort, ascending and descending, for `Scenario name` and `From`; `This screen` stays first; each column keeps its own figures. (DOM) |
+| PFSO-20 | BLOCK | Compare ties keep saved order in both directions (Éclair = Eclair; same `From` month), and the third click returns Compare to saved order regardless of the order the scenarios were ticked in. (DOM) |
+| PFSO-21 | BLOCK | Re-sorting with Compare open sends no request and writes no storage. (DOM) |
+| PFSO-22 | HIGH | Chromium at 360 / 390 / 768 / 1440: Compare headers match the Saved rows' order through the cycle and reset to saved order, no page overflow, CLS 0. (Chromium) |
+| PFSO-23 | HIGH | **Added 2026-11-02 (QA CA1).** `qa/tools/personal-finance-e2e.mjs`, signed in on the preview (owner qa-pf, real clock): 4 seeded saved scenarios with ties; `Scenario name` and `From` each cycle ascending → descending → saved order; `aria-sort` follows; `Select` / `Actions` not sortable; Compare follows the sort and keeps saved order with none; no non-GET `/api/*` and the owner's record byte-identical (compared, never logged). A real Read user (QA_CFO_READ) repeats it read-only, or the run says `SKIPPED (NOT A PASS)` and exits 3. qa-pf is reset to its snapshot afterwards. (e2e on preview) |
+| PFSO-24 | BLOCK | **Added 2026-11-02 (QA CA3; restates Q-SO5 as one criterion).** Compare's scenario column order is always `sortSaved(saved, current Saved sort)` restricted to the ticked scenarios: same column, direction and stored-order tiebreak; with no sort active it is saved order; `This screen` is first. (DOM PFSO-19/20, Chromium PFSO-22, e2e PFSO-23) |
+| PFSO-25 | HIGH | **Added 2026-11-02 (QA: emails in e2e output).** `personal-finance-e2e.mjs` masks every email-shaped string as `<email>` in all console output and in `personal-finance-e2e.json` (`qa/tools/redact.mjs`); credential values are never logged. Pinned by `scripts/qa-redact.test.mjs` (REDACT-01..04). (unit) |

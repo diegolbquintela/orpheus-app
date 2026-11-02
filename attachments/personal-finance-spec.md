@@ -2869,3 +2869,21 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 - Q-NT1: no change. The limit stays 500 characters and the counter shows from 400.
 - Q-NT2: notes are **removed from the read-only CFO feed**, which supersedes the CFO-API part of this section and AC PFNT-08. `cfoWithoutNotes` drops every `note` key from the output, so lines serialize exactly as before #277. It is a numbers feed, and notes may hold personal context. The schema is still `cfo-pf.v1`. The note stays in the app, the PF record, months, plans and history. AC PFNT-10.
 - Q-NT3: no change. The dimmed preview under the line name stays, hidden on phones (below 40rem).
+
+## 83. Personal Finance: sortable columns on the Saved scenarios table (#278, MEDIUM; added 2026-11-01)
+
+- **Columns.** The data columns are `Scenario name` and `From` (the basis month). The `Select` checkbox and `Actions` columns are not sortable.
+- **Cycle.** Clicking a header button cycles ascending → descending → saved order (the default). Clicking the other column starts it at ascending. Only one column sorts at a time.
+- **Order.** `Scenario name` uses `Intl.Collator("en", { sensitivity: "base", numeric: true })`, so case and accents are ignored and "alpha 2" comes before "alpha 10". `From` sorts by the `yyyy-mm` basis, i.e. by time.
+- **Default and tiebreak.** The default is the saved order (oldest save first; Save appends). Ties (equal months, or names equal under the collator) always keep saved order, in **both** directions: descending reverses the column, never the tiebreak. The sort is stable and deterministic.
+- **Markup.** Each sortable `<th scope="col">` carries `aria-sort` (`ascending` / `descending` / `none`) and holds a `<button type="button">` (min 44×44px, keyboard operable with Enter and Space). The button's `aria-label` says the state and the next action, e.g. `From, sorted ascending. Sort descending`. The indicator (↕ unsorted, ▲ ascending, ▼ descending) is drawn by CSS from `data-sort`, `aria-hidden`; dim when unsorted, chalk when sorted. There is no gold and no `tnum`.
+- **No persistence.** The sort is in-memory React state (`src/lib/finance/saved-sort.ts`). It resets on reload. Nothing is written: no request, no storage key, no table, migration, env var or dependency. Calc outputs are unchanged. The Compare table keeps saved order.
+- AC PFSO-01..PFSO-18.
+
+### Addendum 2026-11-02 (CFO Q-SO1..SO5 via EL)
+
+- Q-SO1..Q-SO4 are accepted as built: the default is saved order (oldest first), ties keep saved order, the indicator is dim/chalk ↕ / ▲ / ▼, and nothing is persisted.
+- **Q-SO5: Compare follows the Saved sort.** The Compare table's scenario columns (and the chart lines and legend) use the Saved table's current sort: the same column, direction and tiebreak (`sortSaved` on the same state). With no sort active, Compare keeps saved order. The order you ticked scenarios in does not matter. `This screen` stays the first column. Changing the sort while Compare is open reorders it in place. Each column keeps its own figures. This supersedes "The Compare table keeps saved order" above. The sort is still client-side only: no request, storage, table, migration, key, env var or dependency, and calc is unchanged.
+- Chart line colours are assigned by column position (as before #278), so a scenario's line colour can change when the sort changes.
+- AC PFSO-19..PFSO-22.
+- **2026-11-02 (QA CA1–CA3):** the signed-in e2e step PFSO-23 covers the cycle, `aria-sort`, non-sortable `Select` / `Actions`, Compare order, no writes, and a Read user; PFSO-24 states the Compare order rule; e2e output masks email addresses (PFSO-25).

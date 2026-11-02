@@ -12,6 +12,8 @@
 //   budget; PFE-13 the QA account's Personal Finance record is RESET before each viewport and left empty.
 //   #277 BW1 PFNT: a note on a Fixed line (maxlength 500, counter, Save, reload), a REAL Read user (QA_CFO_READ) sees
 //   plain text with no non-GET /api/* (SKIPPED (NOT A PASS) when unset), then qa-pf is reset to its snapshot.
+//   #278 CA1 PFSO-23: Saved scenarios sort (name / From cycle, aria-sort, Compare follows), owner + Read user, no writes, reset.
+//   #278: every log line and the JSON artifact mask email addresses as <email> (qa/tools/redact.mjs).
 //   PFE-12 (regression) is site-style-regression.mjs's run on the same preview.
 // The signed-in part refuses to run against production (it writes to the account).
 //
@@ -20,12 +22,15 @@ import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
+// #278 CA (QA 2026-11-02): every log line and the JSON artifact mask email-shaped strings as <email>.
+import { installConsoleMask, maskedJson } from "./redact.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { API, FX_HISTORY_NOTE, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
 // #285: the window labels come from the PAGE's pinned clock (TODAY), not the runner's wall clock (qa/tools/pf-window.mjs).
 import { avg3Label as avg3At, avg12Label as avg12At, householdMonth } from "./pf-window.mjs";
 
+installConsoleMask();
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
 const GUARD = await refuseIfProd(CFG.baseUrl, "personal-finance-e2e");
@@ -168,7 +173,7 @@ try {
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;
   const prod = new URL(base).hostname === new URL(DEFAULT_BASE_URL).hostname;
-  if (!email || !password) skip("PFE-03..11 (signed in): set QA_EMAIL / QA_PASSWORD in env (the preview QA account, e.g. qa-pf@orpheus.test; its Personal Finance record is reset)");
+  if (!email || !password) skip("PFE-03..11 (signed in): set QA_EMAIL / QA_PASSWORD in env (the preview QA account, e.g. qa-pf; its Personal Finance record is reset)");
   else if (prod) check("PFE-13 the signed-in part runs on a preview only (it writes to the account): refused on production", false, base);
   else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
@@ -814,6 +819,100 @@ try {
           check(`${tag} PFNT reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
         }
       }
+      // #278 CA1 (spec §83, AC PFSO-23): signed-in Saved scenarios sort on /personal-finance/scenario. Real clock. Seeds 4
+      // saved scenarios with ties (Éclair = Eclair; From month twice), cycles Scenario name and From ascending →
+      // descending → saved order, checks aria-sort, that Select / Actions are not sortable, that Compare follows the sort
+      // (saved order with none), and that sorting sends no non-GET /api/* and leaves the owner's record byte-identical
+      // (raw text compared, never logged). A REAL Read user (QA_CFO_READ) repeats the cycle read-only; SKIPPED (NOT A PASS)
+      // when unset. Reset at the end: snapshot → DELETE → PUT the snapshot → verify byte-identical.
+      {
+        const SCN = "orpheus.finance.scenario.v1";
+        const SCEN_PATH = "/personal-finance/scenario";
+        const snapS = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+        const so = {};
+        const ym = (k) => householdMonth(new Date(Date.now() - k * 31 * 86400000));
+        const ent = (id, name, basis, inc) => ({ id, name, basis, savedAt: new Date().toISOString(), inputs: { start: 0, income: inc, expenses: 3000, growth: 5, rate: null }, values: {}, lines: "{}" });
+        const [mNew, mOld] = [ym(1), ym(3)];
+        // Saved order: s0 Delta (new), s1 alpha 2 (old), s2 Éclair (new), s3 Eclair (old).
+        const SAVED = [ent("qa-so-0", "Delta", mNew, 7000), ent("qa-so-1", "alpha 2", mOld, 7100), ent("qa-so-2", "Éclair", mNew, 7200), ent("qa-so-3", "Eclair", mOld, 7300)];
+        const N = SAVED.map((e) => e.name);
+        const W = {
+          savedOrder: [N[0], N[1], N[2], N[3]],
+          nameAsc: [N[1], N[0], N[2], N[3]], nameDesc: [N[2], N[3], N[0], N[1]],
+          fromAsc: [N[1], N[3], N[0], N[2]], fromDesc: [N[0], N[2], N[1], N[3]],
+        };
+        const CMP = [1, 2, 3]; // compare alpha 2, Éclair, Eclair (tie)
+        const cmpWant = (order) => order.filter((n) => CMP.map((i) => N[i]).includes(n));
+        // One cycle on a page; returns the observed states (names, aria-sort, Compare heads after each click).
+        const cycle = async (pg, compare) => {
+          await pg.goto(`${base}${SCEN_PATH}`, { waitUntil: "networkidle" });
+          await pg.getByTestId("pf-scenario-path").waitFor({ timeout: 20000 });
+          await pg.getByTestId("pf-saved-toggle").click();
+          await pg.getByTestId("pf-saved-table").waitFor();
+          const names = () => pg.$$eval("[data-testid=pf-saved-item-name]", (a) => a.map((e) => e.textContent.trim()));
+          const aria = () => pg.$$eval("[data-testid=pf-saved-th-name], [data-testid=pf-saved-th-from]", (a) => a.map((e) => e.getAttribute("aria-sort")));
+          const heads = async () => (compare ? (await pg.$$eval("[data-testid=pf-compare-head]", (a) => a.map((e) => e.textContent.trim()))).slice(1) : null);
+          const out = { th: await pg.$$eval("[data-testid=pf-saved-table] thead th", (a) => a.map((t) => [t.textContent.trim(), t.getAttribute("aria-sort"), !!t.querySelector("button")])) };
+          if (compare) {
+            const boxes = pg.getByTestId("pf-saved-compare");
+            for (const i of CMP) await boxes.nth(i).check();
+            await pg.getByTestId("pf-saved-compare-button").click();
+            await pg.getByTestId("pf-compare-table").waitFor();
+          }
+          out.steps = [{ names: await names(), aria: await aria(), heads: await heads() }];
+          for (const c of ["name", "name", "name", "from", "from", "from"]) {
+            await pg.getByTestId(`pf-saved-sort-${c}`).click();
+            out.steps.push({ names: await names(), aria: await aria(), heads: await heads() });
+          }
+          return out;
+        };
+        const want = [
+          [W.savedOrder, ["none", "none"]], [W.nameAsc, ["ascending", "none"]], [W.nameDesc, ["descending", "none"]], [W.savedOrder, ["none", "none"]],
+          [W.fromAsc, ["none", "ascending"]], [W.fromDesc, ["none", "descending"]], [W.savedOrder, ["none", "none"]],
+        ];
+        const cycleOk = (o, compare) => o.steps.length === want.length && o.steps.every((s, i) => JSON.stringify(s.names) === JSON.stringify(want[i][0]) && JSON.stringify(s.aria) === JSON.stringify(want[i][1]) && (!compare || JSON.stringify(s.heads) === JSON.stringify(cmpWant(want[i][0]))));
+        const thOk = (th) => JSON.stringify(th?.map((t) => [t[1] === null, t[2]])) === JSON.stringify([[true, false], [false, true], [false, true], [true, false]]);
+        const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
+        try {
+          const seed = await acct(page, base, "PUT", { ...snapS, [SCN]: JSON.stringify({ income: {}, expenses: {}, rate: null, growth: null, start: null, saved: SAVED }) });
+          so.seed = seed.status;
+          const writes = [];
+          const onReq = (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && !u.pathname.startsWith("/api/auth/") && q.method() !== "GET") writes.push(`${q.method()} ${u.pathname}`); };
+          const before = await ownerRaw();
+          page.on("request", onReq);
+          const o = await cycle(page, true);
+          await page.waitForTimeout(1500);
+          page.off("request", onReq);
+          so.same = (await ownerRaw()) === before;
+          so.writes = writes;
+          check(`${tag} PFSO-23 signed in: Scenario name and From cycle ascending → descending → saved order (ties in saved order), aria-sort follows, Select / Actions not sortable, Compare follows the sort and keeps saved order with none; NO non-GET /api/*; the owner's record byte-identical`,
+            so.seed === 200 && cycleOk(o, true) && thOk(o.th) && so.writes.length === 0 && so.same === true, { seed: so.seed, steps: o.steps, th: o.th, writes: so.writes, same: so.same });
+          const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
+          if (!rEmail || !rPassword) skip(`${tag} PFSO-23 Read-user sort, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+          else {
+            const rd = {};
+            const ownerBefore = await ownerRaw();
+            await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFSO Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
+              const w2 = [];
+              rp.on("request", (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") w2.push(`${q.method()} ${u.pathname}`); });
+              rd.o = await cycle(rp, true);
+              await rp.waitForTimeout(1500);
+              rd.writes = w2;
+            });
+            rd.same = (await ownerRaw()) === ownerBefore;
+            check(`${tag} PFSO-23 Read user (second context, QA_CFO_READ): the same cycle and Compare order; NO non-GET /api/*; the owner's record byte-identical`,
+              !!rd.o && cycleOk(rd.o, true) && rd.writes?.length === 0 && rd.same === true, { steps: rd.o?.steps, writes: rd.writes, same: rd.same });
+          }
+        } catch (e) {
+          check(`${tag} PFSO step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        } finally {
+          const d = await acct(page, base, "DELETE");
+          const p = await acct(page, base, "PUT", snapS);
+          const back = (await acct(page, base, "GET")).body?.data ?? {};
+          const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapS).sort()) && Object.keys(snapS).every((k) => back[k] === snapS[k]);
+          check(`${tag} PFSO reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
+        }
+      }
       await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
       await ready(page);
       check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
@@ -828,7 +927,7 @@ try {
   await browser.close();
 }
 const fails = R.checks.filter((c) => !c.ok);
-writeFileSync(join(CFG.out, "personal-finance-e2e.json"), JSON.stringify(R, null, 2));
+writeFileSync(join(CFG.out, "personal-finance-e2e.json"), maskedJson(R));
 console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""}${R.skipped.length ? `, ${R.skipped.length} SKIPPED (NOT A PASS)` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
 // BX3 (#277 harness, = BV6): a skip is never a pass. Any FAIL exits 1; otherwise any SKIPPED (NOT A PASS) item, including
 // a skip-only run (e.g. no QA_EMAIL / QA_PASSWORD), exits 3 (2 stays the prod REFUSED code), so a skipped run can't read as green.
