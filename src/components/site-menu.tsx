@@ -21,10 +21,16 @@ import {
  * holds it. Search opens the same overlay with an inert placeholder field (no search yet). The overlay is a modal
  * dialog: its own close (X) button, Esc closes, Tab is trapped inside, and focus returns to the button that opened it.
  * `MENU_EXTRA_SECTIONS` (empty today) is the hook for later columns (e.g. Obsidian articles, Latest News).
+ *
+ * #287 (attachments/header-menu-spec.md "§ #287 mobile", AC HBM): below `md` (768 px) only, the same overlay reads as a
+ * phone menu: the links come first as full-width rows and the search field + note sit below them (CSS `order`, so
+ * the DOM order, the focus trap and HDR-09 are unchanged), a lyre + `Orpheus Wisdom` block closes the panel, and the
+ * panel fades in (`.site-overlay-in`, src/styles.css; none under reduced motion). Every #287 class is `max-md:` or
+ * `md:hidden`, so 768 px and wider render exactly as #286.
  */
 const FOCUS = "focus-visible:outline-chalk";
 const ICON_BUTTON = `inline-flex h-11 w-11 items-center justify-center text-chalk ${FOCUS}`;
-const OVERLAY_LINK = `inline-flex min-h-11 items-center text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline ${FOCUS}`;
+const OVERLAY_LINK = `inline-flex min-h-11 items-center max-md:flex max-md:w-full max-md:min-h-12 max-md:border-b max-md:border-hair text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline ${FOCUS}`;
 
 function Icon({ d, testId }: { d: string; testId: string }) {
   return (
@@ -165,7 +171,7 @@ export function SiteMenu({
         aria-label="Menu"
         hidden={!opened}
         onKeyDown={trap}
-        className="fixed inset-0 z-[60] overflow-y-auto bg-night text-chalk"
+        className="site-overlay-in fixed inset-0 z-[60] overflow-y-auto bg-night text-chalk"
         data-testid="site-overlay"
       >
         <div className="mx-auto flex h-11 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
@@ -185,7 +191,8 @@ export function SiteMenu({
           </button>
         </div>
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pt-8 pb-16 sm:px-8 md:grid-cols-2">
-          <div className="min-w-0">
+          <div className="min-w-0 max-md:flex max-md:flex-col" data-testid="site-menu-main">
+            <div className="max-md:order-2 max-md:mt-10" data-testid="site-search-block">
             <label htmlFor={`${uid}-search`} className="sr-only">
               Search
             </label>
@@ -202,7 +209,8 @@ export function SiteMenu({
             <p id={`${uid}-search-note`} className="mt-2 text-xs text-dim" data-testid="site-search-note">
               {SEARCH_SOON}
             </p>
-            <ul className="mt-8 flex flex-col gap-1" data-testid="site-menu-links">
+            </div>
+            <ul className="mt-8 max-md:order-1 max-md:mt-0 flex flex-col gap-1" data-testid="site-menu-links">
               {links.map((l) => (
                 <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
                   <a
@@ -235,6 +243,14 @@ export function SiteMenu({
               ))}
             </div>
           ) : null}
+        </div>
+        {/* #287 HBM-07: the panel's own lyre + name below md (markup only; src/components/site-footer.tsx is unchanged). */}
+        <div
+          className="mx-auto flex w-full items-center gap-2 px-5 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] text-xs text-dim md:hidden"
+          data-testid="site-menu-footer"
+        >
+          <Lyre className="shrink-0" />
+          <span>Orpheus Wisdom</span>
         </div>
       </div>
     </nav>
