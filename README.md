@@ -762,6 +762,8 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
 
 > **#277 addendum (2026-11-01, additive, schema still `cfo-pf.v1`):** every expense line in `months`, `months/:month`, `lines` (`expenses.fixed` / `expenses.variable`) and `plans` now carries `note`: a string, `""` when none (trimmed, at most 500 characters). Nothing else in the response changes; the API stays GET / HEAD only. Spec §82, AC PFNT-08.
+>
+> **#277 amendment (2026-11-01, CFO Q-NT2; supersedes the addendum above):** expense notes are **excluded** from the CFO API. No endpoint returns a `note` key, and every response is byte-identical to the same data without notes (as before #277), because this is a numbers feed and notes may hold personal context. The schema is still `cfo-pf.v1`. Notes stay in the app, the PF record, months, plans and history. Spec §82.11, AC PFNT-10.
 
 **Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
 

@@ -1,13 +1,15 @@
 // #277 (personal-finance-spec §82, AC PFNT-03/06/08): the note through the real PUT / GET (PGlite, migrations unchanged)
-// and the read-only CFO API (#245), which carries it as an additive field in each line (schema name unchanged).
+// and the read-only CFO API (#245). Amended 2026-11-01 (Q-NT2, PFNT-10): the CFO feed carries NO note; its output is
+// byte-identical to the same data without notes (pre-#277).
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { handlePersonalFinanceRequest } from "./account.server.ts";
-import { CFO_SCHEMA, handleCfoPfRequest } from "./cfo-api.server.ts";
+import { CFO_ENDPOINTS, CFO_SCHEMA, cfoWithoutNotes, handleCfoPfRequest } from "./cfo-api.server.ts";
 import { NOTE_MAX, STORAGE_KEY } from "./expenses.ts";
 import { MONTHS_KEY } from "./months.ts";
+import { PLANS_KEY } from "./plans-key.ts";
 import { loaded } from "./testing/pf-loaded-base.ts";
 
 const pfRequest = loaded(handlePersonalFinanceRequest);
@@ -34,6 +36,10 @@ const L = (id: string, amount: string, note?: unknown) => ({
 const record = (note: unknown, monthNote: unknown = note) => ({
   [STORAGE_KEY]: JSON.stringify({ fixed: [L("rent", "1000", note)], variable: [L("food", "200")], accounts: [], categories: [] }),
   [MONTHS_KEY]: JSON.stringify({ "2026-09": { fixed: [L("rent", "1000", monthNote)], variable: [L("food", "200")], people: [] } }),
+});
+const withPlan = (note: unknown) => ({
+  ...record(note),
+  [PLANS_KEY]: JSON.stringify({ "2026-12": { lines: { fixed: [L("rent", "1000", note)], variable: [L("food", "200")], people: [] }, capturedAt: "2026-10-01T00:00:00.000Z" } }),
 });
 
 before(async () => {
@@ -71,20 +77,37 @@ describe("#277 PFNT the note through PUT / GET and the CFO API", () => {
     assert.equal((await put(record(` ${"z".repeat(NOTE_MAX)} `, "ok"))).status, 200);
     assert.equal((await put(record("Lease ends June", "Sept note"))).status, 200);
   });
-  it("PFNT-08: the CFO API lists the note in each line (additive), schema cfo-pf.v1, read-only", async () => {
+  it("PFNT-10 (Q-NT2): no CFO API output has a note key; every endpoint is byte-identical to the same data without notes", async () => {
     writes.length = 0;
     assert.equal(CFO_SCHEMA, "cfo-pf.v1");
-    const root = (await (await cfo("/api/cfo/pf")).json()) as { data: { schema: string } };
-    assert.equal(root.data.schema, "cfo-pf.v1");
-    const month = (await (await cfo("/api/cfo/pf/months/2026-09")).json()) as { data: { lines: { fixed: { note: string; amount: string }[]; variable: { note: string }[] } } };
-    assert.equal(month.data.lines.fixed[0].note, "Sept note");
-    assert.equal(month.data.lines.fixed[0].amount, "1000");
-    assert.equal(month.data.lines.variable[0].note, "");
-    const lines = (await (await cfo("/api/cfo/pf/lines")).json()) as { data: { expenses: { fixed: { note: string }[] } } };
-    assert.equal(lines.data.expenses.fixed[0].note, "Lease ends June");
-    const all = (await (await cfo("/api/cfo/pf/months")).json()) as { data: { months: Record<string, { fixed: { note: string }[] }> } };
-    assert.equal(all.data.months["2026-09"].fixed[0].note, "Sept note");
+    const paths = CFO_ENDPOINTS.map((e) => e.replace(":month", "2026-09").replace(":id", "none"));
+    const texts = async () => Promise.all(paths.map(async (p) => [p, (await cfo(p)).status, await (await cfo(p)).text()] as const));
+    assert.equal((await put(withPlan("Lease ends June"))).status, 200);
+    // the note stays in the app record, months and plans
+    const back = await get();
+    assert.equal(JSON.parse(back.data[STORAGE_KEY]).fixed[0].note, "Lease ends June");
+    assert.equal(JSON.parse(back.data[MONTHS_KEY])["2026-09"].fixed[0].note, "Lease ends June");
+    assert.equal(JSON.parse(back.data[PLANS_KEY])["2026-12"].lines.fixed[0].note, "Lease ends June");
+    writes.length = 0;
+    const withNotes = await texts();
+    const writesDuringCfo = [...writes];
+    assert.ok(withNotes.filter(([, st]) => st === 200).length >= 10, "most endpoints answer 200");
+    for (const [p, , t] of withNotes) {
+      assert.ok(!t.includes('"note"'), `${p} has a note key`);
+      assert.ok(!t.includes("Lease ends June"), `${p} leaks the note text`);
+    }
+    const month = JSON.parse(withNotes.find(([p]) => p === "/api/cfo/pf/months/2026-09")![2]) as { data: { lines: { fixed: Record<string, unknown>[] } } };
+    assert.equal(month.data.lines.fixed[0]!.amount, "1000");
+    assert.ok(!("note" in month.data.lines.fixed[0]!));
+    assert.equal((await put(withPlan(undefined))).status, 200);
+    writes.length = 0;
+    assert.deepEqual(await texts(), withNotes);
     assert.equal((await cfo("/api/cfo/pf/lines", "PUT")).status, 405);
-    assert.deepEqual(writes, []);
+    assert.deepEqual([...writesDuringCfo, ...writes], []);
+  });
+  it("PFNT-10: cfoWithoutNotes drops every note key and keeps everything else", () => {
+    assert.deepEqual(cfoWithoutNotes({ a: [{ note: "x", amount: "1" }], b: { note: "" }, c: 2 }), { a: [{ amount: "1" }], b: {}, c: 2 });
+    assert.deepEqual(cfoWithoutNotes({ notes: 1, n: null }), { notes: 1, n: null });
+    assert.equal(cfoWithoutNotes(undefined), undefined);
   });
 });

@@ -2429,6 +2429,8 @@ Dated note 2026-10-23 (#245): approved by Diego via CoS as a one-off exception t
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
 
 > **#277 addendum (2026-11-01, additive, schema still `cfo-pf.v1`):** every expense line in `months`, `months/:month`, `lines` (`expenses.fixed` / `expenses.variable`) and `plans` now carries `note`: a string, `""` when none (trimmed, at most 500 characters). Nothing else in the response changes; the API stays GET / HEAD only. Spec §82, AC PFNT-08.
+>
+> **#277 amendment (2026-11-01, CFO Q-NT2; supersedes the addendum above):** expense notes are **excluded** from the CFO API. No endpoint returns a `note` key, and every response is byte-identical to the same data without notes (as before #277), because this is a numbers feed and notes may hold personal context. The schema is still `cfo-pf.v1`. Notes stay in the app, the PF record, months, plans and history. Spec §82.11, AC PFNT-10.
 
 2026-10-23 note (#247 follow-up, §72): `/api/cfo/pf/overview?month=yyyy-mm` adds `selected: { month, label, figures: { expenses, income, surplus }, copied, copiedFrom }` (an empty future month = the page's copy, `copied: true`); bad or out-of-range month 400; without `month` unchanged.
 
@@ -2862,3 +2864,8 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 - `src/lib/finance/note.test.ts`: read, limits, the save check, copies, plans, history, exports.
 - `src/lib/finance/note.server.test.ts`: real PUT / GET, the 400, the CFO API field.
 - `src/components/personal-finance/expense-note.dom.test.tsx`: the toggle, expand / collapse, maxlength, counter, Read view, CSS.
+
+82.11 **Amendment (2026-11-01, CFO answers Q-NT1..3):**
+- Q-NT1: no change. The limit stays 500 characters and the counter shows from 400.
+- Q-NT2: notes are **removed from the read-only CFO feed**, which supersedes the CFO-API part of this section and AC PFNT-08. `cfoWithoutNotes` drops every `note` key from the output, so lines serialize exactly as before #277. It is a numbers feed, and notes may hold personal context. The schema is still `cfo-pf.v1`. The note stays in the app, the PF record, months, plans and history. AC PFNT-10.
+- Q-NT3: no change. The dimmed preview under the line name stays, hidden on phones (below 40rem).
