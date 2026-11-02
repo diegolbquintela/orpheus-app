@@ -284,7 +284,7 @@ describe("#282 withCoverage / coverageOverHorizon", () => {
     const [inc, sur] = withCoverage(proj, null, proj, proj.totals.coverageMonthly, 24);
     assert.equal(inc.total, 1100 * 24 + 78);
     assert.equal(sur.total, 100 * 24 + 78);
-    assert.equal(coverageTotalCaption(24), "Total over 2 years");
+    assert.equal(coverageTotalCaption(36), "Total over 3 years");
     assert.equal(coverageTotalCaption(12), "Total over 12 months");
   });
   it("PFGR-04 / Q-GR5: flat coverage (surplus 0, growth 0): the sum = horizon × the constant monthly coverage", () => {
