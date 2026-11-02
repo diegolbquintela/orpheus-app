@@ -2332,3 +2332,13 @@ Q-CH1 (wording, provided each subtitle says recorded history vs flat forward pro
 | PFCH-12 | BLOCK | Subtitles word for word on every screen: Overview `Income, expenses and net assets for each month up to {Month YYYY} (recorded history).` (no `ahead` / `year` / `average`, Future on or off); Projected path `Flat forward projection: this screen's {Month YYYY} income and expenses held flat, starting from Net assets now.`; Compare unchanged. (unit + DOM) |
 | PFCH-13 | BLOCK | Main page, Future off and each Future year: the Overview chart stays 12 months with the same last net; the subtitle above; no storage write from the year choices. Coverage figures (from the unchanged forward net) unchanged: PF-84 / PF-125 pin 07ecdd0's horizon-end net (113,000 / 159,000). (DOM) |
 | PFCH-14 | HIGH | Chromium 360/390/768/1440: main page (PFCH-M1..M7: visible wired h3 + recorded-history subtitle, AA, no tnum, no overflow, 12 months for every Future year, Future years still in the coverage text, CLS 0, no request/write) and scenario screen (PFCH-L1..L8). |
+
+### Amendment 2026-11-02 (#280 QA r2 CE1 / CE3, EL): the signed-in e2e covers PFCH; PFCH-10 evidence restated
+
+CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of the real ScenarioPage (and, from PFCH-14, the main page, PFCH-M1..M7, 72/72) in /workspace/swe/t280/inv; `qa/tools` did not change in 2e03274 or 099cb25. In this follow-up push (harness and docs only, no product change) `qa/tools/personal-finance-e2e.mjs` gains the signed-in PFCH step (PFCH-15..17 below) and is updated for Q-CH2 (CE3: PF-89 Future and PFE-09 take the forward net from the Future formula / the coverage line, not the Overview chart's last point; PFE-09 / PFE-10 expect the chart's 12 recorded months, no 24 / 72). PFCH-10's evidence is therefore: Chromium 72/72 (local fixture) + the e2e PFCH step.
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFCH-15 | BLOCK | e2e signed in (owner, pinned clock): main page and scenario screen Overview `Last 12 months` (h3, aria-wired) with `… up to {page month} (recorded history).`, 12 months and one last net for Future off and every Future year; scenario `Next 12 months from now` with `Flat forward projection: …`, 13 points. |
+| PFCH-16 | BLOCK | e2e signed in: those steps send no non-GET `/api/*`, write no local/session storage, and leave the owner's record byte-identical. |
+| PFCH-17 | HIGH | e2e Read user (QA_CFO_READ_EMAIL / _PASSWORD from env, never printed): the same, read-only, no non-GET `/api/*`; SKIPPED (NOT A PASS, exit 3) when unset. Then qa-pf is reset to its pre-step snapshot (DELETE, PUT, byte-identical). |
