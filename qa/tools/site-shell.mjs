@@ -44,6 +44,7 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
+import { signedOutProd } from "./prod-guard.mjs";
 import { fontsSettled } from "./fonts.mjs";
 import { installConsoleMask } from "./redact.mjs";
 
@@ -332,7 +333,8 @@ async function hbm(page, host, width, { who = "signed out", owner = false, navig
       dialog: o.getAttribute("role") === "dialog" && o.getAttribute("aria-modal") === "true" && !o.hidden,
       cover: [Math.round(r(o).width), Math.round(r(o).height), innerWidth, innerHeight],
       expanded: document.querySelector('[data-testid="site-menu-open"]').getAttribute("aria-expanded"),
-      links, ulW: Math.round(r(ul).width), linksTop: Math.round(r(ul).top), searchTop: Math.round(r(document.querySelector('[data-testid="site-search"]')).top),
+      links, ulW: Math.round(r(ul).width), linksTop: Math.round(r(ul).top), searchTop: Math.round(r([...document.querySelectorAll('[data-testid="site-search"]')].find((i) => i.checkVisibility())).top),
+      searchShown: [...o.querySelectorAll('[data-testid="site-search"]')].filter((i) => i.checkVisibility()).length,
       footer: fv ? { text: f.innerText.trim(), lyre: !!f.querySelector("svg"), top: Math.round(r(f).top) } : null,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth + Math.max(0, o.scrollWidth - o.clientWidth),
       gold: [...o.querySelectorAll("*")].some((e) => /rgb\((2[0-5]\d|1[89]\d), (1[3-9]\d|2[0-2]\d), ([0-9]|[1-9]\d)\)/.test(getComputedStyle(e).color)),
@@ -349,13 +351,20 @@ async function hbm(page, host, width, { who = "signed out", owner = false, navig
     check(`${tag} HBM-08 from 768: #286 layout (Search first, no panel block)`, m.searchTop < m.linksTop && m.footer === null && m.links.every((l) => l.ht >= 44 && l.w < m.ulW), { linksTop: m.linksTop, searchTop: m.searchTop, footer: m.footer });
   }
   check(`${tag} HBM-07 no overflow, 44 px links, no gold, no tnum`, m.overflow <= 0 && m.links.every((l) => l.ht >= 44) && !m.gold && !m.tnum, { overflow: m.overflow, gold: m.gold, tnum: m.tnum });
-  const last = page.locator('[data-testid="site-menu-links"] a').last();
-  await last.focus();
-  await page.keyboard.press("Tab");
-  const wrapped = await page.evaluate(() => document.activeElement?.getAttribute("data-testid"));
+  // #287 Q5(b) (2026-11-02): real Tab presses from X walk the dialog; phones X, links, Search; 768+ X, Search, links (#286).
+  const tabName = () => page.evaluate(() => { const a = document.activeElement; return a?.getAttribute("data-testid") ?? a?.textContent ?? null; });
+  await page.getByTestId("site-menu-close").focus();
+  const tabs = [await tabName()];
+  const names = want.map(([l]) => l);
+  const wantTabs = width < 768 ? ["site-menu-close", ...names, "site-search"] : ["site-menu-close", "site-search", ...names];
+  for (let i = 0; i < wantTabs.length; i++) {
+    await page.keyboard.press("Tab");
+    tabs.push(await tabName());
+  }
+  check(`${tag} HBM-06 Tab order ${width < 768 ? "X, links, Search (Q5(b))" : "X, Search, links (#286)"}; one search field displayed; Tab wraps to X`, JSON.stringify(tabs) === JSON.stringify([...wantTabs, "site-menu-close"]) && m.searchShown === 1, { tabs, searchShown: m.searchShown });
   await page.keyboard.press("Shift+Tab");
-  const back = await page.evaluate(() => document.activeElement?.getAttribute("href"));
-  check(`${tag} HBM-06 Tab on Account wraps to X, Shift-Tab back`, wrapped === "site-menu-close" && back === "/account", [wrapped, back]);
+  const back = await tabName();
+  check(`${tag} HBM-06 Shift-Tab on X goes to the last item`, back === wantTabs.at(-1), back);
   await page.keyboard.press("Escape");
   const esc = await page.evaluate(() => [document.querySelector('[data-testid="site-overlay"]').hidden, document.activeElement?.getAttribute("data-testid")]);
   check(`${tag} HBM-05 Esc closes, focus back on Menu`, esc[0] === true && esc[1] === "site-menu-open", esc);
@@ -466,6 +475,11 @@ try {
 
   // #287 HBM signed in: the owner and the real Read user (session.mjs signs in; passwords never logged).
   const hbmViewports = HBM_WIDTHS.map((w) => [`${w}`, { width: w, height: 800 }, w < 768]);
+  // CH13 (#287 r2): on prod (signed-out prod mode) eachViewport returns without running; say so loudly, exit 3.
+  if (signedOutProd()) {
+    hbmSkipped = true;
+    console.log("SKIPPED (NOT A PASS): HBM-03/04 signed in (owner, read): signed-out prod mode never signs in");
+  } else
   for (const [who, e, p, owner] of [["owner", "QA_EMAIL", "QA_PASSWORD", true], ["read", "QA_CFO_READ_EMAIL", "QA_CFO_READ_PASSWORD", false]]) {
     if (!process.env[e] || !process.env[p]) {
       hbmSkipped = true;

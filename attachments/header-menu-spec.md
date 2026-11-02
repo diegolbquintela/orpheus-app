@@ -63,3 +63,10 @@ Below 768 px only (`src/components/site-menu.tsx`, every #287 class `max-md:` or
 - The overlay fades in (opacity + a 0.5 rem rise, 160 ms; `.site-overlay-in` in `src/styles.css`); nothing under
   `prefers-reduced-motion: reduce` or at 768 px and wider. Transform only, so no layout shift.
 ACs: HBM-01..10 (`qa/CANONICAL-AC-PACK.md`).
+- **Q5(b)** (Diego, 2026-11-02, PR #302 r2; supersedes the CSS `order` bullet above): below 768 px the search block
+  comes after the links in the DOM too, so Tab follows the layout: X, Orpheus, Calculator, Dashboard, Personal Finance,
+  [Renaissance Man, owner only], Account, Search. Two render slots: the #286 slot before the list (`max-md:hidden`) and a
+  mobile slot after it, rendered only below 768 px (`matchMedia("(max-width: 47.99rem)")`, also `md:hidden`). Only one
+  field is ever displayed, so only one is in the accessibility tree and the focus order; each has its own id, label and
+  note id. The focus trap counts displayed elements only (`checkVisibility`). 768 px and wider: DOM, Tab order
+  (X, Search, links) and pixels are #286's. ACs: HBM-06 (amended 2026-11-02).

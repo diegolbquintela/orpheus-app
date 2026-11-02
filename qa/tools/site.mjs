@@ -43,7 +43,7 @@ async function shell(page, path, want) {
     const ul = document.querySelector('[data-testid="site-menu-links"]').getBoundingClientRect();
     const rows = [...document.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => a.getBoundingClientRect());
     const f = document.querySelector('[data-testid="site-menu-footer"]');
-    return { w: innerWidth, linksTop: ul.top, searchTop: document.querySelector('[data-testid="site-search"]').getBoundingClientRect().top, full: rows.every((r) => r.width >= ul.width - 1 && r.height >= 48), footer: f && getComputedStyle(f).display !== 'none' ? f.innerText.trim() : null };
+    return { w: innerWidth, linksTop: ul.top, searchTop: [...document.querySelectorAll('[data-testid="site-search"]')].find((i) => i.checkVisibility()).getBoundingClientRect().top, full: rows.every((r) => r.width >= ul.width - 1 && r.height >= 48), footer: f && getComputedStyle(f).display !== 'none' ? f.innerText.trim() : null };
   });
   if (hbm.w < 768) check(`${path}: HBM below 768 links first as full-width rows, Search after, panel Orpheus Wisdom (#287)`, hbm.linksTop < hbm.searchTop && hbm.full && hbm.footer === FOOTER, hbm);
   else check(`${path}: HBM from 768 the #286 layout, no panel block (#287)`, hbm.searchTop < hbm.linksTop && hbm.footer === null, hbm);

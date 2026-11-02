@@ -37,20 +37,63 @@ const NAMES = ["Orpheus", "Calculator", "Dashboard", "Personal Finance", "Accoun
 // #286's OVERLAY_LINK (src/components/site-menu.tsx), which md+ must keep exactly (HBM-08).
 const LINK_286 = "inline-flex min-h-11 items-center text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline focus-visible:outline-chalk".split(" ").sort();
 
+// #287 Q5(b) (2026-11-02): the Tab order. jsdom has no CSS, so a phone is simulated with a checkVisibility that hides
+// `max-md:hidden` (below md) and the dialog's `hidden`, plus a matchMedia that matches (the mobile slot is rendered
+// below md only); without them the component assumes desktop.
+const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled])";
+const order = (el: HTMLElement) =>
+  [...q(el, "site-overlay").querySelectorAll<HTMLElement>(FOCUSABLE)]
+    .filter((e) => typeof e.checkVisibility !== "function" || e.checkVisibility())
+    .map((e) => e.getAttribute("data-testid") ?? e.textContent);
+function phone() {
+  const proto = dom.window.HTMLElement.prototype as unknown as { checkVisibility?: () => boolean };
+  proto.checkVisibility = function (this: HTMLElement) {
+    return !this.closest('.max-md\\:hidden') && !this.closest("[hidden]");
+  };
+  const w = dom.window as unknown as { matchMedia?: unknown };
+  const before = w.matchMedia;
+  w.matchMedia = (query: string) => ({ matches: query === "(max-width: 47.99rem)", media: query, addEventListener() {}, removeEventListener() {} });
+  return () => {
+    delete proto.checkVisibility;
+    w.matchMedia = before;
+  };
+}
+const press = async (t: HTMLElement, shiftKey = false) => {
+  const e = new dom.window.KeyboardEvent("keydown", { key: "Tab", shiftKey, bubbles: true, cancelable: true });
+  await act(async () => void t.dispatchEvent(e));
+  return e.defaultPrevented;
+};
+
 describe("HBM-03 below md: links first as full-width rows, Search after them, owner link fail-closed", () => {
-  it("links in order by full name, each a full-width 48 px row with a hairline; the list is ordered before Search", async () => {
-    const el = await mount();
+  it("links in order by full name, each a full-width 48 px row with a hairline; Search (its own slot) after them", async () => {
+    const undo = phone();
+    const el = await mount().finally(undo);
     const links = [...el.querySelectorAll('[data-testid="site-menu-links"] a')];
     assert.deepEqual(links.map((a) => a.textContent), NAMES);
     for (const a of links) assert.deepEqual(mobile(a), ["max-md:flex", "max-md:w-full", "max-md:min-h-12", "max-md:border-b", "max-md:border-hair"]);
     const main = q(el, "site-menu-main");
-    assert.deepEqual(mobile(main), ["max-md:flex", "max-md:flex-col"]);
-    assert.ok(mobile(q(el, "site-menu-links")).includes("max-md:order-1"));
-    const s = q(el, "site-search-block");
-    assert.ok(mobile(s).includes("max-md:order-2"));
-    assert.ok(s.contains(q(el, "site-search")) && s.contains(q(el, "site-search-note")));
-    // DOM order unchanged (focus trap / HDR-09): Search block, then the list.
-    assert.equal(main.firstElementChild, s);
+    // Q5(b): DOM order desktop search slot, list, mobile search slot; no CSS `order` tricks left.
+    assert.deepEqual([...main.children].map((c) => c.getAttribute("data-testid")), ["site-search-block", "site-menu-links", "site-search-block-mobile"]);
+    for (const e of el.querySelectorAll("*")) assert.ok(!cls(e).some((c) => /(^|:)order-/.test(c)), e.outerHTML.slice(0, 80));
+    assert.ok(cls(q(el, "site-search-block")).includes("max-md:hidden"));
+    assert.ok(cls(q(el, "site-search-block-mobile")).includes("md:hidden"));
+  });
+  it("md and wider: the mobile slot is not rendered at all (#286's DOM: search block, then the list)", async () => {
+    const el = await mount();
+    assert.deepEqual([...q(el, "site-menu-main").children].map((c) => c.getAttribute("data-testid")), ["site-search-block", "site-menu-links"]);
+  });
+  it("two search slots: unique ids, each label and aria-describedby points at its own field and note", async () => {
+    const undo = phone();
+    const el = await mount().finally(undo);
+    const ids = [...el.querySelectorAll("[id]")].map((e) => e.id);
+    assert.equal(new Set(ids).size, ids.length);
+    const inputs = [...el.querySelectorAll<HTMLInputElement>('[data-testid="site-search"]')];
+    assert.equal(inputs.length, 2);
+    for (const i of inputs) {
+      const slot = i.closest("[data-search-slot]")!;
+      assert.equal(slot.querySelector("label")!.htmlFor, i.id);
+      assert.equal(slot.querySelector('[data-testid="site-search-note"]')!.id, i.getAttribute("aria-describedby"));
+    }
   });
   it("Renaissance Man only with an owner link, before Account; never in a non-owner's HTML", async () => {
     const el = await mount(OWNER);
@@ -77,6 +120,46 @@ describe("HBM-05 / HBM-06 the #286 dialog behaviour holds", () => {
     await act(async () => void doc().dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
     assert.equal(q(el, "site-overlay").hidden, true);
     assert.equal(doc().activeElement, menu);
+  });
+});
+
+describe("HBM-06 (amended 2026-11-02, Q5(b)) Tab order follows the layout", () => {
+  it("phone: X, the links (owner: Renaissance Man before Account), then Search; the trap wraps Search -> X and back", async () => {
+    const undo = phone();
+    try {
+      for (const owner of [null, OWNER]) {
+        const el = await mount(owner);
+        await act(async () => q(el, "site-menu-open").click());
+        const names = owner ? [...NAMES.slice(0, 4), "Renaissance Man", "Account"] : NAMES;
+        assert.deepEqual(order(el), ["site-menu-close", ...names, "site-search"]);
+        const field = q(el, "site-search-block-mobile").querySelector<HTMLElement>("input")!;
+        field.focus();
+        assert.equal(await press(field), true);
+        assert.equal(doc().activeElement?.getAttribute("data-testid"), "site-menu-close");
+        assert.equal(await press(q(el, "site-menu-close"), true), true);
+        assert.equal(doc().activeElement, field);
+        await act(async () => root?.unmount());
+        container?.remove();
+      }
+      // Search opens with focus in the phone's field.
+      const el = await mount();
+      await act(async () => q(el, "site-search-open").click());
+      assert.equal(doc().activeElement, q(el, "site-search-block-mobile").querySelector("input"));
+    } finally {
+      undo();
+    }
+  });
+  it("desktop (768 / 1440): X, Search, then the links, as #286; Tab on Account wraps to X", async () => {
+    const el = await mount();
+    await act(async () => q(el, "site-menu-open").click());
+    assert.deepEqual(order(el), ["site-menu-close", "site-search", ...NAMES]);
+    const all = [...q(el, "site-overlay").querySelectorAll<HTMLElement>(FOCUSABLE)];
+    all.at(-1)!.focus();
+    assert.equal(await press(all.at(-1)!), true);
+    assert.equal(doc().activeElement?.getAttribute("data-testid"), "site-menu-close");
+    await act(async () => q(el, "site-menu-close").click());
+    await act(async () => q(el, "site-search-open").click());
+    assert.equal(doc().activeElement, q(el, "site-search-block").querySelector("input"));
   });
 });
 

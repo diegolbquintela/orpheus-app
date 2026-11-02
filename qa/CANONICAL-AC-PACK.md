@@ -2408,3 +2408,5 @@ EL decisions Q1–Q5 are in the spec. Below 768 px only; 768 px and wider are #2
 | HBM-08 | BLOCK | At 768 (tablet) and 1440 the overlay is the #286 desktop layout (Search first, inline links, no panel block), pixel-identical to main. |
 | HBM-09 | BLOCK | HDR-01..12, site-style-regression, site.mjs, site-shell, check:dashboard-built and release-smoke pass with their #286 menu assertions unchanged. |
 | HBM-10 | MAJOR | The e2e step saves nothing (storage unchanged); owner and Read user run, or SKIPPED (NOT A PASS) with exit 3. |
+
+HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab order from X. Below 768: X, Orpheus, Calculator, Dashboard, Personal Finance, [Renaissance Man, owner only], Account, Search, then back to X (Shift-Tab on X goes to Search). At 768 and 1440: X, Search, then the links, unchanged from #286. Exactly one search field is displayed (and in the focus order) at any width; ids, labels and `aria-describedby` stay unique. Checked by `src/components/site-menu-mobile.dom.test.tsx` and `qa/tools/site-shell.mjs` hbm() (real Tab presses).
