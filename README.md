@@ -655,6 +655,8 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 
 **One-click Reload (#258, 2026-11-01).** The stale-save message (409 `stale` or 428 `base_version_required`) on Overview, History and Saved scenarios now has a `Reload` button right after it. It re-reads the record in place (one `GET`, no page reload, nothing written), discards unsaved edits as the message warns, and the next save is based on the fresh `version`. While it runs it reads `Reloading…`; if it fails, an inline error shows and your edits stay. No API or schema change. Spec §80, AC PFRL-01..PFRL-09.
 
+**Sortable Saved scenarios (#278, 2026-11-01).** On the Saved scenarios table, click `Scenario name` or `From` to sort ascending, again for descending, and a third time to return to the saved order (oldest first). Ties keep saved order. The sort is not saved and resets on reload; nothing is written. Spec §83, AC PFSO-01..PFSO-18.
+
 **12-month averages over the same months (#146).** The 12-month income and expense averages, and so the surplus, both use the complete months that have expense entries. An income-only month counts toward neither. An expense month with no income counts as 0 income, unless none of them has income, in which case the income average shows `—`. Spec section 29, PF-143..PF-149.
 
 **Rate used = the lower of the two (#138).** Rate used is now min(Withdrawal rate, Portfolio ROIC ÷ 2) when both are set, and the one that is set otherwise. A typed 0 counts as not set, and any rate field in error gives `—`. A line under the value says which was used. Spec section 30, PF-150..PF-157.

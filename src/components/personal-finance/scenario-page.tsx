@@ -45,6 +45,7 @@ import {
 } from "@/lib/finance/scenario";
 import { changeSaved, loadForScenario, type Access, type ChangeResult, type ScenarioLoad } from "@/lib/finance/scenario-client";
 import { readScenario } from "@/lib/finance/scenario-key";
+import { ariaSort, DEFAULT_SORT, nextSort, sortLabel, sortSaved, type SavedSort, type SortColumn } from "@/lib/finance/saved-sort";
 import { householdMonth } from "@/lib/finance/overview";
 import {
   addSaved,
@@ -568,6 +569,8 @@ function SavedScenarios({
   const [localComparing, setLocalComparing] = useState(false);
   const comparing = named.comparing ?? localComparing;
   const setComparing = named.setComparing ?? setLocalComparing;
+  // #278 (AC PFSO): the table's column sort, in memory only (never stored or sent; the saved list keeps its order).
+  const [sort, setSort] = useState<SavedSort>(DEFAULT_SORT);
 
   const snapshot = (): Omit<SavedEntry, "id" | "name"> => {
     const v = live.values();
@@ -755,13 +758,26 @@ function SavedScenarios({
                 <thead>
                   <tr className="border-b border-hair">
                     <th scope="col" className="pf-label py-2 pr-4 font-normal">Select</th>
-                    <th scope="col" className="pf-label py-2 pr-4 font-normal">Scenario name</th>
-                    <th scope="col" className="pf-label py-2 pr-4 font-normal">From</th>
+                    {([["name", "Scenario name"], ["from", "From"]] as const).map(([col, title]: readonly [SortColumn, string]) => (
+                      <th key={col} scope="col" className="pf-label pr-4 font-normal" aria-sort={ariaSort(sort, col)} data-testid={`pf-saved-th-${col}`}>
+                        <button
+                          type="button"
+                          className="pf-sort-button"
+                          onClick={() => setSort((s) => nextSort(s, col))}
+                          aria-label={sortLabel(title, sort, col)}
+                          data-testid={`pf-saved-sort-${col}`}
+                        >
+                          <span>{title}</span>
+                          {/* The mark is drawn by CSS from data-sort (▲ / ▼ / ↕), so the header text stays the column name. */}
+                          <span className="pf-sort-mark" aria-hidden="true" data-sort={ariaSort(sort, col)} data-testid={`pf-saved-sort-mark-${col}`} />
+                        </button>
+                      </th>
+                    ))}
                     <th scope="col" className="pf-label py-2 font-normal">Actions</th>
                   </tr>
                 </thead>
                 <tbody data-testid="pf-saved-list">
-                  {list.map((e) => (
+                  {sortSaved(list, sort).map((e) => (
                     <tr key={e.id} className="border-b border-hair" data-testid="pf-saved-item">
                       <td className="py-2 pr-4 align-middle">
                         <label className="pf-rate-source pf-saved-compare-label flex items-center gap-1">
