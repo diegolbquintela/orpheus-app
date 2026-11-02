@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 const NOW = new Date("2026-10-16T16:00:00Z");
-const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month" as const, equity: "", account: "", currency: "", rate: "", category: "" });
+const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month" as const, equity: "", account: "", currency: "", rate: "", category: "", note: "" });
 const person = { id: "p1", name: "Ana", wages: "120,000", bonus: "", tax: "25", share: "100", countWages: true, countBonus: false, foreign: false, currency: "", rate: "" };
 function record(basis = "2026-09"): PfRecord {
   const s = new RecordStore({});

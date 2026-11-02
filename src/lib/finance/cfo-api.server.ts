@@ -9,6 +9,7 @@
  * - 503 JSON without a database; 404 JSON `No household.` when `ORPHEUS_OWNER_EMAIL` names no account;
  * - 200 `{ data, household, currentMonth, generatedAt }`.
  * Read-only: only SELECTs (`personal_finance`, `fx_rates`, `"user"`); nothing is written or audited (Q5).
+ * #277 (spec §82, PFNT-08): every expense line returned carries `note` ("" when none), additive; schema stays `cfo-pf.v1`.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { ownerIdOf } from "../access/access.server.ts";

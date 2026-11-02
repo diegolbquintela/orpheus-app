@@ -63,6 +63,7 @@ function seededRecord(): PfRecord {
     currency: "",
     rate: "",
     category: "Housing",
+    note: "",
   };
   const person = {
     id: "p1",

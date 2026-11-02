@@ -1,11 +1,11 @@
 import { type CurrencyCode, readHousehold } from "./currency.ts";
 import { parseRoic, parseWithdrawal, type Rates, readRates } from "./equity.ts";
-import { type Expenses, isForeign, type Line, parseAmount, parseRate, readExpenses } from "./expenses.ts";
+import { type Expenses, isForeign, type Line, noteBad, parseAmount, parseRate, readExpenses, STORAGE_KEY } from "./expenses.ts";
 import { type Income, parsePercent, type Person, personCurrency, readIncome } from "./income.ts";
-import { type MonthLines, readMonths } from "./months.ts";
+import { MONTHS_KEY, type MonthLines, readMonths } from "./months.ts";
 import { householdMonth, type Overview, readOverview } from "./overview.ts";
 import { PLANS_KEY } from "./plans-key.ts";
-import { readPlans } from "./plans-read.ts";
+import { rawPlans, readPlans } from "./plans-read.ts";
 import { RecordStore, type PfRecord } from "./record.ts";
 import { scenarioValueOk } from "./scenario-key.ts";
 import { RANGE_AFTER_CURRENT, RANGE_BEFORE_FIRST, rangeError } from "./report.ts";
@@ -39,6 +39,33 @@ export function lineErrors(group: string, lines: Line[], household: CurrencyCode
     if (parseAmount(l.equity) === null) out.push(`${group}.${i}.equity`);
     if (isForeign(l, household) && rateBad(l.rate, o)) out.push(`${group}.${i}.rate`);
   });
+  return out;
+}
+
+const parsed = (text: string | undefined): unknown => {
+  if (typeof text !== "string") return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+};
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+
+/**
+ * #277 (PFNT-03): the stored lines' notes, read raw (the page's read turns a bad note into ""). A note that is not a
+ * string, or is over `NOTE_MAX` characters after trimming, is refused as `<group>.<i>.note` (the raw line index).
+ */
+export function rawNoteErrors(group: string, value: unknown): string[] {
+  const out: string[] = [];
+  const v = obj(value);
+  for (const g of ["fixed", "variable"] as const) {
+    const lines = v[g];
+    if (!Array.isArray(lines)) continue;
+    lines.forEach((l, i) => {
+      if (noteBad(obj(l).note)) out.push(`${group}${g}.${i}.note`);
+    });
+  }
   return out;
 }
 
@@ -140,8 +167,16 @@ export function recordFieldError(record: PfRecord, current?: string, storedPlans
       ...peopleErrors(m.people, household, o).map((p) => `months.${key}.${p}`),
     );
   }
+  errors.push(...rawNoteErrors("expenses.", parsed(record[STORAGE_KEY])));
+  for (const [key, m] of Object.entries(obj(parsed(record[MONTHS_KEY])))) errors.push(...rawNoteErrors(`months.${key}.`, m));
   if (record[PLANS_KEY] !== undefined) {
     const now = current ?? householdMonth(new Date());
+    // #277: a written plan's notes, raw (an incoming plan whose only change is a bad note still counts as written).
+    const storedRaw = rawPlans(storedPlans ?? "{}") ?? {};
+    for (const [key, p] of Object.entries(rawPlans(record[PLANS_KEY]) ?? {})) {
+      if (key <= now || JSON.stringify(storedRaw[key]) === JSON.stringify(p)) continue;
+      errors.push(...rawNoteErrors(`plans.${key}.`, obj(p).lines));
+    }
     const before = readPlans(new RecordStore({ ...record, [PLANS_KEY]: storedPlans ?? "{}" }));
     for (const [key, p] of Object.entries(readPlans(store))) {
       if (key <= now || (before[key] && JSON.stringify(before[key]) === JSON.stringify(p))) continue;

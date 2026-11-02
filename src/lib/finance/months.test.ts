@@ -27,6 +27,7 @@ const LINE = {
   currency: "",
   rate: "",
   category: "",
+  note: "",
 };
 const lines: MonthLines = { fixed: [LINE], variable: [], people: [] };
 
@@ -103,7 +104,7 @@ describe("#163 Q-Y6 rejected: an empty past month opens blank (PFM-15, PFM-16, P
 });
 
 describe("#166 W2 withCurrentCopy (spec 49.5)", () => {
-  const line = (id: string, category = "") => ({ id, name: id, amount: "100", per: "month" as const, equity: "", account: "", currency: "", rate: "", category });
+  const line = (id: string, category = "") => ({ id, name: id, amount: "100", per: "month" as const, equity: "", account: "", currency: "", rate: "", category, note: "" });
   const sep: MonthLines = { fixed: [line("rent", "Travel")], variable: [], people: [] };
   const shared = { fixed: [], variable: [], accounts: [], categories: ["Travel"] } as unknown as Expenses;
   it("an empty current month gets the latest month's lines; stored months are not changed", () => {

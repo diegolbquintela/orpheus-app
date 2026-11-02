@@ -492,7 +492,7 @@
   }
   .pf-line {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.75rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(2.75rem, auto);
     grid-template-areas:
       "name name remove"
       "monthly yearly yearly"
@@ -715,6 +715,82 @@
     justify-content: center;
     align-self: end;
     color: var(--color-dim);
+  }
+  /* #277 (PFNT-04): the line's actions: Note (a 44 px text button, a dot when it has a note) then Remove. */
+  .pf-actions {
+    grid-area: remove;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    align-self: end;
+  }
+  .pf-note-toggle {
+    display: inline-flex;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0 0.25rem;
+    font-size: 0.875rem;
+    color: var(--color-dim);
+  }
+  .pf-note-toggle[aria-expanded="true"] {
+    color: var(--color-chalk);
+  }
+  .pf-note-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: var(--color-chalk);
+  }
+  /* Full width under the line, only while open (never reserved: CLS 0); auto-placed into the line's empty last row. */
+  .pf-note-row {
+    grid-column: 1 / -1;
+    display: flex;
+    min-width: 0;
+    max-width: 48rem;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .pf-note-field {
+    height: auto;
+    min-height: 3.5rem;
+    resize: none;
+    padding: 0.5rem 0;
+    line-height: 1.25rem;
+    font-variant-numeric: normal;
+    overflow-wrap: anywhere;
+  }
+  .pf-note-count {
+    font-size: 0.8125rem;
+    color: var(--color-dim);
+  }
+  .pf-note-text {
+    display: block;
+    margin: 0;
+    color: var(--color-chalk);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+  .pf-note-label {
+    margin-right: 0.5rem;
+  }
+  /* Collapsed with a note: one dim line under the name, ellipsized; not on phones. */
+  .pf-note-preview {
+    display: none;
+  }
+  @media (min-width: 40rem) {
+    .pf-note-preview {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.8125rem;
+      color: var(--color-dim);
+    }
   }
   .pf-add {
     display: inline-flex;
@@ -953,7 +1029,7 @@
     .pf-line {
       grid-template-columns:
         minmax(0, 1.5fr) 6rem 6.5rem minmax(0, 1fr) minmax(0, 1fr) 4.5rem minmax(0, 0.8fr)
-        minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 2.75rem;
+        minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 6rem;
       column-gap: 1rem;
     }
     .pf-head {

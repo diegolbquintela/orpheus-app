@@ -13,7 +13,7 @@ import { seriesValues } from "./series.ts";
 
 const NOW = new Date("2026-10-16T16:00:00Z"); // household month 2026-10
 const NET = { kind: "metric", id: "net-assets" };
-const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month" as const, equity: "", account: "", currency: "", rate: "", category: "" });
+const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month" as const, equity: "", account: "", currency: "", rate: "", category: "", note: "" });
 const person = { id: "p1", name: "Ana", wages: "60,000", bonus: "", tax: "0", share: "100", countWages: true, countBonus: false, foreign: false, currency: "", rate: "" };
 
 /** A record: Starting net assets (+ as-of), typed Update totals, and months saved with lines (wages 5,000 a month). */

@@ -1,5 +1,5 @@
 import { type CurrencyCode, DEFAULT_HOUSEHOLD, readHousehold } from "./currency.ts";
-import { householdMonthlyOf, type Line } from "./expenses.ts";
+import { householdMonthlyOf, type Line, linesJson } from "./expenses.ts";
 import { incomeLines, monthly, netIncomeYearly } from "./income.ts";
 import { hasLines, isFuture, type MonthLines, type Months, readMonths } from "./months.ts";
 import type { MonthKey } from "./overview.ts";
@@ -60,7 +60,7 @@ export function syncFuturePlans(storage: StorageLike | null, months: Months, cur
   }
   if (!changed) return false;
   try {
-    storage.setItem(PLANS_KEY, JSON.stringify(Object.fromEntries(Object.keys(plans).sort().map((k) => [k, plans[k]]))));
+    storage.setItem(PLANS_KEY, linesJson(Object.fromEntries(Object.keys(plans).sort().map((k) => [k, plans[k]]))));
   } catch {
     return false;
   }

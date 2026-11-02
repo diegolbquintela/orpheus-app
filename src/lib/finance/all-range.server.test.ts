@@ -59,7 +59,7 @@ const file = async (r: Response, f: "pdf" | "png") => {
   return f === "pdf" ? readPdf(b) : readPng(b, crc32);
 };
 const stored = async (who: string) => (await pg.query<{ data: Record<string, string> }>("SELECT data FROM personal_finance WHERE user_id = $1", [who])).rows[0]?.data ?? null;
-const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "Chequing", currency: "", rate: "", category: "Home" });
+const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "Chequing", currency: "", rate: "", category: "Home", note: "" });
 const recordWith = (months: Record<string, string>) => ({
   [STORAGE_KEY]: JSON.stringify({ fixed: [L("rent", "1000")], variable: [], accounts: ["Chequing"], categories: ["Home"] }),
   [MONTHS_KEY]: JSON.stringify(Object.fromEntries(Object.entries(months).map(([k, a]) => [k, { fixed: [L("rent", a)], variable: [], people: [] }]))),

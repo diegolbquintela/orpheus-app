@@ -2428,6 +2428,8 @@ Dated note 2026-10-23 (#245): approved by Diego via CoS as a one-off exception t
 | `/api/cfo/pf/fx?through=yyyy-mm` | `{ through, rates \| null }` (stored BoC monthly averages the record needs, `fx_rates`) |
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
 
+> **#277 addendum (2026-11-01, additive, schema still `cfo-pf.v1`):** every expense line in `months`, `months/:month`, `lines` (`expenses.fixed` / `expenses.variable`) and `plans` now carries `note`: a string, `""` when none (trimmed, at most 500 characters). Nothing else in the response changes; the API stays GET / HEAD only. Spec §82, AC PFNT-08.
+
 2026-10-23 note (#247 follow-up, §72): `/api/cfo/pf/overview?month=yyyy-mm` adds `selected: { month, label, figures: { expenses, income, surplus }, copied, copiedFrom }` (an empty future month = the page's copy, `copied: true`); bad or out-of-range month 400; without `month` unchanged.
 
 ### 67.3 Standing rule
@@ -2827,3 +2829,36 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 81.6 **Addendum 2026-11-01 (CFO, via EL).** The Actual column head is `Actual (as saved)` (it was `Actual (saved now)`). `Planned (set before the month)` stays, and the section still starts open. PFPA-03 is amended. This answers the §81.5 questions.
 
 81.7 **Addendum 2026-11-01 (CFO, via EL).** The note's Actual part reads `Actual = what is saved.` (it was `Actual = what is saved now.`), because `now` suggests a live value. The rest of the note is unchanged. AC PFPA-08.
+
+## 82. Personal Finance: a Note on each expense line (#277, MEDIUM; added 2026-11-01)
+
+82.1 **Storage.** Each Fixed and Variable line (`Line` in `src/lib/finance/expenses.ts`) has an optional `note` string. It lives inside the existing JSON text values: `orpheus.finance.expenses.v2`, each month in `orpheus.finance.months.v1`, and each plan in `orpheus.finance.plans.v1`. There is no table, column, migration, new storage key, env var, dependency or provider. `checkRecord` (names, string values, 1 MB, 413) is unchanged.
+
+82.2 **Read.** `asLine` keeps `note` when it is a string that is at most `NOTE_MAX` = 500 characters after trimming, and stores it trimmed. Anything else reads as `""`: absent (every line saved before #277), not a string, or too long. A bad note never drops the line and never changes a figure.
+
+82.3 **Save check (#143).** `PUT /api/personal-finance` refuses a stored line whose `note` is not a string, or is over 500 characters after trimming. The response is 400 `Invalid value.` with `field` = `expenses.<fixed|variable>.<i>.note`, `months.<yyyy-mm>.<fixed|variable>.<i>.note` or `plans.<yyyy-mm>.<fixed|variable>.<i>.note`. `<i>` is the line's index as stored. Plans follow the §65.7 rule: only a future plan that the save would write (one that differs from the stored plan) is checked. An amount, Equity or FX error on the same save is reported first, as before.
+
+82.4 **Copies, history, plans.** A month copy (an empty current or future month, `Copy from current month`, `Reset`), a History (Year table) edit and plan capture all keep a line's note, because they copy the line whole. **A note edited on a future month is a plan change:** that month's plan is re-captured with a new `capturedAt`, like an amount change. The current month's and past months' plans are never rewritten (§65).
+
+82.5 **Exports.** PDF and PNG reports, and their data JSON, are unchanged. They show no note, and there is no CSV or XLSX export.
+
+82.6 **CFO API (#245).** The note is an additive field in every line the read-only API returns (`months`, `months/:month`, `lines`, `plans`). The schema name stays `cfo-pf.v1`, and the API stays GET / HEAD only.
+
+82.7 **UI.**
+- **Note button.** Each line's action cell has a `Note` text button before Remove (`pf-note-toggle`). It is at least 44px by 44px, with `aria-expanded`, `aria-controls` and the label `Note, <Fixed|Variable> <n>`. A small chalk dot is added when the line has a note, and the label then ends `(has a note)`.
+- **Note field.** The button opens a full-width row under the line (`pf-note-row`). The row holds a textarea (`pf-note`) labelled `Note for <name>` (or `this expense` when the line has no name). It starts at 2 rows and grows with the text up to 6, then scrolls. It has `maxlength` 500 and the dark field style, with no gold and no `tnum`.
+- **Counter.** From 400 characters, a `<n> / 500` counter appears, linked to the field with `aria-describedby`.
+- **Save.** The note is saved with the page's existing Save. There is no autosave.
+- **Space.** The row exists only while it is open, so nothing is reserved (CLS 0).
+- **Preview.** While the row is closed, a line with a note shows one dim, ellipsized line of it under the name. The preview is hidden on phones (below 640px).
+- **Read users.** They see the note as plain text under the line (`Note <text>`), with no button and no field.
+- **Layout.** On a phone the action column widens to fit Note and Remove (at least 44px, as before). From 1024px the last column is 6rem, the same in the head, the lines and the totals. Text wraps (`overflow-wrap: anywhere`), so nothing overflows at 360, 390, 768 or 1440.
+
+82.8 **Out of scope.** Income (people) notes.
+
+82.9 **Residual risk (old tabs).** A tab running the pre-#277 bundle reads lines without `note` and would save them without it, wiping the notes. This is mitigated by #257 / §79: a tab whose record is older than the stored one gets 409 on Save, and a body without `baseVersion` gets 428. The fix in both cases is `Reload` (§80), which loads the new bundle. The only gap is a tab that loaded the old bundle after the note was saved and saves before reloading. That window closes with the deploy, and a reload fixes it.
+
+82.10 **Tests / AC:** PFNT-01..PFNT-09.
+- `src/lib/finance/note.test.ts`: read, limits, the save check, copies, plans, history, exports.
+- `src/lib/finance/note.server.test.ts`: real PUT / GET, the 400, the CFO API field.
+- `src/components/personal-finance/expense-note.dom.test.tsx`: the toggle, expand / collapse, maxlength, counter, Read view, CSS.

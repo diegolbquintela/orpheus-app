@@ -18,7 +18,7 @@ const env = { DASHBOARD_ENABLED: "true", ORPHEUS_OWNER_EMAIL: "alice@example.com
 const as = { env, getUser: async () => ({ id: "alice", email: "alice@example.com" }), getDb: async () => db };
 const req = (method: string, path: string, body?: unknown) =>
   new Request(`http://localhost${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const shared = {
   fixed: [L("rent", "1000", "Home", "Chequing")],
   variable: [],

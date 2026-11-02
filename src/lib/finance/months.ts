@@ -1,6 +1,6 @@
 import { type CurrencyCode, readHousehold } from "./currency.ts";
 import { type Rates, rateUsed, readRates } from "./equity.ts";
-import { asExpenses, type Expenses, grandTotals, type Line, type NameKind, readExpenses, stripName } from "./expenses.ts";
+import { asExpenses, type Expenses, grandTotals, type Line, linesJson, type NameKind, readExpenses, stripName } from "./expenses.ts";
 import { asIncome, monthly, netIncomeYearly, type Person, readIncome } from "./income.ts";
 import { type Figures, type MonthKey, previousMonth, readOverview, typedFigure } from "./overview.ts";
 
@@ -97,7 +97,7 @@ export function writeMonths(storage: StorageLike | null, months: Months): void {
   const kept: Months = {};
   for (const k of keys.sort()) kept[k] = months[k];
   try {
-    storage?.setItem(MONTHS_KEY, JSON.stringify(kept));
+    storage?.setItem(MONTHS_KEY, linesJson(kept));
   } catch {
     // Storage full or blocked: the page keeps working for this visit.
   }

@@ -45,6 +45,7 @@ const line = (id: string, amount: string): Line => ({
   currency: "",
   rate: "",
   category: "",
+  note: "",
 });
 const ann: Person = {
   id: "ann",

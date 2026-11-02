@@ -2221,3 +2221,17 @@ check). Spec: `attachments/header-menu-spec.md`.
 | PFPA-07 | HIGH | Invariants: dark style, no gold, no `tnum` on the page, toggle target ≥ 44px, no page overflow at 360 / 390 / 768 / 1440 (the table scrolls inside `.pf-plan`), AA contrast, CLS 0. |
 | PFPA-03 (amended 2026-11-01, CFO) | HIGH | Replaces PFPA-03: the column heads read `Planned (set before the month)` and `Actual (as saved)`, and the head never reads `saved now`. The section still starts open. |
 | PFPA-08 (added 2026-11-01, CFO) | HIGH | The note above the table reads `Actual = what is saved.` (no `now`; `now` suggests a live value). `saved now` appears nowhere in the Planned vs actual section. |
+
+## PFNT — Note on expense lines (#277, 2026-11-01; spec §82)
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PFNT-01 | BLOCK | Every Fixed and Variable `Line` has `note` (a string). A new line, and any line saved before #277, reads as `""`. There is no new table, column, migration, storage key, env var or dependency, and `checkRecord` is unchanged. |
+| PFNT-02 | BLOCK | `asLine` keeps a string note trimmed when it is at most 500 characters after trimming. Over 500, a number, `null`, an object or an array read as `""`. The line is kept, and no total changes. |
+| PFNT-03 | BLOCK | `PUT /api/personal-finance` returns 400 `Invalid value.` with `field` `…<fixed\|variable>.<i>.note` for a non-string or over-long note. This covers expenses, months, and a future plan the save writes. Exactly 500 (after trimming) is accepted, nothing is stored on a 400, and an amount error is still reported first. |
+| PFNT-04 | BLOCK | Each line has a `Note` button (`pf-note-toggle`) before Remove. It is at least 44px, with `aria-expanded`, `aria-controls` and the label `Note, Fixed 1`, and shows a dot plus `(has a note)` when the line has a note. Opening it shows the `pf-note-row` textarea: labelled `Note for <name>`, 2 rows growing to 6, `maxlength` 500, a counter from 400 characters. Closing it removes the row (nothing reserved). |
+| PFNT-05 | BLOCK | A Read user sees the note as plain text (`pf-note-text`), with no toggle and no textarea. A line without a note shows nothing. |
+| PFNT-06 | BLOCK | The note survives Save and a reload (expenses and months values), a month copy (open copy, the current-month copy, `Copy from current month`), a History edit, and plan capture. An edited note on a future month re-captures that plan (new `capturedAt`), and the server merge keeps it only for future months. |
+| PFNT-07 | BLOCK | Exports are unchanged: PDF and PNG bytes and the data JSON are identical with or without notes, and no note text appears in them. Overview figures are unchanged. |
+| PFNT-08 | HIGH | The CFO API (`/api/cfo/pf/months`, `/months/:month`, `/lines`, `/plans`) returns `note` in every expense line as an additive field. The schema is still `cfo-pf.v1`, and the API is still GET / HEAD only with no writes. |
+| PFNT-09 | BLOCK | Invariants: dark style, no gold, no `tnum`, 44px targets, no page overflow at 360 / 390 / 768 / 1440 (long notes wrap), AA contrast (chalk / dim on charcoal), CLS 0, the lyre and the `Orpheus Wisdom` footer unchanged. The preview under the name is hidden below 640px. |
