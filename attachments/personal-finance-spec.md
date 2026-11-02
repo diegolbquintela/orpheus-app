@@ -2811,3 +2811,19 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 80.7 **Addendum (2026-11-01, QA BT1).** The Reload button may sit inline beside the banner text on wide screens (e.g. History at 1440px) and wraps under the text on narrow ones; both pass.
 
 80.8 **Addendum (2026-11-01, QA BT4; extends §80.6).** A stale (409 / 428) Scenario `Rename` likewise sets no field error under the rename field (`pf-saved-rename-error` absent, the field not `aria-invalid`, the typed name kept); only the `pf-saved-stale` banner shows the message. Rename validation (empty / duplicate name) and non-stale server failures (`SAVE_FAILED`) still show under the field. Update and Delete report through the screen-reader status only (no visible field error), so they are unchanged. AC PFRL-10 amended.
+
+## 81. Personal Finance: Planned vs actual — section toggle and clearer labels (#276, MEDIUM; added 2026-11-01; follow-up to §65 / #231)
+
+81.1 **Toggle.** The `Planned vs actual` heading is the same section toggle as `02` Income, `03` Expenses, Expenses summary and `04` Overview: it reuses `SectionHead` (`pf-section-toggle`, `aria-expanded`, `aria-controls="pf-plan-body"`, chevron). It has no numeral, because `SectionHead`'s numeral is now optional. Closed, the body (note, no-actuals line and table) is not rendered and the heading stays.
+
+81.2 **State.** It uses the existing view value `orpheus.finance.view.v1`, with `"plan"` added to `SECTIONS`. No new storage key, table, migration or env var. The server stores the view text as given. Every section starts open, as before, and a close persists like the other sections (saved at once; scenario mode: this visit only). Read users can toggle too (ROLE-10).
+
+81.3 **Labels.** The column heads read `Planned (set before the month)` and `Actual (saved now)` (`PLANNED_LABEL` / `ACTUAL_LABEL` in `src/lib/finance/plans.ts`). The existing note is unchanged.
+
+81.4 **No calculation change.** `compare`, `planFor` and the variance and tone rules are untouched. PFPA-04 pins the October fixture numbers before and after a close and open.
+
+81.5 **Open questions (CFO).** The label wording, and whether the section should start closed.
+
+81.6 **Addendum 2026-11-01 (CFO, via EL).** The Actual column head is `Actual (as saved)` (it was `Actual (saved now)`). `Planned (set before the month)` stays, and the section still starts open. PFPA-03 is amended. This answers the §81.5 questions.
+
+81.7 **Addendum 2026-11-01 (CFO, via EL).** The note's Actual part reads `Actual = what is saved.` (it was `Actual = what is saved now.`), because `now` suggests a live value. The rest of the note is unchanged. AC PFPA-08.

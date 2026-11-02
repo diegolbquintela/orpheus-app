@@ -28,7 +28,9 @@ const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
 const GUARD = await refuseIfProd(CFG.baseUrl, "personal-finance-e2e");
 const base = CFG.baseUrl;
-const R = { base, checks: [], shots: [] };
+const R = { base, checks: [], shots: [], skipped: [] };
+// #276 BV4 (EL): a skipped check is logged loudly and counted, so it is never read as a pass. Names only, never values.
+const skip = (name) => { R.skipped.push(name); console.log(`SKIPPED (NOT A PASS): ${name}`); };
 const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
@@ -592,6 +594,136 @@ try {
       await page.getByTestId("pf-toggle-income").click();
       await page.getByTestId("pf-toggle-overview").click();
       await settle(page);
+      // #276 (spec §81, PFPA-01..08; QA BV1 / BV2 / BV3). BV2: the server keeps a plan only for a month AFTER its REAL
+      // month (mergePlansText), so a plan saved under the pinned page clock is dropped. Primary path: with the page
+      // clock at the real time, save the month after the real month (computed, never hardcoded), then move the page
+      // clock into that month so it is the current month with a plan. Fallback, only when that save did not store a
+      // plan: inject a plan for the page's current month into the record GET (page.route, this page only). At the end
+      // the step resets the account to its record from before the step (DELETE, then PUT; the script's own pattern),
+      // which removes the plan it created and restores the view value.
+      const PLANS = "orpheus.finance.plans.v1";
+      const snap = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+      delete snap[PLANS];
+      const realNow = new Date();
+      const [ry, rm] = householdMonth(realNow).split("-").map(Number);
+      const nextY = rm === 12 ? ry + 1 : ry, nextM = rm === 12 ? 1 : rm + 1;
+      const nextMonth = `${nextY}-${String(nextM).padStart(2, "0")}`;
+      let viaSave = false;
+      try {
+        await page.clock.setFixedTime(realNow);
+        await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(page);
+        await pickMonth(page, nextMonth);
+        await page.getByTestId("pf-month-save").click();
+        await settle(page);
+        const stored = (await acct(page, base, "GET")).body?.data?.[PLANS];
+        viaSave = !!JSON.parse(stored ?? "{}")[nextMonth];
+      } catch { viaSave = false; }
+      const pvMonth = viaSave ? nextMonth : householdMonth(TODAY);
+      await page.clock.setFixedTime(viaSave ? new Date(nextY, nextM - 1, 11, 12) : TODAY);
+      const pvRoute = { inject: !viaSave };
+      const injectPlan = async (route) => {
+        const req = route.request();
+        if (req.method() !== "GET" || new URL(req.url()).pathname !== API) return route.continue();
+        const res = await route.fetch();
+        const body = await res.json().catch(() => null);
+        if (body?.data && pvRoute.inject) {
+          const months = (() => { try { return JSON.parse(body.data["orpheus.finance.months.v1"] ?? "{}"); } catch { return {}; } })();
+          if (months[pvMonth]) {
+            const [y, m] = pvMonth.split("-").map(Number);
+            body.data[PLANS] = JSON.stringify({ [pvMonth]: { lines: months[pvMonth], capturedAt: new Date(Date.UTC(y, m - 1, 0, 12)).toISOString() } });
+          }
+        }
+        return body ? route.fulfill({ response: res, json: body }) : route.fulfill({ response: res });
+      };
+      await page.route(`**${API}*`, injectPlan);
+      const VIEW = "orpheus.finance.view.v1";
+      const viewOf = async () => { const v = ((await acct(page, base, "GET")).body?.data ?? {})[VIEW]; try { return JSON.parse(v ?? "null")?.closed ?? []; } catch { return null; } };
+      const rows = () => page.locator("[data-testid=pf-plan] tbody tr").evaluateAll((rs) => rs.map((r) => [...r.children].map((c) => c.textContent)));
+      const t = page.getByTestId("pf-toggle-plan");
+      const pv = {};
+      // BV3: another entry in the view value must survive the plan toggle.
+      await page.getByTestId("pf-toggle-overview").click();
+      await settle(page);
+      await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+      await ready(page);
+      pv.shown = await page.getByTestId("pf-plan").count();
+      if (pv.shown) {
+        pv.heads = await page.locator("[data-testid=pf-plan] thead th").allTextContents();
+        pv.note = await txt(page.getByTestId("pf-plan-note"));
+        pv.saidNow = /\bnow\b/i.test(await txt(page.getByTestId("pf-plan")));
+        pv.rows0 = await rows();
+        pv.open0 = await t.getAttribute("aria-expanded");
+        pv.h = await t.evaluate((e) => Math.round(e.getBoundingClientRect().height));
+        await t.click();
+        await settle(page);
+        pv.closed = await t.getAttribute("aria-expanded");
+        pv.bodyKids = await page.getByTestId("pf-body-plan").evaluate((e) => e.children.length);
+        pv.viewClosed = await viewOf();
+        await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+        await ready(page);
+        pv.afterReload = await t.getAttribute("aria-expanded");
+        await t.click();
+        await settle(page);
+        pv.reopened = await t.getAttribute("aria-expanded");
+        pv.rows1 = await rows();
+        pv.viewOpen = await viewOf();
+        // BV4 / BV5: a REAL Read user in a second browser context (readOnly comes from the session at load). Creds from
+        // env like QA_EMAIL / QA_PASSWORD; never printed. The owner's record is read before and after as raw text.
+        const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
+        if (!rEmail || !rPassword) {
+          pv.readSkipped = true;
+          skip(`${tag} PFPA Read-user check, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+        } else {
+          const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
+          pv.ownerBefore = await ownerRaw();
+          await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFPA Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
+            await rp.clock.setFixedTime(viaSave ? new Date(nextY, nextM - 1, 11, 12) : TODAY);
+            if (pvRoute.inject) await rp.route(`**${API}*`, injectPlan);
+            await rp.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+            await rp.locator("[data-testid=pf-area][data-ready=true]").waitFor();
+            const rt = rp.getByTestId("pf-toggle-plan");
+            pv.readShown = await rp.getByTestId("pf-plan").count();
+            pv.readField = await rp.getByTestId("pf-monthly").first().isDisabled().catch(() => null);
+            const rRows = () => rp.locator("[data-testid=pf-plan] tbody tr").evaluateAll((rs) => rs.map((r) => [...r.children].map((c) => c.textContent)));
+            pv.readRows0 = await rRows();
+            const writes = [];
+            const onReq = (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") writes.push(`${q.method()} ${u.pathname}`); };
+            rp.on("request", onReq);
+            await rt.click();
+            pv.readClosed = await rt.getAttribute("aria-expanded");
+            await rt.click();
+            pv.readReopened = await rt.getAttribute("aria-expanded");
+            await rp.waitForTimeout(1500); // past the save debounce: any write would have been sent
+            rp.off("request", onReq);
+            pv.readWrites = writes;
+            pv.readRows1 = await rRows();
+          });
+          pv.ownerSame = (await ownerRaw()) === pv.ownerBefore;
+          delete pv.ownerBefore; // not logged
+          check(`${tag} PFPA Read user (second context, QA_CFO_READ): sees the plan read-only, closes / reopens it; NO non-GET request to /api/* (no PUT ${API}/view); the owner's record byte-identical before / after; numbers unchanged`,
+            pv.readShown === 1 && pv.readField === true && pv.readClosed === "false" && pv.readReopened === "true" && pv.readWrites?.length === 0 &&
+              pv.ownerSame === true && pv.readRows0?.length >= 3 && JSON.stringify(pv.readRows1) === JSON.stringify(pv.readRows0) && JSON.stringify(pv.readRows0) === JSON.stringify(pv.rows0),
+            { readShown: pv.readShown, readField: pv.readField, readClosed: pv.readClosed, readReopened: pv.readReopened, readWrites: pv.readWrites, ownerSame: pv.ownerSame });
+        }
+      }
+      await page.unroute(`**${API}*`, injectPlan);
+      check(`${tag} PFPA-01..08 Planned vs actual (${pvMonth} plan ${viaSave ? "saved as next month" : "injected into the GET (fallback)"}): heading toggle ≥ 44 px open → closed (body empty) → stays closed after a reload → reopened; the view value holds "plan" with "overview" while closed and only "overview" after reopening; numbers identical across close / reopen; heads "Planned (set before the month)" / "Actual (as saved)"; note "Actual = what is saved."; no "now" in the section`,
+        pv.shown === 1 && pv.open0 === "true" && pv.h >= 44 && pv.closed === "false" && pv.bodyKids === 0 && pv.afterReload === "false" && pv.reopened === "true" &&
+          JSON.stringify(pv.viewClosed) === '["plan","overview"]' && JSON.stringify(pv.viewOpen) === '["overview"]' &&
+          pv.rows0?.length >= 3 && JSON.stringify(pv.rows1) === JSON.stringify(pv.rows0) &&
+          pv.heads?.[1] === "Planned (set before the month)" && pv.heads?.[2] === "Actual (as saved)" &&
+          /Actual = what is saved\. Difference/.test(pv.note ?? "") && pv.saidNow === false,
+        { viaSave, pvMonth, ...pv });
+      // Reset: the account back to its record from before the step (removes the plan this step created, restores the
+      // view value), then the pinned clock again.
+      await page.clock.setFixedTime(TODAY);
+      const del = await acct(page, base, "DELETE");
+      const put = await acct(page, base, "PUT", snap);
+      const after = (await acct(page, base, "GET")).body?.data ?? {};
+      check(`${tag} PFPA reset: the record is back to its pre-step value (no ${PLANS}, the view value restored)`, del.status === 200 && put.status === 200 && !(PLANS in after) && after["orpheus.finance.view.v1"] === snap["orpheus.finance.view.v1"], { del: del.status, put: put.status, plans: PLANS in after, view: after["orpheus.finance.view.v1"] });
+      await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
+      await ready(page);
       check(`${tag} PFE-10 / PFE-13 only /api/personal-finance requests besides auth; no page error`, api.every((a) => a === `GET ${API}` || a === `PUT ${API}` || a === `DELETE ${API}`) && errors.length === 0, { api: [...new Set(api)], errors });
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
@@ -605,5 +737,5 @@ try {
 }
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "personal-finance-e2e.json"), JSON.stringify(R, null, 2));
-console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
+console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""}${R.skipped.length ? `, ${R.skipped.length} SKIPPED (NOT A PASS)` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
 process.exit(fails.length ? 1 : 0);

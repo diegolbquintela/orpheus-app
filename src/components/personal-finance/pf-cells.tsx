@@ -11,15 +11,16 @@ export function SectionHead({
   id,
   toggle,
 }: {
-  numeral: string;
+  /** #276: optional (Planned vs actual has no numeral). */
+  numeral?: string;
   title: string;
   id: string;
   toggle?: { open: boolean; controls: string; onToggle: () => void; testId: string };
 }) {
   return (
     <div>
-      <p className="pf-label">{numeral}</p>
-      <h2 id={id} className="mt-2 text-2xl leading-none font-normal tracking-tight text-chalk">
+      {numeral ? <p className="pf-label">{numeral}</p> : null}
+      <h2 id={id} className={`${numeral ? "mt-2 " : ""}text-2xl leading-none font-normal tracking-tight text-chalk`}>
         {toggle ? (
           <button
             type="button"

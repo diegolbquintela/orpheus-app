@@ -91,8 +91,11 @@ export const NO_ACTUALS = "No actuals yet";
 const pending = <V extends Variance>(v: V): V => ({ ...v, actual: null, diff: null, pct: null, label: "—", tone: null });
 
 export const PLAN_TITLE = "Planned vs actual";
+/** #276 (spec §81, PFPA-03): the column labels say where each number comes from (display only). */
+export const PLANNED_LABEL = "Planned (set before the month)";
+export const ACTUAL_LABEL = "Actual (as saved)";
 export const planNote = (planned: string): string =>
-  `Planned = this month's lines as last saved before it started (${planned}). Actual = what is saved now. Difference = actual − planned.`;
+  `Planned = this month's lines as last saved before it started (${planned}). Actual = what is saved. Difference = actual − planned.`;
 /** #231 PV4 (spec 65.6, PFPV-26): the household zone the capture time is shown in (stored as UTC ISO). */
 export const PLAN_TIME_ZONE = "America/Toronto";
 /**
