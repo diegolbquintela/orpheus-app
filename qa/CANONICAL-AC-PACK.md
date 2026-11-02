@@ -2291,3 +2291,16 @@ Prefix PF2C was grep-confirmed unused in this pack and the repo before #279. Cli
 ### Amendment 2026-11-02 (#279): superseded criteria
 
 PFSS-30/31, PFST-06/07/08 and PFSO-19..22 assumed 2..3 saved picks (#223 Q-SS1). Under #279 they are asserted with one saved pick beside `This screen`; their multi-pick ordering parts (Compare follows the sort across several saved columns, PFSO-20 tie order) are no longer reachable in the UI. `sortSaved` itself is unchanged and still unit-tested.
+
+### Addendum 2026-11-02 (#279 CB2, EL/CFO on PR #297): colours pinned to the scenario
+
+Q-2C1..2C4 are accepted as built (This screen counts as 1 of 2; locked not hidden; hint wording; hint while the Saved table is open; the #278 sort carry-over stays as a fallback).
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PF2C-10 | BLOCK | The Compare palette is the existing 4 colours, unchanged (chalk, green, alert, dim); `This screen` is always slot 0 (chalk). (unit) |
+| PF2C-11 | BLOCK | A saved scenario's colour is slot `1 + fnv1a(id) mod 3` (32-bit FNV-1a; the name is hashed only when there is no id): deterministic across calls and independent of the name when an id exists. (unit) |
+| PF2C-12 | HIGH | A saved scenario never gets `This screen`'s colour; every other slot is reachable. Two saved scenarios may share a colour (accepted). (unit) |
+| PF2C-13 | BLOCK | **CB2.** Through the real page, a scenario keeps its colour (legend `data-colour` and swatch) through every Saved sort, removing and re-adding columns and re-picking; it is the same value as `compareColour` on the Saved entry; a position-based palette fails. (DOM) |
+| PF2C-14 | BLOCK | Colouring sends no request and writes no storage. (DOM) |
+| PF2C-15 | HIGH | Chromium at 360 / 390 / 768 / 1440: across re-sorts and column swaps each scenario's legend swatch and chart line stroke keep one colour, stroke equals swatch, `This screen` keeps one colour, no page overflow, CLS 0. (Chromium CB2-L1..L5) |

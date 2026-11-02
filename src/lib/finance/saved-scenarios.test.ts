@@ -10,6 +10,10 @@ import {
   addSaved,
   COMPARE_COLUMNS_MAX,
   COMPARE_LIMIT_HINT,
+  COMPARE_COLOURS,
+  compareColour,
+  fnv1a,
+  THIS_SCREEN_ID,
   COMPARE_MAX,
   COMPARE_MIN,
   COMPARE_SELECTED,
@@ -87,3 +91,31 @@ describe("#223 saved scenarios (pure)", () => {
     assert.equal(COMPARE_SELECTED, "Compare selected");
   });
 });
+
+describe("#279 CB2: colours pinned to the scenario (PF2C-10..12)", () => {
+  it("PF2C-10: the palette is the existing 4 Compare colours, unchanged, and This screen is slot 0", () => {
+    assert.deepEqual([...COMPARE_COLOURS], ["var(--color-chalk)", "var(--color-green)", "var(--color-alert)", "var(--color-dim)"]);
+    assert.equal(compareColour({ id: THIS_SCREEN_ID, name: "This screen" }), COMPARE_COLOURS[0]);
+    assert.equal(compareColour({ id: THIS_SCREEN_ID, name: "anything" }), COMPARE_COLOURS[0]);
+  });
+  it("PF2C-11: fnv1a is the 32-bit FNV-1a; colour = slot 1 + hash mod 3, deterministic, by id, name only as a fallback", () => {
+    assert.equal(fnv1a(""), 0x811c9dc5);
+    assert.equal(fnv1a("a"), 0xe40c292c);
+    assert.equal(fnv1a("foobar"), 0xbf9cf968);
+    for (const [id, slot] of [["s0", 2], ["s1", 1], ["s3", 3], ["c", 3], ["a", 2]] as const) {
+      for (let k = 0; k < 3; k++) assert.equal(compareColour({ id, name: "x" + k }), COMPARE_COLOURS[slot], `${id} call ${k}, any name`);
+    }
+    assert.equal(compareColour({ id: "", name: "s3" }), COMPARE_COLOURS[3], "no id: the name is hashed");
+    assert.equal(compareColour({ id: "", name: "s1" }), COMPARE_COLOURS[1]);
+  });
+  it("PF2C-12: a saved scenario never takes This screen's colour, and every non-zero slot is reachable", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 500; i++) {
+      const c = compareColour({ id: `id-${i}` });
+      assert.notEqual(c, COMPARE_COLOURS[0]);
+      seen.add(c);
+    }
+    assert.deepEqual([...seen].sort(), [...COMPARE_COLOURS.slice(1)].sort());
+  });
+});
+

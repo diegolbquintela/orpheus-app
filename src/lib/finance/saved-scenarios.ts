@@ -21,6 +21,23 @@ export const COMPARE_COLUMNS_MAX = 2;
 export const COMPARE_MIN = 1;
 export const COMPARE_MAX = COMPARE_COLUMNS_MAX - 1;
 /** #279: shown (and named by aria-describedby on each locked checkbox) while the limit is reached. */
+/** The Compare chart palette (unchanged since #223; was a local array in CompareTable, same 4 entries, same order). */
+export const COMPARE_COLOURS = ["var(--color-chalk)", "var(--color-green)", "var(--color-alert)", "var(--color-dim)"] as const;
+/** Compare's id for the live column. */
+export const THIS_SCREEN_ID = "now";
+/** 32-bit FNV-1a of a string (UTF-16 code units). Deterministic, no state. */
+export function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  return h >>> 0;
+}
+/** #279 CB2 (spec §84 addendum, AC PF2C-10..14): a column's colour is pinned to the scenario, never to its position.
+ *  `This screen` always takes slot 0; a saved scenario takes 1 + fnv1a(id || name) mod (length - 1), so it never shares
+ *  This screen's colour. Two saved scenarios may share a colour (accepted; nothing is stored to avoid it). */
+export function compareColour(c: { id: string; name?: string }): string {
+  if (c.id === THIS_SCREEN_ID) return COMPARE_COLOURS[0];
+  return COMPARE_COLOURS[1 + (fnv1a(c.id || c.name || "") % (COMPARE_COLOURS.length - 1))];
+}
 export const COMPARE_LIMIT_HINT = "Compare limit reached: This screen and 1 saved scenario.";
 export const COMPARE_TOGGLE = "Compare with saved scenarios";
 export const COMPARE_SELECTED = "Compare selected";

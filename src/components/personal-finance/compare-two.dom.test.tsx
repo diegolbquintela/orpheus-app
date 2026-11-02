@@ -14,6 +14,7 @@ import { writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
 import { RecordStore, type PfRecord } from "@/lib/finance/record";
 import { NO_SCENARIO, SCENARIO_KEY, type SavedEntry } from "@/lib/finance/scenario-key";
+import { COMPARE_COLOURS, compareColour } from "@/lib/finance/saved-scenarios";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -176,5 +177,44 @@ describe("#279 Compare limited to This screen + 1 saved (PF2C)", () => {
       assert.equal(storage(), before.storage);
       assert.equal(q(el, "pf-scenario-path")!.textContent, before.calc);
     }
+  });
+
+  // CB2 (spec §84 addendum 2026-11-02, AC PF2C-13/14): colours are pinned to the scenario, never the column position.
+  // Fixture slots (1 + fnv1a(id) mod 3): s0 → 2 (alert), s1 → 1 (green), s3 → 3 (dim). A position-based palette would give
+  // every second column slot 1 (green), so s0 and s3 kill it.
+  const legend = (el: HTMLElement) => qa(el, "pf-compare-legend-item").map((li) => li.getAttribute("data-colour"));
+  const swatch = (el: HTMLElement) => qa(el, "pf-compare-legend-item").map((li) => (li.querySelector(".pf-swatch") as HTMLElement).style.background);
+  const pickById = async (el: HTMLElement, name: string) => {
+    const on = qa(el, "pf-saved-item").findIndex((tr) => (q(tr, "pf-saved-compare") as HTMLInputElement).checked);
+    if (on >= 0) await click(box(el, on));
+    await click(box(el, qa(el, "pf-saved-item").findIndex((tr) => q(tr, "pf-saved-item-name")!.textContent === name)));
+    if (!q(el, "pf-compare-table")) await click(q(el, "pf-saved-compare-button")!);
+  };
+  it("PF2C-13 (CB2): a scenario keeps its colour through every sort, column remove/add and re-pick; This screen is always slot 0", async () => {
+    server(record());
+    const el = await render();
+    const want: Record<string, string> = { Delta: COMPARE_COLOURS[2], "alpha 2": COMPARE_COLOURS[1], "alpha 10": COMPARE_COLOURS[3] };
+    for (const name of ["Delta", "alpha 10", "alpha 2", "Delta", "alpha 10"]) {
+      await pickById(el, name);
+      assert.deepEqual(heads(el), ["This screen", name]);
+      assert.deepEqual(legend(el), [COMPARE_COLOURS[0], want[name]], name);
+      assert.deepEqual(swatch(el), [COMPARE_COLOURS[0], want[name]], `${name} swatch`);
+      for (const col of ["name", "name", "from", "from", "from"]) {
+        await click(q(el, `pf-saved-sort-${col}`)!);
+        assert.deepEqual(legend(el), [COMPARE_COLOURS[0], want[name]], `${name} after sorting by ${col}`);
+      }
+    }
+    // Same as the helper on the Saved entry itself (Saved vs Compare use one function on the same id).
+    for (const e of SAVED) if (want[e.name]) assert.equal(compareColour(e), want[e.name]);
+  });
+
+  it("PF2C-14 (CB2): colouring sends no request and writes no storage", async () => {
+    const calls = server(record());
+    const el = await render();
+    const before = { calls: calls.length, storage: storage() };
+    for (const name of ["Delta", "alpha 10", "Delta"]) await pickById(el, name);
+    await click(q(el, "pf-saved-sort-name")!);
+    assert.equal(calls.length, before.calls);
+    assert.equal(storage(), before.storage);
   });
 });

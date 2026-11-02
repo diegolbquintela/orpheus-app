@@ -51,6 +51,8 @@ import {
   addSaved,
   basisChanged,
   COMPARE_LIMIT_HINT,
+  compareColour,
+  THIS_SCREEN_ID,
   COMPARE_MAX,
   COMPARE_MIN,
   COMPARE_SELECTED,
@@ -894,7 +896,7 @@ function SavedScenarios({
 function CompareTable({ live, entries, horizon }: { live: Inputs; entries: SavedEntry[]; horizon: Horizon }) {
   const uid = useId();
   const cols = [
-    { id: "now", name: "This screen", proj: project(live, horizon) },
+    { id: THIS_SCREEN_ID, name: "This screen", proj: project(live, horizon) },
     ...entries.map((e) => ({ id: e.id, name: e.name, proj: project({ ...e.inputs, current: live.current }, horizon) })),
   ];
   const rows: { key: string; name: string; cell: (p: ReturnType<typeof project>) => string }[] = [
@@ -909,7 +911,6 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
     label: pt.label,
     ...Object.fromEntries(cols.map((c) => [c.id, c.proj.points[i]?.net ?? null])),
   }));
-  const colors = ["var(--color-chalk)", "var(--color-green)", "var(--color-alert)", "var(--color-dim)"];
   return (
     <section className="pf-section" aria-labelledby={`${uid}-cmp`} data-testid="pf-compare-section">
       <p className="pf-label">09</p>
@@ -951,16 +952,16 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
               <XAxis dataKey="label" tick={{ fill: "var(--color-dim)", fontSize: 12 }} tickLine={false} axisLine={false} ticks={xTickIndexes(data.length).map((i) => data[i].label)} interval={0} />
               <YAxis tick={{ fill: "var(--color-dim)", fontSize: 12 }} tickLine={false} axisLine={false} width={axisWidth(data.flatMap((d) => cols.map((c) => (d as unknown as Record<string, number>)[c.id] ?? 0)))} tickFormatter={(v: number) => COMPACT.format(v)} />
               <ReferenceLine y={0} stroke="var(--color-rule)" />
-              {cols.map((c, i) => (
-                <Line key={c.id} type="linear" dataKey={c.id} name={c.name} stroke={colors[i]} strokeWidth={2} dot={false} isAnimationActive={false} />
+              {cols.map((c) => (
+                <Line key={c.id} type="linear" dataKey={c.id} name={c.name} stroke={compareColour(c)} strokeWidth={2} dot={false} isAnimationActive={false} />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
         <ul className="pf-legend">
-          {cols.map((c, i) => (
-            <li key={c.id}>
-              <span className="pf-swatch" style={{ background: colors[i] }} aria-hidden="true" />
+          {cols.map((c) => (
+            <li key={c.id} data-testid="pf-compare-legend-item" data-colour={compareColour(c)}>
+              <span className="pf-swatch" style={{ background: compareColour(c) }} aria-hidden="true" />
               {`${c.name} (net assets)`}
             </li>
           ))}
