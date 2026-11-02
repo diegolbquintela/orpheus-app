@@ -15,6 +15,8 @@
 //   #278 CA1 PFSO-23: Saved scenarios sort (name / From cycle, aria-sort, Compare follows), owner + Read user, no writes, reset.
 //   #280 PFCH-15..17: chart titles / subtitles on the main page and the scenario screen, Overview 12 months with Future on,
 //   Projected path present, no writes; Read user (QA_CFO_READ) or SKIPPED (NOT A PASS); reset.
+//   #281 PFWI-11..16: the Scenario what-if note (owner text / Read text, under the title), the Net assets now hint, old
+//   strings absent, no writes; Read user (QA_CFO_READ) or SKIPPED (NOT A PASS); reset. Runs before PFCH.
 //   #278: every log line and the JSON artifact mask email addresses as <email> (qa/tools/redact.mjs).
 //   PFE-12 (regression) is site-style-regression.mjs's run on the same preview.
 // The signed-in part refuses to run against production (it writes to the account).
@@ -942,6 +944,73 @@ try {
           const back = (await acct(page, base, "GET")).body?.data ?? {};
           const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapS).sort()) && Object.keys(snapS).every((k) => back[k] === snapS[k]);
           check(`${tag} PFSO reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
+        }
+      }
+      // #281 QA r1 CH1 (spec §86 + 86.5, AC PFWI-11..16): signed-in what-if note on /personal-finance/scenario. The owner
+      // sees "What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy." directly under the
+      // "Scenario Analysis." title; a REAL Read user (QA_CFO_READ, BV4 pattern; SKIPPED (NOT A PASS) when unset) sees the
+      // first sentence only. The Net assets now hint, the old strings absent, and viewing sends NO non-GET /api/* and writes
+      // no storage. Reset at the end.
+      {
+        const snapW = { ...((await acct(page, base, "GET")).body?.data ?? {}) };
+        const WI_OWNER = "What-ifs only: edits are cleared when you leave. Save scenario keeps a named copy.";
+        const WI_READ = "What-ifs only: edits are cleared when you leave.";
+        const WI_HINT = "A what-if: it never changes your saved net assets. A negative amount is allowed.";
+        const WI_OLD = ["What-if only. Nothing on this screen is ever saved.", "Edits here are what-ifs: they never change your Personal Finance figures", "A what-if: never saved."];
+        const view = async (pg) => {
+          const w = [];
+          const onReq = (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") w.push(`${q.method()} ${u.pathname}`); };
+          pg.on("request", onReq);
+          await pg.goto(`${base}/personal-finance/scenario`, { waitUntil: "networkidle" });
+          await pg.getByTestId("pf-scenario-whatif").waitFor({ timeout: 20000 });
+          const st0 = await pg.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]));
+          await pg.waitForTimeout(1500);
+          const o = await pg.evaluate((old) => {
+            const n = [...document.querySelectorAll("[data-testid=pf-scenario-whatif]")];
+            const h1 = document.querySelector("h1");
+            const net = document.querySelector("[data-testid=pf-scenario-net]");
+            const hint = net ? document.getElementById((net.getAttribute("aria-describedby") ?? "").split(" ")[0]) : null;
+            const body = document.body.textContent ?? "";
+            return { count: n.length, note: n[0]?.textContent ?? null, title: h1?.textContent ?? null,
+              under: !!h1 && !!n[0] && h1.parentElement === n[0].parentElement && !!(h1.compareDocumentPosition(n[0]) & 4),
+              hint: hint?.textContent ?? null, old: old.filter((s) => body.includes(s)), saveSentence: body.includes("Save scenario keeps a named copy.") };
+          }, WI_OLD);
+          o.storage = (await pg.evaluate(() => JSON.stringify([{ ...localStorage }, { ...sessionStorage }]))) === st0;
+          pg.off("request", onReq);
+          o.writes = w;
+          return o;
+        };
+        const placed = (o) => o.count === 1 && o.title === "Scenario Analysis." && o.under;
+        const hintOk = (o) => typeof o.hint === "string" && o.hint.endsWith(WI_HINT);
+        const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
+        try {
+          const before = await ownerRaw();
+          const o = await view(page);
+          check(`${tag} PFWI-11 (#281) owner: one note directly under "Scenario Analysis." reading exactly "${WI_OWNER}"`, placed(o) && o.note === WI_OWNER, { count: o.count, note: o.note, title: o.title, under: o.under });
+          check(`${tag} PFWI-13 (#281) owner: Net assets now hint ends "${WI_HINT}"; old strings absent (PFWI-02)`, hintOk(o) && o.old.length === 0, { hint: o.hint, old: o.old });
+          const same = (await ownerRaw()) === before;
+          check(`${tag} PFWI-14 (#281) owner: viewing sends NO non-GET /api/*, writes no storage; the record byte-identical`, o.writes.length === 0 && o.storage && same, { writes: o.writes, storage: o.storage, same });
+          const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
+          if (!rEmail || !rPassword) skip(`${tag} PFWI-12/15 Read-user what-if note, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+          else {
+            const rd = {};
+            const ownerBefore = await ownerRaw();
+            await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFWI Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
+              rd.o = await view(rp);
+            });
+            rd.same = (await ownerRaw()) === ownerBefore;
+            const r = rd.o;
+            check(`${tag} PFWI-12 (#281) Read user (second context, QA_CFO_READ): one note under "Scenario Analysis." reading exactly "${WI_READ}", no "Save scenario keeps a named copy."`, !!r && placed(r) && r.note === WI_READ && !r.saveSentence, { count: r?.count, note: r?.note, under: r?.under, saveSentence: r?.saveSentence });
+            check(`${tag} PFWI-15 (#281) Read user: Net assets now hint ends "${WI_HINT}"; old strings absent; NO non-GET /api/*; no storage write; the owner's record byte-identical`, !!r && hintOk(r) && r.old.length === 0 && r.writes.length === 0 && r.storage && rd.same === true, { hint: r?.hint, old: r?.old, writes: r?.writes, storage: r?.storage, same: rd.same });
+          }
+        } catch (e) {
+          check(`${tag} PFWI step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
+        } finally {
+          const d = await acct(page, base, "DELETE");
+          const p = await acct(page, base, "PUT", snapW);
+          const back = (await acct(page, base, "GET")).body?.data ?? {};
+          const same = JSON.stringify(Object.keys(back).sort()) === JSON.stringify(Object.keys(snapW).sort()) && Object.keys(snapW).every((k) => back[k] === snapW[k]);
+          check(`${tag} PFWI-16 reset: qa-pf back to its pre-step record (DELETE, PUT the snapshot, every value byte-identical)`, d.status === 200 && p.status === 200 && same, { del: d.status, put: p.status, same });
         }
       }
       // #280 (spec §85 + Q-CH2 addendum, AC PFCH-15/16/17): signed-in chart titles. On /personal-finance the Overview chart

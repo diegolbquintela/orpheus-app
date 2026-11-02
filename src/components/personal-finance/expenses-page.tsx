@@ -497,7 +497,8 @@ export function PersonalFinancePage({
     // kept in the store (sent with the next successful Save), but no PUT is sent; `Not saved.` shows and stays until
     // a save succeeds; the edits stay on screen.
     const blockedNow = hasErrors && !readOnly;
-    // #222 F1: never `Not saved.` on the scenario screen (a sandbox: nothing is ever saved there).
+    // #222 F1: never `Not saved.` on the scenario screen (edits are never saved there; only Save scenario, Rename,
+    // Update and Delete write, #281 spec §86).
     if (blockedNow && !scenario) setSaveFailed(true);
     setView((current) => {
       if (!current) return current;
