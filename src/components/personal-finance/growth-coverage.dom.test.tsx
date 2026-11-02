@@ -9,11 +9,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { ScenarioPage } from "./scenario-page";
 import { writeRates } from "@/lib/finance/equity";
 import { writeExpenses } from "@/lib/finance/expenses";
-import { MONTHS_KEY, writeMonths } from "@/lib/finance/months";
+import { writeMonths } from "@/lib/finance/months";
 import { NO_OVERVIEW, writeOverview } from "@/lib/finance/overview";
-import { RecordStore, STALE_MESSAGE, type PfRecord } from "@/lib/finance/record";
-import { readScenario, SCENARIO_KEY } from "@/lib/finance/scenario-key";
-import { NAME_TAKEN } from "@/lib/finance/saved-scenarios";
+import { RecordStore, type PfRecord } from "@/lib/finance/record";
+import { readScenario } from "@/lib/finance/scenario-key";
 
 let root: Root | undefined;
 let container: HTMLElement | undefined;
@@ -81,24 +80,6 @@ async function click(el: Element) {
   await act(async () => {});
 }
 const monthCell = (el: HTMLElement, row: string) => q(q(el, `pf-scenario-row-${row}`)!, "pf-scenario-month")!.textContent;
-const names = (el: HTMLElement) => qa(el, "pf-saved-item-name").map((n) => n.textContent);
-const confirmAs = (answer: boolean) => {
-  const asked: string[] = [];
-  dom.window.confirm = (m?: string) => {
-    asked.push(String(m));
-    return answer;
-  };
-  return asked;
-};
-/** Every PUT: only the scenario value differs from the record fetched just before it (PFSS-40). */
-function onlyScenarioChanged(st: ReturnType<typeof server>) {
-  const puts = st.calls.filter((c) => c.method === "PUT");
-  for (const p of puts) {
-    const keys = new Set([...Object.keys(p.before!), ...Object.keys(p.body!.data)]);
-    for (const k of keys) if (k !== SCENARIO_KEY) assert.equal(p.body!.data[k], p.before![k], `PUT changed ${k}`);
-  }
-  return puts.length;
-}
 async function saveAs(el: HTMLElement, name: string) {
   await type(q(el, "pf-saved-name")!, name);
   await click(q(el, "pf-saved-save")!);
