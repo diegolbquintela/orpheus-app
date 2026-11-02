@@ -62,7 +62,9 @@ export type { Scenario };
 export const SCENARIO_PATH = "/personal-finance/scenario";
 // #275: the visible name is Scenario Analysis (pf-nav.ts); the path stays /personal-finance/scenario.
 export const SCENARIO_TITLE = PF_PAGE_TITLES.scenario;
-export const WHAT_IF_NOTE = "What-if only. Nothing on this screen is ever saved.";
+// #281 (spec §86, AC PFWI; was "What-if only. Nothing on this screen is ever saved.", untrue once #223 Save scenario
+// wrote named scenarios): edits stay in memory (no `save` on the screen's store), only Save / Rename / Update / Delete write.
+export const WHAT_IF_NOTE = "Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy.";
 export const BASED_ON_LAST_MONTH = "Based on last month";
 export const LOAD_ERROR = "Couldn't load your figures.";
 export const NET_ASSETS_ERROR = "Enter an amount, for example 25,000 or -1,500.50.";

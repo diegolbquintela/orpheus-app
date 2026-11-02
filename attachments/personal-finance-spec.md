@@ -2928,3 +2928,19 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 ### §85 addendum 2026-11-02 (Q-CH2, CFO via EL on PR #298): Overview charts stop at this month
 
 Every Overview chart (`Last 12 months`, on the main page and the scenario screen) plots recorded history only and ends at this month, with Future on or off. This is a display filter in `OverviewChart` (`points.filter(p => !p.future)`); `summarize` and the projection maths are unchanged. The Future years still appear in text (the coverage line `… in N years` and the Future controls); the forward path is the `Next {horizon} from now` chart. The Overview subtitle drops `, then N years ahead…` everywhere: `Income, expenses and net assets for each month up to {Month YYYY} (recorded history).` Projected path: `Flat forward projection: this screen's {Month YYYY} income and expenses held flat, starting from Net assets now.` Compare unchanged. The open question in §85 is resolved by this.
+
+## 86. Personal Finance: the Scenario page's what-if note says what is kept (#281, MEDIUM; added 2026-11-02)
+
+86.1 **Why.** The note under the Scenario Analysis title read `What-if only. Nothing on this screen is ever saved.` Since #223 (§60) and #233 (§66) that is untrue: Save scenario, Rename, Update and Delete write named scenarios to the account. Users could not tell what is kept.
+
+86.2 **What the screen actually keeps (findings, built behaviour, unchanged by #281).**
+- Every edit (income, expense lines, rates, household currency, Overview fields, net-assets start), section toggles, the Future toggle and its year buttons go into an in-memory store with no `save` (`scenario-page.tsx` `loadStore`, `new RecordStore(...)`; `expenses-page.tsx` section toggle `if (scenario) return next`; first-load migrations `!scenario`). Nothing goes to localStorage, sessionStorage or the server; leaving or reloading the screen re-reads the saved record, so the edits are gone.
+- `Save scenario` (writers) stores a named copy of what the screen shows: its inputs and the page values (expenses, income, rates, household, Overview incl. Future on/off and years) and the shown month's lines. `Rename`, `Update` (after a confirm) and `Delete` change saved scenarios. Each is one fresh GET then one PUT of the record with only `orpheus.finance.scenario.v1` changed (`scenario-client.ts` `changeSaved`, the client's only writer: HTL-07).
+- `Open`, `Compare` (and its `This screen` column) and the sort headers send nothing.
+- Your Personal Finance figures (the main page's months, lines and settings) are never changed by this screen.
+
+86.3 **Copy (option a, clearer wording).** The note (`data-testid="pf-scenario-whatif"`, same place under the title, same `pf-history-note` style) reads exactly:
+`Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy.`
+It appears only there (not in Compare, the This screen column or any hint). No logic, calc, storage, key, table, env var or dependency changes. AC: PFWI-01..06.
+
+86.4 **Same nuance, net-assets hint.** The Net assets now field's hint ended ` A what-if: never saved. A negative amount is allowed.`; Save scenario keeps that start (`inputs.start`), so it now ends ` A what-if: it never changes your saved net assets. A negative amount is allowed.` (AC PFWI-07). Its basis text before it is unchanged.

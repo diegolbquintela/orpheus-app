@@ -136,6 +136,11 @@ describe("#221 Scenario page = the Personal Finance page in scenario mode", () =
     assert.equal(l.count(), 1);
     assert.equal(el.querySelector("h1")?.textContent, "Scenario Analysis.", "#275 PFNL-02");
     assert.equal(q(el, "pf-scenario-whatif")?.textContent, WHAT_IF_NOTE);
+    const OLD_WHAT_IF_NOTE = "What-if only. Nothing on this screen is ever saved."; // #281: the old note
+    // #281 PFWI-01 / PFWI-02: the exact new note; the old "Nothing on this screen is ever saved." is nowhere on the screen.
+    assert.equal(WHAT_IF_NOTE, "Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy.");
+    assert.ok(!el.textContent?.includes(OLD_WHAT_IF_NOTE) && !el.textContent?.includes("ever saved"), "PFWI-02"); assert.ok(el.textContent?.includes("A what-if: it never changes your saved net assets. A negative amount is allowed."), "PFWI-07");
+    assert.equal(el.querySelectorAll('[data-testid="pf-scenario-whatif"]').length, 1, "PFWI-03: one note, under the title");
     assert.equal(q(el, "pf-scenario-basis")?.textContent, `${BASED_ON_LAST_MONTH} (September 2026).`);
     for (const id of ["pf-income-block", "pf-expenses-block", "pf-summary-block", "pf-overview", "pf-scenario-chart", "pf-scenario-totals"]) assert.ok(q(el, id), id);
     for (const id of ["pf-filter", "pf-filter-cell", "pf-categories", "pf-month-control", "pf-month-save", "pf-scenario-save"]) assert.equal(q(el, id), null, id);

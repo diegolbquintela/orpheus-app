@@ -810,3 +810,5 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Chart titles (#280, 2026-11-02).** Each chart on the scenario screen now has a visible title and one-line subtitle: `Last 12 months` (what was recorded each month) and `Next {horizon} from now` (where this screen's numbers lead). Compare's chart is titled `Net assets by scenario`. The charts' data did not change.
 
 **Chart titles QA (#280 PFCH, 2026-11-02).** The Personal Finance e2e (`qa/tools/personal-finance-e2e.mjs`) now checks the chart titles and subtitles on the main page and the scenario screen, that `Last 12 months` stays at the recorded months with Future on, and that nothing is written.
+
+**What-if note (#281, 2026-11-02).** The note under the Scenario Analysis title now says what is kept: "Edits here are what-ifs: they never change your Personal Finance figures and are cleared when you leave. Save scenario keeps a named copy." (was "What-if only. Nothing on this screen is ever saved.").
