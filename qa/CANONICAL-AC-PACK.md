@@ -2387,3 +2387,7 @@ CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of th
 - **PFGR-08** A Read user sees the box and can toggle it (rows appear), with no non-GET request.
 - **PFGR-09** At 360 / 390 / 768 / 1440: no horizontal overflow (the label and rows wrap), AA contrast, CLS 0, no gold, no tnum / tabular-nums.
 - **PFGR-10** The signed-in e2e step (`qa/tools/personal-finance-e2e.mjs`, PFGR) resets qa-pf to its pre-step record (DELETE, PUT the snapshot, byte-identical).
+
+### Amendment 2026-11-02 (#282 CFO Q-GR5): the +coverage rows' total
+
+- **PFGR-04 (amended)** On, the two rows `Net income + equity coverage` and `Surplus + equity coverage` follow the table: Today / Scenario = the row's monthly net income / surplus + that column's monthly equity coverage (unchanged). The third cell is no longer `—`: it is the row's Net income / Surplus over the horizon + the SUM, over months 1..horizon, of each projected month's monthly equity coverage (net assets × rate ÷ 100 ÷ 12 from that month's projected net assets; 0 for a month with net assets ≤ 0; `—` with no rate). It is not horizon × end coverage (they differ whenever coverage changes month to month; equal when it is flat). The cell shows the figure with the caption `Total over {horizon}` (e.g. `Total over 12 months`) under it; the shared column header stays `Over {horizon}` for every row.

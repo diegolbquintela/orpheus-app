@@ -1017,7 +1017,7 @@ try {
       }
       // #282 (spec §87, AC PFGR-10): signed-in Growth earned line + "Count equity coverage as income" on
       // /personal-finance/scenario. Owner: the dim line under Growth earned, the box labelled, off, label ≥ 44 px; on
-      // (when a rate and start exist; else the disabled state) the two extra rows with Over {horizon} "—", every existing
+      // (when a rate and start exist; else the disabled state) the two extra rows (third cell: the summed monthly coverage, "Total over {horizon}"), every existing
       // Totals row and net assets identical on or off; toggling sends NO non-GET /api/* and writes no storage; a reload
       // shows it off. A REAL Read user (QA_CFO_READ; SKIPPED (NOT A PASS) when unset) sees and toggles it, no writes.
       // Reset at the end. (The Read sign-in per viewport is unchanged: the 429 is the known CH3 follow-up.)
@@ -1046,7 +1046,10 @@ try {
               label: label?.textContent ?? null, h: label ? label.getBoundingClientRect().height : 0, checked: !!box?.checked, disabled: !!box?.disabled,
               rateNote: document.querySelector("[data-testid=pf-coverage-income-note]")?.textContent ?? null,
               existing: rows.filter((r) => !extra.includes(r)).map((r) => r.textContent).join("|") + "|" + document.querySelector("[data-testid=pf-scenario-net]")?.value,
-              extra: extra.map((r) => [r.querySelector("[role=rowheader]")?.textContent, r.querySelector("[data-testid=pf-scenario-total]")?.textContent]),
+              extra: extra.map((r) => [r.querySelector("[role=rowheader]")?.textContent, r.querySelector("[data-testid=pf-coverage-total-caption]")?.textContent]),
+              // #282 Q-GR5 (amended 2026-11-02): [value, the same row's base (Net income / Surplus) over the horizon].
+              totals: extra.map((r, i) => [r.querySelector("[data-testid=pf-coverage-total-value]")?.textContent, document.querySelector(`[data-testid=pf-scenario-row-${i ? "surplus" : "income"}] [data-testid=pf-scenario-total]`)?.textContent]),
+              head: document.querySelector("[data-testid=pf-scenario-total-head]")?.textContent ?? null,
               overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
             };
           });
@@ -1077,7 +1080,11 @@ try {
             check(`${tag} PFGR-06 (#282) ${who}: disabled with no rate / start (rate note "Set rate under Expenses" when the rate is missing)`, o.off.disabled && (o.off.rateNote === null || o.off.rateNote === "Set rate under Expenses"), { disabled: o.off.disabled, rateNote: o.off.rateNote });
             skip(`${tag} PFGR-04/05/07 ${who} box on: qa-pf has no withdrawal rate, so the box is disabled (PFGR-06 checked instead)`);
           } else {
-            check(`${tag} PFGR-04 (#282) ${who}: on shows exactly ${GR_ROWS.join(" / ")}, Over {horizon} "—"`, JSON.stringify(o.on.extra) === JSON.stringify(GR_ROWS.map((n) => [n, "—"])) && !o.on.overflow, { extra: o.on.extra, overflow: o.on.overflow });
+            // Amended 2026-11-02 (Q-GR5): the third cell is the base over the horizon + the summed monthly coverage (> the
+            // base: net assets 120,000 > 0 every month), captioned "Total over {horizon}"; the shared header is unchanged.
+            const num = (t) => Number(String(t ?? "").replace(/,/g, ""));
+            const cap = `Total over ${String(o.on.head ?? "").replace(/^Over /, "")}`;
+            check(`${tag} PFGR-04 (#282, amended Q-GR5) ${who}: on shows exactly ${GR_ROWS.join(" / ")}, each third cell a total > its row over the horizon, captioned "${cap}"; header "${o.on.head}" unchanged`, JSON.stringify(o.on.extra) === JSON.stringify(GR_ROWS.map((n) => [n, cap])) && /^Over /.test(o.on.head ?? "") && o.on.head === o.off.head && o.on.totals.every(([v, b]) => Number.isFinite(num(v)) && num(v) > num(b)) && !o.on.overflow, { extra: o.on.extra, totals: o.on.totals, head: o.on.head, overflow: o.on.overflow });
             check(`${tag} PFGR-05 (#282) ${who}: every existing Totals row and net assets identical on / off`, o.on.existing === o.off.existing && o.back.existing === o.off.existing && o.back.extra.length === 0, { same: o.on.existing === o.off.existing });
             check(`${tag} PFGR-07 (#282) ${who}: reload shows the box off`, o.reload === false, { reload: o.reload });
           }

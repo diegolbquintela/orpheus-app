@@ -256,7 +256,7 @@ describe("#215 stored scenario value (unchanged)", () => {
 });
 
 // #282 (spec §87, AC PFGR-04/05): the display-only "+ equity coverage" rows.
-import { COUNT_COVERAGE_LABEL, coverageOverHorizon, GROWTH_EARNED_NOTE, INCOME_WITH_COVERAGE, SURPLUS_WITH_COVERAGE, withCoverage } from "./scenario.ts";
+import { COUNT_COVERAGE_LABEL, coverageOverHorizon, coverageTotalCaption, GROWTH_EARNED_NOTE, INCOME_WITH_COVERAGE, SURPLUS_WITH_COVERAGE, withCoverage } from "./scenario.ts";
 describe("#282 withCoverage / coverageOverHorizon", () => {
   const inp: Inputs = { current: "2026-10", start: 100000, income: 7500, expenses: 3000, growth: 5, rate: 4 };
   it("PFGR-04: Today / Scenario = net income and surplus + the monthly coverage; null coverage → null (\"—\")", () => {
@@ -274,12 +274,28 @@ describe("#282 withCoverage / coverageOverHorizon", () => {
     assert.equal(COUNT_COVERAGE_LABEL, "Count equity coverage as income");
     assert.equal(GROWTH_EARNED_NOTE, "What growth added to net assets, beyond surplus.");
   });
-  it("PFGR-04 / Q-GR5: Over {horizon} is null (\"—\") for both rows, from coverageOverHorizon only", () => {
-    // Q-GR5: when the CFO picks "sum of monthly coverage" or "horizon × end coverage", change coverageOverHorizon
-    // (scenario.ts) and update these two expectations; withCoverage then adds it to the horizon's income / surplus.
-    const proj = project(inp, 60);
-    assert.equal(coverageOverHorizon(proj, 60), null);
-    for (const r of withCoverage(proj, 1, proj, 1, 60)) assert.equal(r.total, null, r.key);
+  it("PFGR-04 / Q-GR5 (spec §87.6): month to month: net assets cross zero, so the sum of each month's coverage ≠ horizon × end", () => {
+    // start −1,200, surplus +100 a month, growth 0, rate 12 %: net at month i = −1,200 + 100·i; months 1..12 are ≤ 0 (0
+    // coverage), months 13..24 are 100..1,200 → coverage net × 12 ÷ 100 ÷ 12 = 1..12 → sum 78. End coverage 12 × 24 = 288.
+    const proj = project({ current: "2026-10", start: -1200, income: 1100, expenses: 1000, growth: 0, rate: 12 }, 24);
+    assert.equal(proj.totals.coverageMonthly, 12);
+    assert.equal(coverageOverHorizon(proj, 24), 78);
+    assert.notEqual(coverageOverHorizon(proj, 24), 24 * proj.totals.coverageMonthly!);
+    const [inc, sur] = withCoverage(proj, null, proj, proj.totals.coverageMonthly, 24);
+    assert.equal(inc.total, 1100 * 24 + 78);
+    assert.equal(sur.total, 100 * 24 + 78);
+    assert.equal(coverageTotalCaption(24), "Total over 2 years");
+    assert.equal(coverageTotalCaption(12), "Total over 12 months");
+  });
+  it("PFGR-04 / Q-GR5: flat coverage (surplus 0, growth 0): the sum = horizon × the constant monthly coverage", () => {
+    const proj = project({ current: "2026-10", start: 120000, income: 3000, expenses: 3000, growth: 0, rate: 4 }, 12);
+    assert.equal(proj.totals.coverageMonthly, 400);
+    assert.equal(coverageOverHorizon(proj, 12), 12 * 400);
+  });
+  it("PFGR-04 / Q-GR5: no rate → null (\"—\")", () => {
+    const proj = project({ ...inp, rate: null }, 12);
+    assert.equal(coverageOverHorizon(proj, 12), null);
+    for (const r of withCoverage(proj, null, proj, null, 12)) assert.equal(r.total, null, r.key);
   });
   it("PFGR-05: pure: the projection is unchanged by building the rows", () => {
     const proj = project(inp, 12);

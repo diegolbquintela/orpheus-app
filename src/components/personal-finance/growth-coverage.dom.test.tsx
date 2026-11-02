@@ -155,7 +155,7 @@ describe("#282 PFGR Growth earned line + Count equity coverage as income", () =>
     assert.ok(!el.textContent!.includes(INCOME_WITH_COVERAGE) && !el.textContent!.includes(SURPLUS_WITH_COVERAGE));
   });
 
-  it("PFGR-04: on, the two rows follow the table: net income / surplus + monthly coverage; Over {horizon} is —", async () => {
+  it("PFGR-04: on, the two rows follow the table: net income / surplus + monthly coverage; third cell = income / surplus over the horizon + the summed monthly coverage, captioned Total over {horizon}", async () => {
     server(record());
     const el = await render();
     await type(q(el, "pf-scenario-net")!, "120,000");
@@ -173,8 +173,19 @@ describe("#282 PFGR Growth earned line + Count equity coverage as income", () =>
     // Today: the saved figures + the saved coverage (its own Today cell).
     const today = (row: string) => nums(cell(el, row, "pf-scenario-today"));
     assert.equal(today("income-coverage"), Math.round((today("income") + nums(cell(el, "coverage", "pf-scenario-today"))) * 100) / 100);
-    assert.equal(q(inc, "pf-scenario-total")!.textContent, "—");
-    assert.equal(q(sur, "pf-scenario-total")!.textContent, "—");
+    // Q-GR5 (spec §87.6, amended 2026-11-02): the third cell = the horizon's income / surplus + the SUM of each month's
+    // coverage. Growth 0, start 120,000, surplus S a month: net at month i = 120,000 + S·i (> 0), coverage = net × 4 ÷ 1,200.
+    const S = nums(monthCell(el, "surplus"));
+    let sum = 0;
+    for (let i = 1; i <= 12; i++) sum += ((120000 + S * i) * 4) / 1200;
+    sum = Math.round(sum * 100) / 100;
+    assert.notEqual(sum, 12 * 400, "not horizon × start coverage");
+    const total = (row: HTMLElement) => nums(q(row, "pf-coverage-total-value")!.textContent);
+    assert.equal(total(inc), Math.round((nums(cell(el, "income", "pf-scenario-total")) + sum) * 100) / 100);
+    assert.equal(total(sur), Math.round((nums(cell(el, "surplus", "pf-scenario-total")) + sum) * 100) / 100);
+    for (const r of [inc, sur]) assert.equal(q(r, "pf-coverage-total-caption")!.textContent, "Total over 12 months");
+    assert.equal(q(el, "pf-scenario-total-head")!.textContent, "Over 12 months", "the shared header (also the existing rows') is unchanged");
+    assert.equal(qa(el, "pf-coverage-total-caption").length, 2, "only the two new rows carry the caption");
     await click(box(el));
     assert.equal(q(el, "pf-scenario-row-income-coverage"), null, "off again");
   });

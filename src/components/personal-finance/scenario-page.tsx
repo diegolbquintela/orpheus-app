@@ -46,6 +46,7 @@ import {
   savedInputs,
   SCENARIO_PATH,
   COUNT_COVERAGE_LABEL,
+  coverageTotalCaption,
   GROWTH_EARNED_NOTE,
   withCoverage,
 } from "@/lib/finance/scenario";
@@ -398,6 +399,7 @@ function TotalsTable({
           today: money(r.today),
           scenario: money(r.scenario),
           total: money(r.total),
+          caption: coverageTotalCaption(horizon),
         }))
       : [];
   return (
@@ -442,7 +444,7 @@ function TotalsTable({
             {`Over ${horizonLabel(horizon)}`}
           </span>
         </div>
-        {[...rows, ...extra].map((r: { key: string; name: string; note?: string; today: string; scenario: string; total: string }) => (
+        {[...rows, ...extra].map((r: { key: string; name: string; note?: string; today: string; scenario: string; total: string; caption?: string }) => (
           <div key={r.key} className="pf-ov-row" role="row" data-testid={`pf-scenario-row-${r.key}`}>
             <span role="rowheader" className="pf-ov-name">
               {r.name}
@@ -460,7 +462,14 @@ function TotalsTable({
               {r.scenario}
             </span>
             <span role="cell" className="pf-ov-value" data-testid="pf-scenario-total">
-              {r.total}
+              {/* #282 Q-GR5: the shared "Over {horizon}" header also heads the existing rows (end-of-horizon figures for the
+                  coverage rows), so it stays; the two +coverage rows say in their own cell that theirs is a total. */}
+              {r.caption ? <span data-testid="pf-coverage-total-value">{r.total}</span> : r.total}
+              {r.caption ? (
+                <span className="pf-history-note block whitespace-normal" data-testid="pf-coverage-total-caption">
+                  {r.caption}
+                </span>
+              ) : null}
             </span>
           </div>
         ))}
