@@ -1,5 +1,5 @@
 import { Minus } from "lucide-react";
-import { type ReactNode, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fieldErrors, SAVE_BLOCKED } from "@/lib/finance/field-errors";
 import { PF_DELETE_UI } from "@/lib/finance/flags";
 import {
@@ -28,6 +28,7 @@ import {
   type Line,
   LINES_MAX,
   NAME_MAX,
+  NOTE_MAX,
   NO_CATEGORY,
   NOT_COMPUTED,
   parseAmount,
@@ -683,6 +684,7 @@ export function PersonalFinancePage({
                             setAdding={setAdding}
                             update={update}
                             updateLine={updateLine}
+                            readOnly={readOnly}
                           />
                         </div>
                       </Lock>
@@ -937,6 +939,7 @@ function Groups({
   setAdding,
   update,
   updateLine,
+  readOnly = false,
 }: {
   expenses: Expenses;
   /** #119 (PF-71): show only this account's lines (ALL: every line); combines with `filter`. */
@@ -953,6 +956,8 @@ function Groups({
   setAdding: (id: string | null) => void;
   update: (change: (current: Expenses) => Expenses) => void;
   updateLine: (group: GroupKey, id: string, patch: Partial<Line>) => void;
+  /** #277 (PFNT-05): a Read user sees a line's note as plain text, never a field. */
+  readOnly?: boolean;
 }) {
   const grand = grandTotals(expenses, rate, household);
   return (
@@ -990,6 +995,7 @@ function Groups({
                   addingCategory={adding === `cat:${line.id}`}
                   setAdding={setAdding}
                   onChange={(patch) => updateLine(group.key, line.id, patch)}
+                  readOnly={readOnly}
                   onRemove={() => {
                     // #113 (PF-61): confirm first.
                     if (!window.confirm(deleteQuestion(line.name.trim() || UNNAMED_EXPENSE)))
@@ -1352,6 +1358,7 @@ function LineRow({
   onRemove,
   onAddAccount,
   onAddCategory,
+  readOnly = false,
 }: {
   line: Line;
   index: number;
@@ -1370,8 +1377,11 @@ function LineRow({
   onRemove: () => void;
   onAddAccount: (typed: string) => string | null;
   onAddCategory: (typed: string) => string | null;
+  readOnly?: boolean;
 }) {
   const uid = useId();
+  const [noteOpen, setNoteOpen] = useState(false);
+  const hasNote = line.note.trim() !== "";
   const groupTitle = group === "fixed" ? "Fixed" : "Variable";
   const aria = (column: string) => `${column}, ${groupTitle} ${index + 1}`;
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -1420,6 +1430,11 @@ function LineRow({
           className="pf-field"
           data-testid="pf-name"
         />
+        {hasNote && !noteOpen && !readOnly ? (
+          <span className="pf-note-preview" data-testid="pf-note-preview" aria-hidden="true">
+            {line.note}
+          </span>
+        ) : null}
       </Cell>
       <Cell label="% of income" area="income">
         <span className="pf-value" data-testid="pf-income">
@@ -1550,15 +1565,48 @@ function LineRow({
       </Cell>
         </>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Remove expense"
-        className="pf-remove"
-        data-testid="pf-remove"
-      >
-        <Minus className="size-4" aria-hidden="true" />
-      </button>
+      <div className="pf-actions">
+        {readOnly ? null : (
+          <button
+            type="button"
+            onClick={() => setNoteOpen((o) => !o)}
+            aria-expanded={noteOpen}
+            aria-controls={`${uid}-note`}
+            aria-label={`${aria("Note")}${hasNote ? " (has a note)" : ""}`}
+            className="pf-note-toggle"
+            data-testid="pf-note-toggle"
+            data-has-note={hasNote ? "true" : "false"}
+          >
+            Note
+            {hasNote ? (
+              <span className="pf-note-dot" aria-hidden="true" data-testid="pf-note-dot" />
+            ) : null}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Remove expense"
+          className="pf-remove"
+          data-testid="pf-remove"
+        >
+          <Minus className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+      {readOnly ? (
+        hasNote ? (
+          <p className="pf-note-row pf-note-text" data-testid="pf-note-text">
+            <span className="pf-label pf-note-label">Note</span> {line.note}
+          </p>
+        ) : null
+      ) : noteOpen ? (
+        <NoteField
+          id={`${uid}-note`}
+          value={line.note}
+          name={line.name.trim() || UNNAMED_EXPENSE}
+          onValue={(note) => onChange({ note })}
+        />
+      ) : null}
       {adding ? (
         <NewName
           kind="account"
@@ -1586,6 +1634,56 @@ function LineRow({
             queueMicrotask(() => categoryRef.current?.focus());
           }}
         />
+      ) : null}
+    </div>
+  );
+}
+
+/** #277 (PFNT-04): the counter shows from this many characters (near the 500 limit). */
+export const NOTE_COUNTER_FROM = 400;
+const NOTE_ROWS_MIN = 2;
+const NOTE_ROWS_MAX = 6;
+
+/**
+ * #277 (PFNT-04): a line's note, a full-width row under the line, only while opened (reserves no space otherwise).
+ * Two rows, growing with the text up to six, then it scrolls. Saved with the page's Save, like every other field.
+ */
+function NoteField({ id, value, name, onValue }: { id: string; value: string; name: string; onValue: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !el.scrollHeight) return;
+    const style = getComputedStyle(el);
+    const px = (v: string) => Number.parseFloat(v) || 0;
+    const line = px(style.lineHeight) || 20;
+    const border = px(style.borderTopWidth) + px(style.borderBottomWidth);
+    const box = px(style.paddingTop) + px(style.paddingBottom) + border;
+    el.style.height = "auto";
+    const content = el.scrollHeight + (style.boxSizing === "border-box" ? border : -box + border);
+    const rows = (n: number) => line * n + (style.boxSizing === "border-box" ? box : 0);
+    el.style.height = `${Math.min(rows(NOTE_ROWS_MAX), Math.max(rows(NOTE_ROWS_MIN), content))}px`;
+  }, [value]);
+  const near = value.length >= NOTE_COUNTER_FROM;
+  return (
+    <div className="pf-note-row" id={id} data-testid="pf-note-row">
+      <label className="pf-label" htmlFor={`${id}-field`}>
+        Note for {name}
+      </label>
+      <textarea
+        ref={ref}
+        id={`${id}-field`}
+        value={value}
+        rows={NOTE_ROWS_MIN}
+        maxLength={NOTE_MAX}
+        onChange={(event) => onValue(event.target.value)}
+        className="pf-field pf-note-field"
+        data-testid="pf-note"
+        {...(near ? { "aria-describedby": `${id}-count` } : {})}
+      />
+      {near ? (
+        <span id={`${id}-count`} className="pf-note-count" data-testid="pf-note-count">
+          {value.length} / {NOTE_MAX}
+        </span>
       ) : null}
     </div>
   );

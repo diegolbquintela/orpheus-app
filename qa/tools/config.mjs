@@ -37,7 +37,10 @@ function cleanUrl(value) {
 /** Resolve settings for one script; `scriptUrl` is that script's import.meta.url. */
 export function qaConfig(scriptUrl, argv = process.argv.slice(2), env = process.env) {
   const script = basename(fileURLToPath(scriptUrl), ".mjs");
-  const baseUrl = cleanUrl(flag(argv, "base-url") ?? env.QA_BASE_URL ?? DEFAULT_BASE_URL);
+  // BY (QA_BASE_URL): the --base-url flag always wins over QA_BASE_URL (e.g. from QA's logins file), then the default.
+  const baseFlag = flag(argv, "base-url");
+  const baseFrom = baseFlag !== undefined ? "--base-url" : env.QA_BASE_URL ? "QA_BASE_URL" : "default";
+  const baseUrl = cleanUrl(baseFlag ?? env.QA_BASE_URL ?? DEFAULT_BASE_URL);
   const compareRaw = flag(argv, "compare-url") ?? env.QA_COMPARE_URL;
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = resolve(flag(argv, "out") ?? env.QA_OUT_DIR ?? join(tmpdir(), "orpheus-qa", `${script}-${stamp}`));
@@ -48,6 +51,6 @@ export function qaConfig(scriptUrl, argv = process.argv.slice(2), env = process.
   const compareUrl = compareRaw ? cleanUrl(compareRaw) : null;
   const compareCalculatorUrl = compareUrl ? new URL(comparePath, `${compareUrl}/`).href : null;
   mkdirSync(out, { recursive: true });
-  console.log(`[${script}] base ${baseUrl} · calculator ${calculatorUrl}${compareUrl ? ` · compare ${compareCalculatorUrl}` : ""} · out ${out}`);
-  return { script, baseUrl, calculatorUrl, compareUrl, compareCalculatorUrl, out, fixtures };
+  console.log(`[${script}] base ${baseUrl} (from ${baseFrom}) · calculator ${calculatorUrl}${compareUrl ? ` · compare ${compareCalculatorUrl}` : ""} · out ${out}`);
+  return { script, baseUrl, baseFrom, calculatorUrl, compareUrl, compareCalculatorUrl, out, fixtures };
 }

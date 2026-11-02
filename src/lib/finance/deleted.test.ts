@@ -18,7 +18,7 @@ import { deletedSeries, missingSeries, seriesLabels, type Report } from "./repor
 
 // #165 (spec section 35, CFO option A KEEP; PFD-01..PFD-14). Pure functions; the page → API → PGlite path is pinned
 // in expenses-page.dom.test.tsx ("#165 PFD-01..PFD-07 (real path ...)").
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const shared = (over: Partial<Expenses> = {}): Expenses => ({ fixed: [], variable: [], accounts: ["Amex"], categories: ["Home", "Travel"], ...over });
 
 describe("#165 deleted categories / accounts (option A KEEP)", () => {

@@ -37,7 +37,7 @@ const call = (path: string, { method = "GET", auth = `Bearer ${KEY}`, e = env as
     new Request(`http://localhost${path}`, { method, headers: auth === "" ? {} : { authorization: auth } }),
     { env: e, getDb: async () => db, now: () => NOW },
   );
-const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "Chequing", currency: "", rate: "", category: "Home" });
+const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "Chequing", currency: "", rate: "", category: "Home", note: "" });
 const P = (id: string, wages: string, foreign = false, currency = "", rate = "") => ({ id, name: id, wages, bonus: "", tax: "0", share: "100", countWages: true, countBonus: false, foreign, currency, rate });
 const ALICE = {
   [STORAGE_KEY]: JSON.stringify({ fixed: [L("rent", "1000")], variable: [], accounts: ["Chequing"], categories: ["Home"] }),

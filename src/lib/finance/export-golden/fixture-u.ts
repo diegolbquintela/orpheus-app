@@ -20,7 +20,7 @@ export const U_NAME = U1;
 export const U_ACCOUNT = `Konto ${U3} ${U4}`;
 export const U_NOW = new Date("2026-10-21T12:00:00Z");
 
-const L = (id: string, amount: string, category: string, account: string): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category: string, account: string): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const lines = { fixed: [L("rent", "1234.56", U2, "Chequing")], variable: [L("t", "789", "Home", U_ACCOUNT), L("s", "10", U5, "Chequing")], people: [] };
 /** Stored record (`personal_finance.data`): CAD household, three closed months 2026-07..09, no people, no overview. */
 export const U_RECORD = {

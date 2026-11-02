@@ -545,6 +545,11 @@ The app is unchanged: the 3-month average still covers the last 3 complete Toron
 
 - 2026-11-01: the Planned vs actual heading opens and closes the section like the other PF sections. The state is `"plan"` in the existing `orpheus.finance.view.v1` view value, and the section starts open. The columns read `Planned (set before the month)` and `Actual (as saved)`, and the note says `Actual = what is saved.` No calculation change. Spec `attachments/personal-finance-spec.md` §81, AC PFPA.
 
+## Personal Finance expense notes (#277)
+
+- 2026-11-01: each Fixed and Variable expense line has an optional Note, up to 500 characters. Tap `Note` next to Remove to open the field under the line; it's saved with Save. A dot on the button means the line has a note, and from 640px a dim one-line preview shows under the name. Read users see the note as plain text. It is stored inside the existing record JSON, with no migration or new key. Exports don't include notes, and the CFO API returns `note` on each line. Spec `attachments/personal-finance-spec.md` §82, AC PFNT.
+- QA (PFNT): run `node qa/tools/personal-finance-e2e.mjs --base-url <preview> --out <dir>` with `QA_EMAIL` / `QA_PASSWORD`, plus `QA_CFO_READ_EMAIL` / `QA_CFO_READ_PASSWORD` for the Read-user check. That check prints `SKIPPED (NOT A PASS)` when unset. The step resets qa-pf to its snapshot afterwards.
+
 ## Team loop
 
 1. SWE branches off `main` and opens a **draft** PR. Nobody pushes directly to `main`.
@@ -756,6 +761,10 @@ Spec §67. Machine access for CFO, no browser: `curl -H "Authorization: Bearer $
 | `/api/cfo/pf/settings` | `{ currency, view, equity }` (currency.v1, view.v1, equity.v1) |
 | `/api/cfo/pf/fx?through=yyyy-mm` | `{ through, rates \| null }` (stored BoC monthly averages the record needs, `fx_rates`) |
 | `/api/cfo/pf/reports` | `{ reports }` (saved chart reports, JSON only; no export) |
+
+> **#277 addendum (2026-11-01, additive, schema still `cfo-pf.v1`):** every expense line in `months`, `months/:month`, `lines` (`expenses.fixed` / `expenses.variable`) and `plans` now carries `note`: a string, `""` when none (trimmed, at most 500 characters). Nothing else in the response changes; the API stays GET / HEAD only. Spec §82, AC PFNT-08.
+>
+> **#277 amendment (2026-11-01, CFO Q-NT2; supersedes the addendum above):** expense notes are **excluded** from the CFO API. No endpoint returns a `note` key, and every response is byte-identical to the same data without notes (as before #277), because this is a numbers feed and notes may hold personal context. The schema is still `cfo-pf.v1`. Notes stay in the app, the PF record, months, plans and history. Spec §82.11, AC PFNT-10.
 
 **Standing rule (#245): Every new PF feature ships with its endpoint documented and CFO notified.** A PR that adds or changes Personal Finance data adds or updates its `/api/cfo/pf/*` endpoint (or says why none is needed), documents it in spec §67, this harness and `README.md`, and the PR body says CFO has been (or must be) notified.
 

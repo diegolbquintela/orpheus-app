@@ -44,7 +44,7 @@ const ch = (who: string | null, body?: unknown, method = "POST", now = NOW, e = 
   handlePersonalFinanceChartRequest(req(method, body, "/api/personal-finance/chart"), as(who, e), () => now);
 const rep = (who: string, method: string, body?: unknown) =>
   handlePersonalFinanceReportRequest(req(method, body, "/api/personal-finance/report"), as(who));
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const record = {
   [STORAGE_KEY]: JSON.stringify({
     fixed: [L("rent", "1000", "Home", "Chequing")],

@@ -41,6 +41,7 @@ const line = (over: Partial<Line> = {}): Line => ({
   currency: "",
   rate: "",
   category: "",
+  note: "",
   ...over,
 });
 
@@ -196,6 +197,7 @@ describe("personal finance expenses (#84, PF-03..07)", () => {
         currency: "",
         rate: "",
         category: "",
+        note: "",
       },
     );
   });

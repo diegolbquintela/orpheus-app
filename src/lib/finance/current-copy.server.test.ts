@@ -31,7 +31,7 @@ const as = (id: string | null) => ({ env, getUser: async () => (id ? { id, email
 const NOW = new Date("2026-10-16T16:00:00Z");
 const req = (method: string, path: string, body?: unknown) =>
   new Request(`http://localhost${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const G = (id: string) => ({ kind: "group", id });
 const M = (id: string) => ({ kind: "metric", id });
 const SERIES = [M("expenses"), M("income"), M("surplus"), M("net-assets"), { kind: "category", id: "Home" }, { kind: "category", id: "Travel" }, { kind: "account", id: "Chequing" }, { kind: "line", id: "rent" }, G("all"), G("fixed"), G("variable")];

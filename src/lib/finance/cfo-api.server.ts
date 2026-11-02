@@ -9,6 +9,8 @@
  * - 503 JSON without a database; 404 JSON `No household.` when `ORPHEUS_OWNER_EMAIL` names no account;
  * - 200 `{ data, household, currentMonth, generatedAt }`.
  * Read-only: only SELECTs (`personal_finance`, `fx_rates`, `"user"`); nothing is written or audited (Q5).
+ * #277 (spec §82, PFNT-08, amended 2026-11-01 by Q-NT2): expense notes are NOT in this feed. Every `note` key is dropped
+ * from the output (`cfoWithoutNotes`), so lines serialize exactly as before #277; schema stays `cfo-pf.v1`.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { ownerIdOf } from "../access/access.server.ts";
@@ -284,6 +286,10 @@ export const resetCfoUnsetLog = () => {
   unsetLogged = false;
 };
 
+/** #277 Q-NT2 (PFNT-10): a numbers feed; notes may hold personal context, so no `note` key leaves this API. */
+export const cfoWithoutNotes = (data: unknown): unknown =>
+  data === undefined ? data : JSON.parse(JSON.stringify(data, (k, v) => (k === "note" ? undefined : v)));
+
 export async function handleCfoPfRequest(request: Request, deps: CfoDeps = {}): Promise<Response> {
   const env = deps.env ?? process.env;
   const blocked = guardDashboardApi(env);
@@ -307,5 +313,5 @@ export async function handleCfoPfRequest(request: Request, deps: CfoDeps = {}): 
   const r = await dataFor(rest, u, db, record, ownerId, at);
   if (!r) return notFound();
   if ("response" in r) return r.response;
-  return dashboardJson({ data: r.data, household: readHousehold(new RecordStore(record ?? {})).household, currentMonth: householdMonth(at), generatedAt: at.toISOString() });
+  return dashboardJson({ data: cfoWithoutNotes(r.data), household: readHousehold(new RecordStore(record ?? {})).household, currentMonth: householdMonth(at), generatedAt: at.toISOString() });
 }

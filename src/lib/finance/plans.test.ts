@@ -6,7 +6,7 @@ import { RECORD_NAMES } from "./record.ts";
 import { backfillPlans, comparePlan, formatCaptured, mergePlansText, planFor, PLANS_KEY, readPlans, syncFuturePlans, variance } from "./plans.ts";
 
 // #231 (personal-finance-spec §65, AC PFPV): planned vs actual (FM6).
-const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "" });
+const line = (id: string, amount: string) => ({ id, name: id, amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "", note: "" });
 const person = (wages: string) => ({ id: "p1", name: "Me", wages, bonus: "", tax: "0", share: "100", countWages: true, countBonus: false, foreign: false, currency: "", rate: "" });
 const ml = (rent: string, wages = "60,000"): MonthLines => ({ fixed: [line("Rent", rent)], variable: [], people: [person(wages)] }) as unknown as MonthLines;
 const plan = (rent: string) => ({ lines: ml(rent), capturedAt: "2026-10-01T00:00:00.000Z" });

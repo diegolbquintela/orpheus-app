@@ -28,6 +28,26 @@ export const ACCOUNT_ERROR = "Name the account.";
 export const CATEGORY_MAX = 40;
 export const CATEGORIES_MAX = 50;
 export const CATEGORY_ERROR = "Name the category.";
+/** #277 (PFNT): a line's optional free-text note, at most this many characters after trimming. */
+export const NOTE_MAX = 500;
+/**
+ * #277 (PFNT-02): a stored note as the page reads it: a string trimmed to at most `NOTE_MAX` characters is kept;
+ * anything else (absent, not a string, too long) reads as "" (never a refusal on read; the PUT refuses, PFNT-03).
+ */
+export function asNote(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const t = value.trim();
+  return t.length <= NOTE_MAX ? t : "";
+}
+/**
+ * #277 (PFNT-01): lines as stored text. An empty note is left out, so a line without a note is stored byte for byte as
+ * before #277 (an earlier month is never rewritten by a Save, PFD-02); a note that has text is kept.
+ */
+export const linesJson = (value: unknown): string =>
+  JSON.stringify(value, (k, v) => (k === "note" && v === "" ? undefined : v));
+/** #277 (PFNT-03): the PUT's check of one stored line's note: absent is fine; a non-string or over-long one is not. */
+export const noteBad = (value: unknown): boolean =>
+  value !== undefined && (typeof value !== "string" || value.trim().length > NOTE_MAX);
 export const NO_CATEGORY = "No category";
 export const NOT_COMPUTED = "—";
 
@@ -66,6 +86,8 @@ export type Line = {
   rate: string;
   /** #105: a category name from `categories`, or "" for none (an older line reads as ""). */
   category: string;
+  /** #277 (PFNT): an optional free-text note (trimmed, at most `NOTE_MAX` characters), or "" for none. */
+  note: string;
 };
 
 /**
@@ -344,6 +366,7 @@ export function newLine(category = ""): Line {
     currency: "",
     rate: "",
     category,
+    note: "",
   };
 }
 
@@ -372,6 +395,7 @@ function asLine(
     currency: isCurrency(v.currency) ? v.currency : "",
     rate: typeof v.rate === "string" ? v.rate : "",
     category: typeof v.category === "string" && categories.includes(v.category) ? v.category : "",
+    note: asNote(v.note),
   };
 }
 
@@ -485,7 +509,7 @@ export function readExpenses(storage: StorageLike | null): Expenses {
 
 export function writeExpenses(storage: StorageLike | null, expenses: Expenses): void {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(expenses));
+    storage?.setItem(STORAGE_KEY, linesJson(expenses));
   } catch {
     // Storage full or blocked: the page keeps working for this visit.
   }

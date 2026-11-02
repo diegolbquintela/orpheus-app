@@ -69,6 +69,7 @@ import { refuseIfProd } from "./prod-guard.mjs";
 import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER } from "./pf-helpers.mjs"; // #171
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
+import { householdMonth } from "./pf-window.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -88,7 +89,9 @@ const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
 const GUARD = await refuseIfProd(CFG.baseUrl, "personal-finance");
 const base = CFG.baseUrl;
-const R = { base, checks: [], shots: [] };
+const R = { base, checks: [], shots: [], skipped: [] };
+// BX3: a skipped part is logged loudly and counted (names only, never values).
+const skip = (name) => { R.skipped.push(name); console.log(`SKIPPED (NOT A PASS): ${name}`); };
 const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
@@ -144,6 +147,9 @@ const emptyTexts = (wide) => [
   "Personal Finance.",
   // #160 (spec 45, Q-AJ1; QA N2 2026-10-20): the Charts link under the title (#275: shown as "Report Builder").
   "Report Builder",
+  // BX1 (#275): the other two sub-nav links.
+  "Yearly Ledger",
+  "Scenario Analysis",
   // #112 (PF-48): the month control (the select's own text is not counted); #163 (PFM-12): Month and Year.
   "Month",
   "Year",
@@ -353,7 +359,43 @@ const STORED_INCOME = JSON.stringify({
 const STORED_RATES = JSON.stringify({ withdrawal: "", roic: "8" });
 const STORED_CURRENCY = JSON.stringify({ household: "USD" });
 // #94: today is fixed at 11 October 2026 (local) for the Overview checks; June typed, Future on, 5 years.
-const TODAY = new Date(2026, 9, 11, 12);
+// BW2 (#277 harness, 2026-11-01): the month under test is the REAL current month (the server's Save rules use the real
+// clock), not a hardcoded October 2026. CUR_* name it.
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const REAL_NOW = new Date();
+// BY4: the current month is the household's (America/Toronto, pf-window.mjs), not the runner's local clock.
+const CUR = (([y, m]) => ({ y, m: m - 1 }))(householdMonth(REAL_NOW).split("-").map(Number));
+const keyOf = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
+const CUR_KEY = keyOf(CUR.y, CUR.m);
+const CUR_MON = MONTH_NAMES[CUR.m];
+const CUR_NAME = `${CUR_MON} ${CUR.y}`;
+const COPIED = `Copied from ${CUR_NAME} — edit and save.`;
+// BX1 (#229, PFFM-01..04): the control opens up to 12 months after the current one (lastOpenMonth); a month is disabled
+// only past that, and the Year list runs from that month's year down to 2020.
+const addMonths = (y, m, n) => { const i = y * 12 + m + n; return { y: Math.floor(i / 12), m: i % 12 }; };
+const LAST = addMonths(CUR.y, CUR.m, 12);
+const LAST_KEY = keyOf(LAST.y, LAST.m);
+const monthOptsIn = (y, lastKey) => MONTH_NAMES.map((n, i) => `${n.slice(0, 3)}${keyOf(y, i) > lastKey ? " (disabled)" : ""}`);
+const yearsFrom = (y) => Array.from({ length: y - 2019 }, (_, i) => String(y - i));
+const MONTH_CHOICES = { labels: ["Month", "Year"], months: monthOptsIn(CUR.y, LAST_KEY), years: yearsFrom(LAST.y) };
+// BX4: the past months under test are offsets from the real current month / year (were June 2026 and March 2021).
+const PAST = addMonths(CUR.y, CUR.m, -4);
+const PAST_KEY = keyOf(PAST.y, PAST.m);
+const PAST_MON = MONTH_NAMES[PAST.m];
+// BY1 (#247, spec 68 PFOS): the Overview's first column is the SELECTED month, not the current one. The edit gives the
+// selected (past) month rent 4,000 and wages 108,000 / 12; its only complete month is the 12-month average, so both match.
+const SEL_EXP = 4000, SEL_INC = 108000 / 12;
+const n2 = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const SEL_OV = { expenses: [n2(SEL_EXP), n2(SEL_EXP)], income: [n2(SEL_INC), n2(SEL_INC)], surplus: [n2(SEL_INC - SEL_EXP), n2(SEL_INC - SEL_EXP)] };
+// BX1 (#228, spec 64): the 12-month chart adds only months with figures: start 10,000 + the past month's surplus
+// (9,000 − 4,000) + the current month's (11,200 − 1,750). Future months add the 12-month average (the past month alone).
+const PAST_SURPLUS = 9000 - 4000;
+const NET12 = 10000 + PAST_SURPLUS + (11200 - 1750);
+const futureNet = (x, surplus, months, g = 5) => { const r = (1 + g / 100) ** (1 / 12); for (let i = 0; i < months; i++) x = x * r + surplus; return x; };
+const NET_F1 = futureNet(NET12, PAST_SURPLUS, 12).toFixed(2);
+const NET_F5 = futureNet(NET12, PAST_SURPLUS, 60).toFixed(2);
+const fmt2 = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const TODAY = new Date(CUR.y, CUR.m, Math.min(REAL_NOW.getDate(), 28), 12);
 const STORED_OVERVIEW = JSON.stringify({ start: "10,000", growth: "5", future: true, years: 5, months: {} });
 const OV_EXPENSES = JSON.stringify({ fixed: [{ id: "o1", name: "Rent", amount: "1,750", per: "month", equity: "", account: "" }], variable: [], accounts: [] });
 const OV_INCOME = JSON.stringify({ people: [{ id: "o2", name: "Me", wages: "134,400", bonus: "", tax: "", share: "100", countWages: true, countBonus: false }] });
@@ -465,7 +507,7 @@ try {
   }
 
   if (!email || !password) {
-    console.log("INFO PF-01..32, PF-34..39 SKIPPED: the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal Finance record is reset)");
+    skip("PF-01..32, PF-34..39 (signed in): the page is signed-in only (#102); set QA_EMAIL / QA_PASSWORD in env (a QA account: its Personal Finance record is reset)");
   } else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: process.env.PF_ONLY ? VIEWPORTS.filter(([n]) => process.env.PF_ONLY.split(",").includes(n)) : VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
     const wide = viewport.width >= 1024;
@@ -485,7 +527,7 @@ try {
       // PF-01 shell
       const sh = await page.evaluate(() => {
         const nav = document.querySelector('nav[aria-label="Site"]');
-        const home = nav.querySelector('a[href="/"]');
+        const home = nav.querySelector('[data-testid="site-bar"] a[data-testid="site-logo"]');
         const lyre = home.querySelector("svg");
         const lr = lyre?.getBoundingClientRect();
         return {
@@ -508,7 +550,7 @@ try {
       });
       check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal Finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && /noindex/.test(res.headers()["x-robots-tag"] ?? ""), [res.status(), sh.title, sh.robots]);
       check(`${tag} PF-01 charcoal page, chalk type, color-scheme dark; no painting; page-only classes`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme.every((s) => s === "dark") && sh.paint === 0 && sh.badClass === 0, { bg: sh.bg, color: sh.color, scheme: sh.scheme, paint: sh.paint, badClass: sh.badClass });
-      check(`${tag} PF-01 header (#286): bar Orpheus / Search / Menu; overlay Orpheus / Calculator / Dashboard / Personal Finance / Account, Personal Finance current, footer, one Analytics script`, JSON.stringify(sh.bar_.map((l) => l[0])) === '["Orpheus","Search","Menu"]' && JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal Finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
+      check(`${tag} PF-01 header (#286): bar Orpheus / Search / Menu; overlay (6 links) Orpheus / Calculator / Dashboard / Personal Finance / Renaissance Man / Account, Personal Finance current, footer, one Analytics script`, JSON.stringify(sh.bar_.map((l) => l[0])) === '["Orpheus","Search","Menu"]' && JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Renaissance Man", "/renaissance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal Finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
       check(`${tag} ST1-05 the lyre first in the Orpheus link: aria-hidden, currentColor in chalk, 20 × 20, 5 paths`, sh.lyre && sh.lyre.first && sh.lyre.hidden === "true" && sh.lyre.stroke === "currentColor" && sh.lyre.color === CHALK && sh.lyre.w === 20 && sh.lyre.h === 20 && sh.lyre.paths === 5, sh.lyre);
       check(`${tag} ST1-05 / ST6-08 bar ≤ 48 px, every bar item ≥ 44 × 44 (#286)`, sh.bar <= 48 && sh.bar_.every((l) => l[3] >= 44 && l[4] >= 44), { bar: sh.bar, items: sh.bar_.map((l) => [l[0], l[3], l[4]]) });
 
@@ -735,7 +777,7 @@ try {
       }
       // Focus: every Tab stop from the top shows a ≥ 2 px ring (or a chalk underline on a field) at ≥ 3:1.
       // Start the keyboard walk at the bar's Orpheus link (Shift+Tab, Tab: a keyboard focus, not a programmatic one).
-      await page.locator('nav[aria-label="Site"] a[href="/"]').focus();
+      await page.locator('nav[aria-label="Site"] [data-testid="site-bar"] a[data-testid="site-logo"]').focus();
       await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Tab");
       const stops = [];
@@ -754,7 +796,7 @@ try {
         if (s.inFooter || s.id === "pf-add-variable") break;
       }
       const badStops = stops.filter((s) => !(s.outline[0] !== "none" && s.outline[1] >= 2 && ratio(rgb(s.outline[2]), rgb(s.bg)) >= 3));
-      check(`${tag} PF-08 every Tab stop shows a ≥ 2 px focus ring at ≥ 3:1 (${stops.length} stops)`, stops.length >= 10 && stops[0].id === "Orpheus" && stops.at(-1).id === "pf-add-variable" && badStops.length === 0, badStops.length ? badStops.slice(0, 5) : stops.map((s) => s.id));
+      check(`${tag} PF-08 every Tab stop shows a ≥ 2 px focus ring at ≥ 3:1 (${stops.length} stops); BX1: the first stop is the bar's site-logo home link (not the text "Orpheus")`, stops.length >= 10 && stops[0].id === "site-logo" && stops.at(-1).id === "pf-add-variable" && badStops.length === 0, badStops.length ? badStops.slice(0, 5) : stops.map((s) => s.id));
       await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
       const shotF = join(CFG.out, `pf-filled-${viewport.width}.png`);
       await page.screenshot({ path: shotF, fullPage: true });
@@ -989,13 +1031,13 @@ try {
         const note = () => p3.getByTestId("pf-month-note").textContent().then((t) => t.trim());
         const opts = [await shownMonth(p3), await monthChoices(p3)];
         const first = [await saveBtn.count(), await p3.getByTestId("pf-update").count(), await note()];
-        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); #163 Month (Jan..Dec, Nov / Dec disabled) + Year (2026 … 2020), October 2026 shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === "2026-10" && JSON.stringify(opts[1]) === JSON.stringify({"labels":["Month","Year"],"months":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov (disabled)","Dec (disabled)"],"years":["2026","2025","2024","2023","2022","2021","2020"]}) && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
-        await pickMonth(p3, "2026-06");
+        check(`${tag} PF-27 / PF-48 the current month's saved lines (1,750 / 11,200 / 9,450; #140 12-month average — : no complete month saved); #163 Month (Jan..Dec, #229: months up to ${LAST_KEY} open) + Year (${LAST.y} … 2020), ${CUR_NAME} shown; no Save, no 05 Update, no note`, JSON.stringify(t0) === JSON.stringify({ expenses: ["1,750.00", "—"], income: ["11,200.00", "—"], surplus: ["9,450.00", "—"] }) && opts[0] === CUR_KEY && JSON.stringify(opts[1]) === JSON.stringify(MONTH_CHOICES) && JSON.stringify(first) === '[0,0,""]', { t0, opts, first });
+        await pickMonth(p3, PAST_KEY);
         const blankJune = await blankMonth(p3);
-        check(`${tag} #163 PFM-15 empty June opens blank (no lines, people, note or Save); the control's texts are Month, Year, "Copy from current month"`, JSON.stringify(blankJune) === JSON.stringify(BLANK_PAST), blankJune);
+        check(`${tag} #163 PFM-15 empty ${PAST_MON} opens blank (no lines, people, note or Save); the control's texts are Month, Year, "Copy from current month"`, JSON.stringify(blankJune) === JSON.stringify(BLANK_PAST), blankJune);
         await p3.getByTestId("pf-month-copy").click();
         const copy = { note: await note(), save: await saveBtn.isVisible(), rent: await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), wages: await val(p3.getByTestId("pf-person-wages")) };
-        check(`${tag} PF-51 / #163 PFM-16 empty June after "Copy from current month": a copy of October's lines and "Copied from October 2026 — edit and save."; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: "Copied from October 2026 — edit and save.", save: true, rent: "1,750", wages: "134,400" }), copy);
+        check(`${tag} PF-51 / #163 PFM-16 empty ${PAST_MON} after "Copy from current month": a copy of ${CUR_MON}'s lines and COPIED; Save shown`, JSON.stringify(copy) === JSON.stringify({ note: COPIED, save: true, rent: "1,750", wages: "134,400" }), copy);
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("4,000");
         await p3.getByTestId("pf-person-wages").fill("108,000");
         const draft = await ov();
@@ -1004,10 +1046,10 @@ try {
         await settle(p3);
         const t1 = await ov();
         const afterSave = { month: await shownMonth(p3), note: await note(), save: await saveBtn.count(), puts: (saving.get(p3)?.puts ?? 0) - putsBefore };
-        check(`${tag} PF-50 / PF-52 / PF-53 June edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #140 average over 12 complete months (June alone) 4,000 / 9,000 / 5,000, this month unchanged; stays on June, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(t1) === JSON.stringify({ expenses: ["1,750.00", "4,000.00"], income: ["11,200.00", "9,000.00"], surplus: ["9,450.00", "5,000.00"] }) && JSON.stringify(afterSave) === JSON.stringify({ month: "2026-06", note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
+        check(`${tag} PF-50 / PF-52 / PF-53 ${PAST_MON} edited to 4,000 / 9,000: #144 04 live before Save (the same 4,000 / 9,000 / 5,000; was "nothing in 04 until Save"); one Save (one PUT) → #247 first column = the selected ${PAST_MON} and #140 average over 12 complete months (${PAST_MON} alone), both 4,000 / 9,000 / 5,000; stays on ${PAST_MON}, note gone, Save hidden`, JSON.stringify(draft) === JSON.stringify(SEL_OV) && JSON.stringify(t1) === JSON.stringify(SEL_OV) && JSON.stringify(afterSave) === JSON.stringify({ month: PAST_KEY, note: "", save: 0, puts: 1 }), { draft, t1, afterSave });
         await p3.getByTestId("pf-start").fill("10,000");
         const ch1 = await chart();
-        check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → 74,450.00 (#140)`, ch1.months === "12" && ch1.net === "74450.00" && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
+        check(`${tag} PF-29 chart: 12 months, three lines (Expenses alert, Income green, Net assets chalk), plot aria-hidden, legend Expenses / Income / Net assets; net assets from 10,000 → ${fmt2(NET12)} (#140)`, ch1.months === "12" && ch1.net === NET12.toFixed(2) && JSON.stringify(ch1.lines) === JSON.stringify(["var(--color-alert)", "var(--color-green)", "var(--color-chalk)"]) && ch1.hidden === "true" && JSON.stringify(ch1.legend) === '["Expenses","Income","Net assets"]', ch1);
         await p3.getByTestId("pf-growth").fill("5");
         const tog = p3.getByTestId("pf-future-toggle");
         const off = [await tog.getAttribute("aria-pressed"), await p3.getByTestId("pf-year").count()];
@@ -1018,12 +1060,12 @@ try {
         const f5 = await chart();
         await p3.locator("[data-testid=pf-year][data-years='15']").click();
         const f15 = await chart();
-        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: 1 year 24 points → 139,535.39; 5 years 72 → 434,087.85 (#140); 15 years 192`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "24" && f1.net === "139535.39" && f5.months === "72" && f5.net === "434087.85" && f15.months === "192", { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: f15.months });
+        check(`${tag} PF-30 Future: off (no year choices) → on: 1 year / 5 years / 10 years / 15 years, 1 year pressed; growth 5: 1 year 24 points → ${fmt2(NET_F1)}; 5 years 72 → ${fmt2(NET_F5)} (#140); 15 years 192`, off[0] === "false" && off[1] === 0 && JSON.stringify(yrs) === JSON.stringify([["1 year", "true"], ["5 years", "false"], ["10 years", "false"], ["15 years", "false"]]) && f1.months === "24" && f1.net === NET_F1 && f5.months === "72" && f5.net === NET_F5 && f15.months === "192", { off, yrs, f1: [f1.months, f1.net], f5: [f5.months, f5.net], f15: f15.months });
         await p3.getByTestId("pf-growth").fill("five");
         const gErr = await p3.getByTestId("pf-ov-fields").getByTestId("pf-error").textContent().catch(() => null);
         const f15b = await chart();
         await p3.getByTestId("pf-growth").fill("5");
-        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: 74,450 + 180 × 5,000, #140)`, gErr === "Enter a number, 0 or more." && f15b.net === (74450 + 180 * 5000).toFixed(2), { gErr, net: f15b.net });
+        check(`${tag} PF-30 a bad growth rate shows "Enter a number, 0 or more." and counts as 0 (15 years: ${fmt2(NET12)} + 180 × ${fmt2(PAST_SURPLUS)}, #140)`, gErr === "Enter a number, 0 or more." && f15b.net === (NET12 + 180 * PAST_SURPLUS).toFixed(2), { gErr, net: f15b.net });
         await p3.locator("[data-testid=pf-year][data-years='5']").click();
         // Layout (Save shown: start / growth are unsaved).
         const lb = { start: await box(p3.getByTestId("pf-start")), growth: await box(p3.getByTestId("pf-growth")), month: await box(sel), me: await box(saveBtn), tog: await box(tog), years: await p3.getByTestId("pf-year").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height))), plot: (await chart()).h, legend: await box(p3.getByTestId("pf-legend")), table: await box(p3.getByTestId("pf-ov-table")) };
@@ -1056,10 +1098,10 @@ try {
         // #112 (PF-54): switching with unsaved changes asks; Cancel keeps the month and the edits.
         const asked = [];
         p3.once("dialog", (d) => { asked.push([d.type(), d.message()]); void d.dismiss(); });
-        await pickMonth(p3, "2026-10");
+        await pickMonth(p3, CUR_KEY);
         await p3.waitForTimeout(200);
         const kept = { asked, month: await shownMonth(p3), start: await val(p3.getByTestId("pf-start")) };
-        check(`${tag} PF-54 switching with unsaved changes asks "Discard unsaved changes?"; Cancel keeps June and the edits`, JSON.stringify(kept) === JSON.stringify({ asked: [["confirm", "Discard unsaved changes?"]], month: "2026-06", start: "10,000" }), kept);
+        check(`${tag} PF-54 switching with unsaved changes asks "Discard unsaved changes?"; Cancel keeps ${PAST_MON} and the edits`, JSON.stringify(kept) === JSON.stringify({ asked: [["confirm", "Discard unsaved changes?"]], month: PAST_KEY, start: "10,000" }), kept);
         await p3.getByTestId("pf-overview").scrollIntoViewIfNeeded();
         const shotO = join(CFG.out, `pf-overview-${viewport.width}.png`);
         await p3.screenshot({ path: shotO, fullPage: true });
@@ -1074,16 +1116,16 @@ try {
         await p3.reload({ waitUntil: "networkidle" });
         await ready(p3);
         const onLoad = await shownMonth(p3);
-        await pickMonth(p3, "2026-06");
+        await pickMonth(p3, PAST_KEY);
         const back = { onLoad, t: await ov(), start: await val(p3.getByTestId("pf-start")), growth: await val(p3.getByTestId("pf-growth")), fut: await tog.getAttribute("aria-pressed"), y5: await p3.locator("[data-testid=pf-year][data-years='5']").getAttribute("aria-pressed"), june: [await val(line(p3, "fixed", 0).getByTestId("pf-monthly")), await val(p3.getByTestId("pf-person-wages"))], note: await note(), net: (await chart()).net };
         const monthsStored = Object.keys(JSON.parse(rec3[MONTHS_KEY] ?? "{}"));
-        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} October and June (only PF names; nothing in localStorage); a reload opens October and June restores (#140: 4,000 / 9,000, net 434,087.85)`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === '["2026-06","2026-10"]' && JSON.stringify(back) === JSON.stringify({ onLoad: "2026-10", t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: "434087.85" }), { stored, monthsStored, back });
+        check(`${tag} PF-31 / PF-36 / PF-52 storage: the account's ${OVERVIEW_KEY} holds start / growth / Future / 5 years as typed, ${MONTHS_KEY} ${CUR_MON} and ${PAST_MON} (only PF names; nothing in localStorage); a reload opens ${CUR_MON} and ${PAST_MON} restores (#140: 4,000 / 9,000, net ${fmt2(NET_F5)})`, stored[0] === STORED_OVERVIEW && JSON.stringify(stored[1]) === JSON.stringify(SAVED_NAMES) && stored[2] === 0 && JSON.stringify(monthsStored) === JSON.stringify([PAST_KEY, CUR_KEY]) && JSON.stringify(back) === JSON.stringify({ onLoad: CUR_KEY, t: t1, start: "10,000", growth: "5", fut: "true", y5: "true", june: ["4,000", "108,000"], note: "", net: NET_F5 }), { stored, monthsStored, back });
         // June back to October's lines (and Save): the average returns to 1,750 / 11,200.
         await line(p3, "fixed", 0).getByTestId("pf-monthly").fill("1,750");
         await p3.getByTestId("pf-person-wages").fill("134,400");
         await settle(p3);
         const t2 = await ov();
-        check(`${tag} PF-53 June saved as October's figures: the 12-month average (June alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750.00", "1,750.00"], income: ["11,200.00", "11,200.00"], surplus: ["9,450.00", "9,450.00"] }), { t2 });
+        check(`${tag} PF-53 ${PAST_MON} saved as ${CUR_MON}'s figures: the 12-month average (${PAST_MON} alone, #140) 1,750 / 11,200`, JSON.stringify(t2) === JSON.stringify({ expenses: ["1,750.00", "1,750.00"], income: ["11,200.00", "11,200.00"], surplus: ["9,450.00", "9,450.00"] }), { t2 });
         check(`${tag} PF-31 only /api/personal-finance requests; no page error (Overview / month control)`, api3.every((a) => a === API) && errs.length === 0, { api3: [...new Set(api3)], errs });
       } catch (e) {
         check(`${tag} PF-26..32 ran to the end`, false, String(e?.message ?? e).split("\n").slice(0, 4).join(" | "));
@@ -1144,5 +1186,7 @@ try {
 }
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "personal-finance.json"), JSON.stringify(R, null, 2));
-console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
-process.exit(fails.length ? 1 : 0);
+console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""}${R.skipped.length ? `, ${R.skipped.length} SKIPPED (NOT A PASS)` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
+// BX3 (#277 harness, = BV6): a skip is never a pass. Any FAIL exits 1; otherwise any SKIPPED (NOT A PASS) item, including
+// a skip-only run (e.g. no QA_EMAIL / QA_PASSWORD), exits 3 (2 stays the prod REFUSED code), so a skipped run can't read as green.
+process.exit(fails.length ? 1 : R.skipped.length ? 3 : 0);

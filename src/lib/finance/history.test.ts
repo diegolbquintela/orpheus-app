@@ -11,7 +11,7 @@ import { NO_VALUE, SHARED_VALUES_NOTE, storedMonths, storedYears, TOTAL_COLUMNS,
 // #214 (personal-finance-spec 53; PFHT-08..PFHT-14): the History table's year filter and grid, from a record.
 // Runs under TZ=UTC and TZ=America/Los_Angeles (npm test both ways); the household month is Toronto's.
 const NOW = new Date("2026-10-16T16:00:00Z");
-const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "" });
+const L = (id: string, amount: string): Line => ({ id, name: id, amount, per: "month", equity: "", account: "", currency: "", rate: "", category: "", note: "" });
 const ann: Person = { id: "ann", name: "Ann", wages: "120000", bonus: "", tax: "25", share: "100", countWages: true, countBonus: false, foreign: false, currency: "", rate: "" };
 
 function fixture(): PfRecord {
@@ -167,6 +167,7 @@ describe("#263 History table: editable cells and record updates (PFHE-02..05)", 
       currency: "USD",
       rate: "1.4",
       category: "",
+      note: "",
     };
     writeMonths(s, {
       "2025-11": { fixed: [L("rent", "1000"), usdSub], variable: [L("food", "300")], people: [bob] },

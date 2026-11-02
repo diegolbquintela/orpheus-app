@@ -95,7 +95,7 @@ const refused = <T>(r: Result<T>): ChartsApiError => {
 };
 let base = 0;
 const actions = async () => (await pg.query<{ action: string }>("SELECT action FROM audit_event WHERE id > $1 ORDER BY id", [base])).rows.map((r) => r.action);
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const record = {
   [STORAGE_KEY]: JSON.stringify({ fixed: [L("rent", "1000", "Home", "Chequing")], variable: [], accounts: ["Chequing"], categories: ["Home"] }),
   [MONTHS_KEY]: JSON.stringify({

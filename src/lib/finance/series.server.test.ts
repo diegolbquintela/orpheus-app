@@ -31,7 +31,7 @@ const req = (method: string, body?: unknown, path = "/api/personal-finance/serie
   });
 const ser = (who: string | null, body?: unknown, method = "POST", now = NOW, e = env) =>
   handlePersonalFinanceSeriesRequest(req(method, body), as(who, e), () => now);
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 const record = {
   [STORAGE_KEY]: JSON.stringify({
     fixed: [L("rent", "1000", "Home", "Chequing")],

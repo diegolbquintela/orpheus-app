@@ -51,6 +51,7 @@ const line = (over: Partial<Line> = {}): Line => ({
   currency: "",
   rate: "",
   category: "",
+  note: "",
   ...over,
 });
 
@@ -189,6 +190,7 @@ describe("foreign-currency line (#87, PF-22..25)", () => {
       currency: "",
       rate: "",
       category: "",
+      note: "",
     });
     assert.deepEqual(totalsOf(read.fixed).monthly, 1000);
     const odd = asExpenses({

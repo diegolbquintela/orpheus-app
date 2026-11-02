@@ -63,7 +63,9 @@ const SMOKE_MODE = (() => { const i = argv.indexOf("--smoke-mode"); return i >= 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..");
 const RUNS = Number(process.env.CLS_RUNS ?? 2);
-const R = { base, checks: [], tools: [], cls: {} };
+const R = { base, checks: [], tools: [], cls: {}, skipped: [] };
+// BY2: the exact text QA greps for; names only, never values.
+const skip = (name) => { R.skipped.push(name); console.log(`SKIPPED (NOT A PASS): ${name}`); };
 const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
@@ -409,8 +411,11 @@ function runTool(name, cmd, args) {
     child.on("close", (code) => {
       log.end();
       const summary = (/(\d+\/\d+ passed[^\n]*)/.exec(tail) ?? /(\[[\w-]+\] (?:OK|FAIL)[^\n]*)/.exec(tail) ?? [null, tail.trim().split("\n").pop()])[1];
-      R.tools.push({ name, code, summary });
-      check(`ST6-05 ${name}: ${summary}`, code === 0, code);
+      R.tools.push({ name, code, summary, ...(code === 3 ? { skipped: true } : {}) });
+      // BY2 (BX3): exit 3 = the child ran but skipped part of itself (e.g. signed out, no QA_EMAIL / QA_PASSWORD): loud,
+      // counted as a skip (never a pass), not an ST6-05 FAIL. Exit 1 (or any other non-zero) still fails.
+      if (code === 3) skip(`${name}, exit 3 (${summary})`);
+      else check(`ST6-05 ${name}: ${summary}`, code === 0, code);
       done();
     });
   });
@@ -438,5 +443,6 @@ if (!OWN_ONLY) {
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "site-style-regression.json"), JSON.stringify(R, null, 2));
 console.log(`\nCLS (strict, cold): ${JSON.stringify(R.cls)}`);
-console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · out ${CFG.out}`);
-process.exit(fails.length ? 1 : 0);
+console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""}${R.skipped.length ? `, ${R.skipped.length} SKIPPED (NOT A PASS)` : ""} · out ${CFG.out}`);
+// BY2 (= BX3): a skipped child is never a pass: FAIL exits 1, else any SKIPPED (NOT A PASS) exits 3.
+process.exit(fails.length ? 1 : R.skipped.length ? 3 : 0);

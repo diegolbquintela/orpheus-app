@@ -10,7 +10,7 @@ import { MONTHS_KEY } from "../months.ts";
 import { OVERVIEW_KEY } from "../overview.ts";
 import { readPdf, readPng } from "../../../../qa/tools/export-parse.mjs";
 
-const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category });
+const L = (id: string, amount: string, category = "", account = ""): Line => ({ id, name: id, amount, per: "month", equity: "", account, currency: "", rate: "", category, note: "" });
 /** The #157 test record (export.server.test.ts), ASCII names only. */
 export const GOLDEN_RECORD = {
   [STORAGE_KEY]: JSON.stringify({
