@@ -1388,3 +1388,4 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - Exports never show notes. The CFO API returns them as an additive field under `cfo-pf.v1`.
   - UI: `pf-note-toggle` sits in `.pf-actions` before `pf-remove`. `NoteField` (`pf-note-row`) renders only while open. Read users get `pf-note-text`.
   - New `Line` literals in tests need `note: ""`.
+- 2026-11-01 (#277 harness, BX1–BX4): qa/tools PF expectations follow #229 (months open to current + 12, years last..2020) and #228 (nets from the real clock + fixture, never hardcoded); fixture months are offsets from today (PAST = −4 months, OLD = −5 years); a SKIPPED (NOT A PASS) item makes personal-finance / pf-months / personal-finance-e2e exit 3 (1 = FAIL, 2 = prod REFUSED), so a signed-out or skip-only run is never green.

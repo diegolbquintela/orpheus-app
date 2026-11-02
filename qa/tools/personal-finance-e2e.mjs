@@ -168,7 +168,7 @@ try {
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;
   const prod = new URL(base).hostname === new URL(DEFAULT_BASE_URL).hostname;
-  if (!email || !password) console.log("INFO PFE-03..11 SKIPPED (signed in): set QA_EMAIL / QA_PASSWORD in env (the preview QA account, e.g. qa-pf@orpheus.test; its Personal Finance record is reset)");
+  if (!email || !password) skip("PFE-03..11 (signed in): set QA_EMAIL / QA_PASSWORD in env (the preview QA account, e.g. qa-pf@orpheus.test; its Personal Finance record is reset)");
   else if (prod) check("PFE-13 the signed-in part runs on a preview only (it writes to the account): refused on production", false, base);
   else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
     const tag = `[${vp}]`;
@@ -741,12 +741,20 @@ try {
           const toggle = row.getByTestId("pf-note-toggle");
           nt.toggleH = await toggle.evaluate((e) => Math.round(e.getBoundingClientRect().height));
           nt.closed = await toggle.getAttribute("aria-expanded");
+          nt.label = [await txt(toggle), await toggle.getAttribute("aria-label")];
           await toggle.click();
           nt.open = await toggle.getAttribute("aria-expanded");
+          // BX2: aria-controls names the opened note row, which holds the textarea.
+          nt.controls = await toggle.evaluate((b) => { const t = document.getElementById(b.getAttribute("aria-controls") ?? ""); return !!t && !!t.querySelector("[data-testid=pf-note]"); });
           const area = page.getByTestId("pf-note").first();
           nt.maxlength = await area.getAttribute("maxlength");
           await area.fill("a".repeat(10));
           nt.countShort = await page.getByTestId("pf-note-count").count();
+          // BX2: the counter boundary: hidden at 399, shown at 400.
+          await area.fill("a".repeat(399));
+          nt.count399 = await page.getByTestId("pf-note-count").count();
+          await area.fill("a".repeat(400));
+          nt.count400 = await page.getByTestId("pf-note-count").count();
           await area.fill("a".repeat(499));
           await area.pressSequentially("bc"); // the 501st character is refused by maxlength
           nt.len = (await area.inputValue()).length;
@@ -762,18 +770,23 @@ try {
           await page.reload({ waitUntil: "networkidle" });
           await ready(page);
           nt.dot = await row.getByTestId("pf-note-toggle").getAttribute("data-has-note");
+          nt.labelAfter = await row.getByTestId("pf-note-toggle").getAttribute("aria-label");
           nt.preview = mobile ? null : await txt(row.getByTestId("pf-note-preview")).catch(() => null);
           await row.getByTestId("pf-note-toggle").click();
           nt.reloaded = await page.getByTestId("pf-note").first().inputValue();
           await row.getByTestId("pf-note-toggle").click();
-          check(`${tag} PFNT-01/04/05/06 signed in: note toggle ≥ 44 px (aria-expanded false → true), maxlength 500 refuses the 501st character, counter only near the limit, Save, reload: the note is stored (expenses + the real current month) and shown (dot${mobile ? "" : ", preview"}, textarea)`,
-            nt.lines >= 1 && nt.toggleH >= 44 && nt.closed === "false" && nt.open === "true" && nt.maxlength === "500" && nt.len === 500 && nt.countShort === 0 && /500/.test(nt.countLong ?? "") &&
+          check(`${tag} PFNT-01/04/06 signed in: note toggle "Note" ≥ 44 px (aria-label "Note, …", aria-expanded false → true, aria-controls → the note row; "(has a note)" after Save), maxlength 500 refuses the 501st character, counter hidden at 399 and shown from 400, Save, reload: the note is stored (expenses + the real current month) and shown (dot${mobile ? "" : ", preview"}, textarea)`,
+            nt.lines >= 1 && nt.toggleH >= 44 && nt.closed === "false" && nt.open === "true" && nt.label[0] === "Note" && /^Note, /.test(nt.label[1] ?? "") && !/has a note/.test(nt.label[1] ?? "") && nt.controls === true &&
+              /\(has a note\)$/.test(nt.labelAfter ?? "") && nt.count399 === 0 && nt.count400 === 1 && nt.maxlength === "500" && nt.len === 500 && nt.countShort === 0 && /500/.test(nt.countLong ?? "") &&
               nt.storedExpenses && nt.storedMonth && nt.dot === "true" && (mobile || nt.preview === NOTE) && nt.reloaded === NOTE, nt);
           // Read user (BV4 pattern): creds from env, never printed; loud skip when unset.
           const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;
-          if (!rEmail || !rPassword) skip(`${tag} PFNT-07 Read-user note view, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
+          if (!rEmail || !rPassword) skip(`${tag} PFNT-05 Read-user note view, QA_CFO_READ unset (set QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD)`);
           else {
             const rd = {};
+            // BX2: the owner's record as raw text before / after the Read session (compared, never logged).
+            const ownerRaw = () => page.evaluate(async (u) => await (await fetch(u)).text(), API);
+            const ownerBefore = await ownerRaw();
             await eachViewport({ browser, baseUrl: base, email: rEmail, password: rPassword, check: (n, ok, d) => check(`${tag} PFNT Read user ${n}`, ok, d), viewports: [[vp, viewport, mobile]] }, async ({ page: rp }) => {
               const writes = [];
               rp.on("request", (q) => { const u = new URL(q.url()); if (u.pathname.startsWith("/api/") && q.method() !== "GET") writes.push(`${q.method()} ${u.pathname}`); });
@@ -786,8 +799,9 @@ try {
               await rp.waitForTimeout(1500);
               rd.writes = writes;
             });
-            check(`${tag} PFNT-07 Read user (second context, QA_CFO_READ): the note is plain text, no textarea / toggle; NO non-GET request to /api/*`,
-              (rd.text ?? "").includes(NOTE) && rd.textareas === 0 && rd.toggles === 0 && rd.writes?.length === 0, { textareas: rd.textareas, toggles: rd.toggles, writes: rd.writes, shown: (rd.text ?? "").includes(NOTE) });
+            rd.ownerSame = (await ownerRaw()) === ownerBefore;
+            check(`${tag} PFNT-05 Read user (second context, QA_CFO_READ): the note is plain text, no textarea / toggle; NO non-GET request to /api/*; the owner's record byte-identical before / after`,
+              (rd.text ?? "").includes(NOTE) && rd.textareas === 0 && rd.toggles === 0 && rd.writes?.length === 0 && rd.ownerSame === true, { textareas: rd.textareas, toggles: rd.toggles, writes: rd.writes, shown: (rd.text ?? "").includes(NOTE), ownerSame: rd.ownerSame });
           }
         } catch (e) {
           check(`${tag} PFNT step ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
@@ -816,4 +830,6 @@ try {
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "personal-finance-e2e.json"), JSON.stringify(R, null, 2));
 console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""}${R.skipped.length ? `, ${R.skipped.length} SKIPPED (NOT A PASS)` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
-process.exit(fails.length ? 1 : 0);
+// BX3 (#277 harness, = BV6): a skip is never a pass. Any FAIL exits 1; otherwise any SKIPPED (NOT A PASS) item, including
+// a skip-only run (e.g. no QA_EMAIL / QA_PASSWORD), exits 3 (2 stays the prod REFUSED code), so a skipped run can't read as green.
+process.exit(fails.length ? 1 : R.skipped.length ? 3 : 0);
