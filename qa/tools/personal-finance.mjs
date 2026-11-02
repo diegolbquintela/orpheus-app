@@ -198,6 +198,9 @@ const emptyTexts = (wide) => [
   "As of month", // #171 (PFAO-16, 2026-10-17): the as-of month field
   "Growth rate (%)",
   "Future",
+  // #280 (QA r4 CG1): the Overview chart's visible heading; the month is the pinned TODAY's (household month), PFWB-07-safe.
+  "Last 12 months",
+  `Income, expenses and net assets for each month up to ${MONTH_NAMES[TODAY.getMonth()]} ${TODAY.getFullYear()} (recorded history).`,
   "Expenses",
   "Income",
   "Net assets",
