@@ -70,3 +70,22 @@ ACs: HBM-01..10 (`qa/CANONICAL-AC-PACK.md`).
   field is ever displayed, so only one is in the accessibility tree and the focus order; each has its own id, label and
   note id. The focus trap counts displayed elements only (`checkVisibility`). 768 px and wider: DOM, Tab order
   (X, Search, links) and pixels are #286's. ACs: HBM-06 (amended 2026-11-02).
+
+## § #288 close (2026-11-02): closing the menu
+Findings (Chromium, prod 5b2f76c, 360 / 390 / 768 / 1440): the #286 X was already a 44 × 44 px button named
+`Close menu`, chalk on night 14.2:1, in the Menu trigger's box, with Esc, a focus trap, focus return, the scroll lock
+and the scroll position kept. One bug: `SiteMenu` lives in `src/routes/__root.tsx`, so a same-document route change
+(Back / Forward to an in-page entry, an in-app navigation) left it open and the page scroll-locked.
+EL decisions: build A + B + CH17. Q1 the X stays top-right; Q2 no close on an empty-space tap (the overlay is
+full-screen: no backdrop); Q3 Back-closes-without-navigating (a pushed history entry) deferred; Q4 the iOS
+`overflow: hidden` scroll lock on `<html>` accepted as is.
+- **A** The menu closes when `pathname` changes while it is open, on `popstate`, and on `pageshow` with
+  `persisted` (back/forward cache). No history entry is added. The existing cleanup releases the scroll lock; focus
+  returns to the trigger only if it was in the dialog (or lost to the body).
+- **B** Below 768 px only, the X shows `Close` (text-xs / sm:text-sm, chalk) inside the same button: one tab stop,
+  the label `aria-hidden`, so the accessible name stays `Close menu`. From 768 the label is `md:hidden` and the
+  button keeps #286's classes, so 768 / 1440 stay pixel-identical.
+- **CH17** The Search caret is kept in a ref on every select / key / input in either slot and restored after a slot
+  swap, also when focus had left Search (the displayed field gets the caret back without taking focus).
+ACs: CLS-01..08 (`qa/CANONICAL-AC-PACK.md`).
+

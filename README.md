@@ -820,3 +820,5 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 **Equity coverage total (#282 CFO, 2026-11-02).** Superseding "—" above: the two extra rows' last cell is now a total, net income (or surplus) over the horizon plus the sum of each projected month's equity coverage, with the caption "Total over {horizon}" (e.g. "Total over 12 months") under the figure. The column header ("Over {horizon}") is unchanged.
 
 **Mobile menu (#287, 2026-11-02).** Below 768 px the Menu overlay lists the pages first as full-width rows (same full names; Renaissance Man still owner-only), then Search, then the lyre and `Orpheus Wisdom`; it fades in unless reduced motion is on. 768 px and wider are unchanged. Spec: `attachments/header-menu-spec.md` "§ #287 mobile"; ACs HBM-01..10.
+
+**Menu close (#288, 2026-11-02).** The menu now closes on a route change, on Back / Forward and on a back/forward-cache restore, without adding history entries; below 768 px the X reads `Close` (same button, name `Close menu`); the Search caret survives a resize. 768 px and wider are unchanged. Spec: `attachments/header-menu-spec.md` "§ #288 close"; ACs CLS-01..08.

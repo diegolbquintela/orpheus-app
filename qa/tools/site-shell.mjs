@@ -392,6 +392,36 @@ async function hbm(page, host, width, { who = "signed out", owner = false, navig
     await page.waitForTimeout(150);
     await page.reload({ waitUntil: "networkidle" });
   }
+  // #288 CLS (2026-11-02): scroll kept on open/close; Back to a same-document entry closes the menu (overflow cleared,
+  // history length unchanged); the X's `Close` label is ≥ 44 px tall below 768 and not displayed from 768.
+  {
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.waitForTimeout(100);
+    const y0 = await page.evaluate(() => scrollY);
+    await menu.click();
+    await page.waitForTimeout(150);
+    const lb = await page.evaluate(() => {
+      const x = document.querySelector('[data-testid="site-menu-close"]');
+      const l = x.querySelector('[data-testid="site-close-label"]');
+      const shownLabel = !!l && l.checkVisibility();
+      const bx = x.getBoundingClientRect();
+      const lr = shownLabel ? l.getBoundingClientRect() : null;
+      const logo = document.querySelector('[data-testid="site-overlay"] [aria-hidden="true"]').getBoundingClientRect();
+      return { shown: shownLabel, text: shownLabel ? l.textContent : null, h: Math.round(bx.height), w: Math.round(bx.width), right: Math.round(innerWidth - bx.right), gapToLogo: lr ? Math.round(lr.left - logo.right) : null, name: x.getAttribute("aria-label") };
+    });
+    if (width < 768) check(`${tag} CLS-07 X shows \`Close\` in the same button, ≥ 44 px, no collision, name \`Close menu\``, lb.shown && lb.text === "Close" && lb.h >= 44 && lb.w >= 44 && lb.gapToLogo > 0 && lb.name === "Close menu", lb);
+    else check(`${tag} CLS-07 from 768 the \`Close\` label is not displayed (X as #286)`, !lb.shown && lb.h === 44 && lb.w === 44, lb);
+    await page.getByTestId("site-menu-close").click();
+    const y1 = await page.evaluate(() => scrollY);
+    check(`${tag} CLS-05 scroll position kept on open / close`, y1 === y0, [y0, y1]);
+    const len0 = await page.evaluate(() => { history.pushState(history.state, "", location.pathname + "?cls=1"); return history.length; });
+    await menu.click();
+    await page.waitForTimeout(150);
+    await page.goBack();
+    await page.waitForTimeout(300);
+    const pop = await page.evaluate(() => ({ hidden: document.querySelector('[data-testid="site-overlay"]').hidden, overflow: document.documentElement.style.overflow, len: history.length, url: location.pathname + location.search }));
+    check(`${tag} CLS-03 Back to a same-document entry closes the menu, overflow cleared, history length unchanged`, pop.hidden && pop.overflow === "" && pop.len === len0, { ...pop, len0 });
+  }
   if (navigate) {
     for (const [label, href] of want) {
       await page.goto(`${host}/calculator`, { waitUntil: "networkidle" });

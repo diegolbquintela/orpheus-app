@@ -2410,3 +2410,16 @@ EL decisions Q1–Q5 are in the spec. Below 768 px only; 768 px and wider are #2
 | HBM-10 | MAJOR | The e2e step saves nothing (storage unchanged); owner and Read user run, or SKIPPED (NOT A PASS) with exit 3. |
 
 HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab order from X. Below 768: X, Orpheus, Calculator, Dashboard, Personal Finance, [Renaissance Man, owner only], Account, Search, then back to X (Shift-Tab on X goes to Search). At 768 and 1440: X, Search, then the links, unchanged from #286. Exactly one search field is displayed (and in the focus order) at any width; ids, labels and `aria-describedby` stay unique. Checked by `src/components/site-menu-mobile.dom.test.tsx` and `qa/tools/site-shell.mjs` hbm() (real Tab presses).
+
+## CLS — Closing the menu (#288, 2026-11-02; attachments/header-menu-spec.md "§ #288 close")
+
+| AC | Severity | Check |
+|---|---|---|
+| CLS-01 | BLOCK | The X is a 44 × 44 px button (≥ 44 px tall below 768) named `Close menu`, icon contrast ≥ 3:1, in the Menu trigger's box at 360 / 390 / 768 / 1440. |
+| CLS-02 | BLOCK | X and Esc close the menu; focus returns to the button that opened it (HBM-05 unchanged). |
+| CLS-03 | BLOCK | A same-document route change while open (a new pathname, Back / Forward via popstate) closes it: overlay hidden, `<html>` overflow restored, no history entry added (history.length unchanged); focus outside the dialog is not moved. |
+| CLS-04 | BLOCK | A back/forward-cache restore (`pageshow` persisted) never shows the menu open. |
+| CLS-05 | MAJOR | The scroll position is unchanged after open and close. |
+| CLS-06 | BLOCK | No regression: HBM-01..10, HDR-01..12, the #287 Tab order, trap, CH14 / CH15; 768 / 1440 pixel-identical to 5b2f76c (closed and open); no gold, no tnum; lyre and `Orpheus Wisdom` kept. |
+| CLS-07 | MAJOR | Below 768 the X shows `Close` inside the same button (one tab stop, label aria-hidden, name `Close menu`), ≥ 44 px, AA text, no overflow or collision at 360 / 390; not displayed from 768. |
+| CLS-08 | MINOR | The Search caret survives a resize across 768 px even when focus had left Search (CH17). |
