@@ -658,6 +658,8 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 
 **One-click Reload (#258, 2026-11-01).** The stale-save message (409 `stale` or 428 `base_version_required`) on Overview, History and Saved scenarios now has a `Reload` button right after it. It re-reads the record in place (one `GET`, no page reload, nothing written), discards unsaved edits as the message warns, and the next save is based on the fresh `version`. While it runs it reads `Reloading…`; if it fails, an inline error shows and your edits stay. No API or schema change. Spec §80, AC PFRL-01..PFRL-09.
 
+**Reload confirmed (#258, Nov 3 2026).** §80.2 as built: Q1 confirmed Nov 3 2026 by CFO (via Engineering Lead), with condition: copy states unsaved edits are discarded (the banner already does; DOM tests pin it); PFRL-08 / PFRL-09 on the preview: PASS on Overview (37/37 app checks, Nov 3 2026); History and Scenario not covered live (QA script gap, covered by LOW issue #308). Spec §80.9, AC PFRL-12.
+
 **Sortable Saved scenarios (#278, 2026-11-01).** On the Saved scenarios table, click `Scenario name` or `From` to sort ascending, again for descending, and a third time to return to the saved order (oldest first). Ties keep saved order. The sort is not saved and resets on reload; nothing is written. Spec §83, AC PFSO-01..PFSO-18.
 
 **Compare follows the sort; e2e coverage (#278, 2026-11-02).** The Compare table orders its scenario columns by the Saved table's current sort (saved order when none). `qa/tools/personal-finance-e2e.mjs` checks the sort signed in (PFSO-23; needs QA creds, otherwise `SKIPPED (NOT A PASS)`, exit 3) and masks every email address in its output and JSON as `<email>`.

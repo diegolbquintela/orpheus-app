@@ -442,6 +442,7 @@ describe("#258 PFRL Saved scenarios: Reload from the stale banner", () => {
     const banner = q(el, "pf-saved-stale")!;
     assert.ok(banner, "a visible banner");
     assert.equal(banner.querySelector("p")!.textContent, STALE_MESSAGE);
+    assert.match(banner.querySelector("p")!.textContent!, /discard your unsaved edits/, "PFRL-12: the banner says unsaved edits are discarded");
     const btn = q(el, "pf-saved-reload") as HTMLButtonElement;
     assert.equal(btn.textContent, "Reload");
     assert.equal(banner.querySelector("p")!.nextElementSibling, btn.parentElement, "right after the banner text");

@@ -2545,6 +2545,7 @@ describe("#242 PFTW-08 / PFTW-09: another tab saved first → the reload message
     assert.equal(q(el, "pf-save").nextElementSibling, btn.parentElement, "right after the banner text");
     assert.ok(q(el, "pf-save").classList.contains("pf-save-stale"), "the banner sits in the flow");
     assert.equal(text(el, "pf-save"), STALE_MESSAGE, "the banner text is unchanged");
+    assert.match(text(el, "pf-save"), /discard your unsaved edits/, "PFRL-12 (CFO Q1 condition): the banner says unsaved edits are discarded");
   });
 
   it("PFRL-02: Reload re-fetches in place: one GET, edits discarded, banner gone, heading focused, next Save based on the fresh version", async () => {

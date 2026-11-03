@@ -492,6 +492,7 @@ describe("#258 PFRL History: Reload from the stale banner", () => {
     assert.ok(btn, "the button shows");
     assert.equal(btn.textContent, "Reload");
     assert.equal(q(el, "pf-history-status")!.nextElementSibling, btn.parentElement, "right after the banner text");
+    assert.match(q(el, "pf-history-status")!.textContent!, /discard your unsaved edits/, "PFRL-12: the banner says unsaved edits are discarded");
     assert.ok(btn.classList.contains("pf-button"), "44px pf-button");
     await act(async () => btn.click());
     await act(async () => new Promise((r) => setTimeout(r, 10)));
