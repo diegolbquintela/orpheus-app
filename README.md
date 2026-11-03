@@ -117,6 +117,7 @@ The app is hosted on Vercel.
 - 2026-10-20: the live check of the docs-only skip is a README-only PR (docs/vercel-skip-proof); its Vercel preview should log `[vercel-ignore] SKIP` and not build.
 - 2026-10-20 (fix/vercel-ignore-base): the skip finds its base as the previous deployed SHA, then `git fetch` + merge-base (works with no `origin` remote), then the public GitHub compare API (5s timeout; truncated or 300+ files builds). The log line names it: `[vercel-ignore] SKIP (base=…)`.
 - Vercel is the only deploy path; production is https://orpheus-app-beta.vercel.app. Deploying through Grok has stopped and the old grok.me copy is retired.
+- 2026-11-03 (#305): `public/robots.txt` is disallow-all (`User-agent: *` / `Disallow: /`) so compliant crawlers stop spending Vercel CDN requests (free-tier cap); the noindex meta + `X-Robots-Tag` are unchanged, and previews are behind Vercel Authentication.
 
 ## Site style: dark, mobile first (epic #66, tickets #67–#73)
 

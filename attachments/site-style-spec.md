@@ -42,6 +42,8 @@ its content (holdings, chips, book, its styles and data); the dashboard stays re
 page; the analytics rules (#48); no buy / sell / hold wording and no disclaimer. No hires. #50, #51 and PR #52
 stay paused until Oct 12; this epic doesn't touch them.
 
+2026-11-03 (#305, CH24): `public/robots.txt` is disallow-all (`User-agent: *` / `Disallow: /`) because Vercel CDN is at the free-tier request cap; production stays `noindex` (meta + `X-Robots-Tag: noindex, nofollow`, unchanged); previews are behind Vercel Authentication (QA uses the `x-vercel-protection-bypass` header).
+
 ## 2. The brief (verbatim from epic #66, dark)
 
 Rules: no hires. Calculator rules and dashboard data rules are unchanged. The dashboard stays released and
