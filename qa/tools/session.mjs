@@ -27,14 +27,15 @@ export function viewportsFrom(value) {
   return ALL_VIEWPORTS.filter(([vp]) => names.includes(vp));
 }
 
-export async function eachViewport({ browser, baseUrl, email, password, check, viewports = viewportsFrom(process.env.QA_VIEWPORTS) }, fn) {
+// #308: `headers` (optional) are extra request headers for the whole context, sign-in included (the Vercel bypass; never logged).
+export async function eachViewport({ browser, baseUrl, email, password, check, viewports = viewportsFrom(process.env.QA_VIEWPORTS), headers }, fn) {
   // #157 F7: never sign in on production (qa/tools/prod-guard.mjs signed-out prod mode).
   if (signedOutProd()) {
     console.log("INFO signed-in steps SKIPPED (signed-out prod mode)");
     return;
   }
   for (const [vp, viewport, mobile] of viewports) {
-    const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
+    const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1, ...(headers ? { extraHTTPHeaders: headers } : {}) });
     const page = await ctx.newPage();
     page.setDefaultTimeout(30000);
     try {

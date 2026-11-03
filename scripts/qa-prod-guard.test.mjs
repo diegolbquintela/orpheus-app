@@ -8,7 +8,8 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { credentialVars, prodReason, staticProdReason, PROD_ALIAS, SIGNED_OUT_PROD_LINE } from "../qa/tools/prod-guard.mjs";
+import { credentialVars, prodReason, refuseIfProd, scrubSecrets, staticProdReason, PROD_ALIAS, SIGNED_OUT_PROD_LINE } from "../qa/tools/prod-guard.mjs";
+import { bypassHeaders } from "../qa/tools/robots-txt.lib.mjs";
 
 // Every QA tool that signs in (reads a *_PASSWORD from env), enumerated, not listed by hand (QA run 2026-10-17 F2, EL).
 // #158 QA round 1 F1 (EL req 3): the union with every qa/tools file that calls `refuseIfProd(`, so a guarded tool with no
@@ -18,7 +19,7 @@ const toolSrc = (f) => readFileSync(`qa/tools/${f}`, "utf8");
 const SIGN_IN = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "session.mjs" && f !== "prod-guard.mjs" && toolSrc(f).includes("_PASSWORD")).sort();
 const CALLS_GUARD = readdirSync("qa/tools").filter((f) => f.endsWith(".mjs") && f !== "prod-guard.mjs" && /\brefuseIfProd\(/.test(toolSrc(f).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"))).sort();
 const TOOLS = [...new Set([...SIGN_IN, ...CALLS_GUARD])].sort();
-const GUARDED = ["audit.mjs", "calculator-page.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "home-page.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-charts-contract.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-scenario-e2e.mjs", "pf-series-api.mjs", "roles.mjs", "saved-searches.mjs", "signin-page.mjs", "site-shell.mjs", "site-style-regression.mjs", "site.mjs"];
+const GUARDED = ["audit.mjs", "calculator-page.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "home-page.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-charts-contract.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-scenario-e2e.mjs", "pf-series-api.mjs", "pf-stale-reload.mjs", "roles.mjs", "saved-searches.mjs", "signin-page.mjs", "site-shell.mjs", "site-style-regression.mjs", "site.mjs"];
 const stub = (env, calls = []) => async (url, init) => {
   calls.push([url, init]);
   return { headers: new Headers(env === null ? {} : { "x-orpheus-env": env }) };
@@ -34,7 +35,7 @@ test("static: the prod alias and production-branch hosts refuse without a reques
 test("probe: production or a missing header refuses; preview / local pass; one HEAD, no redirects", async () => {
   const p = "https://orpheus-abc123-diegolbquintelas-projects.vercel.app/x";
   const calls = [];
-  assert.match(await prodReason(p, stub("production", calls)), /production/);
+  assert.match(await prodReason(p, stub("production", calls), { bypass: {} }), /production/);
   assert.deepEqual(calls, [["https://orpheus-abc123-diegolbquintelas-projects.vercel.app/", { method: "HEAD", redirect: "manual" }]]);
   assert.match(await prodReason(p, stub(null)), /can't confirm a preview/);
   assert.match(await prodReason(p, async () => { throw new Error("offline"); }), /could not check/);
@@ -45,8 +46,89 @@ test("probe: production or a missing header refuses; preview / local pass; one H
   assert.equal(none.length, 0, "local and static refusals make no request");
 });
 
-test("the enumerated sign-in tools are the 20 known ones (#222 adds pf-scenario-e2e) (a new sign-in tool lands here automatically)", () => {
-  assert.deepEqual(SIGN_IN, ["audit.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-scenario-e2e.mjs", "pf-series-api.mjs", "roles.mjs", "site-shell.mjs", "site-style-regression.mjs"]);
+// CH41 (#308 QA): the guard's HEAD carries the Vercel bypass when one is set; a 302 never passes; the secret never shows.
+const SECRET = "ch41-fake-bypass-secret-0123456789";
+const PREVIEW = "https://orpheus-app-git-feat-x-diegolbquintelas-projects.vercel.app";
+const reply = (status, env, calls = []) => async (url, init) => {
+  calls.push([url, init]);
+  return { status, headers: new Headers(env === null ? {} : { "x-orpheus-env": env }) };
+};
+const captureOut = async (fn) => {
+  const out = [];
+  const keep = { log: console.log, error: console.error, warn: console.warn, exit: process.exit };
+  console.log = console.error = console.warn = (...a) => out.push(a.map(String).join(" "));
+  process.exit = (c) => { throw Object.assign(new Error(`exit ${c}`), { exitCode: c }); };
+  try {
+    return { value: await fn(), out };
+  } catch (e) {
+    return { error: e, out };
+  } finally {
+    Object.assign(console, { log: keep.log, error: keep.error, warn: keep.warn });
+    process.exit = keep.exit;
+  }
+};
+
+test("CH41: the HEAD sends bypassHeaders() when a bypass is set, and no bypass header when it isn't", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ch41-"));
+  const file = join(dir, "bypass.txt");
+  writeFileSync(file, `${SECRET}\n`);
+  const set = [];
+  assert.equal(await prodReason(PREVIEW, reply(200, "preview", set), { bypass: bypassHeaders(PREVIEW, file) }), null);
+  assert.equal(set.length, 1);
+  assert.equal(set[0][1].method, "HEAD");
+  assert.equal(set[0][1].redirect, "manual");
+  assert.equal(set[0][1].headers["x-vercel-protection-bypass"], SECRET);
+  const unset = [];
+  assert.equal(await prodReason(PREVIEW, reply(200, "preview", unset), { bypass: bypassHeaders(PREVIEW, join(dir, "missing.txt")) }), null);
+  assert.deepEqual(unset[0][1], { method: "HEAD", redirect: "manual" }, "no headers at all without a bypass");
+  // refuseIfProd passes the bypass through to the same HEAD.
+  const via = [];
+  const r = await captureOut(() => refuseIfProd(PREVIEW, "probe", reply(200, "preview", via), {}, { bypass: { "x-vercel-protection-bypass": SECRET } }));
+  assert.deepEqual(r.value, { signedOutProd: false });
+  assert.equal(via[0][1].headers["x-vercel-protection-bypass"], SECRET);
+});
+
+test("CH41: a 302 (protected preview, no bypass) is not a pass, even if it carried a preview header", async () => {
+  assert.match(await prodReason(PREVIEW, reply(302, null), { bypass: {} }), /302.*no bypass set/);
+  assert.match(await prodReason(PREVIEW, reply(302, "preview"), { bypass: {} }), /can't confirm a preview/);
+  assert.match(await prodReason(PREVIEW, reply(307, "preview"), { bypass: { "x-vercel-protection-bypass": SECRET } }), /307/);
+  const r = await captureOut(() => refuseIfProd(PREVIEW, "probe", reply(302, null), { QA_EMAIL: "a@b.co" }, { bypass: {} }));
+  assert.equal(r.error?.exitCode, 2, "a 302 with creds set is refused (exit 2)");
+});
+
+test("CH41: prod is still refused: static host (no request, bypass or not) and x-orpheus-env: production with the bypass", async () => {
+  const none = [];
+  assert.match(await prodReason(PROD_ALIAS, reply(200, "preview", none), { bypass: { "x-vercel-protection-bypass": SECRET } }), /production host/);
+  assert.equal(none.length, 0);
+  assert.deepEqual(bypassHeaders(PROD_ALIAS, "/nonexistent"), {});
+  assert.match(await prodReason(PREVIEW, reply(200, "production"), { bypass: { "x-vercel-protection-bypass": SECRET } }), /x-orpheus-env: production/);
+  const r = await captureOut(() => refuseIfProd(PREVIEW, "probe", reply(200, "production"), { QA_PASSWORD: "x" }, { bypass: { "x-vercel-protection-bypass": SECRET } }));
+  assert.equal(r.error?.exitCode, 2);
+  assert.match(r.out.join("\n"), /REFUSED probe/);
+});
+
+test("CH41: the bypass secret never appears in output (refusals, fetch errors, scrubSecrets)", async () => {
+  const bypass = { "x-vercel-protection-bypass": SECRET };
+  const outs = [];
+  for (const [f, env] of [
+    [reply(200, "production"), { QA_EMAIL: "a@b.co" }],
+    [reply(302, null), { QA_EMAIL: "a@b.co" }],
+    [async () => { throw new Error(`boom ${SECRET}`); }, { QA_EMAIL: "a@b.co" }],
+    [reply(200, "preview"), {}],
+  ]) {
+    const r = await captureOut(() => refuseIfProd(PREVIEW, "probe", f, env, { bypass }));
+    outs.push(...r.out, String(r.error?.message ?? ""));
+  }
+  const reason = await prodReason(PREVIEW, async () => { throw new Error(`net ${SECRET}`); }, { bypass });
+  assert.match(reason, /<redacted>/);
+  outs.push(reason);
+  assert.ok(outs.join("\n").length > 0);
+  assert.ok(!outs.join("\n").includes(SECRET), "secret leaked into output");
+  assert.equal(scrubSecrets(`x ${SECRET} y`, bypass), "x <redacted> y");
+});
+
+test("the enumerated sign-in tools are the 21 known ones (#222 adds pf-scenario-e2e, #308 pf-stale-reload) (a new sign-in tool lands here automatically)", () => {
+  assert.deepEqual(SIGN_IN, ["audit.mjs", "dashboard-add.mjs", "dashboard-book.mjs", "dashboard-company.mjs", "dashboard-leaveouts.mjs", "dashboard-list.mjs", "dashboard-metrics.mjs", "dashboard-redesign.mjs", "personal-finance-e2e.mjs", "personal-finance.mjs", "pf-chart-api.mjs", "pf-export-api.mjs", "pf-months.mjs", "pf-report-api.mjs", "pf-reports-api.mjs", "pf-scenario-e2e.mjs", "pf-series-api.mjs", "pf-stale-reload.mjs", "roles.mjs", "site-shell.mjs", "site-style-regression.mjs"]);
 });
 
 test("#158 F1: every guarded tool is covered: the refuseIfProd callers and the sign-in tools are exactly the pinned 26 (pf-charts-contract included; #222 pf-scenario-e2e)", () => {
