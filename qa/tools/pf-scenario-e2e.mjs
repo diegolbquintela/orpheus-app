@@ -24,6 +24,7 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { torontoMonth, withSeededPlans } from "./pf-plan-seed.mjs";
+import { coverageVerdict } from "./pf-coverage-check.mjs";
 
 // #208 (spec 61.2, HTL-04): --help prints the usage and exits before any config, guard probe or browser (no network).
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -263,16 +264,22 @@ async function scenarioChecks({ page, tag, vp }, read) {
   // share, and the note states the chart basis exactly. Toggles only (zero writes still holds: PFSV-13 tracker).
   {
     const ft = page.getByTestId("pf-future-toggle");
-    if ((await ft.count()) && (await ft.getAttribute("aria-pressed")) !== "true") await ft.click();
+    const toggle = (await ft.count()) > 0;
+    if (toggle && (await ft.getAttribute("aria-pressed")) !== "true") await ft.click();
     const y1 = page.locator("[data-testid=pf-year][data-years='1']");
-    if (await y1.count()) await y1.click();
+    const year1 = (await y1.count()) > 0;
+    if (year1) await y1.click();
     await page.waitForTimeout(150);
-    const note = page.getByTestId("pf-coverage-rate-note");
-    const text = (await note.count()) ? ((await note.first().textContent()) ?? "") : "";
-    const share = text.match(/covers ([\d.,]+%)/)?.[1] ?? null;
+    const n = page.getByTestId("pf-coverage-rate-note");
+    const note = (await n.count()) > 0;
+    const text = note ? ((await n.first().textContent()) ?? "") : "";
     const totals = (await cell(page, "coverage-share", "pf-scenario-total").catch(() => null))?.trim() ?? null;
-    check(`${tag} PFAV2-05 the scenario coverage note's share equals Totals' and says "held at this month's figures, like the projection chart"`,
-      !text || (share === totals && text.endsWith("(held at this month's figures, like the projection chart).")), { share, totals, text });
+    // #312: a missing toggle, button or note is SKIP (never a check, never a pass); a present note is checked strictly.
+    const v = coverageVerdict({ toggle, year1, note, text, totals });
+    if (v.verdict === "skip") info(`${tag} PFAV2-05 SKIPPED (coverage not computed: ${v.status})`);
+    else
+      check(`${tag} PFAV2-05 the scenario coverage note's share equals Totals' and says "held at this month's figures, like the projection chart"`,
+        v.verdict === "pass", { share: v.share, totals: v.totals, text });
   }
   // No horizontal overflow.
   const over = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
