@@ -2066,6 +2066,7 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
   - Picks over 10 or 200 characters.
   - A non-finite value or one over 1e6, a non-boolean hit, or a note over 500 characters.
   - Unknown keys are ignored. (unit)
+- RM-03a (#270): A negative `target` or `actual` (e.g. −1, −0.5, −1e6) → 400 with an error saying `0 to 1000000`; 0 and 1e6 are accepted. (unit)
 - RM-04: The page read (`loadRenaissance`) returns `not_found` when the flag is off, the viewer is signed out or not the owner, or there is no DB. It returns `not_configured` when `rm_entries` is missing, and otherwise `ok` with every entry (dates as `yyyy-mm-dd`). (unit, PGLite)
 - RM-05: The date helpers (`addDays`, `daysBetween`, `weekStart` Mon, `todayIn` America/Toronto, `dayLabel`) give the same results under TZ=UTC and TZ=America/Los_Angeles. (unit)
 - RM-06: Caps for zyn (16 → floor 3) and coffee (7 → floor 3):

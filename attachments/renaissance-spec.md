@@ -57,6 +57,8 @@ The data is stored in the table `rm_entries`, one row per `(entry_date, item)`, 
 
 **Idempotency:** each entry is an upsert, `ON CONFLICT (entry_date, item) DO UPDATE`. That day's picks are then synced to every row for that date, so posting the same body again changes nothing, and a later post corrects the earlier one. Nothing is ever deleted.
 
+**2026-11-03 note (#270):** `target` and `actual` must be from 0 to 1,000,000. A negative `target` or `actual` is rejected with 400. This supersedes the "absolute value ≤ 1,000,000" wording at line 51 above (the code always rejected negatives). AC RM-03a.
+
 ## 5. Derived values (computed on read, never stored; `src/lib/renaissance/derive.ts`)
 
 - **Caps (zyn, coffee):**
