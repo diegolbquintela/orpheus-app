@@ -16,8 +16,9 @@ export const projectedChartSub = (current: MonthKey): string =>
 
 /** Compare (`09`): net assets only, one line per column. */
 export const COMPARE_CHART_TITLE = "Net assets by scenario";
-export const compareChartSub = (horizon: string): string =>
-  `This screen and the saved scenario, each projected over ${horizon} from its own net assets now.`;
+// #299 Q5 (spec §88, AC PF2C-19): "the saved scenarios" with 2 picks, "the saved scenario" with 1.
+export const compareChartSub = (horizon: string, saved = 1): string =>
+  `This screen and the saved scenario${saved > 1 ? "s" : ""}, each projected over ${horizon} from its own net assets now.`;
 
 /** The figure's aria wiring for a `ChartHeading` with the same id. */
 export const chartAria = (id: string) => ({ "aria-labelledby": `${id}-title`, "aria-describedby": `${id}-sub` });

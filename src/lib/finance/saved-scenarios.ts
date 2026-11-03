@@ -17,7 +17,8 @@ export { NAME_MAX, SAVED_MAX, type SavedEntry };
  * #279 (spec §84, AC PF2C; supersedes #223 Q-SS1's 2..3): Compare shows at most 2 columns, and `This screen` COUNTS as
  * one of them, so exactly 1 saved scenario is picked beside it. MIN / MAX count saved picks; COMPARE_COLUMNS_MAX all columns.
  */
-export const COMPARE_COLUMNS_MAX = 2;
+// #299 (spec §88, AC PF2C-16): raised to 3 columns, so This screen + 2 saved picks.
+export const COMPARE_COLUMNS_MAX = 3;
 export const COMPARE_MIN = 1;
 export const COMPARE_MAX = COMPARE_COLUMNS_MAX - 1;
 /** The Compare chart palette (unchanged since #223; was a local array in CompareTable, same 4 entries, same order). */
@@ -38,7 +39,20 @@ export function compareColour(c: { id: string; name?: string }): string {
   return COMPARE_COLOURS[1 + (fnv1a(c.id || c.name || "") % (COMPARE_COLOURS.length - 1))];
 }
 /** #279: shown (and named by aria-describedby on each locked checkbox) while the limit is reached. */
-export const COMPARE_LIMIT_HINT = "Compare limit reached: This screen and 1 saved scenario.";
+export const COMPARE_LIMIT_HINT = "Compare limit reached: This screen and 2 saved scenarios.";
+/** #299 (spec §88, AC PF2C-20): the dash for a colour clash, on the chart line and its legend swatch alike. */
+export const COMPARE_CLASH_DASH = "6 4";
+/** #299 Q4 (b): colours stay pinned (compareColour). When a column's colour was already used by an EARLIER column, that
+ *  later column is dashed; nothing else is. Columns are in display order (This screen first, then the Saved sort). */
+export function compareDashes(cols: { id: string; name?: string }[]): (string | undefined)[] {
+  const seen = new Set<string>();
+  return cols.map((c) => {
+    const colour = compareColour(c);
+    const clash = seen.has(colour);
+    seen.add(colour);
+    return clash ? COMPARE_CLASH_DASH : undefined;
+  });
+}
 export const COMPARE_TOGGLE = "Compare with saved scenarios";
 export const COMPARE_SELECTED = "Compare selected";
 /** The page values a saved scenario keeps (the screen's what-ifs); anything else is never kept. */

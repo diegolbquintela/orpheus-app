@@ -72,7 +72,9 @@ const box = (el: HTMLElement, i: number) => q(qa(el, "pf-saved-item")[i], "pf-sa
 const checkedIdx = (el: HTMLElement) => qa(el, "pf-saved-item").flatMap((tr, i) => ((q(tr, "pf-saved-compare") as HTMLInputElement).checked ? [i] : []));
 const locked = (el: HTMLElement) => qa(el, "pf-saved-item").flatMap((tr, i) => (q(tr, "pf-saved-compare")!.getAttribute("aria-disabled") === "true" ? [i] : []));
 const heads = (el: HTMLElement) => qa(el, "pf-compare-head").map((h) => h.textContent);
-const HINT = "Compare limit reached: This screen and 1 saved scenario.";
+// #299 (spec §88, PF2C-16..22): the limit is now This screen + 2 saved, so the lock comes after the SECOND pick. These
+// #279 tests are kept and re-stated for 2 picks; the 1-pick 2-column output (PF2C-06) is unchanged.
+const HINT = "Compare limit reached: This screen and 2 saved scenarios.";
 // Captured on main 92ae1f7 (pre-#279) with alpha 2 + Éclair compared: the This screen and alpha 2 columns.
 const BEFORE: Record<string, [string, string]> = {
   income: ["7,500.00", "7,100.00"], expenses: ["3,000.00", "3,000.00"], surplus: ["4,500.00", "4,100.00"],
@@ -91,25 +93,32 @@ describe("#279 Compare limited to This screen + 1 saved (PF2C)", () => {
     assert.equal(qa(el, "pf-saved-compare").filter((b) => b.hasAttribute("aria-describedby")).length, 0);
     await click(box(el, 3));
     assert.deepEqual(checkedIdx(el), [3]);
-    assert.deepEqual(locked(el), [0, 1, 2, 4]);
+    assert.deepEqual(locked(el), [], "#299: one pick locks nothing");
+    assert.equal(hint.textContent, "");
+    await click(box(el, 0));
+    assert.deepEqual(checkedIdx(el), [0, 3]);
+    assert.deepEqual(locked(el), [1, 2, 4]);
     assert.equal(hint.textContent, HINT);
     assert.equal(hint.getAttribute("data-shown"), "true");
-    for (const i of [0, 1, 2, 4]) assert.equal(box(el, i).getAttribute("aria-describedby"), hint.id);
-    assert.equal(box(el, 3).getAttribute("aria-describedby"), null, "the picked box is not locked");
-    assert.equal(box(el, 3).getAttribute("aria-disabled"), null);
+    for (const i of [1, 2, 4]) assert.equal(box(el, i).getAttribute("aria-describedby"), hint.id);
+    for (const i of [0, 3]) {
+      assert.equal(box(el, i).getAttribute("aria-describedby"), null, "a picked box is not locked");
+      assert.equal(box(el, i).getAttribute("aria-disabled"), null);
+    }
   });
 
-  it("PF2C-03: a further pick is blocked with one saved picked, and with a second and third attempt; Compare is unchanged", async () => {
+  it("PF2C-03: a further pick is blocked with two saved picked (#299), on repeated attempts; Compare is unchanged", async () => {
     server(record());
     const el = await render();
     await click(box(el, 1));
+    await click(box(el, 3));
     await click(q(el, "pf-saved-compare-button")!);
-    assert.deepEqual(heads(el), ["This screen", "alpha 2"]);
-    for (const i of [0, 2, 4]) {
+    assert.deepEqual(heads(el), ["This screen", "alpha 2", "alpha 10"]);
+    for (const i of [0, 2, 4, 0]) {
       await click(box(el, i));
-      assert.deepEqual(checkedIdx(el), [1], `box ${i} stays unchecked`);
+      assert.deepEqual(checkedIdx(el), [1, 3], `box ${i} stays unchecked`);
       assert.equal(box(el, i).checked, false);
-      assert.deepEqual(heads(el), ["This screen", "alpha 2"]);
+      assert.deepEqual(heads(el), ["This screen", "alpha 2", "alpha 10"]);
     }
     // Keyboard: Space on a locked, focused box toggles nothing either.
     box(el, 0).focus();
@@ -118,28 +127,32 @@ describe("#279 Compare limited to This screen + 1 saved (PF2C)", () => {
       box(el, 0).dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: " ", bubbles: true }));
       box(el, 0).click();
     });
-    assert.deepEqual(checkedIdx(el), [1]);
+    assert.deepEqual(checkedIdx(el), [1, 3]);
   });
 
   it("PF2C-04: deselecting the pick unlocks every box and empties the hint; a different one can then be picked", async () => {
     server(record());
     const el = await render();
     await click(box(el, 0));
+    await click(box(el, 1));
+    assert.deepEqual(locked(el), [2, 3, 4]);
     await click(box(el, 0));
-    assert.deepEqual(checkedIdx(el), []);
+    assert.deepEqual(checkedIdx(el), [1]);
     assert.deepEqual(locked(el), []);
     assert.equal(q(el, "pf-saved-compare-hint")!.textContent, "");
     assert.equal(q(el, "pf-saved-compare-hint")!.getAttribute("data-shown"), "false");
     await click(box(el, 4));
-    assert.deepEqual(checkedIdx(el), [4]);
-    assert.deepEqual(locked(el), [0, 1, 2, 3]);
+    assert.deepEqual(checkedIdx(el), [1, 4]);
+    assert.deepEqual(locked(el), [0, 2, 3]);
   });
 
   it("PF2C-05: locked boxes are aria-disabled, not disabled, and stay in the tab order", async () => {
     server(record());
     const el = await render();
     await click(box(el, 2));
-    for (const i of [0, 1, 3, 4]) {
+    await click(box(el, 0));
+    for (const i of [1, 3, 4]) {
+      assert.equal(box(el, i).getAttribute("aria-disabled"), "true");
       assert.equal(box(el, i).disabled, false);
       assert.equal(box(el, i).getAttribute("tabindex"), null);
       assert.equal(box(el, i).closest("label")!.classList.contains("pf-saved-compare-label"), true);
@@ -185,8 +198,7 @@ describe("#279 Compare limited to This screen + 1 saved (PF2C)", () => {
   const legend = (el: HTMLElement) => qa(el, "pf-compare-legend-item").map((li) => li.getAttribute("data-colour"));
   const swatch = (el: HTMLElement) => qa(el, "pf-compare-legend-item").map((li) => (li.querySelector(".pf-swatch") as HTMLElement).style.background);
   const pickById = async (el: HTMLElement, name: string) => {
-    const on = qa(el, "pf-saved-item").findIndex((tr) => (q(tr, "pf-saved-compare") as HTMLInputElement).checked);
-    if (on >= 0) await click(box(el, on));
+    for (const tr of qa(el, "pf-saved-item")) if ((q(tr, "pf-saved-compare") as HTMLInputElement).checked) await click(q(tr, "pf-saved-compare")!);
     await click(box(el, qa(el, "pf-saved-item").findIndex((tr) => q(tr, "pf-saved-item-name")!.textContent === name)));
     if (!q(el, "pf-compare-table")) await click(q(el, "pf-saved-compare-button")!);
   };

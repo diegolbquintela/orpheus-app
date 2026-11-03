@@ -167,7 +167,8 @@ describe("#278 Saved scenarios column sort (PFSO)", () => {
     for (const col of ["name", "name", "name", "from", "from", "from", "from"]) {
       await click(q(el, `pf-saved-sort-${col}`)!);
       assert.deepEqual(cmp(), want, `after ${col}`);
-      assert.deepEqual(lockedNames().sort(), ["Delta", "Eclair", "alpha 10", "Éclair"].sort(), "every unpicked row stays locked");
+      // #299 (spec §88): one pick no longer reaches the limit, so nothing is locked; the 2-pick lock + sort is PF2C-17/18.
+      assert.deepEqual(lockedNames(), [], "one pick locks nothing (#299)");
       assert.equal(calls.length, before.calls, "no request");
       assert.equal(storage(), before.storage, "no storage write");
     }

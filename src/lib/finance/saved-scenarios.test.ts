@@ -12,6 +12,8 @@ import {
   COMPARE_LIMIT_HINT,
   COMPARE_COLOURS,
   compareColour,
+  compareDashes,
+  COMPARE_CLASH_DASH,
   fnv1a,
   THIS_SCREEN_ID,
   COMPARE_MAX,
@@ -82,11 +84,11 @@ describe("#223 saved scenarios (pure)", () => {
     assert.deepEqual(m["2026-10"], { fixed: [], variable: [], people: [] });
     assert.deepEqual(keptValues({ [SCENARIO_KEY]: "s", [MONTHS_KEY]: "m" }), {});
   });
-  it("PFST-01/03/06 + PF2C-01 (#279): compare button labels and selection bounds (This screen + exactly 1 saved)", () => {
-    assert.equal(COMPARE_COLUMNS_MAX, 2);
+  it("PFST-01/03/06 + PF2C-16 (#299, supersedes PF2C-01): compare button labels and selection bounds (This screen + 2 saved)", () => {
+    assert.equal(COMPARE_COLUMNS_MAX, 3);
     assert.equal(COMPARE_MIN, 1);
-    assert.equal(COMPARE_MAX, 1);
-    assert.equal(COMPARE_LIMIT_HINT, "Compare limit reached: This screen and 1 saved scenario.");
+    assert.equal(COMPARE_MAX, 2);
+    assert.equal(COMPARE_LIMIT_HINT, "Compare limit reached: This screen and 2 saved scenarios.");
     assert.equal(COMPARE_TOGGLE, "Compare with saved scenarios");
     assert.equal(COMPARE_SELECTED, "Compare selected");
   });
@@ -119,3 +121,16 @@ describe("#279 CB2: colours pinned to the scenario (PF2C-10..12)", () => {
   });
 });
 
+
+describe("#299 Q4 (b): a colour clash dashes the later column (PF2C-20)", () => {
+  // Fixture slots (1 + fnv1a(id) mod 3): s0 → 2, s1 → 1, s2 → 1, s3 → 3, s4 → 1.
+  const T = { id: THIS_SCREEN_ID, name: "This screen" };
+  it("PF2C-20: no clash, nothing dashed; a clash dashes only the LATER column, whichever scenario it is", () => {
+    assert.equal(COMPARE_CLASH_DASH, "6 4");
+    assert.deepEqual(compareDashes([T, { id: "s0" }, { id: "s3" }]), [undefined, undefined, undefined]);
+    assert.deepEqual(compareDashes([T, { id: "s1" }]), [undefined, undefined]);
+    assert.deepEqual(compareDashes([T, { id: "s1" }, { id: "s2" }]), [undefined, undefined, "6 4"]);
+    assert.deepEqual(compareDashes([T, { id: "s2" }, { id: "s1" }]), [undefined, undefined, "6 4"], "order decides, not the id");
+    assert.deepEqual(compareDashes([T, { id: "s0" }, { id: "s4" }]), [undefined, undefined, undefined], "a position rule would dash this");
+  });
+});

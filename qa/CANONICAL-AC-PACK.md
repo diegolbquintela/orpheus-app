@@ -2305,6 +2305,20 @@ Q-2C1..2C4 are accepted as built (This screen counts as 1 of 2; locked not hidde
 | PF2C-14 | BLOCK | Colouring sends no request and writes no storage. (DOM) |
 | PF2C-15 | HIGH | Chromium at 360 / 390 / 768 / 1440: across re-sorts and column swaps each scenario's legend swatch and chart line stroke keep one colour, stroke equals swatch, `This screen` keeps one colour, no page overflow, CLS 0. (Chromium CB2-L1..L5) |
 
+### Addendum 2026-11-02 (#299, spec §88): This screen + 2 saved
+
+PF2C-16 supersedes PF2C-01. PF2C-02..05 and PF2C-13 are now asserted with the lock reached at the second saved pick; PF2C-06 (one pick, 2 columns) is unchanged.
+
+| AC | Severity | Criterion |
+|---|---|---|
+| PF2C-16 | BLOCK | `COMPARE_COLUMNS_MAX = 3`, `COMPARE_MIN = 1`, `COMPARE_MAX = 2`; hint `Compare limit reached: This screen and 2 saved scenarios.` Supersedes PF2C-01. (unit) |
+| PF2C-17 | BLOCK | One pick locks nothing and leaves the hint empty. Two picks lock every other box (`aria-disabled`, `aria-describedby` the hint). A third pick is blocked on repeated attempts. Deselecting either pick unlocks. (DOM) |
+| PF2C-18 | BLOCK | The 3-column Compare (This screen first, then 2 saved in Saved-sort order, both directions) shows the same figures per column as each scenario compared alone. (DOM) |
+| PF2C-19 | BLOCK | The subtitle reads "the saved scenario" with 1 pick and "the saved scenarios" with 2. The chart has `data-lines` = 3 with 3 legend items. (unit, DOM) |
+| PF2C-20 | HIGH | Colours stay pinned (PF2C-13 with 2 saved). When both saved share a colour, the later column's line and swatch are dashed (`6 4`), and stroke matches swatch. With no clash, nothing is dashed. A position-based rule fails. (unit, DOM, Chromium) |
+| PF2C-21 | HIGH | Chromium at 360/390/768/1440 with 3 columns: no page overflow (the table scrolls in its region below 40rem), CLS 0, 44 px targets, hint and labels AA, each series ≥ 3:1 on night, no gold, no tnum. (Chromium, local) |
+| PF2C-22 | BLOCK | Picking, locking and dashing send no request, write no storage, and leave the calculation unchanged. Read-only users can compare 3 as well. (DOM) |
+
 ## PFCH: Personal Finance scenario screen charts, titled (#280, MEDIUM; added 2026-11-02)
 
 Spec §85. Choice (b): both charts stay (they plot different things, proven on one fixture), each with a visible title and subtitle; Compare uses the same heading. Client-side only; projection math unchanged.

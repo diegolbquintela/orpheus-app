@@ -196,11 +196,13 @@ describe("#223 saved scenarios", () => {
     await click(boxes[2]);
     await click(boxes[3]);
     await click(q(el, "pf-saved-compare-button")!);
-    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "B"]);
-    assert.equal(boxes[2].getAttribute("aria-disabled"), "true", "a 2nd saved can't be picked");
-    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "2");
+    // #299 (spec §88): This screen + 2 saved; a 3rd saved can't be picked.
+    assert.deepEqual(qa(el, "pf-compare-head").map((h) => h.textContent), ["This screen", "B", "C"]);
+    assert.equal(boxes[3].getAttribute("aria-disabled"), "true", "a 3rd saved can't be picked");
+    assert.equal(boxes[3].checked, false);
+    assert.equal(q(el, "pf-compare-chart")!.getAttribute("data-lines"), "3");
     const exp = qa(q(el, "pf-compare-row-expenses")!, "pf-compare-cell").map((c) => c.textContent);
-    assert.deepEqual(exp, ["5,000.00", "4,000.00"]);
+    assert.deepEqual(exp, ["5,000.00", "4,000.00", "4,500.00"]);
   });
 
   it("PFSS-35/36/40: Delete asks; Cancel keeps it; OK removes only that scenario (scenario value only)", async () => {
@@ -289,12 +291,13 @@ describe("#236 PFTX-03: the saved-scenario Compare checkbox's tap target is its 
     await click(label0);
     assert.equal(boxes[0].checked, true);
     await click(label1);
-    assert.equal(boxes[1].checked, false, "#279: a 2nd saved is locked");
+    assert.equal(boxes[1].checked, true, "#299: a 2nd saved can be picked through its label");
     await click(label0);
-    await click(label1);
-    assert.equal(boxes[1].checked, true, "the label picks it once unlocked");
+    assert.equal(boxes[0].checked, false, "the label unpicks it");
+    await click(label0);
+    assert.equal(boxes[0].checked, true);
     await click(q(el, "pf-saved-compare-button")!);
-    assert.equal(qa(el, "pf-compare-head").length, 2);
+    assert.equal(qa(el, "pf-compare-head").length, 3);
     assert.equal(st.calls.filter((c) => c.method === "PUT").length, puts, "compare sends nothing");
   });
 });
@@ -373,6 +376,11 @@ describe("#261 saved scenarios table + compare button (PFST-01..08)", () => {
     assert.equal(st.calls.length, callsAfterSetup, "checking boxes and clicking Compare selected send zero requests");
 
     // A 2nd saved is locked while Compare is open; swapping (uncheck A, check C) needs Compare selected again.
+    // #299 (spec §88): a 2nd saved joins the open Compare; a 3rd is locked; unpicking it goes back to 2 columns.
+    await click(boxes()[2]);
+    assert.deepEqual(heads(), ["This screen", "A", "C"]);
+    await click(boxes()[1]);
+    assert.deepEqual(heads(), ["This screen", "A", "C"], "a 3rd saved is locked");
     await click(boxes()[2]);
     assert.deepEqual(heads(), ["This screen", "A"]);
     await click(boxes()[0]);

@@ -19,6 +19,9 @@ describe("#280 PFCH-01: chart titles and subtitles", () => {
     assert.equal(projectedChartSub("2026-10"), "Flat forward projection: this screen's October 2026 income and expenses held flat, starting from Net assets now.");
     assert.equal(COMPARE_CHART_TITLE, "Net assets by scenario");
     assert.equal(compareChartSub("5 years"), "This screen and the saved scenario, each projected over 5 years from its own net assets now.");
+    // #299 Q5 (PF2C-19): plural with 2 saved picks.
+    assert.equal(compareChartSub("5 years", 1), "This screen and the saved scenario, each projected over 5 years from its own net assets now.");
+    assert.equal(compareChartSub("5 years", 2), "This screen and the saved scenarios, each projected over 5 years from its own net assets now.");
     assert.deepEqual(chartAria("x"), { "aria-labelledby": "x-title", "aria-describedby": "x-sub" });
   });
 });
