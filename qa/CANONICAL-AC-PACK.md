@@ -2181,6 +2181,7 @@ The PFRL prefix was unused before this branch. Defaults pending CFO confirmation
 |---|---|---|
 | PFRL-08 (addendum 2026-11-01, QA BT1) | MAJOR | PFRL-08 (addendum 2026-11-01, QA BT1): the Reload button may sit inline beside the banner text on wide screens (e.g. History at 1440px) and wraps under the text on narrow ones; both pass. |
 | PFRL-10 (amended 2026-11-01, QA BT4) | BLOCK | In addition to PFRL-10 as written: a Rename refused 409 or 428 shows only `pf-saved-stale` (message once); no `pf-saved-rename-error`, the rename field is not `aria-invalid`, and the typed name is kept. A duplicate rename (`NAME_TAKEN`) and a 500 still show under the rename field (500 with `aria-invalid="true"`, no stale banner). |
+| PFRL-12 | MINOR | DOCS: spec §80.9 records the §80.2 confirmation (Q1 confirmed Nov 3 2026 by CFO (via Engineering Lead), with condition: copy states unsaved edits are discarded (the banner already does; DOM tests pin it)) and the PFRL-08 / PFRL-09 result (PASS on Overview (37/37 app checks, Nov 3 2026); History and Scenario not covered live (QA script gap, covered by LOW issue #308)) with the date (Nov 3 2026); README and AGENTS.md carry the same line. |
 
 ## Amendment 2026-11-01 (#286): site header and menu (HDR)
 
