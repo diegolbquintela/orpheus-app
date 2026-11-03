@@ -1340,6 +1340,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## Renaissance Man site-bar link (#271; added 2026-10-30)
 
 - 2026-10-30: #271 adds the owner-only **Renaissance Man** site-bar link (RM-21..RM-24, renaissance-spec §9; LOW, Diego yes via CoS).
+- 2026-11-03: #273 (BO1, renaissance-spec §9.1, AC RM-24a): wording only; the `RM` breakpoint was 768 px, not 640; superseded by HDR (#286). `api.server.ts` comment fixed; the unused `short` field stays (possible cleanup).
   - **How it's decided:** the root loader calls `getOwnerNavLink` (`src/lib/renaissance/gate.ts`), which runs `renaissanceOwnerDb`, the same check `/renaissance` uses. Errors fail closed.
   - **What non-owners get:** `undefined` loader data, and their bar is byte-identical to before.
   - **Rendering:** `SiteMenu` takes `ownerLink`. The item shows `RM` below 768 px (with the full accessible name), and the owner's bar may wrap to two rows on phones.

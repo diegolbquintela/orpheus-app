@@ -29,7 +29,8 @@ import type { Queryable } from "../dashboard/store.server.ts";
 import type { OwnerNavLink } from "../site/owner-nav.ts";
 import { parseCheckin, type Checkin, type Entry, type Pillar } from "./model.ts";
 
-/** #271: the owner's site-bar link (server only). `short` is the compact text below 640 px; the name stays the label. */
+/** #271: the owner's site-bar link (server only). `short` was the compact `RM` text below 768 px (#271 bar; `md:hidden`);
+ * since #286 the link sits in the menu as the full name and nothing renders `short` (#273, renaissance-spec §9.1). */
 export const RENAISSANCE_NAV_LINK: OwnerNavLink = { href: "/renaissance", label: "Renaissance Man", short: "RM" };
 
 type Env = Record<string, string | undefined>;
