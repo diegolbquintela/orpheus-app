@@ -2794,6 +2794,10 @@ Both run under TZ=UTC and TZ=America/Los_Angeles and cover these instants: the l
 
 79.7 **Tests / AC:** PFBV-01..PFBV-09 (`stale-save.server.test.ts` #257 block, `expenses-page.dom.test.tsx` PFBV-05/06, `history-page.dom.test.tsx` PFBV-07).
 
+79.8 **Confirmed Nov 3 2026 by CFO (via Engineering Lead):** 428 `base_version_required` is the final contract (#257, option A, docs only; AC PFBV-10).
+
+79.8.1 **Answers (#257, Nov 3 2026).** Q1: 428 base_version_required kept as final. Q2: CFO received the endpoint-change notice; the CFO uses only read-only /api/cfo/pf.
+
 ## 80. Personal Finance: one-click `Reload` in the stale-save banner (#258, LOW; added 2026-11-01; follow-up to §73 / #242 Q-TW3 and §79 / #257)
 
 80.1 **What.** Wherever a save is refused as stale (409 `stale`) or base-less (428 `base_version_required`), the banner text (`STALE_MESSAGE`, unchanged) is followed directly by a `Reload` button. Surfaces: Overview (`pf-save` + `pf-stale-reload`), History (`pf-history-status` / `pf-stale-error` + `pf-stale-reload`), and Saved scenarios on the Scenario screen for Save, Rename, Update and Delete (a new visible banner `pf-saved-stale` + `pf-saved-reload`; the screen-reader `pf-saved-status` / field error texts are unchanged).

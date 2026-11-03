@@ -2149,6 +2149,7 @@ Endpoint change: `PUT /api/personal-finance` without `baseVersion` → 428 `{ co
 | PFBV-07 | BLOCK | DOM: `saveHistory` always names `baseVersion` (`null` when unknown). A 428 → `{ stale: true, status: 428, message: STALE_MESSAGE }`, and the History page shows `pf-stale-error` with the edit kept. |
 | PFBV-08 | MAJOR | QA tools: every record PUT in `pf-helpers`, `personal-finance`, `roles`, `audit` and `pf-report-api` GETs the version first. `check-dashboard-built` sends `null` for a new account. |
 | PFBV-09 | MAJOR | QA (preview, signed in): Save on Overview, History and Scenario still saves. A hand-made PUT without `baseVersion` → 428 and the record is unchanged on reload. |
+| PFBV-10 | MINOR | DOCS: spec §79.8 records who confirmed the 428 `base_version_required` contract and when (CFO (via Engineering Lead), Nov 3 2026); README and AGENTS.md carry the same line. |
 
 ## PF stale banner one-click Reload (#258, 2026-11-01; spec §80)
 
