@@ -552,6 +552,7 @@ The app is unchanged: the 3-month average still covers the last 3 complete Toron
 - QA (PFNT): run `node qa/tools/personal-finance-e2e.mjs --base-url <preview> --out <dir>` with `QA_EMAIL` / `QA_PASSWORD`, plus `QA_CFO_READ_EMAIL` / `QA_CFO_READ_PASSWORD` for the Read-user check. That check prints `SKIPPED (NOT A PASS)` when unset. The step resets qa-pf to its snapshot afterwards.
 - #259 (spec §89, §64): PFE-08 expects net assets **25,533.33** for its fixture (start at the first month with figures; an empty month adds nothing); PFE-09 reads the app's own forward net. Test-only.
 - #260 (spec §90, AC PFAV2): the scenario Overview's coverage share uses this month's figures, like the projection chart and Totals (note: "held at this month's figures, like the projection chart"); the main page and `/api/cfo/pf` stay on the 12-month average.
+- #236 (spec §70.6, AC PFTX-05): the saved-scenario Compare label also has `min-width: 2.75rem` (≥ 44 × 44 on its own; the 44 px height shipped in #251); nothing visible changes.
 
 ## Team loop
 

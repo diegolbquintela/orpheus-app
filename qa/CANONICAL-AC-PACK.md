@@ -1977,6 +1977,7 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
 - PFTX-02: `.pf-builder-option` is `display: flex` with `min-height` ≥ 2.75rem in exactly one rule, with no max size and no `pointer-events: none`. Its box stays 1.25rem. (unit, CSS)
 - PFTX-03: On the scenario screen, each `pf-saved-compare` is the only control inside its `label.pf-saved-compare-label`. A click on the label picks it for Compare, and nothing is sent. (DOM)
 - PFTX-04: In the charts builder, each `pf-builder-pick` is the only control inside its `label.pf-builder-option`, and a click on the label toggles it. (DOM)
+- PFTX-05 (added 2026-11-03, #236 spec §70.6): `label.pf-saved-compare-label` has `min-width` ≥ 44 px (2.75rem), so the Compare target is ≥ 44 × 44 whatever the Select column's width; the 13 px box and the visible layout are unchanged. (unit, `tap-target.test.ts`)
 - PFTX-05: Real browser at 390 and 1440: the Compare label and the builder option labels are ≥ 44 px tall and ≥ 44 px wide, with 0 `elementFromPoint` misses. The saved row height is unchanged. (manual / local; QA on the preview)
 
 

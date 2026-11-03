@@ -1283,8 +1283,10 @@
   }
   /* #236 (spec 70, PFTX-01): the saved-scenario Compare label is its checkbox's 44 px tap target (height); the box and
      text are unchanged. */
+  /* #236 (spec 70.6, PFTX-05): and at least 44 px wide, so the target does not rely on the Select column's width. */
   .pf-saved-compare-label {
     min-height: 2.75rem;
+    min-width: 2.75rem;
   }
   /* #102 (spec 16.6): the person's Foreign box sits with the other boxes (phone: its own row under Count wages |
      Count bonus; wide: the last column); ticked, Currency / FX rate / Converted stack under the boxes on a phone and
