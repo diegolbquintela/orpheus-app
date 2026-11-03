@@ -27,7 +27,7 @@ import { refuseIfProd } from "./prod-guard.mjs";
 import { bypassHeaders } from "./robots-txt.lib.mjs";
 import { eachViewport } from "./session.mjs";
 import { installConsoleMask, maskDeep, maskedJson } from "./redact.mjs";
-import { API, bannerGoneFocusH1, bannerThenReload, freshBaseVersion, noOverflow, reloadInPlace, seedReply, summarize, versionClock, tapTarget, versionOf } from "./pf-stale-reload.lib.mjs";
+import { API, bannerGoneFocusH1, bannerThenReload, freshBaseVersion, noOverflow, refusalBody, reloadInPlace, seedReply, summarize, versionClock, tapTarget, versionOf } from "./pf-stale-reload.lib.mjs";
 import { torontoMonth } from "./pf-plan-seed.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -175,7 +175,8 @@ async function run(ctx, [vp, viewport], surface, action, status) {
   const clock = versionClock();
   const month = torontoMonth(new Date());
   let nav = 0;
-  let reply = { status, body: { error: "stale", code: status === 409 ? "stale" : "base_version_required" } };
+  // CH43: the faked 409 / 428 body is the server's own (account.server.ts:220 / :199), not a shorthand.
+  let reply = { status, body: refusalBody(status) };
   const puts = [];
   // Zero writes: every non-GET / HEAD request from the page is fulfilled (record PUT) or aborted, never continued.
   await page.route("**/*", async (r) => {

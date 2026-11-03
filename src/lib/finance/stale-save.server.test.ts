@@ -189,3 +189,22 @@ describe("#257 baseVersion required → 428 (PFBV)", () => {
     assert.deepEqual((await get()).data, rec("b"));
   });
 });
+
+// CH43 (#308 QA round 3): qa/tools/pf-stale-reload.mjs fakes the record PUT's 409 / 428; its bodies must be exactly the
+// server's (History renders a 409's `error` text, so `{ error: "stale" }` showed "stale", not the banner copy).
+describe("CH43: the QA tool's faked 409 / 428 bodies deep-equal the server's", () => {
+  it("409 stale and 428 base_version_required", async () => {
+    // Loaded by URL so tsc does not type-check the plain .mjs QA helper.
+    const lib = new URL("../../../qa/tools/pf-stale-reload.lib.mjs", import.meta.url).href;
+    const { refusalBody } = (await import(lib)) as { refusalBody: (status: number) => unknown };
+    await reset();
+    await pf("PUT", "alice", { data: rec("a"), baseVersion: null });
+    const r409 = await pf("PUT", "alice", { data: rec("b"), baseVersion: null });
+    assert.equal(r409.status, 409);
+    assert.deepEqual(refusalBody(409), await r409.json());
+    const r428 = await pf("PUT", "alice", { data: rec("c") });
+    assert.equal(r428.status, 428);
+    assert.deepEqual(refusalBody(428), await r428.json());
+    assert.notDeepEqual(refusalBody(409), { error: "stale", code: "stale" }, "the CH43 mutant");
+  });
+});

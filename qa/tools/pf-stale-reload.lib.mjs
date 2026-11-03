@@ -7,6 +7,20 @@ export const API = "/api/personal-finance";
 export const STALE_WORDING = "discard your unsaved edits";
 /** `STALE_MESSAGE` (src/lib/finance/record.ts:16), copied (the tool never imports src/). */
 export const STALE_MESSAGE = "Changed in another tab. Reloading will discard your unsaved edits here; reload to see the latest, then save again.";
+/** `BASE_VERSION_REQUIRED_MESSAGE` (src/lib/finance/record.ts:18), copied the same way. */
+export const BASE_VERSION_REQUIRED_MESSAGE = "This save was not based on a loaded version. Reload to see the latest, then save again.";
+/**
+ * CH43 (#308 QA round 3): the faked refusal bodies are exactly what the server sends for a record PUT
+ * (src/lib/finance/account.server.ts:220 409 `{ error: STALE_MESSAGE, code: "stale" }`, :199 428
+ * `{ error: BASE_VERSION_REQUIRED_MESSAGE, code: "base_version_required" }`). History renders a 409's `error` text, so a
+ * shorthand like `{ error: "stale" }` would show "stale" instead of the real banner. Pinned to the live server by
+ * src/lib/finance/stale-save.server.test.ts and to record.ts by scripts/qa-pf-stale-reload.test.mjs.
+ */
+export function refusalBody(status) {
+  if (status === 409) return { error: STALE_MESSAGE, code: "stale" };
+  if (status === 428) return { error: BASE_VERSION_REQUIRED_MESSAGE, code: "base_version_required" };
+  throw new Error(`refusalBody: no record PUT refusal for ${status}`);
+}
 export const MIN_TAP = 44;
 
 const pathOf = (url) => {

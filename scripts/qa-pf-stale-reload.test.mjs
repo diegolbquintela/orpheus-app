@@ -4,12 +4,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  API, STALE_MESSAGE, STALE_WORDING, bannerGoneFocusH1, bannerThenReload, countRecordRequests, freshBaseVersion,
+  API, BASE_VERSION_REQUIRED_MESSAGE, STALE_MESSAGE, refusalBody, STALE_WORDING, bannerGoneFocusH1, bannerThenReload, countRecordRequests, freshBaseVersion,
   matchesStaleMessage, noOverflow, reloadInPlace, replaySave, seedRecord, seedReply, staleOnBoth, summarize, tapTarget,
   versionClock, versionOf,
 } from "../qa/tools/pf-stale-reload.lib.mjs";
 // CH42: the seed is checked with the app's own parsers / validators (the tool itself never imports src/).
-import { checkRecord, prepareRecord } from "../src/lib/finance/record.ts";
+import { BASE_VERSION_REQUIRED_MESSAGE as SRC_BVR, STALE_MESSAGE as SRC_STALE, checkRecord, prepareRecord } from "../src/lib/finance/record.ts";
 import { applyHistoryEdit, isEditableCell, storedYears, yearTable } from "../src/lib/finance/history.ts";
 import { readScenario, scenarioValueOk } from "../src/lib/finance/scenario-key.ts";
 import { addSaved, nameError, removeSaved, renameError, renameSaved, updateSaved } from "../src/lib/finance/saved-scenarios.ts";
@@ -252,4 +252,22 @@ test("CH42 PFRL-09: the version moves once per Reload; the real Scenario sequenc
   assert.match(tool, /const clock = versionClock\(\);/);
   assert.match(tool, /clock\.reload\(\);\s*await page\.getByTestId\(surface\.reload\)\.click\(\);/, "bumped once, as Reload is clicked");
   assert.doesNotMatch(tool, /\+\+gets/);
+});
+
+// CH43 (#308 QA round 3): the faked 409 / 428 bodies are the server's own, not `{ error: "stale" }`.
+test("CH43: faked 409 / 428 bodies match account.server.ts; the constants are record.ts's; the tool uses refusalBody", () => {
+  assert.equal(STALE_MESSAGE, SRC_STALE, "STALE_MESSAGE copy = record.ts");
+  assert.equal(BASE_VERSION_REQUIRED_MESSAGE, SRC_BVR, "BASE_VERSION_REQUIRED_MESSAGE copy = record.ts");
+  assert.deepEqual(refusalBody(409), { error: SRC_STALE, code: "stale" });
+  assert.deepEqual(refusalBody(428), { error: SRC_BVR, code: "base_version_required" });
+  const server = readFileSync("src/lib/finance/account.server.ts", "utf8");
+  assert.match(server, /dashboardJson\(\{ error: STALE_MESSAGE, code: "stale" \}, 409\)/, "server 409 body shape");
+  assert.match(server, /dashboardJson\(\{ error: BASE_VERSION_REQUIRED_MESSAGE, code: "base_version_required" \}, 428\)/, "server 428 body shape");
+  assert.throws(() => refusalBody(400));
+  const tool = readFileSync("qa/tools/pf-stale-reload.mjs", "utf8");
+  assert.match(tool, /let reply = \{ status, body: refusalBody\(status\) \};/, "the tool fakes the server's body");
+  assert.doesNotMatch(tool, /error: "stale"/, "no shorthand error text");
+  // The mutant: reverting to the shorthand body fails the deep-equal.
+  const mutant = (status) => ({ error: "stale", code: status === 409 ? "stale" : "base_version_required" });
+  for (const st of [409, 428]) assert.throws(() => assert.deepEqual(mutant(st), refusalBody(st)), `mutant ${st} must fail`);
 });
