@@ -2107,9 +2107,9 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
   - The link is `h-11 min-w-11 text-dim`, with `aria-current="page"` only on `/renaissance`.
   - The bar equals the anonymous bar plus that one item, with a row that can wrap (`min-h-11 flex-wrap`) instead of `h-11`. (DOM)
 - RM-24: In the root loader, a non-owner's loader data is `undefined`, so the signed-out HTML of `/` (and every page) has no `/renaissance` or "Renaissance".
-- RM-24a (amended 2026-11-03, #273 BO1): the #271 bar's `RM` text switched at 768 px (`md:hidden`), not 640 px; RM-22..RM-24 are superseded by AC HDR (#286), see the Amendment below and renaissance-spec §9.1. Wording only. (docs)
   - At 360, 390, 640, 768 and 1440 px: no horizontal overflow, no clipped item, links ≥ 44 px tall, AA contrast, CLS 0, no external requests, no `tnum`.
   - The owner's bar is one row from 640 px and two rows below; everyone else always gets one 45 px row. (headless, signed-out preview curl)
+- RM-24a (amended 2026-11-03, #273 BO1): the #271 bar's `RM` text switched at 768 px (`md:hidden`), not 640 px; RM-22..RM-24 are superseded by AC HDR (#286), see the Amendment below and renaissance-spec §9.1. Wording only. (docs)
 
 ## KBF: keyboard focus (#274, keyboard-focus-spec; added 2026-11-01; HIGH a11y)
 - KBF-01: On `/calculator`, Tab visits Ticker, Weight, Add name, Start, End, Starting capital, Contribution, Frequency, Compare in that order, and Shift-Tab goes in reverse. (DOM, headless 360 / 1440)
