@@ -2011,6 +2011,14 @@ Backend only, no UI (viewports don't apply). Fixture U (spec 50.9) plus U8 / U9 
   - Note (2026-10-23, QA BJ2 on PR #256): the PFAV-04 test checks the Overview's coverage text (`pf-coverage-monthly`) against the chart's 12-month coverage, i.e. Future net-assets parity at the horizon. The projected months' income, expenses and coverage share stay on the 12-month average (Q-AV1, not built).
 - PFAV-05 No write: the scenario screen sends no PUT for Future / years toggles (existing PFSC rule). (DOM)
 
+## PFAV2 — scenario Overview coverage on this month's figures (#260, personal-finance-spec §90; added 2026-11-03; CFO Q1–Q4 via EL)
+- PFAV2-01 `summarize` with the chart surplus: projected points carry this month's income / expenses; the 1-year scenario coverage share is **34.68%** (fixture start 10,000; Oct 1,500 / 12,033.33; growth 5; rate 4), equal to Totals; net assets 156,081.11 unchanged. (unit, `future-surplus.test.ts`)
+- PFAV2-02 Same fixture, 5 years: share **165.98%**, net assets 746,892.20; without the chart surplus (main page) the share stays 13.01% / 62.24% on the 12-month average. (unit)
+- PFAV2-03 Scenario screen, Future on, 1 and 5 years: the coverage note ends with "(held at this month's figures, like the projection chart)." and never says "12-month average"; the 1-year share equals Totals' coverage share. (DOM)
+- PFAV2-04 The main page note still reads "(held at 12-month average)."; the Future / years toggles send nothing. (DOM)
+- PFAV2-05 The note does not overflow at 360 / 390 / 768 / 1440; `qa/tools/pf-scenario-e2e.mjs` PFAV2-05 compares the scenario note's share with Totals' on a preview. (layout + e2e)
+- PFAV2-06 The CFO API (`/api/cfo/pf*`, main-way `summarize`) replies are unchanged, byte for byte, with Future on (12-month average). (API)
+
 ## PFST — Saved scenarios table + compare button (#261, personal-finance-spec §75; added 2026-10-24; HIGH, Diego / CFO)
 - PFST-01: Empty state & toggle button: when `list.length === 0`, `<p className="pf-history-note mt-4" data-testid="pf-saved-none">No saved scenarios yet.</p>` is shown; `"Compare with saved scenarios"` (`data-testid="pf-saved-toggle"`, `.pf-button` ≥ 44 px tap target) has `aria-expanded={open}` and toggles the saved scenarios table open/closed. (DOM)
 - PFST-02: Saved scenarios 4-column table (`Select | Scenario name | From | Actions`): when opened with saved scenarios, renders inside `.pf-scenario-scroll` (`role="region"`, `tabIndex={0}`) with `data-testid="pf-saved-table"` and `data-testid="pf-saved-list"`, rows `data-testid="pf-saved-item"`, name `<span className="text-chalk" data-testid="pf-saved-item-name">{e.name}</span>`, and `From` column `monthName(e.basis)`. (DOM)

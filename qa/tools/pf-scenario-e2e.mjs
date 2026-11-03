@@ -259,6 +259,21 @@ async function scenarioChecks({ page, tag, vp }, read) {
     const aside = page.locator("aside[aria-label='Scenario access'] [data-testid=read-only]");
     check(`${tag} PFSV-17 Read: the read-only line in the Scenario access landmark`, (await aside.count()) === 1);
   }
+  // #260 (spec 90, PFAV2-05): Future on, 1 year: the Overview coverage note's share equals Totals' 12-month coverage
+  // share, and the note states the chart basis exactly. Toggles only (zero writes still holds: PFSV-13 tracker).
+  {
+    const ft = page.getByTestId("pf-future-toggle");
+    if ((await ft.count()) && (await ft.getAttribute("aria-pressed")) !== "true") await ft.click();
+    const y1 = page.locator("[data-testid=pf-year][data-years='1']");
+    if (await y1.count()) await y1.click();
+    await page.waitForTimeout(150);
+    const note = page.getByTestId("pf-coverage-rate-note");
+    const text = (await note.count()) ? ((await note.first().textContent()) ?? "") : "";
+    const share = text.match(/covers ([\d.,]+%)/)?.[1] ?? null;
+    const totals = (await cell(page, "coverage-share", "pf-scenario-total").catch(() => null))?.trim() ?? null;
+    check(`${tag} PFAV2-05 the scenario coverage note's share equals Totals' and says "held at this month's figures, like the projection chart"`,
+      !text || (share === totals && text.endsWith("(held at this month's figures, like the projection chart).")), { share, totals, text });
+  }
   // No horizontal overflow.
   const over = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   check(`${tag} PFSV-18 no horizontal overflow`, !over);

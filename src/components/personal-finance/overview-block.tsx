@@ -142,7 +142,7 @@ export function OverviewBlock({
                 </p>
               )}
               <OverviewTable shownKey={shown.key} headLabel={shown.key === summary.current ? THIS_MONTH : monthName(shown.key)} thisMonth={shown.figures} average3={summary.average3} average={summary.average} label3={average3Label(summary.window3)} label12={average12CountLabel(summary.window12, summary.window12WithData)} />
-              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} />
+              <CoverageLine coverage={coverage} currency={currency} years={overview.future ? overview.years : null} window3={summary.window3} rate={rate} scenario={scenarioScreen} />
               <OverviewFields overview={overview} update={update} />
               <Future overview={overview} update={update} />
               <OverviewChart summary={summary} width={chartWidth} sub={overviewChartSub(summary.current)} />
@@ -229,6 +229,7 @@ function CoverageLine({
   years,
   window3,
   rate,
+  scenario = false,
 }: {
   coverage: Coverage;
   currency: string;
@@ -237,6 +238,8 @@ function CoverageLine({
   window3: MonthKey[];
   /** The #86 Rate used (a percent), as shown under Expenses. */
   rate: number | null;
+  /** #260 (spec 90): the scenario screen's Future label (chart basis). */
+  scenario?: boolean;
 }) {
   const unit = currency ? ` ${currency}` : "";
   const note = coverage.status === "no_rate" ? COVERAGE_RATE_NOTE : coverage.status === "no_start" ? COVERAGE_START_NOTE : null;
@@ -255,7 +258,7 @@ function CoverageLine({
       </p>
       {coverage.status === "ok" ? (
         <p className="pf-coverage-sub" data-testid="pf-coverage-rate-note">
-          {coverageRateNote(formatRate(rate), coverage.share, years !== null, window3)}
+          {coverageRateNote(formatRate(rate), coverage.share, years !== null, window3, scenario)}
         </p>
       ) : note ? (
         <p className="pf-coverage-sub" data-testid="pf-coverage-note">

@@ -34,10 +34,14 @@ export const COVERAGE_SOURCE_NOTE = "** Coverage rate is derived from Rate Used 
  * Future on  `* 12.5% yearly, covers 0.50% of projected monthly expenses at horizon end (held at 12-month average).`
  * `rateText` is the Rate used as shown (`formatRate`).
  */
-export const coverageRateNote = (rateText: string, share: number | null, future: boolean, window: MonthKey[]): string =>
+/** #260 (spec 90, CFO Q3): the scenario screen's Future basis, exact wording ("like", not "as"). */
+export const SCENARIO_HELD_BASIS = "held at this month's figures, like the projection chart";
+export const MAIN_HELD_BASIS = "held at 12-month average";
+/** #260 (spec 90): `scenario` = the scenario screen (chart basis); omitted = the main page, byte-for-byte as before. */
+export const coverageRateNote = (rateText: string, share: number | null, future: boolean, window: MonthKey[], scenario = false): string =>
   `* ${rateText} yearly, covers ${formatCoverageShare(share)} of ${
     future
-      ? "projected monthly expenses at horizon end (held at 12-month average)"
+      ? `projected monthly expenses at horizon end (${scenario ? SCENARIO_HELD_BASIS : MAIN_HELD_BASIS})`
       : `monthly expenses (3-month average, ${windowRange(window)})`
   }.`;
 
@@ -328,8 +332,11 @@ export function summarize(
       points.push({
         key,
         label: monthShort(key),
-        expenses: average.expenses,
-        income: average.income,
+        // #260 (spec 90, CFO Q1/Q2): on the scenario screen (chart surplus) the projected months hold this month's
+        // figures, as `overviewNow` / `project` (a missing figure 0), so the coverage share is ÷ this month's expenses.
+        // Main page, CFO API and /series: the 12-month average, unchanged.
+        expenses: chartSurplus ? (cur.expenses ?? 0) : average.expenses,
+        income: chartSurplus ? (cur.income ?? 0) : average.income,
         net,
         future: true,
       });

@@ -2993,3 +2993,11 @@ The Compare swatch also has `flex-shrink: 0`: local Chromium showed a long, wrap
 89.1 **What.** `qa/tools/personal-finance-e2e.mjs` PFE-08 expected the pre-#228 net assets (empty months adding the 12-month average surplus: 75,533.33). The rule is §64: the fixture's last net is **25,533.33**. PFE-09 already reads the app's own forward net (#298). No app code or app value changes. (§88 is #299 Compare, so this note is §89.)
 
 89.2 **Rows.** PFE-08 / PFE-09 (amended 2026-11-03, #259) in the §-PFE table above and in `qa/CANONICAL-AC-PACK.md`; PF-128 (amended) in the AC pack. Unit: `overview.test.ts` #259 PFE-08a.
+
+## 90. Scenario Overview coverage on this month's figures (#260, LOW; added 2026-11-03; CFO Q1–Q4 via EL)
+
+90.1 **What.** On the scenario screen (`chartSurplus`), the Overview's projected points carry this month's income and expenses (`overviewNow`), so the Future coverage share divides by this month's expenses, matching Totals and the projection chart (fixture: 34.68% at 1 year, 165.98% at 5 years; was 13.01% / 62.24%). Net assets are unchanged. Supersedes §74.3 and the PFAV-04 note (QA BJ2) where they kept the share on the 12-month average.
+
+90.2 **CFO answers (2026-11-03, via EL).** Q1: the scenario Overview uses this month's figures, matching Totals (34.68%). Q2: the main page and `/api/cfo/pf` stay on the 12-month average, unchanged. Q3: the label reads exactly "held at this month's figures, like the projection chart" ("like", not "as"). Q4: no second line.
+
+90.3 **Rows.** PFAV2-01..06 in `qa/CANONICAL-AC-PACK.md`.

@@ -529,4 +529,20 @@ describe("#241 PFAV-04/05: the scenario Overview's Future uses the chart's surpl
       assert.equal(overview, cell(el, "coverage", "pf-scenario-total"));
       assert.deepEqual(fetches, [], "PFAV-05: nothing sent");
     });
+  // #260 (spec 90, AC PFAV2-03/04, CFO Q1/Q3): the scenario coverage note uses the chart basis and the exact label.
+  it("PFAV2-03/04: Future on (1 and 5 years): the Overview's coverage share equals Totals' and the note says the chart basis; nothing sent", async () => {
+    const el = await render(ok(twoMonths()).load);
+    await type(q(el, "pf-start")!, "100000");
+    if ((q(el, "pf-future-toggle") as HTMLElement).getAttribute("aria-pressed") !== "true") await click(q(el, "pf-future-toggle")!);
+    await type(q(el, "pf-growth")!, "5");
+    for (const years of ["1", "5"]) {
+      await click(el.querySelector(`[data-testid=pf-year][data-years='${years}']`)!);
+      const note = q(el, "pf-coverage-rate-note")!.textContent!;
+      assert.ok(note.endsWith("of projected monthly expenses at horizon end (held at this month's figures, like the projection chart)."), note);
+      assert.ok(!note.includes("12-month average"), "not the main page's basis");
+      const share = note.match(/covers ([\d.,]+%)/)![1];
+      if (years === "1") assert.equal(share, cell(el, "coverage-share", "pf-scenario-total"), "the same share as Totals (12 months)");
+    }
+    assert.deepEqual(fetches, [], "PFAV2-04: Future / years toggles send nothing");
+  });
 });
