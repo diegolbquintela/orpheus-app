@@ -36,7 +36,7 @@ describe("RM-03 parseCheckin", () => {
     for (const actual of [-0.5, "12"]) assert.equal(bad({}, { actual }).ok, false); // RM-03a (#270)
     for (const hit of ["true", 1]) assert.equal(bad({}, { hit }).ok, false);
     { const r = bad({}, { target: -1e6 }); assert.ok(!r.ok); assert.match(r.error, /0 to 1000000/); } // RM-03a (#270)
-    assert.equal(bad({}, { actual: -1e6 }).ok, false); // RM-03a (#270)
+    { const r = bad({}, { actual: -1e6 }); assert.ok(!r.ok); assert.match(r.error, /0 to 1000000/); } // RM-03a (#270)
     for (const note of [5, "x".repeat(LIMITS.note + 1)]) assert.equal(bad({}, { note }).ok, false);
   });
   it("accepts the edges", () => {
