@@ -32,13 +32,15 @@ describe("RM-03 parseCheckin", () => {
     assert.equal(bad({ entries: [null] }).ok, false);
     for (const pillar of ["Health", "body", undefined]) assert.equal(bad({}, { pillar }).ok, false);
     for (const item of ["Zyn", "1zyn", "zyn-x", "", "a".repeat(41), 5]) assert.equal(bad({}, { item }).ok, false, String(item));
-    for (const target of [-1, "3", Number.NaN, Infinity, LIMITS.value + 1]) assert.equal(bad({}, { target }).ok, false);
-    for (const actual of [-0.5, "12"]) assert.equal(bad({}, { actual }).ok, false);
+    for (const target of [-1, "3", Number.NaN, Infinity, LIMITS.value + 1]) assert.equal(bad({}, { target }).ok, false); // RM-03a (#270)
+    for (const actual of [-0.5, "12"]) assert.equal(bad({}, { actual }).ok, false); // RM-03a (#270)
     for (const hit of ["true", 1]) assert.equal(bad({}, { hit }).ok, false);
+    { const r = bad({}, { target: -1e6 }); assert.ok(!r.ok); assert.match(r.error, /0 to 1000000/); } // RM-03a (#270)
+    { const r = bad({}, { actual: -1e6 }); assert.ok(!r.ok); assert.match(r.error, /0 to 1000000/); } // RM-03a (#270)
     for (const note of [5, "x".repeat(LIMITS.note + 1)]) assert.equal(bad({}, { note }).ok, false);
   });
   it("accepts the edges", () => {
-    assert.ok(bad({}, { target: 0, actual: LIMITS.value, note: "x".repeat(LIMITS.note) }).ok);
+    assert.ok(bad({}, { target: 0, actual: LIMITS.value, note: "x".repeat(LIMITS.note) }).ok); // RM-03a (#270)
     assert.ok(bad({ picks: Array(LIMITS.picks).fill("a") }).ok);
     assert.ok(bad({}, { item: "a".repeat(40) }).ok);
     assert.ok(isIsoDate("2028-02-29"));

@@ -811,6 +811,8 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 
 2026-11-01 note (#286): superseded. The owner's link now sits in the full-page menu overlay as **Renaissance Man** (full name, no `RM`), right before Account, with the same server-side, fail-closed owner check (RM-21); RM-22..RM-24 are replaced by AC HDR. See `attachments/header-menu-spec.md`.
 
+2026-11-03 note (#270): `target` and `actual` must be 0 to 1,000,000; a negative value is rejected with a 400. This matches the code; spec §4 note, AC RM-03a. Docs/tests only.
+
 ## Testing ownership: QA functional + post-deploy regression; EL coordinates (Diego, 2026-11-01)
 
 - **QA owns functional testing**: a periodic functional pass of the live app, plus a **full regression after every production deployment**.
