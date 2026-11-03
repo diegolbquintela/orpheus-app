@@ -739,3 +739,19 @@ describe("#285 complete-month window at boundaries (household timezone)", () => 
     assert.deepEqual(w3(new Date(Date.UTC(2026, 4, 31, 16))), ["2026-02", "2026-03", "2026-04"]);
   });
 });
+
+// #259 (spec §64, PFE-08a): the personal-finance-e2e fixture's net assets. Start 10,000, June 4,000 / 9,000, October
+// (this month, the page) 1,500 / 12,033.33, today 11 October 2026, no as-of month → the start sits at the start of June
+// (the first month with figures) and each month adds its own surplus; the eight empty months add nothing.
+describe("#259 PFE-08a e2e fixture net assets (spec §64)", () => {
+  it("12 points; the last net is 25,533.33 (10,000 + 5,000 + 10,533.33), not the averaged 75,533.33", () => {
+    const ov = asOverview({ start: "10,000", growth: "", future: false, months: { "2026-06": { expenses: "4,000", income: "9,000" }, "2026-10": { expenses: "1,500", income: "12,033.33" } } });
+    const s = summarize(ov, new Date(Date.UTC(2026, 9, 11, 16)), { expenses: 1500, income: 12033.33 });
+    assert.equal(s.points.length, 12);
+    assert.equal(s.points.at(-1)!.net!.toFixed(2), "25533.33");
+    const byKey = Object.fromEntries(s.points.map((p) => [p.key, p.net]));
+    assert.equal(byKey["2026-05"], null, "before the anchor month: no net assets");
+    assert.equal(byKey["2026-06"]!.toFixed(2), "15000.00", "June: 10,000 + its own 5,000");
+    assert.equal(byKey["2026-09"]!.toFixed(2), "15000.00", "empty Jul-Sep add nothing");
+  });
+});
