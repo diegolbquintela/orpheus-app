@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { Lyre } from "@/components/lyre";
 import type { OwnerNavLink } from "@/lib/site/owner-nav";
 import {
@@ -21,10 +21,16 @@ import {
  * holds it. Search opens the same overlay with an inert placeholder field (no search yet). The overlay is a modal
  * dialog: its own close (X) button, Esc closes, Tab is trapped inside, and focus returns to the button that opened it.
  * `MENU_EXTRA_SECTIONS` (empty today) is the hook for later columns (e.g. Obsidian articles, Latest News).
+ *
+ * #287 (attachments/header-menu-spec.md "§ #287 mobile", AC HBM): below `md` (768 px) only, the same overlay reads as a
+ * phone menu: the links come first as full-width rows and the search field + note sit below them (Q5(b): a second
+ * search slot after the links, `SearchSlot` below, so the DOM and Tab order match the layout), a lyre + `Orpheus Wisdom` block closes the panel, and the
+ * panel fades in (`.site-overlay-in`, src/styles.css; none under reduced motion). Every #287 class is `max-md:` or
+ * `md:hidden`, so 768 px and wider render exactly as #286.
  */
 const FOCUS = "focus-visible:outline-chalk";
 const ICON_BUTTON = `inline-flex h-11 w-11 items-center justify-center text-chalk ${FOCUS}`;
-const OVERLAY_LINK = `inline-flex min-h-11 items-center text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline ${FOCUS}`;
+const OVERLAY_LINK = `inline-flex min-h-11 items-center max-md:flex max-md:w-full max-md:min-h-12 max-md:border-b max-md:border-hair text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline ${FOCUS}`;
 
 function Icon({ d, testId }: { d: string; testId: string }) {
   return (
@@ -50,6 +56,61 @@ const CLOSE_D = "M6 6l12 12M18 6 6 18";
 
 type Opened = null | "menu" | "search";
 
+/**
+ * #287: displayed (not inside a display:none slot), by `checkVisibility` in the browser. Without it (jsdom, no CSS)
+ * the desktop layout is assumed: the mobile search slot counts as hidden.
+ */
+const shown = (e: HTMLElement) =>
+  typeof e.checkVisibility === "function" ? e.checkVisibility() : !e.closest('[data-search-slot="mobile"]');
+
+/**
+ * #287 Q5(b) (Diego, 2026-11-02; attachments/header-menu-spec.md "§ #287 mobile"): the search field + note, rendered in
+ * two slots so the DOM (and Tab) order follows the layout: `desktop` before the links (display:none below md, so
+ * 768 px and wider are #286 exactly) and `mobile` after them (display:none from md). Only one is ever displayed, so
+ * only one is in the accessibility tree and the focus order; each has its own id, label and note id.
+ */
+function SearchSlot({
+  uid,
+  slot,
+  inputRef,
+  value,
+  onChange,
+}: {
+  uid: string;
+  slot: "desktop" | "mobile";
+  inputRef: RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = slot === "desktop" ? `${uid}-search` : `${uid}-search-mobile`;
+  return (
+    <div
+      className={slot === "desktop" ? "max-md:hidden" : "mt-10 md:hidden"}
+      data-testid={slot === "desktop" ? "site-search-block" : "site-search-block-mobile"}
+      data-search-slot={slot}
+    >
+      <label htmlFor={id} className="sr-only">
+        Search
+      </label>
+      <input
+        id={id}
+        ref={inputRef}
+        type="search"
+        placeholder={SEARCH_PLACEHOLDER}
+        aria-describedby={`${id}-note`}
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.currentTarget.value)}
+        className={`h-11 w-full max-w-md border-0 border-b border-hair bg-transparent text-base text-chalk placeholder:text-dim ${FOCUS}`}
+        data-testid="site-search"
+      />
+      <p id={`${id}-note`} className="mt-2 text-xs text-dim" data-testid="site-search-note">
+        {SEARCH_SOON}
+      </p>
+    </div>
+  );
+}
+
 export function SiteMenu({
   pathname,
   ownerLink = null,
@@ -63,7 +124,52 @@ export function SiteMenu({
   const trigger = useRef<HTMLButtonElement | null>(null);
   const overlay = useRef<HTMLDivElement | null>(null);
   const closeBtn = useRef<HTMLButtonElement | null>(null);
-  const search = useRef<HTMLInputElement | null>(null);
+  const searchDesktop = useRef<HTMLInputElement | null>(null);
+  const searchMobile = useRef<HTMLInputElement | null>(null);
+  // #287 Q5(b): below md (Tailwind `max-md:` = width < 48rem) the mobile search slot is rendered after the links;
+  // at md and wider it is not rendered at all, so the desktop DOM is #286's exactly. No matchMedia (jsdom): desktop.
+  const [phone, setPhone] = useState(false);
+  // CH15 (#287 r3): one search value for both slots, so typing survives the slot swap.
+  const [query, setQuery] = useState("");
+  // CH14 (#287 r3): crossing 768 px while open swaps the slots; remember where focus was so it can be put back.
+  const swap = useRef<{ inSearch: boolean; caret: [number | null, number | null] | null } | null>(null);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 47.99rem)");
+    const sync = () => {
+      const a = document.activeElement as HTMLInputElement | null;
+      const inSearch = a?.tagName === "INPUT" && a.getAttribute("data-testid") === "site-search";
+      swap.current = { inSearch, caret: inSearch ? [a.selectionStart, a.selectionEnd] : null };
+      setPhone(mq.matches);
+    };
+    sync();
+    mq.addEventListener?.("change", sync);
+    return () => mq.removeEventListener?.("change", sync);
+  }, []);
+  // CH14: after the swap commits, if the menu is open and focus was in Search or is now outside the dialog, focus the
+  // displayed Search field (caret kept), else X. Never moves focus while the menu is closed.
+  useLayoutEffect(() => {
+    const w = swap.current;
+    swap.current = null;
+    if (!w || !opened || !overlay.current) return;
+    const fix = () => {
+      if (!overlay.current || overlay.current.hidden) return;
+      const a = document.activeElement;
+      if (!w.inSearch && a && a !== document.body && overlay.current.contains(a) && shown(a as HTMLElement)) return;
+      const field = [searchMobile.current, searchDesktop.current].find((i) => i && shown(i));
+      if (field) {
+        field.focus();
+        if (w.caret && w.caret[0] !== null) field.setSelectionRange(w.caret[0], w.caret[1] ?? w.caret[0]);
+      } else closeBtn.current?.focus();
+    };
+    fix();
+    // The browser may only blur a field hidden by the media query at its next style pass: check again then.
+    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame(fix) : 0;
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
   const current = currentSection(pathname);
   const links = menuLinks(ownerLink);
 
@@ -76,7 +182,9 @@ export function SiteMenu({
   useEffect(() => {
     if (!opened) return;
     // Focus into the dialog: the search field when Search opened it, else the close button.
-    (opened === "search" ? search.current : closeBtn.current)?.focus();
+    // #287: the search field shown at this width (desktop slot is display:none below md; mobile slot only below md).
+    const search = [searchMobile.current, searchDesktop.current].find((i) => i && shown(i)) ?? searchDesktop.current;
+    (opened === "search" ? search : closeBtn.current)?.focus();
     const root = document.documentElement;
     const before = root.style.overflow;
     root.style.overflow = "hidden";
@@ -100,7 +208,7 @@ export function SiteMenu({
     if (e.key !== "Tab" || !overlay.current) return;
     const items = [
       ...overlay.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled])'),
-    ];
+    ].filter(shown); // #287: only what is displayed (the other width's search slot is display:none)
     if (!items.length) return;
     const first = items[0];
     const last = items[items.length - 1];
@@ -165,7 +273,7 @@ export function SiteMenu({
         aria-label="Menu"
         hidden={!opened}
         onKeyDown={trap}
-        className="fixed inset-0 z-[60] overflow-y-auto bg-night text-chalk"
+        className="site-overlay-in fixed inset-0 z-[60] overflow-y-auto bg-night text-chalk"
         data-testid="site-overlay"
       >
         <div className="mx-auto flex h-11 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
@@ -185,24 +293,9 @@ export function SiteMenu({
           </button>
         </div>
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pt-8 pb-16 sm:px-8 md:grid-cols-2">
-          <div className="min-w-0">
-            <label htmlFor={`${uid}-search`} className="sr-only">
-              Search
-            </label>
-            <input
-              id={`${uid}-search`}
-              ref={search}
-              type="search"
-              placeholder={SEARCH_PLACEHOLDER}
-              aria-describedby={`${uid}-search-note`}
-              autoComplete="off"
-              className={`h-11 w-full max-w-md border-0 border-b border-hair bg-transparent text-base text-chalk placeholder:text-dim ${FOCUS}`}
-              data-testid="site-search"
-            />
-            <p id={`${uid}-search-note`} className="mt-2 text-xs text-dim" data-testid="site-search-note">
-              {SEARCH_SOON}
-            </p>
-            <ul className="mt-8 flex flex-col gap-1" data-testid="site-menu-links">
+          <div className="min-w-0" data-testid="site-menu-main">
+            <SearchSlot uid={uid} slot="desktop" inputRef={searchDesktop} value={query} onChange={setQuery} />
+            <ul className="mt-8 max-md:mt-0 flex flex-col gap-1" data-testid="site-menu-links">
               {links.map((l) => (
                 <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
                   <a
@@ -215,6 +308,7 @@ export function SiteMenu({
                 </li>
               ))}
             </ul>
+            {phone ? <SearchSlot uid={uid} slot="mobile" inputRef={searchMobile} value={query} onChange={setQuery} /> : null}
           </div>
           {/* #286 hook: later columns (Obsidian articles, Latest News, …) come from MENU_EXTRA_SECTIONS; none yet. */}
           {MENU_EXTRA_SECTIONS.length ? (
@@ -235,6 +329,14 @@ export function SiteMenu({
               ))}
             </div>
           ) : null}
+        </div>
+        {/* #287 HBM-07: the panel's own lyre + name below md (markup only; src/components/site-footer.tsx is unchanged). */}
+        <div
+          className="mx-auto flex w-full items-center gap-2 px-5 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] text-xs text-dim md:hidden"
+          data-testid="site-menu-footer"
+        >
+          <Lyre className="shrink-0" />
+          <span>Orpheus Wisdom</span>
         </div>
       </div>
     </nav>

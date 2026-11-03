@@ -272,6 +272,8 @@ for (const flag of [undefined, "true"]) {
   const overlay = nav.match(/<div id="[^"]*"[^>]*role="dialog"[^>]*>[\s\S]*$/)?.[0] ?? "";
   check(/^<div [^>]*\bhidden=""/.test(overlay), `${label}: / overlay missing from the HTML or not hidden (#286)`);
   check(JSON.stringify([...(overlay.match(/<ul [^>]*data-testid="site-menu-links"[\s\S]*?<\/ul>/)?.[0] ?? "").matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[1]} ${m[2]}`)) === JSON.stringify(["/ Orpheus", "/calculator Calculator", "/dashboard Dashboard", "/personal-finance Personal Finance", "/account Account"]), `${label}: / overlay links not Orpheus, Calculator, Dashboard, Personal Finance, Account (last) (#286)`);
+  // #287 (HBM-07): the hidden overlay carries the panel's lyre + `Orpheus Wisdom` block (md:hidden; below 768 px only).
+  check(/<div [^>]*data-testid="site-menu-footer"[^>]*><svg [^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus Wisdom<\/span><\/div>/.test(overlay), `${label}: / overlay lacks the panel lyre + Orpheus Wisdom block (#287 HBM-07)`);
   // RM-21 (fail-closed): signed out, the owner-only link never reaches the HTML.
   check(!/renaissance/i.test(nav), `${label}: signed-out / menu mentions /renaissance (RM-21)`);
   check((home.body.match(/<h1[^>]*>/g) ?? []).length === 1 && /<h1[^>]*>Investment driven by research\.<\/h1>/.test(home.body), `${label}: / h1 is not exactly one "Investment driven by research."`);

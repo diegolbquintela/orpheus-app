@@ -19,6 +19,15 @@
 //          effective background (4.5:1, 3:1 for large text), and the bar's focus ring (≥ 3:1)
 //   plus noindex meta + X-Robots-Tag, one Vercel Analytics script; a screenshot per page and width.
 //
+// #287 (HBM, qa/CANONICAL-AC-PACK.md; attachments/header-menu-spec.md "§ #287 mobile"), at 360 / 390 / 768 / 1440:
+//   the Menu trigger (44 px) opens the full-screen dialog; below 768 the links come first as full-width ≥ 48 px rows,
+//   then Search, then the panel's lyre + `Orpheus Wisdom` block; from 768 the #286 layout (Search first, no panel
+//   block); no overflow; Tab wraps; Esc closes with focus back on Menu; at 390 each link lands on its path with one
+//   aria-current. Signed in (HBM-03/04): the owner (QA_EMAIL / QA_PASSWORD) sees `Renaissance Man` and it navigates;
+//   the Read user (QA_CFO_READ_EMAIL / QA_CFO_READ_PASSWORD) never does. Unset: SKIPPED (NOT A PASS), exit 3. Nothing is
+//   saved (HBM-10: the step only reads; localStorage and sessionStorage are asserted empty of new keys).
+//   Every log line masks email addresses (qa/tools/redact.mjs).
+//
 // --compare-url <url> (optional; a build of the base branch on the SAME data: locally two servers on one
 // database, or for ST0-05 the BASE PR's preview signed in with the same QA account (QA_EMAIL / QA_PASSWORD);
 // never production, which has no QA sign-in; spec ST0-05, EL N7): the content panels that must not change (the
@@ -33,9 +42,12 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
-import { refuseIfProd } from "./prod-guard.mjs";
+import { refuseIfProd, signedOutProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { fontsSettled } from "./fonts.mjs";
+import { installConsoleMask } from "./redact.mjs";
+
+installConsoleMask();
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -296,6 +308,109 @@ async function signedOut(browser, host, compareOnly) {
   }
 }
 
+// #287 HBM: the mobile menu, at one page and width (see the header).
+const HBM_WIDTHS = [360, 390, 768, 1440];
+const HBM_LINKS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
+const hbmLinks = (owner) => (owner ? [...HBM_LINKS.slice(0, -1), ["Renaissance Man", "/renaissance"], HBM_LINKS.at(-1)] : HBM_LINKS);
+async function hbm(page, host, width, { who = "signed out", owner = false, navigate = false } = {}) {
+  const tag = `[${width} ${who}]`;
+  await page.goto(`${host}/calculator`, { waitUntil: "networkidle" });
+  const storage = await page.evaluate(() => [localStorage.length, sessionStorage.length]);
+  const menu = page.getByTestId("site-menu-open");
+  const tb = await menu.boundingBox();
+  check(`${tag} HBM-01 Menu trigger visible, ≥ 44 px`, (await menu.isVisible()) && tb.width >= 44 && tb.height >= 44, tb && [tb.width, tb.height]);
+  await menu.click();
+  await page.waitForTimeout(250);
+  const m = await page.evaluate(() => {
+    const o = document.querySelector('[data-testid="site-overlay"]');
+    const r = (e) => (e ? e.getBoundingClientRect() : null);
+    const ul = document.querySelector('[data-testid="site-menu-links"]');
+    const links = [...ul.querySelectorAll("a")].map((a) => ({ t: a.textContent, h: a.getAttribute("href"), w: Math.round(r(a).width), ht: Math.round(r(a).height) }));
+    const f = document.querySelector('[data-testid="site-menu-footer"]');
+    const fv = f && getComputedStyle(f).display !== "none";
+    return {
+      dialog: o.getAttribute("role") === "dialog" && o.getAttribute("aria-modal") === "true" && !o.hidden,
+      cover: [Math.round(r(o).width), Math.round(r(o).height), innerWidth, innerHeight],
+      expanded: document.querySelector('[data-testid="site-menu-open"]').getAttribute("aria-expanded"),
+      links, ulW: Math.round(r(ul).width), linksTop: Math.round(r(ul).top), searchTop: Math.round(r([...document.querySelectorAll('[data-testid="site-search"]')].find((i) => i.checkVisibility())).top),
+      searchShown: [...o.querySelectorAll('[data-testid="site-search"]')].filter((i) => i.checkVisibility()).length,
+      footer: fv ? { text: f.innerText.trim(), lyre: !!f.querySelector("svg"), top: Math.round(r(f).top) } : null,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth + Math.max(0, o.scrollWidth - o.clientWidth),
+      gold: [...o.querySelectorAll("*")].some((e) => /rgb\((2[0-5]\d|1[89]\d), (1[3-9]\d|2[0-2]\d), ([0-9]|[1-9]\d)\)/.test(getComputedStyle(e).color)),
+      tnum: [...o.querySelectorAll("*")].some((e) => /tabular-nums|tnum/.test(getComputedStyle(e).fontVariantNumeric + getComputedStyle(e).fontFeatureSettings)),
+    };
+  });
+  check(`${tag} HBM-02 full-screen dialog, aria-expanded`, m.dialog && m.cover[0] === m.cover[2] && m.cover[1] === m.cover[3] && m.expanded === "true", m.cover);
+  const want = hbmLinks(owner);
+  check(`${tag} HBM-03 links by full name, in order${owner ? " incl. Renaissance Man (owner)" : " (no Renaissance Man)"}`, JSON.stringify(m.links.map((l) => [l.t, l.h])) === JSON.stringify(want), m.links.map((l) => l.t));
+  if (width < 768) {
+    check(`${tag} HBM-03 below 768: links first, full-width ≥ 48 px rows, Search below them`, m.linksTop < m.searchTop && m.links.every((l) => l.w >= m.ulW - 1 && l.ht >= 48), { linksTop: m.linksTop, searchTop: m.searchTop, ulW: m.ulW, rows: m.links.map((l) => [l.w, l.ht]) });
+    check(`${tag} HBM-07 panel lyre + exactly \`Orpheus Wisdom\` below Search`, m.footer?.text === "Orpheus Wisdom" && m.footer.lyre && m.footer.top > m.searchTop, m.footer);
+  } else {
+    check(`${tag} HBM-08 from 768: #286 layout (Search first, no panel block)`, m.searchTop < m.linksTop && m.footer === null && m.links.every((l) => l.ht >= 44 && l.w < m.ulW), { linksTop: m.linksTop, searchTop: m.searchTop, footer: m.footer });
+  }
+  check(`${tag} HBM-07 no overflow, 44 px links, no gold, no tnum`, m.overflow <= 0 && m.links.every((l) => l.ht >= 44) && !m.gold && !m.tnum, { overflow: m.overflow, gold: m.gold, tnum: m.tnum });
+  // #287 Q5(b) (2026-11-02): real Tab presses from X walk the dialog; phones X, links, Search; 768+ X, Search, links (#286).
+  const tabName = () => page.evaluate(() => { const a = document.activeElement; return a?.getAttribute("data-testid") ?? a?.textContent ?? null; });
+  await page.getByTestId("site-menu-close").focus();
+  const tabs = [await tabName()];
+  const names = want.map(([l]) => l);
+  const wantTabs = width < 768 ? ["site-menu-close", ...names, "site-search"] : ["site-menu-close", "site-search", ...names];
+  for (let i = 0; i < wantTabs.length; i++) {
+    await page.keyboard.press("Tab");
+    tabs.push(await tabName());
+  }
+  check(`${tag} HBM-06 Tab order ${width < 768 ? "X, links, Search (Q5(b))" : "X, Search, links (#286)"}; one search field displayed; Tab wraps to X`, JSON.stringify(tabs) === JSON.stringify([...wantTabs, "site-menu-close"]) && m.searchShown === 1, { tabs, searchShown: m.searchShown });
+  await page.keyboard.press("Shift+Tab");
+  const back = await tabName();
+  check(`${tag} HBM-06 Shift-Tab on X goes to the last item`, back === wantTabs.at(-1), back);
+  await page.keyboard.press("Escape");
+  const esc = await page.evaluate(() => [document.querySelector('[data-testid="site-overlay"]').hidden, document.activeElement?.getAttribute("data-testid")]);
+  check(`${tag} HBM-05 Esc closes, focus back on Menu`, esc[0] === true && esc[1] === "site-menu-open", esc);
+  await menu.click();
+  await page.getByTestId("site-menu-close").click();
+  const x = await page.evaluate(() => [document.querySelector('[data-testid="site-overlay"]').hidden, document.activeElement?.getAttribute("data-testid")]);
+  check(`${tag} HBM-05 X closes, focus back on Menu`, x[0] === true && x[1] === "site-menu-open", x);
+  // CH14 / CH15 (#287 r3, 2026-11-02): cross 768 px with the menu open and focus in Search (390 <-> 1440, 767 <-> 768).
+  const vp0 = page.viewportSize();
+  for (const to of width < 768 ? [1440, 768] : [390, 767]) {
+    await page.getByTestId("site-search-open").click();
+    await page.waitForTimeout(150);
+    await page.keyboard.type("vod");
+    await page.setViewportSize({ width: to, height: vp0.height });
+    await page.waitForTimeout(250);
+    const rz = await page.evaluate(() => {
+      const o = document.querySelector('[data-testid="site-overlay"]');
+      const a = document.activeElement;
+      return { inDialog: o.contains(a), search: a?.getAttribute("data-testid") === "site-search" && a.checkVisibility(), value: a?.value ?? null };
+    });
+    await page.keyboard.press("Tab");
+    const tabIn = await page.evaluate(() => document.querySelector('[data-testid="site-overlay"]').contains(document.activeElement));
+    check(`${tag} HBM-06 CH14/CH15 resize to ${to} with the menu open: focus on the displayed Search in the dialog, value kept, Tab stays inside`, rz.inDialog && rz.search && rz.value === "vod" && tabIn, { ...rz, tabIn });
+    await page.keyboard.press("Escape");
+    await page.setViewportSize(vp0);
+    await page.waitForTimeout(150);
+    await page.reload({ waitUntil: "networkidle" });
+  }
+  if (navigate) {
+    for (const [label, href] of want) {
+      await page.goto(`${host}/calculator`, { waitUntil: "networkidle" });
+      await page.getByTestId("site-menu-open").click();
+      await page.locator('[data-testid="site-menu-links"] a', { hasText: label }).first().click();
+      await page.waitForLoadState("networkidle");
+      const u = new URL(page.url());
+      const gated = who === "signed out" && href !== "/" && href !== "/calculator";
+      const landed = gated ? u.pathname === "/dashboard/sign-in" && (u.searchParams.get("next") ?? "/dashboard") === href : u.pathname === href;
+      const cur = await page.locator('nav[aria-label="Site"] [aria-current="page"]').allTextContents();
+      const curWant = gated ? ["Dashboard"] : [label];
+      check(`${tag} HBM-04 ${label} → ${gated ? `sign-in (next ${href})` : href}, one aria-current`, landed && JSON.stringify(cur) === JSON.stringify(curWant), [u.pathname + u.search, cur]);
+    }
+  }
+  const after = await page.evaluate(() => [localStorage.length, sessionStorage.length]);
+  check(`${tag} HBM-10 nothing stored (local/session storage unchanged)`, JSON.stringify(after) === JSON.stringify(storage), [storage, after]);
+}
+let hbmSkipped = false;
+
 const browser = await chromium.launch();
 try {
   info("viewports", SHELL_VIEWPORTS.map(([vp, v]) => `${vp} ${v.width}×${v.height}`));
@@ -335,6 +450,11 @@ try {
     await pg.close();
   }
   await signedOut(browser, base, false);
+  for (const w of HBM_WIDTHS) {
+    const pg = await browser.newPage({ viewport: { width: w, height: 800 }, isMobile: w < 768, hasTouch: w < 768 });
+    await hbm(pg, base, w, { navigate: w === 390 });
+    await pg.close();
+  }
   if (CFG.compareUrl) await signedOut(browser, CFG.compareUrl, true);
 
   const email = process.env.QA_EMAIL;
@@ -373,6 +493,24 @@ try {
     }
   }
 
+  // #287 HBM signed in: the owner and the real Read user (session.mjs signs in; passwords never logged).
+  const hbmViewports = HBM_WIDTHS.map((w) => [`${w}`, { width: w, height: 800 }, w < 768]);
+  // CH13 (#287 r2): on prod (signed-out prod mode) eachViewport returns without running; say so loudly, exit 3.
+  if (signedOutProd()) {
+    hbmSkipped = true;
+    console.log("SKIPPED (NOT A PASS): HBM-03/04 signed in (owner, read): signed-out prod mode never signs in");
+  } else
+  for (const [who, e, p, owner] of [["owner", "QA_EMAIL", "QA_PASSWORD", true], ["read", "QA_CFO_READ_EMAIL", "QA_CFO_READ_PASSWORD", false]]) {
+    if (!process.env[e] || !process.env[p]) {
+      hbmSkipped = true;
+      console.log(`SKIPPED (NOT A PASS): HBM-03/04 signed in as ${who}: set ${e} / ${p} in env`);
+      continue;
+    }
+    await eachViewport({ browser, baseUrl: base, email: process.env[e], password: process.env[p], check, viewports: hbmViewports }, async ({ viewport, page }) => {
+      await hbm(page, base, viewport.width, { who, owner, navigate: viewport.width === 390 });
+    });
+  }
+
   for (const [vp, set] of navHtml) check(`[${vp}] ST1-04 one bar: the same markup on every page`, set.size === 1, set.size);
   if (CFG.compareUrl)
     for (const [key, { base: a, compare: b }] of Object.entries(R.panels)) {
@@ -386,4 +524,4 @@ try {
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "site-shell.json"), JSON.stringify(R, null, 2));
 console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
-process.exit(fails.length ? 1 : 0);
+process.exit(fails.length ? 1 : hbmSkipped ? 3 : 0);

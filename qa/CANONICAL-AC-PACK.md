@@ -2391,3 +2391,22 @@ CE1: PFCH-10's "Chromium PFCH-L1..L8, 72/72" is the local headless fixture of th
 ### Amendment 2026-11-02 (#282 CFO Q-GR5): the +coverage rows' total
 
 - **PFGR-04 (amended)** On, the two rows `Net income + equity coverage` and `Surplus + equity coverage` follow the table: Today / Scenario = the row's monthly net income / surplus + that column's monthly equity coverage (unchanged). The third cell is no longer `—`: it is the row's Net income / Surplus over the horizon + the SUM, over months 1..horizon, of each projected month's monthly equity coverage (net assets × rate ÷ 100 ÷ 12 from that month's projected net assets; 0 for a month with net assets ≤ 0; `—` with no rate). It is not horizon × end coverage (they differ whenever coverage changes month to month; equal when it is flat). The cell shows the figure with the caption `Total over {horizon}` (e.g. `Total over 12 months`) under it; the shared column header stays `Over {horizon}` for every row.
+
+## HBM — Mobile hamburger menu (#287, 2026-11-02; attachments/header-menu-spec.md "§ #287 mobile")
+
+EL decisions Q1–Q5 are in the spec. Below 768 px only; 768 px and wider are #286 exactly.
+
+| AC | Severity | Check |
+|---|---|---|
+| HBM-01 | BLOCK | The Menu trigger is visible and ≥ 44 × 44 px at 360 / 390 / 768; at 1440 the bar is unchanged from #286 (HDR-01). |
+| HBM-02 | BLOCK | Menu opens the full-screen dialog (`role=dialog`, `aria-modal=true`, covers the viewport) with `aria-expanded=true`. |
+| HBM-03 | BLOCK | Below 768: the links come first, by full name in order (Orpheus, Calculator, Dashboard, Personal Finance, [Renaissance Man, owner only], Account), as full-width rows ≥ 48 px with a hairline; Search (field + note) after them. The owner link is absent from any non-owner's HTML (fail-closed, RM-21). |
+| HBM-04 | BLOCK | Each link navigates to its path (signed out, gated pages land on sign-in with `next`); exactly one `aria-current="page"` there. |
+| HBM-05 | BLOCK | Esc and the X close the dialog; focus returns to Menu. |
+| HBM-06 | BLOCK | Tab and Shift-Tab wrap inside the open dialog. |
+| HBM-07 | BLOCK | At 360 / 390 / 768 / 1440: no horizontal overflow, ≥ 44 px targets, AA, CLS 0, no gold, no tabular numerals; reduced motion = no animation; below 768 the panel ends with the lyre + exactly `Orpheus Wisdom` (not a second `<footer>`). |
+| HBM-08 | BLOCK | At 768 (tablet) and 1440 the overlay is the #286 desktop layout (Search first, inline links, no panel block), pixel-identical to main. |
+| HBM-09 | BLOCK | HDR-01..12, site-style-regression, site.mjs, site-shell, check:dashboard-built and release-smoke pass with their #286 menu assertions unchanged. |
+| HBM-10 | MAJOR | The e2e step saves nothing (storage unchanged); owner and Read user run, or SKIPPED (NOT A PASS) with exit 3. |
+
+HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab order from X. Below 768: X, Orpheus, Calculator, Dashboard, Personal Finance, [Renaissance Man, owner only], Account, Search, then back to X (Shift-Tab on X goes to Search). At 768 and 1440: X, Search, then the links, unchanged from #286. Exactly one search field is displayed (and in the focus order) at any width; ids, labels and `aria-describedby` stay unique. Checked by `src/components/site-menu-mobile.dom.test.tsx` and `qa/tools/site-shell.mjs` hbm() (real Tab presses).
