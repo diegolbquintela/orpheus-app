@@ -95,4 +95,15 @@ describe("#260 PFAV2: scenario Overview projected figures on the chart basis", (
       assert.ok(m.status === "ok" && (m.share! * 100).toFixed(2) !== want, "the main page keeps its 12-month-average share");
     }
   });
+  // #312 (spec 90.4, AC PFAV2-02 amended 2026-11-03): the main page (no chart surplus) keeps the 12-month average, so its
+  // coverage share is 7.35% (1 year) / 30.97% (5 years); 13.01% / 62.24% were the pre-#260 scenario-screen values.
+  it("PFAV2-02a: the main-page Overview coverage share is 7.35% (1 year), 30.97% (5 years)", () => {
+    for (const [years, want] of [[1, "7.35"], [5, "30.97"]] as const) {
+      const o = fx(years);
+      const m = overviewCoverage(o, summarize(o, D, P), 4);
+      assert.equal(m.status, "ok");
+      if (m.status !== "ok") return;
+      assert.equal((m.share! * 100).toFixed(2), want);
+    }
+  });
 });

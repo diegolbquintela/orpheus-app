@@ -3018,3 +3018,5 @@ The Compare swatch also has `flex-shrink: 0`: local Chromium showed a long, wrap
 90.2 **CFO answers (2026-11-03, via EL).** Q1: the scenario Overview uses this month's figures, matching Totals (34.68%). Q2: the main page and `/api/cfo/pf` stay on the 12-month average, unchanged. Q3: the label reads exactly "held at this month's figures, like the projection chart" ("like", not "as"). Q4: no second line.
 
 90.3 **Rows.** PFAV2-01..06 in `qa/CANONICAL-AC-PACK.md`.
+
+90.4 **Amendment (2026-11-03, #312).** Main page (12-month average) coverage share for the §90.1 fixture: 7.35% at 1 year, 30.97% at 5 years (unit PFAV2-02a); scenario screen 34.68% / 165.98%. The 13.01% / 62.24% in §90.1 and PFAV2-02 were the pre-#260 scenario-screen values. In `qa/tools/pf-scenario-e2e.mjs` PFAV2-05, a missing Future toggle, 1-year button or coverage note is reported `SKIPPED (coverage not computed: <status>)`, never a pass; a present note is checked strictly (share and Totals both found and equal, and the chart-basis ending). Rows: PFAV2-02 / PFAV2-05 (amended 2026-11-03, #312).
