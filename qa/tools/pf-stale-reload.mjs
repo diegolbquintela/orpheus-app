@@ -8,8 +8,9 @@
 //   - the banner is gone and focus is on the h1;
 //   - the next (intercepted) PUT carries the Reload GET's version as `baseVersion`;
 //   - the Reload button is ≥ 44 × 44 px and nothing overflows (scrollWidth <= clientWidth, rects in the viewport);
-//   - CH41: record GETs are route-faked (a populated seed record, a new version each) so every case runs; a case
-//     with nothing to act on is a SKIP listed in the summary, never a PASS;
+//   - CH41: record GETs are route-faked (a populated seed record) so every case runs; a case with nothing to act on
+//     is a SKIP listed in the summary, never a PASS. CH42: the version moves once per Reload (versionClock), not per
+//     GET; History picks a year first and Scenario opens its saved list, so their actions exist;
 //   - CLS 0 on the surface's load (CLS_RUNS=1: the one load of each case, no extra cold loads).
 // Widths 390 and 1440 by default; --all-widths adds 360 and 768. Signs in with QA_EMAIL / QA_PASSWORD (env only,
 // never logged); unset → `SKIPPED (NOT A PASS)`, exit 3. Refuses production (qa/tools/prod-guard.mjs). The Vercel
@@ -26,7 +27,7 @@ import { refuseIfProd } from "./prod-guard.mjs";
 import { bypassHeaders } from "./robots-txt.lib.mjs";
 import { eachViewport } from "./session.mjs";
 import { installConsoleMask, maskDeep, maskedJson } from "./redact.mjs";
-import { API, bannerGoneFocusH1, bannerThenReload, freshBaseVersion, noOverflow, reloadInPlace, seedReply, summarize, tapTarget, versionOf } from "./pf-stale-reload.lib.mjs";
+import { API, bannerGoneFocusH1, bannerThenReload, freshBaseVersion, noOverflow, reloadInPlace, seedReply, summarize, versionClock, tapTarget, versionOf } from "./pf-stale-reload.lib.mjs";
 import { torontoMonth } from "./pf-plan-seed.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -81,6 +82,24 @@ const dirtyInput = async (page, sel) => {
   await el.fill(/^-?\d/.test(v) || (await el.getAttribute("inputmode")) ? String((Number(v.replace(/,/g, "")) || 0) + 1) : `${v} x`);
   return true;
 };
+// CH42: History shows its grid (and its inputs) only once a Year is picked (history-page.tsx: `year` starts null).
+const pickYear = async (p) => {
+  const sel = p.getByTestId("pf-history-year");
+  if (!(await sel.count())) return;
+  if (!(await sel.inputValue())) {
+    const v = await sel.locator("option").nth(1).getAttribute("value").catch(() => null);
+    if (v) await sel.selectOption(v);
+  }
+  await p.getByTestId("pf-history-input").first().waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+};
+// CH42: Scenario's Rename / Update / Delete live in the saved table, shown only once `pf-saved-toggle` is expanded
+// (closed again after Reload: the screen remounts).
+const openSaved = async (p) => {
+  const t = p.getByTestId("pf-saved-toggle");
+  if (!(await t.count())) return;
+  if ((await t.getAttribute("aria-expanded")) !== "true") await t.click();
+  await p.getByTestId("pf-saved-item").first().waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+};
 // Each action makes the page send one record PUT; returns false when the surface has nothing to act on.
 const SURFACES = [
   {
@@ -89,7 +108,7 @@ const SURFACES = [
   },
   {
     name: "History", path: "/personal-finance/history", banner: "pf-stale-error", reload: "pf-stale-reload",
-    actions: { save: async (p) => (await dirtyInput(p, "[data-testid=pf-history-input]:visible")) && (await p.getByTestId("pf-history-save").click(), true) },
+    actions: { save: async (p) => (await pickYear(p), await dirtyInput(p, "[data-testid=pf-history-input]:visible")) && (await p.getByTestId("pf-history-save").click(), true) },
   },
   {
     name: "Scenario", path: "/personal-finance/scenario", banner: "pf-saved-stale", reload: "pf-saved-reload",
@@ -101,14 +120,25 @@ const SURFACES = [
         return true;
       },
       rename: async (p) => {
+        await openSaved(p);
         if (!(await p.getByTestId("pf-saved-rename").count())) return false;
         await p.getByTestId("pf-saved-rename").first().click();
         await p.getByTestId("pf-saved-rename-name").fill(`QA308 r${Date.now() % 100000}`);
         await p.getByTestId("pf-saved-rename-save").click();
         return true;
       },
-      update: async (p) => (await p.getByTestId("pf-saved-update").count()) > 0 && (await p.getByTestId("pf-saved-update").first().click(), true),
-      delete: async (p) => (await p.getByTestId("pf-saved-delete").count()) > 0 && (await p.getByTestId("pf-saved-delete").first().click(), true),
+      update: async (p) => {
+        await openSaved(p);
+        if (!(await p.getByTestId("pf-saved-update").count())) return false;
+        await p.getByTestId("pf-saved-update").first().click(); // window.confirm: accepted by the dialog handler
+        return true;
+      },
+      delete: async (p) => {
+        await openSaved(p);
+        if (!(await p.getByTestId("pf-saved-delete").count())) return false;
+        await p.getByTestId("pf-saved-delete").first().click(); // window.confirm: accepted by the dialog handler
+        return true;
+      },
     },
   },
 ];
@@ -140,9 +170,9 @@ async function run(ctx, [vp, viewport], surface, action, status) {
   page.on("dialog", (d) => d.accept().catch(() => {}));
   const log = [];
   const realPut = [];
-  // CH41: every record GET is route-faked with a populated record (months with figures + saved scenarios), each with a
-  // new version, so History and Scenario have something to act on and the Reload GET's version differs from the stale one.
-  let gets = 0;
+  // CH41: every record GET is route-faked with a populated record (months with figures + saved scenarios), so History
+  // and Scenario have something to act on. CH42 (EL): the version moves once per Reload, not per GET.
+  const clock = versionClock();
   const month = torontoMonth(new Date());
   let nav = 0;
   let reply = { status, body: { error: "stale", code: status === 409 ? "stale" : "base_version_required" } };
@@ -153,7 +183,7 @@ async function run(ctx, [vp, viewport], surface, action, status) {
     const m = q.method().toUpperCase();
     const p = new URL(q.url()).pathname;
     if (m === "GET" && p === API)
-      return r.fulfill({ status: 200, contentType: "application/json", headers: { "cache-control": "no-store" }, body: JSON.stringify(seedReply(++gets, month)) });
+      return r.fulfill({ status: 200, contentType: "application/json", headers: { "cache-control": "no-store" }, body: JSON.stringify(seedReply(clock.onGet(), month)) });
     if (m === "GET" || m === "HEAD") return r.continue();
     if (m === "PUT" && p === API) {
       let body = null;
@@ -193,6 +223,7 @@ async function run(ctx, [vp, viewport], surface, action, status) {
     log.length = 0;
     nav = 0;
     const before = versions.length;
+    clock.reload();
     await page.getByTestId(surface.reload).click();
     await page.getByTestId(surface.reload).waitFor({ state: "detached", timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(600);

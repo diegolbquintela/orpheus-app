@@ -5,8 +5,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   API, STALE_MESSAGE, STALE_WORDING, bannerGoneFocusH1, bannerThenReload, countRecordRequests, freshBaseVersion,
-  matchesStaleMessage, noOverflow, reloadInPlace, seedRecord, seedReply, staleOnBoth, summarize, tapTarget, versionOf,
+  matchesStaleMessage, noOverflow, reloadInPlace, replaySave, seedRecord, seedReply, staleOnBoth, summarize, tapTarget,
+  versionClock, versionOf,
 } from "../qa/tools/pf-stale-reload.lib.mjs";
+// CH42: the seed is checked with the app's own parsers / validators (the tool itself never imports src/).
+import { checkRecord, prepareRecord } from "../src/lib/finance/record.ts";
+import { applyHistoryEdit, isEditableCell, storedYears, yearTable } from "../src/lib/finance/history.ts";
+import { readScenario, scenarioValueOk } from "../src/lib/finance/scenario-key.ts";
+import { addSaved, nameError, removeSaved, renameError, renameSaved, updateSaved } from "../src/lib/finance/saved-scenarios.ts";
 
 const U = `http://localhost:4173${API}`;
 const GOOD = {
@@ -119,7 +125,7 @@ test("CH41 seed: the faked GET is a populated record (months with figures + save
   assert.notEqual(versionOf(a), versionOf(b), "the Reload GET's version differs from the stale one");
   assert.equal(freshBaseVersion({ reloadVersion: versionOf(b), staleVersion: versionOf(a), putBody: { baseVersion: versionOf(b) } }).ok, true);
   const tool = readFileSync("qa/tools/pf-stale-reload.mjs", "utf8");
-  assert.match(tool, /m === "GET" && p === API\)\s*return r\.fulfill\([^\n]*seedReply\(\+\+gets/, "record GETs route-faked with the seed");
+  assert.match(tool, /m === "GET" && p === API\)\s*return r\.fulfill\([^\n]*seedReply\(clock\.onGet\(\)/, "record GETs route-faked with the seed (CH42: version from the per-Reload clock)");
   assert.match(tool, /return skip\(`\$\{tag\}: nothing to/, "an uncovered case is a SKIP");
   assert.doesNotMatch(tool, /return info\(/);
 });
@@ -140,4 +146,110 @@ test("CH41 summary: an uncovered case counts as SKIP and is listed; a SKIP is ne
   assert.equal(summarize({ checks: [{ name: "a", ok: false }], skipped: ["x"] }).code, 1);
   assert.equal(summarize({ checks: [{ name: "a", ok: true }] }).code, 0);
   assert.equal(summarize({ checks: [{ name: "a", ok: "yes" }] }).fail, 1, "only ok === true passes");
+});
+
+// CH42 (#308 QA round 2): History save and Scenario rename / update / delete must run, not SKIP.
+const CH42_NOW = { "2026-11": new Date("2026-11-15T12:00:00Z"), "2026-01": new Date("2026-01-15T12:00:00Z") };
+
+test("CH42 endpoints: History, Scenario and Overview read only GET /api/personal-finance (no query); the tool fakes exactly that", () => {
+  for (const f of ["src/lib/finance/history-client.ts", "src/lib/finance/scenario-client.ts", "src/lib/finance/account-client.ts"]) {
+    const src = readFileSync(f, "utf8");
+    const calls = [...src.matchAll(/fetch\(([^,)]+)/g)].map((m) => m[1].trim());
+    assert.ok(calls.length > 0 && calls.every((c) => c === "API"), `${f} fetches only API: ${calls}`);
+  }
+  assert.match(readFileSync("src/lib/finance/history-client.ts", "utf8"), /const API = "\/api\/personal-finance";/);
+  assert.match(readFileSync("src/lib/finance/account-client.ts", "utf8"), /export const API = "\/api\/personal-finance";/);
+  assert.equal(API, "/api/personal-finance");
+  const tool = readFileSync("qa/tools/pf-stale-reload.mjs", "utf8");
+  assert.match(tool, /if \(m === "GET" \|\| m === "HEAD"\) return r\.continue\(\);/, "other GETs (assets, server fns) pass through");
+  assert.match(tool, /realPut\.push\(`\$\{m\} \$\{p\}`\);\s*return r\.abort\(\);/, "every other write (POST / PATCH / DELETE / non-record PUT) aborted");
+});
+
+for (const cur of Object.keys(CH42_NOW)) {
+  const now = CH42_NOW[cur];
+  const reply = seedReply(1, cur);
+  const r = reply.data;
+
+  test(`CH42 seed (${cur}): a storable record the pages load without writing (no import, no migration)`, () => {
+    assert.equal(checkRecord(r).ok, true, "the server would accept it (names allowed, strings, ≤ 1 MB)");
+    const p = prepareRecord(r, null);
+    assert.equal(p.imported, false);
+    assert.equal(p.migrated, false, "Overview sends no PUT on load");
+    assert.equal(typeof reply.version, "string", "scenario-client / account-client keep only a string version");
+    assert.equal(reply.access.write, true, "scenario-client needs access.write === true for the Save / Rename / Update / Delete controls");
+    assert.notEqual(reply.access.owner, false);
+  });
+
+  test(`CH42 seed (${cur}): History has a year to pick, rows, and an editable cell whose edit makes Save enabled`, () => {
+    const years = storedYears(r, cur);
+    assert.ok(years.length > 0, "the Year select has a choice (else pf-history-empty)");
+    const t = yearTable(r, years[0], now);
+    assert.ok(t.rows.length > 0 && t.columns.length > 0);
+    const cells = t.rows.flatMap((row) => t.columns.map((c, i) => ({ month: row.month, id: c.id, val: row.cells[i] }))).filter((c) => isEditableCell(r, c.month, c.id));
+    assert.ok(cells.length > 0, "at least one pf-history-input");
+    const c = cells[0];
+    const next = String((Number(c.val.replace(/,/g, "")) || 0) + 1); // what dirtyInput types
+    const edited = applyHistoryEdit(r, c.month, c.id, next, now);
+    assert.ok(edited && JSON.stringify(edited) !== JSON.stringify(r), "the edit changes the record (dirty → Save enabled)");
+  });
+
+  test(`CH42 seed (${cur}): Scenario parses saved entries the Save / Rename / Update / Delete paths accept`, () => {
+    assert.equal(scenarioValueOk(r), true);
+    const sc = readScenario(r);
+    assert.ok(sc && sc.saved.length >= 1, "the saved table has rows (else pf-saved-none)");
+    const e = sc.saved[0];
+    assert.equal(nameError("QA308 12345", sc.saved), null, "Save scenario: name accepted");
+    assert.ok(!("error" in addSaved(sc, { ...e, id: "qa308-new", name: "QA308 12345" })));
+    assert.equal(renameError("QA308 r12345", sc.saved, e.id), null, "Rename accepted");
+    assert.ok(!("error" in renameSaved(sc, e.id, "QA308 r12345")));
+    const { id: _id, name: _name, ...rest } = e;
+    assert.ok(!("error" in updateSaved(sc, e.id, rest)), "Update accepted");
+    assert.equal(removeSaved(sc, e.id).saved.length, sc.saved.length - 1, "Delete removes it");
+  });
+}
+
+test("CH42 UI preconditions: the tool picks a History year and opens the Scenario saved table before acting", () => {
+  const hp = readFileSync("src/components/personal-finance/history-page.tsx", "utf8");
+  assert.match(hp, /useState<number \| null>\(null\)/, "History's year starts unset");
+  assert.match(hp, /data-testid="pf-history-year"/);
+  const sp = readFileSync("src/components/personal-finance/scenario-page.tsx", "utf8");
+  assert.match(sp, /\) : open \? \(/, "the saved table renders only when open");
+  assert.match(sp, /aria-expanded=\{open\}\s*data-testid="pf-saved-toggle"/);
+  const tool = readFileSync("qa/tools/pf-stale-reload.mjs", "utf8");
+  assert.match(tool, /save: async \(p\) => \(await pickYear\(p\), await dirtyInput\(p, "\[data-testid=pf-history-input\]/);
+  for (const a of ["rename", "update", "delete"]) assert.match(tool, new RegExp(`${a}: async \\(p\\) => \\{\\n\\s*await openSaved\\(p\\);`), `${a} opens the saved table first`);
+  assert.match(tool, /aria-expanded"\)\) !== "true"\) await t\.click\(\)/);
+});
+
+test("CH42 PFRL-09: the version moves once per Reload; the real Scenario sequence passes, the old per-GET bump fails", () => {
+  const c = versionClock();
+  assert.equal(c.onGet(), 1);
+  assert.equal(c.onGet(), 1, "a second GET before any Reload: same version");
+  c.reload();
+  assert.equal(c.onGet(), 2);
+  assert.equal(c.onGet(), 2, "every GET between one Reload and the next: same version");
+
+  // stale PUT, Reload, GET, an extra GET, then PUT.
+  const ok = replaySave(versionClock());
+  assert.deepEqual(ok.log.map((q) => q.kind), ["get", "get", "put", "get", "get", "put"]);
+  assert.notEqual(ok.putBody.baseVersion, null);
+  assert.equal(ok.putBody.baseVersion, ok.reloadVersion, "PUT baseVersion = the post-Reload version");
+  assert.notEqual(ok.putBody.baseVersion, ok.staleVersion);
+  assert.equal(freshBaseVersion(ok).ok, true);
+
+  const old = replaySave(versionClock({ perGet: true }));
+  assert.notEqual(old.putBody.baseVersion, old.reloadVersion, "per-GET: the extra GET moved the version past the Reload GET's");
+  assert.equal(freshBaseVersion(old).ok, false, "the old per-GET bump fails this sequence");
+
+  // Overview (no extra GET) passes under the per-Reload clock.
+  const ov = replaySave(versionClock(), { extraGet: false });
+  assert.deepEqual(ov.log.map((q) => q.kind), ["get", "put", "get", "put"]);
+  assert.equal(freshBaseVersion(ov).ok, true);
+  assert.equal(ov.reloadVersion, "qa308-seed-2");
+  assert.equal(ov.staleVersion, "qa308-seed-1");
+
+  const tool = readFileSync("qa/tools/pf-stale-reload.mjs", "utf8");
+  assert.match(tool, /const clock = versionClock\(\);/);
+  assert.match(tool, /clock\.reload\(\);\s*await page\.getByTestId\(surface\.reload\)\.click\(\);/, "bumped once, as Reload is clicked");
+  assert.doesNotMatch(tool, /\+\+gets/);
 });

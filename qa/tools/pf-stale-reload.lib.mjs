@@ -55,7 +55,7 @@ export function freshBaseVersion({ reloadVersion, staleVersion, putBody }) {
 /**
  * CH41 seed: the populated record the tool's route-faked `GET /api/personal-finance` returns (months with figures and
  * saved scenarios), so History and Scenario have something to save / rename / update / delete. `version` is the reply
- * version (each GET gets a new one, so the Reload GET's version always differs from the stale one). Pure.
+ * version (CH42: a new one per Reload, see versionClock, so the Reload GET's version differs from the stale one). Pure.
  */
 export const SEED_KEYS = { expenses: "orpheus.finance.expenses.v2", income: "orpheus.finance.income.v1", months: "orpheus.finance.months.v1", scenario: "orpheus.finance.scenario.v1" };
 export function seedRecord(current = "2026-11") {
@@ -80,6 +80,55 @@ export function seedRecord(current = "2026-11") {
 }
 /** The route-faked GET reply body: the seeded record, owner + write access, and version `qa308-seed-<n>`. */
 export const seedReply = (n, current) => ({ data: seedRecord(current), access: { owner: true, write: true }, version: `qa308-seed-${n}` });
+
+/**
+ * CH42 (EL): the faked record version moves once per Reload, not once per GET. Every GET between one Reload and the
+ * next returns the same version (Scenario's `changeSaved` makes a fresh GET before each PUT, src/lib/finance/
+ * scenario-client.ts:44; with a per-GET bump that extra GET moved the version past the Reload GET's and PFRL-09
+ * compared against the wrong GET). `onGet()` → the `n` for seedReply; `reload()` is called as Reload is clicked.
+ * `perGet: true` is the old CH41 clock, kept only so the tests can show it fails the real sequence.
+ */
+export function versionClock({ perGet = false } = {}) {
+  let n = 0;
+  let pending = true;
+  return {
+    onGet() {
+      if (perGet || pending) {
+        n++;
+        pending = false;
+      }
+      return n;
+    },
+    reload() {
+      pending = true;
+    },
+  };
+}
+
+/**
+ * CH42: replays the Scenario save sequence against a clock, as the app sends it (no browser): page-load GET; Save →
+ * fresh GET + PUT (answered 409); Reload → 1 GET; Save again → an extra fresh GET + PUT carrying that GET's version
+ * as `baseVersion`. Returns what the tool measures: `{ staleVersion, reloadVersion, putBody }` plus the request log (`kind` get / put: a replay, nothing is sent).
+ * `extraGet: false` is the Overview / History shape (the PUT uses the version loaded last, no fresh GET).
+ */
+export function replaySave(clock, { extraGet = true } = {}) {
+  const log = [];
+  const get = () => {
+    const v = versionOf(seedReply(clock.onGet()));
+    log.push({ kind: "get", version: v });
+    return v;
+  };
+  const put = (base) => {
+    log.push({ kind: "put", baseVersion: base });
+    return { data: {}, baseVersion: base };
+  };
+  const staleVersion = get();
+  put(extraGet ? get() : staleVersion);
+  clock.reload();
+  const reloadVersion = get();
+  const putBody = put(extraGet ? get() : reloadVersion);
+  return { staleVersion, reloadVersion, putBody, log };
+}
 
 /**
  * CH41 summary: a case not covered is a SKIP, never a PASS. `checks` [{ name, ok }], `skipped` [string]. `code`: 1 on
