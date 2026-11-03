@@ -2976,3 +2976,6 @@ It appears only there (not in Compare, the This screen column or any hint). No l
 88.5 **Layout.** The Compare grid already has 4 tracks (figure + 3 values). Below 40rem the table keeps its 31rem minimum inside its own sideways-scrolling region, so the page never overflows; long names in the column headers may wrap (accepted). Fixed-height chart, reserved hint: CLS 0.
 
 88.6 **Read-only users** compare 3 the same way (Compare and Open never needed write). Client-side only: React state, no URL or storage key, request, table, migration, env var or dependency; calc unchanged. AC PF2C-16..PF2C-22.
+
+88.7 **Swatch width (#299 r2, Q-CMP6, 2026-11-02).** Compare's legend swatches, dashed and solid alike, are 20 px wide (`.pf-swatch.pf-swatch-cmp`, 1.25rem; other legends keep 12 px), so a dashed swatch shows 2 full dashes of the `6 4` pattern and the solid ones line up with it. Height (2 px), colours and contrast are unchanged; the legend wraps (no overflow at 360, long names included); CLS 0.
+The Compare swatch also has `flex-shrink: 0`: local Chromium showed a long, wrapping scenario name squeezing a 20 px swatch to 13.6 px at 360 without it.

@@ -2319,6 +2319,8 @@ PF2C-16 supersedes PF2C-01. PF2C-02..05 and PF2C-13 are now asserted with the lo
 | PF2C-21 | HIGH | Chromium at 360/390/768/1440 with 3 columns: no page overflow (the table scrolls in its region below 40rem), CLS 0, 44 px targets, hint and labels AA, each series ≥ 3:1 on night, no gold, no tnum. (Chromium, local) |
 | PF2C-22 | BLOCK | Picking, locking and dashing send no request, write no storage, and leave the calculation unchanged. Read-only users can compare 3 as well. (DOM) |
 
+PF2C-20 note (2026-11-02, #299 r2, CFO Q-CMP6): every Compare legend swatch, dashed and solid, is 20 px wide (`.pf-swatch.pf-swatch-cmp`), so a dashed one shows at least 2 full `6 4` dashes and both kinds line up; a 12 px swatch fails (DOM). Chromium checks the measured width, the dash count and that the legend does not overflow at 360 with a long name.
+
 ## PFCH: Personal Finance scenario screen charts, titled (#280, MEDIUM; added 2026-11-02)
 
 Spec §85. Choice (b): both charts stay (they plot different things, proven on one fixture), each with a visible title and subtitle; Compare uses the same heading. Client-side only; projection math unchanged.

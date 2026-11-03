@@ -2,6 +2,7 @@
 // ScenarioPage against an in-memory fake of /api/personal-finance (the #279 fixture): lock after 2, third blocked,
 // order, per-column figures, subtitle, clash dash (later column only), no request / storage, read-only.
 import { dom } from "../../test/dom-setup";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { act } from "react";
@@ -176,6 +177,26 @@ describe("#299 Compare: This screen + 2 saved (spec §88, PF2C-17..22)", () => {
     assert.deepEqual(heads(el), ["This screen", "Éclair", "alpha 2"]);
     assert.deepEqual(legend(el), [[COMPARE_COLOURS[0], ""], [G, ""], [G, COMPARE_CLASH_DASH]]);
     for (const e of SAVED) assert.equal(compareColour(e), e.id === "s0" ? COMPARE_COLOURS[2] : e.id === "s3" ? COMPARE_COLOURS[3] : G);
+  });
+
+  // #299 r2 (Q-CMP6): every Compare swatch, dashed and solid, carries pf-swatch-cmp, whose width is 20 px (1.25rem), so a
+  // dashed one (6 on, 4 off) shows 2 full dashes; dashed and solid share the one rule, so they line up.
+  it("PF2C-20 r2: Compare swatches are 20 px wide, dashed and solid alike; the dash period fits at least twice", async () => {
+    server(record());
+    const el = await render();
+    await pick(el, ["alpha 2", "Éclair"]);
+    const sw = qa(el, "pf-compare-legend-item").map((li) => li.querySelector(".pf-swatch") as HTMLElement);
+    assert.equal(sw.length, 3);
+    assert.ok(sw.every((x) => x.classList.contains("pf-swatch-cmp")), "dashed and solid share the width class");
+    assert.ok(sw.every((x) => !x.style.width), "no inline width that could split them");
+    const CSS = readFileSync("src/styles.css", "utf8");
+    const rule = /\.pf-swatch\.pf-swatch-cmp\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? "";
+    const rem = Number(/width:\s*([\d.]+)rem/.exec(rule)?.[1] ?? 0);
+    assert.equal(rem * 16, 20, "swatch width 20 px");
+    assert.match(rule, /flex-shrink:\s*0;/, "a long wrapping name cannot shrink it (Chromium found 13.6 px without this)");
+    const [on, off] = COMPARE_CLASH_DASH.split(" ").map(Number);
+    assert.ok(Math.floor((rem * 16 + off) / (on + off)) >= 2, "at least 2 full dashes");
+    assert.match(sw[2].style.background, new RegExp(`0 ${on}px, transparent ${on}px ${on + off}px`), "swatch dash = line dash");
   });
 
   it("PF2C-22: picking, locking and dashing send no request, write no storage, leave the calc unchanged; a read-only user can compare 3", async () => {

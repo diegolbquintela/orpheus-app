@@ -1032,7 +1032,7 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
           {cols.map((c, i) => (
             <li key={c.id} data-testid="pf-compare-legend-item" data-colour={compareColour(c)} data-dash={dashes[i] ?? ""}>
               <span
-                className="pf-swatch"
+                className="pf-swatch pf-swatch-cmp"
                 style={{ background: dashes[i] ? `repeating-linear-gradient(90deg, ${compareColour(c)} 0 6px, transparent 6px 10px)` : compareColour(c) }}
                 aria-hidden="true"
               />
