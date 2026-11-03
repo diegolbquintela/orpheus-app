@@ -202,6 +202,8 @@ describe("HBM-08 md and wider keep #286 exactly", () => {
     assert.deepEqual(desktop(q(el, "site-overlay")), ["bg-night", "fixed", "inset-0", "overflow-y-auto", "site-overlay-in", "text-chalk", "z-[60]"]);
     for (const e of q(el, "site-overlay").querySelectorAll("*")) {
       if (e.closest('[data-testid="site-menu-footer"]')) continue;
+      // #288 (2026-11-02, CLS-07): the X's `Close` label is below-md only too (display:none from md: 0 px at 768/1440).
+      if (e.closest('[data-testid="site-close-label"]')) continue;
       assert.ok(!cls(e).some((c) => c.startsWith("md:hidden")), e.outerHTML.slice(0, 80));
     }
   });

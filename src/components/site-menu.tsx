@@ -75,12 +75,14 @@ function SearchSlot({
   inputRef,
   value,
   onChange,
+  onCaret,
 }: {
   uid: string;
   slot: "desktop" | "mobile";
   inputRef: RefObject<HTMLInputElement | null>;
   value: string;
   onChange: (value: string) => void;
+  onCaret: (e: { currentTarget: HTMLInputElement }) => void;
 }) {
   const id = slot === "desktop" ? `${uid}-search` : `${uid}-search-mobile`;
   return (
@@ -101,6 +103,9 @@ function SearchSlot({
         autoComplete="off"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
+        onSelect={onCaret}
+        onKeyUp={onCaret}
+        onInput={onCaret}
         className={`h-11 w-full max-w-md border-0 border-b border-hair bg-transparent text-base text-chalk placeholder:text-dim ${FOCUS}`}
         data-testid="site-search"
       />
@@ -132,14 +137,22 @@ export function SiteMenu({
   // CH15 (#287 r3): one search value for both slots, so typing survives the slot swap.
   const [query, setQuery] = useState("");
   // CH14 (#287 r3): crossing 768 px while open swaps the slots; remember where focus was so it can be put back.
-  const swap = useRef<{ inSearch: boolean; caret: [number | null, number | null] | null } | null>(null);
+  const swap = useRef<{ inSearch: boolean } | null>(null);
+  // CH17 (#288): the Search caret, kept on every select / key / input in either slot, so it survives a resize even
+  // after focus has left Search.
+  const sel = useRef<[number, number] | null>(null);
+  const onCaret = (e: { currentTarget: HTMLInputElement }) => {
+    const { selectionStart: a, selectionEnd: b } = e.currentTarget;
+    if (a !== null) sel.current = [a, b ?? a];
+  };
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(max-width: 47.99rem)");
     const sync = () => {
       const a = document.activeElement as HTMLInputElement | null;
       const inSearch = a?.tagName === "INPUT" && a.getAttribute("data-testid") === "site-search";
-      swap.current = { inSearch, caret: inSearch ? [a.selectionStart, a.selectionEnd] : null };
+      if (inSearch) onCaret({ currentTarget: a });
+      swap.current = { inSearch };
       setPhone(mq.matches);
     };
     sync();
@@ -155,11 +168,16 @@ export function SiteMenu({
     const fix = () => {
       if (!overlay.current || overlay.current.hidden) return;
       const a = document.activeElement;
-      if (!w.inSearch && a && a !== document.body && overlay.current.contains(a) && shown(a as HTMLElement)) return;
       const field = [searchMobile.current, searchDesktop.current].find((i) => i && shown(i));
+      const caret = sel.current;
+      if (!w.inSearch && a && a !== document.body && overlay.current.contains(a) && shown(a as HTMLElement)) {
+        // CH17: focus stays where it is; the displayed field still gets the caret back (setSelectionRange does not focus).
+        if (field && caret && field !== a) field.setSelectionRange(caret[0], caret[1]);
+        return;
+      }
       if (field) {
         field.focus();
-        if (w.caret && w.caret[0] !== null) field.setSelectionRange(w.caret[0], w.caret[1] ?? w.caret[0]);
+        if (caret) field.setSelectionRange(caret[0], caret[1]);
       } else closeBtn.current?.focus();
     };
     fix();
@@ -179,6 +197,15 @@ export function SiteMenu({
   };
   const close = () => setOpened(null);
 
+  // #288 A (CLS-03): a route change while open closes the menu (SiteMenu lives in __root, so it stays mounted across
+  // same-document navigations). The scroll lock and focus are handled by the open effect's cleanup.
+  const lastPath = useRef(pathname);
+  useEffect(() => {
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    setOpened(null);
+  }, [pathname]);
+
   useEffect(() => {
     if (!opened) return;
     // Focus into the dialog: the search field when Search opened it, else the close button.
@@ -195,11 +222,23 @@ export function SiteMenu({
       }
     };
     document.addEventListener("keydown", onKey);
+    // #288 A (CLS-03 / CLS-04): Back / Forward (popstate) and a back/forward-cache restore close it. No history entry.
+    const onPop = () => setOpened(null);
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setOpened(null);
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("pageshow", onShow);
     const back = trigger.current;
+    const dialog = overlay.current;
     return () => {
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("pageshow", onShow);
       root.style.overflow = before;
-      back?.focus();
+      // Focus goes back to the trigger only if it was in the dialog (or lost to body), never stolen from the page.
+      const a = document.activeElement;
+      if (!a || a === document.body || dialog?.contains(a)) back?.focus();
     };
   }, [opened]);
 
@@ -284,17 +323,21 @@ export function SiteMenu({
           <button
             ref={closeBtn}
             type="button"
-            className={ICON_BUTTON}
+            className={`${ICON_BUTTON} max-md:w-auto max-md:min-w-11 max-md:gap-2 max-md:pl-2`}
             aria-label="Close menu"
             onClick={close}
             data-testid="site-menu-close"
           >
+            {/* #288 B (CLS-07): visible below md only, inside the same button; the name stays "Close menu". */}
+            <span className="text-xs text-chalk sm:text-sm md:hidden" aria-hidden="true" data-testid="site-close-label">
+              Close
+            </span>
             <Icon d={CLOSE_D} testId="site-close-icon" />
           </button>
         </div>
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pt-8 pb-16 sm:px-8 md:grid-cols-2">
           <div className="min-w-0" data-testid="site-menu-main">
-            <SearchSlot uid={uid} slot="desktop" inputRef={searchDesktop} value={query} onChange={setQuery} />
+            <SearchSlot uid={uid} slot="desktop" inputRef={searchDesktop} value={query} onChange={setQuery} onCaret={onCaret} />
             <ul className="mt-8 max-md:mt-0 flex flex-col gap-1" data-testid="site-menu-links">
               {links.map((l) => (
                 <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
@@ -308,7 +351,7 @@ export function SiteMenu({
                 </li>
               ))}
             </ul>
-            {phone ? <SearchSlot uid={uid} slot="mobile" inputRef={searchMobile} value={query} onChange={setQuery} /> : null}
+            {phone ? <SearchSlot uid={uid} slot="mobile" inputRef={searchMobile} value={query} onChange={setQuery} onCaret={onCaret} /> : null}
           </div>
           {/* #286 hook: later columns (Obsidian articles, Latest News, …) come from MENU_EXTRA_SECTIONS; none yet. */}
           {MENU_EXTRA_SECTIONS.length ? (
