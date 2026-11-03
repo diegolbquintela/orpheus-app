@@ -1,11 +1,11 @@
 // #305 robots.txt + X-Robots-Tag, signed out, read-only (2 requests per host).
 //   node qa/tools/robots-txt.mjs [--base-url <prod>] [--preview-url <preview>]
 // Preview: sends `x-vercel-protection-bypass` read from QA_BYPASS_FILE (default
-// /home/box/secrets/orpheus-vercel-bypass.txt); the secret is never printed. With --preview-url and no
+// /home/box/secrets/orpheus-vercel-bypass.txt); --base-url gets it too on a non-production host. Never printed. With --preview-url and no
 // secret file: prints SKIPPED (NOT A PASS) and exits 3. Exit 1 on any FAIL.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { qaConfig } from "./config.mjs";
-import { BYPASS_FILE_DEFAULT, robotsChecks } from "./robots-txt.lib.mjs";
+import { BYPASS_FILE_DEFAULT, bypassHeaders, robotsChecks } from "./robots-txt.lib.mjs";
 
 const cfg = qaConfig(import.meta.url);
 const argv = process.argv.slice(2);
@@ -19,14 +19,17 @@ const report = (label, rows) => {
     console.log(`${c.ok ? "PASS" : "FAIL"} [${label}] ${c.name}${c.detail !== undefined ? ` (${c.detail})` : ""}`);
   }
 };
-report("base", await robotsChecks(cfg.baseUrl));
+const file = process.env.QA_BYPASS_FILE || BYPASS_FILE_DEFAULT;
+// CH22: --base-url gets the bypass too when the secret file exists and the host isn't a known production host.
+const baseHeaders = bypassHeaders(cfg.baseUrl, file);
+console.log(`[base] bypass header ${Object.keys(baseHeaders).length ? "sent" : "not sent"}`);
+report("base", await robotsChecks(cfg.baseUrl, { headers: baseHeaders }));
 if (previewUrl) {
-  const file = process.env.QA_BYPASS_FILE || BYPASS_FILE_DEFAULT;
   if (!existsSync(file)) {
     console.log(`SKIPPED (NOT A PASS) [preview] no bypass secret file at ${file}`);
     process.exit(fail ? 1 : 3);
   }
-  const secret = readFileSync(file, "utf8").trim();
-  report("preview", await robotsChecks(previewUrl.replace(/\/+$/, ""), { headers: { "x-vercel-protection-bypass": secret } }));
+  const pu = previewUrl.replace(/\/+$/, "");
+  report("preview", await robotsChecks(pu, { headers: bypassHeaders(pu, file) }));
 }
 process.exit(fail ? 1 : 0);
