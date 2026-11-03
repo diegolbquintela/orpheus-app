@@ -25,6 +25,7 @@ The order of checks:
 3. Auth, one of these two:
    - `Authorization: Bearer <RENAISSANCE_INGEST_TOKEN>` (machine use, for CoS / EL). The check uses a length guard plus `timingSafeEqual`. An unset or empty token refuses everything. A bad token → 401 even when an owner session cookie is also sent (when a Bearer header is present, only the token is checked).
    - Otherwise, the signed-in owner's session (`ORPHEUS_OWNER_EMAIL` → `ownerIdOf`). Signed out → 401; no database → 503; any other user → 403.
+   - 2026-11-03 note (#269): a bare `Bearer` with no token (in any case, e.g. `Bearer`, `Bearer `, `bearer`) counts as a Bearer header, so only the token is checked and it returns 401, even with an owner session. AC RM-01a.
 4. A body that isn't valid JSON, or fails the schema (section 4) → 400 `{ error }`.
 5. 200 `{ ok: true, date, upserted }`, where `upserted` is the number of entries written. Responses are `no-store`.
 
