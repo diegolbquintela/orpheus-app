@@ -2564,6 +2564,15 @@ Dated note 2026-10-23 (#204): Diego said yes via CoS on 2026-10-21; the CFO aske
 - Q-TX1: Should the Compare box itself grow from the browser default (13 px) to 20 px to match the other PF boxes? Recommendation: no, not in this PR, because it would be a visual change. **Not built.**
 - Q-TX2: Should `qa/tools/pf-scenario-e2e.mjs` measure the Compare label in the real browser (like PFTT-06)? Recommendation: yes, as a later QA-tool change. It needs a saved scenario on the preview record, and the tool is read-only. **Not built** (measured locally instead, 70.2 / 70.3).
 
+70.6 **Width guard (2026-11-03, EL GO option B; AC PFTX-05).** Since #278 the Compare text is screen-reader only, so the label's width came only from the Select column. `.pf-saved-compare-label` now also has `min-width: 2.75rem`; the box stays 13 px (no option C) and nothing visible changes (0 differing pixels at the four widths). Measured before the change at 4cc7b59 (local headless Chromium, built CSS; 225 probes in a 44 × 44 square from the label's start):
+
+| Label | 360 | 390 | 768 | 1440 | Probe misses |
+|---|---|---|---|---|---|
+| `pf-saved-compare` | 61 × 44 | 61 × 44 | 69 × 44 | 146 × 44 | 0/225 |
+| `pf-builder-pick` | 328 × 44 | 358 × 44 | 736 × 44 | 1408 × 44 | 0/225 |
+
+No horizontal overflow at any width.
+
 
 ## 71. Personal Finance: /series returns the start when only Starting net assets is saved (#239, NA2 from #228, MEDIUM, Diego / CFO; added 2026-10-23; built in the same PR)
 

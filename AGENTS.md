@@ -1296,6 +1296,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
 ## Tap targets follow-up (#236; added 2026-10-23)
 
 - 2026-10-23 #236 (LOW, TT1 + TT2 from #225 / PR #235): spec §70, AC PFTX. The saved-scenario Compare checkbox's target is its `label.pf-saved-compare-label` (min-height 2.75rem; box and text unchanged). The charts-builder checkboxes' `label.pf-builder-option` measured 44 px tall at 390 and 1440 already, so it is only pinned by tests. A tap-target check reads `src/styles.css` (`src/lib/finance/tap-target.test.ts`) and asserts in `.dom.test` that the box sits alone inside its label. Measure the real label with `getBoundingClientRect` and `elementFromPoint`, not the box.
+- 2026-11-03 #236 (spec §70.6, AC PFTX-05, EL GO option B): `.pf-saved-compare-label` gets `min-width: 2.75rem`; the Compare text has been sr-only since #278, so the width no longer relies on the Select column. Boxes stay 13 px.
 
 ## /series with only Starting net assets (#239; added 2026-10-23)
 

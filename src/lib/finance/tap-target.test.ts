@@ -50,6 +50,13 @@ describe("PFTX-01: label.pf-saved-compare-label is ≥ 44 px tall; its box is un
   });
 });
 
+// #236 (spec 70.6, PFTX-05): the Compare label is also ≥ 44 px wide on its own (its text is sr-only since #278, so
+// the width came only from the Select column; measured 61 / 61 / 69 / 146 px at 360 / 390 / 768 / 1440).
+describe("PFTX-05: label.pf-saved-compare-label is ≥ 44 px wide", () => {
+  const all = blocks(".pf-saved-compare-label");
+  it("min-width ≥ 44 px", () => assert.ok(px(all[0]?.["min-width"]) >= MIN_PX, all[0]?.["min-width"]));
+});
+
 describe("PFTX-02: label.pf-builder-option is ≥ 44 px tall (measured 44 at 390 and 1440); its box stays 20 px", () => {
   const all = blocks(".pf-builder-option");
   it("one rule, nowhere overridden", () => assert.equal(all.length, 1));
