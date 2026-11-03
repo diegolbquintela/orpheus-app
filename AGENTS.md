@@ -1346,6 +1346,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - The `/account` link is kept.
   - No schema, env or dependency change.
   - **Tests:** `src/components/site-menu-owner.dom.test.tsx` and RM-21 in `src/lib/renaissance/api.server.test.ts`.
+- 2026-11-03: #273 (BO1, renaissance-spec §9.1, AC RM-24a): wording only; the `RM` breakpoint was 768 px, not 640; superseded by HDR (#286). `api.server.ts` comment fixed; the unused `short` field stays (possible cleanup).
 
 ## Keyboard focus (#274; added 2026-11-01)
 

@@ -127,3 +127,9 @@ Diego approved this via CoS on 2026-10-30. It amends the "site bar stays at five
   - There is no overflow and nothing is clipped at 360, 390, 768 or 1440 px, and tap targets are ≥ 44 px.
   - Everyone else keeps the fixed one-row bar.
 - No table, migration, env var or dependency.
+
+### 9.1 BO1 wording correction (#273, added 2026-11-03)
+
+- **Correction:** the #271 bar item showed `RM` below **768 px** (`md:hidden`), not 640 px; the "below about 640 px … two 44 px rows" Fit bullet above was imprecise.
+- **Superseded:** all of §9 "Fit" is superseded by the site header and menu of #286 (`attachments/header-menu-spec.md`, AC HDR); the owner link now sits in the menu overlay as **Renaissance Man**. No behaviour changes here.
+- **Possible cleanup:** `OwnerNavLink.short` / `RENAISSANCE_NAV_LINK.short` (`"RM"`) is unused since #286 (`site.test.ts` checks the menu never reads `.short`); removing it is a possible later cleanup, not done in #273.
