@@ -664,6 +664,8 @@ note-style description (`pf-withdrawal-desc`) explains Rate used; not a title. D
 
 **Reload confirmed (#258, Nov 3 2026).** §80.2 as built: Q1 confirmed Nov 3 2026 by CFO (via Engineering Lead), with condition: copy states unsaved edits are discarded (the banner already does; DOM tests pin it); PFRL-08 / PFRL-09 on the preview: PASS on Overview (37/37 app checks, Nov 3 2026); History and Scenario not covered live (QA script gap, covered by LOW issue #308). Spec §80.9, AC PFRL-12.
 
+**Reload QA tool (#308, Nov 3 2026).** `node qa/tools/pf-stale-reload.mjs --base-url <local or preview> --out <dir> [--all-widths]` (QA_EMAIL / QA_PASSWORD in env) checks the stale banner and `Reload` on Overview, History and Scenario with zero server writes (record PUTs intercepted and answered 409 / 428 / 200 synthetically); no credentials → `SKIPPED (NOT A PASS)`, exit 3. Also run by `site-style-regression.mjs`. Spec §80.10, AC PFRL-13.
+
 **Sortable Saved scenarios (#278, 2026-11-01).** On the Saved scenarios table, click `Scenario name` or `From` to sort ascending, again for descending, and a third time to return to the saved order (oldest first). Ties keep saved order. The sort is not saved and resets on reload; nothing is written. Spec §83, AC PFSO-01..PFSO-18.
 
 **Compare follows the sort; e2e coverage (#278, 2026-11-02).** The Compare table orders its scenario columns by the Saved table's current sort (saved order when none). `qa/tools/personal-finance-e2e.mjs` checks the sort signed in (PFSO-23; needs QA creds, otherwise `SKIPPED (NOT A PASS)`, exit 3) and masks every email address in its output and JSON as `<email>`.

@@ -25,7 +25,8 @@
 // 2. Unless --own-only: runs every shipped-page tool against the same host and reports each one's result
 //    (site-shell.mjs [--compare-url for ST0-05 signed in, with QA_EMAIL / QA_PASSWORD in env], home-page.mjs,
 //    calculator-page.mjs, saved-searches.mjs, signin-page.mjs, personal-finance.mjs (#84), site.mjs ($313,000), scripts/release-smoke.mjs
-//    <base> <--smoke-mode, default preview>). Each tool writes into <out>/<tool>/, its log as <tool>.log.
+//    <base> <--smoke-mode, default preview>), pf-stale-reload.mjs (#308: zero writes, 390 + 1440; refuses prod itself;
+//    no QA_EMAIL / QA_PASSWORD → its SKIPPED (NOT A PASS), exit 3, counted as a skip, never a FAIL). Each tool writes into <out>/<tool>/, its log as <tool>.log.
 //
 //   node qa/tools/site-style-regression.mjs --base-url <url> --out <dir> [--compare-url <base PR preview>]
 //        [--own-only] [--smoke-mode preview|on|off]
@@ -438,6 +439,7 @@ if (!OWN_ONLY) {
   await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}"]);
   await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}"]);
   await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}"]);
+  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}"]); // #308
   await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE]);
 }
 const fails = R.checks.filter((c) => !c.ok);
