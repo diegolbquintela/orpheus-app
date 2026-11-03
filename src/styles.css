@@ -1766,6 +1766,12 @@ th[aria-sort="descending"] .pf-sort-mark {
     min-height: 1.25rem;
   }
 }
+/* #299 r2 (Q-CMP6, spec §88.7, AC PF2C-20): Compare's legend swatches, dashed and solid alike, are 20 px wide so a dashed
+   one shows 2 full dashes of the 6 4 pattern; the other legends keep .pf-swatch's 12 px. */
+.pf-swatch.pf-swatch-cmp {
+  width: 1.25rem;
+  flex-shrink: 0; /* a long, wrapping name must not squeeze it */
+}
 input[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;

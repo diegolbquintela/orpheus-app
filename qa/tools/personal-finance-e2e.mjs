@@ -856,8 +856,9 @@ try {
         };
         // #279 (spec §84, AC PF2C): Compare is capped at 2 columns and This screen counts as one, so ONE saved scenario is
         // ticked (alpha 2); every other box must then be locked (aria-disabled, aria-describedby → the reserved hint).
-        const CMP = [1]; // compare alpha 2 beside This screen
-        const HINT = "Compare limit reached: This screen and 1 saved scenario.";
+        // #299 (spec §88, AC PF2C-16..22): raised to This screen + 2 saved, so TWO are ticked (alpha 2 + Éclair) and the rest lock.
+        const CMP = [1, 2]; // compare alpha 2 and Éclair beside This screen
+        const HINT = "Compare limit reached: This screen and 2 saved scenarios.";
         // Lock state of every Compare box plus the hint, in row order.
         const lockState = (pg) => pg.evaluate(() => {
           const hint = document.querySelector("[data-testid=pf-saved-compare-hint]");
@@ -882,7 +883,7 @@ try {
             out.unlocked0 = await lockState(pg);
             for (const i of CMP) await boxes.nth(i).check();
             out.locked = await lockState(pg);
-            await boxes.nth(2).click({ force: true });
+            await boxes.nth(3).click({ force: true }); // #299: box 3 is the first unpicked one
             out.afterLockedClick = await lockState(pg);
             for (const i of CMP) await boxes.nth(i).uncheck();
             out.unlocked = await lockState(pg);
@@ -890,6 +891,8 @@ try {
             await pg.getByTestId("pf-saved-compare-button").click();
             await pg.getByTestId("pf-compare-table").waitFor();
             out.first = await pg.$$eval("[data-testid=pf-compare-head]", (a) => a.map((e) => e.textContent.trim()));
+            // #299 PF2C-19: 3 chart lines and legend items, plural subtitle.
+            out.three = await pg.evaluate(() => ({ lines: document.querySelector("[data-testid=pf-compare-chart]")?.getAttribute("data-lines"), legend: document.querySelectorAll("[data-testid=pf-compare-legend-item]").length, sub: document.querySelector("[data-testid=pf-compare-chart-head]")?.textContent ?? "" }));
           }
           out.steps = [{ names: await names(), aria: await aria(), heads: await heads() }];
           for (const c of ["name", "name", "name", "from", "from", "from"]) {
@@ -917,9 +920,9 @@ try {
           page.off("request", onReq);
           so.same = (await ownerRaw()) === before;
           so.writes = writes;
-          check(`${tag} PF2C e2e signed in: with 1 saved ticked every other Compare box is aria-disabled (not disabled) and described by the hint "${HINT}"; a click on a locked box does nothing; deselecting unlocks and empties the hint; Compare is This screen + 1; NO non-GET /api/*`,
-            unlockedOk(o.unlocked0) && lockedOk(o.locked) && lockedOk(o.afterLockedClick) && unlockedOk(o.unlocked) && JSON.stringify(o.first) === JSON.stringify(["This screen", N[CMP[0]]]) && so.writes.length === 0,
-            { unlocked0: o.unlocked0, locked: o.locked, afterLockedClick: o.afterLockedClick, unlocked: o.unlocked, first: o.first, writes: so.writes });
+          check(`${tag} PF2C e2e signed in: (#299) with 2 saved ticked every other Compare box is aria-disabled (not disabled) and described by the hint "${HINT}"; a click on a locked box does nothing; deselecting unlocks and empties the hint; Compare is This screen + 2 (3 lines, 3 legend items, "the saved scenarios"); NO non-GET /api/*`,
+            unlockedOk(o.unlocked0) && lockedOk(o.locked) && lockedOk(o.afterLockedClick) && unlockedOk(o.unlocked) && JSON.stringify(o.first) === JSON.stringify(["This screen", N[CMP[0]], N[CMP[1]]]) && o.three?.lines === "3" && o.three.legend === 3 && /the saved scenarios, each/.test(o.three.sub) && so.writes.length === 0,
+            { unlocked0: o.unlocked0, locked: o.locked, afterLockedClick: o.afterLockedClick, unlocked: o.unlocked, first: o.first, three: o.three, writes: so.writes });
           check(`${tag} PFSO-23 signed in: Scenario name and From cycle ascending → descending → saved order (ties in saved order), aria-sort follows, Select / Actions not sortable, Compare follows the sort and keeps saved order with none; NO non-GET /api/*; the owner's record byte-identical`,
             so.seed === 200 && cycleOk(o, true) && thOk(o.th) && so.writes.length === 0 && so.same === true, { seed: so.seed, steps: o.steps, th: o.th, writes: so.writes, same: so.same });
           const rEmail = process.env.QA_CFO_READ_EMAIL, rPassword = process.env.QA_CFO_READ_PASSWORD;

@@ -59,6 +59,7 @@ import {
   basisChanged,
   COMPARE_LIMIT_HINT,
   compareColour,
+  compareDashes,
   THIS_SCREEN_ID,
   COMPARE_MAX,
   COMPARE_MIN,
@@ -952,7 +953,7 @@ function SavedScenarios({
   );
 }
 
-/** #223 Q-SS1: the screen now and up to 3 saved scenarios side by side, at the chosen horizon, plus a net-assets chart. */
+/** #223 Q-SS1, #299 (spec §88): the screen now and up to `COMPARE_MAX` (2) saved scenarios side by side, at the chosen horizon, plus a net-assets chart. */
 function CompareTable({ live, entries, horizon }: { live: Inputs; entries: SavedEntry[]; horizon: Horizon }) {
   const uid = useId();
   const cols = [
@@ -971,6 +972,8 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
     label: pt.label,
     ...Object.fromEntries(cols.map((c) => [c.id, c.proj.points[i]?.net ?? null])),
   }));
+  // #299 (spec §88, PF2C-20): the later of two columns sharing a pinned colour is dashed, line and swatch alike.
+  const dashes = compareDashes(cols);
   return (
     <section className="pf-section" aria-labelledby={`${uid}-cmp`} data-testid="pf-compare-section">
       <p className="pf-label">09</p>
@@ -1011,7 +1014,7 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
       </div>
       <figure className="pf-chart mt-4 min-w-0" data-testid="pf-compare-chart" data-lines={cols.length} {...chartAria(`${uid}-chart`)}>
         {/* #280 (spec §85, PFCH): the same visible title + subtitle as the other two charts. */}
-        <ChartHeading id={`${uid}-chart`} title={COMPARE_CHART_TITLE} sub={compareChartSub(horizonLabel(horizon))} testId="pf-compare-chart-head" />
+        <ChartHeading id={`${uid}-chart`} title={COMPARE_CHART_TITLE} sub={compareChartSub(horizonLabel(horizon), entries.length)} testId="pf-compare-chart-head" />
         <div className="pf-chart-plot" aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
@@ -1019,16 +1022,20 @@ function CompareTable({ live, entries, horizon }: { live: Inputs; entries: Saved
               <XAxis dataKey="label" tick={{ fill: "var(--color-dim)", fontSize: 12 }} tickLine={false} axisLine={false} ticks={xTickIndexes(data.length).map((i) => data[i].label)} interval={0} />
               <YAxis tick={{ fill: "var(--color-dim)", fontSize: 12 }} tickLine={false} axisLine={false} width={axisWidth(data.flatMap((d) => cols.map((c) => (d as unknown as Record<string, number>)[c.id] ?? 0)))} tickFormatter={(v: number) => COMPACT.format(v)} />
               <ReferenceLine y={0} stroke="var(--color-rule)" />
-              {cols.map((c) => (
-                <Line key={c.id} type="linear" dataKey={c.id} name={c.name} stroke={compareColour(c)} strokeWidth={2} dot={false} isAnimationActive={false} />
+              {cols.map((c, i) => (
+                <Line key={c.id} type="linear" dataKey={c.id} name={c.name} stroke={compareColour(c)} strokeDasharray={dashes[i]} strokeWidth={2} dot={false} isAnimationActive={false} />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
         <ul className="pf-legend">
-          {cols.map((c) => (
-            <li key={c.id} data-testid="pf-compare-legend-item" data-colour={compareColour(c)}>
-              <span className="pf-swatch" style={{ background: compareColour(c) }} aria-hidden="true" />
+          {cols.map((c, i) => (
+            <li key={c.id} data-testid="pf-compare-legend-item" data-colour={compareColour(c)} data-dash={dashes[i] ?? ""}>
+              <span
+                className="pf-swatch pf-swatch-cmp"
+                style={{ background: dashes[i] ? `repeating-linear-gradient(90deg, ${compareColour(c)} 0 6px, transparent 6px 10px)` : compareColour(c) }}
+                aria-hidden="true"
+              />
               {`${c.name} (net assets)`}
             </li>
           ))}
