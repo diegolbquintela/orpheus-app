@@ -11,6 +11,13 @@
 //      `preview` (or `development` / `local`) → allowed.
 //   A production deployment's own unique URL (orpheus-<hash>-…vercel.app) can't be told from a preview by its name;
 //   step 2 catches it.
+//   CH41 (#308 QA): the HEAD sends bypassHeaders() (robots-txt.lib.mjs) when a bypass secret is set, so a protected
+//   preview answers with its real X-Orpheus-Env instead of a 302 to the Vercel login. A 3xx never counts as a preview
+//   (refused), with or without the bypass. The secret is never logged: refusal reasons never carry headers and are
+//   passed through maskDeep plus a secret scrub.
+import { bypassHeaders } from "./robots-txt.lib.mjs";
+import { maskDeep } from "./redact.mjs";
+
 export const PROD_ALIAS = "https://orpheus-app-beta.vercel.app";
 export const KNOWN_PROD_HOSTS = [
   "orpheus-app-beta.vercel.app",
@@ -33,18 +40,36 @@ export function staticProdReason(baseUrl) {
 }
 export const isLocal = (baseUrl) => LOCAL.has(new URL(baseUrl).hostname.toLowerCase());
 
-/** Steps 1 and 2: a reason to refuse, or null. `fetchImpl` is injectable for tests. */
-export async function prodReason(baseUrl, fetchImpl = fetch) {
+/** Replaces every bypass secret value in `text` with `<redacted>` (and masks emails). */
+export function scrubSecrets(text, headers = {}) {
+  let out = String(maskDeep(String(text)));
+  for (const v of Object.values(headers ?? {})) if (typeof v === "string" && v) out = out.split(v).join("<redacted>");
+  return out;
+}
+
+/**
+ * Steps 1 and 2: a reason to refuse, or null. `fetchImpl` is injectable for tests. `opts.bypass` overrides the bypass
+ * headers (default: bypassHeaders(baseUrl), {} when no secret is set); they are sent on the HEAD only when non-empty.
+ */
+export async function prodReason(baseUrl, fetchImpl = fetch, opts = {}) {
   const s = staticProdReason(baseUrl);
   if (s) return s;
   if (isLocal(baseUrl)) return null;
+  const bypass = opts.bypass ?? bypassHeaders(baseUrl);
+  const init = { method: "HEAD", redirect: "manual" };
+  if (bypass && Object.keys(bypass).length) init.headers = { ...bypass };
   let env;
+  let status;
   try {
-    const r = await fetchImpl(`${new URL(baseUrl).origin}/`, { method: "HEAD", redirect: "manual" });
+    const r = await fetchImpl(`${new URL(baseUrl).origin}/`, init);
+    status = r.status;
     env = r.headers.get(ENV_HEADER);
   } catch (e) {
-    return `could not check ${ENV_HEADER} (${e instanceof Error ? e.message : e})`;
+    return scrubSecrets(`could not check ${ENV_HEADER} (${e instanceof Error ? e.message : e})`, bypass);
   }
+  // CH41: a redirect (a protected preview's 302 to the Vercel login, e.g. without the bypass) is never a pass.
+  if (typeof status === "number" && status >= 300 && status < 400)
+    return `HEAD / answered ${status} (redirect${init.headers ? "" : "; no bypass set"}): can't confirm a preview`;
   if (env === null || env === undefined || env === "") return `no ${ENV_HEADER} header: can't confirm a preview (deployment from before #157?)`;
   if (env.toLowerCase() === "production") return `${ENV_HEADER}: production`;
   return null;
@@ -76,14 +101,14 @@ export const signedOutProd = () => globalThis.__orpheusSignedOutProd === true ||
  *   the process never signs in or writes: tools skip those steps on the returned mode, session.mjs skips sign-in,
  *   and as a safety net `fetch` refuses any method other than GET / HEAD and any /api/auth/ path.
  */
-export async function refuseIfProd(baseUrl, script, fetchImpl = fetch, env = process.env) {
+export async function refuseIfProd(baseUrl, script, fetchImpl = fetch, env = process.env, opts = {}) {
   // #157 F8: a child of a signed-out prod run inherits the mode (and honours it) whatever its own target or env.
   if (env[PROD_MODE_ENV] === "signed-out") {
     console.log(SIGNED_OUT_PROD_LINE);
     await enterSignedOutProd();
     return { signedOutProd: true };
   }
-  const why = await prodReason(baseUrl, fetchImpl);
+  const why = await prodReason(baseUrl, fetchImpl, opts);
   if (!why) return { signedOutProd: false };
   const creds = credentialVars(env);
   if (creds.length) {

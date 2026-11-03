@@ -4,10 +4,12 @@
 // synthetic 409 `{ code: "stale" }` (second pass: 428 `{ code: "base_version_required" }`), the one after Reload
 // with a synthetic 200. Any other non-GET / HEAD request from the page is aborted. Per surface, action and pass:
 //   - the banner shows STALE_MESSAGE (pinned `discard your unsaved edits`) with `Reload` right after it;
-//   - Reload: exactly 1 real GET /api/personal-finance, 0 PUT, no framenavigated;
+//   - Reload: exactly 1 GET /api/personal-finance (route-faked, CH41), 0 PUT, no framenavigated;
 //   - the banner is gone and focus is on the h1;
 //   - the next (intercepted) PUT carries the Reload GET's version as `baseVersion`;
 //   - the Reload button is ≥ 44 × 44 px and nothing overflows (scrollWidth <= clientWidth, rects in the viewport);
+//   - CH41: record GETs are route-faked (a populated seed record, a new version each) so every case runs; a case
+//     with nothing to act on is a SKIP listed in the summary, never a PASS;
 //   - CLS 0 on the surface's load (CLS_RUNS=1: the one load of each case, no extra cold loads).
 // Widths 390 and 1440 by default; --all-widths adds 360 and 768. Signs in with QA_EMAIL / QA_PASSWORD (env only,
 // never logged); unset → `SKIPPED (NOT A PASS)`, exit 3. Refuses production (qa/tools/prod-guard.mjs). The Vercel
@@ -24,7 +26,8 @@ import { refuseIfProd } from "./prod-guard.mjs";
 import { bypassHeaders } from "./robots-txt.lib.mjs";
 import { eachViewport } from "./session.mjs";
 import { installConsoleMask, maskDeep, maskedJson } from "./redact.mjs";
-import { API, bannerGoneFocusH1, bannerThenReload, freshBaseVersion, noOverflow, reloadInPlace, tapTarget, versionOf } from "./pf-stale-reload.lib.mjs";
+import { API, bannerGoneFocusH1, bannerThenReload, freshBaseVersion, noOverflow, reloadInPlace, seedReply, summarize, tapTarget, versionOf } from "./pf-stale-reload.lib.mjs";
+import { torontoMonth } from "./pf-plan-seed.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log("usage: node qa/tools/pf-stale-reload.mjs --base-url <local or preview> --out <dir> [--all-widths]  (QA_EMAIL / QA_PASSWORD from env; zero server writes)");
@@ -39,15 +42,16 @@ const check = (name, ok, detail) => {
   R.checks.push(maskDeep({ name, ok: Boolean(ok), detail }));
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(maskDeep(detail))}` : ""}`);
 };
-const info = (m) => {
-  R.info.push(m);
-  console.log(`INFO ${m}`);
+// CH41: a case that can't run is a SKIP (listed in the summary), never a PASS.
+const skip = (m) => {
+  R.skipped.push(m);
+  console.log(`SKIP ${m} (NOT A PASS)`);
 };
 const finish = (code) => {
   writeFileSync(join(CFG.out, "pf-stale-reload.json"), maskedJson(R));
-  const fails = R.checks.filter((c) => !c.ok).length;
-  console.log(`\n${R.checks.length - fails}/${R.checks.length} passed${fails ? `, ${fails} FAIL` : ""}${R.skipped.length ? `, ${R.skipped.length} SKIPPED (NOT A PASS)` : ""} · out ${CFG.out}`);
-  process.exit(code ?? (fails ? 1 : R.skipped.length ? 3 : 0));
+  const sum = summarize(R);
+  console.log(`\n${sum.line} · out ${CFG.out}`);
+  process.exit(code ?? sum.code);
 };
 
 const email = process.env.QA_EMAIL;
@@ -136,6 +140,10 @@ async function run(ctx, [vp, viewport], surface, action, status) {
   page.on("dialog", (d) => d.accept().catch(() => {}));
   const log = [];
   const realPut = [];
+  // CH41: every record GET is route-faked with a populated record (months with figures + saved scenarios), each with a
+  // new version, so History and Scenario have something to act on and the Reload GET's version differs from the stale one.
+  let gets = 0;
+  const month = torontoMonth(new Date());
   let nav = 0;
   let reply = { status, body: { error: "stale", code: status === 409 ? "stale" : "base_version_required" } };
   const puts = [];
@@ -144,6 +152,8 @@ async function run(ctx, [vp, viewport], surface, action, status) {
     const q = r.request();
     const m = q.method().toUpperCase();
     const p = new URL(q.url()).pathname;
+    if (m === "GET" && p === API)
+      return r.fulfill({ status: 200, contentType: "application/json", headers: { "cache-control": "no-store" }, body: JSON.stringify(seedReply(++gets, month)) });
     if (m === "GET" || m === "HEAD") return r.continue();
     if (m === "PUT" && p === API) {
       let body = null;
@@ -170,7 +180,7 @@ async function run(ctx, [vp, viewport], surface, action, status) {
     const cls = await page.evaluate(() => window.__cls);
     const staleVersion = versions.at(-1) ?? null;
     page.on("framenavigated", (f) => { if (f === page.mainFrame()) nav++; });
-    if (!(await surface.actions[action](page))) return info(`${tag}: nothing to ${action} on this account (not covered)`);
+    if (!(await surface.actions[action](page))) return skip(`${tag}: nothing to ${action} (not covered)`);
     await page.getByTestId(surface.reload).waitFor({ state: "visible" });
     const m1 = await measure(page, surface.banner, surface.reload);
     const b = bannerThenReload({ bannerText: m1.text, buttonText: m1.buttonText, buttonAfterMessage: m1.after });

@@ -38,13 +38,59 @@ export function reloadInPlace({ log, navigations }) {
 /** The version a reply body carries (string or number), else null. */
 export const versionOf = (body) => (body && (typeof body.version === "string" || typeof body.version === "number") ? String(body.version) : null);
 
-/** PFRL-09: the next PUT names the version the Reload GET returned (`baseVersion`), not the old one. */
+/**
+ * PFRL-09: the next PUT names the version the Reload GET returned (`baseVersion`), not the old one. CH41: the fresh
+ * version must be non-null AND differ from the stale one (null === null, or an unchanged version, is a FAIL: it can't
+ * show the PUT moved on to the reloaded record).
+ */
 export function freshBaseVersion({ reloadVersion, staleVersion, putBody }) {
   const sent = putBody && Object.prototype.hasOwnProperty.call(putBody, "baseVersion") ? putBody.baseVersion : undefined;
   const fresh = reloadVersion === null || reloadVersion === undefined ? null : String(reloadVersion);
+  const stale = staleVersion === null || staleVersion === undefined ? null : String(staleVersion);
   const got = sent === null || sent === undefined ? sent : String(sent);
-  const ok = sent !== undefined && got === fresh;
-  return { ok, detail: { sent: got, fresh, stale: staleVersion ?? null } };
+  const ok = fresh !== null && fresh !== stale && sent !== undefined && got === fresh;
+  return { ok, detail: { sent: got, fresh, stale } };
+}
+
+/**
+ * CH41 seed: the populated record the tool's route-faked `GET /api/personal-finance` returns (months with figures and
+ * saved scenarios), so History and Scenario have something to save / rename / update / delete. `version` is the reply
+ * version (each GET gets a new one, so the Reload GET's version always differs from the stale one). Pure.
+ */
+export const SEED_KEYS = { expenses: "orpheus.finance.expenses.v2", income: "orpheus.finance.income.v1", months: "orpheus.finance.months.v1", scenario: "orpheus.finance.scenario.v1" };
+export function seedRecord(current = "2026-11") {
+  const [y, m] = current.split("-").map(Number);
+  const key = (back) => { const i = y * 12 + (m - 1) - back; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`; };
+  const line = (id, name, amount, category) => ({ id, name, amount, per: "month", equity: "", account: "Chequing", currency: "", rate: "", category, note: "" });
+  const person = { id: "qa308-p1", name: "QA Person", wages: "96000", bonus: "10", tax: "25", share: "100", countWages: true, countBonus: true, foreign: false, currency: "", rate: "" };
+  const fixed = [line("qa308-f1", "Rent", "2400", "Housing"), line("qa308-f2", "Internet", "80", "Utilities")];
+  const variable = [line("qa308-v1", "Groceries", "650", "Food")];
+  const months = {};
+  for (const back of [3, 2, 1, 0]) months[key(back)] = { fixed: fixed.map((l) => ({ ...l, amount: String(Number(l.amount) + back * 10) })), variable, people: [person] };
+  const entry = (id, name) => ({
+    id, name, savedAt: "2026-11-01T12:00:00.000Z", basis: key(0),
+    inputs: { start: 50000, income: 6000, expenses: 3130, growth: 5, rate: null }, values: {}, lines: JSON.stringify(months[key(0)]),
+  });
+  return {
+    [SEED_KEYS.expenses]: JSON.stringify({ fixed, variable, accounts: ["Chequing"], categories: ["Housing", "Utilities", "Food"] }),
+    [SEED_KEYS.income]: JSON.stringify({ people: [person] }),
+    [SEED_KEYS.months]: JSON.stringify(months),
+    [SEED_KEYS.scenario]: JSON.stringify({ income: {}, expenses: {}, rate: null, growth: null, start: null, saved: [entry("qa308-s1", "QA308 A"), entry("qa308-s2", "QA308 B")] }),
+  };
+}
+/** The route-faked GET reply body: the seeded record, owner + write access, and version `qa308-seed-<n>`. */
+export const seedReply = (n, current) => ({ data: seedRecord(current), access: { owner: true, write: true }, version: `qa308-seed-${n}` });
+
+/**
+ * CH41 summary: a case not covered is a SKIP, never a PASS. `checks` [{ name, ok }], `skipped` [string]. `code`: 1 on
+ * any FAIL, else 3 when anything was skipped, else 0. `line` lists every skipped case.
+ */
+export function summarize({ checks = [], skipped = [] }) {
+  const fail = checks.filter((c) => c.ok !== true).length;
+  const pass = checks.length - fail;
+  const skip = skipped.length;
+  const line = `${pass}/${checks.length} passed${fail ? `, ${fail} FAIL` : ""}${skip ? `, ${skip} SKIPPED (NOT A PASS): ${skipped.join("; ")}` : ""}`;
+  return { pass, fail, skip, line, code: fail ? 1 : skip ? 3 : 0 };
 }
 
 /** 44 × 44 px tap target. `rect` is { width, height } (a getBoundingClientRect). */
