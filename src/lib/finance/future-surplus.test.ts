@@ -3,7 +3,7 @@
 // main way) keep the average.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { summarize, type Overview } from "./overview.ts";
+import { asOverview, overviewCoverage, summarize, type Overview } from "./overview.ts";
 import { overviewNow, project } from "./scenario.ts";
 
 const NOW = new Date("2026-10-15T12:00:00Z");
@@ -60,5 +60,39 @@ describe("#241 PFAV: scenario Overview Future uses the chart's surplus", () => {
     cents(f[0] - now, 2000);
     cents(f[11], now + 12 * 2000);
     assert.deepEqual(future(o, 0, false), future(o, 0, false));
+  });
+});
+
+// #260 (spec 90, AC PFAV2-01/02, CFO Q1/Q2): on the scenario screen (chart surplus) the projected months hold this
+// month's figures (overviewNow), so the Overview's coverage share is the Totals' share; the main page keeps the average.
+describe("#260 PFAV2: scenario Overview projected figures on the chart basis", () => {
+  const D = new Date(Date.UTC(2026, 9, 11, 16));
+  const P = { expenses: 1500, income: 12033.33 };
+  const fx = (years: 1 | 5) =>
+    asOverview({ start: "10,000", growth: "5", future: true, years, months: { "2026-06": { expenses: "4,000", income: "9,000" }, "2026-10": { expenses: "1,500", income: "12,033.33" } } });
+  it("PFAV2-01: chart surplus → every projected point holds overviewNow's income / expenses; without it, the 12-month average", () => {
+    for (const years of [1, 5] as const) {
+      const o = fx(years);
+      const n = overviewNow(o, D, P, undefined);
+      const sc = summarize(o, D, P, undefined, undefined, 5, true).points.filter((p) => p.future);
+      assert.equal(sc.length, years * 12);
+      for (const p of sc) assert.deepEqual([p.income, p.expenses], [n.income, n.expenses]);
+      const main = summarize(o, D, P).points.filter((p) => p.future);
+      for (const p of main) assert.deepEqual([p.income, p.expenses], [9000, 4000], "main page: the 12-month average (June alone)");
+    }
+  });
+  it("PFAV2-02: the scenario Overview coverage share equals project().totals.coverageShare: 34.68% (1 year), 165.98% (5 years)", () => {
+    for (const [years, want] of [[1, "34.68"], [5, "165.98"]] as const) {
+      const o = fx(years);
+      const c = overviewCoverage(o, summarize(o, D, P, undefined, undefined, 5, true), 4);
+      const n = overviewNow(o, D, P, undefined);
+      const t = project({ current: n.current, start: n.net ?? 0, income: n.income, expenses: n.expenses, growth: 5, rate: 4 }, years * 12).totals;
+      assert.equal(c.status, "ok");
+      if (c.status !== "ok") return;
+      assert.equal((c.share! * 100).toFixed(2), want);
+      assert.equal((t.coverageShare! * 100).toFixed(2), want);
+      const m = overviewCoverage(o, summarize(o, D, P), 4);
+      assert.ok(m.status === "ok" && (m.share! * 100).toFixed(2) !== want, "the main page keeps its 12-month-average share");
+    }
   });
 });

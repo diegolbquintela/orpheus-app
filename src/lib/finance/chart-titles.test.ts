@@ -49,7 +49,7 @@ describe("#280 PFCH-02/03: what each chart plots (findings, pinned; projection m
     assert.deepEqual(overview.map((p) => r2(p.net)), [null, null, null, null, null, null, 14200, 18400, 22900, 27000, 31500, 35900]);
     assert.ok(overview.every((p) => !p.future));
   });
-  it("PFCH-03: Projected path = Now + the horizon, this month's flows held flat; with Future on, Overview's future NET equals it but its flows are 12-month averages", () => {
+  it("PFCH-03: Projected path = Now + the horizon, this month's flows held flat; with Future on, Overview's future NET and flows equal it (#260: this month's figures)", () => {
     const { overview, projected } = charts(true);
     assert.equal(projected.length, 13);
     assert.deepEqual([projected[0].key, projected[0].label, projected.at(-1)!.key], ["2026-10", "Now", "2027-10"]);
@@ -58,7 +58,8 @@ describe("#280 PFCH-02/03: what each chart plots (findings, pinned; projection m
     assert.equal(overview.length, 24);
     const tail = overview.slice(11);
     assert.deepEqual(tail.map((p) => r2(p.net)), projected.map((p) => p.net), "net path identical over the overlap");
-    assert.ok(overview.slice(12).every((p) => p.future && p.income === 7300 && p.expenses === 3000), "Overview's future flows are the 12-month averages");
+    // #260 (spec 90, CFO Q1): the scenario Overview's future flows are this month's figures, like the chart (were the 12-month averages 7,300 / 3,000).
+    assert.ok(overview.slice(12).every((p) => p.future && p.income === 7500 && p.expenses === 3100), "Overview's future flows are this month's figures");
     assert.equal(charts(true, 60).projected.length, 61, "only Projected path follows the horizon");
     assert.equal(charts(true, 60).overview.length, 24);
   });
