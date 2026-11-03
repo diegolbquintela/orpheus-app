@@ -1337,6 +1337,7 @@ chat rules) was replaced by this file. Still from the template (parked, #50 N2):
   - **Link:** `/account` has an owner-only "Renaissance" link; the site bar is unchanged.
   - **Tests:** `src/lib/renaissance/*.test.ts` and `src/components/renaissance/renaissance-page.dom.test.tsx`.
 - 2026-11-03: #270 (renaissance-spec §4 note, AC RM-03a): docs/tests only. `target`/`actual` must be 0 to 1,000,000; a negative value gets a 400 (the code already did this; the spec's "absolute value" wording was wrong). No runtime change.
+- 2026-11-03: #269 (renaissance-spec §3 note, AC RM-01a): a bare `Authorization: Bearer` with no token (any case) now counts as a Bearer header → 401 even with the owner session (regex `/^bearer(\s|$)/i` in `api.server.ts`). A valid token and a header-less owner session are unchanged. Tests tagged `RM-01a (#269)`.
 
 ## Renaissance Man site-bar link (#271; added 2026-10-30)
 

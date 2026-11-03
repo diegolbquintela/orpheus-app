@@ -166,3 +166,29 @@ describe("RM-21 the site bar's owner-only link: the same owner check as /renaiss
     assert.equal((await loadRenaissance(h, { ...deps("alice"), getDb: async () => broken })).status, "not_found");
   });
 });
+
+// RM-01a (#269): a bare "Bearer" (no token, any case) is a Bearer header, so the owner's session doesn't rescue it.
+describe("RM-01a (#269) bare Bearer with no token", () => {
+  const day = "2026-10-28";
+  const b = { date: day, picks: [], entries: [{ pillar: "health", item: "zyn", target: 15, actual: 10, hit: true }] };
+  const n = async () => (await pg.query<{ n: number }>("SELECT count(*)::int AS n FROM rm_entries WHERE entry_date = $1", [day])).rows[0].n;
+  // RM-01a (#269)
+  for (const authorization of ["Bearer", "Bearer ", "bearer", "BEARER"]) {
+    it(`owner session + Authorization ${JSON.stringify(authorization)} returns 401 and writes nothing`, async () => {
+      const r = await post("alice", b, { authorization });
+      assert.equal(r.status, 401);
+      assert.equal(await n(), 0);
+    });
+  }
+  // RM-01a (#269)
+  it("a valid Bearer token still authorizes and writes", async () => {
+    assert.equal((await post(null, b, { authorization: `Bearer ${TOKEN}` })).status, 200);
+    assert.equal(await n(), 1);
+  });
+  // RM-01a (#269)
+  it("the owner session with no Authorization header still works", async () => {
+    const r = await post("alice", { ...b, entries: [...b.entries, { pillar: "industry", item: "industry", hit: false }] });
+    assert.equal(r.status, 200);
+    assert.equal(await n(), 2);
+  });
+});

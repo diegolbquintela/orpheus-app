@@ -813,6 +813,8 @@ This is the private, owner-only page `/renaissance`: Health, Industry and Spirit
 
 2026-11-03 note (#270): `target` and `actual` must be 0 to 1,000,000; a negative value is rejected with a 400. This matches the code; spec §4 note, AC RM-03a. Docs/tests only.
 
+2026-11-03 note (#269): a bare `Authorization: Bearer` with no token (any case) is treated as a Bearer header and gets a 401, even with the owner session. A valid token or the owner session with no Authorization header still works. Spec §3 note, AC RM-01a.
+
 ## Testing ownership: QA functional + post-deploy regression; EL coordinates (Diego, 2026-11-01)
 
 - **QA owns functional testing**: a periodic functional pass of the live app, plus a **full regression after every production deployment**.

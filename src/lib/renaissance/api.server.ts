@@ -90,7 +90,7 @@ export async function handleCheckinRequest(request: Request, deps: RenaissanceDe
   if (blocked) return blocked;
   if (request.method.toUpperCase() !== "POST") return dashboardMethodNotAllowedResponse(CHECKIN_ALLOW);
   const header = request.headers.get("authorization");
-  const bearer = header !== null && /^bearer\s/i.test(header);
+  const bearer = header !== null && /^bearer(\s|$)/i.test(header);
   let db: Queryable | null = null;
   if (bearer) {
     if (!ingestAuthorized(header, env[INGEST_TOKEN_ENV])) return unauthorizedResponse();
