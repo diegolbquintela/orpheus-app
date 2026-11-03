@@ -42,9 +42,8 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
-import { refuseIfProd } from "./prod-guard.mjs";
+import { refuseIfProd, signedOutProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
-import { signedOutProd } from "./prod-guard.mjs";
 import { fontsSettled } from "./fonts.mjs";
 import { installConsoleMask } from "./redact.mjs";
 
@@ -372,6 +371,27 @@ async function hbm(page, host, width, { who = "signed out", owner = false, navig
   await page.getByTestId("site-menu-close").click();
   const x = await page.evaluate(() => [document.querySelector('[data-testid="site-overlay"]').hidden, document.activeElement?.getAttribute("data-testid")]);
   check(`${tag} HBM-05 X closes, focus back on Menu`, x[0] === true && x[1] === "site-menu-open", x);
+  // CH14 / CH15 (#287 r3, 2026-11-02): cross 768 px with the menu open and focus in Search (390 <-> 1440, 767 <-> 768).
+  const vp0 = page.viewportSize();
+  for (const to of width < 768 ? [1440, 768] : [390, 767]) {
+    await page.getByTestId("site-search-open").click();
+    await page.waitForTimeout(150);
+    await page.keyboard.type("vod");
+    await page.setViewportSize({ width: to, height: vp0.height });
+    await page.waitForTimeout(250);
+    const rz = await page.evaluate(() => {
+      const o = document.querySelector('[data-testid="site-overlay"]');
+      const a = document.activeElement;
+      return { inDialog: o.contains(a), search: a?.getAttribute("data-testid") === "site-search" && a.checkVisibility(), value: a?.value ?? null };
+    });
+    await page.keyboard.press("Tab");
+    const tabIn = await page.evaluate(() => document.querySelector('[data-testid="site-overlay"]').contains(document.activeElement));
+    check(`${tag} HBM-06 CH14/CH15 resize to ${to} with the menu open: focus on the displayed Search in the dialog, value kept, Tab stays inside`, rz.inDialog && rz.search && rz.value === "vod" && tabIn, { ...rz, tabIn });
+    await page.keyboard.press("Escape");
+    await page.setViewportSize(vp0);
+    await page.waitForTimeout(150);
+    await page.reload({ waitUntil: "networkidle" });
+  }
   if (navigate) {
     for (const [label, href] of want) {
       await page.goto(`${host}/calculator`, { waitUntil: "networkidle" });

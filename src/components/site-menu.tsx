@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { Lyre } from "@/components/lyre";
 import type { OwnerNavLink } from "@/lib/site/owner-nav";
 import {
@@ -73,10 +73,14 @@ function SearchSlot({
   uid,
   slot,
   inputRef,
+  value,
+  onChange,
 }: {
   uid: string;
   slot: "desktop" | "mobile";
   inputRef: RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   const id = slot === "desktop" ? `${uid}-search` : `${uid}-search-mobile`;
   return (
@@ -95,6 +99,8 @@ function SearchSlot({
         placeholder={SEARCH_PLACEHOLDER}
         aria-describedby={`${id}-note`}
         autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.currentTarget.value)}
         className={`h-11 w-full max-w-md border-0 border-b border-hair bg-transparent text-base text-chalk placeholder:text-dim ${FOCUS}`}
         data-testid="site-search"
       />
@@ -123,14 +129,47 @@ export function SiteMenu({
   // #287 Q5(b): below md (Tailwind `max-md:` = width < 48rem) the mobile search slot is rendered after the links;
   // at md and wider it is not rendered at all, so the desktop DOM is #286's exactly. No matchMedia (jsdom): desktop.
   const [phone, setPhone] = useState(false);
+  // CH15 (#287 r3): one search value for both slots, so typing survives the slot swap.
+  const [query, setQuery] = useState("");
+  // CH14 (#287 r3): crossing 768 px while open swaps the slots; remember where focus was so it can be put back.
+  const swap = useRef<{ inSearch: boolean; caret: [number | null, number | null] | null } | null>(null);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(max-width: 47.99rem)");
-    const sync = () => setPhone(mq.matches);
+    const sync = () => {
+      const a = document.activeElement as HTMLInputElement | null;
+      const inSearch = a?.tagName === "INPUT" && a.getAttribute("data-testid") === "site-search";
+      swap.current = { inSearch, caret: inSearch ? [a.selectionStart, a.selectionEnd] : null };
+      setPhone(mq.matches);
+    };
     sync();
     mq.addEventListener?.("change", sync);
     return () => mq.removeEventListener?.("change", sync);
   }, []);
+  // CH14: after the swap commits, if the menu is open and focus was in Search or is now outside the dialog, focus the
+  // displayed Search field (caret kept), else X. Never moves focus while the menu is closed.
+  useLayoutEffect(() => {
+    const w = swap.current;
+    swap.current = null;
+    if (!w || !opened || !overlay.current) return;
+    const fix = () => {
+      if (!overlay.current || overlay.current.hidden) return;
+      const a = document.activeElement;
+      if (!w.inSearch && a && a !== document.body && overlay.current.contains(a) && shown(a as HTMLElement)) return;
+      const field = [searchMobile.current, searchDesktop.current].find((i) => i && shown(i));
+      if (field) {
+        field.focus();
+        if (w.caret && w.caret[0] !== null) field.setSelectionRange(w.caret[0], w.caret[1] ?? w.caret[0]);
+      } else closeBtn.current?.focus();
+    };
+    fix();
+    // The browser may only blur a field hidden by the media query at its next style pass: check again then.
+    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame(fix) : 0;
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
   const current = currentSection(pathname);
   const links = menuLinks(ownerLink);
 
@@ -255,7 +294,7 @@ export function SiteMenu({
         </div>
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pt-8 pb-16 sm:px-8 md:grid-cols-2">
           <div className="min-w-0" data-testid="site-menu-main">
-            <SearchSlot uid={uid} slot="desktop" inputRef={searchDesktop} />
+            <SearchSlot uid={uid} slot="desktop" inputRef={searchDesktop} value={query} onChange={setQuery} />
             <ul className="mt-8 max-md:mt-0 flex flex-col gap-1" data-testid="site-menu-links">
               {links.map((l) => (
                 <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
@@ -269,7 +308,7 @@ export function SiteMenu({
                 </li>
               ))}
             </ul>
-            {phone ? <SearchSlot uid={uid} slot="mobile" inputRef={searchMobile} /> : null}
+            {phone ? <SearchSlot uid={uid} slot="mobile" inputRef={searchMobile} value={query} onChange={setQuery} /> : null}
           </div>
           {/* #286 hook: later columns (Obsidian articles, Latest News, …) come from MENU_EXTRA_SECTIONS; none yet. */}
           {MENU_EXTRA_SECTIONS.length ? (

@@ -12,6 +12,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SiteMenu } from "./site-menu";
 
+// React's legacy change-event path in jsdom (as access.dom.test.tsx).
+const legacy = dom.window.HTMLElement.prototype as unknown as Record<string, unknown>;
+legacy.attachEvent ??= () => {};
+legacy.detachEvent ??= () => {};
 let root: Root | undefined;
 let container: HTMLElement | undefined;
 const doc = () => dom.window.document;
@@ -199,6 +203,106 @@ describe("HBM-08 md and wider keep #286 exactly", () => {
     for (const e of q(el, "site-overlay").querySelectorAll("*")) {
       if (e.closest('[data-testid="site-menu-footer"]')) continue;
       assert.ok(!cls(e).some((c) => c.startsWith("md:hidden")), e.outerHTML.slice(0, 80));
+    }
+  });
+});
+
+// CH14 / CH15 (#287 r3, 2026-11-02): crossing 768 px while the menu is open. A controllable matchMedia plus a
+// checkVisibility that follows it (`max-md:hidden` hidden on phones, `md:hidden` hidden from md).
+function resizable(startPhone: boolean, opts: { noSearch?: boolean } = {}) {
+  let isPhone = startPhone;
+  const listeners = new Set<() => void>();
+  const proto = dom.window.HTMLElement.prototype as unknown as { checkVisibility?: () => boolean };
+  proto.checkVisibility = function (this: HTMLElement) {
+    if (this.closest("[hidden]")) return false;
+    if (opts.noSearch && this.closest("[data-search-slot]")) return false;
+    return isPhone ? !this.closest(".max-md\\:hidden") : !this.closest(".md\\:hidden");
+  };
+  const w = dom.window as unknown as { matchMedia?: unknown };
+  const before = w.matchMedia;
+  w.matchMedia = (query: string) => ({
+    get matches() {
+      return query === "(max-width: 47.99rem)" && isPhone;
+    },
+    media: query,
+    addEventListener: (_: string, f: () => void) => listeners.add(f),
+    removeEventListener: (_: string, f: () => void) => listeners.delete(f),
+  });
+  return {
+    async set(phoneNow: boolean) {
+      isPhone = phoneNow;
+      await act(async () => {
+        for (const f of listeners) f();
+      });
+    },
+    undo() {
+      delete proto.checkVisibility;
+      w.matchMedia = before;
+    },
+  };
+}
+// Compare elements by identity and report a short description (deep-diffing jsdom nodes is very slow).
+const where = () => { const a = doc().activeElement; return `focus on ${a?.tagName} ${a?.id || a?.getAttribute("data-testid") || ""}`; };
+const displayedSearch = (el: HTMLElement) =>
+  [...el.querySelectorAll<HTMLInputElement>('[data-testid="site-search"]')].find((i) => i.checkVisibility())!;
+
+describe("HBM-06 / CH14 / CH15 (2026-11-02) resizing across 768 px while the menu is open", () => {
+  for (const [label, from, to] of [["390 -> 1440", true, false], ["1440 -> 390", false, true], ["767 -> 768", true, false], ["768 -> 767", false, true]] as const) {
+    it(`${label}: focus moves to the displayed Search inside the dialog, the typed value and caret are kept, Tab stays trapped`, async () => {
+      const v = resizable(from);
+      try {
+        const el = await mount();
+        await act(async () => q(el, "site-search-open").click());
+        const f0 = displayedSearch(el);
+        assert.ok(doc().activeElement === f0, where());
+        await act(async () => {
+          const set = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!;
+          // React's jsdom change path (as access.dom.test.tsx's type()): focusin, set, keyup, input.
+          f0.dispatchEvent(new dom.window.FocusEvent("focusin", { bubbles: true }));
+          set.call(f0, "vod");
+          f0.dispatchEvent(new dom.window.Event("keyup", { bubbles: true }));
+          f0.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+        });
+        assert.equal(f0.value, "vod");
+        f0.setSelectionRange(1, 1);
+        await v.set(to);
+        const f1 = displayedSearch(el);
+        assert.ok(f1 && f1 !== f0, "the other slot is displayed now");
+        assert.ok(doc().activeElement === f1, where());
+        assert.ok(q(el, "site-overlay").contains(doc().activeElement));
+        assert.equal(f1.value, "vod");
+        assert.deepEqual([f1.selectionStart, f1.selectionEnd], [1, 1]);
+        // Tab stays inside: from the last displayed item it wraps to X.
+        const items = [...q(el, "site-overlay").querySelectorAll<HTMLElement>(FOCUSABLE)].filter((e) => e.checkVisibility());
+        items.at(-1)!.focus();
+        assert.equal(await press(items.at(-1)!), true);
+        assert.equal(doc().activeElement?.getAttribute("data-testid"), "site-menu-close");
+      } finally {
+        v.undo();
+      }
+    });
+  }
+  it("no Search displayed: focus falls back to X; a focused link is left alone; nothing moves while closed", async () => {
+    const v = resizable(true, { noSearch: true });
+    try {
+      const el = await mount();
+      await act(async () => q(el, "site-search-open").click());
+      (doc().activeElement as HTMLElement | null)?.blur();
+      await v.set(false);
+      assert.equal(doc().activeElement?.getAttribute("data-testid"), "site-menu-close");
+      const link = q(el, "site-menu-links").querySelector<HTMLElement>("a")!;
+      link.focus();
+      await v.set(true);
+      assert.ok(doc().activeElement === link, where());
+      await act(async () => q(el, "site-menu-close").click());
+      const outside = doc().createElement("button");
+      doc().body.appendChild(outside);
+      outside.focus();
+      await v.set(false);
+      assert.ok(doc().activeElement === outside, where());
+      outside.remove();
+    } finally {
+      v.undo();
     }
   });
 });
