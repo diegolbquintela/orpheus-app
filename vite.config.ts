@@ -85,6 +85,15 @@ export default defineConfig(({ command, isPreview }) => ({
                     headers: { "X-Robots-Tag": "noindex, nofollow", "X-Orpheus-Env": process.env.VERCEL_ENV || "local" },
                     continue: true,
                   },
+                  // #319: fonts and hero images are long-cached like the hashed /assets (nitro's own route).
+                  // Their names carry no hash, so any change to a file under public/fonts or public/hero
+                  // MUST ship under a new filename (AGENTS.md #319). HTML, API, /icons, favicon, manifest and
+                  // robots.txt keep Vercel's default (public, max-age=0, must-revalidate).
+                  {
+                    src: "/(fonts|hero)/(.*)",
+                    headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+                    continue: true,
+                  },
                 ],
               },
             },

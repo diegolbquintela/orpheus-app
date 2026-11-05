@@ -136,6 +136,12 @@ describe("site shell (#46)", () => {
       assert.match(readFileSync(file, "utf8"), /noindex, nofollow/, file);
     assert.match(readFileSync("vite.config.ts", "utf8"), /"X-Robots-Tag": "noindex, nofollow"/);
   });
+
+  it("#319: vite.config.ts long-caches only /fonts and /hero (immutable)", () => {
+    const src = readFileSync("vite.config.ts", "utf8");
+    assert.match(src, /src: "\/\(fonts\|hero\)\/\(\.\*\)"/);
+    assert.match(src, /"Cache-Control": "public, max-age=31536000, immutable"/);
+  });
 });
 
 describe("dark shell page (#68, spec §6 / Q13)", () => {
