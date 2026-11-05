@@ -17,7 +17,7 @@
 //    ST6-05 noindex meta + X-Robots-Tag on every page; exactly one Vercel Analytics script; no horizontal scroll
 //    ST6-06 no request to fonts.googleapis.com / fonts.gstatic.com; the font files come from /fonts/schibsted-grotesk/
 //           on this host; the preload link; the text renders in Schibsted Grotesk (CDP platform fonts); page CLS a
-//           strict 0 on CLS_RUNS (default 2) cold loads per page and width, cache disabled, EVERY shift counted
+//           strict 0 on CLS_RUNS (default 2: 1 cold + 1 warm, #320) loads per page and width, browser cache on, EVERY shift counted
 //    ST6-07 no element on the dark pages runs with tnum / tabular-nums; on `/` the period of `research.` is narrower
 //           than the tnum period (normal punctuation)
 //    ST6-08 each bar link ≥ 44 × 44 px; the bar ≤ 48 px
@@ -28,7 +28,8 @@
 //    <base> <--smoke-mode, default preview>), pf-stale-reload.mjs (#308: zero writes, 390 + 1440; refuses prod itself;
 //    no QA_EMAIL / QA_PASSWORD → its SKIPPED (NOT A PASS), exit 3, counted as a skip, never a FAIL). Each tool writes into <out>/<tool>/, its log as <tool>.log.
 //
-//   node qa/tools/site-style-regression.mjs --base-url <url> --out <dir> [--compare-url <base PR preview>]
+//   node qa/tools/site-style-regression.mjs [--base-url <url>] --out <dir> [--compare-url <base PR preview>] [--release]
+//   (#320: no --base-url = a local build + vite preview; production is refused unless --release)
 //        [--own-only] [--smoke-mode preview|on|off]
 // Exit 1 on any FAIL (own checks or a tool).
 import { chromium } from "playwright";
@@ -37,8 +38,10 @@ import { mkdirSync, readFileSync, writeFileSync, createWriteStream } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
-import { refuseIfProd } from "./prod-guard.mjs";
+import { refuseFullOnProd, refuseIfProd } from "./prod-guard.mjs";
+import { headersApply } from "./lib/local-headers.mjs";
 import { fontsSettled } from "./fonts.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -56,6 +59,8 @@ const avg3Label = (now = new Date()) => {
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
+// #320: production only with --release (a warning line then), before refuseIfProd and before any other request.
+await refuseFullOnProd(CFG.baseUrl, "site-style-regression");
 await refuseIfProd(CFG.baseUrl, "site-style-regression");
 const base = CFG.baseUrl;
 const argv = process.argv.slice(2);
@@ -72,12 +77,8 @@ const check = (name, ok, detail) => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
 
-const VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }, true],
-  ["phone", { width: 400, height: 860 }, true],
-  ["wide", { width: 1024, height: 800 }, false],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv();
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const JORDAENS = "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)";
@@ -212,13 +213,11 @@ async function platformFont(page, selector) {
   }
 }
 
-// ST6-06: one cold load (fresh context, cache disabled), every layout shift counted.
-async function coldCls(browser, path, viewport, mobile) {
-  const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
+// ST6-06: one load, every layout shift counted. #320 (EL: 1 cold + 1 warm): `shared` is one context per page and
+// width; its first load is cold (empty HTTP cache), the next ones are warm (browser cache on for static assets).
+async function coldCls(browser, path, viewport, mobile, shared) {
+  const ctx = shared ?? (await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile }));
   const page = await ctx.newPage();
-  const cdp = await ctx.newCDPSession(page);
-  await cdp.send("Network.enable");
-  await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
   await page.addInitScript(() => {
     window.__shifts = [];
     new PerformanceObserver((list) => {
@@ -229,7 +228,8 @@ async function coldCls(browser, path, viewport, mobile) {
   await page.goto(`${base}${path}`, { waitUntil: "load" });
   await page.waitForTimeout(1500);
   const m = await page.evaluate(() => ({ shifts: window.__shifts, fonts: [...document.fonts].filter((f) => f.family.includes("Schibsted Grotesk")).map((f) => f.status) }));
-  await ctx.close();
+  if (shared) await page.close();
+  else await ctx.close();
   return { total: m.shifts.reduce((a, e) => a + e.value, 0), sources: m.shifts.flatMap((e) => e.sources), fonts: m.fonts };
 }
 
@@ -240,6 +240,12 @@ async function ownChecks(browser) {
     if (p.signedIn) {
       const to = new URL(r.headers.get("location") ?? "/x", base);
       check(`ST6-04 signed-out ${p.path} → 307 /dashboard/sign-in?next=${p.path} (#102)`, r.status === 307 && to.pathname === "/dashboard/sign-in" && to.searchParams.get("next") === p.path, [r.status, r.headers.get("location")]);
+      continue;
+    }
+    // #320: vite preview doesn't apply the config.json headers: on local the status is checked, the header skipped.
+    if (!headersApply(CFG)) {
+      check(`ST6-05 GET ${p.path} → ${p.status}`, r.status === p.status, r.status);
+      skip(`ST6-09 X-Robots-Tag on ${p.path} (local server: vite preview doesn't apply .vercel/output/config.json headers; covered by the config.json tests)`);
       continue;
     }
     check(`ST6-05 / ST6-09 GET ${p.path} → ${p.status}, X-Robots-Tag noindex`, r.status === p.status && /noindex/i.test(r.headers.get("x-robots-tag") ?? ""), [r.status, r.headers.get("x-robots-tag")]);
@@ -389,11 +395,13 @@ async function ownChecks(browser) {
         await ctx.close().catch(() => {});
       }
 
-      // ST6-06 strict CLS on cold loads.
+      // ST6-06 strict CLS: 1 cold + 1 warm load (#320).
       const runs = [];
-      for (let i = 0; i < RUNS; i++) runs.push(await coldCls(browser, p.path, viewport, mobile));
+      const clsCtx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
+      for (let i = 0; i < RUNS; i++) runs.push(await coldCls(browser, p.path, viewport, mobile, clsCtx));
+      await clsCtx.close();
       (R.cls[p.path] ??= {})[viewport.width] = runs.map((x) => x.total);
-      check(`${tag} ST6-06 page CLS = 0 (strict) on ${RUNS} cold loads, every shift counted (${JSON.stringify(runs.map((x) => r5(x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => ({ total: x.total, sources: x.sources.slice(0, 4), fonts: x.fonts })));
+      check(`${tag} ST6-06 page CLS = 0 (strict) on ${RUNS} loads (1 cold, then warm), every shift counted (${JSON.stringify(runs.map((x) => r5(x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => ({ total: x.total, sources: x.sources.slice(0, 4), fonts: x.fonts })));
     }
   }
 }
@@ -432,14 +440,16 @@ if (!OWN_ONLY) {
   const compare = CFG.compareUrl ? ["--compare-url", CFG.compareUrl] : [];
   if (!CFG.compareUrl || !process.env.QA_EMAIL) console.log("INFO ST0-05 signed-in /dashboard compare needs --compare-url <base PR preview> and QA_EMAIL / QA_PASSWORD in env; site-shell.mjs skips it otherwise (QA runs it)");
   const T = (f) => join(HERE, f);
-  await runTool("site-shell", T("site-shell.mjs"), ["--base-url", base, "--out", "{out}", ...compare]);
-  await runTool("home-page", T("home-page.mjs"), ["--base-url", base, "--out", "{out}"]);
-  await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}"]);
-  await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}"]);
-  await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}"]);
-  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}"]);
-  await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}"]);
-  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}"]); // #308
+  // #320: the children reuse this run's server (--base-url) and know it's the local target (header checks skipped).
+  const local = CFG.target === "local" ? ["--target=local"] : [];
+  await runTool("site-shell", T("site-shell.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...compare]);
+  await runTool("home-page", T("home-page.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
+  await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
+  await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
+  await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
+  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
+  await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
+  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}", ...local]); // #308
   await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE]);
 }
 const fails = R.checks.filter((c) => !c.ok);

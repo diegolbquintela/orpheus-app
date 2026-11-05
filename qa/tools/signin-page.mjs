@@ -23,6 +23,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { headerSkip, headerSkips, headersApply } from "./lib/local-headers.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 F8 (EL option 1): the prod guard in every tool site-style-regression spawns (signed-out prod mode on prod).
@@ -33,12 +35,8 @@ const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
-const VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }],
-  ["phone", { width: 400, height: 860 }],
-  ["wide", { width: 1024, height: 800 }],
-  ["desktop", { width: 1440, height: 900 }],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv().map(([n, v]) => [n, v]);
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
@@ -145,7 +143,8 @@ try {
     const page = await browser.newPage();
     const res = await page.goto(`${base}${PATH}`, { waitUntil: "networkidle" });
     check("sign-in route 200 (DASHBOARD_ENABLED on this host)", res.status() === 200, res.status());
-    check("ST5b-05 X-Robots-Tag: noindex, nofollow", /noindex/i.test(res.headers()["x-robots-tag"] ?? ""), res.headers()["x-robots-tag"]);
+    if (headersApply(CFG)) check("ST5b-05 X-Robots-Tag: noindex, nofollow", /noindex/i.test(res.headers()["x-robots-tag"] ?? ""), res.headers()["x-robots-tag"]);
+    else headerSkip("ST5b-05 X-Robots-Tag"); // #320
     check("ST5b-05 title `Sign in · Orpheus Wisdom` and noindex meta", (await page.title()) === "Sign in · Orpheus Wisdom" && (await page.locator('meta[name=robots][content*="noindex"]').count()) >= 1, await page.title());
     check("ST5b-02 the form renders (sign-in configured on this host)", (await page.locator("[data-testid=sign-in-form]").count()) === 1);
     // ST5b-01: the shared classes in the stylesheet are as on main (the dashboard renders with them).
@@ -282,4 +281,4 @@ try {
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "signin-page.json"), JSON.stringify(R, null, 2));
 console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
-process.exit(fails.length ? 1 : 0);
+process.exit(fails.length ? 1 : headerSkips() ? 3 : 0); // #320: a local header skip is never a pass

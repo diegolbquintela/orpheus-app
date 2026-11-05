@@ -40,9 +40,9 @@ const run = async (fn, opts) => {
 const ENDED = (w) => [`${w} POST /api/auth/sign-out`, `${w} close`];
 
 describe("QA N4: qa/tools sessions always sign out", () => {
-  it("normal run: sign-in, checks, sign-out, close, for both viewports", async () => {
+  it("normal run: sign-in, checks, sign-out, close, for both viewports (390 + 1440, #320)", async () => {
     const { log, checks } = await run(async () => {});
-    assert.deepEqual(log, ["400 POST /api/auth/sign-in/email", ...ENDED(400), "1440 POST /api/auth/sign-in/email", ...ENDED(1440)]);
+    assert.deepEqual(log, ["390 POST /api/auth/sign-in/email", ...ENDED(390), "1440 POST /api/auth/sign-in/email", ...ENDED(1440)]);
     assert.ok(checks.every(([, ok]) => ok));
     assert.deepEqual(VIEWPORTS.map(([vp]) => vp), ["phone", "desktop"]);
   });
@@ -58,7 +58,7 @@ describe("QA N4: qa/tools sessions always sign out", () => {
     const { log, checks } = await run(async ({ vp }) => {
       if (vp === "phone") throw new Error("Timeout 30000ms exceeded");
     });
-    assert.deepEqual(log, ["400 POST /api/auth/sign-in/email", ...ENDED(400), "1440 POST /api/auth/sign-in/email", ...ENDED(1440)]);
+    assert.deepEqual(log, ["390 POST /api/auth/sign-in/email", ...ENDED(390), "1440 POST /api/auth/sign-in/email", ...ENDED(1440)]);
     assert.deepEqual(checks.find(([n]) => n === "[phone] ran to the end"), ["[phone] ran to the end", false]);
   });
 
@@ -85,21 +85,21 @@ describe("QA N4: qa/tools sessions always sign out", () => {
 
   it("#98: the Personal Finance e2e signs in only on a preview, never logs the password, and leaves the QA record empty", () => {
     const src = readFileSync(join(import.meta.dirname, "..", "qa", "tools", "personal-finance-e2e.mjs"), "utf8");
-    assert.match(src, /const prod = new URL\(base\)\.hostname === new URL\(DEFAULT_BASE_URL\)\.hostname;/);
+    assert.match(src, /const prod = new URL\(base\)\.hostname === new URL\(PROD_BASE_URL\)\.hostname;/);
     assert.match(src, /else if \(prod\) check\(/);
     assert.doesNotMatch(src, /console\.\w+\([^)]*password/i);
     assert.match(src, /\} finally \{\n\s*const end = await acct\(page, base, "DELETE"\)/);
   });
 
-  it("#59: QA_VIEWPORTS picks phone / wide (1024) / desktop; the default stays phone + desktop", async () => {
+  it("#59: QA_VIEWPORTS picks phone / wide (1024) / desktop; the default stays phone (390, #320) + desktop", async () => {
     assert.equal(viewportsFrom(undefined), VIEWPORTS);
     assert.equal(viewportsFrom(" "), VIEWPORTS);
-    assert.deepEqual(viewportsFrom("desktop,phone,wide").map(([vp, v]) => `${vp}:${v.width}`), ["phone:400", "wide:1024", "desktop:1440"]);
-    assert.deepEqual(ALL_VIEWPORTS.map(([, v, mobile]) => [v.width, mobile]), [[400, true], [1024, false], [1440, false]]);
-    assert.throws(() => viewportsFrom("phone,tablet"), /unknown viewport\(s\) tablet/);
+    assert.deepEqual(viewportsFrom("desktop,phone,wide").map(([vp, v]) => `${vp}:${v.width}`), ["phone:390", "wide:1024", "desktop:1440"]);
+    assert.deepEqual(ALL_VIEWPORTS.map(([, v, mobile]) => [v.width, mobile]), [[360, true], [390, true], [400, true], [768, false], [1024, false], [1440, false]]);
+    assert.throws(() => viewportsFrom("phone,tablet"), /unknown viewport\(s\) tablet\b/);
     const log = [];
     await eachViewport({ browser: fakeBrowser(log), baseUrl: "http://x", email: "e", password: "p", check: () => {}, viewports: ALL_VIEWPORTS }, async () => {});
-    assert.deepEqual(log.filter((l) => l.includes("sign-out")), ["400 POST /api/auth/sign-out", "1024 POST /api/auth/sign-out", "1440 POST /api/auth/sign-out"]);
+    assert.deepEqual(log.filter((l) => l.includes("sign-out")), ["360", "390", "400", "768", "1024", "1440"].map((w) => `${w} POST /api/auth/sign-out`));
   });
 
   it("the runner (dashboard-redesign.mjs) never signs in itself, never logs a password, never deletes", () => {

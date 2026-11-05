@@ -19,8 +19,10 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
+import { headerSkip, headerSkips, headersApply } from "./lib/local-headers.mjs";
 
-const { baseUrl, out } = qaConfig(import.meta.url);
+const { baseUrl, out, target } = qaConfig(import.meta.url);
 const results = [];
 function check(name, pass, detail) {
   results.push({ name, pass: !!pass, detail });
@@ -32,7 +34,7 @@ const OLD = ["/__grok/manifest.webmanifest", "/__grok/manifest.json", "/__grok/i
 
 const browser = await chromium.launch();
 try {
-  for (const viewport of [{ width: 360, height: 780 }, { width: 1440, height: 900 }]) {
+  for (const [, viewport] of viewportsFromArgv()) { // #320: 390 + 1440 by default
     const tag = `[${viewport.width}]`;
     const ctx = await browser.newContext({ viewport });
     const page = await ctx.newPage();
@@ -61,7 +63,8 @@ try {
           grokLinks: [...document.querySelectorAll("[href],[src]")].map((e) => e.getAttribute("href") ?? e.getAttribute("src")).filter((u) => /__grok|grok\.com/.test(u)),
         }));
         const xr = res?.headers()["x-robots-tag"];
-        check(`${tag} ${path} NG-07 noindex meta + X-Robots-Tag, favicon.svg, theme-color, apple-mobile-web-app meta`, head.robots === "noindex, nofollow" && xr === "noindex, nofollow" && head.icon === "/favicon.svg" && head.theme === "#1e2124" && head.appleTitle === "Orpheus Wisdom" && head.appleBar === "black", { ...head, xr });
+        if (!headersApply(target)) headerSkip(`${tag} ${path} NG-07 X-Robots-Tag`); // #320: the rest of NG-07 still runs
+        check(`${tag} ${path} NG-07 noindex meta + X-Robots-Tag, favicon.svg, theme-color, apple-mobile-web-app meta`, head.robots === "noindex, nofollow" && (!headersApply(target) || xr === "noindex, nofollow") && head.icon === "/favicon.svg" && head.theme === "#1e2124" && head.appleTitle === "Orpheus Wisdom" && head.appleBar === "black", { ...head, xr });
         check(`${tag} ${path} NG-04 manifest → /manifest.webmanifest, apple-touch-icon → /icons/apple-touch-icon.png`, JSON.stringify(head.manifest) === '["/manifest.webmanifest"]' && JSON.stringify(head.apple) === '["/icons/apple-touch-icon.png"]', { manifest: head.manifest, apple: head.apple });
         check(`${tag} ${path} NG-05 nothing links /__grok or grok.com`, head.grokLinks.length === 0, head.grokLinks);
       }
@@ -79,7 +82,10 @@ try {
   const m = await fetch(`${baseUrl}/manifest.webmanifest`);
   let man = null;
   try { man = await m.json(); } catch { man = null; }
-  check("NG-03 /manifest.webmanifest 200, manifest content type", m.status === 200 && /manifest\+json|application\/json/.test(m.headers.get("content-type") ?? ""), [m.status, m.headers.get("content-type")]);
+  if (!headersApply(target)) { // #320: the manifest content type comes from the config.json routes
+    check("NG-03 /manifest.webmanifest 200", m.status === 200, m.status);
+    headerSkip("NG-03 manifest content type");
+  } else check("NG-03 /manifest.webmanifest 200, manifest content type", m.status === 200 && /manifest\+json|application\/json/.test(m.headers.get("content-type") ?? ""), [m.status, m.headers.get("content-type")]);
   check("NG-03 name / short_name Orpheus Wisdom, charcoal colours, standalone, start /", man?.name === "Orpheus Wisdom" && man?.short_name === "Orpheus Wisdom" && man?.background_color === "#1e2124" && man?.theme_color === "#1e2124" && man?.display === "standalone" && man?.start_url === "/", man);
   const icons = man?.icons ?? [];
   const sizes = icons.map((i) => i.sizes).sort();
@@ -102,4 +108,4 @@ try {
 const failed = results.filter((r) => !r.pass);
 writeFileSync(join(out, "no-grok.json"), JSON.stringify(results, null, 2));
 console.log(`\n${results.length - failed.length}/${results.length} passed${failed.length ? ` · ${failed.length} FAILED` : ""}`);
-process.exit(failed.length ? 1 : 0);
+process.exit(failed.length ? 1 : headerSkips() ? 3 : 0); // #320: a local header skip is never a pass

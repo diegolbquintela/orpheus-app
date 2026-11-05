@@ -20,5 +20,7 @@ test("QAC-01 --base-url (both forms) beats QA_BASE_URL", () => {
 
 test("QAC-02 QA_BASE_URL is used without the flag; the default without either", () => {
   assert.deepEqual([qaConfig(URL_, [], env).baseUrl, qaConfig(URL_, [], env).baseFrom], ["https://env-host.example", "QA_BASE_URL"]);
-  assert.deepEqual([qaConfig(URL_, [], { QA_OUT_DIR: out }).baseUrl, qaConfig(URL_, [], { QA_OUT_DIR: out }).baseFrom], [DEFAULT_BASE_URL, "default"]);
+  // #320: the default is the local server (started by lib/base-url.mjs; a fake starter here, no build).
+  const start = () => ({ url: DEFAULT_BASE_URL });
+  assert.deepEqual([qaConfig(URL_, [], { QA_OUT_DIR: out }, { start }).baseUrl, qaConfig(URL_, [], { QA_OUT_DIR: out }, { start }).baseFrom], [DEFAULT_BASE_URL, "default"]);
 });

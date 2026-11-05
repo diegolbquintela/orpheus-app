@@ -182,7 +182,7 @@ test("F7 (3): QA_WRITE alone (no credentials) is refused on prod too, with zero 
 
 test("F7 (1): with no credentials, every sign-in tool runs signed out on the prod alias: prints the mode, never signs in or writes", () => {
   for (const t of TOOLS) {
-    const r = run(t, ["--base-url", PROD_ALIAS]);
+    const r = run(t, ["--base-url", PROD_ALIAS, ...(t === "site-style-regression.mjs" ? ["--release"] : [])]); // #320
     const lines = r.out.split("\n");
     assert.equal(lines.filter((l) => l === SIGNED_OUT_PROD_LINE).length, 1, `${t}: prints exactly '${SIGNED_OUT_PROD_LINE}'\n${r.out.slice(0, 400)}`);
     assert.doesNotMatch(r.out, /^REFUSED /m, t);
@@ -192,17 +192,17 @@ test("F7 (1): with no credentials, every sign-in tool runs signed out on the pro
     assert.deepEqual(r.requests.filter((l) => l.startsWith("CLICK") && /submit/.test(l)), [], `${t}: no form submit clicked`);
   }
   // the post-merge signed-out prod check: these really run (they make signed-out GETs)
-  for (const t of ["site-shell.mjs", "site-style-regression.mjs", "personal-finance.mjs", "personal-finance-e2e.mjs"]) assert.ok(run(t, ["--base-url", PROD_ALIAS]).requests.some((l) => l.startsWith("GET ")), `${t} ran`);
+  for (const t of ["site-shell.mjs", "site-style-regression.mjs", "personal-finance.mjs", "personal-finance-e2e.mjs"]) assert.ok(run(t, ["--base-url", PROD_ALIAS, ...(t === "site-style-regression.mjs" ? ["--release"] : [])]).requests.some((l) => l.startsWith("GET ")), `${t} ran`);
 });
 
 test("F8: no credentials, prod alias: site-style-regression and every child it spawns (signin-page included) send no POST to /api/auth/, no non-GET / HEAD, no submit", () => {
-  const r = run("site-style-regression.mjs", ["--base-url", PROD_ALIAS]);
+  const r = run("site-style-regression.mjs", ["--base-url", PROD_ALIAS, "--release"]); // #320: prod needs --release
   const outDir = /out (\S+)/.exec(r.out)?.[1];
   assert.ok(outDir, r.out.slice(0, 300));
   const childLog = (name) => readFileSync(join(outDir, `${name}.log`), "utf8");
   for (const child of ["site-shell", "home-page", "calculator-page", "saved-searches", "signin-page", "personal-finance", "site"])
     assert.ok(childLog(child).split("\n").includes(SIGNED_OUT_PROD_LINE), `${child} ran in signed-out prod mode (marker inherited)`);
-  assert.equal(childLog("signin-page").match(/failed sign-in submit SKIPPED \(signed-out prod mode\)/g)?.length, 4, "signin-page: the submit skipped on each of the 4 viewports");
+  assert.equal(childLog("signin-page").match(/failed sign-in submit SKIPPED \(signed-out prod mode\)/g)?.length, 2, "signin-page: the submit skipped on each of the 2 default viewports (390 + 1440, #320)");
   assert.deepEqual(writesOrAuth(r.requests), [], "no POST / PUT / DELETE / PATCH, no /api/auth/, no raw socket in parent or children");
   assert.deepEqual(r.requests.filter((l) => l.startsWith("CLICK") && /submit/.test(l)), [], "no form submit clicked");
   assert.ok(r.requests.filter((l) => l.startsWith("GET ")).length > 50, "the parent and children really ran (GETs recorded)");

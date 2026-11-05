@@ -6,7 +6,7 @@
 //          WebP sources and a JPEG <img>, srcset + sizes, width / height on the img and every source; served from
 //          the app; every hero file ≤ 300 KB and the file served at 1440 px, 2x ≤ 300 KB
 //   ST3-01 layout shift as ST4-01: PerformanceObserver ('layout-shift', buffered), EVERY entry counted, a fresh
-//          browser with the cache disabled per run, CLS_RUNS (default 3) cold loads per width, the last with the
+//          browser (#320: cache on, 1 cold + 1 warm), CLS_RUNS (default 2) loads per width, the last with the
 //          hero files held back 1 s. Pass: CLS from the hero = 0 (band, image and wash still) and the page total
 //          = 0 on every run (strict since #72's self-hosted font)
 //   ST3-02 `01` and the exact h1 lower left in plain type (site font, 400, no caps / spacing / effects, chalk;
@@ -33,6 +33,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { headerSkip, headerSkips, headersApply } from "./lib/local-headers.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 F8 (EL option 1): the prod guard in every tool site-style-regression spawns (signed-out prod mode on prod).
@@ -44,12 +46,8 @@ const check = (name, ok, detail) => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
 
-const VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }, true],
-  ["phone", { width: 400, height: 860 }, true],
-  ["wide", { width: 1024, height: 800 }, false],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv();
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
@@ -63,7 +61,7 @@ const LINES = [
   ["Personal Finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
 ];
 const MAX_BYTES = 300 * 1024;
-const RUNS = Number(process.env.CLS_RUNS ?? 3); // cold loads per width for ST3-01
+const RUNS = Number(process.env.CLS_RUNS ?? 2); // #320: 1 cold + 1 warm load per width for ST3-01
 const lum = ([r, g, b]) => {
   const f = (x) => ((x /= 255) <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
@@ -368,7 +366,8 @@ try {
   {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
     const res = await page.goto(`${base}/`, { waitUntil: "networkidle" });
-    check(`ST3-04 X-Robots-Tag: noindex, nofollow on /`, /noindex/i.test(res.headers()["x-robots-tag"] ?? ""), res.headers()["x-robots-tag"]);
+    if (headersApply(CFG)) check(`ST3-04 X-Robots-Tag: noindex, nofollow on /`, /noindex/i.test(res.headers()["x-robots-tag"] ?? ""), res.headers()["x-robots-tag"]);
+    else headerSkip("ST3-04 X-Robots-Tag on /"); // #320
     const files = await page.evaluate(() => {
       const hero = document.querySelector("[data-testid=home-hero]");
       const urls = new Set();
@@ -397,15 +396,18 @@ try {
     const scale = mobile ? 2 : 1;
     {
       const runs = [];
+      const warm = {};
       for (let i = 0; i < RUNS; i++) {
         const slow = i === RUNS - 1;
-        // A fresh browser per run: nothing (HTTP cache, in-memory web-font cache) survives from an earlier load.
-        const fresh = await chromium.launch();
-        const ctx = await fresh.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
+        // #320 (EL: 1 cold + 1 warm): run 1 is cold (a new browser and context, empty HTTP cache); later runs reuse
+        // that context with the browser cache on, so static assets (long-cached /fonts, /hero, /assets) come from it.
+        if (i === 0) {
+          warm.browser = await chromium.launch();
+          warm.ctx = await warm.browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
+        }
+        const fresh = warm.browser;
+        const ctx = warm.ctx;
         const page = await ctx.newPage();
-        const cdp = await ctx.newCDPSession(page);
-        await cdp.send("Network.enable");
-        await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
         if (slow) await page.route("**/hero/**", async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
         await page.addInitScript(() => {
           window.__shifts = [];
@@ -440,14 +442,15 @@ try {
         const total = m.shifts.reduce((a, e) => a + e.value, 0);
         const hero = m.shifts.filter((e) => e.hero).reduce((a, e) => a + e.value, 0);
         runs.push({ run: i + 1, slowHero: slow, total, hero, still: m.still, loaded: m.loaded, fontsAtDomReady: m.fontsAtDomReady, fontsNow: m.fontsNow, shifts: m.shifts });
-        await fresh.close();
+        await page.close().catch(() => {});
+        if (i === RUNS - 1) await fresh.close();
       }
       const r5 = (v) => Math.round(v * 1e5) / 1e5;
-      check(`${tag} ST3-01 CLS from the hero = 0 on ${RUNS} cold loads (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
-      check(`${tag} ST3-01 page CLS = 0 (strict, #72) on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => r5(x.total)));
+      check(`${tag} ST3-01 CLS from the hero = 0 on ${RUNS} loads (1 cold, then warm) (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
+      check(`${tag} ST3-01 page CLS = 0 (strict, #72) on ${RUNS} loads (1 cold, then warm), all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => r5(x.total)));
       R.cls ??= {};
       R.cls[vp] = { width: viewport.width, hero: runs.map((x) => x.hero), total: runs.map((x) => x.total), runs };
-      console.log(`INFO ${tag} CLS cold × ${RUNS} (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);
+      console.log(`INFO ${tag} CLS 1 cold + ${RUNS - 1} warm (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);
     }
     const page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
     page.setDefaultTimeout(30000);
@@ -477,4 +480,4 @@ try {
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "home-page.json"), JSON.stringify(R, null, 2));
 console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
-process.exit(fails.length ? 1 : 0);
+process.exit(fails.length ? 1 : headerSkips() ? 3 : 0); // #320: a local header skip is never a pass

@@ -39,7 +39,7 @@
 //   PF-08 layout (phone stacked, wide one row per line in column order), no horizontal scroll, controls ≥ 44 px,
 //         AA (contrast scan; axe-core color-contrast too with AXE_PATH), a ≥ 3:1 focus mark on every Tab stop,
 //         no tnum / tabular-nums
-//   PF-09 strict page CLS 0 on CLS_RUNS (default 2) cold loads per width, cache disabled, empty and restored
+//   PF-09 strict page CLS 0 on CLS_RUNS (default 2) loads per width, browser cache on (#320), empty and restored
 //   PF-11 income copy; PF-12 people (add / remove, defaults, field checks); PF-13 net per person; PF-14 counted +
 //         share (own bonus excluded, spouse 80%); PF-15 income table (biweekly = yearly ÷ 26); PF-16 % of income
 //         follows every income change, income restored from orpheus.finance.income.v1 (malformed → no people)
@@ -70,6 +70,8 @@ import { AS_OF_ERROR, AS_OF_LABEL, AS_OF_PLACEHOLDER } from "./pf-helpers.mjs"; 
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
 import { householdMonth } from "./pf-window.mjs";
+import { headersApply } from "./lib/local-headers.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
   if (withData < 12) return `12-month average (${withData} of 12 months)`;
@@ -96,12 +98,8 @@ const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
-const VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }, true],
-  ["phone", { width: 400, height: 860 }, true],
-  ["wide", { width: 1024, height: 800 }, false],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv();
 const PATH = "/personal-finance";
 // #102: the account record's names (the old localStorage keys, expenses at v2); v1 only as the import source.
 const KEY = "orpheus.finance.expenses.v2";
@@ -328,15 +326,13 @@ async function settle(page) {
 }
 const ready = (page) => page.locator("[data-testid=pf-area][data-ready=true]").waitFor();
 
-// PF-09 / PF-39: one cold load (a new page, cache disabled), every layout shift counted; `stored` is the account record.
+// PF-09 / PF-39: one cold load (a new page, browser cache on since #320), every layout shift counted; `stored` is the account record.
 async function coldCls(ctx, stored) {
   const page = await ctx.newPage();
   try {
     await reset(page);
     if (stored) await seed(page, stored);
-    const cdp = await ctx.newCDPSession(page);
-    await cdp.send("Network.enable");
-    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+    // #320: browser cache on (static assets reused); the context is shared, so these loads are warm.
     await page.addInitScript(() => {
       window.__shifts = [];
       new PerformanceObserver((list) => {
@@ -549,7 +545,8 @@ try {
           badClass: [...document.querySelectorAll("main *")].filter((e) => typeof e.className === "string" && /(^|\s)(field|kicker|section|bg-paper|text-ink)(\s|$)/.test(e.className)).length,
         };
       });
-      check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal Finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && /noindex/.test(res.headers()["x-robots-tag"] ?? ""), [res.status(), sh.title, sh.robots]);
+      check(`${tag} PF-01 title, noindex meta + X-Robots-Tag, 200`, res.status() === 200 && sh.title === "Personal Finance · Orpheus Wisdom" && /noindex/.test(sh.robots ?? "") && (!headersApply(CFG) || /noindex/.test(res.headers()["x-robots-tag"] ?? "")), [res.status(), sh.title, sh.robots]);
+      if (!headersApply(CFG)) skip(`${tag} PF-01 X-Robots-Tag (local server: vite preview doesn't apply .vercel/output/config.json headers)`); // #320
       check(`${tag} PF-01 charcoal page, chalk type, color-scheme dark; no painting; page-only classes`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme.every((s) => s === "dark") && sh.paint === 0 && sh.badClass === 0, { bg: sh.bg, color: sh.color, scheme: sh.scheme, paint: sh.paint, badClass: sh.badClass });
       check(`${tag} PF-01 header (#286): bar Orpheus / Search / Menu; overlay (6 links) Orpheus / Calculator / Dashboard / Personal Finance / Renaissance Man / Account, Personal Finance current, footer, one Analytics script`, JSON.stringify(sh.bar_.map((l) => l[0])) === '["Orpheus","Search","Menu"]' && JSON.stringify(sh.links.map((l) => [l[0], l[1]])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Renaissance Man", "/renaissance"], ["Account", "/account"]]) && JSON.stringify(sh.links.filter((l) => l[2] === "page").map((l) => l[0])) === '["Personal Finance"]' && sh.footer === "Orpheus Wisdom" && sh.analytics === 1, { links: sh.links, footer: sh.footer, analytics: sh.analytics });
       check(`${tag} ST1-05 the lyre first in the Orpheus link: aria-hidden, currentColor in chalk, 20 × 20, 5 paths`, sh.lyre && sh.lyre.first && sh.lyre.hidden === "true" && sh.lyre.stroke === "currentColor" && sh.lyre.color === CHALK && sh.lyre.w === 20 && sh.lyre.h === 20 && sh.lyre.paths === 5, sh.lyre);

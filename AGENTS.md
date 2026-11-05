@@ -399,6 +399,27 @@ npm run fixtures:hand-check     # must print "hand check: MATCH"
   canonical pack `qa/CANONICAL-AC-PACK.md`. Run logs go in `qa/runs/YYYY-MM-DD-<label>.md` with small
   JSON/text evidence beside them; no images in git, scrub cookies/tokens first (policy in `qa/README.md`).
 
+### QA runs locally by default (#320)
+
+Since #320 the `qa/tools/*.mjs` scripts (fetch.py aside) default to a local build, not production, to cut CDN
+request burn. This replaces the production default described in the next section.
+- With no `--base-url` / `QA_BASE_URL` / `--target`, a tool runs `npx vite build` (never `npm run build`, which
+  also runs db:migrate), serves it with `npx vite preview --port 4173 --strictPort` on 127.0.0.1, polls it with
+  fetch, and kills it on exit (`qa/tools/lib/base-url.mjs`).
+  - The server children get the env with every `DATABASE_URL*` / `POSTGRES*` var removed; QA never runs db:migrate.
+  - `--no-build` reuses the existing `.vercel/output`; `--local=dev` runs `vite dev` on the same port instead.
+- `--target=preview` (with `--base-url <preview>`) and `--target=prod` are explicit opt-ins. CLI flags only: no new env vars.
+- `site-style-regression.mjs` refuses production (exit 2, no request on a known prod host) unless `--release`,
+  which prints a `WARNING --release` line first (`refuseFullOnProd`, `qa/tools/prod-guard.mjs`).
+- Browser HTTP cache on: no tool disables the cache; CLS runs are 1 cold + 1 warm load (`CLS_RUNS`, default 2).
+- Viewports: 390 + 1440 by default; 360, 400, 768 and 1024 are opt-in with `--viewports=phone360,phone400,tablet768,wide`
+  (`qa/tools/lib/viewports.mjs`; `QA_VIEWPORTS` still works for the signed-in tools and `dashboard-redesign.mjs`).
+  The legacy 1280 tools (`run`, `full`, `pr3`, `site`, `sidebyside`, `c5live`) keep their sizes.
+- `vite preview` doesn't apply the `.vercel/output/config.json` routes, so on the local target header checks
+  (X-Robots-Tag, content types from routes) print `SKIPPED (NOT A PASS)` and the tool exits 3.
+  - The config.json tests (`scripts/cache-headers.test.mjs`) are the real header coverage; previews still check headers.
+- Tests: `scripts/qa-base-url.test.mjs` (LQ-01..10).
+
 ### QA tools against a preview or production URL
 
 The scripts in `qa/tools/` drive the deployed app (they do not start a local server). Pass the URL as

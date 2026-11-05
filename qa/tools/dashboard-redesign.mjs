@@ -10,7 +10,7 @@
 //    `/api/dashboard/status` → `{"dashboard":"enabled"}` (the flag on this deployment); one Vercel Analytics
 //    script, page views without query / hash, no request to any other host (no other tracker); the
 //    Referrer-Policy header is recorded. Flag off is checked by `npm run check:dashboard-built` (it builds both).
-// 2. The existing tools, each with its own --out subfolder, QA_VIEWPORTS=phone,wide,desktop (site.mjs has its
+// 2. The existing tools, each with its own --out subfolder, QA_VIEWPORTS=phone,desktop (#320; wide opt-in) (site.mjs has its
 //    own widths): site.mjs (menu, home, footer "Orpheus Wisdom", noindex, the $313,000 calculator case, VOD.L),
 //    dashboard-leaveouts (DR6-01..05, DR0-07), dashboard-list (DR2: rows, detail, Edit / Delete shown, never
 //    clicked), dashboard-add (DR3: blank cost, Edit fills / clears; writes one holding, QA_ADD_SYMBOL),
@@ -129,7 +129,7 @@ const run = (label, cmd, args, env = {}) =>
   });
 const tool = (name, env = {}, sub = name) =>
   run(`${name}${env.QA_EMAIL ? ` (${env.label ?? "account"})` : ""}`, process.execPath, [join(HERE, `${name}.mjs`), "--base-url", base, "--out", join(CFG.out, sub)], {
-    QA_VIEWPORTS: process.env.QA_VIEWPORTS ?? "phone,wide,desktop",
+    QA_VIEWPORTS: process.env.QA_VIEWPORTS ?? "phone,desktop", // #320: wide (1024) is opt-in (QA_VIEWPORTS=phone,wide,desktop)
     ...env,
   });
 
