@@ -13,7 +13,7 @@
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
+import { PROD_BASE_URL, qaConfig } from "./config.mjs";
 import { eachViewport } from "./session.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { DEFAULT_REPORT_NAME, NAME_TAKEN, RANGE_TOO_LONG, REPORT_NOT_FOUND } from "./pf-helpers.mjs";
@@ -57,7 +57,7 @@ try {
 
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;
-  const prod = new URL(base).hostname === new URL(DEFAULT_BASE_URL).hostname;
+  const prod = new URL(base).hostname === new URL(PROD_BASE_URL).hostname;
   if (!email || !password) console.log("INFO PFRC-02..PFRC-18 SKIPPED (signed in): set QA_EMAIL / QA_PASSWORD in env");
   else
     await signedIn(browser, email, password, async (request) => {

@@ -10,7 +10,7 @@
 //   ST4-01 layout shift (QA round 1, D1): a PerformanceObserver ('layout-shift', buffered) from before the first
 //          paint until 2 s after load, counting EVERY entry (no hadRecentInput exclusion: Playwright's isMobile /
 //          hasTouch emulation tags load-time shifts as recent input). Cold loads only: a fresh browser each time
-//          with the cache disabled (CDP), CLS_RUNS (default 3) times per width, the last one with the hero files
+//          with the browser cache on (#320), CLS_RUNS (default 2: 1 cold + 1 warm) times per width, the last one with the hero files
 //          held back 1 s. Pass: CLS from the hero = 0 (no entry with a source inside the band; band, image and
 //          wash still) and the page total = 0 on every run (strict since #72's self-hosted font; Q16)
 //   ST4-02 `01` and the exact h1 lower left in plain type (site font, weight 400, no caps, no letter-spacing,
@@ -60,6 +60,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 F8 (EL option 1): the prod guard in every tool site-style-regression spawns (signed-out prod mode on prod).
@@ -71,12 +72,8 @@ const check = (name, ok, detail) => {
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
 
-const VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }, true],
-  ["phone", { width: 400, height: 860 }, true],
-  ["wide", { width: 1024, height: 800 }, false],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv();
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
@@ -91,7 +88,7 @@ const KEYS = ["nlv", "invested", "total", "cagr"];
 const VOD_L = "VOD.L lists on LSE. US, EU, and CA listings only.";
 const CASE = { rows: [["PLTR", 50], ["TQQQ", 50]], start: "2020-10-02", end: "2026-10-01", capital: 1000, contribution: 1000, frequency: "weekly" };
 const MAX_BYTES = 300 * 1024;
-const RUNS = Number(process.env.CLS_RUNS ?? 3); // cold loads per width for ST4-01
+const RUNS = Number(process.env.CLS_RUNS ?? 2); // #320: 1 cold + 1 warm load per width for ST4-01
 const METHOD = "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.";
 const lum = ([r, g, b]) => {
   const f = (x) => ((x /= 255) <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
@@ -501,7 +498,7 @@ async function fieldChecks(page, tag, viewport) {
   check(`${tag} ST4-17 editing a field clears its own message only`, (await page.locator('[data-testid=field-error][data-field="capital"]').count()) === 0 && (await page.locator("[data-testid=field-error]").count()) === 4, await page.locator("[data-testid=field-error]").allTextContents());
   page.off("request", onReq);
   // 3. After the prices (decision 1): venue and currency under those tickers; nothing calculated.
-  if (viewport.width === 360 || viewport.width === 1440) {
+  if (viewport.width === VIEWPORTS[0][1].width || viewport.width === 1440) { // #320: the narrowest run width + desktop
     await page.goto(page.url(), { waitUntil: "networkidle" });
     await fill(page, { rows: [["PLTR", 50], ["SHOP.TO", 25], ["VOD.L", 25]], start: "2023-01-03", end: "2024-12-31", capital: 10000, contribution: 500, frequency: "monthly" });
     await page.waitForSelector("[data-testid=field-error]", { timeout: 90000 });
@@ -630,19 +627,22 @@ try {
     const tag = `[${vp}]`;
     const scale = mobile ? 2 : 1;
     // ST4-01 (D1, QA round 1): CLS on cold loads, EVERY layout-shift entry counted (no hadRecentInput exclusion),
-    // a fresh browser with the cache disabled each time, RUNS times; the last run holds the hero files back 1 s.
+    // 1 cold load then warm ones (#320, cache on), RUNS times; the last run holds the hero files back 1 s.
     // From the hero: entries with any source inside the band. Pass: hero 0 and page total = 0 on every run (#72).
     {
       const runs = [];
+      const warm = {};
       for (let i = 0; i < RUNS; i++) {
         const slow = i === RUNS - 1;
-        // A fresh browser per run: nothing (HTTP cache, in-memory web-font cache) survives from an earlier load.
-        const fresh = await chromium.launch();
-        const ctx = await fresh.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
+        // #320 (EL: 1 cold + 1 warm): run 1 is cold (a new browser and context, empty HTTP cache); later runs reuse
+        // that context with the browser cache on, so static assets (long-cached /fonts, /hero, /assets) come from it.
+        if (i === 0) {
+          warm.browser = await chromium.launch();
+          warm.ctx = await warm.browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
+        }
+        const fresh = warm.browser;
+        const ctx = warm.ctx;
         const page = await ctx.newPage();
-        const cdp = await ctx.newCDPSession(page);
-        await cdp.send("Network.enable");
-        await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
         if (slow) await page.route("**/hero/**", async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
         await page.addInitScript(() => {
           window.__shifts = [];
@@ -677,14 +677,15 @@ try {
         const total = m.shifts.reduce((a, e) => a + e.value, 0);
         const hero = m.shifts.filter((e) => e.hero).reduce((a, e) => a + e.value, 0);
         runs.push({ run: i + 1, slowHero: slow, total, hero, still: m.still, loaded: m.loaded, fontsAtDomReady: m.fontsAtDomReady, fontsNow: m.fontsNow, shifts: m.shifts });
-        await fresh.close();
+        await page.close().catch(() => {});
+        if (i === RUNS - 1) await fresh.close();
       }
       const r5 = (v) => Math.round(v * 1e5) / 1e5;
-      check(`${tag} ST4-01 CLS from the hero = 0 on ${RUNS} cold loads (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
-      check(`${tag} ST4-01 page CLS = 0 (strict, #72) on ${RUNS} cold loads, all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => r5(x.total)));
+      check(`${tag} ST4-01 CLS from the hero = 0 on ${RUNS} loads (1 cold, then warm) (all shifts counted; band, image and wash still)`, runs.every((x) => x.hero === 0 && x.still && x.loaded), runs.map((x) => ({ run: x.run, hero: x.hero, still: x.still, slowHero: x.slowHero })));
+      check(`${tag} ST4-01 page CLS = 0 (strict, #72) on ${RUNS} loads (1 cold, then warm), all shifts counted (max ${r5(Math.max(...runs.map((x) => x.total)))})`, runs.every((x) => x.total === 0), runs.map((x) => r5(x.total)));
       R.cls ??= {};
       R.cls[vp] = { width: viewport.width, hero: runs.map((x) => x.hero), total: runs.map((x) => x.total), runs };
-      console.log(`INFO ${tag} CLS cold × ${RUNS} (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);
+      console.log(`INFO ${tag} CLS 1 cold + ${RUNS - 1} warm (all shifts): page ${JSON.stringify(runs.map((x) => r5(x.total)))} · hero ${JSON.stringify(runs.map((x) => x.hero))} · fonts at DOM ready ${JSON.stringify(runs.map((x) => x.fontsAtDomReady))} · sources ${JSON.stringify([...new Set(runs.flatMap((x) => x.shifts.flatMap((e) => e.sources.map((s) => `${s.node} "${s.text}" ${JSON.stringify(s.from)}→${JSON.stringify(s.to)}`))))])}`);
     }
     const page = await browser.newPage({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: scale });
     page.setDefaultTimeout(30000);

@@ -96,6 +96,8 @@ npm run fixtures:hand-check   # independent arithmetic check, prints "hand check
 raw dumps are not committed. The canonical acceptance-criteria pack is
 [`qa/CANONICAL-AC-PACK.md`](qa/CANONICAL-AC-PACK.md). Policy: [`qa/README.md`](qa/README.md).
 
+**QA runs locally by default (#320).** With no `--base-url`, the `qa/tools/*.mjs` scripts build with `npx vite build` and serve it with `vite preview` on 127.0.0.1:4173 (killed on exit, no database env); previews and production are opt-in (`--target=preview|prod`), and a full site-style regression on production needs `--release`.
+
 **QA tools.** [`qa/tools/`](qa/tools/README.md) holds QA's Playwright scripts and a Python price fetcher.
 Each takes the app URL as `--base-url` or `QA_BASE_URL` (default: production), so they run against a PR
 preview or production:

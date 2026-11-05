@@ -122,6 +122,21 @@ export async function refuseIfProd(baseUrl, script, fetchImpl = fetch, env = pro
   return { signedOutProd: true };
 }
 
+// #320 (EL): no full site-style regression against production except at release. Same detection as prodReason
+// (static hosts, else one HEAD /). Production or unconfirmed without --release → `REFUSED …`, exit 2 (a static prod
+// host makes no request at all). With --release → RELEASE_WARNING, then the run goes on (refuseIfProd still applies).
+export const RELEASE_WARNING = "WARNING --release: full site-style regression against production (release only; every load is a CDN request)";
+export async function refuseFullOnProd(baseUrl, script, argv = process.argv.slice(2), fetchImpl = fetch, opts = {}) {
+  const why = await prodReason(baseUrl, fetchImpl, opts);
+  if (!why) return { release: false };
+  if (argv.includes("--release")) {
+    console.log(RELEASE_WARNING);
+    return { release: true };
+  }
+  console.log(`REFUSED ${script}: full site-style regression on production or an unconfirmed target (${why}) runs only at release. Run it locally (the default), on a preview (--base-url <preview>), or pass --release.`);
+  process.exit(2);
+}
+
 const writeOrAuth = (method, url) => !["GET", "HEAD"].includes(String(method).toUpperCase()) || new URL(url).pathname.startsWith("/api/auth/");
 
 async function enterSignedOutProd() {

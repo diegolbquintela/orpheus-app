@@ -27,7 +27,7 @@
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
+import { PROD_BASE_URL, qaConfig } from "./config.mjs";
 // #278 CA (QA 2026-11-02): every log line and the JSON artifact mask email-shaped strings as <email>.
 import { installConsoleMask, maskedJson } from "./redact.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
@@ -35,6 +35,8 @@ import { eachViewport } from "./session.mjs";
 import { API, FX_HISTORY_NOTE, PATH, acct, contrastScan, line, pickMonth, ready, settle, shownMonth, totals, trackSaves, txt, val } from "./pf-helpers.mjs";
 // #285: the window labels come from the PAGE's pinned clock (TODAY), not the runner's wall clock (qa/tools/pf-window.mjs).
 import { avg3Label as avg3At, avg12Label as avg12At, householdMonth } from "./pf-window.mjs";
+import { headersApply } from "./lib/local-headers.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 installConsoleMask();
 const CFG = qaConfig(import.meta.url);
@@ -48,12 +50,8 @@ const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
-const VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }, true],
-  ["phone", { width: 400, height: 860 }, true],
-  ["wide", { width: 1024, height: 800 }, false],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv();
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const TODAY = new Date(2026, 9, 11, 12);
@@ -172,7 +170,7 @@ try {
   // ---- Signed in ----
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;
-  const prod = new URL(base).hostname === new URL(DEFAULT_BASE_URL).hostname;
+  const prod = new URL(base).hostname === new URL(PROD_BASE_URL).hostname;
   if (!email || !password) skip("PFE-03..11 (signed in): set QA_EMAIL / QA_PASSWORD in env (the preview QA account, e.g. qa-pf; its Personal Finance record is reset)");
   else if (prod) check("PFE-13 the signed-in part runs on a preview only (it writes to the account): refused on production", false, base);
   else await eachViewport({ browser, baseUrl: base, email, password, check, viewports: VIEWPORTS }, async ({ vp, viewport, mobile, page, ctx }) => {
@@ -522,8 +520,9 @@ try {
         };
       });
       const hdr = await page.evaluate(async (u) => (await fetch(u)).headers.get("x-robots-tag"), PATH);
+      if (!headersApply(CFG)) skip(`${tag} PFE-11 X-Robots-Tag (local server: vite preview doesn't apply .vercel/output/config.json headers)`); // #320
       const scan = await contrastScan(page);
-      check(`${tag} PFE-11 the full page: charcoal / chalk / dark scheme, the lyre, footer Orpheus Wisdom, no gold, noindex meta + X-Robots-Tag, one Analytics script, no horizontal scroll, AA for every text`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme === "dark" && sh.lyre && sh.footer === "Orpheus Wisdom" && sh.gold === 0 && /noindex/.test(sh.robots ?? "") && /noindex/.test(hdr ?? "") && sh.analytics === 1 && sh.scroll <= 0 && scan.bad.length === 0, { ...sh, hdr, bad: scan.bad });
+      check(`${tag} PFE-11 the full page: charcoal / chalk / dark scheme, the lyre, footer Orpheus Wisdom, no gold, noindex meta + X-Robots-Tag, one Analytics script, no horizontal scroll, AA for every text`, sh.bg === NIGHT && sh.color === CHALK && sh.scheme === "dark" && sh.lyre && sh.footer === "Orpheus Wisdom" && sh.gold === 0 && /noindex/.test(sh.robots ?? "") && (!headersApply(CFG) || /noindex/.test(hdr ?? "")) && sh.analytics === 1 && sh.scroll <= 0 && scan.bad.length === 0, { ...sh, hdr, bad: scan.bad });
       if (AXE) {
         await page.addScriptTag({ content: AXE });
         const v = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "rule", values: ["color-contrast", "label", "select-name", "button-name", "aria-valid-attr-value", "label-content-name-mismatch"] } })).violations.map((x) => ({ id: x.id, nodes: x.nodes.length, html: x.nodes[0]?.html.slice(0, 80) })));
@@ -561,16 +560,14 @@ try {
       const cleared = await txt(page.getByTestId("pf-save"));
       check(`${tag} PFE-10 an aborted Save shows \`Not saved.\`; the next Save clears it`, failed === "Not saved." && cleared === "", { failed, cleared });
 
-      // PFE-11 strict CLS 0 on a cold load of the full budget (a new page, cache disabled).
+      // PFE-11 strict CLS 0 on a cold load of the full budget (a new page, browser cache on since #320).
       const coldLoads = async () => {
         const runs = [];
         for (let i = 0; i < Number(process.env.CLS_RUNS ?? 2); i++) {
           const p3 = await ctx.newPage();
           try {
             await p3.clock.setFixedTime(TODAY);
-            const cdp = await ctx.newCDPSession(p3);
-            await cdp.send("Network.enable");
-            await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+            // #320: browser cache on (static assets reused); the context is shared, so these loads are warm.
             await p3.addInitScript(() => {
               window.__shifts = [];
               new PerformanceObserver((list) => { for (const e of list.getEntries()) window.__shifts.push(e.value); }).observe({ type: "layout-shift", buffered: true });

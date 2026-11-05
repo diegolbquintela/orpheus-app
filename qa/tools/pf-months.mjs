@@ -19,11 +19,12 @@
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_BASE_URL, qaConfig } from "./config.mjs";
+import { PROD_BASE_URL, qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, DELETE_ACCOUNT, DELETE_CATEGORY, DELETED_SUFFIX, deleteNameQuestion, PATH, acct, blankMonth, line, monthChoices, pickMonth, ready, shownMonth, trackSaves, txt, val } from "./pf-helpers.mjs";
 import { householdMonth } from "./pf-window.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -36,10 +37,8 @@ const check = (name, ok, detail) => {
   R.checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail !== undefined ? ` · ${JSON.stringify(detail)}` : ""}`);
 };
-const VIEWPORTS = [
-  ["phone", { width: 400, height: 860 }, true],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv();
 // BW2 (#277 harness, 2026-11-01): the month under test is the REAL current month (the server's Save rules use the real
 // clock), not a hardcoded October 2026. CUR_* name it; NEXT_* is the first of the next month (PF-56 rollover).
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -98,7 +97,7 @@ const OLD = {
 
 const email = process.env.QA_EMAIL;
 const password = process.env.QA_PASSWORD;
-const prod = new URL(base).hostname === new URL(DEFAULT_BASE_URL).hostname;
+const prod = new URL(base).hostname === new URL(PROD_BASE_URL).hostname;
 // BY5 (pf-months reload hang, ~17 min): each reload is a step capped at STEP_MS (a timeout throws → eachViewport's
 // "ran to the end" FAIL, then sign-out); the whole run is capped at RUN_MS: FAIL, close the browser, exit 1.
 const STEP_MS = 75_000, RUN_MS = 20 * 60_000;

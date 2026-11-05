@@ -15,6 +15,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -164,7 +165,7 @@ const browser = await chromium.launch();
 const NIGHT = "rgb(30, 33, 36)";
 const toCookies = (jar) => [...jar.c].map(([name, value]) => ({ name, value, url: base }));
 try {
-  for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
+  for (const [vp, viewport] of viewportsFromArgv().map(([n, v, m]) => [m ? "phone" : n, v])) { // #320: 390 + 1440 by default
     for (const who of ["owner", "pm"]) {
       const tag = `[${vp}] [${who}] /dashboard/company/${SYMBOL}`;
       const ctx = await browser.newContext({ viewport });
@@ -271,7 +272,7 @@ try {
     console.log(`[dashboard-company] ${UNCOVERED} derived rows ${JSON.stringify(flagged)}`);
     check(`ES-15 ${UNCOVERED} API: Shares (diluted) and FCF margin carry derived (E1 / E5), only derivable rows do, revenue does not`, row("shares")?.derived?.includes("net income ÷ diluted EPS") && row("fcf_margin")?.derived?.includes("broad IFRS line") && flagged.every((k) => DERIVABLE.includes(k)) && !row("revenue")?.derived && !row("pe")?.derived, { flagged, shares: row("shares")?.derived, fcf: row("fcf_margin")?.derived });
     check(`ES-10 ${UNCOVERED} no K / M / B`, !rowsOf(u).some(([, t]) => /\d[KMBT]\b/.test(t)));
-    for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
+    for (const [vp, viewport] of viewportsFromArgv().map(([n, v, m]) => [m ? "phone" : n, v])) { // #320: 390 + 1440 by default
       const ctx = await browser.newContext({ viewport });
       await ctx.addCookies(toCookies(jars.owner));
       const page = await ctx.newPage();
@@ -348,7 +349,7 @@ try {
     const f = fa.json?.company;
     console.log(`[dashboard-company] ${FUND} kind ${f?.kind} securityType ${f?.securityType} sections ${JSON.stringify((f?.sections ?? []).map((x) => x.key))}`);
     check(`FD-11 ${FUND} API 200: kind fund, securityType ETP, the fund line, Dividends only, no coverage line, fund source line`, fa.status === 200 && f?.kind === "fund" && f?.securityType === "ETP" && f?.fund === "Fund: company figures do not apply" && JSON.stringify((f?.sections ?? []).map((x) => x.key)) === '["dividends"]' && !f?.coverage && f?.source === "Daily closes and dividends as stored by the Dashboard · fund type from OpenFIGI", { status: fa.status, kind: f?.kind, type: f?.securityType, fund: f?.fund, coverage: f?.coverage, source: f?.source });
-    for (const [vp, viewport] of [["phone", { width: 400, height: 860 }], ["desktop", { width: 1440, height: 900 }]]) {
+    for (const [vp, viewport] of viewportsFromArgv().map(([n, v, m]) => [m ? "phone" : n, v])) { // #320: 390 + 1440 by default
       const ctx = await browser.newContext({ viewport });
       await ctx.addCookies(toCookies(jars.owner));
       const page = await ctx.newPage();

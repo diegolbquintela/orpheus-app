@@ -13,6 +13,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -155,7 +156,7 @@ const browser = await chromium.launch();
 const NIGHT = "rgb(30, 33, 36)";
 const toCookies = (jar) => [...jar.c].map(([name, value]) => ({ name, value, url: base }));
 try {
-  for (const [vp, viewport] of [["phone360", { width: 360, height: 780 }], ["desktop", { width: 1440, height: 900 }]]) {
+  for (const [vp, viewport] of viewportsFromArgv()) { // #320: 390 + 1440 by default
     for (const who of ["owner", "cfo"]) {
       const tag = `[${vp}] [${who}] /account`;
       const ctx = await browser.newContext({ viewport });

@@ -18,6 +18,32 @@ the URL and output paths as parameters; the Grok host is no longer hard-coded.
 Flags win over env vars. Keep `--out` outside the repo: screenshots and raw dumps are not committed
 (see `qa/README.md` for what goes into `qa/runs/`).
 
+## Local by default: the e2e step (#320)
+
+No `--base-url` means a local build: the script runs `npx vite build`, then `npx vite preview --port 4173
+--strictPort` on 127.0.0.1 (DATABASE_URL* / POSTGRES* removed from its env), polls it with fetch, and kills it
+when it exits. Never `npm run build` or db:migrate.
+
+```bash
+npx playwright install chromium                         # once
+node qa/tools/no-grok.mjs --out /tmp/qa-no-grok         # build + preview + checks at 390 / 1440, server killed after
+node qa/tools/site-style-regression.mjs --out /tmp/ssr  # the full regression, locally (children reuse the server)
+node qa/tools/home-page.mjs --no-build --viewports=phone360,wide   # reuse the build; opt-in widths
+node qa/tools/home-page.mjs --target=preview --base-url "$PREVIEW" # a preview, explicitly
+node qa/tools/site-style-regression.mjs --target=prod --release    # production: release only (prints a WARNING)
+```
+
+| Flag | Default |
+|---|---|
+| `--target=local\|preview\|prod` | `local`; `preview` needs `--base-url`; `prod` is the production alias |
+| `--no-build` / `--local=dev` | build first / `vite preview` |
+| `--viewports=<names or widths>` | `phone` 390 + `desktop` 1440; opt-in `phone360`, `phone400`, `tablet768`, `wide` (1024) |
+| `--release` (`site-style-regression.mjs`) | off: production is refused (exit 2) |
+
+On the local target header checks are `SKIPPED (NOT A PASS)` (exit 3): `vite preview` doesn't apply the
+`.vercel/output/config.json` routes; `scripts/cache-headers.test.mjs` covers them. `CLS_RUNS` defaults to 2 (1 cold
++ 1 warm load, browser cache on).
+
 ## Scripts
 
 | Script | What it does |

@@ -46,6 +46,8 @@ import { refuseIfProd, signedOutProd } from "./prod-guard.mjs";
 import { eachViewport } from "./session.mjs";
 import { fontsSettled } from "./fonts.mjs";
 import { installConsoleMask } from "./redact.mjs";
+import { headerSkip, headerSkips, headersApply } from "./lib/local-headers.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 installConsoleMask();
 
@@ -69,12 +71,8 @@ async function fontWait(page, tag, opts) {
   return f;
 }
 
-export const SHELL_VIEWPORTS = [
-  ["phone360", { width: 360, height: 780 }, true],
-  ["phone", { width: 400, height: 860 }, true],
-  ["wide", { width: 1024, height: 800 }, false],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+export const SHELL_VIEWPORTS = viewportsFromArgv();
 const NIGHT = "rgb(30, 33, 36)";
 const CHALK = "rgb(242, 240, 235)";
 const DIM = "rgb(168, 174, 180)";
@@ -288,7 +286,8 @@ async function signedOut(browser, host, compareOnly) {
           if (vp === "desktop") {
             check(`[${vp}] ${path} robots meta noindex, nofollow`, (await page.locator('meta[name="robots"]').getAttribute("content")) === "noindex, nofollow");
             const robots = res?.headers()["x-robots-tag"] ?? null;
-            check(`[${vp}] ${path} X-Robots-Tag noindex, nofollow`, robots === "noindex, nofollow", robots);
+            if (headersApply(CFG)) check(`[${vp}] ${path} X-Robots-Tag noindex, nofollow`, robots === "noindex, nofollow", robots);
+            else headerSkip(`[${vp}] ${path} X-Robots-Tag`); // #320
             const scripts = await page.locator('script[src*="/_vercel/insights/script.js"], script[src*="va.vercel-scripts.com"]').count();
             check(`[${vp}] ${path} one Vercel Analytics script`, scripts === 1, scripts);
           }
@@ -309,7 +308,8 @@ async function signedOut(browser, host, compareOnly) {
 }
 
 // #287 HBM: the mobile menu, at one page and width (see the header).
-const HBM_WIDTHS = [360, 390, 768, 1440];
+// #320: 390 + 1440 by default; 360 / 768 opt-in with --viewports (CH14 / CH15 still cross 767 <-> 768 in-page).
+const HBM_WIDTHS = SHELL_VIEWPORTS.map(([, v]) => v.width);
 const HBM_LINKS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
 const hbmLinks = (owner) => (owner ? [...HBM_LINKS.slice(0, -1), ["Renaissance Man", "/renaissance"], HBM_LINKS.at(-1)] : HBM_LINKS);
 async function hbm(page, host, width, { who = "signed out", owner = false, navigate = false } = {}) {
@@ -554,4 +554,4 @@ try {
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "site-shell.json"), JSON.stringify(R, null, 2));
 console.log(`\n${R.checks.length - fails.length}/${R.checks.length} passed${fails.length ? `, ${fails.length} FAIL` : ""} · ${R.shots.length} screenshots in ${CFG.out}`);
-process.exit(fails.length ? 1 : hbmSkipped ? 3 : 0);
+process.exit(fails.length ? 1 : hbmSkipped || headerSkips() ? 3 : 0);

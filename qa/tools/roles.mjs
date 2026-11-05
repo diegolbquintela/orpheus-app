@@ -37,6 +37,7 @@ import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { contrastScan } from "./pf-helpers.mjs";
+import { viewportsFromArgv } from "./lib/viewports.mjs";
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
@@ -56,12 +57,8 @@ const info = (msg) => {
   console.log(`INFO ${msg}`);
 };
 const secret = () => `qa-${randomBytes(18).toString("base64url")}`;
-const VIEWPORTS = [
-  ["360", { width: 360, height: 780 }, true],
-  ["400", { width: 400, height: 860 }, true],
-  ["1024", { width: 1024, height: 800 }, false],
-  ["1440", { width: 1440, height: 900 }, false],
-];
+// #320: phone 390 + desktop 1440 by default; 360 / 400 / 768 / 1024 opt-in with --viewports (lib/viewports.mjs).
+const VIEWPORTS = viewportsFromArgv().map(([, v, m]) => [String(v.width), v, m]);
 const AXE = process.env.AXE_PATH ? readFileSync(process.env.AXE_PATH, "utf8") : null;
 if (!AXE) info("axe-core not run (set AXE_PATH to axe.min.js); the contrast scan still runs");
 

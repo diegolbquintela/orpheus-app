@@ -1,34 +1,35 @@
 /**
  * Shared signed-in loop for the dashboard QA tools (QA N4, #58): one browser context per viewport (phone
- * 400 × 860, desktop 1440 × 900; plus wide 1024 × 800 with QA_VIEWPORTS, #59), signed in with QA_EMAIL / QA_PASSWORD (passed in from env by the caller;
+ * 390 × 844 since #320, desktop 1440 × 900; plus opt-in widths with QA_VIEWPORTS / --viewports, #59), signed in with QA_EMAIL / QA_PASSWORD (passed in from env by the caller;
  * never logged), and ALWAYS signed out again: the sign-out runs in a `finally`, so an early return, a thrown
  * error or a timeout inside a viewport's checks still ends the session. A thrown error is recorded as a FAIL
  * ("ran to the end") and the next viewport still runs.
  */
 import { signedOutProd } from "./prod-guard.mjs";
+import { DEFAULT_VIEWPORTS, NAMED, pickViewports, viewportsFromArgv } from "./lib/viewports.mjs";
 
-export const VIEWPORTS = [
-  ["phone", { width: 400, height: 860 }, true],
-  ["desktop", { width: 1440, height: 900 }, false],
-];
+// #320: the matrix lives in lib/viewports.mjs; the default is phone 390 + desktop 1440. QA_VIEWPORTS (names,
+// comma separated) or --viewports picks opt-in widths: phone360, phone400, tablet768, wide (1024).
+export const VIEWPORTS = DEFAULT_VIEWPORTS;
 
 /**
- * Every named viewport (#59): `wide` is the 1024 px breakpoint (the first width with the metrics sheet on the
- * right). `QA_VIEWPORTS=phone,wide,desktop` (env, comma-separated names) picks the set; the default is
- * `VIEWPORTS` (phone + desktop). `qa/tools/dashboard-redesign.mjs` runs every tool at all three.
+ * Every named viewport (#59, #320): `wide` is the 1024 px breakpoint (the first width with the metrics sheet on the
+ * right), opt-in only. `QA_VIEWPORTS=phone,wide,desktop` (env, comma-separated names) picks the set; the default is
+ * `VIEWPORTS` (phone + desktop).
  */
-export const ALL_VIEWPORTS = [VIEWPORTS[0], ["wide", { width: 1024, height: 800 }, false], VIEWPORTS[1]];
+export const ALL_VIEWPORTS = Object.keys(NAMED).map((n) => [n, NAMED[n][0], NAMED[n][1]]).sort((a, b) => a[1].width - b[1].width);
 
 export function viewportsFrom(value) {
   if (!value || !String(value).trim()) return VIEWPORTS;
-  const names = String(value).split(",").map((n) => n.trim()).filter(Boolean);
-  const unknown = names.filter((n) => !ALL_VIEWPORTS.some(([vp]) => vp === n));
-  if (unknown.length) throw new Error(`QA_VIEWPORTS: unknown viewport(s) ${unknown.join(", ")} (phone, wide, desktop)`);
-  return ALL_VIEWPORTS.filter(([vp]) => names.includes(vp));
+  try {
+    return pickViewports(value);
+  } catch (e) {
+    throw new Error(`QA_VIEWPORTS: ${e.message}`);
+  }
 }
 
 // #308: `headers` (optional) are extra request headers for the whole context, sign-in included (the Vercel bypass; never logged).
-export async function eachViewport({ browser, baseUrl, email, password, check, viewports = viewportsFrom(process.env.QA_VIEWPORTS), headers }, fn) {
+export async function eachViewport({ browser, baseUrl, email, password, check, viewports = process.env.QA_VIEWPORTS ? viewportsFrom(process.env.QA_VIEWPORTS) : viewportsFromArgv(), headers }, fn) {
   // #157 F7: never sign in on production (qa/tools/prod-guard.mjs signed-out prod mode).
   if (signedOutProd()) {
     console.log("INFO signed-in steps SKIPPED (signed-out prod mode)");
