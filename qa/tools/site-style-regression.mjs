@@ -38,7 +38,7 @@ import { mkdirSync, readFileSync, writeFileSync, createWriteStream } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
-import { forwardedRemoteArgs } from "./lib/remote-budget.mjs";
+import { forwardedRemoteArgs, forwardedViewportArgs } from "./lib/remote-budget.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { headersApply } from "./lib/local-headers.mjs";
 import { fontsSettled } from "./fonts.mjs";
@@ -412,6 +412,7 @@ function runTool(name, cmd, args) {
     const dir = join(CFG.out, name);
     mkdirSync(dir, { recursive: true });
     const log = createWriteStream(join(CFG.out, `${name}.log`));
+    // #331: the existing CLS_RUNS env var rides process.env. No new env var.
     const child = spawn(process.execPath, [cmd, ...args.map((a) => a.replace("{out}", dir))], { cwd: REPO, env: process.env });
     let tail = "";
     const onData = (d) => { log.write(d); tail = (tail + d.toString()).slice(-4000); };
@@ -442,17 +443,20 @@ if (!OWN_ONLY) {
   const T = (f) => join(HERE, f);
   // #320: the children reuse this run's server (--base-url) and know it's the local target (header checks skipped).
   // #328: forward the remote flags so each child is under the same --release / --budget the parent was allowed with.
+  // #331: append the parent's --viewports (equals form). site.mjs, pf-stale-reload and release-smoke keep their own matrices.
   const local = CFG.target === "local" ? ["--target=local"] : [];
   const remoteArgs = forwardedRemoteArgs(argv);
-  await runTool("site-shell", T("site-shell.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...compare, ...remoteArgs]);
-  await runTool("home-page", T("home-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
-  await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
-  await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
-  await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
-  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
-  await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
-  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]); // #308
-  await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE, ...remoteArgs]);
+  const viewportArgs = forwardedViewportArgs(argv);
+  const childArgs = [...remoteArgs, ...viewportArgs];
+  await runTool("site-shell", T("site-shell.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...compare, ...childArgs]);
+  await runTool("home-page", T("home-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]);
+  await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]);
+  await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]);
+  await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]);
+  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]);
+  await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]);
+  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...childArgs]); // #308
+  await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE, ...childArgs]);
 }
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "site-style-regression.json"), JSON.stringify(R, null, 2));

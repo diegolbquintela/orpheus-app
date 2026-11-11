@@ -100,6 +100,8 @@ raw dumps are not committed. The canonical acceptance-criteria pack is
 
 **QA remote budget (#328, 2026-11-11).** A run against any non-local host (preview, production, `QA_BASE_URL`, a compare URL or a preview URL) needs `--release` or it exits 2 before any request. It prints a CDN estimate first (`pages × viewports × runs × 20`, API tools `calls × 1`, cap 10000, `--budget=N`, `--allow-over-budget`). `--budget-only` prints the estimate and exits 0. `fetch.py` does not default to production.
 
+**QA viewport forward and platform cookie (#331, 2026-11-11).** `site-style-regression.mjs` forwards `--viewports=<value>` to each child. The budget sum follows that list for children that read it, and keeps the fixed matrices for `site.mjs`, `pf-stale-reload.mjs` and `release-smoke`. `CLS_RUNS` is the existing env var. ST4-23 and PF-07 / PF-36 ignore the exact cookie name `__vdpl`; any other unexpected cookie still fails. The default regression estimate stays 1542. At one desktop viewport and `CLS_RUNS=1` it is 822 (children 656, including release-smoke's 16). A 1800 navigation plan is not this formula.
+
 **QA tools.** [`qa/tools/`](qa/tools/README.md) holds QA's Playwright scripts and a Python price fetcher.
 Each takes the app URL as `--base-url` or `QA_BASE_URL` (default: production), so they run against a PR
 preview or production:

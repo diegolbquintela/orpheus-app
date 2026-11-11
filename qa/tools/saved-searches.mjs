@@ -25,6 +25,7 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { qaConfig } from "./config.mjs";
+import { nonPlatformCookies } from "./lib/platform-cookies.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 import { viewportsFromArgv } from "./lib/viewports.mjs";
 
@@ -224,8 +225,10 @@ try {
       const apis = [...new Set(requests.filter((r) => new URL(r.url).pathname.startsWith("/api/")).map((r) => `${r.method} ${new URL(r.url).pathname}`))];
       check(`${tag} ST4-23 the only API requests are GET /api/chart`, apis.every((a) => a === "GET /api/chart"), apis);
       // The site's own cookies (a third-party font host may set its own, e.g. Cloudflare's __cf_bm on Google Fonts).
-      const cookies = await ctx.cookies(base);
-      const others = (await ctx.cookies()).filter((c) => !cookies.includes(c)).map((c) => `${c.name}@${c.domain}`);
+      // #331: the exact platform name __vdpl is ignored. Any other site cookie still fails.
+      const jar = await ctx.cookies(base);
+      const cookies = nonPlatformCookies(jar);
+      const others = (await ctx.cookies()).filter((c) => !jar.includes(c)).map((c) => `${c.name}@${c.domain}`);
       check(`${tag} ST4-23 no cookie for the site`, cookies.length === 0, { site: cookies.map((c) => c.name), thirdParty: others });
       const extra = await page.evaluate(async () => ({ session: sessionStorage.length, idb: indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : [], keys: Object.keys(localStorage).sort() }));
       check(`${tag} ST4-23 nothing in sessionStorage or IndexedDB; localStorage only the two keys`, extra.session === 0 && extra.idb.length === 0 && JSON.stringify(extra.keys) === JSON.stringify(KEYS), extra);

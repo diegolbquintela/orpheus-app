@@ -28,6 +28,10 @@ export const SSR_CHILDREN = [
 ];
 
 // pages / calls are declared ceilings for the formula, not a trace of every goto.
+// #331: site-style-regression's default run spawns exactly SSR_CHILDREN (creds, --read-only and --smoke do not
+// add or drop one; --own-only drops them all). QA's 1800 across 30 suites at 1440 / CLS_RUNS=1 is a navigation
+// trace (90 × 20). This formula's children at that setting sum to 656, including release-smoke's 16 calls.
+// The default parent total stays 1542. Do not retune pages/runs to chase individual reloads.
 // viewports: "argv" (--viewports, else 390+1440), "session" (QA_VIEWPORTS else argv), "stale" (2, or 4 with
 // --all-widths), or a fixed count. runs: "cls" (CLS_RUNS, default 2), "nav+cls" (one navigation + CLS_RUNS), or a count.
 export const PROFILES = {
@@ -98,6 +102,31 @@ export function forwardedRemoteArgs(argv) {
     if (b !== undefined) out.push(`--budget=${b}`);
   }
   return out;
+}
+
+/**
+ * The parent's last `--viewports` value, as one `--viewports=<value>` token.
+ * Equals form so release-smoke's positional parser cannot see the value.
+ * Empty when the parent did not set the flag (children keep their own default).
+ */
+export function forwardedViewportArgs(argv) {
+  let value;
+  let seen = false;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--viewports") {
+      const next = argv[i + 1];
+      seen = true;
+      if (next !== undefined && !next.startsWith("--")) {
+        value = next;
+        i += 1;
+      } else value = undefined;
+    } else if (argv[i].startsWith("--viewports=")) {
+      seen = true;
+      value = argv[i].slice("--viewports=".length);
+    }
+  }
+  if (!seen || value === undefined || value === "") return [];
+  return [`--viewports=${value}`];
 }
 
 function clsRuns(env) {
@@ -206,12 +235,15 @@ export function assessRemote({ script, baseUrl = null, compareUrl = null, previe
   const pieces = [pieceFor(script, argv, env, ownHosts, profiles)];
   for (const child of plannedChildren(script, argv, env)) {
     const childEnv = script === "dashboard-redesign" ? { ...env, QA_VIEWPORTS: env.QA_VIEWPORTS || "phone,desktop" } : env;
+    // #331: regression children are estimated with the forwarded --viewports. Fixed profiles (site, pf-stale-reload,
+    // release-smoke) ignore that argv. dashboard-redesign keeps an empty argv and its QA_VIEWPORTS override.
+    const childArgv = script === "site-style-regression" ? forwardedViewportArgs(argv) : [];
     const childHosts = {
       baseRemote: flags.baseRemote,
       compareRemote: child.script === "site-shell" && flags.compareRemote,
       previewRemote: false,
     };
-    pieces.push(pieceFor(child.script, [], childEnv, childHosts, profiles));
+    pieces.push(pieceFor(child.script, childArgv, childEnv, childHosts, profiles));
   }
   const total = pieces.reduce((sum, piece) => sum + piece.total, 0);
   const names = remoteHostNames([baseUrl, compareUrl, previewUrl]);

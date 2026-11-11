@@ -2478,6 +2478,8 @@ HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab
 | RB-09 | BLOCK | `--compare-url` and `--preview-url` are part of the run: a remote one exits 2 with no request when `--release` is absent, and the estimate counts the loads that hit that host. |
 | RB-10 | BLOCK | `--budget-only` prints the estimate and exits 0 before any request and before `startLocal`. A full site-style regression dry run prints the summed estimate and does not spawn. |
 | RB-11 | BLOCK | Every `qa/tools` script that calls `qaConfig(import.meta.url)` has a profile row, and so does `release-smoke`. |
+| RB-12 | BLOCK | With no `--viewports` and `CLS_RUNS` unset, the site-style-regression estimate stays 1542. With `--viewports=desktop` and `CLS_RUNS=1` it is 822: argv-profile children use 1 viewport, `home-page` runs 1, `site-shell` runs stay 2, `site` stays 2 viewports, `pf-stale-reload` stays 2, and `release-smoke` stays 16 calls. `scripts/release-smoke.mjs` with `--viewports=desktop` and `--budget-only` on loopback exits 0 and prints `CDN estimate: 0 (local)`. |
+| RB-13 | BLOCK | The default site-style spawn list and `plannedChildren` are the same nine tools. Creds, `--read-only` and `--smoke` do not change that list. `--own-only` drops it. Default child contributions stay 1056 and the parent total stays 1542. At `--viewports=desktop` and `CLS_RUNS=1` the children sum to 656 (release-smoke 16) and the parent total is 822. That child sum is not 1800. |
 
 ## Icon, favicon and manifest cache (#324; site-style-spec addendum 2026-11-11)
 
@@ -2486,3 +2488,11 @@ HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab
 | LC-01 | BLOCK | `.vercel/output/config.json` has `/(icons/(.*)|favicon\.svg|manifest\.webmanifest)` immediately after `/(fonts|hero)/(.*)`, header `Cache-Control: public, max-age=604800, stale-while-revalidate=86400`, `continue: true`. The six paths `/icons/icon-180.png`, `/icons/icon-512.png`, `/icons/apple-touch-icon.png`, `/icons/x`, `/favicon.svg` and `/manifest.webmanifest` receive that header and `X-Robots-Tag: noindex, nofollow`. |
 | LC-02 | BLOCK | `/`, `/calculator`, `/api/x`, `/api/personal-finance`, `/robots.txt` and `/favicon.ico` have no `immutable` and no `max-age` of 1 or more from the route phase. `/favicon.ico` stays a missing file (no new icon file). |
 | LC-03 | BLOCK | `/fonts/*`, `/hero/*` and `/assets/*` stay `public, max-age=31536000, immutable`. |
+
+## Platform cookie __vdpl (#331, 2026-11-11)
+
+The ST4-23 and PF-07 sentences above are unchanged. This row is the exception for the platform cookie.
+
+| AC | Severity | Check |
+|---|---|---|
+| CK-01 | BLOCK | The exact cookie name `__vdpl` is ignored by ST4-23 and by PF-07 / PF-36. `__vdpl` plus a name matching `/auth/` passes PF-07 and fails ST4-23. `__vdpl` plus any other name fails PF-07. A non-platform name alone fails ST4-23. Prefix, substring and different case (`__v`, `__vdpl_extra`, `x__vdpl`, `__VDPL`) are not ignored. |
