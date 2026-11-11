@@ -14,6 +14,7 @@ import {
   SSR_CHILDREN,
   assessRemote,
   forwardedRemoteArgs,
+  forwardedViewportArgs,
   isRemoteUrl,
   plannedChildren,
 } from "../qa/tools/lib/remote-budget.mjs";
@@ -133,6 +134,89 @@ test("RB-06 site-style-regression sums its children before any of them start", (
   assert.doesNotMatch(src, /refuseFullOnProd/);
   assert.match(readFileSync("qa/tools/dashboard-redesign.mjs", "utf8"), /forwardedRemoteArgs\(process\.argv\.slice\(2\)\)/);
   assert.deepEqual(forwardedRemoteArgs(["--release", "--budget", "50", "--allow-over-budget", "--budget-only", "--viewports=phone"]), ["--release", "--allow-over-budget", "--budget=50"]);
+});
+
+test("RB-12 forwarded --viewports and CLS_RUNS shrink argv-profile children only", () => {
+  assert.deepEqual(forwardedViewportArgs([]), []);
+  assert.deepEqual(forwardedViewportArgs(["--viewports=desktop"]), ["--viewports=desktop"]);
+  assert.deepEqual(forwardedViewportArgs(["--viewports", "desktop"]), ["--viewports=desktop"]);
+  assert.deepEqual(forwardedViewportArgs(["--viewports=phone", "--viewports", "desktop"]), ["--viewports=desktop"]);
+  assert.deepEqual(forwardedRemoteArgs(["--release", "--viewports=desktop"]), ["--release"]);
+  const narrowed = assessRemote({
+    script: "site-style-regression",
+    baseUrl: PUBLIC,
+    argv: ["--release", "--viewports=desktop"],
+    env: { CLS_RUNS: "1" },
+  });
+  const piece = (name) => narrowed.pieces.find((p) => p.label === name);
+  assert.equal(narrowed.total, 822);
+  assert.equal(piece("home-page").viewports, 1);
+  assert.equal(piece("home-page").runs, 1);
+  assert.equal(piece("site-shell").viewports, 1);
+  assert.equal(piece("site-shell").runs, 2);
+  assert.equal(piece("site").viewports, 2);
+  assert.equal(piece("site").total, 240);
+  assert.equal(piece("pf-stale-reload").viewports, 2);
+  assert.equal(piece("pf-stale-reload").total, 120);
+  assert.equal(piece("release-smoke").calls, 16);
+  assert.equal(piece("release-smoke").total, 16);
+  const src = readFileSync("qa/tools/site-style-regression.mjs", "utf8");
+  assert.match(src, /const viewportArgs = forwardedViewportArgs\(argv\)/);
+  assert.equal((src.match(/\.\.\.childArgs/g) ?? []).length, 9);
+  assert.match(src, /env:\s*process\.env/);
+  assert.doesNotMatch(readFileSync("qa/tools/dashboard-redesign.mjs", "utf8"), /forwardedViewportArgs/);
+  const smoke = run("scripts/release-smoke.mjs", ["http://127.0.0.1:9", "preview", "--budget-only", "--viewports=desktop"]);
+  assert.equal(smoke.status, 0, smoke.out);
+  assert.ok(smoke.out.split("\n").includes(LOCAL_ESTIMATE_LINE), smoke.out);
+  assert.deepEqual(smoke.requests, []);
+});
+
+test("RB-13 site-style children match the spawn list; 1542 stays; 1800 is not the formula", () => {
+  const nine = [...SSR_CHILDREN];
+  const spawned = [...readFileSync("qa/tools/site-style-regression.mjs", "utf8").matchAll(/runTool\("([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(spawned, nine);
+  for (const argv of [["--release"], ["--release", "--viewports=desktop"], ["--release", "--read-only"], ["--release", "--smoke", "preview"], ["--release", "--smoke-mode", "on"]]) {
+    for (const env of [{}, { QA_EMAIL: "a@example.com", QA_PASSWORD: "x", CLS_RUNS: "1" }]) {
+      assert.deepEqual(plannedChildren("site-style-regression", argv, env).map((c) => c.script), nine);
+    }
+  }
+  assert.deepEqual(plannedChildren("site-style-regression", ["--own-only"], { QA_EMAIL: "a@example.com" }), []);
+  const piece = (decision, name) => decision.pieces.find((p) => p.label === name);
+  const defaults = assessRemote({ script: "site-style-regression", baseUrl: PUBLIC, argv: ["--release"], env: {} });
+  const desktop = assessRemote({ script: "site-style-regression", baseUrl: PUBLIC, argv: ["--release", "--viewports=desktop"], env: { CLS_RUNS: "1" } });
+  const expectDefault = {
+    "site-style-regression": 486,
+    "site-shell": 320,
+    "home-page": 80,
+    "calculator-page": 80,
+    "saved-searches": 40,
+    "signin-page": 80,
+    "personal-finance": 80,
+    site: 240,
+    "pf-stale-reload": 120,
+    "release-smoke": 16,
+  };
+  const expectDesktop = {
+    "site-style-regression": 166,
+    "site-shell": 160,
+    "home-page": 20,
+    "calculator-page": 20,
+    "saved-searches": 20,
+    "signin-page": 40,
+    "personal-finance": 20,
+    site: 240,
+    "pf-stale-reload": 120,
+    "release-smoke": 16,
+  };
+  assert.equal(defaults.total, 1542);
+  assert.equal(desktop.total, 822);
+  for (const [name, total] of Object.entries(expectDefault)) assert.equal(piece(defaults, name).total, total, name);
+  for (const [name, total] of Object.entries(expectDesktop)) assert.equal(piece(desktop, name).total, total, name);
+  const childSum = (decision) => decision.pieces.filter((p) => p.label !== "site-style-regression").reduce((s, p) => s + p.total, 0);
+  assert.equal(childSum(defaults), 1056);
+  assert.equal(childSum(desktop), 656);
+  assert.notEqual(childSum(desktop), 1800);
+  assert.notEqual(childSum(desktop) - 16, 1800);
 });
 
 test("RB-07 release-smoke refuses a remote host before any GET, and --budget-only exits 0", () => {

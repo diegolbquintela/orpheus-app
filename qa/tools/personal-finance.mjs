@@ -71,6 +71,7 @@ import { eachViewport } from "./session.mjs";
 import { BLANK_PAST, blankMonth, monthChoices, pickMonth, shownMonth } from "./pf-helpers.mjs";
 import { householdMonth } from "./pf-window.mjs";
 import { headersApply } from "./lib/local-headers.mjs";
+import { siteCookiesOk } from "./lib/platform-cookies.mjs";
 import { viewportsFromArgv } from "./lib/viewports.mjs";
 // #141 Q-T1 (CFO-changed, PF-129..PF-131): fewer than 12 complete months with data → "(N of 12 months)".
 const avg12Label = (withData = 12, now = new Date()) => {
@@ -828,8 +829,9 @@ try {
       const parse = (k) => { try { return JSON.parse(rec[k] ?? "null"); } catch { return "bad"; } };
       const store = { names: Object.keys(rec).sort(), value: parse(KEY), income: parse(INCOME_KEY), rates: parse(EQUITY_KEY), ...(await page.evaluate(async () => ({ local: localStorage.length, session: sessionStorage.length, idb: indexedDB.databases ? (await indexedDB.databases()).length : 0 }))) };
       // Cookies on this host: only the auth session's (the builder's extensions script brings a third-party one of its own).
+      // #331: drop the exact platform name __vdpl first; every remaining name must still match /auth/.
       const cookies = (await ctx.cookies(base)).filter((c) => !c.domain.endsWith("grok.com")).map((c) => c.name);
-      check(`${tag} PF-07 / PF-20 / PF-36 the account holds the PF names only (#112: Save writes them all), typed values as typed; nothing in localStorage / sessionStorage / IndexedDB; only the session cookies`, JSON.stringify(store.names) === JSON.stringify(SAVED_NAMES) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.local === 0 && store.session === 0 && store.idb === 0 && cookies.every((n) => /auth/.test(n)), { ...store, cookies });
+      check(`${tag} PF-07 / PF-20 / PF-36 the account holds the PF names only (#112: Save writes them all), typed values as typed; nothing in localStorage / sessionStorage / IndexedDB; only the session cookies`, JSON.stringify(store.names) === JSON.stringify(SAVED_NAMES) && JSON.stringify(store.rates) === '{"withdrawal":"","roic":"8"}' && store.value?.fixed?.[0]?.equity === "250,000" && store.income?.people?.length === 2 && store.income.people[0].wages === "120,000" && store.income.people[0].countBonus === false && store.income.people[1].share === "80" && store.value?.fixed?.[0]?.amount === "1,000" && store.value?.variable?.[0]?.amount === "1,200" && store.value?.variable?.[0]?.per === "year" && JSON.stringify(store.value?.accounts) === '["Chequing","Visa"]' && store.local === 0 && store.session === 0 && store.idb === 0 && siteCookiesOk(cookies), { ...store, cookies });
       await page.reload({ waitUntil: "networkidle" });
       await ready(page);
       const back = {
