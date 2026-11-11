@@ -87,11 +87,18 @@ export default defineConfig(({ command, isPreview }) => ({
                   },
                   // #319: fonts and hero images are long-cached like the hashed /assets (nitro's own route).
                   // Their names carry no hash, so any change to a file under public/fonts or public/hero
-                  // MUST ship under a new filename (AGENTS.md #319). HTML, API, /icons, favicon, manifest and
-                  // robots.txt keep Vercel's default (public, max-age=0, must-revalidate).
+                  // MUST ship under a new filename (AGENTS.md #319). HTML, API, robots.txt and /favicon.ico
+                  // keep Vercel's default (public, max-age=0, must-revalidate).
                   {
                     src: "/(fonts|hero)/(.*)",
                     headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+                    continue: true,
+                  },
+                  // #324: fixed URLs, replaced in place (no rename). 7 days, then 1 day stale-while-revalidate.
+                  // Does not match /favicon.ico.
+                  {
+                    src: "/(icons/(.*)|favicon\\.svg|manifest\\.webmanifest)",
+                    headers: { "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400" },
                     continue: true,
                   },
                 ],

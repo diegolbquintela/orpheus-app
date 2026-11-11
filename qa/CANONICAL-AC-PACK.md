@@ -2478,3 +2478,11 @@ HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab
 | RB-09 | BLOCK | `--compare-url` and `--preview-url` are part of the run: a remote one exits 2 with no request when `--release` is absent, and the estimate counts the loads that hit that host. |
 | RB-10 | BLOCK | `--budget-only` prints the estimate and exits 0 before any request and before `startLocal`. A full site-style regression dry run prints the summed estimate and does not spawn. |
 | RB-11 | BLOCK | Every `qa/tools` script that calls `qaConfig(import.meta.url)` has a profile row, and so does `release-smoke`. |
+
+## Icon, favicon and manifest cache (#324; site-style-spec addendum 2026-11-11)
+
+| AC | Severity | Check |
+|---|---|---|
+| LC-01 | BLOCK | `.vercel/output/config.json` has `/(icons/(.*)|favicon\.svg|manifest\.webmanifest)` immediately after `/(fonts|hero)/(.*)`, header `Cache-Control: public, max-age=604800, stale-while-revalidate=86400`, `continue: true`. The six paths `/icons/icon-180.png`, `/icons/icon-512.png`, `/icons/apple-touch-icon.png`, `/icons/x`, `/favicon.svg` and `/manifest.webmanifest` receive that header and `X-Robots-Tag: noindex, nofollow`. |
+| LC-02 | BLOCK | `/`, `/calculator`, `/api/x`, `/api/personal-finance`, `/robots.txt` and `/favicon.ico` have no `immutable` and no `max-age` of 1 or more from the route phase. `/favicon.ico` stays a missing file (no new icon file). |
+| LC-03 | BLOCK | `/fonts/*`, `/hero/*` and `/assets/*` stay `public, max-age=31536000, immutable`. |
