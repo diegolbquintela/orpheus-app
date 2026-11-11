@@ -142,6 +142,12 @@ describe("site shell (#46)", () => {
     assert.match(src, /src: "\/\(fonts\|hero\)\/\(\.\*\)"/);
     assert.match(src, /"Cache-Control": "public, max-age=31536000, immutable"/);
   });
+
+  it("#324: vite.config.ts caches /icons, /favicon.svg and /manifest.webmanifest for 7 days", () => {
+    const src = readFileSync("vite.config.ts", "utf8");
+    assert.match(src, /src: "\/\(icons\/\(\.\*\)\|favicon\\\\\.svg\|manifest\\\\\.webmanifest\)"/);
+    assert.match(src, /"Cache-Control": "public, max-age=604800, stale-while-revalidate=86400"/);
+  });
 });
 
 describe("dark shell page (#68, spec §6 / Q13)", () => {
