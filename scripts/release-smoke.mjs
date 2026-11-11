@@ -7,6 +7,7 @@
  *   node scripts/release-smoke.mjs <base-url> off       # dashboard flag off (rollback): every dashboard path 404
  *   node scripts/release-smoke.mjs <base-url> on        # production with the dashboard on
  *   node scripts/release-smoke.mjs <base-url> preview   # a Vercel preview / release candidate (flag on)
+ *   #328: a non-local base needs --release. --budget=N, --allow-over-budget, --budget-only.
  *
  * Every mode also checks the site shell (#46): the menu (Orpheus / Calculator / Dashboard / Personal Finance since
  * #97, the current page marked, Dashboard shown even with the flag off), home `/` (#69: the Jordaens hero, the title
@@ -21,11 +22,31 @@
 // #157 F8: inside a signed-out prod run (ORPHEUS_QA_PROD_MODE inherited) this activates the GET / HEAD-only backstop;
 // otherwise it does nothing. release-smoke only sends GETs.
 import "../qa/tools/prod-guard.mjs";
-const [base, mode] = process.argv.slice(2);
+import { applyRemoteDecision, assessRemote } from "../qa/tools/lib/remote-budget.mjs";
+// Flags may sit before or after the positional base and mode. --budget takes the next token.
+const raw = process.argv.slice(2);
+const positional = [];
+const flagArgv = [];
+for (let i = 0; i < raw.length; i++) {
+  const arg = raw[i];
+  if (arg === "--budget") {
+    flagArgv.push(arg, raw[i + 1]);
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith("--")) {
+    flagArgv.push(arg);
+    continue;
+  }
+  positional.push(arg);
+}
+const [base, mode] = positional;
 if (!base || !["off", "on", "preview"].includes(mode)) {
-  console.error("usage: node scripts/release-smoke.mjs <base-url> off|on|preview");
+  console.error("usage: node scripts/release-smoke.mjs <base-url> off|on|preview [--release] [--budget=N] [--allow-over-budget] [--budget-only]");
   process.exit(2);
 }
+// #328: refuse a remote host before the first GET. --budget-only exits 0 here.
+applyRemoteDecision(assessRemote({ script: "release-smoke", baseUrl: base, argv: flagArgv }));
 const url = (p) => new URL(p, base).toString();
 const get = async (p) => {
   const res = await fetch(url(p), {

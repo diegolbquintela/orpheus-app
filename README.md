@@ -98,6 +98,8 @@ raw dumps are not committed. The canonical acceptance-criteria pack is
 
 **QA runs locally by default (#320).** With no `--base-url`, the `qa/tools/*.mjs` scripts build with `npx vite build` and serve it with `vite preview` on 127.0.0.1:4173 (killed on exit, no database env); previews and production are opt-in (`--target=preview|prod`), and a full site-style regression on production needs `--release`.
 
+**QA remote budget (#328, 2026-11-11).** A run against any non-local host (preview, production, `QA_BASE_URL`, a compare URL or a preview URL) needs `--release` or it exits 2 before any request. It prints a CDN estimate first (`pages × viewports × runs × 20`, API tools `calls × 1`, cap 10000, `--budget=N`, `--allow-over-budget`). `--budget-only` prints the estimate and exits 0. `fetch.py` does not default to production.
+
 **QA tools.** [`qa/tools/`](qa/tools/README.md) holds QA's Playwright scripts and a Python price fetcher.
 Each takes the app URL as `--base-url` or `QA_BASE_URL` (default: production), so they run against a PR
 preview or production:

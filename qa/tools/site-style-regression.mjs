@@ -38,7 +38,8 @@ import { mkdirSync, readFileSync, writeFileSync, createWriteStream } from "node:
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
-import { refuseFullOnProd, refuseIfProd } from "./prod-guard.mjs";
+import { forwardedRemoteArgs } from "./lib/remote-budget.mjs";
+import { refuseIfProd } from "./prod-guard.mjs";
 import { headersApply } from "./lib/local-headers.mjs";
 import { fontsSettled } from "./fonts.mjs";
 import { viewportsFromArgv } from "./lib/viewports.mjs";
@@ -59,8 +60,7 @@ const avg3Label = (now = new Date()) => {
 
 const CFG = qaConfig(import.meta.url);
 // #157 (QA run 2026-10-17 F2, EL): refuse production before any request or sign-in (qa/tools/prod-guard.mjs).
-// #320: production only with --release (a warning line then), before refuseIfProd and before any other request.
-await refuseFullOnProd(CFG.baseUrl, "site-style-regression");
+// #328: the remote opt-in, the CDN estimate and the budget already ran inside qaConfig (one warning).
 await refuseIfProd(CFG.baseUrl, "site-style-regression");
 const base = CFG.baseUrl;
 const argv = process.argv.slice(2);
@@ -441,16 +441,18 @@ if (!OWN_ONLY) {
   if (!CFG.compareUrl || !process.env.QA_EMAIL) console.log("INFO ST0-05 signed-in /dashboard compare needs --compare-url <base PR preview> and QA_EMAIL / QA_PASSWORD in env; site-shell.mjs skips it otherwise (QA runs it)");
   const T = (f) => join(HERE, f);
   // #320: the children reuse this run's server (--base-url) and know it's the local target (header checks skipped).
+  // #328: forward the remote flags so each child is under the same --release / --budget the parent was allowed with.
   const local = CFG.target === "local" ? ["--target=local"] : [];
-  await runTool("site-shell", T("site-shell.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...compare]);
-  await runTool("home-page", T("home-page.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
-  await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
-  await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
-  await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
-  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
-  await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}", ...local]);
-  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}", ...local]); // #308
-  await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE]);
+  const remoteArgs = forwardedRemoteArgs(argv);
+  await runTool("site-shell", T("site-shell.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...compare, ...remoteArgs]);
+  await runTool("home-page", T("home-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
+  await runTool("calculator-page", T("calculator-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
+  await runTool("saved-searches", T("saved-searches.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
+  await runTool("signin-page", T("signin-page.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
+  await runTool("personal-finance", T("personal-finance.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
+  await runTool("site", T("site.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]);
+  await runTool("pf-stale-reload", T("pf-stale-reload.mjs"), ["--base-url", base, "--out", "{out}", ...local, ...remoteArgs]); // #308
+  await runTool("release-smoke", join(REPO, "scripts", "release-smoke.mjs"), [base, SMOKE_MODE, ...remoteArgs]);
 }
 const fails = R.checks.filter((c) => !c.ok);
 writeFileSync(join(CFG.out, "site-style-regression.json"), JSON.stringify(R, null, 2));

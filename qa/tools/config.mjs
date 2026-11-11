@@ -20,6 +20,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { LOCAL_BASE_URL, PROD_BASE_URL, resolveTarget, startLocal } from "./lib/base-url.mjs";
+import { applyRemoteDecision, assessRemote } from "./lib/remote-budget.mjs";
 
 // #320: the default is local (was production). The production alias stays exported as PROD_BASE_URL.
 export const DEFAULT_BASE_URL = LOCAL_BASE_URL;
@@ -42,15 +43,25 @@ function cleanUrl(value) {
 }
 
 /** Resolve settings for one script; `scriptUrl` is that script's import.meta.url. */
-export function qaConfig(scriptUrl, argv = process.argv.slice(2), env = process.env, { start = startLocal } = {}) {
+export function qaConfig(scriptUrl, argv = process.argv.slice(2), env = process.env, { start = startLocal, exit = process.exit, log = console.log } = {}) {
   const script = basename(fileURLToPath(scriptUrl), ".mjs");
   // BY (QA_BASE_URL): the --base-url flag always wins over QA_BASE_URL (e.g. from QA's logins file), then the default.
   // #320: with neither, --target (default local) decides; local starts the server here (killed on exit).
+  // #328: the remote opt-in, the CDN estimate and --budget-only run before startLocal and before any request.
   const t = resolveTarget(argv, env);
+  const compareRaw = flag(argv, "compare-url") ?? env.QA_COMPARE_URL;
+  const previewRaw = flag(argv, "preview-url") ?? env.QA_PREVIEW_URL;
+  applyRemoteDecision(assessRemote({
+    script,
+    baseUrl: t.url,
+    compareUrl: compareRaw ?? null,
+    previewUrl: previewRaw ?? null,
+    argv,
+    env,
+  }), { exit, log });
   const baseFrom = t.from === "default (local)" ? "default" : t.from;
   const target = t.target;
   const baseUrl = cleanUrl(t.url ?? start({ argv, env }).url);
-  const compareRaw = flag(argv, "compare-url") ?? env.QA_COMPARE_URL;
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = resolve(flag(argv, "out") ?? env.QA_OUT_DIR ?? join(tmpdir(), "orpheus-qa", `${script}-${stamp}`));
   const fixtures = resolve(flag(argv, "fixtures") ?? env.QA_FIXTURES ?? join(REPO_ROOT, "qa", "fixtures.json"));

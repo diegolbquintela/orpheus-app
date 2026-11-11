@@ -2462,3 +2462,19 @@ HBM addition (2026-11-02, Q5(b), PR #302 r2): HBM-06 also requires the exact Tab
 | CLS-06 | BLOCK | No regression: HBM-01..10, HDR-01..12, the #287 Tab order, trap, CH14 / CH15; 768 / 1440 pixel-identical to 5b2f76c (closed and open); no gold, no tnum; lyre and `Orpheus Wisdom` kept. |
 | CLS-07 | MAJOR | Below 768 the X shows `Close` inside the same button (one tab stop, label aria-hidden, name `Close menu`), ≥ 44 px, AA text, no overflow or collision at 360 / 390; not displayed from 768. |
 | CLS-08 | MINOR | The Search caret survives a resize across 768 px even when focus had left Search (CH17). |
+
+## QA remote-run budget (#328, 2026-11-11)
+
+| AC | Severity | Check |
+|---|---|---|
+| RB-01 | BLOCK | A host other than `localhost`, `127.0.0.1` and `::1` is remote, including a `*.vercel.app` preview, the production alias and any other public host such as `https://example.com`. |
+| RB-02 | BLOCK | `no-grok.mjs` and `run.mjs` against a preview or the production alias, and `no-grok.mjs` against `https://example.com`, exit 2 with no request when `--release` is absent. The `CDN estimate:` line is printed before `REFUSED`. |
+| RB-03 | BLOCK | `http://127.0.0.1:4173` and `http://localhost` are allowed. The line is exactly `CDN estimate: 0 (local)`. The default local server is not started for an explicit loopback URL. |
+| RB-04 | BLOCK | `QA_BASE_URL` set to a remote host, with no `--base-url`, exits 2 and does not start the local server. |
+| RB-05 | BLOCK | The default cap is 10000. An estimate equal to `--budget` is allowed; one over it exits 2 unless `--allow-over-budget`. `--budget N` and `--budget=N` both work. `0`, `01`, a negative and a non-integer exit 2. |
+| RB-06 | BLOCK | `site-style-regression.mjs` adds its nine children (and `dashboard-redesign.mjs` adds the tools that argv and env say it will start) into one estimate before spawning. `--own-only` omits the children. The spawners forward `--release`, `--budget` and `--allow-over-budget`, including onto the positional `release-smoke` invocation. `refuseFullOnProd` is not called. |
+| RB-07 | BLOCK | `scripts/release-smoke.mjs` against the production alias exits 2 with no GET. `--budget-only` on a loopback URL exits 0, prints `CDN estimate: 0 (local)`, and does not run the checks. |
+| RB-08 | BLOCK | `fetch.py` with no `--base-url` and no `QA_BASE_URL` exits 2 and does not use a production default. A remote host without `--release` exits 2. The estimate is the ticker count (`/api/chart` only). Yahoo and Stooq are not in the number and are not requested when the run is refused or `--budget-only`. |
+| RB-09 | BLOCK | `--compare-url` and `--preview-url` are part of the run: a remote one exits 2 with no request when `--release` is absent, and the estimate counts the loads that hit that host. |
+| RB-10 | BLOCK | `--budget-only` prints the estimate and exits 0 before any request and before `startLocal`. A full site-style regression dry run prints the summed estimate and does not spawn. |
+| RB-11 | BLOCK | Every `qa/tools` script that calls `qaConfig(import.meta.url)` has a profile row, and so does `release-smoke`. |

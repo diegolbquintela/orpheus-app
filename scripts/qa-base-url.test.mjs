@@ -28,9 +28,10 @@ test("LQ-01 the default target is local (127.0.0.1:4173), never production", () 
 
 test("LQ-02 --target=preview|prod are explicit opt-ins; --base-url and QA_BASE_URL start nothing", () => {
   const none = () => assert.fail("must not start a local server");
-  assert.equal(qaConfig(URL_, ["--target=prod"], { QA_OUT_DIR: out }, { start: none }).baseUrl, PROD_BASE_URL);
-  assert.equal(qaConfig(URL_, ["--target=preview", "--base-url", "https://p.example"], { QA_OUT_DIR: out }, { start: none }).target, "preview");
-  assert.equal(qaConfig(URL_, [], { QA_OUT_DIR: out, QA_BASE_URL: "https://env.example" }, { start: none }).baseUrl, "https://env.example");
+  // #328: those hosts are remote, so the opt-in also needs --release or qaConfig exits 2 before returning.
+  assert.equal(qaConfig(URL_, ["--release", "--target=prod"], { QA_OUT_DIR: out }, { start: none }).baseUrl, PROD_BASE_URL);
+  assert.equal(qaConfig(URL_, ["--release", "--target=preview", "--base-url", "https://p.example"], { QA_OUT_DIR: out }, { start: none }).target, "preview");
+  assert.equal(qaConfig(URL_, ["--release"], { QA_OUT_DIR: out, QA_BASE_URL: "https://env.example" }, { start: none }).baseUrl, "https://env.example");
   assert.equal(qaConfig(URL_, ["--base-url=http://127.0.0.1:4173", "--target=local"], { QA_OUT_DIR: out }, { start: none }).target, "local");
   assert.throws(() => resolveTarget(["--target=preview"], {}), /needs --base-url/);
   assert.throws(() => resolveTarget(["--target", "staging"], {}), /unknown staging/);
@@ -111,7 +112,9 @@ test("LQ-08 site-style-regression refuses production without --release: exit 2, 
   for (const args of [["--base-url", PROD_BASE_URL], ["--target=prod"]]) {
     const r = runSsr(args);
     assert.equal(r.status, 2, r.out);
-    assert.match(r.out, /^REFUSED site-style-regression: full site-style regression on production/m);
+    assert.match(r.out, /^CDN estimate: /m);
+    assert.match(r.out, /^REFUSED site-style-regression: remote host orpheus-app-beta.vercel.app needs --release/m);
+    assert.ok(r.out.indexOf("CDN estimate:") < r.out.indexOf("REFUSED "), "the estimate is printed before the refusal");
     assert.deepEqual(r.requests, [], "a static prod host makes no request");
     assert.doesNotMatch(r.out, new RegExp(RELEASE_WARNING.slice(0, 20)));
   }
@@ -120,7 +123,8 @@ test("LQ-08 site-style-regression refuses production without --release: exit 2, 
 test("LQ-09 --release lets it run on production, with the warning line first", () => {
   const r = runSsr(["--base-url", PROD_BASE_URL, "--release", "--own-only"]);
   assert.doesNotMatch(r.out, /^REFUSED /m, r.out.slice(0, 400));
-  assert.ok(r.out.includes(RELEASE_WARNING), r.out.slice(0, 400));
+  assert.ok(r.out.includes(RELEASE_WARNING), r.out.slice(0, 500));
+  assert.ok(r.out.indexOf("CDN estimate:") < r.out.indexOf(RELEASE_WARNING), "the estimate is printed before the warning");
   assert.ok(r.requests.some((l) => l.startsWith("GET ")), "it ran");
 });
 

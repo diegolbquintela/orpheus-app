@@ -173,7 +173,8 @@ test("F7 (2): with credentials, every sign-in tool refuses the prod alias: exit 
 
 test("F7 (3): QA_WRITE alone (no credentials) is refused on prod too, with zero traffic", () => {
   for (const t of ["pf-reports-api.mjs", "site-shell.mjs", "personal-finance.mjs", "pf-charts-contract.mjs"]) {
-    const r = run(t, ["--base-url", PROD_ALIAS], { QA_WRITE: "1" });
+    // #328: --release gets past the remote opt-in so this still proves the QA_WRITE refusal.
+    const r = run(t, ["--base-url", PROD_ALIAS, "--release"], { QA_WRITE: "1" });
     assert.equal(r.status, 2, `${t}: ${r.out}`);
     assert.match(r.out, /^REFUSED .*\(QA_WRITE\)/m, t);
     assert.deepEqual(r.requests, [], t);
@@ -182,7 +183,7 @@ test("F7 (3): QA_WRITE alone (no credentials) is refused on prod too, with zero 
 
 test("F7 (1): with no credentials, every sign-in tool runs signed out on the prod alias: prints the mode, never signs in or writes", () => {
   for (const t of TOOLS) {
-    const r = run(t, ["--base-url", PROD_ALIAS, ...(t === "site-style-regression.mjs" ? ["--release"] : [])]); // #320
+    const r = run(t, ["--base-url", PROD_ALIAS, "--release"]); // #328: every remote run, including signed-out prod, needs --release
     const lines = r.out.split("\n");
     assert.equal(lines.filter((l) => l === SIGNED_OUT_PROD_LINE).length, 1, `${t}: prints exactly '${SIGNED_OUT_PROD_LINE}'\n${r.out.slice(0, 400)}`);
     assert.doesNotMatch(r.out, /^REFUSED /m, t);
@@ -192,7 +193,7 @@ test("F7 (1): with no credentials, every sign-in tool runs signed out on the pro
     assert.deepEqual(r.requests.filter((l) => l.startsWith("CLICK") && /submit/.test(l)), [], `${t}: no form submit clicked`);
   }
   // the post-merge signed-out prod check: these really run (they make signed-out GETs)
-  for (const t of ["site-shell.mjs", "site-style-regression.mjs", "personal-finance.mjs", "personal-finance-e2e.mjs"]) assert.ok(run(t, ["--base-url", PROD_ALIAS, ...(t === "site-style-regression.mjs" ? ["--release"] : [])]).requests.some((l) => l.startsWith("GET ")), `${t} ran`);
+  for (const t of ["site-shell.mjs", "site-style-regression.mjs", "personal-finance.mjs", "personal-finance-e2e.mjs"]) assert.ok(run(t, ["--base-url", PROD_ALIAS, "--release"]).requests.some((l) => l.startsWith("GET ")), `${t} ran`);
 });
 
 test("F8: no credentials, prod alias: site-style-regression and every child it spawns (signin-page included) send no POST to /api/auth/, no non-GET / HEAD, no submit", () => {
@@ -238,7 +239,7 @@ test("the mode line is pinned", () => assert.equal(SIGNED_OUT_PROD_LINE, "signed
 test("site-shell also refuses a production --compare-url when credentials are set, before any request", () => {
   const r = run("site-shell.mjs", ["--base-url", "http://localhost:9", "--compare-url", PROD_ALIAS], CREDS);
   assert.equal(r.status, 2, r.out);
-  assert.match(r.out, /^REFUSED site-shell \(--compare-url\): /m);
+  assert.match(r.out, /^REFUSED site-shell: remote host orpheus-app-beta.vercel.app needs --release/m);
   assert.deepEqual(r.requests, []);
 });
 
