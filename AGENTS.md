@@ -419,6 +419,7 @@ request burn. This replaces the production default described in the next section
   (X-Robots-Tag, content types from routes) print `SKIPPED (NOT A PASS)` and the tool exits 3.
   - The config.json tests (`scripts/cache-headers.test.mjs`) are the real header coverage; previews still check headers.
 - Tests: `scripts/qa-base-url.test.mjs` (LQ-01..10).
+- 2026-11-11 (#328): any QA run whose base, `--compare-url` / `QA_COMPARE_URL`, or `--preview-url` / `QA_PREVIEW_URL` host is not local (`localhost`, `127.0.0.1`, `::1`) refuses to start unless `--release` (exit 2, no request). This covers previews, `QA_BASE_URL`, robots-txt, release-smoke, fetch.py, and signed-out production checks. The run prints `CDN estimate: …` before any request (`pages × viewports × runs × 20`, or `calls × 1` for API tools; spawners sum the children they will start and forward `--release` / `--budget` / `--allow-over-budget`). Default cap 10000; `--budget=N` (or `--budget N`) sets it; over the cap exits 2 unless `--allow-over-budget`. A bad `--budget` exits 2. `--budget-only` prints the estimate and exits 0 before any request and before the local build. Local prints `CDN estimate: 0 (local)`. fetch.py has no production default: with no `--base-url` and no `QA_BASE_URL` it exits 2, and its estimate counts app `/api/chart` calls only. Exit 3 stays SKIPPED (NOT A PASS). Tests: `scripts/qa-remote-budget.test.mjs`.
 
 ### QA tools against a preview or production URL
 

@@ -26,6 +26,7 @@ import fs from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { qaConfig } from "./config.mjs";
+import { forwardedRemoteArgs } from "./lib/remote-budget.mjs";
 import { refuseIfProd } from "./prod-guard.mjs";
 
 const CFG = qaConfig(import.meta.url);
@@ -127,8 +128,10 @@ const run = (label, cmd, args, env = {}) =>
       done(code);
     });
   });
+// #328: the same --release / --budget the parent was allowed with. The sum already ran inside qaConfig.
+const remoteArgs = forwardedRemoteArgs(process.argv.slice(2));
 const tool = (name, env = {}, sub = name) =>
-  run(`${name}${env.QA_EMAIL ? ` (${env.label ?? "account"})` : ""}`, process.execPath, [join(HERE, `${name}.mjs`), "--base-url", base, "--out", join(CFG.out, sub)], {
+  run(`${name}${env.QA_EMAIL ? ` (${env.label ?? "account"})` : ""}`, process.execPath, [join(HERE, `${name}.mjs`), "--base-url", base, "--out", join(CFG.out, sub), ...remoteArgs], {
     QA_VIEWPORTS: process.env.QA_VIEWPORTS ?? "phone,desktop", // #320: wide (1024) is opt-in (QA_VIEWPORTS=phone,wide,desktop)
     ...env,
   });
@@ -153,7 +156,7 @@ if (has("empty") && process.env.QA_EMPTY_EMAIL && process.env.QA_EMPTY_PASSWORD)
   await tool("dashboard-leaveouts", empty, "empty-leaveouts");
   await tool("dashboard-list", empty, "empty-list");
 }
-if (smoke) await run(`release-smoke ${smoke}`, process.execPath, [join(REPO, "scripts", "release-smoke.mjs"), base, smoke]);
+if (smoke) await run(`release-smoke ${smoke}`, process.execPath, [join(REPO, "scripts", "release-smoke.mjs"), base, smoke, ...remoteArgs]);
 
 // ---- Summary ----
 const siteFails = R.site.filter((c) => !c.ok).length;
