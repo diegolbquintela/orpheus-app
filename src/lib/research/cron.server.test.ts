@@ -34,6 +34,20 @@ describe("yearly-returns cron (#333)", () => {
     assert.equal(pulls, 0);
   });
 
+  it("401 when CRON_SECRET is set and the Authorization header is missing", async () => {
+    let pulls = 0;
+    const res = await handleYearlyReturnsCron(new Request("http://local/api/cron/yearly-returns"), {
+      env: { CRON_SECRET: SECRET },
+      pull: async () => {
+        pulls += 1;
+        return {};
+      },
+    });
+    assert.equal(res.status, 401);
+    assert.deepEqual(await res.json(), { error: "Unauthorized." });
+    assert.equal(pulls, 0);
+  });
+
   it("401 when the bearer does not match CRON_SECRET", async () => {
     let pulls = 0;
     const res = await handleYearlyReturnsCron(

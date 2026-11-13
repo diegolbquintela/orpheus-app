@@ -32,3 +32,11 @@ The loader (`loadYearlyReturns`) is server-only and uses `getDashboardDb()`. It 
 ## Style
 
 Dark tokens only. Positive cells use `--color-green`. Negative cells use `--color-alert`. No gold. The shared shell (lyre, `Orpheus Wisdom` footer) is unchanged.
+
+## Heatmap order and source note (#335)
+
+Added 2026-11-13. The grid lists years newest first. The current year, marked YTD, is the first cell. The oldest year is the last cell (SPY 1994, QQQ 1999, VT 2008, UPRO 2009, TQQQ 2010). `mergeReturns` stays chronological. The seed file is unchanged.
+
+Under the title, one `.ow-label` line reads: `Market-price total return, dividends reinvested. Source: Yahoo Finance. Fund NAV total return can differ when the close trades at a premium or discount (SPY 1994: +0.4% market vs +1.15% NAV).`
+
+The seeded figure is the market-price total return. A recorded Yahoo replay (prior-year last close, dividends reinvested at the ex-date close, no network) stays within 0.05 percentage points of SPY 1994 +0.40, QQQ 2000, VT 2009, UPRO 2010 and TQQQ 2011. The +1.15% SPY 1994 figure is the trust's NAV total investment return in the SEC financial highlights for the year ended 31 December 1994. A roughly 1 percentage point band versus issuer NAV covers that spot-check and is documented, not asserted.

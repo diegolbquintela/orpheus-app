@@ -5,6 +5,7 @@ import {
   cellBackground,
   cellSign,
   dateInNewYork,
+  marketPriceYearReturn,
   mergeReturns,
   pointsFromYahooChart,
   yearlyReturnsFromCloses,
@@ -82,6 +83,30 @@ describe("yearly returns from adjusted closes (#333)", () => {
     assert.match(cellBackground(-12), /255 143 135/);
     assert.doesNotMatch(cellBackground(-12), /92 192 138/);
     assert.equal(cellBackground(0), "transparent");
+  });
+
+  it("a recorded Yahoo replay stays within 0.05pp of the known market-price years (#335)", () => {
+    // SPY 1994 SEC NAV total investment return is +1.15% (SPDR Trust financial
+    // highlights, year ended 31 Dec 1994). That NAV figure is about 0.75pp from
+    // this market-price replay. A roughly 1pp band versus issuer NAV covers the
+    // 1994–2001 spot-check and is documented here, not asserted.
+    const fixture = JSON.parse(readFileSync("test-fixtures/research/yearly-return-replay.json", "utf8")) as {
+      cases: Array<{ ticker: string; year: number; bars: { date: string; close: number }[]; dividends: { date: string; amount: number }[] }>;
+    };
+    const known: Record<string, number> = {
+      "SPY|1994": 0.4,
+      "QQQ|2000": -36.1149,
+      "VT|2009": 32.66,
+      "UPRO|2010": 36.33,
+      "TQQQ|2011": -8.05,
+    };
+    assert.equal(fixture.cases.length, 5);
+    for (const item of fixture.cases) {
+      const replay = marketPriceYearReturn(item.bars, item.dividends, item.year);
+      const target = known[`${item.ticker}|${item.year}`];
+      assert.equal(typeof target, "number", item.ticker);
+      assert.ok(Math.abs(replay - target!) <= 0.05, `${item.ticker} ${item.year}: replay ${replay} vs ${target}`);
+    }
   });
 
   it("the migration is an idempotent new table", () => {

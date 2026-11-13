@@ -4,7 +4,7 @@ import { afterEach, describe, it } from "node:test";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import seedFile from "../../lib/research/yearly-returns.seed.json" with { type: "json" };
-import { normalizeReturn, type YearReturn } from "../../lib/research/returns.ts";
+import { MARKET_RETURN_NOTE, normalizeReturn, type YearReturn } from "../../lib/research/returns.ts";
 import { Heatmap } from "./heatmap";
 
 const seed = (seedFile as { rows: YearReturn[] }).rows.map((row) => normalizeReturn(row));
@@ -34,17 +34,22 @@ describe("research heatmap (#333)", () => {
     for (const ticker of ["SPY", "QQQ", "VT", "UPRO", "TQQQ"]) {
       const button = [...el.querySelectorAll("button")].find((node) => node.textContent === ticker)!;
       await act(async () => button.click());
-      const mine = seed.filter((row) => row.ticker === ticker);
+      const mine = seed.filter((row) => row.ticker === ticker).slice().sort((a, b) => b.year - a.year);
       const shown = cells(el);
       assert.equal(shown.length, mine.length, ticker);
-      assert.deepEqual(
-        shown.map((cell) => cell.getAttribute("data-year")),
-        mine.map((row) => String(row.year)),
-        ticker,
-      );
-      assert.equal(shown[0]?.getAttribute("data-sign"), mine[0]!.return_pct > 0 ? "up" : mine[0]!.return_pct < 0 ? "down" : "flat");
+      const years = shown.map((cell) => Number(cell.getAttribute("data-year")));
+      assert.deepEqual(years, mine.map((row) => row.year), ticker);
+      for (let i = 1; i < years.length; i++) assert.ok(years[i - 1]! > years[i]!, `${ticker} descending`);
+      assert.equal(shown[0]?.getAttribute("data-year"), String(Math.max(...years)), ticker);
+      assert.match(shown[0]?.textContent ?? "", /YTD/, ticker);
+      if (ticker === "SPY") assert.equal(shown.at(-1)?.getAttribute("data-year"), "1994");
+      if (ticker === "QQQ") assert.equal(shown.at(-1)?.getAttribute("data-year"), "1999");
     }
     assert.match(el.querySelector('[data-testid="rs-summary"]')!.textContent ?? "", /^\d+ up, \d+ down$/);
+    const note = el.querySelector('[data-testid="rs-source"]');
+    assert.equal(note?.textContent, MARKET_RETURN_NOTE);
+    assert.equal(note?.classList.contains("ow-label"), true);
+    assert.equal(note?.previousElementSibling?.tagName, "H1");
     assert.doesNotMatch(el.innerHTML, /gold|#c9a227|#d4af37/i);
   });
 
