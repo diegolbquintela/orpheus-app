@@ -2496,3 +2496,18 @@ The ST4-23 and PF-07 sentences above are unchanged. This row is the exception fo
 | AC | Severity | Check |
 |---|---|---|
 | CK-01 | BLOCK | The exact cookie name `__vdpl` is ignored by ST4-23 and by PF-07 / PF-36. `__vdpl` plus a name matching `/auth/` passes PF-07 and fails ST4-23. `__vdpl` plus any other name fails PF-07. A non-platform name alone fails ST4-23. Prefix, substring and different case (`__v`, `__vdpl_extra`, `x__vdpl`, `__VDPL`) are not ignored. |
+
+## Research suite (#333, 2026-11-13)
+
+Spec `attachments/research-spec.md`. The rows above that name Calculator or `/calculator` stay as written. These rows are the #333 checks.
+
+| AC | Severity | Check |
+|---|---|---|
+| RS-01 | BLOCK | `/research` renders the SPY yearly-return grid from the committed seed when the database is null, the relation is missing (`42P01`), the connection fails, or `yearly_returns` is empty. Every seed year for the selected ticker is on the grid. |
+| RS-02 | BLOCK | A stored row overrides only that `(ticker, year)`. The other seed cells stay. |
+| RS-03 | BLOCK | The ticker control switches among SPY (1994+, not partial), QQQ (1999 partial), VT (2008 partial), UPRO (2009 partial) and TQQQ (2010 partial). The current year is marked YTD. The summary is `N up, M down`. |
+| RS-04 | BLOCK | `/calculator` redirects to `/research/dca` and keeps the query. `/?query` still redirects to `/calculator?query` first, then to `/research/dca?query`. |
+| RS-05 | BLOCK | `/research/dca` is the existing DCA desk: h1 `Dollar-cost average calculator.`, listings note unchanged, `$313,000` unchanged, saved-search keys unchanged. `/calculator` is not in `NEXT_ALLOWED`. |
+| RS-06 | BLOCK | The overlay `Research` toggle lists `Heatmap` (`/research`) and `DCA Calculator` (`/research/dca`). `aria-current="page"` is on the matching child. `currentSection` is `research` for both paths. |
+| RS-07 | BLOCK | Dark shell, lyre, footer `Orpheus Wisdom`, no gold. Positive cells use `--color-green`. Negative cells use `--color-alert`. |
+| RS-08 | BLOCK | `GET /api/cron/yearly-returns` is 405 for a non-GET, 401 without `Bearer CRON_SECRET`, 503 with no database. A good call returns counts only (`upserted`, `finalized`, `errors`) and writes the current year `is_ytd` plus the finished prior year. `vercel.json` schedules it at `0 22 * * *` and leaves `/api/cron/daily-refresh` at `0 23 * * *`. No new secret. |

@@ -266,12 +266,12 @@ for (const flag of [undefined, "true"]) {
   // primary action, HDR-02 amended 2026-11-01) and the full-page overlay in the server HTML, hidden, its links in order with Account last.
   const nav = home.body.match(SITE_MENU)?.[0] ?? "";
   check(/<a href="\/"[^>]*data-testid="site-logo"[^>]*><svg [^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus<\/span><\/a>/.test(nav), `${label}: / header lacks the lyre home link (#286)`);
-  check(!/Get Started|site-get-started/.test(nav) && (nav.match(/<a href="\/calculator"/g) ?? []).length === 1, `${label}: / header has a primary action (Get Started removed, HDR-02 amended)`);
+  check(!/Get Started|site-get-started/.test(nav) && (nav.match(/<a href="\/research\/dca"/g) ?? []).length === 1, `${label}: / header has a primary action (Get Started removed, HDR-02 amended)`);
   check(/<button type="button"[^>]*aria-label="Search"[^>]*aria-expanded="false"/.test(nav), `${label}: / header lacks the Search button (#286)`);
   check(/<button type="button"[^>]*aria-label="Menu"[^>]*aria-expanded="false"/.test(nav), `${label}: / header lacks the Menu button (#286)`);
   const overlay = nav.match(/<div id="[^"]*"[^>]*role="dialog"[^>]*>[\s\S]*$/)?.[0] ?? "";
   check(/^<div [^>]*\bhidden=""/.test(overlay), `${label}: / overlay missing from the HTML or not hidden (#286)`);
-  check(JSON.stringify([...(overlay.match(/<ul [^>]*data-testid="site-menu-links"[\s\S]*?<\/ul>/)?.[0] ?? "").matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[1]} ${m[2]}`)) === JSON.stringify(["/ Orpheus", "/calculator Calculator", "/dashboard Dashboard", "/personal-finance Personal Finance", "/account Account"]), `${label}: / overlay links not Orpheus, Calculator, Dashboard, Personal Finance, Account (last) (#286)`);
+  check(JSON.stringify([...(overlay.match(/<ul [^>]*data-testid="site-menu-links"[\s\S]*?<\/ul>/)?.[0] ?? "").matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[1]} ${m[2]}`)) === JSON.stringify(["/ Orpheus", "/research Heatmap", "/research/dca DCA Calculator", "/dashboard Dashboard", "/personal-finance Personal Finance", "/account Account"]), `${label}: / overlay links not Orpheus, Heatmap, DCA Calculator, Dashboard, Personal Finance, Account (last) (#333)`);
   // #287 (HBM-07): the hidden overlay carries the panel's lyre + `Orpheus Wisdom` block (md:hidden; below 768 px only).
   check(/<div [^>]*data-testid="site-menu-footer"[^>]*><svg [^>]*data-testid="lyre"[\s\S]*?<\/svg><span>Orpheus Wisdom<\/span><\/div>/.test(overlay), `${label}: / overlay lacks the panel lyre + Orpheus Wisdom block (#287 HBM-07)`);
   // RM-21 (fail-closed): signed out, the owner-only link never reaches the HTML.
@@ -283,7 +283,7 @@ for (const flag of [undefined, "true"]) {
   check(
     JSON.stringify(lines) ===
       JSON.stringify([
-        ["Calculator", "Dollar-cost average calculator.", "/calculator", "Open"],
+        ["Research", "Yearly returns, and the dollar-cost average calculator.", "/research", "Open"],
         ["Dashboard", "The portfolio as a business.", "/dashboard", "Open"],
         ["Personal Finance", "Income, expenses, and the cover.", "/personal-finance", "Open"],
       ]),
@@ -292,12 +292,22 @@ for (const flag of [undefined, "true"]) {
   check((home.body.match(/data-testid="platform-line"/g) ?? []).length === 3 && !/data-testid="home-card"/.test(home.body), `${label}: / has not exactly three Platforms lines (or still has a home card)`);
   check(!/<form|Compare plans/.test(home.body), `${label}: / renders calculator UI`);
   check(FOOTER.test(home.body), `${label}: / footer is not exactly "Orpheus Wisdom"`);
-  const calc = await call("GET", "/calculator", flag);
-  check(calc.status === 200 && /Compare plans/.test(calc.body) && /Dollar-cost average calculator\./.test(calc.body), `${label}: GET /calculator -> ${calc.status}`);
-  check(NOINDEX.test(calc.body), `${label}: /calculator lacks noindex`);
-  check(JSON.stringify(menuCurrent(calc.body)) === '["Calculator"]', `${label}: /calculator current menu item ${menuCurrent(calc.body)}`);
-  check(FOOTER.test(calc.body), `${label}: /calculator footer is not exactly "Orpheus Wisdom"`);
-  check(/>US, EU and CA listings, one currency per basket\.</.test(calc.body), `${label}: /calculator lacks its listings note`);
+  const calcRedirect = await call("GET", "/calculator", flag);
+  check(
+    calcRedirect.status >= 300 && calcRedirect.status < 400 && new URL(calcRedirect.location ?? "/x", ORIGIN).pathname === "/research/dca",
+    `${label}: GET /calculator -> ${calcRedirect.status} ${calcRedirect.location}`,
+  );
+  const calcQuery = await call("GET", "/calculator?ticker=KO", flag);
+  check(
+    calcQuery.status >= 300 && calcQuery.status < 400 && new URL(calcQuery.location ?? "/x", ORIGIN).pathname === "/research/dca" && new URL(calcQuery.location ?? "/x", ORIGIN).search === "?ticker=KO",
+    `${label}: GET /calculator?ticker=KO -> ${calcQuery.status} ${calcQuery.location}`,
+  );
+  const calc = await call("GET", "/research/dca", flag);
+  check(calc.status === 200 && /Compare plans/.test(calc.body) && /Dollar-cost average calculator\./.test(calc.body), `${label}: GET /research/dca -> ${calc.status}`);
+  check(NOINDEX.test(calc.body), `${label}: /research/dca lacks noindex`);
+  check(JSON.stringify(menuCurrent(calc.body)) === '["DCA Calculator"]', `${label}: /research/dca current menu item ${menuCurrent(calc.body)}`);
+  check(FOOTER.test(calc.body), `${label}: /research/dca footer is not exactly "Orpheus Wisdom"`);
+  check(/>US, EU and CA listings, one currency per basket\.</.test(calc.body), `${label}: /research/dca lacks its listings note`);
   for (const query of ["?ticker=KO", "?ticker=PLTR&start=2020-10-02&end=2026-10-01"]) {
     const r = await call("GET", `/${query}`, flag);
     check(

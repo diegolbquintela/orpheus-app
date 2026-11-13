@@ -5,6 +5,7 @@ import {
   currentSection,
   MENU_EXTRA_SECTIONS,
   menuLinks,
+  RESEARCH_LINKS,
   SEARCH_PLACEHOLDER,
   SEARCH_SOON,
 } from "@/lib/site/site";
@@ -15,7 +16,7 @@ import {
  * The bar (one 45 px charcoal row, sticky, on every page): the lyre + `Orpheus` home link on the left; on the right a
  * Search button and a Menu (hamburger) button, every target 44 px. No primary action (Diego, 2026-11-01: Get Started removed).
  * The menu is a full-page overlay (not a dropdown): its left column lists every page by its full name (`menuLinks`:
- * Orpheus, Calculator, Dashboard, Personal Finance, the owner's `Renaissance Man` when the server sent it, Account),
+ * Orpheus, Research (Heatmap and DCA Calculator), Dashboard, Personal Finance, the owner's `Renaissance Man` when the server sent it, Account),
  * with `aria-current="page"` on the current one. The overlay is in the server HTML (hidden until opened), so plain
  * links still work everywhere and the owner link stays server-decided and fail-closed (RM-21): non-owners' HTML never
  * holds it. Search opens the same overlay with an inert placeholder field (no search yet). The overlay is a modal
@@ -190,6 +191,11 @@ export function SiteMenu({
   }, [phone]);
   const current = currentSection(pathname);
   const links = menuLinks(ownerLink);
+  const researchId = `${uid}-research`;
+  // Open on first paint so the two links are in the server HTML on every page (same markup apart from
+  // aria-current). The button still toggles them.
+  const [researchOpen, setResearchOpen] = useState(true);
+  const researchPath = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
   const open = (kind: Exclude<Opened, null>, from: HTMLButtonElement) => {
     trigger.current = from;
@@ -339,17 +345,44 @@ export function SiteMenu({
           <div className="min-w-0" data-testid="site-menu-main">
             <SearchSlot uid={uid} slot="desktop" inputRef={searchDesktop} value={query} onChange={setQuery} onCaret={onCaret} />
             <ul className="mt-8 max-md:mt-0 flex flex-col gap-1" data-testid="site-menu-links">
-              {links.map((l) => (
-                <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
-                  <a
-                    href={l.href}
-                    aria-current={l.section ? (current === l.section ? "page" : undefined) : pathname === l.href ? "page" : undefined}
-                    className={OVERLAY_LINK}
-                  >
-                    {l.label}
-                  </a>
-                </li>
-              ))}
+              {links.map((l) =>
+                l.section === "research" ? (
+                  <li key="research">
+                    <button
+                      type="button"
+                      className={`${OVERLAY_LINK} min-w-11 text-left`}
+                      aria-expanded={researchOpen}
+                      aria-controls={researchId}
+                      onClick={() => setResearchOpen((open) => !open)}
+                      data-testid="site-research-toggle"
+                    >
+                      Research
+                    </button>
+                    <div id={researchId} hidden={!researchOpen} data-testid="site-research-menu">
+                      {RESEARCH_LINKS.map((child) => (
+                        <a
+                          key={child.href}
+                          href={child.href}
+                          aria-current={researchPath === child.href ? "page" : undefined}
+                          className={OVERLAY_LINK}
+                        >
+                          {child.label}
+                        </a>
+                      ))}
+                    </div>
+                  </li>
+                ) : (
+                  <li key={l.href} data-testid={l.owner ? "site-menu-owner" : undefined}>
+                    <a
+                      href={l.href}
+                      aria-current={l.section ? (current === l.section ? "page" : undefined) : pathname === l.href ? "page" : undefined}
+                      className={OVERLAY_LINK}
+                    >
+                      {l.label}
+                    </a>
+                  </li>
+                ),
+              )}
             </ul>
             {phone ? <SearchSlot uid={uid} slot="mobile" inputRef={searchMobile} value={query} onChange={setQuery} onCaret={onCaret} /> : null}
           </div>

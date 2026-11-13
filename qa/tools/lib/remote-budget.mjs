@@ -39,6 +39,7 @@ export const PROFILES = {
   "site-shell": { pages: 4, viewports: "argv", runs: 2, alsoCompare: true },
   "home-page": { pages: 1, viewports: "argv", runs: "cls" },
   "calculator-page": { pages: 1, viewports: "argv", runs: "cls" },
+  "research-page": { pages: 3, viewports: "argv", runs: 1 },
   "saved-searches": { pages: 1, viewports: "argv", runs: 1 },
   "signin-page": { pages: 1, viewports: "argv", runs: 2 },
   "personal-finance": { pages: 1, viewports: "argv", runs: "cls" },

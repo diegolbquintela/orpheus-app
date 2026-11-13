@@ -54,7 +54,7 @@ const info = (name, detail) => {
 
 // ---- 1. Site-wide, signed out ----
 const NOINDEX = /^noindex, ?nofollow$/i;
-for (const path of ["/", "/calculator", "/dashboard/sign-in"]) {
+for (const path of ["/", "/research/dca", "/dashboard/sign-in"]) {
   const r = await fetch(`${base}${path}`, { redirect: "manual" });
   const html = await r.text();
   check(`${path} 200`, r.status === 200, r.status);
@@ -84,7 +84,7 @@ for (const path of ["/", "/calculator", "/dashboard/sign-in"]) {
       if (new URL(u).origin !== origin) foreign.push(u);
       if (/\/_vercel\/insights\/(view|event)/.test(u)) views.push(req.postData() ?? "");
     });
-    for (const path of ["/?utm_source=qa#x", "/calculator?ticker=KO&utm_source=qa", "/dashboard/sign-in?utm_source=qa"]) {
+    for (const path of ["/?utm_source=qa#x", "/research/dca?ticker=KO&utm_source=qa", "/dashboard/sign-in?utm_source=qa"]) {
       await page.goto(`${base}${path}`, { waitUntil: "networkidle" });
       const scripts = await page.locator('script[src*="/_vercel/insights/script.js"], script[data-sdkn="@vercel/analytics"]').count();
       check(`${path.split("?")[0]} one Vercel Analytics script`, scripts === 1, scripts);

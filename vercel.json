@@ -1,5 +1,8 @@
 {
   "ignoreCommand": "node scripts/vercel-ignore.mjs",
   "installCommand": "npm install --omit=dev --no-audit --no-fund",
-  "crons": [{ "path": "/api/cron/daily-refresh", "schedule": "0 23 * * *" }]
+  "crons": [
+    { "path": "/api/cron/daily-refresh", "schedule": "0 23 * * *" },
+    { "path": "/api/cron/yearly-returns", "schedule": "0 22 * * *" }
+  ]
 }

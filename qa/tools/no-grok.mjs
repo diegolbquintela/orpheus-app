@@ -29,7 +29,7 @@ function check(name, pass, detail) {
   console.log(`${pass ? "PASS" : "FAIL"} ${name}${detail === undefined ? "" : ` · ${JSON.stringify(detail)}`}`);
 }
 const GROK = /(^|\.)grok\.com$|(^|\.)grok-sandbox\.com$/i;
-const PAGES = ["/", "/calculator", "/dashboard/sign-in", "/dashboard", "/personal-finance", "/no-such-page"];
+const PAGES = ["/", "/research/dca", "/dashboard/sign-in", "/dashboard", "/personal-finance", "/no-such-page"];
 const OLD = ["/__grok/manifest.webmanifest", "/__grok/manifest.json", "/__grok/icon-180.png", "/__grok/install/styles.css"];
 
 const browser = await chromium.launch();
@@ -51,7 +51,7 @@ try {
       const html = await page.content();
       check(`${tag} ${path} NG-01 no grok script in the HTML`, !/<script[^>]+grok/i.test(html));
       check(`${tag} ${path} NG-08 no preview-bridge`, !html.includes("grok-preview-bridge"));
-      if (["/", "/calculator", "/dashboard/sign-in", "/no-such-page"].includes(path)) {
+      if (["/", "/research/dca", "/dashboard/sign-in", "/no-such-page"].includes(path)) {
         const head = await page.evaluate(() => ({
           robots: document.querySelector('meta[name="robots"]')?.content,
           theme: document.querySelector('meta[name="theme-color"]')?.content,
@@ -71,7 +71,7 @@ try {
     }
     const inst = await page.goto(`${baseUrl}/?install=1`, { waitUntil: "load" });
     const instHtml = await page.content();
-    check(`${tag} NG-06 /?install=1 follows the old-link rule (/?… → /calculator?…), the calculator 200, no install tutorial`, inst?.status() === 200 && new URL(page.url()).pathname === "/calculator" && !/Add to Home Screen|__grok\/install/i.test(instHtml) && (await page.locator("h1").count()) >= 1, { status: inst?.status(), url: page.url() });
+    check(`${tag} NG-06 /?install=1 follows the old-link rule through /calculator to /research/dca, the calculator 200, no install tutorial`, inst?.status() === 200 && new URL(page.url()).pathname === "/research/dca" && new URL(page.url()).searchParams.get("install") === "1" && !/Add to Home Screen|__grok\/install/i.test(instHtml) && (await page.locator("h1").count()) >= 1, { status: inst?.status(), url: page.url() });
     check(`${tag} NG-01 no request to grok.com on any page`, hits.length === 0, hits);
     const ck = (await ctx.cookies()).filter((c) => /grok/i.test(c.domain));
     check(`${tag} NG-02 no .grok.com cookies (context + Set-Cookie)`, ck.length === 0 && grokCookies.length === 0, { context: ck.map((c) => `${c.name}@${c.domain}`), setCookie: grokCookies });

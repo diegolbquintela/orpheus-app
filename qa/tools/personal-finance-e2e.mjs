@@ -117,7 +117,7 @@ try {
     } else check("PFE-02 /api/personal-finance signed out: GET / PUT / DELETE → 401 JSON, POST → 405", calls.slice(0, 3).every(([, st, b]) => st === 401 && b === '{"error":"Unauthorized."}') && calls[3][1] === 405, calls);
 
     for (const [what, start, click] of [
-      ["the bar's Personal Finance item", "/calculator", 'nav[aria-label="Site"] a[href="/personal-finance"]'],
+      ["the bar's Personal Finance item", "/research/dca", 'nav[aria-label="Site"] a[href="/personal-finance"]'],
       ["the home Platforms line's Open", "/", '[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]'],
       ["the URL", null, null],
     ]) {
@@ -188,7 +188,7 @@ try {
 
       // PFE-03 entry points, signed in.
       const entry = [];
-      for (const [start, click] of [["/calculator", 'nav[aria-label="Site"] a[href="/personal-finance"]'], ["/", '[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]']]) {
+      for (const [start, click] of [["/research/dca", 'nav[aria-label="Site"] a[href="/personal-finance"]'], ["/", '[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]']]) {
         await page.goto(`${base}${start}`, { waitUntil: "networkidle" });
         // #286: the bar's page links live in the menu overlay; open it first.
         if (click.startsWith('nav[aria-label="Site"]')) await page.getByTestId("site-menu-open").click();

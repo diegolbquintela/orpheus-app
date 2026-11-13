@@ -65,7 +65,7 @@ export function qaConfig(scriptUrl, argv = process.argv.slice(2), env = process.
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const out = resolve(flag(argv, "out") ?? env.QA_OUT_DIR ?? join(tmpdir(), "orpheus-qa", `${script}-${stamp}`));
   const fixtures = resolve(flag(argv, "fixtures") ?? env.QA_FIXTURES ?? join(REPO_ROOT, "qa", "fixtures.json"));
-  const calcPath = flag(argv, "calculator-path") ?? env.QA_CALCULATOR_PATH ?? "/calculator";
+  const calcPath = flag(argv, "calculator-path") ?? env.QA_CALCULATOR_PATH ?? "/research/dca";
   const comparePath = flag(argv, "compare-path") ?? env.QA_COMPARE_PATH ?? "/";
   const calculatorUrl = new URL(calcPath, `${baseUrl}/`).href;
   const compareUrl = compareRaw ? cleanUrl(compareRaw) : null;

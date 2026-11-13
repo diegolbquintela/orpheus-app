@@ -26,7 +26,7 @@ async function shell(page, path, want) {
   const bar = await nav.locator('[data-testid="site-bar"]').locator('a, button').evaluateAll((as) => as.map((a) => a.textContent.trim() || a.getAttribute('aria-label')));
   check(`${path}: bar items (#286)`, JSON.stringify(bar) === JSON.stringify(['Orpheus', 'Search', 'Menu']), bar);
   const links = await nav.locator('[data-testid="site-menu-links"] a').evaluateAll((as) => as.map((a) => [a.textContent, a.getAttribute('href')]));
-  check(`${path}: overlay menu items (#286)`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Calculator', '/calculator'], ['Dashboard', '/dashboard'], ['Personal Finance', '/personal-finance'], ['Account', '/account']]), links);
+  check(`${path}: overlay menu items (#286)`, JSON.stringify(links) === JSON.stringify([['Orpheus', '/'], ['Heatmap', '/research'], ['DCA Calculator', '/research/dca'], ['Dashboard', '/dashboard'], ['Personal Finance', '/personal-finance'], ['Account', '/account']]), links);
   const current = await nav.locator('[aria-current="page"]').allTextContents(); // overlay links only (#286)
   check(`${path}: current page ${want ?? '(none)'}`, JSON.stringify(current) === JSON.stringify(want ? [want] : []), current);
   if (want) {
@@ -70,7 +70,7 @@ for (const vp of ['desktop', 'mobile']) {
   await page.screenshot({ path: `${OUT}/home-${vp}.png`, fullPage: true });
   await shell(page, `[${vp}] /`, 'Orpheus');
   const lines = await page.locator('[data-testid="platform-line"]').evaluateAll((ls) => ls.map((l) => [l.querySelector('h3')?.textContent, l.querySelector('p')?.textContent, l.querySelector('a')?.textContent, l.querySelector('a')?.getAttribute('href')]));
-  check(`[${vp}] /: exactly three Platforms lines with the spec texts and Open links (#97)`, JSON.stringify(lines) === JSON.stringify([['Calculator', 'Dollar-cost average calculator.', 'Open', '/calculator'], ['Dashboard', 'The portfolio as a business.', 'Open', '/dashboard'], ['Personal Finance', 'Income, expenses, and the cover.', 'Open', '/personal-finance']]), lines);
+  check(`[${vp}] /: exactly three Platforms lines with the spec texts and Open links (#97)`, JSON.stringify(lines) === JSON.stringify([['Research', 'Yearly returns, and the dollar-cost average calculator.', 'Open', '/research'], ['Dashboard', 'The portfolio as a business.', 'Open', '/dashboard'], ['Personal Finance', 'Income, expenses, and the cover.', 'Open', '/personal-finance']]), lines);
   // #97 / #102: Personal Finance's Open goes to /personal-finance, which signed out lands on sign-in with ?next (the bar
   // marks Dashboard current there).
   await page.locator('[data-testid="platform-line"][data-href="/personal-finance"] [data-testid="platform-open"]').click();
@@ -81,11 +81,12 @@ for (const vp of ['desktop', 'mobile']) {
   await page.goto(`${base}/`, { waitUntil: 'networkidle' });
   check(`[${vp}] /: no price requests, no calculator`, !requests.some((u) => u.includes('/api/chart')) && (await page.locator('form').count()) === 0, requests.filter((u) => u.includes('/api/')));
   await page.locator('[data-testid="platform-open"]').first().click();
-  await page.waitForURL(/\/calculator$/);
-  check(`[${vp}] Calculator Open opens /calculator`, new URL(page.url()).pathname === '/calculator');
+  await page.waitForURL(/\/research$/);
+  check(`[${vp}] Research Open opens /research`, new URL(page.url()).pathname === '/research');
   await page.waitForLoadState('networkidle');
-  await shell(page, `[${vp}] /calculator`, 'Calculator');
-  check(`[${vp}] /calculator: listings note under the form`, (await page.getByText('US, EU and CA listings, one currency per basket.', { exact: true }).count()) === 1);
+  await page.goto(`${base}/research/dca`, { waitUntil: 'networkidle' });
+  await shell(page, `[${vp}] /research/dca`, 'DCA Calculator');
+  check(`[${vp}] /research/dca: listings note under the form`, (await page.getByText('US, EU and CA listings, one currency per basket.', { exact: true }).count()) === 1);
   await page.screenshot({ path: `${OUT}/calculator-${vp}.png`, fullPage: false });
   for (const path of ['/dashboard', '/dashboard/sign-in']) {
     const r = await page.goto(`${base}${path}`, { waitUntil: 'networkidle' });
@@ -99,7 +100,7 @@ for (const vp of ['desktop', 'mobile']) {
     }
   }
   const redirect = await page.goto(`${base}/?ticker=KO`, { waitUntil: 'networkidle' });
-  check(`[${vp}] /?ticker=KO → /calculator?ticker=KO`, page.url().endsWith('/calculator?ticker=KO') && redirect.ok(), page.url());
+  check(`[${vp}] /?ticker=KO → /research/dca?ticker=KO`, page.url().endsWith('/research/dca?ticker=KO') && redirect.ok(), page.url());
   check(`[${vp}] no page errors`, errors.length === 0, errors);
   await ctx.close();
 }
@@ -110,7 +111,7 @@ for (const vp of ['desktop', 'mobile']) {
   const page = await ctx.newPage();
   const api = []; page.on('response', async (r) => { if (r.url().includes('/api/chart')) api.push({ url: r.url(), status: r.status(), body: await r.json().catch(() => null) }); });
   const fill = async ({ rows, start, end, capital, contribution, frequency }) => {
-    await page.goto(`${base}/calculator`, { waitUntil: 'networkidle' });
+    await page.goto(`${base}/research/dca`, { waitUntil: 'networkidle' });
     for (let i = 1; i < rows.length; i++) await page.getByRole('button', { name: /Add name/ }).click();
     // #70: basket rows carry data-testid="basket-row" (before #70: the .basket-row class).
     for (let i = 0; i < rows.length; i++) { const r = page.locator('[data-testid="basket-row"], .basket-row').nth(i).locator('input'); await r.nth(0).fill(rows[i][0]); await r.nth(1).fill(String(rows[i][1])); }

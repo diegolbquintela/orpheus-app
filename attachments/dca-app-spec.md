@@ -159,3 +159,5 @@ Do not repeat these.
 ## Done when
 
 Diego can open the calculator (`/calculator`; `/` before #46), leave every field blank, fill a US, EU, or CA basket, and get the results table and one NLV chart per plan from live prices. A name outside that set is refused with the exchange. The page has no buy, sell or hold output.
+
+**Addendum (#333, 2026-11-13).** The desk now also lives at `/research/dca`. `/calculator` redirects there and keeps the query string. `/?query` still redirects to `/calculator?query` first. The DCA rules, the `$313,000` figure and the listings note are unchanged.

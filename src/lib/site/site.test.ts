@@ -9,6 +9,7 @@ import {
   SEARCH_SOON,
   CALCULATOR_NOTE,
   currentSection,
+  dcaRedirectHref,
   FOOTER_LINE,
   HOME_OPEN,
   NOT_FOUND_TITLE,
@@ -17,6 +18,7 @@ import {
   HOME_PLATFORMS_NUMERAL,
   homeRedirectHref,
   MENU_ITEMS,
+  RESEARCH_LINKS,
   shellBodyClass,
   shellHtmlClass,
   shellPage,
@@ -26,15 +28,22 @@ import {
 const SITE_CSS = ["src/styles.css", "src/styles/fonts.css", "src/styles/parts.css"].map((f) => readFileSync(f, "utf8")).join("\n");
 
 describe("site shell (#46)", () => {
-  it("menu: Orpheus → /, Calculator, Dashboard, Personal Finance (#97), Account (#90 ROLE-01); always listed (no flag input)", () => {
+  it("menu: Orpheus → /, Research, Dashboard, Personal Finance (#97), Account (#90 ROLE-01); always listed (no flag input)", () => {
     assert.deepEqual(
       MENU_ITEMS.map((m) => [m.label, m.href]),
       [
         ["Orpheus", "/"],
-        ["Calculator", "/calculator"],
+        ["Research", "/research"],
         ["Dashboard", "/dashboard"],
         ["Personal Finance", "/personal-finance"],
         ["Account", "/account"],
+      ],
+    );
+    assert.deepEqual(
+      RESEARCH_LINKS.map((l) => [l.label, l.href]),
+      [
+        ["Heatmap", "/research"],
+        ["DCA Calculator", "/research/dca"],
       ],
     );
     assert.equal(currentSection("/account"), "account");
@@ -52,8 +61,11 @@ describe("site shell (#46)", () => {
 
   it("current page per route", () => {
     assert.equal(currentSection("/"), "home");
-    assert.equal(currentSection("/calculator"), "calculator");
-    assert.equal(currentSection("/calculator/"), "calculator");
+    assert.equal(currentSection("/research"), "research");
+    assert.equal(currentSection("/research/"), "research");
+    assert.equal(currentSection("/research/dca"), "research");
+    assert.equal(currentSection("/research/dca/"), "research");
+    assert.equal(currentSection("/calculator"), null);
     assert.equal(currentSection("/dashboard"), "dashboard");
     assert.equal(currentSection("/dashboard/sign-in"), "dashboard");
     assert.equal(currentSection("/dashboardx"), null);
@@ -68,7 +80,7 @@ describe("site shell (#46)", () => {
     assert.equal(HOME_PLATFORMS_HEADING, "Platforms");
     assert.equal(HOME_OPEN, "Open");
     assert.deepEqual(HOME_PLATFORMS, [
-      { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
+      { name: "Research", text: "Yearly returns, and the dollar-cost average calculator.", href: "/research" },
       { name: "Dashboard", text: "The portfolio as a business.", href: "/dashboard" },
       {
         name: "Personal Finance",
@@ -95,6 +107,9 @@ describe("site shell (#46)", () => {
       "/calculator?ticker=KO&start=2020-10-02",
     );
     assert.equal(homeRedirectHref("a=1"), "/calculator?a=1");
+    assert.equal(dcaRedirectHref(""), "/research/dca");
+    assert.equal(dcaRedirectHref("?ticker=KO&start=2020-10-02"), "/research/dca?ticker=KO&start=2020-10-02");
+    assert.equal(dcaRedirectHref("ticker=KO"), "/research/dca?ticker=KO");
   });
 
   it("home route does no calculating: no calculator, engine or price-feed code", () => {
@@ -106,7 +121,8 @@ describe("site shell (#46)", () => {
         file,
       );
     }
-    assert.match(readFileSync("src/routes/calculator.tsx", "utf8"), /components\/desk/);
+    assert.match(readFileSync("src/routes/research_.dca.tsx", "utf8"), /components\/desk/);
+    assert.match(readFileSync("src/routes/calculator.tsx", "utf8"), /dcaRedirectHref/);
   });
 
   it("no advice, score or disclaimer wording in the shell copy", () => {
@@ -129,6 +145,8 @@ describe("site shell (#46)", () => {
       "src/routes/__root.tsx",
       "src/routes/index.tsx",
       "src/routes/calculator.tsx",
+      "src/routes/research.tsx",
+      "src/routes/research_.dca.tsx",
       "src/routes/dashboard.tsx",
       "src/routes/dashboard_.sign-in.tsx",
       "src/routes/personal-finance.tsx",
@@ -389,7 +407,7 @@ describe("personal finance route (#84)", () => {
     assert.equal(currentSection("/personal-finance"), "personal-finance");
     assert.deepEqual(
       MENU_ITEMS.map((m) => m.label),
-      ["Orpheus", "Calculator", "Dashboard", "Personal Finance", "Account"],
+      ["Orpheus", "Research", "Dashboard", "Personal Finance", "Account"],
     );
     const route = readFileSync("src/routes/personal-finance.tsx", "utf8");
     assert.match(route, /title: "Personal Finance · Orpheus Wisdom"/);
@@ -437,7 +455,7 @@ describe("site header data (#286)", () => {
         menuLinks(none).map((l) => [l.href, l.label, l.section, l.owner ?? false]),
         [
           ["/", "Orpheus", "home", false],
-          ["/calculator", "Calculator", "calculator", false],
+          ["/research", "Research", "research", false],
           ["/dashboard", "Dashboard", "dashboard", false],
           ["/personal-finance", "Personal Finance", "personal-finance", false],
           ["/account", "Account", "account", false],
@@ -446,7 +464,7 @@ describe("site header data (#286)", () => {
   });
   it("HDR-06 menuLinks with the server's owner link: exactly one more item, right before Account, its full name", () => {
     const out = menuLinks({ href: "/renaissance", label: "Renaissance Man" });
-    assert.deepEqual(out.map((l) => l.label), ["Orpheus", "Calculator", "Dashboard", "Personal Finance", "Renaissance Man", "Account"]);
+    assert.deepEqual(out.map((l) => l.label), ["Orpheus", "Research", "Dashboard", "Personal Finance", "Renaissance Man", "Account"]);
     assert.deepEqual(out[4], { href: "/renaissance", label: "Renaissance Man", section: null, owner: true });
     assert.equal(out.filter((l) => l.owner).length, 1);
   });

@@ -1990,3 +1990,63 @@ input[aria-disabled="true"] {
 @media (prefers-reduced-motion: reduce) {
   .site-overlay-in { animation: none; }
 }
+
+/* #333 Research heatmap. Night page, chalk type, green / alert washes. No gold. */
+.rs {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 72rem;
+  padding: 1.5rem 1.25rem 4rem;
+}
+.rs-title {
+  margin: 0.25rem 0 1.25rem;
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--color-chalk);
+}
+.rs-tickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rs-ticker {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-hair);
+  background: transparent;
+  color: var(--color-dim);
+  font: inherit;
+}
+.rs-ticker[aria-pressed="true"] {
+  border-color: var(--color-chalk);
+  color: var(--color-chalk);
+}
+.rs-summary {
+  margin: 1rem 0;
+  color: var(--color-dim);
+  font-size: 0.875rem;
+}
+.rs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+}
+.rs-cell {
+  display: flex;
+  min-height: 4.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-hair);
+  color: var(--color-chalk);
+}
+.rs-year,
+.rs-mark {
+  color: var(--color-dim);
+  font-size: 0.75rem;
+}
+.rs-pct {
+  font-size: 1rem;
+}

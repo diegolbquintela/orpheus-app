@@ -86,10 +86,10 @@ const JORDAENS = "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (
 const PAGES = [
   {
     path: "/", current: "Orpheus", status: 200, imgs: [JORDAENS],
-    texts: ["01", "Investment driven by research.", "02", "Platforms", "Calculator", "Dollar-cost average calculator.", "Open", "Dashboard", "The portfolio as a business.", "Open", "Personal Finance", "Income, expenses, and the cover.", "Open"],
+    texts: ["01", "Investment driven by research.", "02", "Platforms", "Research", "Yearly returns, and the dollar-cost average calculator.", "Open", "Dashboard", "The portfolio as a business.", "Open", "Personal Finance", "Income, expenses, and the cover.", "Open"],
   },
   {
-    path: "/calculator", current: "Calculator", status: 200, imgs: [/^Sandro Botticelli, The Birth of Venus/],
+    path: "/research/dca", current: "DCA Calculator", status: 200, imgs: [/^Sandro Botticelli, The Birth of Venus/],
     texts: ["01", "Dollar-cost average calculator.", "Saved searches", "02", "Basket", "Ticker", "Weight", "↳ Add name", "03", "Window", "Start", "End", "Starting capital", "Contribution", "Frequency", "Compare plans", "US, EU and CA listings, one currency per basket."],
   },
   { path: "/dashboard/sign-in", current: "Dashboard", status: 200, imgs: [], texts: ["Sign in", "Email", "Password", "Sign in"] }, // #90 ROLE-09: no Create an account
@@ -280,7 +280,7 @@ async function ownChecks(browser) {
         // below stays cold. Assertions unchanged.
         const fw = await fontsSettled(page);
         if (fw.loads > 1 || !fw.ok) console.log(`INFO ${tag} #135 font wait: ${fw.ok ? "Schibsted Grotesk" : "still fallback"} after ${fw.loads} loads · ${JSON.stringify(fw.fonts)}`);
-        const fam = await platformFont(page, p.path === "/" || p.path === "/calculator" ? "header h1" : "main h1");
+        const fam = await platformFont(page, p.path === "/" || p.path === "/research/dca" ? "header h1" : "main h1");
         check(`${tag} ST6-06 the h1 renders in Schibsted Grotesk`, fam?.length === 1 && fam[0] === "Schibsted Grotesk", fam);
 
         // ST6-01 painting
@@ -323,7 +323,7 @@ async function ownChecks(browser) {
             analytics: document.querySelectorAll('script[src*="/_vercel/insights/script.js"], script[src*="va.vercel-scripts.com"]').length,
           };
         });
-        check(`${tag} ST6-04 (#286 HDR) bar: charcoal, ≤ 48 px, exactly lyre Orpheus / Search / Menu; overlay (hidden) Orpheus / Calculator / Dashboard / Personal Finance / Account, current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Search", null], ["Menu", null]]) && sh.links.every((l) => l.current === null) && sh.overlayHidden && JSON.stringify(sh.menu.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.menu.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]), menu: sh.menu.map((l) => [l.text, l.current]), overlayHidden: sh.overlayHidden });
+        check(`${tag} ST6-04 (#286 HDR) bar: charcoal, ≤ 48 px, exactly lyre Orpheus / Search / Menu; overlay (hidden) Orpheus / Calculator / Dashboard / Personal Finance / Account, current ${p.current ?? "none"}`, sh.barBg === NIGHT && sh.bar <= 48 && JSON.stringify(sh.links.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Search", null], ["Menu", null]]) && sh.links.every((l) => l.current === null) && sh.overlayHidden && JSON.stringify(sh.menu.map((l) => [l.text, l.href])) === JSON.stringify([["Orpheus", "/"], ["Heatmap", "/research"], ["DCA Calculator", "/research/dca"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]]) && JSON.stringify(sh.menu.filter((l) => l.current === "page").map((l) => l.text)) === JSON.stringify(p.current ? [p.current] : []), { bar: sh.bar, links: sh.links.map((l) => [l.text, l.current]), menu: sh.menu.map((l) => [l.text, l.current]), overlayHidden: sh.overlayHidden });
         check(`${tag} ST1-05 the lyre mark (aria-hidden SVG, 20 px) first in the Orpheus link`, sh.lyre === true, sh.lyre);
         check(`${tag} ST6-08 (#286) bar items (lyre link, Search, Menu) ≥ 44 × 44 px tap targets, bar ≤ 48 px`, sh.links.every((l) => l.h >= 44 && l.w >= 44) && sh.bar <= 48, { bar: sh.bar, links: sh.links.map((l) => [l.text, l.w, l.h]) });
         check(`${tag} ST6-04 footer exactly \`Orpheus Wisdom\`; charcoal page, chalk type, color-scheme dark`, sh.footer === "Orpheus Wisdom" && sh.bodyBg === NIGHT && sh.bodyColor === CHALK && sh.scheme.every((s) => s === "dark"), { footer: sh.footer, bg: sh.bodyBg, color: sh.bodyColor, scheme: sh.scheme });

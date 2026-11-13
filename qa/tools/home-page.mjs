@@ -56,7 +56,7 @@ const HAIR = "rgb(58, 63, 68)";
 const TITLE = "Investment driven by research.";
 const ALT = "Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)";
 const LINES = [
-  ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
+  ["Research", "Yearly returns, and the dollar-cost average calculator.", "Open", "/research"],
   ["Dashboard", "The portfolio as a business.", "Open", "/dashboard"],
   ["Personal Finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
 ];
@@ -466,8 +466,8 @@ try {
       await pageChecks(page, tag, mobile, viewport);
       check(`${tag} ST3-04 no price requests (no /api/ call)`, api.length === 0, api);
       await page.locator("[data-testid=platform-open]").first().click();
-      await page.waitForURL(/\/calculator$/);
-      check(`${tag} ST3-03 the Calculator line's Open lands on /calculator`, new URL(page.url()).pathname === "/calculator");
+      await page.waitForURL(/\/research$/);
+      check(`${tag} ST3-03 the Research line's Open lands on /research`, new URL(page.url()).pathname === "/research");
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
     } finally {

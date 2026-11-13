@@ -89,3 +89,5 @@ full-screen: no backdrop); Q3 Back-closes-without-navigating (a pushed history e
   swap, also when focus had left Search (the displayed field gets the caret back without taking focus).
 ACs: CLS-01..08 (`qa/CANONICAL-AC-PACK.md`).
 
+**Addendum (#333, 2026-11-13).** The overlay item that was Calculator is a `Research` toggle. Its children are `Heatmap` (`/research`) and `DCA Calculator` (`/research/dca`). `aria-current="page"` sits on the matching child. The bar stays lyre, Search and Menu. AC RS-06.
+

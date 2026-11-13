@@ -507,6 +507,9 @@ describe("0004: holdings -> user cascade, Vercel cron config", () => {
 
   it("vercel.json schedules GET /api/cron/daily-refresh at 0 23 * * * (UTC, once a day)", () => {
     const config = JSON.parse(readFileSync("vercel.json", "utf8")) as { crons?: { path: string; schedule: string }[] };
-    assert.deepEqual(config.crons, [{ path: "/api/cron/daily-refresh", schedule: "0 23 * * *" }]);
+    assert.deepEqual(config.crons, [
+      { path: "/api/cron/daily-refresh", schedule: "0 23 * * *" },
+      { path: "/api/cron/yearly-returns", schedule: "0 22 * * *" },
+    ]);
   });
 });

@@ -35,7 +35,8 @@ const current = (el: HTMLElement) =>
 describe("site header (#286)", () => {
   for (const [path, want] of [
     ["/", "Orpheus"],
-    ["/calculator", "Calculator"],
+    ["/research", "Heatmap"],
+    ["/research/dca", "DCA Calculator"],
     ["/dashboard", "Dashboard"],
     ["/dashboard/sign-in", "Dashboard"],
     ["/personal-finance", "Personal Finance"],
@@ -88,7 +89,8 @@ describe("site header (#286)", () => {
       assert.doesNotMatch(el.textContent!, /Get Started/i);
       const bar = el.querySelector('[data-testid="site-bar"]')!;
       assert.deepEqual([...bar.querySelectorAll("a")].map((a) => a.getAttribute("href")), ["/"]);
-      assert.equal(el.querySelectorAll('nav a[href="/calculator"]').length, 1);
+      assert.equal(el.querySelectorAll('nav a[href="/calculator"]').length, 0);
+      assert.equal(el.querySelectorAll('nav a[href="/research/dca"]').length, 1);
       assert.equal(bar.querySelectorAll("button").length, 2);
     }
   });
@@ -103,7 +105,8 @@ describe("site header (#286)", () => {
       [...ov.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => [a.getAttribute("href"), a.textContent]),
       [
         ["/", "Orpheus"],
-        ["/calculator", "Calculator"],
+        ["/research", "Heatmap"],
+        ["/research/dca", "DCA Calculator"],
         ["/dashboard", "Dashboard"],
         ["/personal-finance", "Personal Finance"],
         ["/account", "Account"],
@@ -114,6 +117,23 @@ describe("site header (#286)", () => {
     // No abbreviations: no RM, no glyph-only items.
     assert.doesNotMatch(ov.textContent!, /\bRM\b/);
     assert.equal(el.querySelector('[data-testid="person-glyph"]'), null);
+  });
+
+  it("HDR-04 (#333) Research is a toggle; Heatmap and DCA Calculator carry aria-current", async () => {
+    const el = await render(<SiteMenu pathname="/research/dca" />);
+    const toggle = el.querySelector<HTMLButtonElement>('[data-testid="site-research-toggle"]')!;
+    assert.equal(toggle.textContent, "Research");
+    assert.equal(toggle.getAttribute("aria-expanded"), "true");
+    const menu = el.querySelector<HTMLElement>('[data-testid="site-research-menu"]')!;
+    assert.equal(menu.hidden, false);
+    assert.equal(el.querySelector('a[href="/research/dca"]')!.getAttribute("aria-current"), "page");
+    assert.equal(el.querySelector('a[href="/research"]')!.getAttribute("aria-current"), null);
+    await act(async () => toggle.click());
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    assert.equal(menu.hidden, true);
+    const home = await render(<SiteMenu pathname="/research" />);
+    assert.equal(home.querySelector('a[href="/research"]')!.getAttribute("aria-current"), "page");
+    assert.equal(home.querySelector('a[href="/research/dca"]')!.getAttribute("aria-current"), null);
   });
 
   it("HDR-01 stays put on scroll (sticky top-0) and every target is 44 px", async () => {
@@ -173,7 +193,7 @@ describe("home (#69)", () => {
           ];
         }),
         [
-          ["Calculator", "Dollar-cost average calculator.", "Open", "/calculator"],
+          ["Research", "Yearly returns, and the dollar-cost average calculator.", "Open", "/research"],
           ["Dashboard", "The portfolio as a business.", "Open", "/dashboard"],
           ["Personal Finance", "Income, expenses, and the cover.", "Open", "/personal-finance"],
         ],
@@ -204,7 +224,8 @@ describe("footer", () => {
 describe("dark shell (#68, ST1)", () => {
   const ROUTES = [
     ["/", "Orpheus"],
-    ["/calculator", "Calculator"],
+    ["/research", "Heatmap"],
+    ["/research/dca", "DCA Calculator"],
     ["/dashboard", "Dashboard"],
     ["/dashboard/", "Dashboard"],
     ["/dashboard/sign-in", "Dashboard"],

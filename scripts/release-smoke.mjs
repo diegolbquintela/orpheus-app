@@ -70,7 +70,9 @@ const current = (r) =>
 const menuOk = (r, want) =>
   // The Orpheus link may lead with the lyre mark (#84, ST1-05): <svg …>…</svg><span>Orpheus</span>.
   /href="\/"[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span>)?Orpheus</.test(menu(r)) &&
-  /href="\/calculator"[^>]*>Calculator</.test(menu(r)) &&
+  />Research</.test(menu(r)) &&
+  /href="\/research"[^>]*>Heatmap</.test(menu(r)) &&
+  /href="\/research\/dca"[^>]*>DCA Calculator</.test(menu(r)) &&
   /href="\/dashboard"[^>]*>Dashboard</.test(menu(r)) &&
   /href="\/personal-finance"[^>]*>Personal Finance</.test(menu(r)) &&
   // #90 (ROLE-01): Account last (the person glyph, then the word, visually hidden below 640 px).
@@ -89,7 +91,7 @@ const platforms = (r) =>
     .map((m) => m.slice(1).join("|"))
     .join(" ");
 const HOME_PLATFORMS =
-  "Calculator|Dollar-cost average calculator.|/calculator|Open " +
+  "Research|Yearly returns, and the dollar-cost average calculator.|/research|Open " +
   "Dashboard|The portfolio as a business.|/dashboard|Open " +
   "Personal Finance|Income, expenses, and the cover.|/personal-finance|Open";
 const homeHero = (r) =>
@@ -143,12 +145,12 @@ const checks = [
     ? ["/api/account/me", (r) => r.status === 401 && r.body === '{"error":"Unauthorized."}', '401 {"error":"Unauthorized."} signed out (#90)']
     : ["/api/account/me", (r) => r.status === 404, "404 (#90: behind the dashboard flag)"],
   [
-    "/calculator",
+    "/research/dca",
     (r) =>
-      page(r, "Calculator") &&
+      page(r, "DCA Calculator") &&
       /Compare plans/.test(r.body) &&
       />US, EU and CA listings, one currency per basket\.</.test(r.body),
-    "200 calculator: noindex + X-Robots-Tag, menu (Calculator current), listings note, footer",
+    "200 calculator: noindex + X-Robots-Tag, menu (DCA Calculator current), listings note, footer",
   ],
   [
     "/?ticker=KO&start=2020-10-02",
