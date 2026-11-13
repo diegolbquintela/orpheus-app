@@ -105,7 +105,7 @@ try {
           for (const e of list.getEntries()) window.__shifts.push({ value: e.value, hero: (e.sources ?? []).some((s) => { const el = s.node && (s.node.nodeType === 1 ? s.node : s.node.parentElement); return !!el?.closest?.("[data-testid=calculator-hero]"); }) });
         }).observe({ type: "layout-shift", buffered: true });
       });
-      await page.goto(`${base}/calculator`, { waitUntil: "networkidle" });
+      await page.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
       // ST4-19
       const t = await page.evaluate(() => {
         const form = document.querySelector("[data-testid=calculator-form]");
@@ -235,7 +235,7 @@ try {
       // ST4-24: another device sees nothing.
       const other = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile });
       const op = await other.newPage();
-      await op.goto(`${base}/calculator`, { waitUntil: "networkidle" });
+      await op.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
       await op.waitForTimeout(500);
       const ov = await fieldValues(op);
       const ol = await openList(op);

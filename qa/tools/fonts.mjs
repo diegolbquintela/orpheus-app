@@ -17,7 +17,7 @@
  * it; they measure the first load on purpose.
  */
 export const FONT_FAMILY = "Schibsted Grotesk";
-const PROBES = ['nav[aria-label="Site"] a[href="/calculator"]', "h1"];
+const PROBES = ['nav[aria-label="Site"] a[href="/research/dca"]', "h1"];
 
 async function settle(page) {
   await page.evaluate(async () => {

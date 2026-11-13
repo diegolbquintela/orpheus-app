@@ -79,14 +79,14 @@ const DIM = "rgb(168, 174, 180)";
 const WHITE = "rgb(255, 255, 255)";
 const INK = "rgb(30, 33, 36)";
 // #90 (ROLE-01): Account last.
-const ITEMS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
+const ITEMS = [["Orpheus", "/"], ["Heatmap", "/research"], ["DCA Calculator", "/research/dca"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
 // BY3 (#267 / #286 / #293): signed in as the owner the overlay adds `Renaissance Man` (server-decided, RM-21) before
 // Account: 6 links. Signed out (and for non-owners) the HTML never holds it: the 5 above.
 const ITEMS_OWNER = [...ITEMS.slice(0, -1), ["Renaissance Man", "/renaissance"], ITEMS.at(-1)];
 const PAGES = [
   // path, current item, page kind, the content panel that must not change in #68 (compare mode)
   ["/", "Orpheus", "dark", null], // converted by #69 (qa/tools/home-page.mjs); no white panel left
-  ["/calculator", "Calculator", "dark", null], // converted by #70 (qa/tools/calculator-page.mjs); no white panel left
+  ["/research/dca", "DCA Calculator", "dark", null], // #333: the calculator page moved here (#70)
   ["/dashboard/sign-in", "Dashboard", "dark", null], // converted by #73 (qa/tools/signin-page.mjs); no white panel left
   ["/no-such-page", null, "dark", null],
 ];
@@ -310,11 +310,11 @@ async function signedOut(browser, host, compareOnly) {
 // #287 HBM: the mobile menu, at one page and width (see the header).
 // #320: 390 + 1440 by default; 360 / 768 opt-in with --viewports (CH14 / CH15 still cross 767 <-> 768 in-page).
 const HBM_WIDTHS = SHELL_VIEWPORTS.map(([, v]) => v.width);
-const HBM_LINKS = [["Orpheus", "/"], ["Calculator", "/calculator"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
+const HBM_LINKS = [["Orpheus", "/"], ["Heatmap", "/research"], ["DCA Calculator", "/research/dca"], ["Dashboard", "/dashboard"], ["Personal Finance", "/personal-finance"], ["Account", "/account"]];
 const hbmLinks = (owner) => (owner ? [...HBM_LINKS.slice(0, -1), ["Renaissance Man", "/renaissance"], HBM_LINKS.at(-1)] : HBM_LINKS);
 async function hbm(page, host, width, { who = "signed out", owner = false, navigate = false } = {}) {
   const tag = `[${width} ${who}]`;
-  await page.goto(`${host}/calculator`, { waitUntil: "networkidle" });
+  await page.goto(`${host}/research/dca`, { waitUntil: "networkidle" });
   const storage = await page.evaluate(() => [localStorage.length, sessionStorage.length]);
   const menu = page.getByTestId("site-menu-open");
   const tb = await menu.boundingBox();
@@ -355,7 +355,8 @@ async function hbm(page, host, width, { who = "signed out", owner = false, navig
   await page.getByTestId("site-menu-close").focus();
   const tabs = [await tabName()];
   const names = want.map(([l]) => l);
-  const wantTabs = width < 768 ? ["site-menu-close", ...names, "site-search"] : ["site-menu-close", "site-search", ...names];
+  const withToggle = names.flatMap((name) => (name === "Heatmap" ? ["site-research-toggle", name] : [name]));
+  const wantTabs = width < 768 ? ["site-menu-close", ...withToggle, "site-search"] : ["site-menu-close", "site-search", ...withToggle];
   for (let i = 0; i < wantTabs.length; i++) {
     await page.keyboard.press("Tab");
     tabs.push(await tabName());
@@ -424,12 +425,12 @@ async function hbm(page, host, width, { who = "signed out", owner = false, navig
   }
   if (navigate) {
     for (const [label, href] of want) {
-      await page.goto(`${host}/calculator`, { waitUntil: "networkidle" });
+      await page.goto(`${host}/research/dca`, { waitUntil: "networkidle" });
       await page.getByTestId("site-menu-open").click();
       await page.locator('[data-testid="site-menu-links"] a', { hasText: label }).first().click();
       await page.waitForLoadState("networkidle");
       const u = new URL(page.url());
-      const gated = who === "signed out" && href !== "/" && href !== "/calculator";
+      const gated = who === "signed out" && href !== "/" && href !== "/research" && href !== "/research/dca";
       const landed = gated ? u.pathname === "/dashboard/sign-in" && (u.searchParams.get("next") ?? "/dashboard") === href : u.pathname === href;
       const cur = await page.locator('nav[aria-label="Site"] [aria-current="page"]').allTextContents();
       const curWant = gated ? ["Dashboard"] : [label];

@@ -37,7 +37,8 @@ const cls = (e: Element) => (e.getAttribute("class") ?? "").split(/\s+/).filter(
 const mobile = (e: Element) => cls(e).filter((c) => c.startsWith("max-md:"));
 const desktop = (e: Element) => cls(e).filter((c) => !c.startsWith("max-md:")).sort();
 const OWNER = { href: "/renaissance", label: "Renaissance Man", short: "RM" };
-const NAMES = ["Orpheus", "Calculator", "Dashboard", "Personal Finance", "Account"];
+const NAMES = ["Orpheus", "Heatmap", "DCA Calculator", "Dashboard", "Personal Finance", "Account"];
+const TAB = ["Orpheus", "site-research-toggle", "Heatmap", "DCA Calculator", "Dashboard", "Personal Finance", "Account"];
 // #286's OVERLAY_LINK (src/components/site-menu.tsx), which md+ must keep exactly (HBM-08).
 const LINK_286 = "inline-flex min-h-11 items-center text-2xl leading-tight text-dim underline-offset-[8px] decoration-1 sm:text-3xl aria-[current=page]:text-chalk aria-[current=page]:underline focus-visible:outline-chalk".split(" ").sort();
 
@@ -101,7 +102,7 @@ describe("HBM-03 below md: links first as full-width rows, Search after them, ow
   });
   it("Renaissance Man only with an owner link, before Account; never in a non-owner's HTML", async () => {
     const el = await mount(OWNER);
-    assert.deepEqual([...el.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => a.textContent), [...NAMES.slice(0, 4), "Renaissance Man", "Account"]);
+    assert.deepEqual([...el.querySelectorAll('[data-testid="site-menu-links"] a')].map((a) => a.textContent), [...NAMES.slice(0, -1), "Renaissance Man", "Account"]);
     for (const p of ["/", "/calculator", "/personal-finance"]) assert.doesNotMatch(renderToStaticMarkup(<SiteMenu pathname={p} />), /renaissance|site-menu-owner/i, p);
   });
 });
@@ -134,7 +135,7 @@ describe("HBM-06 (amended 2026-11-02, Q5(b)) Tab order follows the layout", () =
       for (const owner of [null, OWNER]) {
         const el = await mount(owner);
         await act(async () => q(el, "site-menu-open").click());
-        const names = owner ? [...NAMES.slice(0, 4), "Renaissance Man", "Account"] : NAMES;
+        const names = owner ? [...TAB.slice(0, -1), "Renaissance Man", "Account"] : TAB;
         assert.deepEqual(order(el), ["site-menu-close", ...names, "site-search"]);
         const field = q(el, "site-search-block-mobile").querySelector<HTMLElement>("input")!;
         field.focus();
@@ -156,7 +157,7 @@ describe("HBM-06 (amended 2026-11-02, Q5(b)) Tab order follows the layout", () =
   it("desktop (768 / 1440): X, Search, then the links, as #286; Tab on Account wraps to X", async () => {
     const el = await mount();
     await act(async () => q(el, "site-menu-open").click());
-    assert.deepEqual(order(el), ["site-menu-close", "site-search", ...NAMES]);
+    assert.deepEqual(order(el), ["site-menu-close", "site-search", ...TAB]);
     const all = [...q(el, "site-overlay").querySelectorAll<HTMLElement>(FOCUSABLE)];
     all.at(-1)!.focus();
     assert.equal(await press(all.at(-1)!), true);

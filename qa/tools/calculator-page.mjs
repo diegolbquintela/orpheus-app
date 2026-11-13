@@ -602,7 +602,7 @@ try {
   // ST4-01: every hero file ≤ 300 KB; and the file a 1440 px, 2x screen is served.
   {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-    await page.goto(`${base}/calculator`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
     const files = await page.evaluate(() => {
       const hero = document.querySelector("[data-testid=calculator-hero]");
       const urls = new Set();
@@ -667,7 +667,7 @@ try {
             window.__fonts = document.fonts.status;
           });
         });
-        await page.goto(`${base}/calculator`, { waitUntil: "load" });
+        await page.goto(`${base}/research/dca`, { waitUntil: "load" });
         await page.waitForTimeout(2000);
         const m = await page.evaluate(() => {
           const h = document.querySelector("[data-testid=calculator-hero]");
@@ -692,7 +692,7 @@ try {
     const api = [];
     page.on("response", (res) => { if (res.url().includes("/api/chart")) api.push(res.status()); });
     try {
-      const res = await page.goto(`${base}/calculator`, { waitUntil: "networkidle" });
+      const res = await page.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
       check(`${tag} /calculator 200`, res?.status() === 200, res?.status());
       const body = await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color, getComputedStyle(document.body).colorScheme, getComputedStyle(document.documentElement).colorScheme]);
       check(`${tag} ST0-01 charcoal page, chalk type; color-scheme dark on <html> and <body> (native popups dark)`, body[0] === NIGHT && body[1] === CHALK && body[2] === "dark" && body[3] === "dark", body);
@@ -701,7 +701,7 @@ try {
       await page.screenshot({ path: before, fullPage: true });
       R.shots.push(before);
       await formChecks(page, tag, mobile, viewport);
-      await page.goto(`${base}/calculator`, { waitUntil: "networkidle" });
+      await page.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
       await fill(page, CASE);
       await page.waitForSelector("[data-testid=results]", { timeout: 90000 });
       await page.waitForTimeout(800);

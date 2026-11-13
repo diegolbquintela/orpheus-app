@@ -63,7 +63,7 @@ describe("dashboard copy and isolation", () => {
   });
 
   it("DASH-01: the calculator does not link to or read the dashboard flag", () => {
-    for (const file of ["src/components/desk.tsx", "src/routes/calculator.tsx"]) {
+    for (const file of ["src/components/desk.tsx", "src/routes/calculator.tsx", "src/routes/research_.dca.tsx"]) {
       const text = readFileSync(file, "utf8");
       assert.doesNotMatch(text, /\/dashboard|DASHBOARD_ENABLED|lib\/dashboard/, file);
     }

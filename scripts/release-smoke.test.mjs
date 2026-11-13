@@ -31,7 +31,8 @@ const menu = (current) =>
   `<nav aria-label="Site" data-testid="site-menu" class="sticky top-0"><div>` +
   [
     ["/", "Orpheus"],
-    ["/calculator", "Calculator"],
+    ["/research", "Heatmap"],
+    ["/research/dca", "DCA Calculator"],
     ["/dashboard", "Dashboard"],
     ["/personal-finance", "Personal Finance"],
     ["/account", "Account"],
@@ -47,7 +48,7 @@ const menu = (current) =>
         }</a>`,
     )
     .join("") +
-  `</div></nav>`;
+  `<button type="button" data-testid="site-research-toggle">Research</button></div></nav>`;
 const shell = (current, main) =>
   `<html><head><meta name="robots" content="noindex, nofollow"/><title>Orpheus Wisdom</title></head><body>${menu(current)}<main>${main}</main>` +
   `<footer class="x"><p class="x" data-testid="site-footer">Orpheus Wisdom</p></footer></body></html>`;
@@ -56,10 +57,10 @@ const line = (name, text, href) =>
 const HOME = shell(
   "Orpheus",
   `<header data-testid="home-hero"><picture><img alt="Jacob Jordaens, Triumph of Frederick Henry, Prince of Orange (1652)" width="3300" height="2200"/></picture><div><p>01</p><h1 class="x">Investment driven by research.</h1></div></header>` +
-    `<section><p>02</p><h2>Platforms</h2><ul>${line("Calculator", "Dollar-cost average calculator.", "/calculator")}${line("Dashboard", "The portfolio as a business.", "/dashboard")}${line("Personal Finance", "Income, expenses, and the cover.", "/personal-finance")}</ul></section>`,
+    `<section><p>02</p><h2>Platforms</h2><ul>${line("Research", "Yearly returns, and the dollar-cost average calculator.", "/research")}${line("Dashboard", "The portfolio as a business.", "/dashboard")}${line("Personal Finance", "Income, expenses, and the cover.", "/personal-finance")}</ul></section>`,
 );
 const CALC = shell(
-  "Calculator",
+  "DCA Calculator",
   `<h1>DCA vs lump sum</h1><form><p class="x">US, EU and CA listings, one currency per basket.</p><button>Compare plans</button></form>`,
 );
 const NOT_FOUND = shell(null, `<p>Not Found</p>`);
@@ -79,7 +80,11 @@ function app(mode, override = () => false) {
     if (u.pathname === "/" && u.search)
       return res.writeHead(307, { location: `/calculator${u.search}` }).end();
     if (u.pathname === "/") return html(res, 200, HOME);
-    if (u.pathname === "/calculator") return html(res, 200, CALC);
+    if (u.pathname === "/calculator") {
+      const next = `/research/dca${u.search}`;
+      return res.writeHead(307, { location: next }).end();
+    }
+    if (u.pathname === "/research/dca") return html(res, 200, CALC);
     // #102: signed out, Personal Finance redirects to sign-in (flag on or off).
     if (u.pathname === "/personal-finance")
       return res.writeHead(307, { location: "/dashboard/sign-in?next=%2Fpersonal-finance" }).end();
@@ -208,15 +213,15 @@ test("fails when / with a query string isn't redirected, or the VOD.L message ch
   }
 });
 
-test("menu must mark the current page: Calculator on /calculator", async () => {
+test("menu must mark the current page: DCA Calculator on /research/dca", async () => {
   const wrong = CALC.replace(' aria-current="page"', "");
   const { s, base } = await serve(
-    app("preview", (req, res) => req.url === "/calculator" && (html(res, 200, wrong), true)),
+    app("preview", (req, res) => req.url === "/research/dca" && (html(res, 200, wrong), true)),
   );
   const r = await run(base, "preview");
   s.close();
   assert.equal(r.code, 1);
-  assert.match(r.out, /FAIL GET \/calculator -> 200/);
+  assert.match(r.out, /FAIL GET \/research\/dca -> 200/);
 });
 
 test("fails when the footer isn't exactly 'Orpheus Wisdom' or the calculator loses its listings note", async () => {
@@ -224,7 +229,7 @@ test("fails when the footer isn't exactly 'Orpheus Wisdom' or the calculator los
   const noNote = CALC.replace("US, EU and CA listings, one currency per basket.", "");
   for (const [path, body] of [
     ["/", listings],
-    ["/calculator", noNote],
+    ["/research/dca", noNote],
   ]) {
     const { s, base } = await serve(
       app("on", (req, res) => req.url === path && (html(res, 200, body), true)),

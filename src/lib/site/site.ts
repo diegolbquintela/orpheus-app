@@ -5,15 +5,21 @@
  * itself stays gated (a 404 while the flag is off).
  */
 
-export type SiteSection = "home" | "calculator" | "dashboard" | "personal-finance" | "account";
+export type SiteSection = "home" | "research" | "dashboard" | "personal-finance" | "account";
 
 /**
  * Menu items, left to right. "Orpheus" sits on the left; the others on the right (#97: Personal Finance; #90: Account,
  * right-most, always shown; a person glyph below 640 px, ROLE-01).
  */
+/** Heatmap and the DCA calculator, under the Research toggle (#333). */
+export const RESEARCH_LINKS = [
+  { label: "Heatmap", href: "/research" },
+  { label: "DCA Calculator", href: "/research/dca" },
+] as const;
+
 export const MENU_ITEMS: readonly { section: SiteSection; label: string; href: string }[] = [
   { section: "home", label: "Orpheus", href: "/" },
-  { section: "calculator", label: "Calculator", href: "/calculator" },
+  { section: "research", label: "Research", href: "/research" },
   { section: "dashboard", label: "Dashboard", href: "/dashboard" },
   { section: "personal-finance", label: "Personal Finance", href: "/personal-finance" },
   { section: "account", label: "Account", href: "/account" },
@@ -52,7 +58,7 @@ export const HOME_PLATFORMS_HEADING = "Platforms";
 
 /** Exactly three Platforms lines (#97, the approved layout), spec §4 word for word; each `Open` links to `href`. */
 export const HOME_PLATFORMS: readonly { name: string; text: string; href: string }[] = [
-  { name: "Calculator", text: "Dollar-cost average calculator.", href: "/calculator" },
+  { name: "Research", text: "Yearly returns, and the dollar-cost average calculator.", href: "/research" },
   { name: "Dashboard", text: "The portfolio as a business.", href: "/dashboard" },
   {
     name: "Personal Finance",
@@ -118,7 +124,7 @@ export function shellBodyClass(pathname: string, denied = false): string | undef
 export function currentSection(pathname: string): SiteSection | null {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   if (path === "/") return "home";
-  if (path === "/calculator") return "calculator";
+  if (path === "/research" || path === "/research/dca") return "research";
   if (path === "/dashboard" || path.startsWith("/dashboard/")) return "dashboard";
   if (path === "/personal-finance") return "personal-finance";
   if (path === "/account") return "account";
@@ -133,4 +139,10 @@ export function currentSection(pathname: string): SiteSection | null {
 export function homeRedirectHref(searchStr: string): string | null {
   const query = searchStr.startsWith("?") ? searchStr.slice(1) : searchStr;
   return query ? `/calculator?${query}` : null;
+}
+
+/** Second hop of an old calculator link: `/calculator` → `/research/dca`, query kept (#333). */
+export function dcaRedirectHref(searchStr: string): string {
+  const query = searchStr.startsWith("?") ? searchStr.slice(1) : searchStr;
+  return query ? `/research/dca?${query}` : "/research/dca";
 }

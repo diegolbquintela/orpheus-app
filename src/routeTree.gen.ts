@@ -15,12 +15,14 @@ import { Route as CalculatorRouteImport } from './routes/calculator'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as PersonalFinanceRouteImport } from './routes/personal-finance'
 import { Route as RenaissanceRouteImport } from './routes/renaissance'
+import { Route as ResearchRouteImport } from './routes/research'
 import { Route as ApiChartRouteImport } from './routes/api/chart'
 import { Route as ApiPersonalFinanceRouteImport } from './routes/api/personal-finance'
 import { Route as DashboardSignInRouteImport } from './routes/dashboard_.sign-in'
 import { Route as PersonalFinanceChartsRouteImport } from './routes/personal-finance_.charts'
 import { Route as PersonalFinanceHistoryRouteImport } from './routes/personal-finance_.history'
 import { Route as PersonalFinanceScenarioRouteImport } from './routes/personal-finance_.scenario'
+import { Route as ResearchDcaRouteImport } from './routes/research_.dca'
 import { Route as ApiAccountAccessRouteImport } from './routes/api/account/access'
 import { Route as ApiAccountAuditRouteImport } from './routes/api/account/audit'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
@@ -31,6 +33,7 @@ import { Route as ApiAccountWhoRouteImport } from './routes/api/account/who'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCfoPfRouteImport } from './routes/api/cfo/pf'
 import { Route as ApiCronDailyRefreshRouteImport } from './routes/api/cron/daily-refresh'
+import { Route as ApiCronYearlyReturnsRouteImport } from './routes/api/cron/yearly-returns'
 import { Route as ApiDashboardSplatRouteImport } from './routes/api/dashboard/$'
 import { Route as ApiDashboardColumnsRouteImport } from './routes/api/dashboard/columns'
 import { Route as ApiDashboardDbRouteImport } from './routes/api/dashboard/db'
@@ -86,6 +89,11 @@ const RenaissanceRoute = RenaissanceRouteImport.update({
   path: '/renaissance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResearchRoute = ResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChartRoute = ApiChartRouteImport.update({
   id: '/api/chart',
   path: '/api/chart',
@@ -114,6 +122,11 @@ const PersonalFinanceHistoryRoute = PersonalFinanceHistoryRouteImport.update({
 const PersonalFinanceScenarioRoute = PersonalFinanceScenarioRouteImport.update({
   id: '/personal-finance_/scenario',
   path: '/personal-finance/scenario',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchDcaRoute = ResearchDcaRouteImport.update({
+  id: '/research_/dca',
+  path: '/research/dca',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAccountAccessRoute = ApiAccountAccessRouteImport.update({
@@ -164,6 +177,11 @@ const ApiCfoPfRoute = ApiCfoPfRouteImport.update({
 const ApiCronDailyRefreshRoute = ApiCronDailyRefreshRouteImport.update({
   id: '/api/cron/daily-refresh',
   path: '/api/cron/daily-refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronYearlyReturnsRoute = ApiCronYearlyReturnsRouteImport.update({
+  id: '/api/cron/yearly-returns',
+  path: '/api/cron/yearly-returns',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDashboardSplatRoute = ApiDashboardSplatRouteImport.update({
@@ -302,12 +320,14 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/renaissance': typeof RenaissanceRoute
+  '/research': typeof ResearchRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/personal-finance/charts': typeof PersonalFinanceChartsRoute
   '/personal-finance/history': typeof PersonalFinanceHistoryRoute
   '/personal-finance/scenario': typeof PersonalFinanceScenarioRoute
+  '/research/dca': typeof ResearchDcaRoute
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
@@ -318,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cfo/pf': typeof ApiCfoPfRouteWithChildren
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
+  '/api/cron/yearly-returns': typeof ApiCronYearlyReturnsRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
@@ -350,12 +371,14 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/renaissance': typeof RenaissanceRoute
+  '/research': typeof ResearchRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard/sign-in': typeof DashboardSignInRoute
   '/personal-finance/charts': typeof PersonalFinanceChartsRoute
   '/personal-finance/history': typeof PersonalFinanceHistoryRoute
   '/personal-finance/scenario': typeof PersonalFinanceScenarioRoute
+  '/research/dca': typeof ResearchDcaRoute
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
@@ -366,6 +389,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cfo/pf': typeof ApiCfoPfRouteWithChildren
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
+  '/api/cron/yearly-returns': typeof ApiCronYearlyReturnsRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
@@ -399,12 +423,14 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/personal-finance': typeof PersonalFinanceRoute
   '/renaissance': typeof RenaissanceRoute
+  '/research': typeof ResearchRoute
   '/api/chart': typeof ApiChartRoute
   '/api/personal-finance': typeof ApiPersonalFinanceRoute
   '/dashboard_/sign-in': typeof DashboardSignInRoute
   '/personal-finance_/charts': typeof PersonalFinanceChartsRoute
   '/personal-finance_/history': typeof PersonalFinanceHistoryRoute
   '/personal-finance_/scenario': typeof PersonalFinanceScenarioRoute
+  '/research_/dca': typeof ResearchDcaRoute
   '/api/account/access': typeof ApiAccountAccessRoute
   '/api/account/audit': typeof ApiAccountAuditRoute
   '/api/account/email': typeof ApiAccountEmailRoute
@@ -415,6 +441,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cfo/pf': typeof ApiCfoPfRouteWithChildren
   '/api/cron/daily-refresh': typeof ApiCronDailyRefreshRoute
+  '/api/cron/yearly-returns': typeof ApiCronYearlyReturnsRoute
   '/api/dashboard/$': typeof ApiDashboardSplatRoute
   '/api/dashboard/columns': typeof ApiDashboardColumnsRoute
   '/api/dashboard/db': typeof ApiDashboardDbRoute
@@ -449,12 +476,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/personal-finance'
     | '/renaissance'
+    | '/research'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/personal-finance/charts'
     | '/personal-finance/history'
     | '/personal-finance/scenario'
+    | '/research/dca'
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
@@ -465,6 +494,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/cfo/pf'
     | '/api/cron/daily-refresh'
+    | '/api/cron/yearly-returns'
     | '/api/dashboard/$'
     | '/api/dashboard/columns'
     | '/api/dashboard/db'
@@ -497,12 +527,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/personal-finance'
     | '/renaissance'
+    | '/research'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard/sign-in'
     | '/personal-finance/charts'
     | '/personal-finance/history'
     | '/personal-finance/scenario'
+    | '/research/dca'
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
@@ -513,6 +545,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/cfo/pf'
     | '/api/cron/daily-refresh'
+    | '/api/cron/yearly-returns'
     | '/api/dashboard/$'
     | '/api/dashboard/columns'
     | '/api/dashboard/db'
@@ -545,12 +578,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/personal-finance'
     | '/renaissance'
+    | '/research'
     | '/api/chart'
     | '/api/personal-finance'
     | '/dashboard_/sign-in'
     | '/personal-finance_/charts'
     | '/personal-finance_/history'
     | '/personal-finance_/scenario'
+    | '/research_/dca'
     | '/api/account/access'
     | '/api/account/audit'
     | '/api/account/email'
@@ -561,6 +596,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/cfo/pf'
     | '/api/cron/daily-refresh'
+    | '/api/cron/yearly-returns'
     | '/api/dashboard/$'
     | '/api/dashboard/columns'
     | '/api/dashboard/db'
@@ -594,12 +630,14 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   PersonalFinanceRoute: typeof PersonalFinanceRoute
   RenaissanceRoute: typeof RenaissanceRoute
+  ResearchRoute: typeof ResearchRoute
   ApiChartRoute: typeof ApiChartRoute
   ApiPersonalFinanceRoute: typeof ApiPersonalFinanceRoute
   DashboardSignInRoute: typeof DashboardSignInRoute
   PersonalFinanceChartsRoute: typeof PersonalFinanceChartsRoute
   PersonalFinanceHistoryRoute: typeof PersonalFinanceHistoryRoute
   PersonalFinanceScenarioRoute: typeof PersonalFinanceScenarioRoute
+  ResearchDcaRoute: typeof ResearchDcaRoute
   ApiAccountAccessRoute: typeof ApiAccountAccessRoute
   ApiAccountAuditRoute: typeof ApiAccountAuditRoute
   ApiAccountEmailRoute: typeof ApiAccountEmailRoute
@@ -610,6 +648,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCfoPfRoute: typeof ApiCfoPfRouteWithChildren
   ApiCronDailyRefreshRoute: typeof ApiCronDailyRefreshRoute
+  ApiCronYearlyReturnsRoute: typeof ApiCronYearlyReturnsRoute
   ApiDashboardSplatRoute: typeof ApiDashboardSplatRoute
   ApiDashboardColumnsRoute: typeof ApiDashboardColumnsRoute
   ApiDashboardDbRoute: typeof ApiDashboardDbRoute
@@ -679,6 +718,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RenaissanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/research': {
+      id: '/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof ResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chart': {
       id: '/api/chart'
       path: '/api/chart'
@@ -719,6 +765,13 @@ declare module '@tanstack/react-router' {
       path: '/personal-finance/scenario'
       fullPath: '/personal-finance/scenario'
       preLoaderRoute: typeof PersonalFinanceScenarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research_/dca': {
+      id: '/research_/dca'
+      path: '/research/dca'
+      fullPath: '/research/dca'
+      preLoaderRoute: typeof ResearchDcaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/account/access': {
@@ -789,6 +842,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cron/daily-refresh'
       fullPath: '/api/cron/daily-refresh'
       preLoaderRoute: typeof ApiCronDailyRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/yearly-returns': {
+      id: '/api/cron/yearly-returns'
+      path: '/api/cron/yearly-returns'
+      fullPath: '/api/cron/yearly-returns'
+      preLoaderRoute: typeof ApiCronYearlyReturnsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/dashboard/$': {
@@ -981,12 +1041,14 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   PersonalFinanceRoute: PersonalFinanceRoute,
   RenaissanceRoute: RenaissanceRoute,
+  ResearchRoute: ResearchRoute,
   ApiChartRoute: ApiChartRoute,
   ApiPersonalFinanceRoute: ApiPersonalFinanceRoute,
   DashboardSignInRoute: DashboardSignInRoute,
   PersonalFinanceChartsRoute: PersonalFinanceChartsRoute,
   PersonalFinanceHistoryRoute: PersonalFinanceHistoryRoute,
   PersonalFinanceScenarioRoute: PersonalFinanceScenarioRoute,
+  ResearchDcaRoute: ResearchDcaRoute,
   ApiAccountAccessRoute: ApiAccountAccessRoute,
   ApiAccountAuditRoute: ApiAccountAuditRoute,
   ApiAccountEmailRoute: ApiAccountEmailRoute,
@@ -997,6 +1059,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCfoPfRoute: ApiCfoPfRouteWithChildren,
   ApiCronDailyRefreshRoute: ApiCronDailyRefreshRoute,
+  ApiCronYearlyReturnsRoute: ApiCronYearlyReturnsRoute,
   ApiDashboardSplatRoute: ApiDashboardSplatRoute,
   ApiDashboardColumnsRoute: ApiDashboardColumnsRoute,
   ApiDashboardDbRoute: ApiDashboardDbRoute,
