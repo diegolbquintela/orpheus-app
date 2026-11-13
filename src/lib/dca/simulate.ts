@@ -163,6 +163,7 @@ export function runDesk(input: {
   const lumpPts: Point[] = [];
   const dcaPts: Point[] = [];
   const chart: DeskRun["chart"] = [];
+  const assetChart: number[][] = [];
   let lumpDone = false;
   let contribIndex = 0;
   let placed = 0;
@@ -218,6 +219,13 @@ export function runDesk(input: {
 
     const lumpNlv = mark(lump, day);
     const dcaNlv = mark(dca, day);
+    // Recorded beside mark. The portfolio sum stays the mark() reduce, in name order.
+    assetChart.push(
+      names.map((_, index) => {
+        const px = priceOnOrBefore(prices[index], day);
+        return px ? dca.shares[index] * px : 0;
+      }),
+    );
     lumpPts.push({ date: day, nlv: lumpNlv, deployed: lump.invested });
     dcaPts.push({ date: day, nlv: dcaNlv, deployed: dca.invested });
     chart.push({ date: day, lump: lumpNlv, dca: dcaNlv });
@@ -239,6 +247,7 @@ export function runDesk(input: {
     lump: stats(lumpPts, lumpFlows, years),
     dca: stats(dcaPts, dcaFlows, years),
     chart,
+    assetChart,
     missedContributions: contribs.length - placed,
   };
 }

@@ -40,5 +40,10 @@ export type DeskRun = {
   lump: PlanStats;
   dca: PlanStats;
   chart: { date: string; lump: number; dca: number }[];
+  /**
+   * DCA book only, one array per session in `chart` order. Each inner array is that session's
+   * per-name value in basket order. The values sum to `chart[i].dca` (same terms as `mark`).
+   */
+  assetChart: number[][];
   missedContributions: number;
 };

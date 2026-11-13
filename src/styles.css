@@ -26,6 +26,11 @@
   --color-hair: #3a3f44;
   --color-green: #5cc08a;
   --color-alert: #ff8f87;
+  /* #337 asset lines. Additions only: no existing token above changes. */
+  --color-asset-1: #7f93ad;
+  --color-asset-2: #a898b8;
+  --color-asset-3: #c4989a;
+  --color-asset-4: #6e8c9a;
   --radius-control: 0;
   --radius-panel: 0;
 }
@@ -424,6 +429,21 @@
     font-size: 0.75rem;
     font-weight: 500;
     white-space: nowrap;
+  }
+  .calc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.9rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .calc-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--color-chalk);
+    font-size: 0.75rem;
   }
   @media (min-width: 64rem) {
     .section {

@@ -11,9 +11,10 @@ import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { money } from "@/lib/dca/format";
 import type { DeskRun, PlanStats } from "@/lib/dca/types";
+import { ASSET_NOTE, assetStroke, tipRows } from "@/lib/site/asset-lines";
 import { CALCULATOR_NOTE, METHOD_CAPTION } from "@/lib/site/site";
 import { Desk } from "../desk";
-import { DcaChart } from "./dca-chart";
+import { ChartTip, DcaChart } from "./dca-chart";
 import { ResultRows } from "./result-rows";
 
 let root: Root | undefined;
@@ -58,6 +59,12 @@ const RUN: DeskRun = {
     { date: "2024-06-03", lump: 4000, dca: 400000 },
     { date: "2026-10-01", lump: 12965, dca: 2020136 },
   ],
+  assetChart: [
+    [1000, 0],
+    [54000, 36000],
+    [240000, 160000],
+    [1212081.6, 808054.4],
+  ],
   missedContributions: 0,
 };
 // #92: the stylesheet with its shared parts (fonts, label / button), run from the repo root (bundled).
@@ -71,9 +78,9 @@ const rule = (selector: string) => {
   return css.slice(at, css.indexOf("}", at));
 };
 
-describe("calculator chart (#70, ST4-05)", () => {
-  it("one series: one area (the DCA portfolio value), no line series, green line and 16% green fill", async () => {
-    const el = await render(<DcaChart run={RUN} currency="USD" width={600} height={224} />);
+describe("calculator chart (#70, ST4-05 / #337, ST4-25..27)", () => {
+  it("one-name basket: the portfolio area only, green line and 16% green fill", async () => {
+    const el = await render(<DcaChart run={RUN} currency="USD" tickers={["KO"]} width={600} height={224} />);
     assert.equal(el.querySelectorAll(".recharts-area").length, 1);
     assert.equal(el.querySelectorAll(".recharts-line").length, 0);
     assert.equal(el.querySelectorAll(".recharts-wrapper").length, 1);
@@ -83,10 +90,31 @@ describe("calculator chart (#70, ST4-05)", () => {
     const area = el.querySelector(".recharts-area-area")!;
     assert.equal(area.getAttribute("fill"), "var(--color-green)");
     assert.equal(area.getAttribute("fill-opacity"), "0.16");
+    assert.equal(el.querySelector('[data-testid="chart-legend-item"]')!.textContent, "Portfolio · KO");
+  });
+
+  it("extra assets are 1 px lines, not green, drawn under the portfolio area", async () => {
+    const el = await render(<DcaChart run={RUN} currency="USD" tickers={["PLTR", "TQQQ"]} width={600} height={224} />);
+    const lines = [...el.querySelectorAll(".recharts-line-curve")];
+    assert.equal(lines.length, 2);
+    assert.deepEqual(
+      lines.map((line) => [line.getAttribute("stroke"), line.getAttribute("stroke-width"), line.getAttribute("stroke-dasharray")]),
+      [
+        ["var(--color-asset-1)", "1", null],
+        ["var(--color-asset-2)", "1", null],
+      ],
+    );
+    for (const line of lines) assert.notEqual(line.getAttribute("stroke"), "var(--color-green)");
+    const area = el.querySelector(".recharts-area")!;
+    const lastLine = el.querySelectorAll(".recharts-line")[1];
+    assert.ok(lastLine.compareDocumentPosition(area) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const areaCurve = el.querySelector(".recharts-area-curve")!;
+    assert.equal(areaCurve.getAttribute("stroke-width"), "2");
+    assert.equal(areaCurve.getAttribute("stroke"), "var(--color-green)");
   });
 
   it("the last value in one small green pill, in the results' money format", async () => {
-    const el = await render(<DcaChart run={RUN} currency="USD" width={600} height={224} />);
+    const el = await render(<DcaChart run={RUN} currency="USD" tickers={["KO"]} width={600} height={224} />);
     const pills = el.querySelectorAll('[data-testid="chart-pill"]');
     assert.equal(pills.length, 1);
     assert.equal(pills[0].textContent, money(2020136, "USD"));
@@ -98,10 +126,61 @@ describe("calculator chart (#70, ST4-05)", () => {
     assert.match(pill, /color: var\(--color-night\);/);
   });
 
-  it("no legend, no caption text, no scale note", async () => {
-    const el = await render(<DcaChart run={RUN} currency="USD" width={600} height={224} />);
+  it("legend under the plot, portfolio first, no toggles, and the shared note", async () => {
+    const el = await render(<DcaChart run={RUN} currency="USD" tickers={["PLTR", "TQQQ"]} width={600} height={224} />);
     assert.equal(el.querySelectorAll(".recharts-legend-wrapper").length, 0);
+    const items = [...el.querySelectorAll('[data-testid="chart-legend-item"]')];
+    assert.deepEqual(
+      items.map((item) => item.querySelector("span")!.textContent),
+      ["Portfolio", "PLTR", "TQQQ"],
+    );
+    assert.equal(el.querySelector("[data-testid=chart-legend] button"), null);
+    const note = el.querySelector('[data-testid="chart-asset-note"]')!;
+    assert.equal(note.textContent, ASSET_NOTE);
+    assert.equal(note.textContent, "Asset lines add up to the portfolio.");
+    assert.ok(note.classList.contains("rs-note"));
+    const legend = el.querySelector("[data-testid=chart-legend]")!;
+    assert.ok(note.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_PRECEDING);
     assert.doesNotMatch(el.textContent ?? "", /scale/i);
+    const noteRule = css.match(/\.rs-note\s*\{[^}]+\}/)?.[0] ?? "";
+    assert.match(noteRule, /color: var\(--color-dim\);/);
+    assert.match(noteRule, /font-size: 0\.75rem;/);
+    assert.match(noteRule, /letter-spacing: normal;/);
+    assert.match(noteRule, /text-transform: none;/);
+  });
+
+  it("tooltip lists the date, Portfolio, then basket order, in the money format", async () => {
+    const rows = tipRows(["PLTR", "TQQQ"], 2020136, [1212081.6, 808054.4]);
+    assert.deepEqual(
+      rows.map((row) => row.name),
+      ["Portfolio", "PLTR", "TQQQ"],
+    );
+    const el = await render(<ChartTip active label="2026-10-01" rows={rows} currency="USD" />);
+    const lines = [...el.querySelectorAll('[data-testid="chart-tip-row"]')].map((row) => row.textContent?.replace(/\s+/g, " ").trim());
+    assert.deepEqual(lines, ["Portfolio $2,020,136", "PLTR $1,212,082", "TQQQ $808,054"]);
+    const tip = el.querySelector('[data-testid="chart-tip"]') as HTMLElement;
+    assert.equal(tip.style.maxHeight, "9rem");
+    assert.equal(tip.style.overflowY, "auto");
+    assert.equal(el.querySelector('[data-testid="chart-tip"]')!.textContent?.includes("2026-10-01"), true);
+    assert.deepEqual(
+      tipRows(["KO"], 1000, [1000]).map((row) => row.name),
+      ["Portfolio"],
+    );
+  });
+
+  it("asset colours then dashes, and the four new tokens do not replace green", () => {
+    assert.equal(assetStroke(0).stroke, "var(--color-asset-1)");
+    assert.equal(assetStroke(0).dash, undefined);
+    assert.equal(assetStroke(4).stroke, "var(--color-dim)");
+    assert.equal(assetStroke(5).stroke, "var(--color-rule)");
+    assert.equal(assetStroke(6).stroke, "var(--color-asset-1)");
+    assert.equal(assetStroke(6).dash, "4 3");
+    assert.equal(assetStroke(12).dash, "1 3");
+    assert.match(css, /--color-asset-1: #7f93ad;/);
+    assert.match(css, /--color-asset-2: #a898b8;/);
+    assert.match(css, /--color-asset-3: #c4989a;/);
+    assert.match(css, /--color-asset-4: #6e8c9a;/);
+    assert.match(css, /--color-green: #5cc08a;/);
   });
 });
 

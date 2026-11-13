@@ -40,3 +40,7 @@ Added 2026-11-13. The grid lists years newest first. The current year, marked YT
 Under the title, one sentence-case line (`.rs-note`: dim, small, normal letter-spacing, no uppercase, not `.ow-label`) reads: `Market-price total return, dividends reinvested. Source: Yahoo Finance. Fund NAV total return can differ when the close trades at a premium or discount (SPY 1994: +0.4% market vs +1.15% NAV).`
 
 The seeded figure is the market-price total return. A recorded Yahoo replay (prior-year last close, dividends reinvested at the ex-date close, no network) stays within 0.05 percentage points of SPY 1994 +0.40, QQQ 2000, VT 2009, UPRO 2010 and TQQQ 2011. The +1.15% SPY 1994 figure is the trust's NAV total investment return in the SEC financial highlights for the year ended 31 December 1994. A roughly 1 percentage point band versus issuer NAV covers that spot-check and is documented, not asserted.
+
+## DCA chart asset lines (#337)
+
+Added 2026-11-13. `/research/dca` is still the same desk. The chart keeps the portfolio line and draws each extra asset's share of that basket (`assetChart` from `runDesk`, DCA book only). A one-name basket draws the portfolio only. The heatmap, `/calculator` redirect and `GET /api/chart` are unchanged. The note under the legend reuses `.rs-note`.

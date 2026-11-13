@@ -157,6 +157,8 @@ in #72). Phone rules below 1024 px (fields stack, short band), the wide layout
 (form left, results right) from 1024 px. The calculator logic is unchanged ($313,000). QA:
 `qa/tools/calculator-page.mjs` at 360, 400, 1024 and 1440 px.
 
+**#337 (2026-11-13).** The DCA chart on `/research/dca` keeps the portfolio line (green, 2 px, 16% fill, one pill) and adds one line per extra asset: that asset's share of the basket, from `assetChart` on the same `runDesk` result. A one-name basket draws the portfolio only (`Portfolio · TICKER`). The legend sits under the plot. The line under it, in the shared `.rs-note`, reads `Asset lines add up to the portfolio.` `$313,000` is unchanged. `src/routes/api/chart.ts` is unchanged.
+
 **Landed: home (#69).** `/` has no white panel left: a Jordaens band (*Triumph of Frederick Henry, Prince of
 Orange*, 1652, public domain; source and licence in [`public/hero/home-SOURCE.md`](public/hero/home-SOURCE.md))
 with `01` and "Investment driven by research." lower left on a soft wash, left of the prince and his horses at
