@@ -3,6 +3,7 @@ import {
   cellBackground,
   cellSign,
   formatReturnPct,
+  MARKET_RETURN_NOTE,
   RESEARCH_TICKERS,
   yearSummary,
   type YearReturn,
@@ -12,12 +13,13 @@ import {
 export function Heatmap({ rows }: { rows: readonly YearReturn[] }) {
   const tickers = RESEARCH_TICKERS.filter((ticker) => rows.some((row) => row.ticker === ticker));
   const [ticker, setTicker] = useState<string>(tickers[0] ?? "SPY");
-  const mine = rows.filter((row) => row.ticker === ticker).slice().sort((a, b) => a.year - b.year);
+  const mine = rows.filter((row) => row.ticker === ticker).slice().sort((a, b) => b.year - a.year);
   const { up, down } = yearSummary(mine);
   return (
     <main className="rs" data-testid="rs-page">
       <p className="ow-label">01</p>
       <h1 className="rs-title">Yearly returns.</h1>
+      <p className="rs-note" data-testid="rs-source">{MARKET_RETURN_NOTE}</p>
       <div className="rs-tickers" role="group" aria-label="Ticker">
         {tickers.map((item) => (
           <button

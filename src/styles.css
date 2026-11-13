@@ -2028,6 +2028,14 @@ input[aria-disabled="true"] {
   color: var(--color-dim);
   font-size: 0.875rem;
 }
+.rs-note {
+  margin: 0 0 0.75rem;
+  color: var(--color-dim);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+}
 .rs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));

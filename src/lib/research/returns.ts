@@ -5,6 +5,10 @@
 
 export const RETURN_SOURCE = "yahoo-adjclose";
 
+/** One line under the /research title (#335). Market price, not NAV. */
+export const MARKET_RETURN_NOTE =
+  "Market-price total return, dividends reinvested. Source: Yahoo Finance. Fund NAV total return can differ when the close trades at a premium or discount (SPY 1994: +0.4% market vs +1.15% NAV).";
+
 export const RESEARCH_TICKERS = ["SPY", "QQQ", "VT", "UPRO", "TQQQ"] as const;
 export type ResearchTicker = (typeof RESEARCH_TICKERS)[number];
 
@@ -57,6 +61,49 @@ export function pointsFromYahooChart(payload: unknown): ClosePoint[] {
 
 function roundPct(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+export type PriceBar = { date: string; close: number };
+export type CashDividend = { date: string; amount: number };
+
+/**
+ * Market-price total return for one full calendar year, in percent (#335).
+ * The base is the last close of the prior year. A dividend whose ex-date is after
+ * that close and on or before the year's last close is reinvested at that session's
+ * close. Audits the seeded adjclose figures. Does not rebuild the seed.
+ */
+export function marketPriceYearReturn(
+  bars: readonly PriceBar[],
+  dividends: readonly CashDividend[],
+  year: number,
+): number {
+  const sorted = bars
+    .filter((bar) => /^\d{4}-\d{2}-\d{2}$/.test(bar.date) && bar.close > 0)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const byYear = new Map<number, PriceBar[]>();
+  for (const bar of sorted) {
+    const y = Number(bar.date.slice(0, 4));
+    const list = byYear.get(y);
+    if (list) list.push(bar);
+    else byYear.set(y, [bar]);
+  }
+  const prior = byYear.get(year - 1);
+  const current = byYear.get(year);
+  if (!prior?.length || !current?.length) throw new Error(`missing bars for ${year}`);
+  const start = prior[prior.length - 1]!;
+  const end = current[current.length - 1]!;
+  const onEx = new Map(
+    sorted.filter((bar) => bar.date > start.date && bar.date <= end.date).map((bar) => [bar.date, bar]),
+  );
+  let shares = 1;
+  for (const dividend of dividends.slice().sort((a, b) => a.date.localeCompare(b.date))) {
+    if (!(dividend.date > start.date && dividend.date <= end.date) || !(dividend.amount > 0)) continue;
+    const bar = onEx.get(dividend.date);
+    if (!bar) throw new Error(`no close on ex-date ${dividend.date}`);
+    shares += (shares * dividend.amount) / bar.close;
+  }
+  return roundPct((shares * end.close / start.close - 1) * 100);
 }
 
 /**
