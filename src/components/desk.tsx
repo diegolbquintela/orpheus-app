@@ -391,7 +391,7 @@ export function Desk() {
         {ready ? (
           <section ref={resultRef} className="flex min-w-0 scroll-mt-16 flex-col gap-8" aria-live="polite" data-testid="result">
             <SectionHead numeral="04" title="Result" />
-            <DcaChart run={ready.run} currency={ready.currency} />
+            <DcaChart run={ready.run} currency={ready.currency} tickers={ready.names.map((name) => name.ticker)} />
             <ResultRows run={ready.run} currency={ready.currency} />
             <div className="flex flex-col gap-1" data-testid="result-captions">
               {captions(ready).map((line) => (

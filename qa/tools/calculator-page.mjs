@@ -40,8 +40,9 @@
 //          the button under them
 //   AA for every visible text against its background; no horizontal page scroll; the bar on one line
 // After the regression run (PLTR 50 / TQQQ 50, 2020-10-02..2026-10-01, 1,000 + 1,000 weekly):
-//   ST4-05 one chart, one series (one area, no line series), green line, 16% green fill, the last value in a
-//          22 px green pill (night text) equal to the DCA "NLV at end" value, unclipped
+//   ST4-05 / ST4-25 the portfolio stays one green area (2 px, 16% fill) and one pill. A 2-name basket adds one
+//          1 px line per asset (not green). Legend: Portfolio, then tickers. Note: asset lines add up to the portfolio.
+//          ST4-27 hover lists Portfolio then the tickers. ST4-29 at 390 and 1440 also runs a 6-name basket.
 //   ST4-06 (#78) two plan columns, `Lump sum` then `DCA`, each EXACTLY four lines (Final value, Total invested,
 //          Return (%), CAGR (%), word for word), no other metric, no <table>, no boxes or borders; DCA Total
 //          invested $313,000; captions: "Dividends reinvested.", then the fixed method sentence word for word
@@ -87,6 +88,8 @@ const LABELS = ["Final value", "Total invested", "Return (%)", "CAGR (%)"];
 const KEYS = ["nlv", "invested", "total", "cagr"];
 const VOD_L = "VOD.L lists on LSE. US, EU, and CA listings only.";
 const CASE = { rows: [["PLTR", 50], ["TQQQ", 50]], start: "2020-10-02", end: "2026-10-01", capital: 1000, contribution: 1000, frequency: "weekly" };
+const SIX = { rows: [["KO", 10], ["JNJ", 10], ["PG", 10], ["WMT", 10], ["MSFT", 10], ["AAPL", 10]], start: "2024-01-02", end: "2024-06-28", capital: 1000, contribution: 100, frequency: "monthly" };
+const ASSET_NOTE = "Asset lines add up to the portfolio.";
 const MAX_BYTES = 300 * 1024;
 const RUNS = Number(process.env.CLS_RUNS ?? 2); // #320: 1 cold + 1 warm load per width for ST4-01
 const METHOD = "Prices are raw daily closes. Lump sum starts on the first session every name has a price. A contribution date with no session goes in at the next session's close.";
@@ -546,8 +549,14 @@ async function resultChecks(page, tag, mobile) {
       wrappers: document.querySelectorAll(".recharts-wrapper").length,
       areas: chart.querySelectorAll(".recharts-area").length,
       lines: chart.querySelectorAll(".recharts-line").length,
+      assetLines: [...chart.querySelectorAll(".recharts-line-curve")].map((c) => ({ stroke: getComputedStyle(c).stroke, width: c.getAttribute("stroke-width") })),
+      areaAfterLines: [...chart.querySelectorAll(".recharts-line")].every((line) => line.compareDocumentPosition(chart.querySelector(".recharts-area")) & Node.DOCUMENT_POSITION_FOLLOWING),
       stroke: curve && getComputedStyle(curve).stroke, strokeWidth: curve?.getAttribute("stroke-width"),
       fill: area && getComputedStyle(area).fill, fillOpacity: area?.getAttribute("fill-opacity"),
+      legend: [...chart.querySelectorAll("[data-testid=chart-legend-item] span")].map((s) => s.textContent),
+      legendButtons: chart.querySelectorAll("[data-testid=chart-legend] button").length,
+      note: chart.querySelector("[data-testid=chart-asset-note]")?.textContent ?? "",
+      noteClass: chart.querySelector("[data-testid=chart-asset-note]")?.className ?? "",
       chart: box(chart),
       pill: pill && { text: pill.textContent, bg: ps.backgroundColor, color: ps.color, height: box(pill).height, box: box(pill) },
       plans, grid: box(grid), gap: parseFloat(getComputedStyle(grid).columnGap),
@@ -559,8 +568,11 @@ async function resultChecks(page, tag, mobile) {
       scroll: [document.scrollingElement.scrollWidth, window.innerWidth],
     };
   });
-  check(`${tag} ST4-05 one chart, one series (one area, no line series)`, r.wrappers === 1 && r.areas === 1 && r.lines === 0, { wrappers: r.wrappers, areas: r.areas, lines: r.lines });
-  check(`${tag} ST4-05 green line (2 px) and a 16% green fill`, r.stroke === GREEN && r.strokeWidth === "2" && r.fill === GREEN && r.fillOpacity === "0.16", { stroke: r.stroke, width: r.strokeWidth, fill: r.fill, opacity: r.fillOpacity });
+  check(`${tag} ST4-25 one portfolio area and one line per extra asset`, r.wrappers === 1 && r.areas === 1 && r.lines === 2 && r.areaAfterLines, { wrappers: r.wrappers, areas: r.areas, lines: r.lines });
+  check(`${tag} ST4-05 portfolio stays a green line (2 px) and a 16% green fill`, r.stroke === GREEN && r.strokeWidth === "2" && r.fill === GREEN && r.fillOpacity === "0.16", { stroke: r.stroke, width: r.strokeWidth, fill: r.fill, opacity: r.fillOpacity });
+  check(`${tag} ST4-25 asset lines are 1 px and not green`, r.assetLines.length === 2 && r.assetLines.every((l) => l.width === "1" && l.stroke !== GREEN), r.assetLines);
+  check(`${tag} ST4-26 legend is Portfolio then basket order, with no toggles`, JSON.stringify(r.legend) === JSON.stringify(["Portfolio", "PLTR", "TQQQ"]) && r.legendButtons === 0, r.legend);
+  check(`${tag} ST4-26 the note uses .rs-note`, r.note === ASSET_NOTE && r.noteClass.split(/\s+/).includes("rs-note"), { note: r.note, noteClass: r.noteClass });
   const value = (plan, key) => r.plans.find((p) => p.plan === plan)?.lines.find((l) => l.key === key)?.dd;
   const nlv = value("dca", "nlv");
   check(`${tag} ST4-05 last value in a 22 px green pill, night text, = DCA Final value`, r.pill && r.pill.bg === GREEN && r.pill.color === NIGHT && Math.round(r.pill.height) === 22 && r.pill.text === nlv, { pill: r.pill, nlv });
@@ -595,6 +607,56 @@ async function resultChecks(page, tag, mobile) {
   }
   const scan = await contrastScan(page);
   check(`${tag} ST0-03 AA contrast for every visible text (after a run, chart ticks and pill included)`, scan.bad.length === 0, scan.bad.length ? scan.bad : { texts: scan.n });
+  const surface = page.locator("[data-testid=dca-chart] .recharts-surface");
+  await surface.scrollIntoViewIfNeeded();
+  const box = await surface.boundingBox();
+  await surface.hover({ position: { x: Math.round(box.width * 0.62), y: Math.round(box.height * 0.45) } });
+  const tip = page.locator("[data-testid=chart-tip]");
+  const seen = await tip.waitFor({ timeout: 4000 }).then(() => true).catch(() => false);
+  const text = seen ? (await tip.innerText()).replace(/\s+/g, " ") : "";
+  const order = ["Portfolio", "PLTR", "TQQQ"].every((name, i, names) => {
+    const at = text.indexOf(name);
+    const prev = i === 0 ? -1 : text.indexOf(names[i - 1]);
+    return at > prev;
+  });
+  const style = seen
+    ? await tip.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { maxHeight: s.maxHeight, overflowY: s.overflowY };
+      })
+    : null;
+  check(`${tag} ST4-27 hover lists Portfolio then the basket, and the tip scrolls`, order && /\$[\d,]+/.test(text) && style?.overflowY === "auto" && style.maxHeight !== "none", { text, style });
+  await page.mouse.move(0, 0);
+}
+
+async function sliceLayout(page, tag, tickers, width) {
+  const r = await page.evaluate(() => {
+    const chart = document.querySelector("[data-testid=dca-chart]");
+    const box = (e) => { const b = e.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: b.width, height: b.height }; };
+    const items = [...chart.querySelectorAll("[data-testid=chart-legend-item]")].map(box);
+    const pill = chart.querySelector("[data-testid=chart-pill]");
+    const plot = chart.querySelector(".recharts-wrapper");
+    return {
+      lines: chart.querySelectorAll(".recharts-line").length,
+      areas: chart.querySelectorAll(".recharts-area").length,
+      legend: [...chart.querySelectorAll("[data-testid=chart-legend-item] span")].map((s) => s.textContent),
+      items,
+      legendBox: box(chart.querySelector("[data-testid=chart-legend]")),
+      chart: box(chart),
+      pill: pill && box(pill),
+      plot: plot && box(plot),
+      scroll: [document.scrollingElement.scrollWidth, window.innerWidth],
+      note: chart.querySelector("[data-testid=chart-asset-note]")?.textContent ?? "",
+    };
+  });
+  const want = tickers.length > 1 ? ["Portfolio", ...tickers] : [`Portfolio · ${tickers[0]}`];
+  const expectedLines = tickers.length > 1 ? tickers.length : 0;
+  check(`${tag} ST4-29 ${tickers.length}-name lines`, r.areas === 1 && r.lines === expectedLines && JSON.stringify(r.legend) === JSON.stringify(want) && r.note === ASSET_NOTE, { lines: r.lines, legend: r.legend });
+  const inside = r.legendBox.left >= r.chart.left - 1 && r.legendBox.right <= r.chart.right + 1;
+  const rows = new Set(r.items.map((item) => Math.round(item.top)));
+  check(`${tag} ST4-29 legend stays in the column and the page does not scroll sideways`, inside && r.scroll[0] <= r.scroll[1] + 1, { legend: r.legendBox, chart: r.chart, scroll: r.scroll, rows: rows.size });
+  if (width === 390 && tickers.length >= 6) check(`${tag} ST4-29 a 6-name legend wraps at 390`, rows.size >= 2, { rows: rows.size, items: r.items.length });
+  check(`${tag} ST4-29 the pill stays inside the plot`, r.pill && r.plot && r.pill.left >= r.plot.left - 1 && r.pill.right <= r.plot.right + 1 && r.pill.top >= r.plot.top - 1 && r.pill.bottom <= r.plot.bottom + 1, { pill: r.pill, plot: r.plot });
 }
 
 const browser = await chromium.launch();
@@ -710,6 +772,15 @@ try {
       const after = join(CFG.out, `calculator-${viewport.width}-result.png`);
       await page.screenshot({ path: after, fullPage: true });
       R.shots.push(after);
+      if (viewport.width === 390 || viewport.width === 1440) {
+        await sliceLayout(page, tag, ["PLTR", "TQQQ"], viewport.width);
+        await page.evaluate(() => localStorage.clear());
+        await page.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
+        await fill(page, SIX);
+        await page.waitForSelector("[data-testid=results]", { timeout: 90000 });
+        await page.waitForTimeout(400);
+        await sliceLayout(page, tag, SIX.rows.map((row) => row[0]), viewport.width);
+      }
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);
     } finally {
