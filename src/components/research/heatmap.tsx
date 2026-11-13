@@ -19,7 +19,7 @@ export function Heatmap({ rows }: { rows: readonly YearReturn[] }) {
     <main className="rs" data-testid="rs-page">
       <p className="ow-label">01</p>
       <h1 className="rs-title">Yearly returns.</h1>
-      <p className="ow-label" data-testid="rs-source">{MARKET_RETURN_NOTE}</p>
+      <p className="rs-note" data-testid="rs-source">{MARKET_RETURN_NOTE}</p>
       <div className="rs-tickers" role="group" aria-label="Ticker">
         {tickers.map((item) => (
           <button

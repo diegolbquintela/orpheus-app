@@ -1,5 +1,6 @@
 import { dom } from "../../test/dom-setup";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, it } from "node:test";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -47,9 +48,21 @@ describe("research heatmap (#333)", () => {
     }
     assert.match(el.querySelector('[data-testid="rs-summary"]')!.textContent ?? "", /^\d+ up, \d+ down$/);
     const note = el.querySelector('[data-testid="rs-source"]');
-    assert.equal(note?.textContent, MARKET_RETURN_NOTE);
-    assert.equal(note?.classList.contains("ow-label"), true);
-    assert.equal(note?.previousElementSibling?.tagName, "H1");
+    assert.ok(note);
+    assert.equal(note.textContent, MARKET_RETURN_NOTE);
+    assert.equal(note.classList.contains("rs-note"), true);
+    assert.equal(note.classList.contains("ow-label"), false);
+    assert.equal(note.closest(".ow-label"), null);
+    for (let node: Element | null = note; node; node = node.parentElement) {
+      assert.equal(node.classList.contains("ow-label"), false);
+      assert.doesNotMatch(node.getAttribute("style") ?? "", /uppercase/i);
+    }
+    assert.equal(note.previousElementSibling?.tagName, "H1");
+    const rule = readFileSync("src/styles.css", "utf8").match(/\.rs-note\s*\{[^}]+\}/)?.[0] ?? "";
+    assert.match(rule, /color:\s*var\(--color-dim\)/);
+    assert.match(rule, /letter-spacing:\s*normal/);
+    assert.match(rule, /text-transform:\s*none/);
+    assert.doesNotMatch(rule, /uppercase|0\.14em|ow-label/);
     assert.doesNotMatch(el.innerHTML, /gold|#c9a227|#d4af37/i);
   });
 
