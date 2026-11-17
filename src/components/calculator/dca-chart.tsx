@@ -35,9 +35,11 @@ export function ChartTip({
     <div className="chart-tip" data-testid="chart-tip" style={TIP_STYLE}>
       <div>{String(label ?? "")}</div>
       {rows.map((row, index) => (
-        <div key={`${index}-${row.name}`} data-testid="chart-tip-row">
-          <Swatch stroke={row.stroke} width={row.name === "Portfolio" ? 2 : 1} /> {row.name}{" "}
-          {row.value == null ? "—" : money(row.value, currency)}
+        <div key={`${index}-${row.name}`} className="chart-tip-row" data-testid="chart-tip-row">
+          <Swatch stroke={row.stroke} width={row.name === "Portfolio" ? 2 : 1} />
+          <span>
+            {row.name} {row.value == null ? "—" : money(row.value, currency)}
+          </span>
         </div>
       ))}
     </div>
@@ -198,9 +200,11 @@ export function DcaChart({
           );
         })}
       </ul>
-      <p className="rs-note" data-testid="chart-asset-note">
-        {ASSET_NOTE}
-      </p>
+      {multi ? (
+        <p className="rs-note" data-testid="chart-asset-note">
+          {ASSET_NOTE}
+        </p>
+      ) : null}
     </figure>
   );
 }

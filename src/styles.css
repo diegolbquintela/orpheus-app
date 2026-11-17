@@ -31,6 +31,9 @@
   --color-asset-2: #a898b8;
   --color-asset-3: #c4989a;
   --color-asset-4: #6e8c9a;
+  /* #339 asset lines 5 and 6. Additions only: no existing token above changes. */
+  --color-asset-5: #8c9468;
+  --color-asset-6: #aa7c88;
   --radius-control: 0;
   --radius-panel: 0;
 }
@@ -444,6 +447,11 @@
     gap: 0.35rem;
     color: var(--color-chalk);
     font-size: 0.75rem;
+  }
+  .chart-tip-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
   }
   @media (min-width: 64rem) {
     .section {

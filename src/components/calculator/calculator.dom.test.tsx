@@ -91,6 +91,7 @@ describe("calculator chart (#70, ST4-05 / #337, ST4-25..27)", () => {
     assert.equal(area.getAttribute("fill"), "var(--color-green)");
     assert.equal(area.getAttribute("fill-opacity"), "0.16");
     assert.equal(el.querySelector('[data-testid="chart-legend-item"]')!.textContent, "Portfolio · KO");
+    assert.equal(el.querySelectorAll('[data-testid="chart-asset-note"]').length, 0);
   });
 
   it("extra assets are 1 px lines, not green, drawn under the portfolio area", async () => {
@@ -158,6 +159,15 @@ describe("calculator chart (#70, ST4-05 / #337, ST4-25..27)", () => {
     const el = await render(<ChartTip active label="2026-10-01" rows={rows} currency="USD" />);
     const lines = [...el.querySelectorAll('[data-testid="chart-tip-row"]')].map((row) => row.textContent?.replace(/\s+/g, " ").trim());
     assert.deepEqual(lines, ["Portfolio $2,020,136", "PLTR $1,212,082", "TQQQ $808,054"]);
+    for (const row of el.querySelectorAll('[data-testid="chart-tip-row"]')) {
+      assert.ok(row.classList.contains("chart-tip-row"));
+      assert.ok(row.querySelector("span"));
+      assert.ok(row.querySelector('[data-testid="chart-swatch"]'));
+    }
+    const tipRule = rule(".chart-tip-row");
+    assert.match(tipRule, /display: flex;/);
+    assert.match(tipRule, /align-items: center;/);
+    assert.match(tipRule, /gap: 0\.35rem;/);
     const tip = el.querySelector('[data-testid="chart-tip"]') as HTMLElement;
     assert.equal(tip.style.maxHeight, "9rem");
     assert.equal(tip.style.overflowY, "auto");
@@ -168,11 +178,13 @@ describe("calculator chart (#70, ST4-05 / #337, ST4-25..27)", () => {
     );
   });
 
-  it("asset colours then dashes, and the four new tokens do not replace green", () => {
+  it("asset colours then dashes, and the asset tokens do not replace green", () => {
     assert.equal(assetStroke(0).stroke, "var(--color-asset-1)");
     assert.equal(assetStroke(0).dash, undefined);
-    assert.equal(assetStroke(4).stroke, "var(--color-dim)");
-    assert.equal(assetStroke(5).stroke, "var(--color-rule)");
+    assert.equal(assetStroke(4).stroke, "var(--color-asset-5)");
+    assert.equal(assetStroke(4).dash, undefined);
+    assert.equal(assetStroke(5).stroke, "var(--color-asset-6)");
+    assert.equal(assetStroke(5).dash, undefined);
     assert.equal(assetStroke(6).stroke, "var(--color-asset-1)");
     assert.equal(assetStroke(6).dash, "4 3");
     assert.equal(assetStroke(12).dash, "1 3");
@@ -180,6 +192,8 @@ describe("calculator chart (#70, ST4-05 / #337, ST4-25..27)", () => {
     assert.match(css, /--color-asset-2: #a898b8;/);
     assert.match(css, /--color-asset-3: #c4989a;/);
     assert.match(css, /--color-asset-4: #6e8c9a;/);
+    assert.match(css, /--color-asset-5: #8c9468;/);
+    assert.match(css, /--color-asset-6: #aa7c88;/);
     assert.match(css, /--color-green: #5cc08a;/);
   });
 });

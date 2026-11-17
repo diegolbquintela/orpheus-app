@@ -89,6 +89,9 @@ const KEYS = ["nlv", "invested", "total", "cagr"];
 const VOD_L = "VOD.L lists on LSE. US, EU, and CA listings only.";
 const CASE = { rows: [["PLTR", 50], ["TQQQ", 50]], start: "2020-10-02", end: "2026-10-01", capital: 1000, contribution: 1000, frequency: "weekly" };
 const SIX = { rows: [["KO", 10], ["JNJ", 10], ["PG", 10], ["WMT", 10], ["MSFT", 10], ["AAPL", 10]], start: "2024-01-02", end: "2024-06-28", capital: 1000, contribution: 100, frequency: "monthly" };
+const ONE = { rows: [["KO", 100]], start: "2024-01-02", end: "2024-06-28", capital: 1000, contribution: 100, frequency: "monthly" };
+const ASSET_5 = "rgb(140, 148, 104)";
+const ASSET_6 = "rgb(170, 124, 136)";
 const ASSET_NOTE = "Asset lines add up to the portfolio.";
 const MAX_BYTES = 300 * 1024;
 const RUNS = Number(process.env.CLS_RUNS ?? 2); // #320: 1 cold + 1 warm load per width for ST4-01
@@ -659,6 +662,53 @@ async function sliceLayout(page, tag, tickers, width) {
   check(`${tag} ST4-29 the pill stays inside the plot`, r.pill && r.plot && r.pill.left >= r.plot.left - 1 && r.pill.right <= r.plot.right + 1 && r.pill.top >= r.plot.top - 1 && r.pill.bottom <= r.plot.bottom + 1, { pill: r.pill, plot: r.plot });
 }
 
+async function tipRowsSix(page, tag) {
+  const surface = page.locator("[data-testid=dca-chart] .recharts-surface");
+  await surface.scrollIntoViewIfNeeded();
+  const box = await surface.boundingBox();
+  await surface.hover({ position: { x: Math.round(box.width * 0.62), y: Math.round(box.height * 0.45) } });
+  const tip = page.locator("[data-testid=chart-tip]");
+  const seen = await tip.waitFor({ timeout: 4000 }).then(() => true).catch(() => false);
+  const measured = seen
+    ? await page.evaluate(() => {
+        const rows = [...document.querySelectorAll("[data-testid=chart-tip-row]")].map((el) => {
+          const s = getComputedStyle(el);
+          const sw = el.querySelector("[data-testid=chart-swatch]").getBoundingClientRect();
+          const label = el.querySelector("span").getBoundingClientRect();
+          const row = el.getBoundingClientRect();
+          const overlapY = Math.min(sw.bottom, label.bottom) - Math.max(sw.top, label.top);
+          return {
+            display: s.display,
+            align: s.alignItems,
+            height: row.height,
+            inline: overlapY > 0 && sw.right <= label.left + 12,
+            text: el.querySelector("span").textContent,
+          };
+        });
+        const strokes = [...document.querySelectorAll("[data-testid=dca-chart] .recharts-line-curve")].map((c) => getComputedStyle(c).stroke);
+        const style = getComputedStyle(document.querySelector("[data-testid=chart-tip]"));
+        return { rows, strokes, maxHeight: style.maxHeight, overflowY: style.overflowY };
+      })
+    : null;
+  const rows = measured?.rows ?? [];
+  const ok = rows.length === 7 && rows.every((row) => row.display === "flex" && row.align === "center" && row.inline && row.height <= 24);
+  check(`${tag} ST4-30 a 6-name tooltip row is a centred flex line`, Boolean(seen && ok && measured && measured.overflowY === "auto" && measured.maxHeight !== "none"), { rows, maxHeight: measured?.maxHeight, overflowY: measured?.overflowY });
+  check(`${tag} ST4-32 assets 5 and 6 use the new colours`, measured?.strokes[4] === ASSET_5 && measured?.strokes[5] === ASSET_6, measured?.strokes);
+  await page.mouse.move(0, 0);
+}
+
+async function oneNameNote(page, tag) {
+  const r = await page.evaluate(() => {
+    const chart = document.querySelector("[data-testid=dca-chart]");
+    return {
+      lines: chart.querySelectorAll(".recharts-line").length,
+      legend: [...chart.querySelectorAll("[data-testid=chart-legend-item] span")].map((s) => s.textContent),
+      note: chart.querySelector("[data-testid=chart-asset-note]")?.textContent ?? null,
+    };
+  });
+  check(`${tag} ST4-31 a one-name basket has no sum note`, r.note === null && r.lines === 0 && JSON.stringify(r.legend) === JSON.stringify(["Portfolio · KO"]), r);
+}
+
 const browser = await chromium.launch();
 try {
   // ST4-01: every hero file ≤ 300 KB; and the file a 1440 px, 2x screen is served.
@@ -780,6 +830,13 @@ try {
         await page.waitForSelector("[data-testid=results]", { timeout: 90000 });
         await page.waitForTimeout(400);
         await sliceLayout(page, tag, SIX.rows.map((row) => row[0]), viewport.width);
+        if (viewport.width === 390) await tipRowsSix(page, tag);
+        await page.evaluate(() => localStorage.clear());
+        await page.goto(`${base}/research/dca`, { waitUntil: "networkidle" });
+        await fill(page, ONE);
+        await page.waitForSelector("[data-testid=results]", { timeout: 90000 });
+        await page.waitForTimeout(400);
+        await oneNameNote(page, tag);
       }
     } catch (e) {
       check(`${tag} ran to the end`, false, String(e?.message ?? e).split("\n")[0]);

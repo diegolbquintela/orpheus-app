@@ -126,6 +126,9 @@ always: ST0-05).
 | ST4-27 | BLOCK | (#337) The hover tooltip shows the date, then Portfolio, then the assets in basket order, each in the results' money format, and scrolls inside a max height. |
 | ST4-28 | BLOCK | (#337) `assetChart` is an added field. `chart`, `lump`, `dca`, `sessions` and `missedContributions` deep-equal the golden for KO, JNJ+PG and JNJ+PG+WMT taken from `runDesk` before this change. On every session the slices sum to that session's `dca` within 1e-9 relative. A one-name slice equals `dca`. `src/routes/api/chart.ts` is unchanged. `simulate.ts` and `types.ts` are the only files under `src/lib/dca` that change. |
 | ST4-29 | BLOCK | (#337) At 390 and 1440, a 2-name basket and a 6-name basket: the legend stays inside the content column (the 6-name legend wraps at 390), the pill stays inside the plot, and the page does not scroll sideways. |
+| ST4-30 | BLOCK | (#339) Each `chart-tip-row` is a flex row with `align-items: center`, so the swatch sits on the same line as its label. At 390 a row is one line. The tip still shows the date, then Portfolio, then basket order, in the results' money format, and still scrolls inside the existing max height. |
+| ST4-31 | BLOCK | (#339) `.rs-note` `Asset lines add up to the portfolio.` renders only when the basket has 2 or more names. A one-name basket has no `chart-asset-note`. A 2-name basket and a 6-name basket still show that exact line under the legend. |
+| ST4-32 | BLOCK | (#339) The 5th and 6th assets (indexes 4 and 5) use `--color-asset-5` `#8c9468` and `--color-asset-6` `#aa7c88`. They no longer use `--color-dim` or `--color-rule`. From index 6 the same six colours repeat, first with dash `4 3`, then `1 3`. Portfolio stays `--color-green`. No existing token value changes. |
 
 ### ST5a: dashboard content (#71): ON HOLD, deferred
 
