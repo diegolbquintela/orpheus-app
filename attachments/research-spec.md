@@ -44,3 +44,7 @@ The seeded figure is the market-price total return. A recorded Yahoo replay (pri
 ## DCA chart asset lines (#337)
 
 Added 2026-11-13. `/research/dca` is still the same desk. The chart keeps the portfolio line and draws each extra asset's share of that basket (`assetChart` from `runDesk`, DCA book only). A one-name basket draws the portfolio only. The heatmap, `/calculator` redirect and `GET /api/chart` are unchanged. The note under the legend reuses `.rs-note`.
+
+## DCA chart polish (#339)
+
+Added 2026-11-17. On `/research/dca` the hover tooltip's colour swatch sits on the same line as its label (`.chart-tip-row`). The line `Asset lines add up to the portfolio.` shows only for a basket of 2 or more names. The 5th and 6th asset lines use `--color-asset-5` `#8c9468` and `--color-asset-6` `#aa7c88`; later assets repeat those six colours with the same dashes. The heatmap, `/calculator` redirect and `GET /api/chart` are unchanged.

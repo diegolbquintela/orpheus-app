@@ -159,6 +159,8 @@ in #72). Phone rules below 1024 px (fields stack, short band), the wide layout
 
 **#337 (2026-11-13).** The DCA chart on `/research/dca` keeps the portfolio line (green, 2 px, 16% fill, one pill) and adds one line per extra asset: that asset's share of the basket, from `assetChart` on the same `runDesk` result. A one-name basket draws the portfolio only (`Portfolio · TICKER`). The legend sits under the plot. The line under it, in the shared `.rs-note`, reads `Asset lines add up to the portfolio.` `$313,000` is unchanged. `src/routes/api/chart.ts` is unchanged.
 
+**#339 (2026-11-17).** The DCA chart tooltip keeps each colour swatch on the same line as its label. The note `Asset lines add up to the portfolio.` shows only for two or more names. The 5th and 6th asset colours are `--color-asset-5` `#8c9468` and `--color-asset-6` `#aa7c88`. `$313,000` is unchanged. `src/routes/api/chart.ts` is unchanged.
+
 **Landed: home (#69).** `/` has no white panel left: a Jordaens band (*Triumph of Frederick Henry, Prince of
 Orange*, 1652, public domain; source and licence in [`public/hero/home-SOURCE.md`](public/hero/home-SOURCE.md))
 with `01` and "Investment driven by research." lower left on a soft wash, left of the prince and his horses at

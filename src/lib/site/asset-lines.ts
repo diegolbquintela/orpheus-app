@@ -5,8 +5,8 @@ const ASSET_COLOURS = [
   "var(--color-asset-2)",
   "var(--color-asset-3)",
   "var(--color-asset-4)",
-  "var(--color-dim)",
-  "var(--color-rule)",
+  "var(--color-asset-5)",
+  "var(--color-asset-6)",
 ] as const;
 
 const ASSET_DASHES = [undefined, "4 3", "1 3"] as const;
